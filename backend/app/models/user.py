@@ -1,0 +1,124 @@
+"""User model for authentication and authorization."""
+
+import enum
+import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING, List, Optional
+
+from sqlalchemy import Boolean, DateTime, Enum, String, func
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.notification import Notification
+    from app.models.notification_rule import NotificationRule
+    from app.models.user_email import UserEmailAddress
+
+
+class UserRole(str, enum.Enum):
+    """User roles for authorization."""
+
+    VIEWER = "VIEWER"
+    EDITOR = "EDITOR"
+    ADMIN = "ADMIN"
+
+
+class User(Base):
+    """User account for authentication."""
+
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    # Authentication
+    email: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    password_hash: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    # Profile
+    full_name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    # Authorization
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole, name="user_role"),
+        default=UserRole.VIEWER,
+        nullable=False,
+    )
+
+    # Status
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+    is_superuser: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+
+    # Session tracking
+    last_login: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    # Notification preferences
+    notifications_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+    notification_digest_time: Mapped[Optional[str]] = mapped_column(
+        String(5),
+        nullable=True,
+    )  # e.g., "08:00" for daily digests
+
+    # Relationships
+    email_addresses: Mapped[List["UserEmailAddress"]] = relationship(
+        "UserEmailAddress",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    notification_rules: Mapped[List["NotificationRule"]] = relationship(
+        "NotificationRule",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    notifications: Mapped[List["Notification"]] = relationship(
+        "Notification",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    def __repr__(self) -> str:
+        return f"<User {self.email}>"

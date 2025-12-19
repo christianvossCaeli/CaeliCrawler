@@ -1,0 +1,620 @@
+:root {
+  /* Caeli Wind Farbpalette */
+  --bs-primary: #113634;
+  --bs-secondary: #deeec6;
+  --bs-tertiary: #92a0ff;
+  --bs-red: #871623;
+  --bs-blue: #00274a;
+  --bs-purple: #6610f2;
+  --bs-success: #dbe8e2;
+  --bs-info: #d1ecf1;
+  --bs-warning: #92a0ff;
+  --bs-danger: #dc3545;
+  --bs-light: #f3f3f3;
+  --bs-dark: #212529;
+  --bs-white: #fff;
+  --bs-gray-100: #f3f3f3;
+
+  /* Font */
+  --font-family-base: 'Figtree', sans-serif;
+}
+
+/* Globale Font-Einstellung */
+html,
+body {
+  font-family: var(--font-family-base);
+}
+
+/* Vuetify Font Override */
+.v-application {
+  font-family: var(--font-family-base) !important;
+}
+
+.v-application .text-h1,
+.v-application .text-h2,
+.v-application .text-h3,
+.v-application .text-h4,
+.v-application .text-h5,
+.v-application .text-h6,
+.v-application .text-subtitle-1,
+.v-application .text-subtitle-2,
+.v-application .text-body-1,
+.v-application .text-body-2,
+.v-application .text-button,
+.v-application .text-caption,
+.v-application .text-overline {
+  font-family: var(--font-family-base) !important;
+}
+
+/* ===========================================
+   Chip/Badge Styles - Bessere Lesbarkeit
+   =========================================== */
+.v-chip {
+  font-weight: 500;
+}
+
+.v-chip.v-chip--variant-tonal {
+  font-weight: 600;
+}
+
+/* Status Chips mit besseren Kontrasten */
+.v-chip.bg-success,
+.v-chip[class*="bg-success"] {
+  background-color: #2e7d32 !important;
+  color: #ffffff !important;
+}
+
+.v-chip.bg-warning,
+.v-chip[class*="bg-warning"] {
+  background-color: #5c6bc0 !important;
+  color: #ffffff !important;
+}
+
+.v-chip.bg-error,
+.v-chip[class*="bg-error"] {
+  background-color: #dc3545 !important;
+  color: #ffffff !important;
+}
+
+.v-chip.bg-info,
+.v-chip[class*="bg-info"] {
+  background-color: #0288d1 !important;
+  color: #ffffff !important;
+}
+
+.v-chip.bg-primary,
+.v-chip[class*="bg-primary"] {
+  background-color: #113634 !important;
+  color: #ffffff !important;
+}
+
+.v-chip.bg-secondary,
+.v-chip[class*="bg-secondary"] {
+  background-color: #deeec6 !important;
+  color: #113634 !important;
+}
+
+/* Grey Chips für neutrale Zustände */
+.v-chip.bg-grey,
+.v-chip[class*="bg-grey"] {
+  background-color: #78909c !important;
+  color: #ffffff !important;
+}
+
+/* ===========================================
+   Light Mode Verbesserungen
+   =========================================== */
+
+/* Tabellen-Header besser hervorheben */
+.v-theme--caeliLight .v-data-table thead th {
+  background-color: #f8f9fa !important;
+  font-weight: 600 !important;
+  color: #113634 !important;
+  border-bottom: 2px solid #113634 !important;
+}
+
+/* Links in Caeli-Farbe */
+.v-theme--caeliLight a {
+  color: #113634;
+}
+
+.v-theme--caeliLight a:hover {
+  color: #0d2624;
+}
+
+/* Aktive Navigation Items */
+.v-theme--caeliLight .v-list-item--active {
+  background-color: rgba(222, 238, 198, 0.5) !important;
+}
+
+.v-theme--caeliLight .v-list-item--active .v-list-item-title {
+  color: #113634 !important;
+  font-weight: 600 !important;
+}
+
+/* Cards mit subtilen Rahmen */
+.v-theme--caeliLight .v-card {
+  border: 1px solid #e0e0e0;
+}
+
+/* Input Focus States */
+.v-theme--caeliLight .v-field--focused {
+  border-color: #113634 !important;
+}
+
+.v-theme--caeliLight .v-field--focused .v-field__outline {
+  --v-field-border-opacity: 1;
+}
+
+/* ===========================================
+   Keine abgerundeten Ecken, keine Schatten
+   (Chips/Badges behalten runde Ecken)
+   =========================================== */
+.v-btn,
+.v-card,
+.v-alert,
+.v-text-field .v-field,
+.v-select .v-field,
+.v-autocomplete .v-field,
+.v-combobox .v-field,
+.v-textarea .v-field,
+.v-dialog > .v-overlay__content,
+.v-menu > .v-overlay__content,
+.v-list,
+.v-navigation-drawer,
+.v-app-bar,
+.v-toolbar,
+.v-data-table,
+.v-expansion-panel,
+.v-tabs,
+.v-tab,
+.v-snackbar__wrapper,
+.v-tooltip > .v-overlay__content {
+  border-radius: 0 !important;
+}
+
+/* Slider Thumb und Track behalten runde Form und Schatten */
+.v-slider-thumb,
+.v-slider-thumb__surface,
+.v-slider-track__fill,
+.v-slider-track__background {
+  border-radius: 9999px !important;
+}
+
+.v-slider-thumb {
+  cursor: pointer !important;
+}
+
+.v-slider-thumb__surface {
+  background-color: rgb(var(--v-theme-primary)) !important;
+  box-shadow: 0 2px 4px -1px rgba(0,0,0,.2), 0 4px 5px 0 rgba(0,0,0,.14), 0 1px 10px 0 rgba(0,0,0,.12) !important;
+}
+
+.v-slider-track__fill {
+  background-color: rgb(var(--v-theme-primary)) !important;
+}
+
+.v-slider-track__background {
+  background-color: rgba(var(--v-theme-on-surface), 0.2) !important;
+}
+
+.v-slider-thumb__label {
+  background-color: rgb(var(--v-theme-primary)) !important;
+  border-radius: 4px !important;
+}
+
+/* Dark Mode Slider - bessere Sichtbarkeit */
+.v-theme--caeliDark .v-slider-thumb__surface {
+  background-color: #deeec6 !important;
+  box-shadow: 0 2px 8px rgba(222, 238, 198, 0.4) !important;
+}
+
+.v-theme--caeliDark .v-slider-track__fill {
+  background-color: #deeec6 !important;
+}
+
+.v-theme--caeliDark .v-slider-track__background {
+  background-color: rgba(222, 238, 198, 0.3) !important;
+}
+
+.v-theme--caeliDark .v-slider-thumb__label {
+  background-color: #deeec6 !important;
+  color: #0d1f1e !important;
+}
+
+/* Progress Linear behält runde Ecken */
+.v-progress-linear {
+  border-radius: 4px !important;
+}
+
+.v-btn,
+.v-card,
+.v-dialog > .v-overlay__content,
+.v-menu > .v-overlay__content,
+.v-navigation-drawer,
+.v-app-bar,
+.v-toolbar,
+.v-data-table,
+.v-expansion-panel,
+.v-snackbar__wrapper {
+  box-shadow: none !important;
+}
+
+/* Elevation-Klassen überschreiben */
+.elevation-0,
+.elevation-1,
+.elevation-2,
+.elevation-3,
+.elevation-4,
+.elevation-5,
+.elevation-6,
+.elevation-7,
+.elevation-8,
+.elevation-9,
+.elevation-10,
+.elevation-11,
+.elevation-12,
+.elevation-13,
+.elevation-14,
+.elevation-15,
+.elevation-16,
+.elevation-17,
+.elevation-18,
+.elevation-19,
+.elevation-20,
+.elevation-21,
+.elevation-22,
+.elevation-23,
+.elevation-24 {
+  box-shadow: none !important;
+}
+
+/* ===========================================
+   Tabellen Action Buttons
+   =========================================== */
+
+/* Actions Wrapper für einzeilige Buttons */
+.table-actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Action Buttons - "buttoniger" mit Hintergrund */
+.table-actions .v-btn {
+  min-width: 32px !important;
+  width: 32px !important;
+  height: 32px !important;
+  background-color: #f5f5f5 !important;
+  border: 1px solid #e0e0e0 !important;
+}
+
+.table-actions .v-btn:hover {
+  background-color: #eeeeee !important;
+  border-color: #bdbdbd !important;
+}
+
+/* Farbige Action Buttons */
+.table-actions .v-btn.text-success,
+.table-actions .v-btn[color="success"] {
+  background-color: #e8f5e9 !important;
+  border-color: #c8e6c9 !important;
+  color: #2e7d32 !important;
+}
+
+.table-actions .v-btn.text-success:hover,
+.table-actions .v-btn[color="success"]:hover {
+  background-color: #c8e6c9 !important;
+}
+
+.table-actions .v-btn.text-warning,
+.table-actions .v-btn[color="warning"] {
+  background-color: #e8eaf6 !important;
+  border-color: #c5cae9 !important;
+  color: #5c6bc0 !important;
+}
+
+.table-actions .v-btn.text-warning:hover,
+.table-actions .v-btn[color="warning"]:hover {
+  background-color: #c5cae9 !important;
+}
+
+.table-actions .v-btn.text-error,
+.table-actions .v-btn[color="error"] {
+  background-color: #ffebee !important;
+  border-color: #ffcdd2 !important;
+  color: #dc3545 !important;
+}
+
+.table-actions .v-btn.text-error:hover,
+.table-actions .v-btn[color="error"]:hover {
+  background-color: #ffcdd2 !important;
+}
+
+.table-actions .v-btn.text-info,
+.table-actions .v-btn[color="info"] {
+  background-color: #e3f2fd !important;
+  border-color: #bbdefb !important;
+  color: #0288d1 !important;
+}
+
+.table-actions .v-btn.text-info:hover,
+.table-actions .v-btn[color="info"]:hover {
+  background-color: #bbdefb !important;
+}
+
+.table-actions .v-btn.text-primary,
+.table-actions .v-btn[color="primary"] {
+  background-color: #e0f2f1 !important;
+  border-color: #b2dfdb !important;
+  color: #113634 !important;
+}
+
+.table-actions .v-btn.text-primary:hover,
+.table-actions .v-btn[color="primary"]:hover {
+  background-color: #b2dfdb !important;
+}
+
+/* X-Small Buttons in table-actions */
+.table-actions .v-btn--size-x-small {
+  min-width: 26px !important;
+  width: 26px !important;
+  height: 26px !important;
+}
+
+/* Purple Chips für PYSIS */
+.v-chip.bg-purple,
+.v-chip[class*="bg-purple"] {
+  background-color: #6610f2 !important;
+  color: #ffffff !important;
+}
+
+/* ===========================================
+   Dark Mode Anpassungen (Caeli Wind Farben)
+   =========================================== */
+.v-theme--caeliDark .table-actions .v-btn {
+  background-color: #1a2f2e !important;
+  border-color: #2a4544 !important;
+}
+
+.v-theme--caeliDark .table-actions .v-btn:hover {
+  background-color: #2a4544 !important;
+  border-color: #3a5958 !important;
+}
+
+.v-theme--caeliDark .table-actions .v-btn.text-success,
+.v-theme--caeliDark .table-actions .v-btn[color="success"] {
+  background-color: #1e3a2f !important;
+  border-color: #2e5a45 !important;
+  color: #a8d5a2 !important;
+}
+
+.v-theme--caeliDark .table-actions .v-btn.text-success:hover,
+.v-theme--caeliDark .table-actions .v-btn[color="success"]:hover {
+  background-color: #2e5a45 !important;
+}
+
+.v-theme--caeliDark .table-actions .v-btn.text-warning,
+.v-theme--caeliDark .table-actions .v-btn[color="warning"] {
+  background-color: #252a4a !important;
+  border-color: #3a4070 !important;
+  color: #b8c0ff !important;
+}
+
+.v-theme--caeliDark .table-actions .v-btn.text-warning:hover,
+.v-theme--caeliDark .table-actions .v-btn[color="warning"]:hover {
+  background-color: #3a4070 !important;
+}
+
+.v-theme--caeliDark .table-actions .v-btn.text-error,
+.v-theme--caeliDark .table-actions .v-btn[color="error"] {
+  background-color: #3a1e1e !important;
+  border-color: #5a2e2e !important;
+  color: #ff6b6b !important;
+}
+
+.v-theme--caeliDark .table-actions .v-btn.text-error:hover,
+.v-theme--caeliDark .table-actions .v-btn[color="error"]:hover {
+  background-color: #5a2e2e !important;
+}
+
+.v-theme--caeliDark .table-actions .v-btn.text-info,
+.v-theme--caeliDark .table-actions .v-btn[color="info"] {
+  background-color: #1a3545 !important;
+  border-color: #2a5065 !important;
+  color: #7ec8e3 !important;
+}
+
+.v-theme--caeliDark .table-actions .v-btn.text-info:hover,
+.v-theme--caeliDark .table-actions .v-btn[color="info"]:hover {
+  background-color: #2a5065 !important;
+}
+
+.v-theme--caeliDark .table-actions .v-btn.text-primary,
+.v-theme--caeliDark .table-actions .v-btn[color="primary"] {
+  background-color: #253d3b !important;
+  border-color: #3a5855 !important;
+  color: #deeec6 !important;
+}
+
+.v-theme--caeliDark .table-actions .v-btn.text-primary:hover,
+.v-theme--caeliDark .table-actions .v-btn[color="primary"]:hover {
+  background-color: #3a5855 !important;
+}
+
+/* Dark Mode Chips */
+.v-theme--caeliDark .v-chip.bg-success,
+.v-theme--caeliDark .v-chip[class*="bg-success"] {
+  background-color: #2e7d32 !important;
+  color: #ffffff !important;
+}
+
+.v-theme--caeliDark .v-chip.bg-warning,
+.v-theme--caeliDark .v-chip[class*="bg-warning"] {
+  background-color: #5c6bc0 !important;
+  color: #ffffff !important;
+}
+
+.v-theme--caeliDark .v-chip.bg-info,
+.v-theme--caeliDark .v-chip[class*="bg-info"] {
+  background-color: #0288d1 !important;
+  color: #ffffff !important;
+}
+
+.v-theme--caeliDark .v-chip.bg-purple,
+.v-theme--caeliDark .v-chip[class*="bg-purple"] {
+  background-color: #7c4dff !important;
+  color: #ffffff !important;
+}
+
+.v-theme--caeliDark .v-chip.bg-primary,
+.v-theme--caeliDark .v-chip[class*="bg-primary"] {
+  background-color: #deeec6 !important;
+  color: #0d1f1e !important;
+}
+
+/* Dark Mode Field Preview */
+.v-theme--caeliDark .field-value-preview {
+  background-color: rgba(222, 238, 198, 0.08);
+}
+
+.v-theme--caeliDark .field-value-preview:hover {
+  background-color: rgba(222, 238, 198, 0.15);
+}
+
+/* Dark Mode Tabellen-Header */
+.v-theme--caeliDark .v-data-table thead th {
+  background-color: #1a2f2e !important;
+  font-weight: 600 !important;
+  color: #deeec6 !important;
+  border-bottom: 2px solid #deeec6 !important;
+}
+
+/* Dark Mode Links */
+.v-theme--caeliDark a {
+  color: #deeec6;
+}
+
+.v-theme--caeliDark a:hover {
+  color: #e8f5e2;
+}
+
+/* Dark Mode aktive Navigation Items */
+.v-theme--caeliDark .v-list-item--active {
+  background-color: rgba(222, 238, 198, 0.15) !important;
+}
+
+.v-theme--caeliDark .v-list-item--active .v-list-item-title {
+  color: #deeec6 !important;
+  font-weight: 600 !important;
+}
+
+/* Dark Mode Cards mit subtilen Rahmen */
+.v-theme--caeliDark .v-card {
+  border: 1px solid #2a4544;
+}
+
+/* Dark Mode Grey Chips */
+.v-theme--caeliDark .v-chip.bg-grey,
+.v-theme--caeliDark .v-chip[class*="bg-grey"] {
+  background-color: #546e7a !important;
+  color: #ffffff !important;
+}
+
+/* ===========================================
+   Stats Cards mit Caeli Wind Farben
+   =========================================== */
+.stats-card {
+  border: 1px solid #e0e0e0 !important;
+}
+
+.stats-card--success {
+  background-color: #dbe8e2 !important;
+  color: #113634 !important;
+}
+
+.stats-card--success .v-card-title,
+.stats-card--success .v-card-text,
+.stats-card--success .text-h4,
+.stats-card--success .text-body-2 {
+  color: #113634 !important;
+}
+
+.stats-card--tertiary {
+  background-color: #92a0ff !important;
+  color: #113634 !important;
+}
+
+.stats-card--tertiary .v-card-title,
+.stats-card--tertiary .v-card-text,
+.stats-card--tertiary .text-h4,
+.stats-card--tertiary .text-body-2 {
+  color: #113634 !important;
+}
+
+.stats-card--primary {
+  background-color: #113634 !important;
+  color: #ffffff !important;
+}
+
+.stats-card--primary .v-card-title,
+.stats-card--primary .v-card-text,
+.stats-card--primary .text-h4,
+.stats-card--primary .text-body-2 {
+  color: #ffffff !important;
+}
+
+/* Dark Mode Stats Cards */
+.v-theme--caeliDark .stats-card {
+  border-color: #2a4544 !important;
+}
+
+.v-theme--caeliDark .stats-card--success {
+  background-color: #1e3a2f !important;
+  color: #a8d5a2 !important;
+}
+
+.v-theme--caeliDark .stats-card--success .v-card-title,
+.v-theme--caeliDark .stats-card--success .v-card-text,
+.v-theme--caeliDark .stats-card--success .text-h4,
+.v-theme--caeliDark .stats-card--success .text-body-2 {
+  color: #a8d5a2 !important;
+}
+
+.v-theme--caeliDark .stats-card--tertiary {
+  background-color: #252a4a !important;
+  color: #b8c0ff !important;
+}
+
+.v-theme--caeliDark .stats-card--tertiary .v-card-title,
+.v-theme--caeliDark .stats-card--tertiary .v-card-text,
+.v-theme--caeliDark .stats-card--tertiary .text-h4,
+.v-theme--caeliDark .stats-card--tertiary .text-body-2 {
+  color: #b8c0ff !important;
+}
+
+.v-theme--caeliDark .stats-card--primary {
+  background-color: #deeec6 !important;
+  color: #0d1f1e !important;
+}
+
+.v-theme--caeliDark .stats-card--primary .v-card-title,
+.v-theme--caeliDark .stats-card--primary .v-card-text,
+.v-theme--caeliDark .stats-card--primary .text-h4,
+.v-theme--caeliDark .stats-card--primary .text-body-2 {
+  color: #0d1f1e !important;
+}
+
+/* ===========================================
+   Laufende Prozesse hervorheben
+   =========================================== */
+.source-running,
+.card-running {
+  background-color: rgba(2, 136, 209, 0.12) !important;
+}
+
+.v-theme--caeliDark .source-running,
+.v-theme--caeliDark .card-running {
+  background-color: rgba(126, 200, 227, 0.15) !important;
+}

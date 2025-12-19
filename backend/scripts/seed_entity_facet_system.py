@@ -1,0 +1,584 @@
+#!/usr/bin/env python3
+"""
+Seed script for the Entity-Facet system.
+
+Creates:
+- System EntityTypes (municipality, person, organization, event)
+- System FacetTypes (pain_point, positive_signal, contact, event_attendance, summary)
+- System RelationTypes (works_for, attends, located_in)
+- Demo AnalysisTemplates
+
+Run with: python -m scripts.seed_entity_facet_system
+"""
+
+import asyncio
+import sys
+import uuid
+from pathlib import Path
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from sqlalchemy import select
+from app.database import get_session_context
+from app.models import (
+    EntityType,
+    Entity,
+    FacetType,
+    RelationType,
+    AnalysisTemplate,
+    Category,
+)
+
+
+# =============================================================================
+# SYSTEM ENTITY TYPES
+# =============================================================================
+
+ENTITY_TYPES = [
+    {
+        "slug": "municipality",
+        "name": "Gemeinde",
+        "name_plural": "Gemeinden",
+        "description": "Kommunen, Staedte und Gemeinden",
+        "icon": "mdi-home-city",
+        "color": "#4CAF50",
+        "display_order": 1,
+        "is_primary": True,
+        "supports_hierarchy": True,
+        "hierarchy_config": {
+            "levels": ["country", "admin_level_1", "admin_level_2", "locality"],
+            "labels": {
+                "country": "Land",
+                "admin_level_1": "Bundesland",
+                "admin_level_2": "Landkreis",
+                "locality": "Gemeinde",
+            },
+        },
+        "attribute_schema": {
+            "type": "object",
+            "properties": {
+                "population": {"type": "integer", "description": "Einwohnerzahl"},
+                "area_km2": {"type": "number", "description": "Flaeche in km2"},
+                "official_code": {"type": "string", "description": "AGS/GSS Code"},
+                "locality_type": {"type": "string", "description": "Art (Stadt, Gemeinde, etc.)"},
+                "website": {"type": "string", "description": "Offizielle Website"},
+            },
+        },
+        "is_system": True,
+    },
+    {
+        "slug": "person",
+        "name": "Person",
+        "name_plural": "Personen",
+        "description": "Entscheider, Kontakte und relevante Personen",
+        "icon": "mdi-account",
+        "color": "#2196F3",
+        "display_order": 2,
+        "is_primary": False,
+        "supports_hierarchy": False,
+        "attribute_schema": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Titel (Dr., Prof., etc.)"},
+                "first_name": {"type": "string"},
+                "last_name": {"type": "string"},
+                "email": {"type": "string", "format": "email"},
+                "phone": {"type": "string"},
+                "role": {"type": "string", "description": "Aktuelle Rolle/Position"},
+            },
+        },
+        "is_system": True,
+    },
+    {
+        "slug": "organization",
+        "name": "Organisation",
+        "name_plural": "Organisationen",
+        "description": "Unternehmen, Verbaende und Institutionen",
+        "icon": "mdi-domain",
+        "color": "#9C27B0",
+        "display_order": 3,
+        "is_primary": False,
+        "supports_hierarchy": False,
+        "attribute_schema": {
+            "type": "object",
+            "properties": {
+                "org_type": {"type": "string", "description": "Typ (Unternehmen, Verband, etc.)"},
+                "website": {"type": "string"},
+                "email": {"type": "string", "format": "email"},
+                "address": {"type": "string"},
+            },
+        },
+        "is_system": True,
+    },
+    {
+        "slug": "event",
+        "name": "Veranstaltung",
+        "name_plural": "Veranstaltungen",
+        "description": "Messen, Konferenzen, Workshops und Events",
+        "icon": "mdi-calendar-star",
+        "color": "#FF9800",
+        "display_order": 4,
+        "is_primary": True,
+        "supports_hierarchy": False,
+        "attribute_schema": {
+            "type": "object",
+            "properties": {
+                "event_date": {"type": "string", "format": "date-time"},
+                "event_end_date": {"type": "string", "format": "date-time"},
+                "location": {"type": "string"},
+                "organizer": {"type": "string"},
+                "event_type": {"type": "string", "description": "Messe, Konferenz, Workshop, etc."},
+                "website": {"type": "string"},
+                "description": {"type": "string"},
+            },
+        },
+        "is_system": True,
+    },
+]
+
+
+# =============================================================================
+# SYSTEM FACET TYPES
+# =============================================================================
+
+FACET_TYPES = [
+    {
+        "slug": "pain_point",
+        "name": "Pain Point",
+        "name_plural": "Pain Points",
+        "description": "Probleme, Herausforderungen und negative Signale",
+        "icon": "mdi-alert-circle",
+        "color": "#F44336",
+        "display_order": 1,
+        "value_type": "structured",
+        "value_schema": {
+            "type": "object",
+            "properties": {
+                "description": {"type": "string"},
+                "type": {"type": "string", "enum": ["Buergerprotest", "Naturschutz", "Abstandsregelung", "Genehmigung", "Laerm", "Optik", "Artenschutz", "Sonstiges"]},
+                "severity": {"type": "string", "enum": ["hoch", "mittel", "niedrig"]},
+                "quote": {"type": "string"},
+            },
+            "required": ["description"],
+        },
+        "applicable_entity_type_slugs": ["municipality"],
+        "aggregation_method": "dedupe",
+        "deduplication_fields": ["description"],
+        "is_time_based": False,
+        "ai_extraction_enabled": True,
+        "ai_extraction_prompt": "Extrahiere Pain Points bezueglich Windenergie aus diesem Dokument. Finde Probleme wie Buergerproteste, Naturschutzkonflikte, Genehmigungsprobleme.",
+        "is_system": True,
+    },
+    {
+        "slug": "positive_signal",
+        "name": "Positives Signal",
+        "name_plural": "Positive Signale",
+        "description": "Chancen, positive Entwicklungen und Opportunitaeten",
+        "icon": "mdi-lightbulb-on",
+        "color": "#4CAF50",
+        "display_order": 2,
+        "value_type": "structured",
+        "value_schema": {
+            "type": "object",
+            "properties": {
+                "description": {"type": "string"},
+                "type": {"type": "string", "enum": ["Projektankuendigung", "Foerderung", "Buergerbeteiligung", "Klimaziel", "Sonstiges"]},
+                "quote": {"type": "string"},
+            },
+            "required": ["description"],
+        },
+        "applicable_entity_type_slugs": ["municipality"],
+        "aggregation_method": "dedupe",
+        "deduplication_fields": ["description"],
+        "is_time_based": False,
+        "ai_extraction_enabled": True,
+        "ai_extraction_prompt": "Extrahiere positive Signale bezueglich Windenergie aus diesem Dokument. Finde Chancen wie Projektankuendigungen, Foerderungen, Klimaziele.",
+        "is_system": True,
+    },
+    {
+        "slug": "contact",
+        "name": "Kontakt",
+        "name_plural": "Kontakte",
+        "description": "Entscheider und Ansprechpartner",
+        "icon": "mdi-account-tie",
+        "color": "#2196F3",
+        "display_order": 3,
+        "value_type": "structured",
+        "value_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "role": {"type": "string"},
+                "email": {"type": "string", "format": "email"},
+                "phone": {"type": "string"},
+                "statement": {"type": "string"},
+                "sentiment": {"type": "string", "enum": ["positiv", "neutral", "negativ"]},
+            },
+            "required": ["name"],
+        },
+        "applicable_entity_type_slugs": ["municipality", "organization"],
+        "aggregation_method": "dedupe",
+        "deduplication_fields": ["name"],
+        "is_time_based": False,
+        "ai_extraction_enabled": True,
+        "ai_extraction_prompt": "Extrahiere Entscheider und Kontaktpersonen aus diesem Dokument. Finde Namen, Rollen und Kontaktdaten.",
+        "is_system": True,
+    },
+    {
+        "slug": "event_attendance",
+        "name": "Event-Teilnahme",
+        "name_plural": "Event-Teilnahmen",
+        "description": "Geplante oder vergangene Teilnahme an Veranstaltungen",
+        "icon": "mdi-calendar-check",
+        "color": "#FF9800",
+        "display_order": 4,
+        "value_type": "structured",
+        "value_schema": {
+            "type": "object",
+            "properties": {
+                "event_name": {"type": "string"},
+                "event_date": {"type": "string", "format": "date"},
+                "event_location": {"type": "string"},
+                "role": {"type": "string", "enum": ["Redner", "Teilnehmer", "Aussteller", "Organisator"]},
+                "confirmed": {"type": "boolean"},
+                "source": {"type": "string"},
+            },
+            "required": ["event_name"],
+        },
+        "applicable_entity_type_slugs": ["person"],
+        "aggregation_method": "list",
+        "is_time_based": True,
+        "time_field_path": "event_date",
+        "default_time_filter": "future_only",
+        "ai_extraction_enabled": True,
+        "ai_extraction_prompt": "Extrahiere geplante Veranstaltungsteilnahmen aus diesem Dokument. Finde welche Personen auf welche Events gehen.",
+        "is_system": True,
+    },
+    {
+        "slug": "summary",
+        "name": "Zusammenfassung",
+        "name_plural": "Zusammenfassungen",
+        "description": "KI-generierte Zusammenfassungen von Dokumenten",
+        "icon": "mdi-text-box",
+        "color": "#607D8B",
+        "display_order": 5,
+        "value_type": "text",
+        "applicable_entity_type_slugs": [],  # All entity types
+        "aggregation_method": "list",
+        "is_time_based": False,
+        "ai_extraction_enabled": True,
+        "ai_extraction_prompt": "Erstelle eine kurze Zusammenfassung (2-3 Saetze) der wichtigsten Windenergie-relevanten Punkte.",
+        "is_system": True,
+    },
+]
+
+
+# =============================================================================
+# SYSTEM RELATION TYPES
+# =============================================================================
+
+# Note: These will be created after entity_types are created and their IDs are known
+
+
+# =============================================================================
+# ANALYSIS TEMPLATES
+# =============================================================================
+
+# Note: These will be created after entity_types and facet_types are created
+
+
+async def seed_entity_types(session) -> dict:
+    """Seed entity types and return mapping of slug -> id."""
+    print("\n=== Seeding Entity Types ===")
+    entity_type_ids = {}
+
+    for et_data in ENTITY_TYPES:
+        # Check if already exists
+        result = await session.execute(
+            select(EntityType).where(EntityType.slug == et_data["slug"])
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            print(f"  EntityType '{et_data['slug']}' already exists, skipping")
+            entity_type_ids[et_data["slug"]] = existing.id
+            continue
+
+        entity_type = EntityType(
+            id=uuid.uuid4(),
+            **et_data,
+        )
+        session.add(entity_type)
+        entity_type_ids[et_data["slug"]] = entity_type.id
+        print(f"  Created EntityType: {et_data['name']} ({et_data['slug']})")
+
+    await session.flush()
+    return entity_type_ids
+
+
+async def seed_facet_types(session) -> dict:
+    """Seed facet types and return mapping of slug -> id."""
+    print("\n=== Seeding Facet Types ===")
+    facet_type_ids = {}
+
+    for ft_data in FACET_TYPES:
+        # Check if already exists
+        result = await session.execute(
+            select(FacetType).where(FacetType.slug == ft_data["slug"])
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            print(f"  FacetType '{ft_data['slug']}' already exists, skipping")
+            facet_type_ids[ft_data["slug"]] = existing.id
+            continue
+
+        facet_type = FacetType(
+            id=uuid.uuid4(),
+            **ft_data,
+        )
+        session.add(facet_type)
+        facet_type_ids[ft_data["slug"]] = facet_type.id
+        print(f"  Created FacetType: {ft_data['name']} ({ft_data['slug']})")
+
+    await session.flush()
+    return facet_type_ids
+
+
+async def seed_relation_types(session, entity_type_ids: dict) -> dict:
+    """Seed relation types."""
+    print("\n=== Seeding Relation Types ===")
+    relation_type_ids = {}
+
+    relation_types = [
+        {
+            "slug": "works_for",
+            "name": "arbeitet fuer",
+            "name_inverse": "beschaeftigt",
+            "description": "Person arbeitet fuer eine Organisation oder Gemeinde",
+            "source_entity_type_id": entity_type_ids["person"],
+            "target_entity_type_id": entity_type_ids["municipality"],
+            "icon": "mdi-briefcase",
+            "color": "#2196F3",
+            "cardinality": "n:1",
+            "attribute_schema": {
+                "type": "object",
+                "properties": {
+                    "role": {"type": "string"},
+                    "since": {"type": "string", "format": "date"},
+                    "until": {"type": "string", "format": "date"},
+                },
+            },
+            "is_system": True,
+        },
+        {
+            "slug": "attends",
+            "name": "nimmt teil an",
+            "name_inverse": "hat Teilnehmer",
+            "description": "Person nimmt an einer Veranstaltung teil",
+            "source_entity_type_id": entity_type_ids["person"],
+            "target_entity_type_id": entity_type_ids["event"],
+            "icon": "mdi-calendar-account",
+            "color": "#FF9800",
+            "cardinality": "n:m",
+            "attribute_schema": {
+                "type": "object",
+                "properties": {
+                    "role": {"type": "string", "enum": ["Redner", "Teilnehmer", "Aussteller", "Organisator"]},
+                    "confirmed": {"type": "boolean"},
+                },
+            },
+            "is_system": True,
+        },
+        {
+            "slug": "located_in",
+            "name": "befindet sich in",
+            "name_inverse": "enthaelt",
+            "description": "Event oder Organisation befindet sich in einer Gemeinde",
+            "source_entity_type_id": entity_type_ids["event"],
+            "target_entity_type_id": entity_type_ids["municipality"],
+            "icon": "mdi-map-marker",
+            "color": "#4CAF50",
+            "cardinality": "n:1",
+            "is_system": True,
+        },
+        {
+            "slug": "member_of",
+            "name": "ist Mitglied von",
+            "name_inverse": "hat Mitglied",
+            "description": "Person ist Mitglied einer Organisation",
+            "source_entity_type_id": entity_type_ids["person"],
+            "target_entity_type_id": entity_type_ids["organization"],
+            "icon": "mdi-account-group",
+            "color": "#9C27B0",
+            "cardinality": "n:m",
+            "attribute_schema": {
+                "type": "object",
+                "properties": {
+                    "role": {"type": "string"},
+                    "since": {"type": "string", "format": "date"},
+                },
+            },
+            "is_system": True,
+        },
+    ]
+
+    for rt_data in relation_types:
+        # Check if already exists
+        result = await session.execute(
+            select(RelationType).where(RelationType.slug == rt_data["slug"])
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            print(f"  RelationType '{rt_data['slug']}' already exists, skipping")
+            relation_type_ids[rt_data["slug"]] = existing.id
+            continue
+
+        relation_type = RelationType(
+            id=uuid.uuid4(),
+            **rt_data,
+        )
+        session.add(relation_type)
+        relation_type_ids[rt_data["slug"]] = relation_type.id
+        print(f"  Created RelationType: {rt_data['name']} ({rt_data['slug']})")
+
+    await session.flush()
+    return relation_type_ids
+
+
+async def seed_analysis_templates(session, entity_type_ids: dict, facet_type_ids: dict):
+    """Seed analysis templates."""
+    print("\n=== Seeding Analysis Templates ===")
+
+    # Get default category if exists
+    result = await session.execute(
+        select(Category).where(Category.is_active == True).limit(1)
+    )
+    default_category = result.scalar_one_or_none()
+    category_id = default_category.id if default_category else None
+
+    templates = [
+        {
+            "name": "Windkraft Gemeinde-Analyse",
+            "slug": "windkraft-gemeinde-analyse",
+            "description": "Analyse von Gemeinden auf Windkraft-relevante Pain Points, positive Signale und Entscheider",
+            "category_id": category_id,
+            "primary_entity_type_id": entity_type_ids["municipality"],
+            "facet_config": [
+                {"facet_type_slug": "pain_point", "enabled": True, "display_order": 1, "label": "Pain Points"},
+                {"facet_type_slug": "positive_signal", "enabled": True, "display_order": 2, "label": "Positive Signale"},
+                {"facet_type_slug": "contact", "enabled": True, "display_order": 3, "label": "Entscheider"},
+                {"facet_type_slug": "summary", "enabled": True, "display_order": 4},
+            ],
+            "aggregation_config": {
+                "group_by": "entity",
+                "show_relations": ["works_for"],
+                "sort_by": "name",
+            },
+            "display_config": {
+                "columns": ["name", "admin_level_1", "pain_point_count", "positive_signal_count", "contact_count"],
+                "default_sort": "name",
+                "show_hierarchy": True,
+            },
+            "is_default": True,
+            "is_system": True,
+        },
+        {
+            "name": "Event-Tracking",
+            "slug": "event-tracking",
+            "description": "Tracking welche Entscheider auf welche Veranstaltungen gehen",
+            "primary_entity_type_id": entity_type_ids["event"],
+            "facet_config": [
+                {"facet_type_slug": "event_attendance", "enabled": True, "display_order": 1, "time_filter": "future_only"},
+            ],
+            "aggregation_config": {
+                "group_by": "entity",
+                "show_relations": ["attends", "located_in"],
+                "sort_by": "event_date",
+            },
+            "display_config": {
+                "columns": ["name", "event_date", "location", "attendee_count"],
+                "default_sort": "event_date",
+                "show_hierarchy": False,
+            },
+            "is_default": False,
+            "is_system": True,
+        },
+        {
+            "name": "Personen-Profil",
+            "slug": "personen-profil",
+            "description": "Uebersicht ueber Personen und ihre Aktivitaeten",
+            "primary_entity_type_id": entity_type_ids["person"],
+            "facet_config": [
+                {"facet_type_slug": "event_attendance", "enabled": True, "display_order": 1},
+                {"facet_type_slug": "contact", "enabled": True, "display_order": 2},
+            ],
+            "aggregation_config": {
+                "group_by": "entity",
+                "show_relations": ["works_for", "attends", "member_of"],
+                "sort_by": "name",
+            },
+            "display_config": {
+                "columns": ["name", "role", "organization", "event_count"],
+                "default_sort": "name",
+            },
+            "is_default": False,
+            "is_system": True,
+        },
+    ]
+
+    for tmpl_data in templates:
+        # Check if already exists
+        result = await session.execute(
+            select(AnalysisTemplate).where(AnalysisTemplate.slug == tmpl_data["slug"])
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            print(f"  AnalysisTemplate '{tmpl_data['slug']}' already exists, skipping")
+            continue
+
+        template = AnalysisTemplate(
+            id=uuid.uuid4(),
+            **tmpl_data,
+        )
+        session.add(template)
+        print(f"  Created AnalysisTemplate: {tmpl_data['name']} ({tmpl_data['slug']})")
+
+    await session.flush()
+
+
+async def main():
+    """Main seed function."""
+    print("=" * 60)
+    print("ENTITY-FACET SYSTEM SEED")
+    print("=" * 60)
+
+    async with get_session_context() as session:
+        try:
+            # Seed in order (respecting FK dependencies)
+            entity_type_ids = await seed_entity_types(session)
+            facet_type_ids = await seed_facet_types(session)
+            relation_type_ids = await seed_relation_types(session, entity_type_ids)
+            await seed_analysis_templates(session, entity_type_ids, facet_type_ids)
+
+            await session.commit()
+            print("\n" + "=" * 60)
+            print("SEED COMPLETED SUCCESSFULLY")
+            print("=" * 60)
+            print(f"\nCreated:")
+            print(f"  - {len(entity_type_ids)} Entity Types")
+            print(f"  - {len(facet_type_ids)} Facet Types")
+            print(f"  - {len(relation_type_ids)} Relation Types")
+            print(f"  - 3 Analysis Templates")
+
+        except Exception as e:
+            print(f"\nERROR: {e}")
+            await session.rollback()
+            raise
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

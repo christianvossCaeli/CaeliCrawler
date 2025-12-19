@@ -1,0 +1,180 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:17-alpine
+    container_name: caelichrawler-postgres
+    environment:
+      POSTGRES_USER: caelichrawler
+      POSTGRES_PASSWORD: caelichrawler_secret
+      POSTGRES_DB: caelichrawler
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U caelichrawler -d caelichrawler"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis (for Celery broker and caching)
+  redis:
+    image: redis:7-alpine
+    container_name: caelichrawler-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: caelichrawler-backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://caelichrawler:caelichrawler_secret@postgres:5432/caelichrawler
+      - DATABASE_SYNC_URL=postgresql+psycopg://caelichrawler:caelichrawler_secret@postgres:5432/caelichrawler
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - APP_ENV=development
+      - DEBUG=true
+      - DOCUMENT_STORAGE_PATH=/app/storage/documents
+      # Azure OpenAI
+      - AZURE_OPENAI_ENDPOINT=https://caeli-prod-ai-marketing.cognitiveservices.azure.com/
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_API_VERSION=2025-04-01-preview
+      - AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4.1-mini
+      - AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT=text-embedding-3-large
+      # PySis Integration
+      - PYSIS_API_BASE_URL=https://pisys.caeli-wind.de/api/pisys/v1
+      - PYSIS_TENANT_ID=d546a5cd-9f03-4040-b588-b8b4cde6448b
+      - PYSIS_CLIENT_ID=4d5e8963-35d7-4a7e-a989-81adb1fe5d9c
+      - PYSIS_CLIENT_SECRET=${PYSIS_CLIENT_SECRET}
+      - PYSIS_SCOPE=api://7e32391f-a384-44b1-9850-d565b4a59ed0/.default
+    volumes:
+      - ./backend:/app
+      - document_storage:/app/storage/documents
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+
+  # Celery Worker - General (default + processing tasks)
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: caelichrawler-worker
+    environment: &worker-env
+      - DATABASE_URL=postgresql+asyncpg://caelichrawler:caelichrawler_secret@postgres:5432/caelichrawler
+      - DATABASE_SYNC_URL=postgresql+psycopg://caelichrawler:caelichrawler_secret@postgres:5432/caelichrawler
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - DOCUMENT_STORAGE_PATH=/app/storage/documents
+      # Azure OpenAI
+      - AZURE_OPENAI_ENDPOINT=https://caeli-prod-ai-marketing.cognitiveservices.azure.com/
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_API_VERSION=2025-04-01-preview
+      - AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4.1-mini
+      - AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT=text-embedding-3-large
+      # PySis Integration
+      - PYSIS_API_BASE_URL=https://pisys.caeli-wind.de/api/pisys/v1
+      - PYSIS_TENANT_ID=d546a5cd-9f03-4040-b588-b8b4cde6448b
+      - PYSIS_CLIENT_ID=4d5e8963-35d7-4a7e-a989-81adb1fe5d9c
+      - PYSIS_CLIENT_SECRET=${PYSIS_CLIENT_SECRET}
+      - PYSIS_SCOPE=api://7e32391f-a384-44b1-9850-d565b4a59ed0/.default
+    volumes: &worker-volumes
+      - ./backend:/app
+      - document_storage:/app/storage/documents
+    depends_on: &worker-depends
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A workers.celery_app worker --loglevel=info -Q default,processing --concurrency=4 --hostname=worker-general@%h
+    restart: unless-stopped
+
+  # Celery Worker - Crawling (dedicated for crawl tasks, higher concurrency)
+  celery-worker-crawl:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: caelichrawler-worker-crawl
+    environment: *worker-env
+    volumes: *worker-volumes
+    depends_on: *worker-depends
+    command: celery -A workers.celery_app worker --loglevel=info -Q crawl --concurrency=8 --hostname=worker-crawl@%h
+    restart: unless-stopped
+
+  # Celery Worker - AI Tasks (dedicated for AI analysis, limited concurrency due to API rate limits)
+  celery-worker-ai:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: caelichrawler-worker-ai
+    environment: *worker-env
+    volumes: *worker-volumes
+    depends_on: *worker-depends
+    command: celery -A workers.celery_app worker --loglevel=info -Q ai --concurrency=4 --hostname=worker-ai@%h
+    restart: unless-stopped
+
+  # Celery Beat (Scheduler)
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: caelichrawler-beat
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://caelichrawler:caelichrawler_secret@postgres:5432/caelichrawler
+      - DATABASE_SYNC_URL=postgresql+psycopg://caelichrawler:caelichrawler_secret@postgres:5432/caelichrawler
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A workers.celery_app beat --loglevel=info
+    restart: unless-stopped
+
+  # Vue.js Frontend (Development)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: caelichrawler-frontend
+    environment:
+      - VITE_API_BASE_URL=http://backend:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  document_storage:

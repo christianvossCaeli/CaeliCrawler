@@ -1,0 +1,116 @@
+"""FacetType schemas for API validation."""
+
+import re
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+from uuid import UUID
+
+from pydantic import BaseModel, Field, field_validator
+
+
+def generate_slug(name: str) -> str:
+    """Generate URL-friendly slug from name."""
+    slug = name.lower()
+    slug = re.sub(
+        r"[äöüß]",
+        lambda m: {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}[m.group()],
+        slug,
+    )
+    slug = re.sub(r"[^a-z0-9]+", "-", slug)
+    slug = slug.strip("-")
+    return slug
+
+
+class FacetTypeBase(BaseModel):
+    """Base facet type schema with common fields."""
+
+    name: str = Field(..., min_length=1, max_length=255, description="Display name")
+    name_plural: str = Field(..., min_length=1, max_length=255, description="Plural form")
+    description: Optional[str] = Field(None, description="Description")
+
+    # Value configuration
+    value_type: str = Field(default="structured", description="Type: text, structured, list, reference")
+    value_schema: Optional[Dict[str, Any]] = Field(None, description="JSON Schema for value structure")
+
+    # Applicable entity types
+    applicable_entity_type_slugs: List[str] = Field(
+        default_factory=list,
+        description="Entity type slugs this facet applies to (empty = all)",
+    )
+
+    # UI Configuration
+    icon: str = Field(default="mdi-tag", description="Material Design Icon name")
+    color: str = Field(default="#607D8B", description="Hex color for UI")
+    display_order: int = Field(default=0, description="Order in UI lists")
+
+    # Aggregation configuration
+    aggregation_method: str = Field(default="dedupe", description="Method: count, sum, avg, list, dedupe")
+    deduplication_fields: List[str] = Field(default_factory=list, description="Fields for deduplication")
+
+    # Time-based configuration
+    is_time_based: bool = Field(default=False, description="Has date/time component")
+    time_field_path: Optional[str] = Field(None, description="JSON path to date field")
+    default_time_filter: str = Field(default="all", description="Default filter: all, future_only, past_only")
+
+    # AI extraction
+    ai_extraction_enabled: bool = Field(default=True, description="Enable AI extraction")
+    ai_extraction_prompt: Optional[str] = Field(None, description="AI prompt template")
+
+    is_active: bool = Field(default=True, description="Whether facet type is active")
+
+
+class FacetTypeCreate(FacetTypeBase):
+    """Schema for creating a new facet type."""
+
+    slug: Optional[str] = Field(None, description="URL-friendly slug (auto-generated if not provided)")
+
+    @field_validator("slug", mode="before")
+    @classmethod
+    def generate_slug_if_empty(cls, v, info):
+        if not v and "name" in info.data:
+            return generate_slug(info.data["name"])
+        return v
+
+
+class FacetTypeUpdate(BaseModel):
+    """Schema for updating a facet type."""
+
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    name_plural: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    value_type: Optional[str] = None
+    value_schema: Optional[Dict[str, Any]] = None
+    applicable_entity_type_slugs: Optional[List[str]] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    display_order: Optional[int] = None
+    aggregation_method: Optional[str] = None
+    deduplication_fields: Optional[List[str]] = None
+    is_time_based: Optional[bool] = None
+    time_field_path: Optional[str] = None
+    default_time_filter: Optional[str] = None
+    ai_extraction_enabled: Optional[bool] = None
+    ai_extraction_prompt: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class FacetTypeResponse(FacetTypeBase):
+    """Schema for facet type response."""
+
+    id: UUID
+    slug: str
+    is_system: bool
+    created_at: datetime
+    updated_at: datetime
+
+    # Computed fields
+    value_count: int = Field(default=0, description="Number of facet values of this type")
+
+    model_config = {"from_attributes": True}
+
+
+class FacetTypeListResponse(BaseModel):
+    """Schema for facet type list response."""
+
+    items: List[FacetTypeResponse]
+    total: int

@@ -1,0 +1,42 @@
+version: '3.8'
+
+# Production Docker Compose Configuration
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - APP_ENV=production
+      - DEBUG=false
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+    volumes:
+      - document_storage:/app/storage/documents
+    restart: always
+
+  celery-worker:
+    command: celery -A workers.celery_app worker --loglevel=warning -Q default,crawl,processing,ai --concurrency=8
+    volumes:
+      - document_storage:/app/storage/documents
+    restart: always
+
+  celery-beat:
+    command: celery -A workers.celery_app beat --loglevel=warning
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "80:80"
+    restart: always
+
+  postgres:
+    restart: always
+
+  redis:
+    restart: always

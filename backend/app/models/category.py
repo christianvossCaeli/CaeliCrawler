@@ -1,0 +1,141 @@
+"""Category model for organizing data sources."""
+
+import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING, List, Optional
+
+from sqlalchemy import Boolean, DateTime, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.data_source import DataSource
+    from app.models.api_export import ApiExport
+
+
+class Category(Base):
+    """
+    Category for organizing data sources.
+
+    Examples: "Gemeinden", "Landkreise", "Bundesländer"
+    Each category defines what to search for and how to analyze found documents.
+    """
+
+    __tablename__ = "categories"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    name: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    slug: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Purpose defines what we're looking for (e.g., "Windkraft-Restriktionen")
+    purpose: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Search configuration
+    search_terms: Mapped[List[str]] = mapped_column(
+        JSONB,
+        default=list,
+        nullable=False,
+    )
+    document_types: Mapped[List[str]] = mapped_column(
+        JSONB,
+        default=list,
+        nullable=False,
+    )
+
+    # URL filtering (applied to all sources in this category)
+    url_include_patterns: Mapped[List[str]] = mapped_column(
+        JSONB,
+        default=list,
+        nullable=False,
+        comment="Regex patterns - URLs must match at least one (if set)",
+    )
+    url_exclude_patterns: Mapped[List[str]] = mapped_column(
+        JSONB,
+        default=list,
+        nullable=False,
+        comment="Regex patterns - URLs matching any will be skipped",
+    )
+
+    # Language configuration
+    languages: Mapped[List[str]] = mapped_column(
+        JSONB,
+        default=lambda: ["de"],
+        nullable=False,
+        comment="Language codes (ISO 639-1) for this category, e.g. ['de', 'en']",
+    )
+
+    # AI extraction prompt template for this category
+    ai_extraction_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Extraction handler: 'default' (entity_facet_service) or 'event' (event_extraction_service)
+    extraction_handler: Mapped[str] = mapped_column(
+        String(50),
+        default="default",
+        nullable=False,
+        comment="Handler for processing extractions: 'default' or 'event'",
+    )
+
+    # Scheduling (cron expression)
+    schedule_cron: Mapped[str] = mapped_column(
+        String(100),
+        default="0 2 * * *",  # Daily at 2 AM
+        nullable=False,
+    )
+
+    # Status
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    # Relationships
+    # Legacy 1:N relationship (for backwards compatibility)
+    data_sources: Mapped[List["DataSource"]] = relationship(
+        "DataSource",
+        back_populates="category",
+        foreign_keys="DataSource.category_id",
+        passive_deletes=True,
+    )
+
+    # N:M relationship via junction table
+    sources: Mapped[List["DataSource"]] = relationship(
+        "DataSource",
+        secondary="data_source_categories",
+        back_populates="categories",
+        viewonly=True,
+    )
+
+    api_exports: Mapped[List["ApiExport"]] = relationship(
+        "ApiExport",
+        back_populates="category",
+    )
+
+    def __repr__(self) -> str:
+        return f"<Category(id={self.id}, name='{self.name}')>"
