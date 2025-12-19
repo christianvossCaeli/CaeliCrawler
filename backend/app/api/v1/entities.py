@@ -34,7 +34,10 @@ async def list_entities(
     hierarchy_level: Optional[int] = Query(default=None),
     is_active: Optional[bool] = Query(default=None),
     search: Optional[str] = Query(default=None),
-    country: Optional[str] = Query(default=None),
+    country: Optional[str] = Query(default=None, description="Filter by country code (DE, GB, etc.)"),
+    admin_level_1: Optional[str] = Query(default=None, description="Filter by admin level 1 (Bundesland, Region)"),
+    admin_level_2: Optional[str] = Query(default=None, description="Filter by admin level 2 (Landkreis, District)"),
+    core_attr_filters: Optional[str] = Query(default=None, description="JSON-encoded core_attributes filters, e.g. {\"locality_type\": \"Stadt\"}"),
     session: AsyncSession = Depends(get_session),
 ):
     """List entities with filters."""
@@ -54,13 +57,41 @@ async def list_entities(
     if is_active is not None:
         query = query.where(Entity.is_active == is_active)
     if country:
-        # Filter by country in hierarchy_path or core_attributes
+        # Filter by indexed country column (with fallback to core_attributes for backwards compat)
         query = query.where(
             or_(
-                Entity.hierarchy_path.like(f"/{country.upper()}/%"),
+                Entity.country == country.upper(),
                 Entity.core_attributes["country"].astext == country.upper()
             )
         )
+    if admin_level_1:
+        query = query.where(
+            or_(
+                Entity.admin_level_1 == admin_level_1,
+                Entity.core_attributes["admin_level_1"].astext == admin_level_1
+            )
+        )
+    if admin_level_2:
+        query = query.where(
+            or_(
+                Entity.admin_level_2 == admin_level_2,
+                Entity.core_attributes["admin_level_2"].astext == admin_level_2
+            )
+        )
+
+    # Filter by core_attributes (dynamic schema-based filtering)
+    if core_attr_filters:
+        import json
+        try:
+            attr_filters = json.loads(core_attr_filters)
+            for key, value in attr_filters.items():
+                if value is not None and value != "":
+                    query = query.where(
+                        Entity.core_attributes[key].astext == str(value)
+                    )
+        except json.JSONDecodeError:
+            pass  # Ignore invalid JSON
+
     if search:
         query = query.where(
             or_(
@@ -179,6 +210,9 @@ async def create_entity(
         parent_id=data.parent_id,
         hierarchy_path=hierarchy_path,
         hierarchy_level=hierarchy_level,
+        country=data.country.upper() if data.country else None,
+        admin_level_1=data.admin_level_1,
+        admin_level_2=data.admin_level_2,
         core_attributes=data.core_attributes or {},
         latitude=data.latitude,
         longitude=data.longitude,
@@ -536,3 +570,118 @@ async def get_entity_brief(
         entity_type_name=entity_type.name if entity_type else None,
         hierarchy_path=entity.hierarchy_path,
     )
+
+
+@router.get("/filter-options/location")
+async def get_location_filter_options(
+    country: Optional[str] = Query(default=None, description="Filter admin_level_1 options by country"),
+    admin_level_1: Optional[str] = Query(default=None, description="Filter admin_level_2 options by admin_level_1"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get available filter options for location fields (country, admin_level_1, admin_level_2).
+
+    NOTE: This endpoint must be defined BEFORE the dynamic /{entity_id} routes."""
+
+    # Get distinct countries
+    countries_query = select(Entity.country).where(
+        Entity.country.isnot(None)
+    ).distinct().order_by(Entity.country)
+    countries_result = await session.execute(countries_query)
+    countries = [row[0] for row in countries_result.fetchall()]
+
+    # Get distinct admin_level_1 values
+    admin_level_1_query = select(Entity.admin_level_1).where(
+        Entity.admin_level_1.isnot(None),
+        Entity.admin_level_1 != ""
+    )
+    if country:
+        admin_level_1_query = admin_level_1_query.where(Entity.country == country.upper())
+    admin_level_1_query = admin_level_1_query.distinct().order_by(Entity.admin_level_1)
+    admin_level_1_result = await session.execute(admin_level_1_query)
+    admin_level_1_values = [row[0] for row in admin_level_1_result.fetchall()]
+
+    # Get distinct admin_level_2 values
+    admin_level_2_query = select(Entity.admin_level_2).where(
+        Entity.admin_level_2.isnot(None),
+        Entity.admin_level_2 != ""
+    )
+    if country:
+        admin_level_2_query = admin_level_2_query.where(Entity.country == country.upper())
+    if admin_level_1:
+        admin_level_2_query = admin_level_2_query.where(Entity.admin_level_1 == admin_level_1)
+    admin_level_2_query = admin_level_2_query.distinct().order_by(Entity.admin_level_2)
+    admin_level_2_result = await session.execute(admin_level_2_query)
+    admin_level_2_values = [row[0] for row in admin_level_2_result.fetchall()]
+
+    return {
+        "countries": countries,
+        "admin_level_1": admin_level_1_values,
+        "admin_level_2": admin_level_2_values,
+    }
+
+
+@router.get("/filter-options/attributes")
+async def get_attribute_filter_options(
+    entity_type_slug: str = Query(..., description="Entity type slug to get attribute options for"),
+    attribute_key: Optional[str] = Query(default=None, description="Specific attribute key to get values for"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get available filter options for core_attributes based on entity type schema.
+
+    Returns the attribute schema properties and optionally distinct values for a specific attribute.
+
+    NOTE: This endpoint must be defined BEFORE the dynamic /{entity_id} routes.
+    """
+    # Get entity type with schema
+    et_result = await session.execute(
+        select(EntityType).where(EntityType.slug == entity_type_slug)
+    )
+    entity_type = et_result.scalar()
+    if not entity_type:
+        raise NotFoundError("EntityType", entity_type_slug)
+
+    # Get schema properties
+    schema = entity_type.attribute_schema or {}
+    properties = schema.get("properties", {})
+
+    # Build response with filterable attributes
+    filterable_attributes = []
+    for key, prop in properties.items():
+        attr_type = prop.get("type", "string")
+        # Only include filterable types (strings, enums)
+        if attr_type in ["string", "integer", "number"]:
+            filterable_attributes.append({
+                "key": key,
+                "title": prop.get("title", key),
+                "description": prop.get("description"),
+                "type": attr_type,
+                "format": prop.get("format"),
+            })
+
+    result = {
+        "entity_type_slug": entity_type_slug,
+        "entity_type_name": entity_type.name,
+        "attributes": filterable_attributes,
+    }
+
+    # If specific attribute requested, get distinct values
+    if attribute_key and attribute_key in properties:
+        # Query distinct values from core_attributes JSONB
+        values_query = (
+            select(Entity.core_attributes[attribute_key].astext)
+            .where(
+                Entity.entity_type_id == entity_type.id,
+                Entity.core_attributes[attribute_key].astext.isnot(None),
+                Entity.core_attributes[attribute_key].astext != "",
+            )
+            .distinct()
+            .order_by(Entity.core_attributes[attribute_key].astext)
+            .limit(100)  # Limit to prevent huge lists
+        )
+        values_result = await session.execute(values_query)
+        distinct_values = [row[0] for row in values_result.fetchall() if row[0]]
+        result["attribute_values"] = {
+            attribute_key: distinct_values
+        }
+
+    return result

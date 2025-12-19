@@ -278,7 +278,7 @@ class APICrawler(BaseCrawler):
 
                 doc = Document(
                     source_id=source.id,
-                    category_id=source.category_id,
+                    category_id=job.category_id,  # Use job's category
                     title=api_doc.title,
                     original_url=download_url or "",
                     document_type=doc_type,

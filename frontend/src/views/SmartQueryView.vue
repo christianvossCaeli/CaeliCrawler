@@ -88,6 +88,46 @@
       {{ error }}
     </v-alert>
 
+    <!-- AI Generation Progress -->
+    <v-card v-if="loading && writeMode" class="mb-6" color="info" variant="tonal">
+      <v-card-title class="d-flex align-center">
+        <v-progress-circular indeterminate size="24" width="2" class="mr-3" />
+        KI-Generierung läuft...
+      </v-card-title>
+      <v-card-text>
+        <v-stepper :model-value="currentStep" alt-labels>
+          <v-stepper-header>
+            <v-stepper-item
+              :value="1"
+              :complete="currentStep > 1"
+              :color="currentStep >= 1 ? 'success' : 'grey'"
+              title="EntityType"
+              subtitle="Schema & Konfiguration"
+            />
+            <v-divider />
+            <v-stepper-item
+              :value="2"
+              :complete="currentStep > 2"
+              :color="currentStep >= 2 ? 'success' : 'grey'"
+              title="Category"
+              subtitle="AI-Prompt & Search Terms"
+            />
+            <v-divider />
+            <v-stepper-item
+              :value="3"
+              :complete="currentStep > 3"
+              :color="currentStep >= 3 ? 'success' : 'grey'"
+              title="Crawl-Config"
+              subtitle="URL-Patterns"
+            />
+          </v-stepper-header>
+        </v-stepper>
+        <div class="text-center mt-4 text-body-2">
+          {{ stepMessages[currentStep] || 'Verarbeite...' }}
+        </div>
+      </v-card-text>
+    </v-card>
+
     <!-- Preview Mode (Write) -->
     <template v-if="previewData">
       <v-card class="mb-4" color="warning" variant="tonal">
@@ -162,11 +202,162 @@
                 v-for="item in results.created_items"
                 :key="item.id"
                 :title="item.name || item.type"
-                :subtitle="`${item.type}${item.entity_type ? ' (' + item.entity_type + ')' : ''} - ID: ${item.id.substring(0, 8)}...`"
+                :subtitle="`${item.type}${item.entity_type ? ' (' + item.entity_type + ')' : ''}${item.slug ? ' [' + item.slug + ']' : ''} - ID: ${item.id.substring(0, 8)}...`"
               >
                 <template v-slot:prepend>
                   <v-icon :color="getItemTypeColor(item.type)">
                     {{ getItemTypeIcon(item.type) }}
+                  </v-icon>
+                </template>
+              </v-list-item>
+            </v-list>
+          </template>
+
+          <!-- Crawl Information -->
+          <template v-if="results.sources_count || results.crawl_jobs?.length > 0">
+            <v-divider class="my-3" />
+            <div class="text-subtitle-2 mb-2">
+              <v-icon left size="small">mdi-spider-web</v-icon>
+              Crawl-Details
+            </div>
+            <v-chip v-if="results.sources_count" class="mr-2 mb-2" color="info" size="small">
+              {{ results.sources_count }} Datenquellen
+            </v-chip>
+            <v-chip v-if="results.crawl_jobs?.length" class="mr-2 mb-2" color="success" size="small">
+              {{ results.crawl_jobs.length }} Jobs gestartet
+            </v-chip>
+          </template>
+
+          <!-- Linked Sources -->
+          <template v-if="results.linked_sources_count">
+            <v-divider class="my-3" />
+            <div class="text-subtitle-2 mb-2">
+              <v-icon left size="small">mdi-link-variant</v-icon>
+              Datenquellen-Verknuepfung
+            </div>
+            <v-chip color="primary" size="small">
+              {{ results.linked_sources_count }} Datenquellen verknuepft
+            </v-chip>
+          </template>
+
+          <!-- AI Generation Steps -->
+          <template v-if="results.steps?.length > 0">
+            <v-divider class="my-3" />
+            <div class="text-subtitle-2 mb-2">
+              <v-icon left size="small">mdi-robot</v-icon>
+              KI-Generierungsschritte
+            </div>
+            <v-timeline density="compact" side="end">
+              <v-timeline-item
+                v-for="(step, idx) in results.steps"
+                :key="idx"
+                :dot-color="step.success !== false ? 'success' : 'error'"
+                size="x-small"
+              >
+                <div>
+                  <div class="d-flex align-center">
+                    <v-icon :color="step.success !== false ? 'success' : 'error'" size="small" class="mr-2">
+                      {{ step.success !== false ? 'mdi-check' : 'mdi-close' }}
+                    </v-icon>
+                    <span class="text-body-2 font-weight-medium">Schritt {{ step.step }}/{{ step.total }}</span>
+                  </div>
+                  <div class="text-caption text-medium-emphasis ml-6">{{ step.message }}</div>
+                  <div v-if="step.result" class="text-caption text-success ml-6">{{ step.result }}</div>
+                </div>
+              </v-timeline-item>
+            </v-timeline>
+          </template>
+
+          <!-- AI-Generated Search Terms -->
+          <template v-if="results.search_terms?.length > 0">
+            <v-divider class="my-3" />
+            <div class="text-subtitle-2 mb-2">
+              <v-icon left size="small">mdi-magnify</v-icon>
+              KI-generierte Suchbegriffe
+            </div>
+            <v-chip
+              v-for="term in results.search_terms"
+              :key="term"
+              size="small"
+              class="mr-1 mb-1"
+              color="info"
+              variant="outlined"
+            >
+              {{ term }}
+            </v-chip>
+          </template>
+
+          <!-- AI-Generated URL Patterns -->
+          <template v-if="results.url_patterns?.include?.length > 0 || results.url_patterns?.exclude?.length > 0">
+            <v-divider class="my-3" />
+            <div class="text-subtitle-2 mb-2">
+              <v-icon left size="small">mdi-web</v-icon>
+              URL-Pattern-Konfiguration
+            </div>
+            <div v-if="results.url_patterns?.reasoning" class="text-caption text-medium-emphasis mb-3">
+              {{ results.url_patterns.reasoning }}
+            </div>
+            <div v-if="results.url_patterns?.include?.length > 0" class="mb-2">
+              <div class="text-caption text-success mb-1">Include-Patterns:</div>
+              <v-chip
+                v-for="pattern in results.url_patterns.include"
+                :key="pattern"
+                size="small"
+                class="mr-1 mb-1"
+                color="success"
+                variant="tonal"
+              >
+                <code>{{ pattern }}</code>
+              </v-chip>
+            </div>
+            <div v-if="results.url_patterns?.exclude?.length > 0">
+              <div class="text-caption text-error mb-1">Exclude-Patterns:</div>
+              <v-chip
+                v-for="pattern in results.url_patterns.exclude"
+                :key="pattern"
+                size="small"
+                class="mr-1 mb-1"
+                color="error"
+                variant="tonal"
+              >
+                <code>{{ pattern }}</code>
+              </v-chip>
+            </div>
+          </template>
+
+          <!-- AI Extraction Prompt -->
+          <template v-if="results.ai_extraction_prompt">
+            <v-divider class="my-3" />
+            <v-expansion-panels variant="accordion">
+              <v-expansion-panel>
+                <v-expansion-panel-title>
+                  <v-icon left size="small" class="mr-2">mdi-brain</v-icon>
+                  KI-generierter Extraktions-Prompt
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
+                  <pre class="text-caption" style="white-space: pre-wrap;">{{ results.ai_extraction_prompt }}</pre>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
+          </template>
+
+          <!-- Combined Operation Results -->
+          <template v-if="results.operation_results?.length > 0">
+            <v-divider class="my-3" />
+            <div class="text-subtitle-2 mb-2">
+              <v-icon left size="small">mdi-format-list-checks</v-icon>
+              Ausgefuehrte Operationen
+            </div>
+            <v-list density="compact" class="bg-transparent">
+              <v-list-item
+                v-for="(opResult, idx) in results.operation_results"
+                :key="idx"
+                :title="opResult.operation"
+                :subtitle="opResult.message"
+              >
+                <template v-slot:prepend>
+                  <v-icon :color="opResult.success ? 'success' : 'error'" size="small">
+                    {{ opResult.success ? 'mdi-check' : 'mdi-close' }}
                   </v-icon>
                 </template>
               </v-list-item>
@@ -329,6 +520,15 @@ const results = ref<any>(null)
 const previewData = ref<any>(null)
 const writeMode = ref(false)
 
+// AI Generation Progress
+const currentStep = ref(1)
+const stepMessages: Record<number, string> = {
+  1: 'Generiere EntityType-Schema und Konfiguration...',
+  2: 'Erstelle Category mit AI-Prompt und Suchbegriffen...',
+  3: 'Optimiere Crawl-Konfiguration und URL-Patterns...',
+  4: 'Verknüpfe Datenquellen und finalisiere Setup...'
+}
+
 const readExamples = ref([
   { question: 'Zeige mir auf welche kuenftige Events wichtige Entscheider-Personen von Gemeinden gehen' },
   { question: 'Welche Buergermeister sprechen auf Events?' },
@@ -339,8 +539,9 @@ const readExamples = ref([
 const writeExamples = ref([
   { question: 'Erstelle eine Person Max Mueller, Buergermeister' },
   { question: 'Fuege einen Pain Point fuer Muenster hinzu: Personalmangel in der IT' },
-  { question: 'Neue Organisation: Caeli Wind GmbH, Windenergie-Entwickler' },
-  { question: 'Verknuepfe Max Mueller mit Gummersbach als Arbeitgeber' },
+  { question: 'Finde alle Events auf denen Entscheider aus NRW teilnehmen' },
+  { question: 'Starte Crawls fuer alle Gummersbach Datenquellen' },
+  { question: 'Erstelle Category fuer Windkraft in Bayern und starte sofort einen Crawl' },
 ])
 
 const currentExamples = computed(() => writeMode.value ? writeExamples.value : readExamples.value)
@@ -401,6 +602,20 @@ async function confirmWrite() {
 
   loading.value = true
   error.value = null
+  currentStep.value = 1
+
+  // Step progression simulation for category_setup operations
+  const isAiGeneration = previewData.value?.interpretation?.operation === 'create_category_setup'
+  let stepInterval: ReturnType<typeof setInterval> | null = null
+
+  if (isAiGeneration) {
+    // Simulate step progression during AI generation
+    stepInterval = setInterval(() => {
+      if (currentStep.value < 4) {
+        currentStep.value++
+      }
+    }, 2500) // Advance every 2.5 seconds
+  }
 
   try {
     const response = await api.post('/v1/analysis/smart-write', {
@@ -410,9 +625,13 @@ async function confirmWrite() {
     })
     results.value = response.data
     previewData.value = null
+    currentStep.value = 4 // Show complete
   } catch (e: any) {
     error.value = e.response?.data?.detail || e.message || 'Fehler beim Erstellen'
   } finally {
+    if (stepInterval) {
+      clearInterval(stepInterval)
+    }
     loading.value = false
   }
 }
@@ -463,8 +682,11 @@ function getEntityTypeColor(type: string): string {
 function getItemTypeIcon(type: string): string {
   const icons: Record<string, string> = {
     entity: 'mdi-shape',
+    entity_type: 'mdi-folder-multiple',
     facet_value: 'mdi-tag',
     relation: 'mdi-arrow-right-bold',
+    category: 'mdi-shape-outline',
+    crawl_job: 'mdi-spider-web',
   }
   return icons[type] || 'mdi-check'
 }
@@ -472,8 +694,11 @@ function getItemTypeIcon(type: string): string {
 function getItemTypeColor(type: string): string {
   const colors: Record<string, string> = {
     entity: 'primary',
+    entity_type: 'purple',
     facet_value: 'secondary',
     relation: 'info',
+    category: 'orange',
+    crawl_job: 'success',
   }
   return colors[type] || 'grey'
 }

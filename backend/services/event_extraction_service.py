@@ -17,6 +17,7 @@ from app.models import (
     EntityRelation,
     ExtractedData,
     DataSource,
+    Category,
 )
 from services.entity_facet_service import (
     get_or_create_entity,
@@ -78,13 +79,14 @@ async def process_event_extraction(
     session: AsyncSession,
     extracted_data: ExtractedData,
     source: Optional[DataSource] = None,
+    category: Optional[Category] = None,
 ) -> Dict[str, int]:
     """
     Process event extraction results into Entity-Facet system.
 
     Creates:
-    - Event entity
-    - Person entities for attendees
+    - Event entity (uses category.target_entity_type if set, else standard "event")
+    - Person entities for attendees (always uses standard "person" EntityType)
     - event_attendance FacetValues for persons
     - Relations (attends, works_for, located_in)
 
@@ -134,10 +136,24 @@ async def process_event_extraction(
     if event_date:
         is_future = event_date.date() >= datetime.now().date()
 
+    # Determine which EntityType to use for the event
+    # If category has a target_entity_type_id, use that; otherwise use standard "event"
+    event_entity_type_slug = "event"
+    if category and category.target_entity_type_id:
+        # Load the target entity type to get its slug
+        target_type = await session.get(EntityType, category.target_entity_type_id)
+        if target_type:
+            event_entity_type_slug = target_type.slug
+            logger.info(
+                "Using custom EntityType for events",
+                category=category.slug,
+                entity_type=event_entity_type_slug,
+            )
+
     # Create Event entity
     event_entity = await get_or_create_entity(
         session,
-        entity_type_slug="event",
+        entity_type_slug=event_entity_type_slug,
         name=event_data.get("event_name"),
         core_attributes={
             "event_type": event_data.get("event_type"),
@@ -299,9 +315,13 @@ async def convert_event_extraction_to_facets(
     session: AsyncSession,
     extracted_data: ExtractedData,
     source: Optional[DataSource] = None,
+    category: Optional[Category] = None,
 ) -> Dict[str, int]:
     """
     Wrapper to process event extractions.
     Called from ai_tasks.py for event category documents.
+
+    If category has a target_entity_type_id, events will be created
+    with that EntityType instead of the standard "event" type.
     """
-    return await process_event_extraction(session, extracted_data, source)
+    return await process_event_extraction(session, extracted_data, source, category)

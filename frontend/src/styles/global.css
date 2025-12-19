@@ -356,6 +356,18 @@ body {
   background-color: #b2dfdb !important;
 }
 
+.table-actions .v-btn.text-purple,
+.table-actions .v-btn[color="purple"] {
+  background-color: #f3e5f5 !important;
+  border-color: #e1bee7 !important;
+  color: #7b1fa2 !important;
+}
+
+.table-actions .v-btn.text-purple:hover,
+.table-actions .v-btn[color="purple"]:hover {
+  background-color: #e1bee7 !important;
+}
+
 /* X-Small Buttons in table-actions */
 .table-actions .v-btn--size-x-small {
   min-width: 26px !important;
@@ -441,6 +453,18 @@ body {
 .v-theme--caeliDark .table-actions .v-btn.text-primary:hover,
 .v-theme--caeliDark .table-actions .v-btn[color="primary"]:hover {
   background-color: #3a5855 !important;
+}
+
+.v-theme--caeliDark .table-actions .v-btn.text-purple,
+.v-theme--caeliDark .table-actions .v-btn[color="purple"] {
+  background-color: #2d1f3d !important;
+  border-color: #4a2f65 !important;
+  color: #ce93d8 !important;
+}
+
+.v-theme--caeliDark .table-actions .v-btn.text-purple:hover,
+.v-theme--caeliDark .table-actions .v-btn[color="purple"]:hover {
+  background-color: #4a2f65 !important;
 }
 
 /* Dark Mode Chips */

@@ -98,7 +98,7 @@
           <div class="table-actions">
             <v-btn icon="mdi-database-outline" size="small" variant="text" color="primary" @click="showSourcesForCategory(item)" title="Datenquellen anzeigen"></v-btn>
             <v-btn icon="mdi-pencil" size="small" variant="text" @click="openEditDialog(item)" title="Bearbeiten"></v-btn>
-            <v-btn icon="mdi-play" size="small" variant="text" color="success" @click="startCrawl(item)" title="Crawlen starten"></v-btn>
+            <v-btn icon="mdi-play" size="small" variant="text" color="success" @click="openCrawlerDialog(item)" title="Crawlen starten"></v-btn>
             <v-btn icon="mdi-refresh" size="small" variant="text" color="warning" @click="confirmReanalyze(item)" title="Dokumente neu analysieren"></v-btn>
             <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="confirmDelete(item)" title="Löschen"></v-btn>
           </div>
@@ -417,6 +417,142 @@
       </v-card>
     </v-dialog>
 
+    <!-- Start Crawler Dialog -->
+    <v-dialog v-model="crawlerDialog" max-width="650">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2">mdi-spider-web</v-icon>
+          Crawler starten: {{ selectedCategoryForCrawler?.name }}
+        </v-card-title>
+        <v-card-text>
+          <!-- Estimated count -->
+          <v-alert :type="crawlerFilteredCount > 100 ? 'warning' : 'info'" class="mb-4">
+            <div class="d-flex align-center justify-space-between">
+              <span>
+                <strong>{{ crawlerFilteredCount.toLocaleString() }}</strong> Datenquellen werden gecrawlt
+              </span>
+              <v-btn
+                v-if="hasCrawlerFilter"
+                size="small"
+                variant="text"
+                @click="resetCrawlerFilters"
+              >
+                Filter zurücksetzen
+              </v-btn>
+            </div>
+          </v-alert>
+
+          <v-row>
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model="crawlerFilter.search"
+                label="Suche (Name/URL)"
+                prepend-inner-icon="mdi-magnify"
+                clearable
+                density="comfortable"
+                hint="Filtert nach Name oder URL"
+                @update:model-value="debouncedUpdateCrawlerCount"
+              ></v-text-field>
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model.number="crawlerFilter.limit"
+                label="Maximale Anzahl"
+                type="number"
+                :min="1"
+                :max="10000"
+                prepend-inner-icon="mdi-numeric"
+                clearable
+                density="comfortable"
+                hint="Leer = alle"
+                persistent-hint
+              ></v-text-field>
+            </v-col>
+          </v-row>
+
+          <v-row>
+            <v-col cols="12" md="6">
+              <v-select
+                v-model="crawlerFilter.status"
+                :items="[
+                  { value: 'ACTIVE', label: 'Aktiv' },
+                  { value: 'PENDING', label: 'Ausstehend' },
+                  { value: 'ERROR', label: 'Fehler' },
+                ]"
+                item-title="label"
+                item-value="value"
+                label="Status"
+                clearable
+                density="comfortable"
+                @update:model-value="updateCrawlerFilteredCount"
+              ></v-select>
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-select
+                v-model="crawlerFilter.source_type"
+                :items="[
+                  { value: 'WEBSITE', label: 'Website' },
+                  { value: 'OPARL_API', label: 'OParl API' },
+                  { value: 'RSS', label: 'RSS Feed' },
+                ]"
+                item-title="label"
+                item-value="value"
+                label="Quellentyp"
+                clearable
+                density="comfortable"
+                @update:model-value="updateCrawlerFilteredCount"
+              ></v-select>
+            </v-col>
+          </v-row>
+
+          <v-divider class="my-4"></v-divider>
+
+          <!-- URL Patterns Info -->
+          <v-alert
+            v-if="selectedCategoryForCrawler?.url_include_patterns?.length || selectedCategoryForCrawler?.url_exclude_patterns?.length"
+            type="success"
+            variant="tonal"
+            density="compact"
+            class="mb-2"
+          >
+            <v-icon start>mdi-filter-check</v-icon>
+            URL-Filter aktiv: {{ selectedCategoryForCrawler?.url_include_patterns?.length || 0 }} Include, {{ selectedCategoryForCrawler?.url_exclude_patterns?.length || 0 }} Exclude Patterns
+          </v-alert>
+          <v-alert
+            v-else
+            type="warning"
+            variant="tonal"
+            density="compact"
+            class="mb-2"
+          >
+            <v-icon start>mdi-alert</v-icon>
+            Keine URL-Filter gesetzt - alle URLs werden gecrawlt!
+          </v-alert>
+
+          <v-alert v-if="crawlerFilteredCount > 500" type="error" variant="tonal" density="compact">
+            <v-icon>mdi-alert</v-icon>
+            Mehr als 500 Quellen - bitte Filter oder Limit setzen!
+          </v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-chip size="small" variant="tonal">
+            {{ crawlerFilteredCount.toLocaleString() }} Quellen
+          </v-chip>
+          <v-spacer></v-spacer>
+          <v-btn @click="crawlerDialog = false">Abbrechen</v-btn>
+          <v-btn
+            color="warning"
+            :loading="startingCrawler"
+            :disabled="crawlerFilteredCount === 0"
+            @click="startFilteredCrawl"
+          >
+            <v-icon left>mdi-play</v-icon>
+            Crawler starten
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar for feedback -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000">
       {{ snackbarText }}
@@ -634,10 +770,97 @@ const deleteCategory = async () => {
   }
 }
 
-const startCrawl = async (category: any) => {
+// Crawler dialog state
+const crawlerDialog = ref(false)
+const startingCrawler = ref(false)
+const selectedCategoryForCrawler = ref<any>(null)
+const crawlerFilteredCount = ref(0)
+const crawlerFilter = ref({
+  search: null as string | null,
+  limit: null as number | null,
+  status: null as string | null,
+  source_type: null as string | null,
+})
+
+const hasCrawlerFilter = computed(() => {
+  return crawlerFilter.value.search ||
+         crawlerFilter.value.status ||
+         crawlerFilter.value.source_type
+})
+
+const resetCrawlerFilters = () => {
+  crawlerFilter.value = {
+    search: null,
+    limit: null,
+    status: null,
+    source_type: null,
+  }
+  updateCrawlerFilteredCount()
+}
+
+let crawlerFilterTimeout: ReturnType<typeof setTimeout> | null = null
+const debouncedUpdateCrawlerCount = () => {
+  if (crawlerFilterTimeout) clearTimeout(crawlerFilterTimeout)
+  crawlerFilterTimeout = setTimeout(() => updateCrawlerFilteredCount(), 300)
+}
+
+const updateCrawlerFilteredCount = async () => {
+  if (!selectedCategoryForCrawler.value) return
+
   try {
-    await adminApi.startCrawl({ category_id: category.id })
-    snackbarText.value = 'Crawl gestartet'
+    const params: any = {
+      category_id: selectedCategoryForCrawler.value.id,
+      per_page: 1,  // We only need the count
+    }
+    if (crawlerFilter.value.search) params.search = crawlerFilter.value.search
+    if (crawlerFilter.value.status) params.status = crawlerFilter.value.status
+    if (crawlerFilter.value.source_type) params.source_type = crawlerFilter.value.source_type
+
+    const response = await adminApi.getSources(params)
+    let count = response.data.total || 0
+
+    // Apply limit if set
+    if (crawlerFilter.value.limit && crawlerFilter.value.limit > 0) {
+      count = Math.min(count, crawlerFilter.value.limit)
+    }
+
+    crawlerFilteredCount.value = count
+  } catch (error) {
+    console.error('Failed to get filtered count:', error)
+    crawlerFilteredCount.value = selectedCategoryForCrawler.value?.source_count || 0
+  }
+}
+
+const openCrawlerDialog = (category: any) => {
+  selectedCategoryForCrawler.value = category
+  crawlerFilter.value = {
+    search: null,
+    limit: null,
+    status: null,
+    source_type: null,
+  }
+  crawlerFilteredCount.value = category.source_count || 0
+  crawlerDialog.value = true
+  updateCrawlerFilteredCount()
+}
+
+const startFilteredCrawl = async () => {
+  if (!selectedCategoryForCrawler.value) return
+
+  startingCrawler.value = true
+  try {
+    const params: any = {
+      category_id: selectedCategoryForCrawler.value.id,
+    }
+    if (crawlerFilter.value.search) params.search = crawlerFilter.value.search
+    if (crawlerFilter.value.status) params.status = crawlerFilter.value.status
+    if (crawlerFilter.value.source_type) params.source_type = crawlerFilter.value.source_type
+    if (crawlerFilter.value.limit) params.limit = crawlerFilter.value.limit
+
+    await adminApi.startCrawl(params)
+    crawlerDialog.value = false
+
+    snackbarText.value = `Crawl für ${crawlerFilteredCount.value} Quellen gestartet`
     snackbarColor.value = 'success'
     snackbar.value = true
   } catch (error) {
@@ -645,7 +868,14 @@ const startCrawl = async (category: any) => {
     snackbarText.value = 'Fehler beim Starten des Crawls'
     snackbarColor.value = 'error'
     snackbar.value = true
+  } finally {
+    startingCrawler.value = false
   }
+}
+
+// Legacy function - kept for backwards compatibility
+const startCrawl = async (category: any) => {
+  openCrawlerDialog(category)
 }
 
 const confirmReanalyze = (category: any) => {

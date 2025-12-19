@@ -4,11 +4,12 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.models import EntityType, Entity
+from app.models.user import User
 from app.schemas.entity_type import (
     EntityTypeCreate,
     EntityTypeUpdate,
@@ -18,6 +19,7 @@ from app.schemas.entity_type import (
 )
 from app.schemas.common import MessageResponse
 from app.core.exceptions import NotFoundError, ConflictError
+from app.core.deps import get_current_user_optional
 
 router = APIRouter()
 
@@ -28,11 +30,37 @@ async def list_entity_types(
     per_page: int = Query(default=50, ge=1, le=100),
     is_active: Optional[bool] = Query(default=None),
     is_primary: Optional[bool] = Query(default=None),
+    is_public: Optional[bool] = Query(default=None, description="Filter by public/private visibility"),
+    include_private: bool = Query(default=True, description="Include user's private entity types"),
     search: Optional[str] = Query(default=None),
     session: AsyncSession = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
-    """List all entity types with pagination."""
+    """List all entity types with pagination and visibility filtering.
+
+    Visibility rules:
+    - Public entity types (is_public=True) are visible to everyone
+    - Private entity types are only visible to their owner/creator
+    - System entity types are always public
+    """
     query = select(EntityType)
+
+    # Visibility filtering
+    if is_public is not None:
+        # Explicit filter requested
+        query = query.where(EntityType.is_public == is_public)
+    elif include_private and current_user:
+        # Show public + user's own private types
+        query = query.where(
+            or_(
+                EntityType.is_public == True,
+                EntityType.owner_id == current_user.id,
+                EntityType.created_by_id == current_user.id,
+            )
+        )
+    else:
+        # Only public entity types
+        query = query.where(EntityType.is_public == True)
 
     if is_active is not None:
         query = query.where(EntityType.is_active == is_active)
@@ -71,8 +99,13 @@ async def list_entity_types(
 async def create_entity_type(
     data: EntityTypeCreate,
     session: AsyncSession = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
-    """Create a new entity type."""
+    """Create a new entity type.
+
+    New entity types are private by default (is_public=False).
+    The creating user becomes the owner.
+    """
     # Generate slug if not provided
     slug = data.slug or generate_slug(data.name)
 
@@ -101,7 +134,10 @@ async def create_entity_type(
         attribute_schema=data.attribute_schema,
         display_order=data.display_order,
         is_active=data.is_active,
+        is_public=data.is_public,
         is_system=False,
+        created_by_id=current_user.id if current_user else None,
+        owner_id=current_user.id if current_user else None,
     )
     session.add(entity_type)
     await session.commit()

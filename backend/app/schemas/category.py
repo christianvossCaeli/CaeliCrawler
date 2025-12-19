@@ -50,6 +50,18 @@ class CategoryBase(BaseModel):
     schedule_cron: str = Field(default="0 2 * * *", description="Cron expression for scheduled crawls")
     is_active: bool = Field(default=True, description="Whether category is active")
 
+    # Visibility
+    is_public: bool = Field(
+        default=False,
+        description="If true, visible to all users. If false, only visible to owner.",
+    )
+
+    # Target EntityType for extracted entities
+    target_entity_type_id: Optional[UUID] = Field(
+        None,
+        description="EntityType for extracted entities (e.g., 'event-besuche-nrw')",
+    )
+
 
 class CategoryCreate(CategoryBase):
     """Schema for creating a new category."""
@@ -79,6 +91,8 @@ class CategoryUpdate(BaseModel):
     extraction_handler: Optional[str] = None
     schedule_cron: Optional[str] = None
     is_active: Optional[bool] = None
+    is_public: Optional[bool] = None
+    target_entity_type_id: Optional[UUID] = None
 
 
 class CategoryResponse(CategoryBase):
@@ -88,6 +102,10 @@ class CategoryResponse(CategoryBase):
     slug: str
     created_at: datetime
     updated_at: datetime
+
+    # Ownership
+    created_by_id: Optional[UUID] = Field(None, description="User who created this category")
+    owner_id: Optional[UUID] = Field(None, description="User who owns this category")
 
     # Computed fields
     source_count: int = Field(default=0, description="Number of data sources")

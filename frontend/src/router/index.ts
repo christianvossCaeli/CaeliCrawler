@@ -68,6 +68,18 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresEditor: true }
     },
     {
+      path: '/documents',
+      name: 'documents',
+      component: () => import('@/views/DocumentsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/results',
+      name: 'results',
+      component: () => import('@/views/ResultsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/smart-query',
       name: 'smart-query',
       component: () => import('@/views/SmartQueryView.vue'),

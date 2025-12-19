@@ -15,7 +15,22 @@
           :to="item.to"
           :prepend-icon="item.icon"
           :title="item.title"
-        ></v-list-item>
+        >
+          <template v-slot:append>
+            <v-badge
+              v-if="item.to === '/documents' && pendingDocsCount > 0"
+              :content="pendingDocsCount > 99 ? '99+' : pendingDocsCount"
+              color="warning"
+              inline
+            ></v-badge>
+            <v-badge
+              v-if="item.to === '/results' && unverifiedResultsCount > 0"
+              :content="unverifiedResultsCount > 99 ? '99+' : unverifiedResultsCount"
+              color="info"
+              inline
+            ></v-badge>
+          </template>
+        </v-list-item>
       </v-list>
 
       <v-divider class="my-2"></v-divider>
@@ -213,8 +228,13 @@ import CaeliWindLogo from './components/CaeliWindLogo.vue'
 import { useSnackbar } from './composables/useSnackbar'
 import { useAuthStore } from './stores/auth'
 import { useNotifications } from './composables/useNotifications'
+import { dataApi } from './services/api'
 
 const { snackbar, snackbarText, snackbarColor, snackbarTimeout, showSnackbar } = useSnackbar()
+
+// Badge counts for navigation
+const pendingDocsCount = ref(0)
+const unverifiedResultsCount = ref(0)
 const { unreadCount, loadUnreadCount } = useNotifications()
 
 const drawer = ref(true)
@@ -243,6 +263,8 @@ const mainNavItems = [
   { title: 'Kategorien', icon: 'mdi-folder-multiple', to: '/categories' },
   { title: 'Datenquellen', icon: 'mdi-web', to: '/sources' },
   { title: 'Crawler Status', icon: 'mdi-robot', to: '/crawler' },
+  { title: 'Dokumente', icon: 'mdi-file-document-multiple', to: '/documents' },
+  { title: 'Ergebnisse', icon: 'mdi-chart-box', to: '/results' },
   { title: 'Smart Query', icon: 'mdi-head-question', to: '/smart-query' },
   { title: 'Export', icon: 'mdi-export', to: '/export' },
 ]
@@ -328,6 +350,21 @@ async function changePassword() {
 
 // Notification polling interval
 let notificationInterval: ReturnType<typeof setInterval> | null = null
+let badgeInterval: ReturnType<typeof setInterval> | null = null
+
+// Load badge counts for navigation
+async function loadBadgeCounts() {
+  try {
+    const [docsRes, resultsRes] = await Promise.all([
+      dataApi.getDocuments({ processing_status: 'PENDING', per_page: 1 }),
+      dataApi.getExtractionStats({}),
+    ])
+    pendingDocsCount.value = docsRes.data.total
+    unverifiedResultsCount.value = resultsRes.data.unverified || 0
+  } catch (error) {
+    console.error('Failed to load badge counts:', error)
+  }
+}
 
 // Load notifications when authenticated
 watch(
@@ -335,12 +372,18 @@ watch(
   async (isAuth) => {
     if (isAuth) {
       await loadUnreadCount()
+      await loadBadgeCounts()
       // Poll every 60 seconds
       notificationInterval = setInterval(loadUnreadCount, 60000)
+      badgeInterval = setInterval(loadBadgeCounts, 60000)
     } else {
       if (notificationInterval) {
         clearInterval(notificationInterval)
         notificationInterval = null
+      }
+      if (badgeInterval) {
+        clearInterval(badgeInterval)
+        badgeInterval = null
       }
     }
   },

@@ -49,6 +49,12 @@ class EntityTypeBase(BaseModel):
 
     is_active: bool = Field(default=True, description="Whether entity type is active")
 
+    # Visibility
+    is_public: bool = Field(
+        default=False,
+        description="If true, visible to all users. If false, only visible to owner.",
+    )
+
 
 class EntityTypeCreate(EntityTypeBase):
     """Schema for creating a new entity type."""
@@ -77,6 +83,7 @@ class EntityTypeUpdate(BaseModel):
     hierarchy_config: Optional[Dict[str, Any]] = None
     attribute_schema: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None
+    is_public: Optional[bool] = None
 
 
 class EntityTypeResponse(EntityTypeBase):
@@ -87,6 +94,10 @@ class EntityTypeResponse(EntityTypeBase):
     is_system: bool
     created_at: datetime
     updated_at: datetime
+
+    # Ownership
+    created_by_id: Optional[UUID] = Field(None, description="User who created this entity type")
+    owner_id: Optional[UUID] = Field(None, description="User who owns this entity type")
 
     # Computed fields
     entity_count: int = Field(default=0, description="Number of entities of this type")

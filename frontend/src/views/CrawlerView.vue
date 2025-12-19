@@ -9,7 +9,20 @@
       </v-card>
     </v-overlay>
 
-    <h1 class="text-h4 mb-6">Crawler Status</h1>
+    <div class="d-flex align-center mb-6">
+      <h1 class="text-h4">Crawler Status</h1>
+      <v-spacer></v-spacer>
+      <v-btn
+        v-if="status.running_jobs > 0 || status.pending_jobs > 0"
+        color="error"
+        variant="outlined"
+        prepend-icon="mdi-stop"
+        :loading="stoppingAll"
+        @click="stopAllCrawlers"
+      >
+        Alles Stoppen
+      </v-btn>
+    </div>
 
     <!-- Live Status -->
     <v-row class="mb-4">
@@ -116,6 +129,10 @@
                 <v-icon color="info" class="mr-2 mdi-spin" size="small">mdi-web-sync</v-icon>
                 <div class="flex-grow-1">
                   <div class="font-weight-bold">{{ rj.source_name }}</div>
+                  <div class="text-caption text-primary">
+                    <v-icon size="x-small" class="mr-1">mdi-tag</v-icon>
+                    {{ rj.category_name || 'Keine Kategorie' }}
+                  </div>
                   <div class="text-caption text-truncate" style="max-width: 400px;">
                     {{ rj.current_url || rj.base_url }}
                   </div>
@@ -337,6 +354,7 @@ const { showSuccess, showError, showInfo } = useSnackbar()
 
 const loading = ref(true)
 const initialLoad = ref(true)
+const stoppingAll = ref(false)
 const jobs = ref<any[]>([])
 const runningJobs = ref<any[]>([])
 const runningAiTasks = ref<any[]>([])
@@ -364,6 +382,7 @@ const stats = ref({
 
 const headers = [
   { title: 'Quelle', key: 'source_name' },
+  { title: 'Kategorie', key: 'category_name' },
   { title: 'Status', key: 'status' },
   { title: 'Gestartet', key: 'scheduled_at' },
   { title: 'Dauer', key: 'duration' },
@@ -409,7 +428,7 @@ const loadData = async () => {
     const [statusRes, statsRes, jobsRes, runningRes, aiTasksRes] = await Promise.all([
       adminApi.getCrawlerStatus(),
       adminApi.getCrawlerStats(),
-      adminApi.getCrawlerJobs({ per_page: 500 }),
+      adminApi.getCrawlerJobs({ per_page: 100 }),
       adminApi.getRunningJobs(),
       adminApi.getRunningAiTasks(),
     ])
@@ -478,6 +497,45 @@ const cancelAiTask = async (task: any) => {
     loadData()
   } catch (error: any) {
     showError(error.response?.data?.error || 'Fehler beim Abbrechen der KI-Aufgabe')
+  }
+}
+
+const stopAllCrawlers = async () => {
+  stoppingAll.value = true
+  try {
+    let cancelledCount = 0
+    // Cancel all running jobs
+    for (const job of runningJobs.value) {
+      try {
+        await adminApi.cancelJob(job.id)
+        cancelledCount++
+      } catch (e) {
+        // Continue with other jobs
+      }
+    }
+    // Also cancel all pending jobs from the jobs list
+    for (const job of jobs.value.filter(j => j.status === 'PENDING' || j.status === 'RUNNING')) {
+      try {
+        await adminApi.cancelJob(job.id)
+        cancelledCount++
+      } catch (e) {
+        // Continue with other jobs
+      }
+    }
+    // Cancel all running AI tasks
+    for (const task of runningAiTasks.value) {
+      try {
+        await adminApi.cancelAiTask(task.id)
+      } catch (e) {
+        // Continue
+      }
+    }
+    showSuccess(`${cancelledCount} Jobs gestoppt`)
+    await loadData()
+  } catch (error: any) {
+    showError('Fehler beim Stoppen der Crawler')
+  } finally {
+    stoppingAll.value = false
   }
 }
 

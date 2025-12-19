@@ -128,7 +128,7 @@ def analyze_document(self, document_id: str, skip_relevance_check: bool = False)
                         if handler == "event":
                             from services.event_extraction_service import convert_event_extraction_to_facets
                             facet_counts = await convert_event_extraction_to_facets(
-                                session, extracted, source
+                                session, extracted, source, category
                             )
                         else:
                             # Default handler for pain_points, positive_signals, etc.

@@ -114,25 +114,45 @@ async def start_crawl(
     job_ids = []
 
     if request.source_ids:
-        # Crawl specific sources
+        # Crawl specific sources - create jobs for ALL assigned categories
         for source_id in request.source_ids:
             source = await session.get(DataSource, source_id)
             if not source:
                 raise NotFoundError("Data Source", str(source_id))
 
-            job_id = create_crawl_job.delay(str(source_id), str(source.category_id))
-            job_ids.append(source_id)
+            # Get all categories this source is assigned to via N:M relationship
+            from app.models import DataSourceCategory
+            cat_result = await session.execute(
+                select(DataSourceCategory.category_id)
+                .where(DataSourceCategory.data_source_id == source_id)
+            )
+            category_ids = [row[0] for row in cat_result.fetchall()]
+
+            # If no N:M assignments, fall back to primary category
+            if not category_ids:
+                category_ids = [source.category_id]
+
+            # Create a job for each category
+            for cat_id in category_ids:
+                create_crawl_job.delay(str(source_id), str(cat_id))
+                job_ids.append(source_id)
 
     else:
         # Build query with filters
+        from app.models import DataSourceCategory
         query = select(DataSource)
 
-        # Category filter
+        # Category filter - use junction table (N:M relationship)
         if request.category_id:
             category = await session.get(Category, request.category_id)
             if not category:
                 raise NotFoundError("Category", str(request.category_id))
-            query = query.where(DataSource.category_id == request.category_id)
+            # Join with junction table to find sources linked to this category
+            query = (
+                select(DataSource)
+                .join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id)
+                .where(DataSourceCategory.category_id == request.category_id)
+            )
 
         # Country filter
         if request.country:
@@ -181,8 +201,12 @@ async def start_crawl(
             )
 
         for source in sources:
-            create_crawl_job.delay(str(source.id), str(source.category_id))
-            job_ids.append(source.id)
+            # If filtering by category, use that category_id
+            # Otherwise, fall back to legacy category_id (if set)
+            cat_id = request.category_id or source.category_id
+            if cat_id:
+                create_crawl_job.delay(str(source.id), str(cat_id))
+                job_ids.append(source.id)
 
     return StartCrawlResponse(
         jobs_created=len(job_ids),
@@ -393,6 +417,7 @@ async def get_running_jobs(
     jobs = []
     for job in running_jobs:
         source = await session.get(DataSource, job.source_id)
+        category = await session.get(Category, job.category_id)
         current_url = await crawler_progress.get_current_url(job.id)
         recent_log = await crawler_progress.get_log(job.id, limit=5)
         live_stats = await crawler_progress.get_stats(job.id)
@@ -402,6 +427,8 @@ async def get_running_jobs(
             "source_id": str(job.source_id),
             "source_name": source.name if source else None,
             "base_url": source.base_url if source else None,
+            "category_id": str(job.category_id),
+            "category_name": category.name if category else None,
             "status": job.status.value,
             "started_at": job.started_at.isoformat() if job.started_at else None,
             "pages_crawled": live_stats.get("pages_crawled", job.pages_crawled),

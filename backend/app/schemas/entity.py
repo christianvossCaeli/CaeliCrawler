@@ -42,6 +42,11 @@ class EntityBase(BaseModel):
     # Hierarchy (optional)
     parent_id: Optional[UUID] = Field(None, description="Parent entity ID")
 
+    # Location fields for filtering
+    country: Optional[str] = Field(None, max_length=2, description="ISO 3166-1 alpha-2 country code (DE, GB, etc.)")
+    admin_level_1: Optional[str] = Field(None, max_length=100, description="First-level admin division (Bundesland, Region)")
+    admin_level_2: Optional[str] = Field(None, max_length=100, description="Second-level admin division (Landkreis, District)")
+
     # Core attributes (type-specific)
     core_attributes: Dict[str, Any] = Field(default_factory=dict, description="Type-specific attributes")
 
@@ -75,6 +80,12 @@ class EntityUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=500)
     external_id: Optional[str] = Field(None, max_length=255)
     parent_id: Optional[UUID] = None
+
+    # Location fields
+    country: Optional[str] = Field(None, max_length=2)
+    admin_level_1: Optional[str] = Field(None, max_length=100)
+    admin_level_2: Optional[str] = Field(None, max_length=100)
+
     core_attributes: Optional[Dict[str, Any]] = None
     latitude: Optional[float] = Field(None, ge=-90, le=90)
     longitude: Optional[float] = Field(None, ge=-180, le=180)

@@ -159,6 +159,12 @@ export const entityApi = {
   updateEntity: (id: string, data: any) => api.put(`/v1/entities/${id}`, data),
   deleteEntity: (id: string, force?: boolean) =>
     api.delete(`/v1/entities/${id}`, { params: { force } }),
+
+  // Filter Options
+  getLocationFilterOptions: (params?: { country?: string; admin_level_1?: string }) =>
+    api.get('/v1/entities/filter-options/location', { params }),
+  getAttributeFilterOptions: (params: { entity_type_slug: string; attribute_key?: string }) =>
+    api.get('/v1/entities/filter-options/attributes', { params }),
 }
 
 export const facetApi = {

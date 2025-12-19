@@ -35,13 +35,13 @@
     </div>
 
     <!-- Entity Type Tabs (if no specific type selected) -->
-    <v-tabs v-if="!typeSlug" v-model="selectedTypeTab" color="primary" class="mb-4">
+    <v-tabs v-if="!typeSlug" v-model="selectedTypeTab" color="primary" class="mb-4" show-arrows>
       <v-tab
-        v-for="entityType in store.primaryEntityTypes"
+        v-for="entityType in store.activeEntityTypes"
         :key="entityType.slug"
         :value="entityType.slug"
       >
-        <v-icon start :icon="entityType.icon"></v-icon>
+        <v-icon start :icon="entityType.icon" :color="entityType.color"></v-icon>
         {{ entityType.name_plural }}
         <v-chip size="x-small" class="ml-2">{{ entityType.entity_count }}</v-chip>
       </v-tab>
@@ -86,7 +86,7 @@
     <!-- Filters -->
     <v-card class="mb-4">
       <v-card-text>
-        <v-row>
+        <v-row align="center">
           <v-col cols="12" md="3">
             <v-text-field
               v-model="searchQuery"
@@ -134,23 +134,188 @@
               @update:model-value="loadEntities"
             ></v-select>
           </v-col>
-          <v-col cols="12" md="3">
-            <v-select
-              v-model="filters.facet_type_slugs"
-              :items="store.activeFacetTypes"
-              item-title="name"
-              item-value="slug"
-              label="Facet-Typen"
-              multiple
-              chips
-              closable-chips
-              hide-details
-              @update:model-value="loadEntities"
-            ></v-select>
+          <v-col cols="auto">
+            <v-btn
+              variant="outlined"
+              :color="hasExtendedFilters ? 'primary' : undefined"
+              @click="openExtendedFilterDialog"
+              height="56"
+              min-width="56"
+            >
+              <v-icon>mdi-tune</v-icon>
+              <v-badge
+                v-if="activeExtendedFilterCount > 0"
+                :content="activeExtendedFilterCount"
+                color="primary"
+                floating
+              ></v-badge>
+            </v-btn>
+          </v-col>
+          <v-col cols="auto" class="d-flex align-center">
+            <v-btn
+              v-if="hasAnyFilters"
+              variant="text"
+              color="error"
+              size="small"
+              @click="clearAllFilters"
+              title="Alle Filter zuruecksetzen"
+            >
+              <v-icon>mdi-filter-off</v-icon>
+            </v-btn>
+          </v-col>
+        </v-row>
+        <!-- Active Extended Filters Display -->
+        <v-row v-if="hasExtendedFilters" class="mt-2">
+          <v-col cols="12">
+            <div class="d-flex ga-2 flex-wrap">
+              <v-chip
+                v-for="(value, key) in allExtendedFilters"
+                :key="key"
+                closable
+                size="small"
+                color="primary"
+                variant="tonal"
+                @click:close="removeExtendedFilter(key)"
+              >
+                <v-icon start size="small">mdi-filter</v-icon>
+                {{ getExtendedFilterTitle(key) }}: {{ value }}
+              </v-chip>
+            </div>
           </v-col>
         </v-row>
       </v-card-text>
     </v-card>
+
+    <!-- Extended Filter Dialog (Schema Attributes) -->
+    <v-dialog v-model="extendedFilterDialog" max-width="520">
+      <v-card>
+        <v-toolbar color="primary" density="compact">
+          <v-icon class="ml-4">mdi-tune</v-icon>
+          <v-toolbar-title>Erweiterte Filter</v-toolbar-title>
+          <v-spacer></v-spacer>
+          <v-btn icon @click="extendedFilterDialog = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-toolbar>
+
+        <v-card-text class="pa-0">
+          <div v-if="schemaAttributes.length === 0" class="text-grey text-center py-8">
+            <v-icon size="48" color="grey-lighten-1" class="mb-2">mdi-filter-off</v-icon>
+            <div>Keine filterbaren Attribute verfuegbar</div>
+          </div>
+
+          <template v-else>
+            <!-- Location Section -->
+            <div v-if="locationAttributes.length > 0" class="filter-section">
+              <div class="filter-section-header">
+                <v-icon size="small" class="mr-2">mdi-map-marker</v-icon>
+                Standort
+              </div>
+              <div class="filter-section-content">
+                <v-row dense>
+                  <v-col v-if="hasAttribute('country')" cols="12" sm="4">
+                    <v-select
+                      v-model="tempExtendedFilters.country"
+                      :items="locationOptions.countries"
+                      label="Land"
+                      density="compact"
+                      variant="outlined"
+                      clearable
+                      hide-details
+                      @update:model-value="onCountryChange"
+                      @focus="loadLocationOptions"
+                    ></v-select>
+                  </v-col>
+                  <v-col v-if="hasAttribute('admin_level_1')" cols="12" sm="4">
+                    <v-select
+                      v-model="tempExtendedFilters.admin_level_1"
+                      :items="locationOptions.admin_level_1"
+                      label="Region"
+                      density="compact"
+                      variant="outlined"
+                      :disabled="!tempExtendedFilters.country"
+                      clearable
+                      hide-details
+                      @update:model-value="onAdminLevel1Change"
+                    ></v-select>
+                  </v-col>
+                  <v-col v-if="hasAttribute('admin_level_2')" cols="12" sm="4">
+                    <v-select
+                      v-model="tempExtendedFilters.admin_level_2"
+                      :items="locationOptions.admin_level_2"
+                      label="Bezirk"
+                      density="compact"
+                      variant="outlined"
+                      :disabled="!tempExtendedFilters.admin_level_1"
+                      clearable
+                      hide-details
+                    ></v-select>
+                  </v-col>
+                </v-row>
+              </div>
+            </div>
+
+            <!-- Other Attributes Section -->
+            <div v-if="nonLocationAttributes.length > 0" class="filter-section">
+              <div class="filter-section-header">
+                <v-icon size="small" class="mr-2">mdi-tag-multiple</v-icon>
+                Eigenschaften
+              </div>
+              <div class="filter-section-content">
+                <v-row dense>
+                  <v-col
+                    v-for="attr in nonLocationAttributes"
+                    :key="attr.key"
+                    cols="12"
+                    sm="6"
+                  >
+                    <v-select
+                      v-model="tempExtendedFilters[attr.key]"
+                      :items="attributeValueOptions[attr.key] || []"
+                      :label="attr.title"
+                      density="compact"
+                      variant="outlined"
+                      clearable
+                      hide-details
+                      @focus="loadAttributeValues(attr.key)"
+                    ></v-select>
+                  </v-col>
+                </v-row>
+              </div>
+            </div>
+          </template>
+        </v-card-text>
+
+        <v-divider></v-divider>
+
+        <v-card-actions class="pa-4">
+          <v-chip
+            v-if="activeExtendedFilterCount > 0"
+            size="small"
+            color="primary"
+            variant="tonal"
+          >
+            {{ activeExtendedFilterCount }} Filter aktiv
+          </v-chip>
+          <v-spacer></v-spacer>
+          <v-btn
+            v-if="hasExtendedFilters"
+            variant="text"
+            color="error"
+            size="small"
+            @click="clearExtendedFilters"
+          >
+            Zuruecksetzen
+          </v-btn>
+          <v-btn variant="outlined" @click="extendedFilterDialog = false">
+            Abbrechen
+          </v-btn>
+          <v-btn color="primary" variant="flat" @click="applyExtendedFilters">
+            Anwenden
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Entities Table -->
     <v-card>
@@ -270,11 +435,11 @@
                 <div class="d-flex ga-2 mb-2">
                   <v-chip size="small" color="primary" variant="tonal">
                     <v-icon start size="small">mdi-tag-multiple</v-icon>
-                    {{ entity.facet_count || 0 }} Facets
+                    {{ entity.facet_count || 0 }} Eigenschaften
                   </v-chip>
                   <v-chip size="small" color="info" variant="tonal">
                     <v-icon start size="small">mdi-link</v-icon>
-                    {{ entity.relation_count || 0 }}
+                    {{ entity.relation_count || 0 }} Verknuepfungen
                   </v-chip>
                 </div>
               </v-card-text>
@@ -478,7 +643,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useEntityStore } from '@/stores/entity'
-import { adminApi, userApi } from '@/services/api'
+import { adminApi, userApi, entityApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 
 const { showSuccess, showError } = useSnackbar()
@@ -506,6 +671,7 @@ const loadingUsers = ref(false)
 const createDialog = ref(false)
 const templateDialog = ref(false)
 const deleteDialog = ref(false)
+const extendedFilterDialog = ref(false)
 const editingEntity = ref<any>(null)
 const entityToDelete = ref<any>(null)
 const saving = ref(false)
@@ -531,6 +697,23 @@ const filters = ref({
   facet_type_slugs: [] as string[],
 })
 
+// Extended Filters (Location + Schema Attributes combined)
+const extendedFilters = ref<Record<string, string | null>>({})
+const tempExtendedFilters = ref<Record<string, string | null>>({})
+
+const locationOptions = ref({
+  countries: [] as string[],
+  admin_level_1: [] as string[],
+  admin_level_2: [] as string[],
+})
+
+// Schema-based attributes
+const schemaAttributes = ref<Array<{ key: string; title: string; description?: string; type: string }>>([])
+const attributeValueOptions = ref<Record<string, string[]>>({})
+
+// Location field keys (these map to Entity columns, not core_attributes)
+const locationFieldKeys = ['country', 'admin_level_1', 'admin_level_2']
+
 const facetFilterOptions = [
   { label: 'Alle', value: null },
   { label: 'Mit Facets', value: true },
@@ -547,7 +730,7 @@ const stats = ref({
 // Computed
 const currentEntityType = computed(() => {
   const slug = typeSlug.value || selectedTypeTab.value
-  return store.entityTypes.find(et => et.slug === slug) || store.primaryEntityTypes[0]
+  return store.entityTypes.find(et => et.slug === slug) || store.activeEntityTypes[0]
 })
 
 const totalEntities = computed(() => store.entitiesTotal)
@@ -556,6 +739,47 @@ const totalPages = computed(() => Math.ceil(totalEntities.value / itemsPerPage.v
 const hasGeoData = computed(() =>
   store.entities.some(e => e.latitude !== null && e.longitude !== null)
 )
+
+// Extended filters: combines location + schema attributes
+const hasExtendedFilters = computed(() =>
+  Object.values(extendedFilters.value).some(v => v !== null && v !== undefined && v !== '')
+)
+
+const activeExtendedFilterCount = computed(() =>
+  Object.values(extendedFilters.value).filter(v => v !== null && v !== undefined && v !== '').length
+)
+
+const allExtendedFilters = computed(() => {
+  const result: Record<string, string> = {}
+  for (const [key, value] of Object.entries(extendedFilters.value)) {
+    if (value !== null && value !== undefined && value !== '') {
+      result[key] = value
+    }
+  }
+  return result
+})
+
+const hasAnyFilters = computed(() =>
+  searchQuery.value ||
+  filters.value.category_id !== null ||
+  filters.value.parent_id !== null ||
+  filters.value.has_facets !== null ||
+  filters.value.facet_type_slugs.length > 0 ||
+  hasExtendedFilters.value
+)
+
+// Split schema attributes into location and non-location
+const locationAttributes = computed(() =>
+  schemaAttributes.value.filter(attr => locationFieldKeys.includes(attr.key))
+)
+
+const nonLocationAttributes = computed(() =>
+  schemaAttributes.value.filter(attr => !locationFieldKeys.includes(attr.key))
+)
+
+function hasAttribute(key: string): boolean {
+  return schemaAttributes.value.some(attr => attr.key === key)
+}
 
 const tableHeaders = computed(() => {
   const headers = [
@@ -567,10 +791,10 @@ const tableHeaders = computed(() => {
   }
 
   headers.push(
-    { title: 'Facets', key: 'facet_count', align: 'center' as const },
+    { title: 'Eigenschaften', key: 'facet_count', align: 'center' as const },
     { title: 'Verknuepfungen', key: 'relation_count', align: 'center' as const },
-    { title: 'Facet-Uebersicht', key: 'facet_summary', sortable: false },
-    { title: '', key: 'actions', sortable: false, width: '80px' },
+    { title: 'Uebersicht', key: 'facet_summary', sortable: false },
+    { title: '', key: 'actions', sortable: false, width: '120px' },
   )
 
   return headers
@@ -601,6 +825,33 @@ async function loadEntities(page = currentPage.value) {
     if (filters.value.has_facets !== null) params.has_facets = filters.value.has_facets
     if (filters.value.facet_type_slugs.length > 0) {
       params.facet_type_slugs = filters.value.facet_type_slugs.join(',')
+    }
+
+    // Extended filters (location + schema attributes)
+    if (hasExtendedFilters.value) {
+      // Separate location filters from attribute filters
+      const locationParams: Record<string, string> = {}
+      const attrParams: Record<string, string> = {}
+
+      for (const [key, value] of Object.entries(extendedFilters.value)) {
+        if (value !== null && value !== undefined && value !== '') {
+          if (locationFieldKeys.includes(key)) {
+            locationParams[key] = value
+          } else {
+            attrParams[key] = value
+          }
+        }
+      }
+
+      // Apply location filters directly as query params
+      if (locationParams.country) params.country = locationParams.country
+      if (locationParams.admin_level_1) params.admin_level_1 = locationParams.admin_level_1
+      if (locationParams.admin_level_2) params.admin_level_2 = locationParams.admin_level_2
+
+      // Apply attribute filters as JSON
+      if (Object.keys(attrParams).length > 0) {
+        params.core_attr_filters = JSON.stringify(attrParams)
+      }
     }
 
     await store.fetchEntities(params)
@@ -808,18 +1059,145 @@ function getTopFacetCounts(entity: any): Array<{ slug: string; name: string; ico
   return []
 }
 
+// Extended Filter Functions (Location + Schema Attributes)
+async function loadLocationOptions() {
+  try {
+    const params: any = {}
+    if (tempExtendedFilters.value.country) {
+      params.country = tempExtendedFilters.value.country
+    }
+    if (tempExtendedFilters.value.admin_level_1) {
+      params.admin_level_1 = tempExtendedFilters.value.admin_level_1
+    }
+
+    const response = await entityApi.getLocationFilterOptions(params)
+    const data = response.data
+
+    locationOptions.value.countries = data.countries || []
+    locationOptions.value.admin_level_1 = data.admin_level_1 || []
+    locationOptions.value.admin_level_2 = data.admin_level_2 || []
+  } catch (e) {
+    console.error('Failed to load location options', e)
+  }
+}
+
+async function onCountryChange() {
+  // Reset dependent filters when country changes
+  tempExtendedFilters.value.admin_level_1 = null
+  tempExtendedFilters.value.admin_level_2 = null
+  await loadLocationOptions()
+}
+
+async function onAdminLevel1Change() {
+  // Reset admin_level_2 when admin_level_1 changes
+  tempExtendedFilters.value.admin_level_2 = null
+  await loadLocationOptions()
+}
+
+function openExtendedFilterDialog() {
+  // Copy current filters to temp
+  tempExtendedFilters.value = { ...extendedFilters.value }
+  extendedFilterDialog.value = true
+  loadLocationOptions()
+}
+
+function applyExtendedFilters() {
+  // Copy temp filters to actual filters, removing empty values
+  const newFilters: Record<string, string | null> = {}
+  for (const [key, value] of Object.entries(tempExtendedFilters.value)) {
+    if (value !== null && value !== undefined && value !== '') {
+      newFilters[key] = value
+    }
+  }
+  extendedFilters.value = newFilters
+  extendedFilterDialog.value = false
+  loadEntities(1)
+}
+
+function clearExtendedFilters() {
+  extendedFilters.value = {}
+  tempExtendedFilters.value = {}
+}
+
+function removeExtendedFilter(key: string) {
+  const newFilters = { ...extendedFilters.value }
+  delete newFilters[key]
+  extendedFilters.value = newFilters
+  loadEntities()
+}
+
+function getExtendedFilterTitle(key: string): string {
+  const attr = schemaAttributes.value.find(a => a.key === key)
+  return attr?.title || key
+}
+
+function clearAllFilters() {
+  searchQuery.value = ''
+  filters.value.category_id = null
+  filters.value.parent_id = null
+  filters.value.has_facets = null
+  filters.value.facet_type_slugs = []
+  clearExtendedFilters()
+  loadEntities(1)
+}
+
+// Schema Attribute Functions
+async function loadSchemaAttributes() {
+  if (!currentEntityType.value?.slug) {
+    schemaAttributes.value = []
+    return
+  }
+
+  try {
+    const response = await entityApi.getAttributeFilterOptions({
+      entity_type_slug: currentEntityType.value.slug,
+    })
+    schemaAttributes.value = response.data.attributes || []
+  } catch (e) {
+    console.error('Failed to load schema attributes', e)
+    schemaAttributes.value = []
+  }
+}
+
+async function loadAttributeValues(attributeKey: string) {
+  if (!currentEntityType.value?.slug) return
+
+  // Skip if already loaded
+  if (attributeValueOptions.value[attributeKey]?.length > 0) return
+
+  try {
+    const response = await entityApi.getAttributeFilterOptions({
+      entity_type_slug: currentEntityType.value.slug,
+      attribute_key: attributeKey,
+    })
+    if (response.data.attribute_values?.[attributeKey]) {
+      attributeValueOptions.value[attributeKey] = response.data.attribute_values[attributeKey]
+    }
+  } catch (e) {
+    console.error(`Failed to load values for attribute ${attributeKey}`, e)
+  }
+}
+
 // Watchers
 watch(selectedTypeTab, () => {
   if (selectedTypeTab.value) {
+    // Clear extended filters when switching entity type
+    clearExtendedFilters()
+    attributeValueOptions.value = {}
     loadEntities(1)
     loadParentOptions()
+    loadSchemaAttributes()
   }
 })
 
 watch(() => route.params.typeSlug, () => {
   if (typeSlug.value) {
+    // Clear extended filters when switching entity type
+    clearExtendedFilters()
+    attributeValueOptions.value = {}
     loadEntities(1)
     loadParentOptions()
+    loadSchemaAttributes()
   }
 })
 
@@ -837,13 +1215,14 @@ onMounted(async () => {
   // Set initial type
   if (typeSlug.value) {
     await store.fetchEntityTypeBySlug(typeSlug.value)
-  } else if (store.primaryEntityTypes.length > 0) {
-    selectedTypeTab.value = store.primaryEntityTypes[0].slug
+  } else if (store.activeEntityTypes.length > 0) {
+    selectedTypeTab.value = store.activeEntityTypes[0].slug
   }
 
   // Load entities
   await loadEntities()
   await loadParentOptions()
+  await loadSchemaAttributes()
 })
 </script>
 
@@ -874,5 +1253,27 @@ onMounted(async () => {
 }
 .stats-card--tertiary {
   border-left-color: rgb(var(--v-theme-info));
+}
+
+/* Filter Dialog Sections */
+.filter-section {
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+.filter-section:last-child {
+  border-bottom: none;
+}
+.filter-section-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  background: rgba(var(--v-theme-surface-variant), 0.3);
+}
+.filter-section-content {
+  padding: 12px 16px 16px;
 }
 </style>

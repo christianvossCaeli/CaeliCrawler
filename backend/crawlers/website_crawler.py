@@ -188,12 +188,13 @@ class WebsiteCrawler(BaseCrawler):
         self.capture_html_content = config.get("capture_html_content", True)
         self.html_min_relevance_score = config.get("html_min_relevance_score", 0.2)
 
-        # Load category for URL patterns
+        # Load category for URL patterns and document storage
+        # Use job.category_id - each job crawls with its own category's patterns
         category = None
         async with get_session_context() as session:
-            category = await session.get(Category, source.category_id)
+            category = await session.get(Category, job.category_id)
 
-        # Compile URL filter patterns (category patterns as fallback)
+        # Compile URL filter patterns from job's category
         self._compile_url_patterns(config, category)
 
         try:
@@ -226,10 +227,11 @@ class WebsiteCrawler(BaseCrawler):
                     # Create hash from URL
                     file_hash = self.compute_text_hash(doc_url)
 
-                    # Check if exists
+                    # Check if exists for this category (same doc can exist for different categories)
                     existing = await session.execute(
                         select(Document).where(
                             Document.source_id == source.id,
+                            Document.category_id == job.category_id,
                             Document.file_hash == file_hash,
                         )
                     )
@@ -238,7 +240,7 @@ class WebsiteCrawler(BaseCrawler):
 
                     doc = Document(
                         source_id=source.id,
-                        category_id=source.category_id,
+                        category_id=job.category_id,  # Use job's category, not source's
                         crawl_job_id=job.id,
                         document_type=doc_type,
                         original_url=doc_url,
@@ -253,10 +255,11 @@ class WebsiteCrawler(BaseCrawler):
                     # Create hash from URL for deduplication
                     file_hash = self.compute_text_hash(html_doc["url"])
 
-                    # Check if already exists
+                    # Check if already exists for this category
                     existing = await session.execute(
                         select(Document).where(
                             Document.source_id == source.id,
+                            Document.category_id == job.category_id,
                             Document.file_hash == file_hash,
                         )
                     )
@@ -265,7 +268,7 @@ class WebsiteCrawler(BaseCrawler):
 
                     # Save HTML content to file
                     storage_path = Path(settings.document_storage_path)
-                    category_path = storage_path / str(source.category_id)
+                    category_path = storage_path / str(job.category_id)
                     category_path.mkdir(parents=True, exist_ok=True)
 
                     doc_id = hashlib.sha256(html_doc["url"].encode()).hexdigest()[:16]
@@ -275,7 +278,7 @@ class WebsiteCrawler(BaseCrawler):
                     # Create document with pre-extracted text
                     doc = Document(
                         source_id=source.id,
-                        category_id=source.category_id,
+                        category_id=job.category_id,  # Use job's category
                         crawl_job_id=job.id,
                         document_type="HTML",
                         original_url=html_doc["url"],

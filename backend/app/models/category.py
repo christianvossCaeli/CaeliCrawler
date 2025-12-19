@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, DateTime, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,6 +13,8 @@ from app.database import Base
 if TYPE_CHECKING:
     from app.models.data_source import DataSource
     from app.models.api_export import ApiExport
+    from app.models.entity_type import EntityType
+    from app.models.user import User
 
 
 class Category(Base):
@@ -102,6 +104,38 @@ class Category(Base):
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # Ownership & Visibility
+    created_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="User who created this category",
+    )
+    owner_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="User who owns this category",
+    )
+    is_public: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        index=True,
+        comment="If true, visible to all users. If false, only visible to owner.",
+    )
+
+    # Target EntityType for extracted entities
+    target_entity_type_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("entity_types.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="EntityType for extracted entities (e.g., 'event-besuche-nrw')",
+    )
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -135,6 +169,22 @@ class Category(Base):
     api_exports: Mapped[List["ApiExport"]] = relationship(
         "ApiExport",
         back_populates="category",
+    )
+
+    # Ownership relationships
+    created_by: Mapped[Optional["User"]] = relationship(
+        "User",
+        foreign_keys=[created_by_id],
+    )
+    owner: Mapped[Optional["User"]] = relationship(
+        "User",
+        foreign_keys=[owner_id],
+    )
+
+    # Target EntityType relationship
+    target_entity_type: Mapped[Optional["EntityType"]] = relationship(
+        "EntityType",
+        foreign_keys=[target_entity_type_id],
     )
 
     def __repr__(self) -> str:

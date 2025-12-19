@@ -96,6 +96,26 @@ class Entity(Base):
         comment="0=root, 1=level1, etc.",
     )
 
+    # Location fields for efficient filtering
+    country: Mapped[Optional[str]] = mapped_column(
+        String(2),
+        nullable=True,
+        index=True,
+        comment="ISO 3166-1 alpha-2 country code (DE, GB, etc.)",
+    )
+    admin_level_1: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+        comment="First-level admin division (Bundesland, Region, State)",
+    )
+    admin_level_2: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+        comment="Second-level admin division (Landkreis, District)",
+    )
+
     # Core attributes (type-specific)
     core_attributes: Mapped[Dict[str, Any]] = mapped_column(
         JSONB,

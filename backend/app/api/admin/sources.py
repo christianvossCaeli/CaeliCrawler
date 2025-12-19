@@ -167,6 +167,7 @@ async def list_sources(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=10000),
     category_id: Optional[UUID] = Query(default=None, description="Filter by category (N:M)"),
+    entity_id: Optional[UUID] = Query(default=None, description="Filter by entity ID"),
     status: Optional[SourceStatus] = Query(default=None),
     source_type: Optional[SourceType] = Query(default=None),
     search: Optional[str] = Query(default=None),
@@ -185,6 +186,10 @@ async def list_sources(
             .where(DataSourceCategory.category_id == category_id)
         )
         query = query.where(DataSource.id.in_(source_ids_in_cat))
+
+    # Filter by entity
+    if entity_id:
+        query = query.where(DataSource.entity_id == entity_id)
 
     if status:
         query = query.where(DataSource.status == status)

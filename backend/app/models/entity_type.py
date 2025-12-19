@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from app.models.entity import Entity
     from app.models.facet_type import FacetType
     from app.models.relation_type import RelationType
+    from app.models.user import User
 
 
 class EntityType(Base):
@@ -115,6 +116,29 @@ class EntityType(Base):
         comment="System-defined type (cannot be deleted)",
     )
 
+    # Ownership & Visibility
+    created_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="User who created this entity type",
+    )
+    owner_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="User who owns this entity type",
+    )
+    is_public: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        index=True,
+        comment="If true, visible to all users. If false, only visible to owner.",
+    )
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -133,6 +157,14 @@ class EntityType(Base):
         "Entity",
         back_populates="entity_type",
         cascade="all, delete-orphan",
+    )
+    created_by: Mapped[Optional["User"]] = relationship(
+        "User",
+        foreign_keys=[created_by_id],
+    )
+    owner: Mapped[Optional["User"]] = relationship(
+        "User",
+        foreign_keys=[owner_id],
     )
 
     def __repr__(self) -> str:

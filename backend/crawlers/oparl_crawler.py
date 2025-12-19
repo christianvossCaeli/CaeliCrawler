@@ -178,7 +178,7 @@ class OparlCrawler(BaseCrawler):
                     # Create new document
                     doc = Document(
                         source_id=source.id,
-                        category_id=source.category_id,
+                        category_id=job.category_id,  # Use job's category
                         crawl_job_id=job.id,
                         document_type=doc_type,
                         original_url=file_url,
@@ -273,7 +273,7 @@ class OparlCrawler(BaseCrawler):
 
                         doc = Document(
                             source_id=source.id,
-                            category_id=source.category_id,
+                            category_id=job.category_id,  # Use job's category
                             crawl_job_id=job.id,
                             document_type=doc_type,
                             original_url=file_url,

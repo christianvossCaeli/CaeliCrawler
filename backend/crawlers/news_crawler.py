@@ -530,7 +530,7 @@ class NewsCrawler(BaseCrawler):
                 # Create new
                 doc = Document(
                     source_id=source.id,
-                    category_id=source.category_id,
+                    category_id=job.category_id,  # Use job's category
                     crawl_job_id=job.id,
                     document_type="HTML",
                     original_url=article.url,

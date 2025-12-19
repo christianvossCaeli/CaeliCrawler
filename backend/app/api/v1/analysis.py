@@ -15,6 +15,7 @@ from app.models import (
     Entity, EntityType, FacetType, FacetValue, EntityRelation, RelationType,
     AnalysisTemplate, Category, Document, DataSource,
 )
+from app.models.user import User
 from app.schemas.analysis_template import (
     AnalysisTemplateCreate,
     AnalysisTemplateUpdate,
@@ -24,6 +25,7 @@ from app.schemas.analysis_template import (
 )
 from app.schemas.common import MessageResponse
 from app.core.exceptions import NotFoundError, ConflictError
+from app.core.deps import get_current_user_optional
 
 router = APIRouter()
 
@@ -76,6 +78,7 @@ class SmartWriteRequest(BaseModel):
 async def smart_write_endpoint(
     request: SmartWriteRequest,
     session: AsyncSession = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """
     Execute a write command in natural language with preview support.
@@ -89,12 +92,16 @@ async def smart_write_endpoint(
     - Creating new entities (persons, municipalities, organizations, events)
     - Adding facets (pain points, positive signals, contacts)
     - Creating relations between entities
+    - Creating category setups with automatic data source linking
+    - Starting crawls for specific data sources
 
     Examples:
     - "Erstelle eine Person Hans Schmidt, Landrat von Oberberg"
     - "Füge einen Pain Point für Münster hinzu: Personalmangel in der IT-Abteilung"
     - "Neue Organisation: Caeli Wind GmbH, Windenergie-Entwickler"
     - "Verknüpfe Hans Schmidt mit Oberbergischer Kreis"
+    - "Finde alle Events auf denen Entscheider aus NRW teilnehmen"
+    - "Starte Crawls für alle Gummersbach Datenquellen"
     """
     from services.smart_query_service import interpret_write_command, execute_write_command
 
@@ -132,8 +139,9 @@ async def smart_write_endpoint(
             "original_question": request.question,
         }
 
-    # Execute the command
-    result = await execute_write_command(session, command)
+    # Execute the command with current user context
+    current_user_id = current_user.id if current_user else None
+    result = await execute_write_command(session, command, current_user_id)
     result["original_question"] = request.question
     result["mode"] = "write"
     result["interpretation"] = command
@@ -189,6 +197,54 @@ def _build_preview(command: dict) -> dict:
         if type_data.get("description"):
             preview["details"].append(f"Beschreibung: {type_data.get('description')}")
 
+    elif operation == "create_category_setup":
+        setup_data = command.get("category_setup_data", {})
+        preview["details"] = [
+            f"Name: {setup_data.get('name', 'N/A')}",
+            f"Zweck: {setup_data.get('purpose', 'N/A')}",
+        ]
+        geo_filter = setup_data.get("geographic_filter", {})
+        if geo_filter.get("admin_level_1"):
+            preview["details"].append(f"Region: {geo_filter.get('admin_level_1')}")
+        if geo_filter.get("admin_level_2"):
+            preview["details"].append(f"Kreis/Stadt: {geo_filter.get('admin_level_2')}")
+        search_terms = setup_data.get("search_terms", [])
+        if search_terms:
+            preview["details"].append(f"Suchbegriffe: {', '.join(search_terms[:5])}")
+        search_focus = setup_data.get("search_focus", "general")
+        focus_de = {
+            "event_attendance": "Events & Teilnahmen",
+            "pain_points": "Probleme & Herausforderungen",
+            "contacts": "Kontakte & Ansprechpartner",
+            "general": "Allgemein",
+        }.get(search_focus, search_focus)
+        preview["details"].append(f"Fokus: {focus_de}")
+        preview["details"].append("→ Erstellt EntityType + Category + verknüpft Datenquellen")
+
+    elif operation == "start_crawl":
+        crawl_data = command.get("crawl_command_data", {})
+        filter_type = crawl_data.get("filter_type", "unknown")
+        preview["details"] = [f"Filter-Typ: {filter_type}"]
+        if crawl_data.get("location_name"):
+            preview["details"].append(f"Ort: {crawl_data.get('location_name')}")
+        if crawl_data.get("admin_level_1"):
+            preview["details"].append(f"Region: {crawl_data.get('admin_level_1')}")
+        if crawl_data.get("category_slug"):
+            preview["details"].append(f"Category: {crawl_data.get('category_slug')}")
+        if crawl_data.get("entity_name"):
+            preview["details"].append(f"Entity: {crawl_data.get('entity_name')}")
+        preview["details"].append("→ Startet Crawl-Jobs für passende Datenquellen")
+
+    elif operation == "combined":
+        # Support both "operations" and "combined_operations" keys
+        operations_list = command.get("operations", []) or command.get("combined_operations", [])
+        preview["details"] = [f"Anzahl Operationen: {len(operations_list)}"]
+        for i, sub_op in enumerate(operations_list, 1):
+            op_name = sub_op.get("operation", "unknown")
+            op_de = _operation_to_german(op_name)
+            preview["details"].append(f"  {i}. {op_de}")
+        preview["details"].append("→ Führt alle Operationen nacheinander aus")
+
     return preview
 
 
@@ -200,6 +256,9 @@ def _operation_to_german(op: str) -> str:
         "create_facet": "Facet hinzufügen",
         "create_relation": "Verknüpfung erstellen",
         "update_entity": "Entity aktualisieren",
+        "create_category_setup": "Category-Setup erstellen",
+        "start_crawl": "Crawl starten",
+        "combined": "Kombinierte Operationen",
     }.get(op, op)
 
 

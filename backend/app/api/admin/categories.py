@@ -4,12 +4,14 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_session
 from app.models import Category, DataSource, Document
+from app.models.data_source_category import DataSourceCategory
+from app.models.user import User
 from app.schemas.category import (
     CategoryCreate,
     CategoryUpdate,
@@ -20,6 +22,7 @@ from app.schemas.category import (
 )
 from app.schemas.common import MessageResponse
 from app.core.exceptions import NotFoundError, ConflictError
+from app.core.deps import get_current_user_optional
 
 router = APIRouter()
 
@@ -29,11 +32,36 @@ async def list_categories(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
     is_active: Optional[bool] = Query(default=None),
+    is_public: Optional[bool] = Query(default=None, description="Filter by public/private visibility"),
+    include_private: bool = Query(default=True, description="Include user's private categories"),
     search: Optional[str] = Query(default=None),
     session: AsyncSession = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
-    """List all categories with pagination."""
+    """List all categories with pagination and visibility filtering.
+
+    Visibility rules:
+    - Public categories (is_public=True) are visible to everyone
+    - Private categories are only visible to their owner/creator
+    """
     query = select(Category)
+
+    # Visibility filtering
+    if is_public is not None:
+        # Explicit filter requested
+        query = query.where(Category.is_public == is_public)
+    elif include_private and current_user:
+        # Show public + user's own private categories
+        query = query.where(
+            or_(
+                Category.is_public == True,
+                Category.owner_id == current_user.id,
+                Category.created_by_id == current_user.id,
+            )
+        )
+    else:
+        # Only public categories
+        query = query.where(Category.is_public == True)
 
     if is_active is not None:
         query = query.where(Category.is_active == is_active)
@@ -56,9 +84,9 @@ async def list_categories(
     # Get counts for each category
     items = []
     for cat in categories:
-        # Count sources
+        # Count sources via junction table (N:M relationship)
         source_count = (await session.execute(
-            select(func.count()).where(DataSource.category_id == cat.id)
+            select(func.count()).where(DataSourceCategory.category_id == cat.id)
         )).scalar()
 
         # Count documents
@@ -84,8 +112,13 @@ async def list_categories(
 async def create_category(
     data: CategoryCreate,
     session: AsyncSession = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
-    """Create a new category."""
+    """Create a new category.
+
+    New categories are private by default (is_public=False).
+    The creating user becomes the owner.
+    """
     # Generate slug if not provided
     slug = data.slug or generate_slug(data.name)
 
@@ -108,9 +141,17 @@ async def create_category(
         purpose=data.purpose,
         search_terms=data.search_terms,
         document_types=data.document_types,
+        url_include_patterns=data.url_include_patterns,
+        url_exclude_patterns=data.url_exclude_patterns,
+        languages=data.languages,
         ai_extraction_prompt=data.ai_extraction_prompt,
+        extraction_handler=data.extraction_handler,
         schedule_cron=data.schedule_cron,
         is_active=data.is_active,
+        is_public=data.is_public,
+        target_entity_type_id=data.target_entity_type_id,
+        created_by_id=current_user.id if current_user else None,
+        owner_id=current_user.id if current_user else None,
     )
     session.add(category)
     await session.commit()
@@ -129,9 +170,9 @@ async def get_category(
     if not category:
         raise NotFoundError("Category", str(category_id))
 
-    # Get counts
+    # Get counts via junction table (N:M relationship)
     source_count = (await session.execute(
-        select(func.count()).where(DataSource.category_id == category.id)
+        select(func.count()).where(DataSourceCategory.category_id == category.id)
     )).scalar()
 
     doc_count = (await session.execute(
@@ -195,8 +236,9 @@ async def get_category_stats(
     if not category:
         raise NotFoundError("Category", str(category_id))
 
+    # Count sources via junction table (N:M relationship)
     source_count = (await session.execute(
-        select(func.count()).where(DataSource.category_id == category_id)
+        select(func.count()).where(DataSourceCategory.category_id == category_id)
     )).scalar()
 
     doc_count = (await session.execute(

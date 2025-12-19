@@ -188,7 +188,7 @@ class RSSCrawler(BaseCrawler):
                     # Create document
                     doc = Document(
                         source_id=source.id,
-                        category_id=source.category_id,
+                        category_id=job.category_id,  # Use job's category
                         crawl_job_id=job.id,
                         document_type="RSS_ITEM",
                         original_url=item.link,
