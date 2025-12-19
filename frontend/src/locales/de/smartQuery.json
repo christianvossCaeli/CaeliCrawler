@@ -1,0 +1,129 @@
+{
+  "smartQuery": {
+    "title": "Smart Query",
+    "subtitle": "Stellen Sie Fragen in natürlicher Sprache",
+    "input": {
+      "placeholder": "z.B. 'Zeige mir alle Gemeinden mit Windkraft-Diskussionen'",
+      "submit": "Abfragen"
+    },
+    "results": {
+      "title": "Ergebnisse",
+      "noResults": "Keine Ergebnisse gefunden",
+      "preview": "Vorschau",
+      "execute": "Ausführen"
+    },
+    "history": {
+      "title": "Verlauf",
+      "clear": "Verlauf löschen"
+    },
+    "createError": "Fehler beim Erstellen"
+  },
+  "smartQueryView": {
+    "title": "Smart Query",
+    "subtitle": "Stelle Fragen in natuerlicher Sprache oder erstelle Daten per Kommando",
+    "input": {
+      "labelRead": "Deine Frage",
+      "labelWrite": "Dein Kommando",
+      "placeholderListening": "Sprich jetzt...",
+      "placeholderRead": "z.B. Zeige mir alle Pain Points von Gemeinden",
+      "placeholderWrite": "z.B. Erstelle eine Person Max Mueller, Buergermeister von Gummersbach"
+    },
+    "voice": {
+      "startRecording": "Spracheingabe starten",
+      "stopRecording": "Aufnahme beenden"
+    },
+    "mode": {
+      "read": "Lese-Modus",
+      "write": "Schreib-Modus",
+      "previewFirst": "Vorschau wird zuerst angezeigt"
+    },
+    "actions": {
+      "preview": "Vorschau",
+      "query": "Abfragen"
+    },
+    "examples": {
+      "questionsTitle": "Beispiel-Fragen",
+      "commandsTitle": "Beispiel-Kommandos",
+      "read": {
+        "futureEvents": "Zeige mir auf welche kuenftige Events wichtige Entscheider-Personen von Gemeinden gehen",
+        "mayorsOnEvents": "Welche Buergermeister sprechen auf Events?",
+        "allPainPoints": "Zeige mir alle Pain Points von Gemeinden",
+        "gummersbachPainPoints": "Zeige mir Pain Points von Gummersbach"
+      },
+      "write": {
+        "createPerson": "Erstelle eine Person Max Mueller, Buergermeister",
+        "addPainPoint": "Fuege einen Pain Point fuer Muenster hinzu: Personalmangel in der IT",
+        "findEvents": "Finde alle Events auf denen Entscheider aus NRW teilnehmen",
+        "startCrawls": "Starte Crawls fuer alle Gummersbach Datenquellen",
+        "createCategory": "Erstelle Category fuer Windkraft in Bayern und starte sofort einen Crawl"
+      }
+    },
+    "generation": {
+      "running": "KI-Generierung läuft...",
+      "processing": "Verarbeite...",
+      "step1": "Generiere EntityType-Schema und Konfiguration...",
+      "step2": "Erstelle Category mit AI-Prompt und Suchbegriffen...",
+      "step3": "Optimiere Crawl-Konfiguration und URL-Patterns...",
+      "step4": "Verknüpfe Datenquellen und finalisiere Setup...",
+      "stepperTitles": {
+        "entityType": "EntityType",
+        "category": "Category",
+        "crawlConfig": "Crawl-Config"
+      },
+      "stepperSubtitles": {
+        "entityType": "Schema & Konfiguration",
+        "category": "AI-Prompt & Search Terms",
+        "crawlConfig": "URL-Patterns"
+      }
+    },
+    "preview": {
+      "title": "Vorschau - Bitte bestaetigen",
+      "technicalDetails": "Technische Details",
+      "confirmAndCreate": "Bestaetigen & Erstellen"
+    },
+    "results": {
+      "successfullyCreated": "Erfolgreich erstellt",
+      "createdItems": "Erstellte Elemente:",
+      "crawlDetails": "Crawl-Details",
+      "dataSources": "{count} Datenquellen",
+      "jobsStarted": "{count} Jobs gestartet",
+      "dataSourcesLink": "Datenquellen-Verknuepfung",
+      "dataSourcesLinked": "{count} Datenquellen verknuepft",
+      "aiGenerationSteps": "KI-Generierungsschritte",
+      "step": "Schritt {current}/{total}",
+      "aiSearchTerms": "KI-generierte Suchbegriffe",
+      "urlPatternConfig": "URL-Pattern-Konfiguration",
+      "includePatterns": "Include-Patterns:",
+      "excludePatterns": "Exclude-Patterns:",
+      "aiExtractionPrompt": "KI-generierter Extraktions-Prompt",
+      "executedOperations": "Ausgefuehrte Operationen",
+      "interpretation": "Interpretation",
+      "newCommand": "Neues Kommando",
+      "newQuery": "Neue Abfrage",
+      "backToAssistant": "Zurück zum Assistenten"
+    },
+    "read": {
+      "aiInterpretation": "KI-Interpretation",
+      "resultsCount": "{count} Ergebnisse",
+      "grouping": "Gruppierung",
+      "attendees": "Teilnehmer ({count})",
+      "moreItems": "+{count} weitere",
+      "noResults": "Keine Ergebnisse gefunden",
+      "noResultsHint": "Versuche eine andere Formulierung oder pruefe ob die entsprechenden Daten vorhanden sind.",
+      "dateUnknown": "Datum unbekannt",
+      "locationUnknown": "Ort unbekannt",
+      "noDetails": "Keine Details",
+      "entity": "Entity",
+      "facet": "Facet"
+    },
+    "assistant": {
+      "elementsCreated": "{count} Elemente erstellt",
+      "executionError": "Fehler bei der Ausführung",
+      "resultsFound": "{count} Ergebnisse gefunden"
+    },
+    "errors": {
+      "noWriteOperation": "Keine Schreib-Operation erkannt",
+      "queryError": "Fehler bei der Abfrage"
+    }
+  }
+}

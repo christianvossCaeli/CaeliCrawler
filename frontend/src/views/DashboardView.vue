@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1 class="text-h4 mb-6">Dashboard</h1>
+    <h1 class="text-h4 mb-6">{{ $t('dashboard.title') }}</h1>
 
     <!-- Stats Cards -->
     <v-row>
@@ -9,7 +9,7 @@
           <v-card-text class="text-center">
             <v-icon size="48" color="primary" class="mb-2">mdi-folder-multiple</v-icon>
             <div class="text-h4">{{ stats.categories }}</div>
-            <div class="text-subtitle-1">Kategorien</div>
+            <div class="text-subtitle-1">{{ $t('dashboard.stats.categories') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -19,7 +19,7 @@
           <v-card-text class="text-center">
             <v-icon size="48" color="success" class="mb-2">mdi-web</v-icon>
             <div class="text-h4">{{ stats.sources }}</div>
-            <div class="text-subtitle-1">Datenquellen</div>
+            <div class="text-subtitle-1">{{ $t('dashboard.stats.dataSources') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -29,7 +29,7 @@
           <v-card-text class="text-center">
             <v-icon size="48" color="info" class="mb-2">mdi-file-document-multiple</v-icon>
             <div class="text-h4">{{ stats.documents }}</div>
-            <div class="text-subtitle-1">Dokumente</div>
+            <div class="text-subtitle-1">{{ $t('dashboard.stats.documents') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -39,7 +39,7 @@
           <v-card-text class="text-center">
             <v-icon size="48" color="warning" class="mb-2">mdi-robot</v-icon>
             <div class="text-h4">{{ crawlerStatus.running_jobs }}</div>
-            <div class="text-subtitle-1">Aktive Crawler</div>
+            <div class="text-subtitle-1">{{ $t('dashboard.stats.activeCrawlers') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -52,9 +52,9 @@
           <v-progress-linear indeterminate color="info" height="3"></v-progress-linear>
           <v-card-title class="d-flex align-center">
             <v-icon left color="info" class="mdi-spin">mdi-loading</v-icon>
-            <span class="ml-2">Aktive Crawler</span>
+            <span class="ml-2">{{ $t('dashboard.stats.activeCrawlers') }}</span>
             <v-spacer></v-spacer>
-            <v-chip size="small" color="info" variant="tonal">Auto-Update aktiv</v-chip>
+            <v-chip size="small" color="info" variant="tonal">{{ $t('dashboard.crawlerStatus.autoUpdateActive') }}</v-chip>
           </v-card-title>
           <v-card-text>
             <v-list>
@@ -71,20 +71,20 @@
                   <div class="d-flex align-center flex-wrap mt-1 ga-1">
                     <v-chip size="x-small" color="primary" variant="tonal">
                       <v-icon size="small" start>mdi-file-document</v-icon>
-                      {{ job.documents_found }} Dokumente
+                      {{ job.documents_found }} {{ $t('dashboard.activeCrawlers.documents') }}
                     </v-chip>
                     <v-chip size="x-small" color="success" variant="tonal">
                       <v-icon size="small" start>mdi-new-box</v-icon>
-                      {{ job.documents_new }} neu
+                      {{ job.documents_new }} {{ $t('dashboard.activeCrawlers.new') }}
                     </v-chip>
                     <v-chip size="x-small" color="warning" variant="tonal" v-if="job.error_count > 0">
                       <v-icon size="small" start>mdi-alert</v-icon>
-                      {{ job.error_count }} Fehler
+                      {{ job.error_count }} {{ $t('dashboard.activeCrawlers.errors') }}
                     </v-chip>
                   </div>
                   <div class="text-caption text-medium-emphasis mt-1">
-                    Gestartet: {{ formatTime(job.started_at) }} |
-                    Laufzeit: {{ getRuntime(job.started_at) }}
+                    {{ $t('dashboard.activeCrawlers.started') }}: {{ formatTime(job.started_at) }} |
+                    {{ $t('dashboard.activeCrawlers.runtime') }}: {{ getRuntime(job.started_at) }}
                   </div>
                 </v-list-item-subtitle>
               </v-list-item>
@@ -100,7 +100,7 @@
         <v-card>
           <v-card-title>
             <v-icon left>mdi-robot</v-icon>
-            Crawler Status
+            {{ $t('dashboard.crawlerStatus.title') }}
           </v-card-title>
           <v-card-text>
             <v-list>
@@ -108,7 +108,7 @@
                 <template v-slot:prepend>
                   <v-icon color="success">mdi-circle</v-icon>
                 </template>
-                <v-list-item-title>Aktive Workers</v-list-item-title>
+                <v-list-item-title>{{ $t('dashboard.crawlerStatus.activeWorkers') }}</v-list-item-title>
                 <template v-slot:append>
                   <span class="text-h6">{{ crawlerStatus.worker_count }}</span>
                 </template>
@@ -117,7 +117,7 @@
                 <template v-slot:prepend>
                   <v-icon color="info">mdi-run</v-icon>
                 </template>
-                <v-list-item-title>Laufende Jobs</v-list-item-title>
+                <v-list-item-title>{{ $t('dashboard.crawlerStatus.runningJobs') }}</v-list-item-title>
                 <template v-slot:append>
                   <span class="text-h6">{{ crawlerStatus.running_jobs }}</span>
                 </template>
@@ -126,7 +126,7 @@
                 <template v-slot:prepend>
                   <v-icon color="warning">mdi-clock-outline</v-icon>
                 </template>
-                <v-list-item-title>Wartende Jobs</v-list-item-title>
+                <v-list-item-title>{{ $t('dashboard.crawlerStatus.pendingJobs') }}</v-list-item-title>
                 <template v-slot:append>
                   <span class="text-h6">{{ crawlerStatus.pending_jobs }}</span>
                 </template>
@@ -140,7 +140,7 @@
         <v-card>
           <v-card-title>
             <v-icon left>mdi-history</v-icon>
-            Letzte Crawl-Jobs
+            {{ $t('dashboard.recentJobs.title') }}
           </v-card-title>
           <v-card-text>
             <v-list v-if="recentJobs.length > 0">
@@ -155,13 +155,13 @@
                 </template>
                 <v-list-item-title>{{ job.source_name }}</v-list-item-title>
                 <v-list-item-subtitle>
-                  {{ job.documents_found }} Dokumente gefunden
+                  {{ job.documents_found }} {{ $t('dashboard.recentJobs.documentsFound') }}
                 </v-list-item-subtitle>
               </v-list-item>
             </v-list>
             <div v-else class="text-center py-4">
               <v-icon size="48" color="grey">mdi-information-outline</v-icon>
-              <p class="text-subtitle-1 mt-2">Noch keine Crawl-Jobs vorhanden</p>
+              <p class="text-subtitle-1 mt-2">{{ $t('dashboard.recentJobs.noJobs') }}</p>
             </div>
           </v-card-text>
         </v-card>
@@ -172,23 +172,23 @@
     <v-row class="mt-4">
       <v-col cols="12">
         <v-card>
-          <v-card-title>Schnellaktionen</v-card-title>
+          <v-card-title>{{ $t('dashboard.quickActions.title') }}</v-card-title>
           <v-card-text>
             <v-btn color="primary" class="mr-2" to="/categories">
               <v-icon left>mdi-plus</v-icon>
-              Neue Kategorie
+              {{ $t('dashboard.quickActions.newCategory') }}
             </v-btn>
             <v-btn color="success" class="mr-2" to="/sources">
               <v-icon left>mdi-web-plus</v-icon>
-              Neue Datenquelle
+              {{ $t('dashboard.quickActions.newDataSource') }}
             </v-btn>
             <v-btn color="warning" class="mr-2" @click="showStartCrawlerDialog = true">
               <v-icon left>mdi-play</v-icon>
-              Crawler starten
+              {{ $t('dashboard.quickActions.startCrawler') }}
             </v-btn>
             <v-btn color="info" to="/export">
               <v-icon left>mdi-export</v-icon>
-              Daten exportieren
+              {{ $t('dashboard.quickActions.exportData') }}
             </v-btn>
           </v-card-text>
         </v-card>
@@ -200,14 +200,14 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon class="mr-2">mdi-spider-web</v-icon>
-          Crawler starten
+          {{ $t('dashboard.startCrawlerDialog.title') }}
         </v-card-title>
         <v-card-text>
           <!-- Estimated count -->
           <v-alert :type="filteredSourceCount > 100 ? 'warning' : 'info'" class="mb-4">
             <div class="d-flex align-center justify-space-between">
               <span>
-                <strong>{{ filteredSourceCount.toLocaleString() }}</strong> Datenquellen werden gecrawlt
+                <strong>{{ filteredSourceCount.toLocaleString() }}</strong> {{ $t('dashboard.startCrawlerDialog.sourcesWillBeCrawled') }}
               </span>
               <v-btn
                 v-if="hasAnyFilter"
@@ -215,7 +215,7 @@
                 variant="text"
                 @click="resetCrawlerFilters"
               >
-                Filter zurücksetzen
+                {{ $t('dashboard.startCrawlerDialog.resetFilters') }}
               </v-btn>
             </div>
           </v-alert>
@@ -227,7 +227,7 @@
                 :items="crawlerCategories"
                 item-title="name"
                 item-value="id"
-                label="Kategorie"
+                :label="$t('dashboard.startCrawlerDialog.category')"
                 clearable
                 density="comfortable"
                 @update:model-value="updateFilteredCount"
@@ -239,7 +239,7 @@
                 :items="countryOptions"
                 item-title="label"
                 item-value="value"
-                label="Land"
+                :label="$t('dashboard.startCrawlerDialog.country')"
                 clearable
                 density="comfortable"
                 @update:model-value="updateFilteredCount"
@@ -251,25 +251,25 @@
             <v-col cols="12" md="6">
               <v-text-field
                 v-model="crawlerFilter.search"
-                label="Suche (Name/URL)"
+                :label="$t('dashboard.startCrawlerDialog.searchNameUrl')"
                 prepend-inner-icon="mdi-magnify"
                 clearable
                 density="comfortable"
-                hint="Filtert nach Name oder URL"
+                :hint="$t('dashboard.startCrawlerDialog.filterHint')"
                 @update:model-value="debouncedUpdateFilteredCount"
               ></v-text-field>
             </v-col>
             <v-col cols="12" md="6">
               <v-text-field
                 v-model.number="crawlerFilter.limit"
-                label="Maximale Anzahl"
+                :label="$t('dashboard.startCrawlerDialog.maxCount')"
                 type="number"
                 :min="1"
                 :max="10000"
                 prepend-inner-icon="mdi-numeric"
                 clearable
                 density="comfortable"
-                hint="Leer = alle"
+                :hint="$t('dashboard.startCrawlerDialog.emptyAllLabel')"
                 persistent-hint
               ></v-text-field>
             </v-col>
@@ -280,13 +280,13 @@
               <v-select
                 v-model="crawlerFilter.status"
                 :items="[
-                  { value: 'ACTIVE', label: 'Aktiv' },
-                  { value: 'PENDING', label: 'Ausstehend' },
-                  { value: 'ERROR', label: 'Fehler' },
+                  { value: 'ACTIVE', label: t('dashboard.startCrawlerDialog.statusOptions.active') },
+                  { value: 'PENDING', label: t('dashboard.startCrawlerDialog.statusOptions.pending') },
+                  { value: 'ERROR', label: t('dashboard.startCrawlerDialog.statusOptions.error') },
                 ]"
                 item-title="label"
                 item-value="value"
-                label="Status"
+                :label="$t('dashboard.startCrawlerDialog.status')"
                 clearable
                 density="comfortable"
                 @update:model-value="updateFilteredCount"
@@ -296,13 +296,13 @@
               <v-select
                 v-model="crawlerFilter.source_type"
                 :items="[
-                  { value: 'WEBSITE', label: 'Website' },
-                  { value: 'OPARL_API', label: 'OParl API' },
-                  { value: 'RSS', label: 'RSS Feed' },
+                  { value: 'WEBSITE', label: t('dashboard.startCrawlerDialog.sourceTypes.website') },
+                  { value: 'OPARL_API', label: t('dashboard.startCrawlerDialog.sourceTypes.oparlApi') },
+                  { value: 'RSS', label: t('dashboard.startCrawlerDialog.sourceTypes.rssFeed') },
                 ]"
                 item-title="label"
                 item-value="value"
-                label="Quellentyp"
+                :label="$t('dashboard.startCrawlerDialog.sourceType')"
                 clearable
                 density="comfortable"
                 @update:model-value="updateFilteredCount"
@@ -314,15 +314,15 @@
 
           <v-alert v-if="filteredSourceCount > 500" type="error" variant="tonal" density="compact">
             <v-icon>mdi-alert</v-icon>
-            Mehr als 500 Quellen - bitte Filter oder Limit setzen!
+            {{ $t('dashboard.startCrawlerDialog.moreThan500Warning') }}
           </v-alert>
         </v-card-text>
         <v-card-actions>
           <v-chip size="small" variant="tonal">
-            {{ filteredSourceCount.toLocaleString() }} Quellen
+            {{ filteredSourceCount.toLocaleString() }} {{ $t('dashboard.startCrawlerDialog.sources') }}
           </v-chip>
           <v-spacer></v-spacer>
-          <v-btn @click="showStartCrawlerDialog = false">Abbrechen</v-btn>
+          <v-btn @click="showStartCrawlerDialog = false">{{ $t('dashboard.startCrawlerDialog.cancel') }}</v-btn>
           <v-btn
             color="warning"
             :loading="startingCrawlers"
@@ -330,7 +330,7 @@
             @click="startFilteredCrawlers"
           >
             <v-icon left>mdi-play</v-icon>
-            Crawler starten
+            {{ $t('dashboard.quickActions.startCrawler') }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -340,7 +340,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
+
+const { t } = useI18n()
 
 const stats = ref({
   categories: 0,
@@ -366,8 +369,8 @@ const startingCrawlers = ref(false)
 const crawlerCategories = ref<any[]>([])
 const filteredSourceCount = ref(0)
 const countryOptions = ref([
-  { value: 'DE', label: 'Deutschland' },
-  { value: 'GB', label: 'United Kingdom' },
+  { value: 'DE', label: t('dashboard.countries.germany') },
+  { value: 'GB', label: t('dashboard.countries.unitedKingdom') },
 ])
 const crawlerFilter = ref({
   category_id: null as string | null,
@@ -533,8 +536,9 @@ const loadData = async () => {
     stats.value.documents = statsResponse.data.total_documents
 
     // Start/stop auto-refresh based on running jobs
+    // Performance: Use 15 second interval instead of 5 to reduce API load (720 -> 240 calls/hour)
     if (runningJobs.value.length > 0 && !refreshInterval) {
-      refreshInterval = window.setInterval(loadData, 5000) // Refresh every 5 seconds
+      refreshInterval = window.setInterval(loadData, 15000) // Refresh every 15 seconds
     } else if (runningJobs.value.length === 0 && refreshInterval) {
       clearInterval(refreshInterval)
       refreshInterval = null
@@ -550,8 +554,14 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  // Clean up all timers to prevent memory leaks
   if (refreshInterval) {
     clearInterval(refreshInterval)
+    refreshInterval = null
+  }
+  if (filterTimeout) {
+    clearTimeout(filterTimeout)
+    filterTimeout = null
   }
 })
 </script>

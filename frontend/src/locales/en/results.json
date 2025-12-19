@@ -1,0 +1,83 @@
+{
+  "results": {
+    "title": "Results",
+    "aiExtractedData": "AI-extracted Data",
+    "loading": {
+      "title": "Loading data",
+      "subtitle": "Retrieving extracted results..."
+    },
+    "filters": {
+      "fulltext": "Full-text Search",
+      "fulltextPlaceholder": "Summary, pain points, etc.",
+      "location": "Location",
+      "analysisType": "Analysis Type",
+      "category": "Category",
+      "minConfidence": "Min. Confidence",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "resetFilters": "Reset filters"
+    },
+    "stats": {
+      "total": "Total",
+      "verified": "Verified",
+      "highConfidence": "High Confidence",
+      "avgConfidence": "Avg. Confidence"
+    },
+    "columns": {
+      "document": "Document",
+      "type": "Type",
+      "municipality": "Municipality",
+      "confidence": "Confidence",
+      "verified": "Verified",
+      "created": "Created",
+      "actions": "Actions"
+    },
+    "actions": {
+      "bulkVerify": "verify",
+      "csvExport": "CSV Export",
+      "refresh": "Refresh",
+      "viewDetails": "View details",
+      "verify": "Verify",
+      "verified": "Verified",
+      "goToDocument": "Go to document",
+      "exportJson": "Export JSON"
+    },
+    "detail": {
+      "title": "Extracted Data",
+      "sourceDocument": "Source Document",
+      "goToDocument": "Go to Document",
+      "municipality": "Municipality",
+      "notRecognized": "Not recognized",
+      "relevance": "Relevance",
+      "relevant": "Relevant",
+      "notRelevant": "Not relevant",
+      "level": "Level",
+      "summary": "Summary",
+      "painPoints": "Pain Points",
+      "positiveSignals": "Positive Signals",
+      "decisionMakers": "Decision Makers",
+      "outreachRecommendation": "Outreach Recommendation",
+      "priority": "Priority",
+      "reason": "Reason",
+      "rawData": "Raw Data (JSON)",
+      "aiMetadata": "AI Metadata",
+      "model": "Model",
+      "tokens": "Tokens",
+      "source": "Source",
+      "noTitle": "(No Title)",
+      "url": "URL"
+    },
+    "messages": {
+      "verified": "Result verified",
+      "bulkVerified": "Results verified",
+      "jsonExported": "JSON exported",
+      "csvExported": "CSV exported",
+      "copiedToClipboard": "Copied to clipboard",
+      "errorVerifying": "Error verifying",
+      "errorBulkVerifying": "Error with bulk verification",
+      "errorLoading": "Error loading data"
+    },
+    "never": "Never",
+    "noResults": "No results found"
+  }
+}

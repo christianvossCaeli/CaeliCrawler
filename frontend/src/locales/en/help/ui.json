@@ -1,0 +1,26 @@
+{
+  "help": {
+    "sidebar": {
+      "title": "Contents"
+    },
+    "sections": {
+      "intro": "Introduction",
+      "quickstart": "Quick Start",
+      "smartQuery": "Smart Query",
+      "dashboard": "Dashboard",
+      "categories": "Categories",
+      "sources": "Data Sources",
+      "crawler": "Crawler Status",
+      "documents": "Documents",
+      "municipalities": "Municipalities",
+      "entityFacet": "Entity-Facet System",
+      "results": "Results",
+      "export": "Export",
+      "notifications": "Notifications",
+      "api": "API Reference",
+      "tips": "Tips",
+      "security": "Security",
+      "troubleshooting": "Troubleshooting"
+    }
+  }
+}

@@ -1,0 +1,432 @@
+{
+  "help": {
+    "api": {
+      "title": "API Reference",
+      "description": "Complete list of all API endpoints. The interactive API documentation (Swagger/OpenAPI) is available at /docs.",
+      "fullDocumentation": "The complete interactive API documentation with all parameters and examples can be found at",
+      "or": "or",
+      "tableHeaders": {
+        "method": "Method",
+        "endpoint": "Endpoint",
+        "description": "Description"
+      }
+    },
+    "tips": {
+      "title": "Tips & Best Practices",
+      "efficientCrawling": {
+        "title": "Efficient Crawling",
+        "useBlacklist": "Use Blacklist Filters",
+        "useBlacklistDesc": "Exclude patterns filter irrelevant pages (imprint, login, etc.)",
+        "limitDepth": "Limit Max. Depth",
+        "limitDepthDesc": "Start with depth 2-3, increase only if needed",
+        "restrictDocTypes": "Restrict Document Types",
+        "restrictDocTypesDesc": "PDFs are usually more productive than HTML"
+      },
+      "betterAiResults": {
+        "title": "Better AI Results",
+        "precisePrompts": "Precise Prompts",
+        "precisePromptsDesc": "Define clear JSON structures and provide examples",
+        "optimizeKeywords": "Keyword Optimization",
+        "optimizeKeywordsDesc": "Use domain-specific terms including variants",
+        "testFirst": "Test First",
+        "testFirstDesc": "Start with few sources, then optimize"
+      },
+      "organization": {
+        "title": "Organization",
+        "separateCategories": "Separate Categories Meaningfully",
+        "separateCategoriesDesc": "One category per topic area with its own prompt",
+        "maintainLocations": "Maintain Locations",
+        "maintainLocationsDesc": "Assign a location to each source",
+        "regularMaintenance": "Regular Maintenance",
+        "regularMaintenanceDesc": "Check faulty sources and URLs"
+      }
+    },
+    "security": {
+      "title": "Security & Authentication",
+      "login": {
+        "heading": "Login",
+        "description": "CaeliCrawler uses a secure JWT-based authentication system. After logging in, you receive a token that is automatically sent with each request.",
+        "important": "Important:",
+        "tokenExpiry": "After 24 hours of inactivity, you will be automatically logged out. When you log out, the token is immediately invalidated."
+      },
+      "roles": {
+        "heading": "User Roles",
+        "role": "Role",
+        "permissions": "Permissions",
+        "admin": {
+          "fullAccess": "Full access to all features",
+          "userManagement": "User management (create, edit, delete)",
+          "auditLog": "Access to audit log and version history",
+          "systemConfig": "System configuration"
+        },
+        "editor": {
+          "manageCategories": "Manage categories and data sources",
+          "controlCrawler": "Start and stop crawler",
+          "processDocuments": "Process and analyze documents",
+          "exportResults": "Export results"
+        },
+        "viewer": {
+          "viewData": "View all data",
+          "exportResults": "Export results",
+          "noEditRights": "No editing rights"
+        }
+      },
+      "password": {
+        "heading": "Password Policies",
+        "requirements": "Requirements:",
+        "minLength": "At least 8 characters",
+        "uppercase": "At least one uppercase letter (A-Z)",
+        "lowercase": "At least one lowercase letter (a-z)",
+        "digit": "At least one digit (0-9)",
+        "specialChar": "Special characters recommended (increases security score)"
+      },
+      "features": {
+        "heading": "Security Features",
+        "rateLimit": {
+          "title": "Rate Limiting (Brute-Force Protection)",
+          "description": "The system protects against automated login attempts:",
+          "action": "Action",
+          "limit": "Limit",
+          "timeWindow": "Time Window",
+          "loginAttempts": "Login attempts",
+          "failedLogins": "Failed logins",
+          "passwordChanges": "Password changes",
+          "apiRequests": "API requests general",
+          "perMinute": "per minute",
+          "per5Minutes": "per 5 minutes",
+          "per15Minutes": "per 15 minutes",
+          "note": "If exceeded, you will receive an error message with the remaining wait time."
+        },
+        "tokenBlacklist": {
+          "title": "Token Blacklist (Immediate Logout)",
+          "description": "When you log out, your token is immediately added to a blacklist. Even if someone intercepts your token, it cannot be used after logout.",
+          "note": "This feature uses Redis for real-time invalidation."
+        },
+        "encryption": {
+          "title": "Encryption & Hashing",
+          "passwordHashing": "Password Hashing",
+          "passwordHashingValue": "bcrypt (secure one-way encryption)",
+          "tokenSignature": "Token Signature",
+          "tokenSignatureValue": "HS256 with secure secret key",
+          "transport": "Transport",
+          "transportValue": "HTTPS (TLS 1.3) in production"
+        },
+        "auditLog": {
+          "title": "Audit Logging & Versioning",
+          "auditLogHeading": "Audit Log:",
+          "description": "Every action is logged:",
+          "who": "Who made the change?",
+          "when": "When was the change made?",
+          "what": "What was changed (before/after)?",
+          "versioningHeading": "Versioning:",
+          "versioningDescription": "Diff-based change history:",
+          "onlyChanges": "Only changes are stored (efficient)",
+          "fullState": "Full state reconstructible at any point in time",
+          "snapshots": "Periodic snapshots for quick recovery"
+        }
+      },
+      "changePassword": {
+        "heading": "Change Password",
+        "step1": "Click on your username in the top right",
+        "step2": "Select \"Change Password\"",
+        "step3": "Enter your current and new password",
+        "step4": "The password strength indicator shows the security"
+      },
+      "adminFunctions": {
+        "heading": "Admin Functions",
+        "adminOnly": "For administrators only:",
+        "description": "These functions are only available with the ADMIN role.",
+        "userManagement": {
+          "heading": "User Management",
+          "createUsers": "Create new users",
+          "assignRoles": "Assign roles",
+          "resetPasswords": "Reset passwords",
+          "deactivateUsers": "Deactivate users"
+        },
+        "auditLog": {
+          "heading": "Audit Log",
+          "viewActivities": "View all system activities",
+          "filterByUser": "Filter by user/time",
+          "trackChanges": "Track changes",
+          "securityChecks": "Perform security checks"
+        }
+      }
+    },
+    "troubleshooting": {
+      "title": "Troubleshooting",
+      "noDocuments": {
+        "title": "Crawler finds no documents",
+        "possibleCauses": "Possible causes:",
+        "causes": {
+          "excludePatterns": "Exclude patterns (blacklist) exclude too much",
+          "includePatterns": "Include patterns (whitelist) too restrictive (if set)",
+          "hiddenBehindJs": "Documents are hidden behind JavaScript",
+          "blockedCrawler": "Page blocks crawler (User-Agent)"
+        },
+        "solutions": "Solutions:",
+        "solutionSteps": {
+          "checkBlacklist": "Check blacklist and remove patterns if necessary",
+          "emptyWhitelist": "Empty whitelist (recommended) - AI filters relevant content",
+          "enableJs": "Enable JavaScript rendering",
+          "increaseDepth": "Increase max depth"
+        }
+      },
+      "noAiResults": {
+        "title": "AI analysis returns no results",
+        "possibleCauses": "Possible causes:",
+        "causes": {
+          "strictKeywords": "Keyword filter too strict",
+          "noRelevantContent": "Documents contain no relevant content",
+          "unsuitablePrompt": "Prompt not suitable"
+        },
+        "solutions": "Solutions:",
+        "solutionSteps": {
+          "expandKeywords": "Expand keywords",
+          "analyzeFiltered": "Use \"Analyze filtered\"",
+          "optimizePrompt": "Optimize prompt"
+        }
+      },
+      "pendingDocuments": {
+        "title": "Documents remain in \"Pending\"",
+        "possibleCauses": "Possible causes:",
+        "causes": {
+          "workerInactive": "Worker not active",
+          "queueOverloaded": "Queue overloaded"
+        },
+        "solutions": "Solutions:",
+        "solutionSteps": {
+          "checkWorker": "Check worker status in crawler",
+          "manualProcess": "Click \"Process pending\" manually"
+        }
+      },
+      "statusCodes": {
+        "heading": "Status Codes",
+        "status": "Status",
+        "meaning": "Meaning",
+        "action": "Action",
+        "pending": {
+          "meaning": "Waiting for processing",
+          "action": "Wait or start manually"
+        },
+        "processing": {
+          "meaning": "Being processed",
+          "action": "Wait"
+        },
+        "analyzing": {
+          "meaning": "AI analysis running",
+          "action": "Wait"
+        },
+        "completed": {
+          "meaning": "Successful",
+          "action": "No action needed"
+        },
+        "filtered": {
+          "meaning": "Filtered by keywords",
+          "action": "Analyze manually if necessary"
+        },
+        "failed": {
+          "meaning": "Error occurred",
+          "action": "Check error, try again"
+        }
+      }
+    },
+    "apiGroups": {
+      "categories": {
+        "title": "Categories",
+        "endpoints": {
+          "list": "List all categories",
+          "create": "Create new category",
+          "get": "Get category",
+          "update": "Update category",
+          "delete": "Delete category",
+          "stats": "Category statistics"
+        }
+      },
+      "sources": {
+        "title": "Data Sources",
+        "endpoints": {
+          "list": "List all sources (with filters)",
+          "create": "Create new source",
+          "bulkImport": "Import multiple sources",
+          "countries": "Available countries",
+          "locations": "Available locations",
+          "get": "Get source",
+          "update": "Update source",
+          "delete": "Delete source",
+          "reset": "Reset source"
+        }
+      },
+      "crawler": {
+        "title": "Crawler",
+        "endpoints": {
+          "start": "Start crawl",
+          "status": "Crawler status (worker, queue)",
+          "stats": "Crawler statistics",
+          "running": "Running jobs",
+          "jobs": "All jobs (with filters)",
+          "jobDetails": "Job details",
+          "jobLog": "Job log",
+          "cancelJob": "Cancel job",
+          "reanalyze": "Reanalyze documents"
+        }
+      },
+      "aiTasks": {
+        "title": "AI Tasks & Documents",
+        "endpoints": {
+          "list": "All AI tasks",
+          "running": "Running AI tasks",
+          "cancel": "Cancel AI task",
+          "processDocument": "Process document",
+          "analyzeDocument": "Analyze document",
+          "processPending": "Process all pending",
+          "stopAll": "Stop processing",
+          "reanalyzeFiltered": "Reanalyze filtered"
+        }
+      },
+      "locations": {
+        "title": "Locations",
+        "endpoints": {
+          "list": "All locations",
+          "get": "Get single location",
+          "search": "Search locations",
+          "withSources": "Locations with sources",
+          "countries": "Available countries",
+          "states": "States/Bundesländer",
+          "adminLevels": "Admin levels (Level 1/2)",
+          "create": "Create location",
+          "update": "Update location",
+          "delete": "Delete location",
+          "linkSources": "Link sources",
+          "enrichAdminLevels": "Enrich admin levels"
+        }
+      },
+      "publicApi": {
+        "title": "Public API (v1/data)",
+        "endpoints": {
+          "data": "Extracted data (with filters)",
+          "stats": "Extraction statistics",
+          "locations": "Locations with extractions",
+          "countries": "Countries with extractions",
+          "documents": "All documents",
+          "documentDetails": "Document details",
+          "documentLocations": "Document locations",
+          "search": "Full-text search",
+          "verify": "Verify extraction"
+        }
+      },
+      "entities": {
+        "title": "Entities",
+        "endpoints": {
+          "list": "All entities (with filters)",
+          "create": "Create entity",
+          "get": "Get entity",
+          "update": "Update entity",
+          "delete": "Delete entity",
+          "brief": "Brief overview",
+          "children": "Child entities",
+          "hierarchy": "Hierarchy by type",
+          "filterLocation": "Location filter options",
+          "filterAttributes": "Attribute filter options"
+        }
+      },
+      "smartQuery": {
+        "title": "Smart Query & Analysis",
+        "note": "Smart Query enables AI-powered natural language queries and automatic creation of categories.",
+        "endpoints": {
+          "query": "Execute Smart Query (Read-Mode)",
+          "write": "Execute Smart Write (Write-Mode)",
+          "examples": "Example queries",
+          "templates": "Analysis templates",
+          "createTemplate": "Create template",
+          "getTemplate": "Get template",
+          "updateTemplate": "Update template",
+          "deleteTemplate": "Delete template",
+          "overview": "Analysis overview",
+          "report": "Entity report",
+          "stats": "Analysis statistics"
+        }
+      },
+      "municipalities": {
+        "title": "Municipalities & Reports",
+        "endpoints": {
+          "list": "All municipalities",
+          "report": "Municipality report",
+          "documents": "Municipality documents",
+          "overview": "Overview report",
+          "history": "Municipality history",
+          "crawlHistory": "Crawl history"
+        }
+      },
+      "export": {
+        "title": "Export",
+        "endpoints": {
+          "json": "JSON export",
+          "csv": "CSV export",
+          "changes": "Change feed",
+          "webhookTest": "Test webhook"
+        }
+      },
+      "pysis": {
+        "title": "PySis Integration (Optional)",
+        "note": "PySis is an optional integration for synchronization with external process management systems. Requires Azure AD configuration.",
+        "templates": {
+          "heading": "Templates",
+          "endpoints": {
+            "list": "List all templates",
+            "create": "Create template",
+            "get": "Get template",
+            "update": "Update template",
+            "delete": "Delete template"
+          }
+        },
+        "processes": {
+          "heading": "Processes",
+          "endpoints": {
+            "available": "Available processes",
+            "locationProcesses": "Processes of a location",
+            "createForLocation": "Create process for location",
+            "details": "Process details",
+            "update": "Update process",
+            "delete": "Delete process",
+            "applyTemplate": "Apply template",
+            "generate": "AI-generate fields",
+            "syncPull": "Load from PySis",
+            "syncPush": "Send to PySis"
+          }
+        },
+        "fields": {
+          "heading": "Fields",
+          "endpoints": {
+            "list": "Fields of a process",
+            "add": "Add field",
+            "update": "Update field",
+            "setValue": "Set field value",
+            "delete": "Delete field",
+            "generate": "Generate AI suggestion",
+            "acceptAi": "Accept AI suggestion",
+            "rejectAi": "Reject AI suggestion",
+            "syncPush": "Send field to PySis",
+            "history": "Field change history",
+            "restore": "Restore version"
+          }
+        },
+        "connection": {
+          "heading": "Connection",
+          "endpoints": {
+            "test": "Test connection"
+          }
+        }
+      },
+      "system": {
+        "title": "System & Health",
+        "endpoints": {
+          "root": "Root endpoint (API info)",
+          "health": "Health check",
+          "swagger": "Swagger UI (interactive docs)",
+          "redoc": "ReDoc (alternative docs)",
+          "openapi": "OpenAPI schema"
+        }
+      }
+    }
+  }
+}

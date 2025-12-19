@@ -20,6 +20,7 @@ export interface User {
   is_superuser: boolean
   last_login: string | null
   created_at: string
+  language: string
 }
 
 interface LoginResponse {
@@ -173,6 +174,19 @@ export const useAuthStore = defineStore('auth', () => {
     return roleHierarchy[user.value.role] >= roleHierarchy[role]
   }
 
+  async function updateLanguage(language: string): Promise<boolean> {
+    try {
+      await api.put('/auth/language', { language })
+      if (user.value) {
+        user.value.language = language
+      }
+      return true
+    } catch (err) {
+      console.error('Failed to update language preference:', err)
+      return false
+    }
+  }
+
   // Initialize on store creation
   if (token.value && !initialized.value) {
     fetchCurrentUser()
@@ -203,5 +217,6 @@ export const useAuthStore = defineStore('auth', () => {
     fetchCurrentUser,
     changePassword,
     hasRole,
+    updateLanguage,
   }
 })

@@ -1,0 +1,110 @@
+{
+  "errors": {
+    "not_found": "{resource} not found",
+    "not_found_detail": "{resource} with identifier '{identifier}' does not exist",
+    "conflict": "Conflict: {message}",
+    "validation": "Validation error: {message}",
+    "crawler": "Crawler error: {message}",
+    "external_service": "Error communicating with {service}",
+    "invalid_credentials": "Invalid email or password",
+    "account_deactivated": "User account is deactivated",
+    "current_password_incorrect": "Current password is incorrect",
+    "password_requirements": "Password does not meet requirements",
+    "token_invalid": "Token invalid or expired",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Access denied",
+    "rate_limited": "Too many requests. Please wait a moment.",
+    "internal_server": "Internal server error",
+    "invalid_status": "Invalid status: {status}",
+    "invalid_source_type": "Invalid source type: {source_type}",
+    "can_only_cancel_running": "Can only cancel running jobs",
+    "document_no_text": "Document has no extracted text - process it first",
+    "unsupported_country": "Unsupported country: {country}",
+    "category_required": "Category is required",
+    "pysis_not_configured": "PySis API credentials not configured",
+    "language_unsupported": "Unsupported language: {language}"
+  },
+  "messages": {
+    "password_changed": "Password changed successfully",
+    "logged_out": "Logged out successfully",
+    "job_cancelled": "Job cancelled",
+    "document_queued": "Document queued for processing",
+    "processing_stopped": "Processing stopped. {count} documents reset.",
+    "crawl_started": "Crawl started",
+    "analysis_started": "Analysis started",
+    "language_updated": "Language preference updated",
+    "user_created": "User created successfully",
+    "user_updated": "User updated successfully",
+    "user_deleted": "User deleted successfully",
+    "password_reset": "Password has been reset",
+    "locations_enriched": "Enriched {enriched} of {total} locations",
+    "source_created": "Data source created successfully",
+    "source_updated": "Data source updated successfully",
+    "source_deleted": "Data source deleted successfully",
+    "category_created": "Category created successfully",
+    "category_updated": "Category updated successfully",
+    "category_deleted": "Category deleted successfully"
+  },
+  "analysis": {
+    "no_write_operation": "No write operation detected. Please rephrase the command.",
+    "preview_message": "Preview of planned action",
+    "confirmation_required": "Confirmation required. Set confirmed=true to proceed.",
+    "operations": {
+      "create_entity": "Create entity",
+      "create_entity_type": "Create entity type",
+      "create_facet": "Add facet",
+      "create_relation": "Create relation",
+      "update_entity": "Update entity",
+      "create_category_setup": "Create category setup",
+      "start_crawl": "Start crawl",
+      "combined": "Combined operations"
+    },
+    "entity_types": {
+      "municipality": "Municipality",
+      "person": "Person",
+      "organization": "Organization",
+      "event": "Event"
+    }
+  },
+  "reports": {
+    "no_documents": "No documents found for this municipality"
+  },
+  "crawler": {
+    "starting": "Starting crawler...",
+    "running": "Crawler running",
+    "completed": "Crawl completed",
+    "failed": "Crawl failed: {error}",
+    "cancelled": "Crawl cancelled",
+    "processing_document": "Processing document: {title}",
+    "documents_found": "{count} documents found",
+    "no_new_documents": "No new documents found"
+  },
+  "notifications": {
+    "new_document": "New document found",
+    "analysis_complete": "Analysis complete",
+    "high_relevance": "High relevance detected",
+    "crawler_error": "Crawler error occurred"
+  },
+  "resources": {
+    "user": "User",
+    "document": "Document",
+    "category": "Category",
+    "source": "Data source",
+    "entity": "Entity",
+    "entity_type": "Entity type",
+    "facet": "Facet",
+    "relation": "Relation",
+    "notification": "Notification",
+    "crawl_job": "Crawl job"
+  },
+  "audit": {
+    "actions": {
+      "CREATE": "Created",
+      "UPDATE": "Updated",
+      "DELETE": "Deleted",
+      "LOGIN": "Login",
+      "LOGOUT": "Logout",
+      "PASSWORD_CHANGE": "Password change"
+    }
+  }
+}

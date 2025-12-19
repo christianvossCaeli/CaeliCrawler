@@ -4,9 +4,9 @@
     <v-overlay :model-value="loading" class="align-center justify-center" persistent scrim="rgba(0,0,0,0.7)">
       <v-card class="pa-8 text-center" min-width="320" elevation="24">
         <v-progress-circular indeterminate size="80" width="6" color="primary" class="mb-4"></v-progress-circular>
-        <div class="text-h6 mb-2">Daten werden geladen</div>
+        <div class="text-h6 mb-2">{{ t('entities.loadingData') }}</div>
         <div class="text-body-2 text-grey">
-          {{ totalEntities > 0 ? `${totalEntities.toLocaleString()} ${currentEntityType?.name_plural || 'Eintraege'}` : 'Bitte warten...' }}
+          {{ totalEntities > 0 ? `${totalEntities.toLocaleString()} ${currentEntityType?.name_plural || t('entities.entries')}` : t('common.pleaseWait') }}
         </div>
       </v-card>
     </v-overlay>
@@ -29,7 +29,7 @@
         </v-btn>
         <v-btn color="primary" @click="createDialog = true">
           <v-icon start>mdi-plus</v-icon>
-          Neu anlegen
+          {{ t('entities.createNew') }}
         </v-btn>
       </div>
     </div>
@@ -61,7 +61,7 @@
         <v-card class="stats-card stats-card--primary">
           <v-card-text class="text-center">
             <div class="text-h4">{{ stats.total_facet_values || 0 }}</div>
-            <div class="text-subtitle-1">Facet-Werte</div>
+            <div class="text-subtitle-1">{{ t('entities.facetValues') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -69,7 +69,7 @@
         <v-card class="stats-card stats-card--success">
           <v-card-text class="text-center">
             <div class="text-h4">{{ stats.verified_count || 0 }}</div>
-            <div class="text-subtitle-1">Verifiziert</div>
+            <div class="text-subtitle-1">{{ t('entities.verified') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -77,7 +77,7 @@
         <v-card class="stats-card stats-card--tertiary">
           <v-card-text class="text-center">
             <div class="text-h4">{{ stats.relation_count || 0 }}</div>
-            <div class="text-subtitle-1">Verknuepfungen</div>
+            <div class="text-subtitle-1">{{ t('entities.relations') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -90,7 +90,7 @@
           <v-col cols="12" md="3">
             <v-text-field
               v-model="searchQuery"
-              label="Suchen"
+              :label="t('common.search')"
               prepend-inner-icon="mdi-magnify"
               clearable
               hide-details
@@ -103,7 +103,7 @@
               :items="categories"
               item-title="name"
               item-value="id"
-              label="Kategorie"
+              :label="t('entities.category')"
               clearable
               hide-details
               @update:model-value="loadEntities"
@@ -116,7 +116,7 @@
               :loading="loadingParents"
               item-title="name"
               item-value="id"
-              label="Uebergeordnet"
+              :label="t('entities.parent')"
               clearable
               hide-details
               @update:search="searchParents"
@@ -129,7 +129,7 @@
               :items="facetFilterOptions"
               item-title="label"
               item-value="value"
-              label="Mit Facets"
+              :label="t('entities.withFacets')"
               hide-details
               @update:model-value="loadEntities"
             ></v-select>
@@ -158,7 +158,7 @@
               color="error"
               size="small"
               @click="clearAllFilters"
-              title="Alle Filter zuruecksetzen"
+              :title="t('entities.resetAllFilters')"
             >
               <v-icon>mdi-filter-off</v-icon>
             </v-btn>
@@ -191,7 +191,7 @@
       <v-card>
         <v-toolbar color="primary" density="compact">
           <v-icon class="ml-4">mdi-tune</v-icon>
-          <v-toolbar-title>Erweiterte Filter</v-toolbar-title>
+          <v-toolbar-title>{{ $t('entities.extendedFilters') }}</v-toolbar-title>
           <v-spacer></v-spacer>
           <v-btn icon @click="extendedFilterDialog = false">
             <v-icon>mdi-close</v-icon>
@@ -201,7 +201,7 @@
         <v-card-text class="pa-0">
           <div v-if="schemaAttributes.length === 0" class="text-grey text-center py-8">
             <v-icon size="48" color="grey-lighten-1" class="mb-2">mdi-filter-off</v-icon>
-            <div>Keine filterbaren Attribute verfuegbar</div>
+            <div>{{ $t('entities.noFilterableAttributes') }}</div>
           </div>
 
           <template v-else>
@@ -209,7 +209,7 @@
             <div v-if="locationAttributes.length > 0" class="filter-section">
               <div class="filter-section-header">
                 <v-icon size="small" class="mr-2">mdi-map-marker</v-icon>
-                Standort
+                {{ $t('entities.location') }}
               </div>
               <div class="filter-section-content">
                 <v-row dense>
@@ -217,7 +217,7 @@
                     <v-select
                       v-model="tempExtendedFilters.country"
                       :items="locationOptions.countries"
-                      label="Land"
+                      :label="$t('entities.country')"
                       density="compact"
                       variant="outlined"
                       clearable
@@ -230,7 +230,7 @@
                     <v-select
                       v-model="tempExtendedFilters.admin_level_1"
                       :items="locationOptions.admin_level_1"
-                      label="Region"
+                      :label="$t('entities.region')"
                       density="compact"
                       variant="outlined"
                       :disabled="!tempExtendedFilters.country"
@@ -243,7 +243,7 @@
                     <v-select
                       v-model="tempExtendedFilters.admin_level_2"
                       :items="locationOptions.admin_level_2"
-                      label="Bezirk"
+                      :label="$t('entities.district')"
                       density="compact"
                       variant="outlined"
                       :disabled="!tempExtendedFilters.admin_level_1"
@@ -259,7 +259,7 @@
             <div v-if="nonLocationAttributes.length > 0" class="filter-section">
               <div class="filter-section-header">
                 <v-icon size="small" class="mr-2">mdi-tag-multiple</v-icon>
-                Eigenschaften
+                {{ $t('entities.attributes') }}
               </div>
               <div class="filter-section-content">
                 <v-row dense>
@@ -295,7 +295,7 @@
             color="primary"
             variant="tonal"
           >
-            {{ activeExtendedFilterCount }} Filter aktiv
+            {{ activeExtendedFilterCount }} {{ t('entities.filtersActive') }}
           </v-chip>
           <v-spacer></v-spacer>
           <v-btn
@@ -305,13 +305,13 @@
             size="small"
             @click="clearExtendedFilters"
           >
-            Zuruecksetzen
+            {{ t('common.reset') }}
           </v-btn>
           <v-btn variant="outlined" @click="extendedFilterDialog = false">
-            Abbrechen
+            {{ t('common.cancel') }}
           </v-btn>
           <v-btn color="primary" variant="flat" @click="applyExtendedFilters">
-            Anwenden
+            {{ t('entities.apply') }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -320,7 +320,7 @@
     <!-- Entities Table -->
     <v-card>
       <v-card-title class="d-flex align-center">
-        {{ currentEntityType?.name_plural || 'Entities' }}-Uebersicht
+        {{ currentEntityType?.name_plural || t('entities.title') }} - {{ t('entities.overview') }}
         <v-spacer></v-spacer>
         <v-btn-toggle v-model="viewMode" density="compact" mandatory>
           <v-btn value="table" icon="mdi-table"></v-btn>
@@ -329,7 +329,7 @@
         </v-btn-toggle>
         <v-btn color="primary" variant="text" class="ml-2" @click="loadEntities">
           <v-icon start>mdi-refresh</v-icon>
-          Aktualisieren
+          {{ t('common.refresh') }}
         </v-btn>
       </v-card-title>
 
@@ -401,9 +401,9 @@
 
         <template v-slot:item.actions="{ item }">
           <div class="table-actions">
-            <v-btn icon="mdi-eye" size="small" variant="text" title="Details" @click.stop="openEntityDetail(item)"></v-btn>
-            <v-btn icon="mdi-pencil" size="small" variant="text" title="Bearbeiten" @click.stop="openEditDialog(item)"></v-btn>
-            <v-btn icon="mdi-delete" size="small" variant="text" color="error" title="Loeschen" @click.stop="confirmDelete(item)"></v-btn>
+            <v-btn icon="mdi-eye" size="small" variant="text" :title="t('common.details')" @click.stop="openEntityDetail(item)"></v-btn>
+            <v-btn icon="mdi-pencil" size="small" variant="text" :title="t('common.edit')" @click.stop="openEditDialog(item)"></v-btn>
+            <v-btn icon="mdi-delete" size="small" variant="text" color="error" :title="t('common.delete')" @click.stop="confirmDelete(item)"></v-btn>
           </div>
         </template>
       </v-data-table-server>
@@ -435,18 +435,18 @@
                 <div class="d-flex ga-2 mb-2">
                   <v-chip size="small" color="primary" variant="tonal">
                     <v-icon start size="small">mdi-tag-multiple</v-icon>
-                    {{ entity.facet_count || 0 }} Eigenschaften
+                    {{ entity.facet_count || 0 }} {{ t('entities.properties') }}
                   </v-chip>
                   <v-chip size="small" color="info" variant="tonal">
                     <v-icon start size="small">mdi-link</v-icon>
-                    {{ entity.relation_count || 0 }} Verknuepfungen
+                    {{ entity.relation_count || 0 }} {{ t('entities.relations') }}
                   </v-chip>
                 </div>
               </v-card-text>
               <v-card-actions>
                 <v-spacer></v-spacer>
                 <v-btn size="small" color="primary" variant="text" @click.stop="openEntityDetail(entity)">
-                  Details
+                  {{ t('common.details') }}
                 </v-btn>
               </v-card-actions>
             </v-card>
@@ -466,21 +466,21 @@
     <v-dialog v-model="createDialog" max-width="600">
       <v-card>
         <v-card-title>
-          {{ editingEntity ? `${currentEntityType?.name || 'Entity'} bearbeiten` : `${currentEntityType?.name || 'Entity'} anlegen` }}
+          {{ editingEntity ? t('entities.editEntity', { type: currentEntityType?.name || 'Entity' }) : t('entities.createEntity', { type: currentEntityType?.name || 'Entity' }) }}
         </v-card-title>
         <v-card-text>
           <v-form ref="formRef" @submit.prevent="saveEntity">
             <v-text-field
               v-model="entityForm.name"
-              label="Name *"
-              :rules="[v => !!v || 'Name ist erforderlich']"
+              :label="t('common.name') + ' *'"
+              :rules="[v => !!v || t('entities.nameRequired')]"
               required
             ></v-text-field>
 
             <v-text-field
               v-model="entityForm.external_id"
-              label="Externe ID"
-              hint="z.B. AGS, Code, etc."
+              :label="t('entities.externalId')"
+              :hint="t('entities.externalIdHint')"
             ></v-text-field>
 
             <v-select
@@ -489,14 +489,14 @@
               :items="parentOptions"
               item-title="name"
               item-value="id"
-              label="Uebergeordnetes Element"
+              :label="$t('entities.parentElement')"
               clearable
             ></v-select>
 
             <!-- Dynamic core_attributes based on attribute_schema -->
             <template v-if="currentEntityType?.attribute_schema?.properties">
               <v-divider class="my-4"></v-divider>
-              <div class="text-subtitle-2 mb-2">Eigenschaften</div>
+              <div class="text-subtitle-2 mb-2">{{ $t('entities.attributes') }}</div>
               <template v-for="(prop, key) in currentEntityType.attribute_schema.properties" :key="key">
                 <v-text-field
                   v-if="prop.type === 'string'"
@@ -522,16 +522,16 @@
 
             <!-- Owner selection -->
             <v-divider class="my-4"></v-divider>
-            <div class="text-subtitle-2 mb-2">Zustaendigkeit (optional)</div>
+            <div class="text-subtitle-2 mb-2">{{ $t('entities.responsibility') }}</div>
             <v-autocomplete
               v-model="entityForm.owner_id"
               :items="userOptions"
               :loading="loadingUsers"
               item-title="display"
               item-value="id"
-              label="Verantwortlicher Benutzer"
+              :label="$t('entities.responsibleUser')"
               clearable
-              hint="Benutzer, der fuer diesen Eintrag zustaendig ist"
+              :hint="$t('entities.responsibleUserHint')"
               persistent-hint
             >
               <template v-slot:item="{ props, item }">
@@ -543,12 +543,12 @@
 
             <!-- Geo coordinates -->
             <v-divider class="my-4"></v-divider>
-            <div class="text-subtitle-2 mb-2">Geo-Koordinaten (optional)</div>
+            <div class="text-subtitle-2 mb-2">{{ $t('entities.geoCoordinates') }}</div>
             <v-row>
               <v-col cols="6">
                 <v-text-field
                   v-model.number="entityForm.latitude"
-                  label="Breitengrad"
+                  :label="$t('entities.latitude')"
                   type="number"
                   step="0.000001"
                 ></v-text-field>
@@ -556,7 +556,7 @@
               <v-col cols="6">
                 <v-text-field
                   v-model.number="entityForm.longitude"
-                  label="Laengengrad"
+                  :label="$t('entities.longitude')"
                   type="number"
                   step="0.000001"
                 ></v-text-field>
@@ -566,13 +566,13 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="closeDialog">Abbrechen</v-btn>
+          <v-btn @click="closeDialog">{{ t('common.cancel') }}</v-btn>
           <v-btn
             color="primary"
             :loading="saving"
             @click="saveEntity"
           >
-            {{ editingEntity ? 'Speichern' : 'Anlegen' }}
+            {{ editingEntity ? t('common.save') : t('common.create') }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -581,7 +581,7 @@
     <!-- Template Selection Dialog -->
     <v-dialog v-model="templateDialog" max-width="500">
       <v-card>
-        <v-card-title>Analyse-Template waehlen</v-card-title>
+        <v-card-title>{{ t('entities.selectAnalysisTemplate') }}</v-card-title>
         <v-card-text>
           <v-list>
             <v-list-item
@@ -596,7 +596,7 @@
               </v-list-item-subtitle>
               <template v-slot:append>
                 <v-chip v-if="template.is_default" size="x-small" color="primary">
-                  Standard
+                  {{ t('entities.default') }}
                 </v-chip>
               </template>
             </v-list-item>
@@ -604,7 +604,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="templateDialog = false">Schliessen</v-btn>
+          <v-btn @click="templateDialog = false">{{ t('common.close') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -614,24 +614,24 @@
       <v-card>
         <v-card-title class="text-h6">
           <v-icon color="error" class="mr-2">mdi-alert</v-icon>
-          Entity loeschen?
+          {{ t('entities.deleteConfirmTitle') }}
         </v-card-title>
         <v-card-text>
-          <p>Moechtest du <strong>{{ entityToDelete?.name }}</strong> wirklich loeschen?</p>
+          <p>{{ t('entities.deleteConfirmMessage', { name: entityToDelete?.name }) }}</p>
           <v-alert v-if="entityToDelete?.facet_count > 0 || entityToDelete?.relation_count > 0" type="warning" variant="tonal" density="compact" class="mt-3">
-            <strong>Achtung:</strong> Diese Entity hat
-            <span v-if="entityToDelete?.facet_count > 0">{{ entityToDelete.facet_count }} Facet-Werte</span>
-            <span v-if="entityToDelete?.facet_count > 0 && entityToDelete?.relation_count > 0"> und </span>
-            <span v-if="entityToDelete?.relation_count > 0">{{ entityToDelete.relation_count }} Verknuepfungen</span>.
-            Diese werden ebenfalls geloescht.
+            <strong>{{ t('entities.warning') }}:</strong> {{ t('entities.entityHas') }}
+            <span v-if="entityToDelete?.facet_count > 0">{{ entityToDelete.facet_count }} {{ t('entities.facetValues') }}</span>
+            <span v-if="entityToDelete?.facet_count > 0 && entityToDelete?.relation_count > 0"> {{ t('entities.and') }} </span>
+            <span v-if="entityToDelete?.relation_count > 0">{{ entityToDelete.relation_count }} {{ t('entities.relations') }}</span>.
+            {{ t('entities.willBeDeleted') }}
           </v-alert>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="deleteDialog = false">Abbrechen</v-btn>
+          <v-btn @click="deleteDialog = false">{{ t('common.cancel') }}</v-btn>
           <v-btn color="error" :loading="deleting" @click="deleteEntity">
             <v-icon start>mdi-delete</v-icon>
-            Loeschen
+            {{ t('common.delete') }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -642,9 +642,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useEntityStore } from '@/stores/entity'
 import { adminApi, userApi, entityApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
+
+const { t } = useI18n()
 
 const { showSuccess, showError } = useSnackbar()
 const route = useRoute()
@@ -714,11 +717,11 @@ const attributeValueOptions = ref<Record<string, string[]>>({})
 // Location field keys (these map to Entity columns, not core_attributes)
 const locationFieldKeys = ['country', 'admin_level_1', 'admin_level_2']
 
-const facetFilterOptions = [
-  { label: 'Alle', value: null },
-  { label: 'Mit Facets', value: true },
-  { label: 'Ohne Facets', value: false },
-]
+const facetFilterOptions = computed(() => [
+  { label: t('entities.allFacets'), value: null },
+  { label: t('entities.withFacets'), value: true },
+  { label: t('entities.withoutFacets'), value: false },
+])
 
 // Stats
 const stats = ref({
@@ -783,17 +786,17 @@ function hasAttribute(key: string): boolean {
 
 const tableHeaders = computed(() => {
   const headers = [
-    { title: 'Name', key: 'name' },
+    { title: t('common.name'), key: 'name' },
   ]
 
   if (currentEntityType.value?.supports_hierarchy) {
-    headers.push({ title: 'Pfad', key: 'hierarchy_path' })
+    headers.push({ title: t('entities.path'), key: 'hierarchy_path' })
   }
 
   headers.push(
-    { title: 'Eigenschaften', key: 'facet_count', align: 'center' as const },
-    { title: 'Verknuepfungen', key: 'relation_count', align: 'center' as const },
-    { title: 'Uebersicht', key: 'facet_summary', sortable: false },
+    { title: t('entities.properties'), key: 'facet_count', align: 'center' as const },
+    { title: t('entities.relations'), key: 'relation_count', align: 'center' as const },
+    { title: t('entities.summary'), key: 'facet_summary', sortable: false },
     { title: '', key: 'actions', sortable: false, width: '120px' },
   )
 
@@ -861,7 +864,7 @@ async function loadEntities(page = currentPage.value) {
     await loadStats()
   } catch (e) {
     console.error('Failed to load entities', e)
-    showError('Fehler beim Laden der Daten')
+    showError(t('entities.loadError'))
   } finally {
     loading.value = false
   }
@@ -1009,16 +1012,16 @@ async function saveEntity() {
 
     if (editingEntity.value) {
       await store.updateEntity(editingEntity.value.id, data)
-      showSuccess('Entity erfolgreich aktualisiert')
+      showSuccess(t('entities.entityUpdated'))
     } else {
       await store.createEntity(data)
-      showSuccess('Entity erfolgreich angelegt')
+      showSuccess(t('entities.entityCreated'))
     }
 
     closeDialog()
     await loadEntities()
   } catch (e: any) {
-    showError(e.response?.data?.detail || 'Fehler beim Speichern')
+    showError(e.response?.data?.detail || t('entities.saveError'))
   } finally {
     saving.value = false
   }
@@ -1041,12 +1044,12 @@ async function deleteEntity() {
   deleting.value = true
   try {
     await store.deleteEntity(entityToDelete.value.id)
-    showSuccess(`"${entityToDelete.value.name}" wurde geloescht`)
+    showSuccess(t('entities.entityDeleted', { name: entityToDelete.value.name }))
     deleteDialog.value = false
     entityToDelete.value = null
     await loadEntities()
   } catch (e: any) {
-    const detail = e.response?.data?.detail || 'Fehler beim Loeschen'
+    const detail = e.response?.data?.detail || t('entities.deleteError')
     showError(detail)
   } finally {
     deleting.value = false

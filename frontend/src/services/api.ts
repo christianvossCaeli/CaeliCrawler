@@ -57,7 +57,7 @@ export const adminApi = {
 // Public API v1
 export const dataApi = {
   // Extracted Data
-  getExtractedData: (params?: any) => api.get('/v1/data', { params }),
+  getExtractedData: (params?: any) => api.get('/v1/data/', { params }),
   getExtractionStats: (params?: any) => api.get('/v1/data/stats', { params }),
   getExtractionLocations: () => api.get('/v1/data/locations'),
   getExtractionCountries: () => api.get('/v1/data/countries'),
@@ -273,6 +273,137 @@ export const pysisApi = {
 
   // Available Processes from PySis
   getAvailableProcesses: () => api.get('/admin/pysis/available-processes'),
+}
+
+// Assistant API
+export const assistantApi = {
+  chat: (data: {
+    message: string
+    context: any
+    conversation_history?: any[]
+    mode?: 'read' | 'write'
+    language?: 'de' | 'en'
+  }) => api.post('/v1/assistant/chat', data),
+  chatStream: (data: {
+    message: string
+    context: any
+    conversation_history?: any[]
+    mode?: 'read' | 'write'
+    language?: 'de' | 'en'
+  }) => {
+    // Return a fetch request for SSE
+    const baseUrl = api.defaults.baseURL || '/api'
+    // Get auth token from axios defaults or localStorage
+    const authHeader = api.defaults.headers.common?.['Authorization'] as string | undefined
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    if (authHeader) {
+      headers['Authorization'] = authHeader
+    }
+    return fetch(`${baseUrl}/v1/assistant/chat-stream`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    })
+  },
+  executeAction: (data: { action: any; context: any }) =>
+    api.post('/v1/assistant/execute-action', data),
+  getCommands: () => api.get('/v1/assistant/commands'),
+  getSuggestions: (params: {
+    route: string
+    entity_type?: string
+    entity_id?: string
+  }) => api.get('/v1/assistant/suggestions', { params }),
+
+  getInsights: (params: {
+    route: string
+    view_mode?: string
+    entity_type?: string
+    entity_id?: string
+  }) => api.get('/v1/assistant/insights', { params }),
+  uploadAttachment: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post('/v1/assistant/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  deleteAttachment: (attachmentId: string) =>
+    api.delete(`/v1/assistant/upload/${attachmentId}`),
+
+  // Batch operations
+  batchAction: (data: {
+    action_type: string
+    target_filter: Record<string, any>
+    action_data: Record<string, any>
+    dry_run?: boolean
+  }) => api.post('/v1/assistant/batch-action', data),
+
+  getBatchStatus: (batchId: string) =>
+    api.get(`/v1/assistant/batch-action/${batchId}/status`),
+
+  cancelBatch: (batchId: string) =>
+    api.post(`/v1/assistant/batch-action/${batchId}/cancel`),
+
+  // Wizard operations
+  getWizards: () => api.get('/v1/assistant/wizards'),
+
+  startWizard: (wizardType: string, context?: Record<string, any>) =>
+    api.post('/v1/assistant/wizards/start', null, {
+      params: { wizard_type: wizardType },
+      ...(context && { data: context }),
+    }),
+
+  wizardRespond: (wizardId: string, value: any) =>
+    api.post(`/v1/assistant/wizards/${wizardId}/respond`, { value }),
+
+  wizardBack: (wizardId: string) =>
+    api.post(`/v1/assistant/wizards/${wizardId}/back`),
+
+  wizardCancel: (wizardId: string) =>
+    api.post(`/v1/assistant/wizards/${wizardId}/cancel`),
+
+  // Reminder operations
+  getReminders: (params?: { status?: string; include_past?: boolean; limit?: number }) =>
+    api.get('/v1/assistant/reminders', { params }),
+
+  createReminder: (data: {
+    message: string
+    remind_at: string
+    title?: string
+    entity_id?: string
+    entity_type?: string
+    repeat?: 'none' | 'daily' | 'weekly' | 'monthly'
+  }) => api.post('/v1/assistant/reminders', data),
+
+  deleteReminder: (reminderId: string) =>
+    api.delete(`/v1/assistant/reminders/${reminderId}`),
+
+  dismissReminder: (reminderId: string) =>
+    api.post(`/v1/assistant/reminders/${reminderId}/dismiss`),
+
+  snoozeReminder: (reminderId: string, newRemindAt: string) =>
+    api.post(`/v1/assistant/reminders/${reminderId}/snooze`, { remind_at: newRemindAt }),
+
+  getDueReminders: () => api.get('/v1/assistant/reminders/due'),
+}
+
+// Auth API
+export const authApi = {
+  login: (data: { email: string; password: string }) => api.post('/auth/login', data),
+  logout: () => api.post('/auth/logout'),
+  getMe: () => api.get('/auth/me'),
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    api.post('/auth/change-password', data),
+  checkPasswordStrength: (password: string) =>
+    api.post<{
+      is_valid: boolean
+      score: number
+      errors: string[]
+      suggestions: string[]
+      requirements: string
+    }>('/auth/check-password-strength', { password }),
 }
 
 // Users API

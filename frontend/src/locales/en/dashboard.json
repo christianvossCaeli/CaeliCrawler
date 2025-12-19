@@ -1,0 +1,70 @@
+{
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome back",
+    "stats": {
+      "categories": "Categories",
+      "dataSources": "Data Sources",
+      "documents": "Documents",
+      "activeCrawlers": "Active Crawlers",
+      "newDocuments": "New Documents",
+      "errors": "Errors"
+    },
+    "crawlerStatus": {
+      "title": "Crawler Status",
+      "activeWorkers": "Active Workers",
+      "runningJobs": "Running Jobs",
+      "pendingJobs": "Pending Jobs",
+      "autoUpdateActive": "Auto-update active"
+    },
+    "recentJobs": {
+      "title": "Recent Crawl Jobs",
+      "noJobs": "No current jobs",
+      "documentsFound": "Documents found"
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "newCategory": "New Category",
+      "newDataSource": "New Data Source",
+      "startCrawler": "Start Crawler",
+      "exportData": "Export Data"
+    },
+    "activeCrawlers": {
+      "started": "Started",
+      "runtime": "Runtime",
+      "documents": "Documents",
+      "new": "new",
+      "errors": "Errors"
+    },
+    "startCrawlerDialog": {
+      "title": "Start Crawler",
+      "sourcesWillBeCrawled": "data sources will be crawled",
+      "resetFilters": "Reset filters",
+      "category": "Category",
+      "country": "Country",
+      "searchNameUrl": "Search (Name/URL)",
+      "maxCount": "Maximum Count",
+      "emptyAllLabel": "Empty = all",
+      "status": "Status",
+      "sourceType": "Source Type",
+      "cancel": "Cancel",
+      "sources": "Sources",
+      "moreThan500Warning": "More than 500 sources - please set filter or limit!",
+      "filterHint": "Filters by name or URL",
+      "statusOptions": {
+        "active": "Active",
+        "pending": "Pending",
+        "error": "Error"
+      },
+      "sourceTypes": {
+        "website": "Website",
+        "oparlApi": "OParl API",
+        "rssFeed": "RSS Feed"
+      }
+    },
+    "countries": {
+      "germany": "Germany",
+      "unitedKingdom": "United Kingdom"
+    }
+  }
+}

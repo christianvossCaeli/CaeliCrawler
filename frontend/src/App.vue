@@ -51,7 +51,7 @@
 
         <v-list density="compact" nav>
           <v-list-subheader class="text-caption font-weight-bold">
-            Administration
+            {{ $t('nav.admin.title') }}
           </v-list-subheader>
           <v-list-item
             v-for="item in adminNavItems"
@@ -94,7 +94,7 @@
       <v-spacer></v-spacer>
 
       <!-- Notifications Button -->
-      <v-btn icon @click="router.push('/notifications')" title="Benachrichtigungen">
+      <v-btn icon @click="router.push('/notifications')" :title="$t('nav.notifications')">
         <v-badge
           v-if="unreadCount > 0"
           :content="unreadCount > 99 ? '99+' : unreadCount"
@@ -106,15 +106,18 @@
         <v-icon v-else>mdi-bell-outline</v-icon>
       </v-btn>
 
+      <!-- Language Switcher -->
+      <LanguageSwitcher />
+
       <!-- Theme Toggle -->
       <v-btn
         :icon="isDark ? 'mdi-weather-sunny' : 'mdi-weather-night'"
         @click="toggleTheme"
-        title="Theme wechseln"
+        :title="$t('user.themeToggle')"
       ></v-btn>
 
       <!-- Refresh -->
-      <v-btn icon="mdi-refresh" @click="refresh" title="Seite neu laden"></v-btn>
+      <v-btn icon="mdi-refresh" @click="refresh" :title="$t('user.reloadPage')"></v-btn>
 
       <!-- User Menu -->
       <v-menu>
@@ -137,14 +140,14 @@
             <template v-slot:prepend>
               <v-icon>mdi-lock-reset</v-icon>
             </template>
-            <v-list-item-title>Passwort ändern</v-list-item-title>
+            <v-list-item-title>{{ $t('auth.changePassword') }}</v-list-item-title>
           </v-list-item>
           <v-divider></v-divider>
           <v-list-item @click="logout" class="text-error">
             <template v-slot:prepend>
               <v-icon color="error">mdi-logout</v-icon>
             </template>
-            <v-list-item-title>Abmelden</v-list-item-title>
+            <v-list-item-title>{{ $t('auth.logout') }}</v-list-item-title>
           </v-list-item>
         </v-list>
       </v-menu>
@@ -159,29 +162,29 @@
     <!-- Password Change Dialog -->
     <v-dialog v-model="passwordDialogOpen" max-width="400">
       <v-card>
-        <v-card-title>Passwort ändern</v-card-title>
+        <v-card-title>{{ $t('auth.changePassword') }}</v-card-title>
         <v-card-text>
           <v-form @submit.prevent="changePassword">
             <v-text-field
               v-model="currentPassword"
-              label="Aktuelles Passwort"
+              :label="$t('auth.currentPassword')"
               type="password"
               variant="outlined"
               class="mb-3"
             />
             <v-text-field
               v-model="newPassword"
-              label="Neues Passwort"
+              :label="$t('auth.newPassword')"
               type="password"
-              :rules="[v => v.length >= 8 || 'Mindestens 8 Zeichen']"
+              :rules="[v => v.length >= 8 || $t('auth.validation.passwordMinLength', { min: 8 })]"
               variant="outlined"
               class="mb-3"
             />
             <v-text-field
               v-model="confirmPassword"
-              label="Passwort bestätigen"
+              :label="$t('auth.confirmPassword')"
               type="password"
-              :rules="[v => v === newPassword || 'Passwörter stimmen nicht überein']"
+              :rules="[v => v === newPassword || $t('auth.validation.passwordsDoNotMatch')]"
               variant="outlined"
             />
           </v-form>
@@ -189,7 +192,7 @@
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="passwordDialogOpen = false">
-            Abbrechen
+            {{ $t('common.cancel') }}
           </v-btn>
           <v-btn
             color="primary"
@@ -197,7 +200,7 @@
             :disabled="!isPasswordValid"
             @click="changePassword"
           >
-            Ändern
+            {{ $t('common.save') }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -217,20 +220,29 @@
         </v-btn>
       </template>
     </v-snackbar>
+
+    <!-- AI Chat Assistant -->
+    <ChatAssistant v-if="auth.isAuthenticated" />
   </v-app>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useTheme } from 'vuetify'
+import { useTheme, useLocale } from 'vuetify'
+import { useI18n } from 'vue-i18n'
 import CaeliWindLogo from './components/CaeliWindLogo.vue'
+import ChatAssistant from './components/assistant/ChatAssistant.vue'
+import LanguageSwitcher from './components/LanguageSwitcher.vue'
 import { useSnackbar } from './composables/useSnackbar'
 import { useAuthStore } from './stores/auth'
 import { useNotifications } from './composables/useNotifications'
 import { dataApi } from './services/api'
+import { setLocale, type SupportedLocale } from './locales'
 
 const { snackbar, snackbarText, snackbarColor, snackbarTimeout, showSnackbar } = useSnackbar()
+const { t, locale } = useI18n()
+const vuetifyLocale = useLocale()
 
 // Badge counts for navigation
 const pendingDocsCount = ref(0)
@@ -255,29 +267,29 @@ const isPasswordValid = computed(() =>
   newPassword.value === confirmPassword.value
 )
 
-// Navigation items
-const mainNavItems = [
-  { title: 'Dashboard', icon: 'mdi-view-dashboard', to: '/' },
-  { title: 'Entities', icon: 'mdi-database', to: '/entities' },
-  { title: 'Entity-Typen', icon: 'mdi-shape', to: '/admin/entity-types' },
-  { title: 'Kategorien', icon: 'mdi-folder-multiple', to: '/categories' },
-  { title: 'Datenquellen', icon: 'mdi-web', to: '/sources' },
-  { title: 'Crawler Status', icon: 'mdi-robot', to: '/crawler' },
-  { title: 'Dokumente', icon: 'mdi-file-document-multiple', to: '/documents' },
-  { title: 'Ergebnisse', icon: 'mdi-chart-box', to: '/results' },
-  { title: 'Smart Query', icon: 'mdi-head-question', to: '/smart-query' },
-  { title: 'Export', icon: 'mdi-export', to: '/export' },
-]
+// Navigation items (computed for reactivity with locale changes)
+const mainNavItems = computed(() => [
+  { title: t('nav.dashboard'), icon: 'mdi-view-dashboard', to: '/' },
+  { title: t('nav.entities'), icon: 'mdi-database', to: '/entities' },
+  { title: t('nav.entityTypes'), icon: 'mdi-shape', to: '/admin/entity-types' },
+  { title: t('nav.categories'), icon: 'mdi-folder-multiple', to: '/categories' },
+  { title: t('nav.dataSources'), icon: 'mdi-web', to: '/sources' },
+  { title: t('nav.crawlerStatus'), icon: 'mdi-robot', to: '/crawler' },
+  { title: t('nav.documents'), icon: 'mdi-file-document-multiple', to: '/documents' },
+  { title: t('nav.results'), icon: 'mdi-chart-box', to: '/results' },
+  { title: t('nav.smartQuery'), icon: 'mdi-head-question', to: '/smart-query' },
+  { title: t('nav.export'), icon: 'mdi-export', to: '/export' },
+])
 
-const secondaryNavItems = [
-  { title: 'Benachrichtigungen', icon: 'mdi-bell-outline', to: '/notifications' },
-  { title: 'Hilfe & Dokumentation', icon: 'mdi-help-circle-outline', to: '/help' },
-]
+const secondaryNavItems = computed(() => [
+  { title: t('nav.notifications'), icon: 'mdi-bell-outline', to: '/notifications' },
+  { title: t('nav.help'), icon: 'mdi-help-circle-outline', to: '/help' },
+])
 
-const adminNavItems = [
-  { title: 'Benutzerverwaltung', icon: 'mdi-account-group', to: '/admin/users' },
-  { title: 'Audit-Log', icon: 'mdi-history', to: '/admin/audit-log' },
-]
+const adminNavItems = computed(() => [
+  { title: t('nav.admin.users'), icon: 'mdi-account-group', to: '/admin/users' },
+  { title: t('nav.admin.auditLog'), icon: 'mdi-history', to: '/admin/audit-log' },
+])
 
 // User helpers
 const userInitials = computed(() => {
@@ -299,12 +311,8 @@ function getRoleColor(role?: string): string {
 }
 
 function getRoleLabel(role?: string): string {
-  const labels: Record<string, string> = {
-    ADMIN: 'Administrator',
-    EDITOR: 'Editor',
-    VIEWER: 'Viewer',
-  }
-  return labels[role || ''] || role || ''
+  if (!role) return ''
+  return t(`roles.${role}`)
 }
 
 // Theme
@@ -342,9 +350,9 @@ async function changePassword() {
 
   if (result.success) {
     passwordDialogOpen.value = false
-    showSnackbar('Passwort erfolgreich geändert', 'success')
+    showSnackbar(t('auth.passwordChanged'), 'success')
   } else {
-    showSnackbar(result.error || 'Fehler beim Ändern des Passworts', 'error')
+    showSnackbar(result.error || t('auth.passwordChangeError'), 'error')
   }
 }
 
@@ -390,10 +398,43 @@ watch(
   { immediate: true }
 )
 
+// Initialize user language when logged in
+watch(
+  () => auth.user?.language,
+  (userLanguage) => {
+    if (userLanguage) {
+      locale.value = userLanguage
+      vuetifyLocale.current.value = userLanguage
+      setLocale(userLanguage as SupportedLocale)
+    }
+  },
+  { immediate: true }
+)
+
 onMounted(() => {
+  // Restore theme
   const savedTheme = localStorage.getItem('caeli-theme')
   if (savedTheme && (savedTheme === 'caeliLight' || savedTheme === 'caeliDark')) {
     theme.change(savedTheme)
+  }
+
+  // Restore language from localStorage if user not loaded yet
+  const savedLanguage = localStorage.getItem('caeli-language')
+  if (savedLanguage && !auth.user?.language) {
+    locale.value = savedLanguage
+    vuetifyLocale.current.value = savedLanguage
+  }
+})
+
+// Cleanup all intervals on unmount to prevent memory leaks
+onUnmounted(() => {
+  if (notificationInterval) {
+    clearInterval(notificationInterval)
+    notificationInterval = null
+  }
+  if (badgeInterval) {
+    clearInterval(badgeInterval)
+    badgeInterval = null
   }
 })
 </script>

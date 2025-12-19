@@ -14,7 +14,9 @@ from app.database import Base
 if TYPE_CHECKING:
     from app.models.notification import Notification
     from app.models.notification_rule import NotificationRule
+    from app.models.reminder import Reminder
     from app.models.user_email import UserEmailAddress
+    from app.models.user_session import UserSession
 
 
 class UserRole(str, enum.Enum):
@@ -79,6 +81,13 @@ class User(Base):
         nullable=True,
     )
 
+    # User preferences
+    language: Mapped[str] = mapped_column(
+        String(5),
+        default="de",
+        nullable=False,
+    )  # ISO 639-1 language code (de, en)
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -119,6 +128,22 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    sessions: Mapped[List["UserSession"]] = relationship(
+        "UserSession",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="desc(UserSession.last_used_at)",
+    )
+    reminders: Mapped[List["Reminder"]] = relationship(
+        "Reminder",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<User {self.email}>"
+
+    @property
+    def active_sessions_count(self) -> int:
+        """Get count of active sessions."""
+        return sum(1 for s in self.sessions if s.is_valid)

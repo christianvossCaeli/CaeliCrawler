@@ -13,12 +13,16 @@ from app import __version__
 from app.config import settings
 from app.database import close_db, init_db
 from app.api.admin import categories, sources, crawler, pysis, locations, users, versions, audit, notifications
-from app.api.v1 import data, export, entity_types, entities, facets, relations, analysis
+from app.api.v1 import export, entity_types, entities, facets, relations, assistant
+from app.api.v1.data_api import router as data_router
+from app.api.v1.analysis_api import router as analysis_router
 from app.api import auth
 from app.core.exceptions import AppException
 from app.core.rate_limit import RateLimiter, set_rate_limiter
 from app.core.token_blacklist import TokenBlacklist, set_token_blacklist
 from app.core.security_headers import SecurityHeadersMiddleware, TrustedHostMiddleware
+from app.core.i18n_middleware import I18nMiddleware
+from app.i18n import load_translations
 
 # Configure structured logging
 structlog.configure(
@@ -50,6 +54,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 
     # Startup
     logger.info("Starting CaeliCrawler", version=__version__, env=settings.app_env)
+
+    # Load i18n translations
+    load_translations()
+    logger.info("Translations loaded")
 
     # Initialize database (create tables if they don't exist)
     if settings.is_development:
@@ -157,6 +165,9 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         allow_headers=["*"],
     )
 
+    # i18n middleware - sets locale based on request headers
+    app.add_middleware(I18nMiddleware)
+
     # Exception handlers
     @app.exception_handler(AppException)
     async def app_exception_handler(request: Request, exc: AppException):
@@ -244,7 +255,7 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
 
     # Public API v1 (Legacy)
     app.include_router(
-        data.router,
+        data_router,
         prefix=f"{settings.api_v1_prefix}/data",
         tags=["API v1 - Data (Legacy)"],
     )
@@ -276,9 +287,14 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         tags=["API v1 - Relations"],
     )
     app.include_router(
-        analysis.router,
+        analysis_router,
         prefix=f"{settings.api_v1_prefix}/analysis",
         tags=["API v1 - Analysis"],
+    )
+    app.include_router(
+        assistant.router,
+        prefix=f"{settings.api_v1_prefix}/assistant",
+        tags=["API v1 - AI Assistant"],
     )
 
     return app

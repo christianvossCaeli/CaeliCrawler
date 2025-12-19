@@ -1,0 +1,140 @@
+{
+  "help": {
+    "title": "User Manual",
+    "intro": {
+      "title": "Introduction",
+      "whatIs": "What is CaeliCrawler?",
+      "whatIsDescription": "CaeliCrawler is an intelligent web crawling system for automated collection and analysis of municipal documents and websites. The system was specifically developed to extract relevant information from public sources and structure it using AI analysis.",
+      "what_is_title": "What is CaeliCrawler?",
+      "what_is_description": "CaeliCrawler is an intelligent web crawling system for automated collection and analysis of municipal documents and websites. The system was specifically developed to extract relevant information from public sources and structure it using AI analysis.",
+      "mainFeatures": "Main Features",
+      "main_functions_title": "Main Features",
+      "table": {
+        "function": "Function",
+        "description": "Description"
+      },
+      "features": {
+        "webCrawling": "Web Crawling",
+        "webCrawlingDesc": "Automatic search of websites for relevant documents",
+        "documentProcessing": "Document Processing",
+        "documentProcessingDesc": "Text extraction from PDFs, HTML, Word documents",
+        "aiAnalysis": "AI Analysis",
+        "aiAnalysisDesc": "Intelligent evaluation of content using Azure OpenAI",
+        "relevanceFiltering": "Relevance Filtering",
+        "relevanceFilteringDesc": "Automatic pre-filtering based on configurable keywords",
+        "structuredResults": "Structured Results",
+        "structuredResultsDesc": "Export findings as JSON or CSV"
+      },
+      "functions": {
+        "web_crawling": {
+          "title": "Web Crawling",
+          "description": "Automatic search of websites for relevant documents"
+        },
+        "document_processing": {
+          "title": "Document Processing",
+          "description": "Text extraction from PDFs, HTML, Word documents"
+        },
+        "ai_analysis": {
+          "title": "AI Analysis",
+          "description": "Intelligent evaluation of content using Azure OpenAI"
+        },
+        "relevance_filtering": {
+          "title": "Relevance Filtering",
+          "description": "Automatic pre-filtering based on configurable keywords"
+        },
+        "structured_results": {
+          "title": "Structured Results",
+          "description": "Export findings as JSON or CSV"
+        }
+      },
+      "typicalWorkflow": "Typical Workflow",
+      "workflow_title": "Typical Workflow",
+      "workflow": {
+        "category": "Category",
+        "createCategory": "create",
+        "dataSource": "Data Source",
+        "addDataSource": "add",
+        "crawler": "Crawler",
+        "startCrawler": "start",
+        "documents": "Documents",
+        "processDocuments": "process",
+        "aiAnalysis": "AI Analysis",
+        "running": "running",
+        "results": "Results",
+        "exportResults": "export",
+        "step1": {
+          "title": "Category",
+          "subtitle": "create"
+        },
+        "step2": {
+          "title": "Data Source",
+          "subtitle": "add"
+        },
+        "step3": {
+          "title": "Crawler",
+          "subtitle": "start"
+        },
+        "step4": {
+          "title": "Documents",
+          "subtitle": "process"
+        },
+        "step5": {
+          "title": "AI Analysis",
+          "subtitle": "running"
+        },
+        "step6": {
+          "title": "Results",
+          "subtitle": "export"
+        }
+      }
+    },
+    "quickstart": {
+      "title": "Quick Start",
+      "subtitle": "First result in 5 minutes",
+      "step1": {
+        "label": "Step 1",
+        "title": "Create Category",
+        "heading": "Create Category",
+        "instructions": {
+          "1": "Navigate to Categories",
+          "2": "Click on \"New Category\"",
+          "3": "Enter a name (e.g. \"Wind Energy Resolutions\")",
+          "4": "Define purpose and search terms",
+          "5": "Save"
+        }
+      },
+      "step2": {
+        "label": "Step 2",
+        "title": "Add Data Source",
+        "heading": "Add Data Source",
+        "instructions": {
+          "1": "Switch to Data Sources",
+          "2": "Click on \"New Source\"",
+          "3": "Select the created category",
+          "4": "Enter the base URL of the website",
+          "5": "Select country and municipality"
+        }
+      },
+      "step3": {
+        "label": "Step 3",
+        "title": "Start Crawl",
+        "heading": "Start Crawl",
+        "instructions": {
+          "1": "Go to Dashboard",
+          "2": "Click on \"Start Crawler\"",
+          "3": "Select filters or start for all sources"
+        }
+      },
+      "step4": {
+        "label": "Step 4",
+        "title": "View Results",
+        "heading": "View Results",
+        "instructions": {
+          "1": "Monitor progress under Crawler",
+          "2": "Check processed Documents",
+          "3": "View AI insights under Results"
+        }
+      }
+    }
+  }
+}

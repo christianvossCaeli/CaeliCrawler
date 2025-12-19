@@ -1,0 +1,169 @@
+{
+  "admin": {
+    "users": {
+      "title": "User Management",
+      "subtitle": "Create, edit and manage users",
+      "filters": {
+        "search": "Search",
+        "role": "Role",
+        "status": "Status"
+      },
+      "form": {
+        "email": "Email",
+        "name": "Name",
+        "role": "Role",
+        "active": "Active",
+        "password": "Password",
+        "confirmPassword": "Confirm Password"
+      },
+      "columns": {
+        "email": "Email",
+        "name": "Name",
+        "role": "Role",
+        "status": "Status",
+        "lastLogin": "Last Login",
+        "created": "Created",
+        "actions": "Actions",
+        "active": "Active"
+      },
+      "actions": {
+        "create": "New User",
+        "edit": "Edit",
+        "delete": "Delete",
+        "resetPassword": "Reset Password",
+        "activate": "Activate",
+        "deactivate": "Deactivate"
+      },
+      "dialog": {
+        "editTitle": "Edit User",
+        "createTitle": "New User",
+        "resetPasswordTitle": "Reset Password",
+        "deleteTitle": "Delete User?",
+        "deleteConfirm": "Are you sure you want to delete this user?"
+      },
+      "messages": {
+        "created": "User created successfully",
+        "updated": "User updated successfully",
+        "deleted": "User deleted successfully",
+        "passwordReset": "Password has been reset",
+        "activated": "User has been activated",
+        "deactivated": "User has been deactivated"
+      },
+      "never": "Never",
+      "activeLabel": "Active",
+      "inactiveLabel": "Inactive",
+      "passwordNotValid": "Password does not meet all requirements",
+      "resetPasswordFor": "New password for",
+      "newPassword": "New Password",
+      "resetButton": "Reset",
+      "deleteConfirm": "Are you sure you want to delete user {email}? This action cannot be undone.",
+      "saveError": "Error saving",
+      "resetError": "Error resetting",
+      "deleteError": "Error deleting"
+    },
+    "auditLog": {
+      "title": "Audit Log",
+      "subtitle": "Track system activities and changes",
+      "filters": {
+        "user": "User",
+        "action": "Action",
+        "resource": "Resource",
+        "dateFrom": "From",
+        "dateTo": "To",
+        "entityType": "Entity Type",
+        "entityTypePlaceholder": "e.g. Category, User"
+      },
+      "columns": {
+        "timestamp": "Timestamp",
+        "user": "User",
+        "action": "Action",
+        "resource": "Resource",
+        "details": "Details",
+        "ip": "IP Address",
+        "entity": "Entity",
+        "changes": "Changes"
+      },
+      "actions": {
+        "CREATE": "Created",
+        "UPDATE": "Updated",
+        "DELETE": "Deleted",
+        "LOGIN": "Login",
+        "LOGOUT": "Logout",
+        "PASSWORD_CHANGE": "Password Change"
+      },
+      "stats": {
+        "total": "Total",
+        "today": "Today",
+        "thisWeek": "This Week",
+        "activeUsers": "Active Users"
+      },
+      "system": "System",
+      "changesTitle": "Changes",
+      "field": "Field",
+      "before": "Before",
+      "after": "After",
+      "actionTypes": {
+        "CREATE": "Create",
+        "UPDATE": "Update",
+        "DELETE": "Delete",
+        "LOGIN": "Login",
+        "LOGOUT": "Logout",
+        "EXPORT": "Export",
+        "VIEW": "View"
+      }
+    },
+    "entityTypes": {
+      "title": "Entity Types",
+      "subtitle": "Manage categories for entities (e.g. municipalities, persons, organizations)",
+      "form": {
+        "name": "Name",
+        "nameRequired": "Name is required",
+        "namePlaceholder": "e.g. Wind Farm",
+        "namePlural": "Plural",
+        "namePluralPlaceholder": "e.g. Wind Farms",
+        "description": "Description",
+        "descriptionPlaceholder": "Brief description of the entity type",
+        "icon": "Icon",
+        "iconPlaceholder": "mdi-wind-turbine",
+        "iconHint": "Material Design Icon Name (mdi-*)",
+        "color": "Color",
+        "colorPlaceholder": "#4CAF50",
+        "isPrimary": "Primary Type",
+        "isPrimaryHint": "Displayed in main navigation",
+        "supportsHierarchy": "Hierarchical",
+        "supportsHierarchyHint": "Supports parent-child relationships",
+        "displayOrder": "Display Order"
+      },
+      "columns": {
+        "name": "Name",
+        "slug": "Slug",
+        "color": "Color",
+        "entities": "Entities",
+        "system": "System",
+        "active": "Active"
+      },
+      "actions": {
+        "create": "New Entity Type",
+        "edit": "Edit",
+        "delete": "Delete"
+      },
+      "dialog": {
+        "createTitle": "New Entity Type",
+        "editTitle": "Edit Entity Type",
+        "deleteTitle": "Delete Entity Type?",
+        "deleteConfirm": "Do you really want to delete {name}? This action cannot be undone."
+      },
+      "messages": {
+        "created": "Entity type created",
+        "updated": "Entity type updated",
+        "deleted": "\"{name}\" deleted",
+        "loadError": "Error loading entity types",
+        "saveError": "Error saving",
+        "deleteError": "Error deleting"
+      },
+      "systemType": "System Type",
+      "cannotDeleteSystem": "System type cannot be deleted",
+      "hasEntities": "Still has entities"
+    }
+  }
+}

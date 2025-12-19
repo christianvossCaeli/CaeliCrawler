@@ -1,0 +1,471 @@
+{
+  "help": {
+    "municipalities": {
+      "title": "Gemeinden / Locations",
+      "description": "Übersicht aller Standorte mit aggregierten Daten und Detail-Reports.",
+      "statisticsCards": "Statistik-Karten",
+      "cards": {
+        "municipalities": "Gemeinden",
+        "municipalitiesDesc": "Anzahl Standorte",
+        "documents": "Dokumente",
+        "documentsDesc": "Gesamtzahl",
+        "relevant": "Relevante",
+        "relevantDesc": "Mit Ergebnissen",
+        "highPriority": "High Priority",
+        "highPriorityDesc": "Prioritäre Gemeinden"
+      },
+      "tableColumns": {
+        "title": "Tabellen-Spalten",
+        "columnHeader": "Spalte",
+        "descriptionHeader": "Beschreibung",
+        "name": "Name",
+        "nameDesc": "Gemeindename (klickbar für Report)",
+        "adminLevels": "Admin Level 1/2",
+        "adminLevelsDesc": "Bundesland / Landkreis",
+        "sources": "Quellen",
+        "sourcesDesc": "Anzahl verknüpfter Datenquellen",
+        "documents": "Dokumente",
+        "documentsDesc": "Chips: Gesamt / Relevant / High Priority / Opportunity Score",
+        "confidence": "Konfidenz",
+        "confidenceDesc": "Durchschnittliche KI-Konfidenz als Fortschrittsbalken",
+        "decisionMakers": "Entscheider",
+        "decisionMakersDesc": "Anzahl gefundener Entscheidungsträger"
+      },
+      "filters": "Filter",
+      "filterList": [
+        "Land",
+        "Bundesland (Admin Level 1)",
+        "Landkreis (Admin Level 2)",
+        "Kategorie",
+        "Min. Konfidenz",
+        "Suche"
+      ],
+      "municipalityReport": {
+        "title": "Gemeinde-Report (Detail-Dialog)",
+        "description": "Klicken Sie auf eine Zeile oder das Auge-Symbol für den vollständigen Report:",
+        "reportHeader": "Report-Header: Gemeindename, Opportunity Score, Kategorie-Zweck",
+        "overviewCards": "Übersichts-Karten",
+        "overviewCardLabels": {
+          "documents": "Dokumente",
+          "relevant": "Relevant",
+          "confidence": "Konfidenz %",
+          "priority": "Priorität"
+        },
+        "reportTabs": "Report-Tabs",
+        "tabs": {
+          "decisionMakers": "Entscheider",
+          "decisionMakersDesc": "Liste aller identifizierten Entscheidungsträger mit Name, Rolle, Kontakt und zugehörigen Dokumenten",
+          "painPoints": "Pain Points",
+          "painPointsDesc": "Kritische Punkte und Hindernisse, die aus Dokumenten extrahiert wurden. Mit Typ, Schwere und Quell-Dokument.",
+          "positiveSignals": "Positive Signale",
+          "positiveSignalsDesc": "Chancen und positive Entwicklungen. Mit Typ, Priorität und Quell-Dokument.",
+          "summaries": "Zusammenfassungen",
+          "summariesDesc": "KI-generierte Zusammenfassungen pro Dokument (expandierbar)",
+          "dataSources": "Datenquellen",
+          "dataSourcesDesc": "Alle verknüpften Quellen dieser Gemeinde mit Status und letztem Crawl-Datum",
+          "pysis": "PySis (Optional)",
+          "pysisDesc": "Integration mit externem Prozess-Management-System (falls konfiguriert)"
+        }
+      },
+      "locationManagement": {
+        "title": "Location-Verwaltung (Admin)",
+        "functionColumn": "Funktion",
+        "descriptionColumn": "Beschreibung",
+        "newLocation": "Neue Location",
+        "newLocationDesc": "Standort manuell anlegen",
+        "edit": "Bearbeiten",
+        "editDesc": "Name, Land, Admin-Levels ändern",
+        "showReport": "Report anzeigen",
+        "showReportDesc": "Detail-Report öffnen",
+        "documents": "Dokumente",
+        "documentsDesc": "Alle Dokumente dieser Location",
+        "linkSources": "Quellen verknüpfen",
+        "linkSourcesDesc": "Automatische Verknüpfung anhand Location-Name",
+        "enrichAdminLevels": "Admin-Levels anreichern",
+        "enrichAdminLevelsDesc": "Bundesland/Landkreis via Geocoding ermitteln"
+      }
+    },
+    "entityFacet": {
+      "title": "Entity-Facet System",
+      "newInfo": "NEU: Das Entity-Facet System ermoeglicht eine flexible, generische Datenstruktur fuer verschiedene Analyse-Szenarien - von Pain-Point-Analysen ueber Event-Tracking bis hin zu Entscheider-Profilen.",
+      "concept": {
+        "title": "Konzept: Was sind Entities und Facets?",
+        "description": "Das System basiert auf zwei Hauptkonzepten:",
+        "entities": {
+          "title": "Entities (Objekte)",
+          "description": "Grundlegende Objekte, die analysiert werden:",
+          "municipality": "Gemeinden, Staedte",
+          "person": "Entscheider, Kontakte",
+          "organization": "Behoerden, Unternehmen",
+          "event": "Veranstaltungen, Sitzungen",
+          "types": [
+            "Municipality - Gemeinden, Staedte",
+            "Person - Entscheider, Kontakte",
+            "Organization - Behoerden, Unternehmen",
+            "Event - Veranstaltungen, Sitzungen"
+          ],
+          "note": "Entity-Typen sind konfigurierbar und erweiterbar."
+        },
+        "facets": {
+          "title": "Facets (Eigenschaften)",
+          "description": "Dynamische Eigenschaften, die Entities zugeordnet werden:",
+          "painPoint": "Probleme, Herausforderungen",
+          "positiveSignal": "Positive Signale",
+          "contact": "Kontaktdaten",
+          "eventAttendance": "Veranstaltungsteilnahme",
+          "types": [
+            "Pain Point - Probleme, Herausforderungen",
+            "Positive Signal - Positive Signale",
+            "Contact - Kontaktdaten",
+            "Event Attendance - Veranstaltungsteilnahme"
+          ],
+          "note": "Facet-Typen koennen individuell definiert werden."
+        }
+      },
+      "relations": {
+        "title": "Verknuepfungen (Relations)",
+        "description": "Entities koennen miteinander verknuepft werden:",
+        "tableHeaders": {
+          "relationType": "Beziehungstyp",
+          "description": "Beschreibung",
+          "example": "Beispiel"
+        },
+        "types": {
+          "worksFor": "works_for",
+          "worksForDesc": "Person arbeitet fuer Organisation/Gemeinde",
+          "worksForExample": "Max Mustermann → Buergermeister → Gemeinde Musterstadt",
+          "memberOf": "member_of",
+          "memberOfDesc": "Person ist Mitglied einer Organisation",
+          "memberOfExample": "Person → Mitglied → Gemeinderat",
+          "attends": "attends",
+          "attendsDesc": "Person nimmt an Event teil",
+          "attendsExample": "Person → Teilnehmer → Windenergie-Konferenz",
+          "organizes": "organizes",
+          "organizesDesc": "Organisation organisiert Event",
+          "organizesExample": "Landratsamt → Veranstalter → Buergerversammlung"
+        }
+      },
+      "timeBased": {
+        "title": "Zeitbasierte Facets",
+        "info": "Einige Facet-Typen unterstuetzen zeitbasierte Filterung:",
+        "futureOnly": "future_only - Nur zukuenftige Events (z.B. anstehende Veranstaltungen)",
+        "pastOnly": "past_only - Nur vergangene Events (z.B. historische Daten)",
+        "all": "all - Alle Zeitraeume (Standard)"
+      },
+      "analysisTemplates": {
+        "title": "Analyse-Templates",
+        "description": "Templates definieren, welche Facets fuer welche Entity-Typen relevant sind und wie sie aggregiert und dargestellt werden:",
+        "painPoint": {
+          "title": "Pain-Point-Analyse (Standard)",
+          "description": "Aggregiert Pain Points und Positive Signale pro Gemeinde:",
+          "items": [
+            "Primary Entity Type: Municipality",
+            "Aktive Facets: Pain Point, Positive Signal",
+            "Gruppierung: Nach Gemeinde",
+            "Sortierung: Nach Opportunity Score"
+          ]
+        },
+        "eventTracking": {
+          "title": "Event-Tracking",
+          "description": "Verfolgt Veranstaltungen und Teilnehmer:",
+          "items": [
+            "Primary Entity Type: Event",
+            "Aktive Facets: Event Attendance",
+            "Zeitfilter: future_only (nur anstehende Events)",
+            "Verknuepfungen: Person attends Event"
+          ]
+        },
+        "decisionMakerProfile": {
+          "title": "Entscheider-Profil",
+          "description": "Erstellt Profile von Entscheidungstraegern:",
+          "items": [
+            "Primary Entity Type: Person",
+            "Aktive Facets: Contact, Event Attendance",
+            "Verknuepfungen: works_for Municipality, member_of Organization"
+          ]
+        }
+      },
+      "entitiesView": {
+        "title": "Entities-Ansicht",
+        "description": "Ueber Entities im Hauptmenue erreichen Sie die neue generische Ansicht:",
+        "tableHeaders": {
+          "function": "Funktion",
+          "description": "Beschreibung"
+        },
+        "functions": {
+          "entityTypeTabs": "Entity-Typ Tabs",
+          "entityTypeTabsDesc": "Wechseln zwischen verschiedenen Entity-Typen (Gemeinden, Personen, etc.)",
+          "tableCardView": "Tabellen- / Kartenansicht",
+          "tableCardViewDesc": "Umschalten zwischen Tabellenansicht und Kartenansicht",
+          "filter": "Filter",
+          "filterDesc": "Nach Kategorie, uebergeordnetem Element, Facet-Typen filtern",
+          "facetOverview": "Facet-Uebersicht",
+          "facetOverviewDesc": "Zeigt aggregierte Facet-Zaehler pro Entity"
+        }
+      },
+      "entityDetailView": {
+        "title": "Entity-Detail-Ansicht",
+        "description": "Klicken Sie auf eine Entity fuer die Detailansicht:",
+        "tabsTitle": "Tabs",
+        "actionsTitle": "Aktionen",
+        "tabs": {
+          "facets": "Facets - Alle Facet-Werte gruppiert nach Typ",
+          "relations": "Verknuepfungen - Relations zu anderen Entities",
+          "dataSources": "Datenquellen - Verknuepfte Crawl-Quellen",
+          "documents": "Dokumente - Gefundene Dokumente",
+          "pysis": "PySis - Integration (fuer Gemeinden)"
+        },
+        "actions": {
+          "addFacet": "Facet hinzufuegen - Manuell neue Werte erfassen",
+          "verify": "Verifizieren - KI-Ergebnisse bestaetigen",
+          "edit": "Bearbeiten - Entity-Daten anpassen",
+          "startCrawl": "Crawl starten - Datenquellen aktualisieren"
+        }
+      },
+      "aiIntegration": {
+        "title": "KI-Integration",
+        "description": "Das Entity-Facet System ist eng mit der KI-Analyse integriert:",
+        "automaticExtraction": {
+          "title": "Automatische Extraktion",
+          "description": "Die KI extrahiert Facet-Werte aus Dokumenten basierend auf dem Facet-Typ"
+        },
+        "facetPrompts": {
+          "title": "Facet-spezifische Prompts",
+          "description": "Jeder Facet-Typ hat einen eigenen Extraktions-Prompt"
+        },
+        "confidenceRating": {
+          "title": "Konfidenz-Bewertung",
+          "description": "Die KI bewertet die Zuverlaessigkeit jedes extrahierten Wertes"
+        },
+        "humanInLoop": {
+          "title": "Human-in-the-Loop",
+          "description": "Manuelle Verifizierung zur Qualitaetssicherung"
+        }
+      },
+      "bestPractices": {
+        "title": "Best Practices",
+        "items": {
+          "predefinedTypes": "Starten Sie mit vordefinierten Entity-Typen",
+          "useTemplates": "Nutzen Sie Analyse-Templates fuer konsistente Auswertungen",
+          "verifyResults": "Verifizieren Sie KI-Ergebnisse regelmaessig",
+          "timeFilters": "Nutzen Sie zeitbasierte Filter fuer Event-Tracking"
+        }
+      }
+    },
+    "results": {
+      "title": "Ergebnisse",
+      "description": "Zentrale Ansicht aller KI-extrahierten Daten.",
+      "statisticsCards": "Statistik-Karten",
+      "cards": {
+        "total": "Gesamt",
+        "totalDesc": "Alle Extraktionen",
+        "verified": "Verifiziert",
+        "verifiedDesc": "Manuell bestätigt",
+        "highConfidence": "Hohe Konfidenz",
+        "highConfidenceDesc": "≥80% Sicherheit",
+        "average": "Durchschnitt",
+        "averageDesc": "Ø Konfidenz"
+      },
+      "availableFilters": "Verfügbare Filter",
+      "filters": [
+        "Land",
+        "Gemeinde/Ort (Autocomplete)",
+        "Kategorie",
+        "Min. Konfidenz (Slider)"
+      ],
+      "whatIsExtracted": "Was wird extrahiert?",
+      "extracted": {
+        "topicSummary": "Thema & Zusammenfassung",
+        "painPoints": "Pain Points",
+        "painPointsDesc": "Kritische Punkte, Hindernisse, Probleme",
+        "opportunities": "Opportunities",
+        "opportunitiesDesc": "Chancen, positive Entwicklungen",
+        "sentiment": "Sentiment",
+        "sentimentDesc": "Positiv / Neutral / Negativ",
+        "confidence": "Konfidenz-Score",
+        "confidenceDesc": "Wie sicher ist die KI (0-100%)"
+      },
+      "detailDialog": {
+        "title": "Detail-Dialog",
+        "description": "Klicken Sie auf das Auge-Symbol, um Details zu sehen:",
+        "header": "Header",
+        "headerItems": [
+          "Thema der Extraktion",
+          "Konfidenz mit Farb-Chip",
+          "Dokument-Link + Quelle"
+        ],
+        "infoCards": "Info-Karten",
+        "sections": {
+          "summary": "Zusammenfassung",
+          "summaryDesc": "KI-generierte Zusammenfassung des Inhalts",
+          "painPoints": "Pain Points",
+          "painPointsDesc": "Expandierbare Liste mit kritischen Punkten aus dem Dokument",
+          "positiveSignals": "Positive Signale",
+          "positiveSignalsDesc": "Expandierbare Liste mit Chancen und positiven Entwicklungen",
+          "decisionMakers": "Entscheider",
+          "decisionMakersDesc": "Identifizierte Entscheidungsträger mit Name und Rolle",
+          "rawJson": "Raw JSON",
+          "rawJsonDesc": "Vollständige KI-Antwort im JSON-Format zur Analyse"
+        },
+        "tip": "Tipp: Nutzen Sie \"Dokument öffnen\" um das Original anzuzeigen."
+      },
+      "understandingConfidence": {
+        "title": "Konfidenz verstehen",
+        "low": "0-50%",
+        "lowDesc": "Geringe Sicherheit",
+        "lowAction": "Kritisch prüfen",
+        "medium": "50-70%",
+        "mediumDesc": "Mittlere Sicherheit",
+        "mediumAction": "Stichproben prüfen",
+        "high": "70-100%",
+        "highDesc": "Hohe Sicherheit",
+        "highAction": "Meist zuverlässig"
+      }
+    },
+    "export": {
+      "title": "Export",
+      "exportFormats": "Export-Formate",
+      "formats": {
+        "json": "JSON",
+        "jsonDesc": "Strukturiert mit allen Details",
+        "csv": "CSV",
+        "csvDesc": "Tabellenformat für Excel"
+      },
+      "exportFilters": "Export-Filter",
+      "filters": [
+        "Land",
+        "Gemeinde/Ort",
+        "Kategorie",
+        "Mindest-Konfidenz (Slider)",
+        "Nur verifizierte Daten"
+      ],
+      "webhookTest": {
+        "title": "Webhook Test",
+        "description": "Testen Sie Webhook-Integrationen mit externen Systemen:",
+        "items": [
+          "Webhook-URL eingeben",
+          "Test-Request senden",
+          "Ergebnis mit Status-Code anzeigen"
+        ]
+      },
+      "changesFeed": {
+        "title": "Änderungs-Feed",
+        "description": "Zeigt die letzten Änderungen im System:",
+        "new": "NEW",
+        "newDesc": "Neue Extraktion hinzugefügt",
+        "updated": "UPDATED",
+        "updatedDesc": "Bestehende Extraktion aktualisiert",
+        "verified": "VERIFIED",
+        "verifiedDesc": "Manuell verifiziert"
+      },
+      "apiEndpoints": {
+        "title": "API-Endpunkte",
+        "getData": "Extrahierte Daten abrufen",
+        "getDocuments": "Dokumente abrufen",
+        "search": "Volltextsuche",
+        "exportJson": "JSON-Export (mit Filtern)",
+        "exportCsv": "CSV-Export (mit Filtern)",
+        "getChanges": "Änderungs-Feed",
+        "testWebhook": "Webhook testen"
+      }
+    },
+    "notifications": {
+      "title": "Benachrichtigungen",
+      "description": "Das Benachrichtigungssystem ermoeglicht es Ihnen, automatisch ueber wichtige Ereignisse informiert zu werden - per E-Mail, Webhook oder In-App-Benachrichtigung.",
+      "overview": {
+        "title": "Uebersicht",
+        "description": "Unter Benachrichtigungen (erreichbar ueber das Glocken-Symbol in der App-Leiste) finden Sie drei Bereiche:",
+        "inbox": "Posteingang",
+        "inboxDesc": "Alle Ihre Benachrichtigungen mit Filterfunktionen",
+        "rules": "Regeln",
+        "rulesDesc": "Erstellen und verwalten Sie Benachrichtigungsregeln",
+        "settings": "Einstellungen",
+        "settingsDesc": "Allgemeine Einstellungen und E-Mail-Adressen verwalten"
+      },
+      "eventTypes": {
+        "title": "Event-Typen",
+        "description": "Folgende Ereignisse koennen Benachrichtigungen ausloesen:",
+        "newDocument": "Neues Dokument",
+        "newDocumentDesc": "Ein neues Dokument wurde beim Crawling gefunden",
+        "documentChanged": "Dokument geaendert",
+        "documentChangedDesc": "Ein bestehendes Dokument wurde aktualisiert",
+        "documentRemoved": "Dokument entfernt",
+        "documentRemovedDesc": "Ein Dokument ist nicht mehr verfuegbar",
+        "crawlStarted": "Crawl gestartet",
+        "crawlStartedDesc": "Ein Crawl-Job wurde gestartet",
+        "crawlCompleted": "Crawl abgeschlossen",
+        "crawlCompletedDesc": "Ein Crawl-Job wurde erfolgreich beendet",
+        "crawlFailed": "Crawl fehlgeschlagen",
+        "crawlFailedDesc": "Ein Crawl-Job ist mit Fehlern beendet",
+        "aiAnalysisCompleted": "KI-Analyse abgeschlossen",
+        "aiAnalysisCompletedDesc": "Die KI-Analyse eines Dokuments ist fertig",
+        "highConfidence": "Hohe Konfidenz",
+        "highConfidenceDesc": "Ein KI-Ergebnis mit hoher Konfidenz wurde gefunden",
+        "sourceStatusChanged": "Quellenstatus geaendert",
+        "sourceStatusChangedDesc": "Der Status einer Datenquelle hat sich geaendert",
+        "sourceError": "Quellenfehler",
+        "sourceErrorDesc": "Es gab einen Fehler bei einer Datenquelle"
+      },
+      "channels": {
+        "title": "Benachrichtigungskanaele",
+        "email": "E-Mail",
+        "emailDesc": "Erhalten Sie Benachrichtigungen per E-Mail. Sie koennen mehrere E-Mail-Adressen hinterlegen und pro Regel auswaehlen, welche Adressen benachrichtigt werden sollen.",
+        "webhook": "Webhook",
+        "webhookDesc": "Senden Sie Benachrichtigungen an einen HTTP-Endpunkt. Unterstuetzt werden Bearer-Token, API-Key und Basic-Authentifizierung.",
+        "inApp": "In-App",
+        "inAppDesc": "Benachrichtigungen werden im Posteingang angezeigt. Das Glocken-Symbol zeigt die Anzahl ungelesener Nachrichten an."
+      },
+      "createRules": {
+        "title": "Regeln erstellen",
+        "description": "So erstellen Sie eine neue Benachrichtigungsregel:",
+        "step1Title": "Grundeinstellungen",
+        "step1Desc": "Vergeben Sie einen Namen und waehlen Sie den Event-Typ aus.",
+        "step2Title": "Kanal waehlen",
+        "step2Desc": "Waehlen Sie E-Mail, Webhook oder In-App als Benachrichtigungskanal.",
+        "step3Title": "Filter konfigurieren (optional)",
+        "step3Desc": "Schraenken Sie ein, fuer welche Kategorien, Quellen oder Konfidenzwerte die Regel gelten soll.",
+        "step4Title": "Kanal-spezifische Einstellungen",
+        "step4Desc": "Bei E-Mail: Waehlen Sie Empfaenger. Bei Webhook: Geben Sie URL und Authentifizierung an."
+      },
+      "filterOptions": {
+        "title": "Filteroptionen",
+        "categories": "Kategorien",
+        "categoriesDesc": "Nur bei Ereignissen in bestimmten Kategorien benachrichtigen",
+        "dataSources": "Datenquellen",
+        "dataSourcesDesc": "Nur bei Ereignissen von bestimmten Quellen benachrichtigen",
+        "minConfidence": "Min. Konfidenz",
+        "minConfidenceDesc": "Nur bei KI-Ergebnissen ueber einem Schwellenwert (0.0 - 1.0)",
+        "keywords": "Schluesselwoerter",
+        "keywordsDesc": "Nur wenn bestimmte Begriffe im Dokument vorkommen"
+      },
+      "digestMode": {
+        "title": "Digest-Modus",
+        "description": "Statt jeder einzelnen Benachrichtigung koennen Sie einen Digest aktivieren:",
+        "info": "Digest-Funktion: Sammelt mehrere Benachrichtigungen und sendet sie gebuendelt (stuendlich, taeglich oder woechentlich). Die Digest-Zeit koennen Sie in den Einstellungen festlegen."
+      },
+      "emailAddresses": {
+        "title": "E-Mail-Adressen verwalten",
+        "description": "Unter Einstellungen koennen Sie zusaetzliche E-Mail-Adressen hinterlegen:",
+        "add": "Adresse hinzufuegen",
+        "addDesc": "Geben Sie eine E-Mail und optional eine Bezeichnung ein",
+        "verify": "Verifizierung",
+        "verifyDesc": "Neue Adressen muessen per Bestaetigunslink verifiziert werden",
+        "delete": "Loeschen",
+        "deleteDesc": "Nicht mehr benoetigte Adressen koennen entfernt werden"
+      },
+      "webhookConfig": {
+        "title": "Webhook-Konfiguration",
+        "description": "Fuer Webhook-Benachrichtigungen werden folgende Authentifizierungsmethoden unterstuetzt:",
+        "none": "Keine",
+        "noneDesc": "Keine Authentifizierung (nur fuer interne Endpunkte empfohlen)",
+        "bearer": "Bearer Token",
+        "bearerDesc": "Authorization: Bearer <token>",
+        "apiKey": "API Key",
+        "apiKeyDesc": "Custom Header mit API-Schluessel",
+        "basicAuth": "Basic Auth",
+        "basicAuthDesc": "HTTP Basic Authentication (Benutzername/Passwort)",
+        "warning": "Webhook testen: Nutzen Sie die Test-Funktion, um zu pruefen, ob Ihr Endpunkt erreichbar ist und korrekt antwortet, bevor Sie die Regel aktivieren."
+      }
+    }
+  }
+}

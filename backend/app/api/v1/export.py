@@ -2,19 +2,131 @@
 
 import csv
 import io
+import ipaddress
 import json
-from typing import List, Optional
+import socket
+from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_session
-from app.models import ExtractedData, Document, DataSource, Category
+from app.models import ExtractedData, Document, DataSource, DataSourceCategory, Category
+from app.models.user import User
+from app.core.deps import get_current_user
 
 router = APIRouter()
+
+
+# =============================================================================
+# SSRF Protection
+# =============================================================================
+
+# Blocked IP ranges for SSRF protection
+BLOCKED_IP_RANGES = [
+    ipaddress.ip_network("127.0.0.0/8"),      # Localhost
+    ipaddress.ip_network("10.0.0.0/8"),       # Private Class A
+    ipaddress.ip_network("172.16.0.0/12"),    # Private Class B
+    ipaddress.ip_network("192.168.0.0/16"),   # Private Class C
+    ipaddress.ip_network("169.254.0.0/16"),   # Link-local (AWS/Azure/GCP metadata)
+    ipaddress.ip_network("0.0.0.0/8"),        # Current network
+    ipaddress.ip_network("100.64.0.0/10"),    # Carrier-grade NAT
+    ipaddress.ip_network("192.0.0.0/24"),     # IETF Protocol Assignments
+    ipaddress.ip_network("192.0.2.0/24"),     # TEST-NET-1
+    ipaddress.ip_network("198.51.100.0/24"),  # TEST-NET-2
+    ipaddress.ip_network("203.0.113.0/24"),   # TEST-NET-3
+    ipaddress.ip_network("224.0.0.0/4"),      # Multicast
+    ipaddress.ip_network("240.0.0.0/4"),      # Reserved
+]
+
+
+def validate_webhook_url(url: str) -> Tuple[bool, str]:
+    """
+    Validate URL for SSRF protection.
+
+    Returns (is_safe, error_message).
+    """
+    try:
+        parsed = urlparse(url)
+
+        # Only allow https for webhooks (security best practice)
+        if parsed.scheme != "https":
+            return False, "Only HTTPS URLs are allowed for webhooks"
+
+        hostname = parsed.hostname
+        if not hostname:
+            return False, "Invalid URL: no hostname"
+
+        # Block localhost variations
+        blocked_hostnames = {"localhost", "127.0.0.1", "::1", "0.0.0.0", "[::1]"}
+        if hostname.lower() in blocked_hostnames:
+            return False, "Localhost URLs are not allowed"
+
+        # Block internal hostnames
+        if hostname.endswith(".local") or hostname.endswith(".internal"):
+            return False, "Internal hostnames are not allowed"
+
+        # Try to resolve and check IP
+        try:
+            ip = socket.gethostbyname(hostname)
+            ip_obj = ipaddress.ip_address(ip)
+
+            for blocked_range in BLOCKED_IP_RANGES:
+                if ip_obj in blocked_range:
+                    return False, "URL resolves to blocked IP range (internal network)"
+        except socket.gaierror:
+            # Can't resolve - allow but log warning
+            pass
+
+        return True, ""
+
+    except Exception as e:
+        return False, f"Invalid URL: {str(e)}"
+
+
+async def _bulk_load_related_data(
+    session: AsyncSession,
+    extractions: List[ExtractedData]
+) -> tuple[Dict[UUID, Document], Dict[UUID, DataSource], Dict[UUID, Category]]:
+    """Bulk-load all related documents, sources, and categories for extractions.
+
+    Returns dictionaries mapping IDs to their respective objects.
+    This eliminates N+1 query problems by loading all data in 3 queries instead of 3N.
+    """
+    if not extractions:
+        return {}, {}, {}
+
+    # Collect all unique IDs
+    doc_ids = {ext.document_id for ext in extractions if ext.document_id}
+    cat_ids = {ext.category_id for ext in extractions if ext.category_id}
+
+    # Bulk-load documents with their sources (single query with join)
+    docs_result = await session.execute(
+        select(Document)
+        .options(selectinload(Document.source))
+        .where(Document.id.in_(doc_ids))
+    )
+    docs_by_id: Dict[UUID, Document] = {doc.id: doc for doc in docs_result.scalars().all()}
+
+    # Extract sources from loaded documents
+    sources_by_id: Dict[UUID, DataSource] = {
+        doc.source.id: doc.source
+        for doc in docs_by_id.values()
+        if doc.source
+    }
+
+    # Bulk-load categories
+    cats_result = await session.execute(
+        select(Category).where(Category.id.in_(cat_ids))
+    )
+    cats_by_id: Dict[UUID, Category] = {cat.id: cat for cat in cats_result.scalars().all()}
+
+    return docs_by_id, sources_by_id, cats_by_id
 
 
 @router.get("/json")
@@ -40,11 +152,16 @@ async def export_json(
     result = await session.execute(query)
     extractions = result.scalars().all()
 
+    # Bulk-load all related data in 2-3 queries instead of 3N queries
+    docs_by_id, sources_by_id, cats_by_id = await _bulk_load_related_data(
+        session, extractions
+    )
+
     export_data = []
     for ext in extractions:
-        doc = await session.get(Document, ext.document_id)
-        source = await session.get(DataSource, doc.source_id) if doc else None
-        category = await session.get(Category, ext.category_id)
+        doc = docs_by_id.get(ext.document_id)
+        source = sources_by_id.get(doc.source_id) if doc and doc.source_id else None
+        category = cats_by_id.get(ext.category_id)
 
         export_data.append({
             "id": str(ext.id),
@@ -92,6 +209,11 @@ async def export_csv(
     result = await session.execute(query)
     extractions = result.scalars().all()
 
+    # Bulk-load all related data in 2-3 queries instead of 3N queries
+    docs_by_id, sources_by_id, cats_by_id = await _bulk_load_related_data(
+        session, extractions
+    )
+
     # Create CSV in memory
     output = io.StringIO()
     writer = csv.writer(output)
@@ -111,9 +233,9 @@ async def export_csv(
     ])
 
     for ext in extractions:
-        doc = await session.get(Document, ext.document_id)
-        source = await session.get(DataSource, doc.source_id) if doc else None
-        category = await session.get(Category, ext.category_id)
+        doc = docs_by_id.get(ext.document_id)
+        source = sources_by_id.get(doc.source_id) if doc and doc.source_id else None
+        category = cats_by_id.get(ext.category_id)
 
         writer.writerow([
             str(ext.id),
@@ -160,7 +282,13 @@ async def get_changes_feed(
             pass
 
     if category_id:
-        query = query.join(DataSource).where(DataSource.category_id == category_id)
+        # Filter via junction table (N:M relationship)
+        query = (
+            query
+            .join(DataSource, ChangeLog.source_id == DataSource.id)
+            .join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id)
+            .where(DataSourceCategory.category_id == category_id)
+        )
 
     query = query.order_by(ChangeLog.detected_at.desc()).limit(limit)
 
@@ -187,9 +315,25 @@ async def get_changes_feed(
 @router.post("/webhook/test")
 async def test_webhook(
     url: str = Query(..., description="Webhook URL to test"),
+    current_user: User = Depends(get_current_user),  # Require authentication
 ):
-    """Test a webhook endpoint."""
+    """
+    Test a webhook endpoint.
+
+    **Security:**
+    - Requires authentication
+    - Only HTTPS URLs allowed
+    - Internal/private IP ranges are blocked (SSRF protection)
+    """
     import httpx
+
+    # SSRF Protection: Validate URL before making request
+    is_safe, error_msg = validate_webhook_url(url)
+    if not is_safe:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid webhook URL: {error_msg}",
+        )
 
     test_payload = {
         "event": "test",

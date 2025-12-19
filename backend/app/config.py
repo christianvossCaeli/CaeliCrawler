@@ -3,8 +3,18 @@
 from functools import lru_cache
 from typing import List
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# Known insecure default secret keys that must not be used in production
+INSECURE_SECRET_KEYS = {
+    "change-me-in-production",
+    "your-secret-key-change-in-production",
+    "secret",
+    "changeme",
+    "development-secret",
+}
 
 
 class Settings(BaseSettings):
@@ -22,6 +32,31 @@ class Settings(BaseSettings):
     app_env: str = "development"
     debug: bool = False
     secret_key: str = Field(default="change-me-in-production")
+
+    @model_validator(mode="after")
+    def validate_production_settings(self) -> "Settings":
+        """Validate critical settings for production environment."""
+        if self.app_env == "production":
+            # Ensure secret key is not a known insecure default
+            if self.secret_key in INSECURE_SECRET_KEYS:
+                raise ValueError(
+                    "SECURITY ERROR: SECRET_KEY must be changed in production! "
+                    "Generate a secure key with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                )
+
+            # Ensure secret key has minimum length (256 bits = 32 bytes)
+            if len(self.secret_key) < 32:
+                raise ValueError(
+                    "SECURITY ERROR: SECRET_KEY must be at least 32 characters in production"
+                )
+
+            # Ensure debug is disabled in production
+            if self.debug:
+                raise ValueError(
+                    "SECURITY ERROR: DEBUG must be False in production"
+                )
+
+        return self
 
     # Database
     database_url: str = Field(

@@ -96,6 +96,27 @@ from app.schemas.analysis_template import (
     AggregationConfig,
     DisplayConfig,
 )
+from app.schemas.assistant import (
+    AssistantContext,
+    AssistantChatRequest,
+    AssistantChatResponse,
+    AssistantResponseData,
+    ConversationMessage,
+    IntentType,
+    ViewMode,
+    QueryResponse,
+    ActionPreviewResponse,
+    NavigationResponse,
+    RedirectResponse,
+    HelpResponse,
+    ActionDetails,
+    ActionChange,
+    ActionExecuteRequest,
+    ActionExecuteResponse,
+    SuggestedAction,
+    SlashCommand,
+    SLASH_COMMANDS,
+)
 
 __all__ = [
     # Category
@@ -179,4 +200,24 @@ __all__ = [
     "FacetConfig",
     "AggregationConfig",
     "DisplayConfig",
+    # Assistant
+    "AssistantContext",
+    "AssistantChatRequest",
+    "AssistantChatResponse",
+    "AssistantResponseData",
+    "ConversationMessage",
+    "IntentType",
+    "ViewMode",
+    "QueryResponse",
+    "ActionPreviewResponse",
+    "NavigationResponse",
+    "RedirectResponse",
+    "HelpResponse",
+    "ActionDetails",
+    "ActionChange",
+    "ActionExecuteRequest",
+    "ActionExecuteResponse",
+    "SuggestedAction",
+    "SlashCommand",
+    "SLASH_COMMANDS",
 ]

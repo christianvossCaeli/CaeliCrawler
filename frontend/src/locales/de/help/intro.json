@@ -1,0 +1,140 @@
+{
+  "help": {
+    "title": "Benutzerhandbuch",
+    "intro": {
+      "title": "Einführung",
+      "whatIs": "Was ist CaeliCrawler?",
+      "whatIsDescription": "CaeliCrawler ist ein intelligentes Web-Crawling-System zur automatisierten Erfassung und Analyse von kommunalen Dokumenten und Webseiten. Das System wurde speziell entwickelt, um relevante Informationen aus öffentlichen Quellen zu extrahieren und mittels KI-Analyse strukturiert aufzubereiten.",
+      "what_is_title": "Was ist CaeliCrawler?",
+      "what_is_description": "CaeliCrawler ist ein intelligentes Web-Crawling-System zur automatisierten Erfassung und Analyse von kommunalen Dokumenten und Webseiten. Das System wurde speziell entwickelt, um relevante Informationen aus öffentlichen Quellen zu extrahieren und mittels KI-Analyse strukturiert aufzubereiten.",
+      "mainFeatures": "Hauptfunktionen",
+      "main_functions_title": "Hauptfunktionen",
+      "table": {
+        "function": "Funktion",
+        "description": "Beschreibung"
+      },
+      "features": {
+        "webCrawling": "Web-Crawling",
+        "webCrawlingDesc": "Automatisches Durchsuchen von Websites nach relevanten Dokumenten",
+        "documentProcessing": "Dokumentenverarbeitung",
+        "documentProcessingDesc": "Extraktion von Text aus PDFs, HTML, Word-Dokumenten",
+        "aiAnalysis": "KI-Analyse",
+        "aiAnalysisDesc": "Intelligente Auswertung der Inhalte mittels Azure OpenAI",
+        "relevanceFiltering": "Relevanz-Filterung",
+        "relevanceFilteringDesc": "Automatische Vorsortierung nach konfigurierbaren Keywords",
+        "structuredResults": "Strukturierte Ergebnisse",
+        "structuredResultsDesc": "Export der Erkenntnisse als JSON oder CSV"
+      },
+      "functions": {
+        "web_crawling": {
+          "title": "Web-Crawling",
+          "description": "Automatisches Durchsuchen von Websites nach relevanten Dokumenten"
+        },
+        "document_processing": {
+          "title": "Dokumentenverarbeitung",
+          "description": "Extraktion von Text aus PDFs, HTML, Word-Dokumenten"
+        },
+        "ai_analysis": {
+          "title": "KI-Analyse",
+          "description": "Intelligente Auswertung der Inhalte mittels Azure OpenAI"
+        },
+        "relevance_filtering": {
+          "title": "Relevanz-Filterung",
+          "description": "Automatische Vorsortierung nach konfigurierbaren Keywords"
+        },
+        "structured_results": {
+          "title": "Strukturierte Ergebnisse",
+          "description": "Export der Erkenntnisse als JSON oder CSV"
+        }
+      },
+      "typicalWorkflow": "Typischer Workflow",
+      "workflow_title": "Typischer Workflow",
+      "workflow": {
+        "category": "Kategorie",
+        "createCategory": "erstellen",
+        "dataSource": "Datenquelle",
+        "addDataSource": "hinzufügen",
+        "crawler": "Crawler",
+        "startCrawler": "starten",
+        "documents": "Dokumente",
+        "processDocuments": "verarbeiten",
+        "aiAnalysis": "KI-Analyse",
+        "running": "läuft",
+        "results": "Ergebnisse",
+        "exportResults": "exportieren",
+        "step1": {
+          "title": "Kategorie",
+          "subtitle": "erstellen"
+        },
+        "step2": {
+          "title": "Datenquelle",
+          "subtitle": "hinzufügen"
+        },
+        "step3": {
+          "title": "Crawler",
+          "subtitle": "starten"
+        },
+        "step4": {
+          "title": "Dokumente",
+          "subtitle": "verarbeiten"
+        },
+        "step5": {
+          "title": "KI-Analyse",
+          "subtitle": "läuft"
+        },
+        "step6": {
+          "title": "Ergebnisse",
+          "subtitle": "exportieren"
+        }
+      }
+    },
+    "quickstart": {
+      "title": "Schnellstart",
+      "subtitle": "In 5 Minuten zum ersten Ergebnis",
+      "step1": {
+        "label": "Schritt 1",
+        "title": "Kategorie anlegen",
+        "heading": "Kategorie anlegen",
+        "instructions": {
+          "1": "Navigieren Sie zu Kategorien",
+          "2": "Klicken Sie auf \"Neue Kategorie\"",
+          "3": "Geben Sie einen Namen ein (z.B. \"Windenergie-Beschluesse\")",
+          "4": "Definieren Sie Zweck und Suchbegriffe",
+          "5": "Speichern"
+        }
+      },
+      "step2": {
+        "label": "Schritt 2",
+        "title": "Datenquelle hinzufuegen",
+        "heading": "Datenquelle hinzufuegen",
+        "instructions": {
+          "1": "Wechseln Sie zu Datenquellen",
+          "2": "Klicken Sie auf \"Neue Quelle\"",
+          "3": "Waehlen Sie die erstellte Kategorie",
+          "4": "Geben Sie die Basis-URL der Website ein",
+          "5": "Waehlen Sie Land und Gemeinde"
+        }
+      },
+      "step3": {
+        "label": "Schritt 3",
+        "title": "Crawl starten",
+        "heading": "Crawl starten",
+        "instructions": {
+          "1": "Gehen Sie zum Dashboard",
+          "2": "Klicken Sie auf \"Crawler starten\"",
+          "3": "Waehlen Sie Filter oder starten Sie fuer alle Quellen"
+        }
+      },
+      "step4": {
+        "label": "Schritt 4",
+        "title": "Ergebnisse ansehen",
+        "heading": "Ergebnisse ansehen",
+        "instructions": {
+          "1": "Überwachen Sie den Fortschritt unter Crawler",
+          "2": "Prüfen Sie verarbeitete Dokumente",
+          "3": "Sehen Sie KI-Erkenntnisse unter Ergebnisse"
+        }
+      }
+    }
+  }
+}

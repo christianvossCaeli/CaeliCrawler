@@ -1,0 +1,477 @@
+{
+  "help": {
+    "api": {
+      "title": "API-Referenz",
+      "description": "Vollständige Liste aller API-Endpunkte. Die interaktive API-Dokumentation (Swagger/OpenAPI) ist unter /docs verfügbar.",
+      "fullDocumentation": "Die vollständige interaktive API-Dokumentation mit allen Parametern und Beispielen finden Sie unter",
+      "or": "oder",
+      "tableHeaders": {
+        "method": "Methode",
+        "endpoint": "Endpunkt",
+        "description": "Beschreibung"
+      }
+    },
+    "tips": {
+      "title": "Tipps & Best Practices",
+      "efficientCrawling": {
+        "title": "Effizientes Crawling",
+        "useBlacklist": "Blacklist-Filter nutzen",
+        "useBlacklistDesc": "Exclude-Patterns filtern irrelevante Seiten (Impressum, Login, etc.)",
+        "limitDepth": "Max. Tiefe begrenzen",
+        "limitDepthDesc": "Starten Sie mit Tiefe 2-3, erhöhen Sie nur bei Bedarf",
+        "restrictDocTypes": "Dokumenttypen einschränken",
+        "restrictDocTypesDesc": "PDFs sind meist ergiebiger als HTML"
+      },
+      "betterAiResults": {
+        "title": "Bessere KI-Ergebnisse",
+        "precisePrompts": "Präzise Prompts",
+        "precisePromptsDesc": "Definieren Sie klare JSON-Strukturen und geben Sie Beispiele",
+        "optimizeKeywords": "Keyword-Optimierung",
+        "optimizeKeywordsDesc": "Nutzen Sie domänenspezifische Begriffe inkl. Varianten",
+        "testFirst": "Testen Sie zuerst",
+        "testFirstDesc": "Starten Sie mit wenigen Quellen, optimieren Sie dann"
+      },
+      "organization": {
+        "title": "Organisation",
+        "separateCategories": "Kategorien sinnvoll trennen",
+        "separateCategoriesDesc": "Eine Kategorie pro Themengebiet mit eigenem Prompt",
+        "maintainLocations": "Standorte pflegen",
+        "maintainLocationsDesc": "Weisen Sie jeder Quelle einen Standort zu",
+        "regularMaintenance": "Regelmäßige Pflege",
+        "regularMaintenanceDesc": "Prüfen Sie fehlerhafte Quellen und URLs"
+      }
+    },
+    "security": {
+      "title": "Sicherheit & Authentifizierung",
+      "login": {
+        "heading": "Anmeldung (Login)",
+        "description": "CaeliCrawler verwendet ein sicheres JWT-basiertes Authentifizierungssystem. Nach der Anmeldung erhalten Sie einen Token, der bei jeder Anfrage automatisch mitgesendet wird.",
+        "important": "Wichtig:",
+        "tokenExpiry": "Nach 24 Stunden Inaktivität werden Sie automatisch abgemeldet. Bei einem Logout wird der Token sofort invalidiert."
+      },
+      "roles": {
+        "heading": "Benutzerrollen",
+        "role": "Rolle",
+        "permissions": "Berechtigungen",
+        "admin": {
+          "fullAccess": "Vollzugriff auf alle Funktionen",
+          "userManagement": "Benutzerverwaltung (anlegen, bearbeiten, löschen)",
+          "auditLog": "Zugriff auf Audit-Log und Versionshistorie",
+          "systemConfig": "Systemkonfiguration"
+        },
+        "editor": {
+          "manageCategories": "Kategorien und Datenquellen verwalten",
+          "controlCrawler": "Crawler starten und stoppen",
+          "processDocuments": "Dokumente verarbeiten und analysieren",
+          "exportResults": "Ergebnisse exportieren"
+        },
+        "viewer": {
+          "viewData": "Alle Daten einsehen",
+          "exportResults": "Ergebnisse exportieren",
+          "noEditRights": "Keine Bearbeitungsrechte"
+        }
+      },
+      "password": {
+        "heading": "Passwort-Richtlinien",
+        "requirements": "Anforderungen:",
+        "minLength": "Mindestens 8 Zeichen",
+        "uppercase": "Mindestens ein Großbuchstabe (A-Z)",
+        "lowercase": "Mindestens ein Kleinbuchstabe (a-z)",
+        "digit": "Mindestens eine Ziffer (0-9)",
+        "specialChar": "Sonderzeichen empfohlen (erhöht den Sicherheitsscore)"
+      },
+      "features": {
+        "heading": "Sicherheitsfeatures",
+        "rateLimit": {
+          "title": "Rate Limiting (Brute-Force-Schutz)",
+          "description": "Das System schützt vor automatisierten Anmeldeversuchen:",
+          "action": "Aktion",
+          "limit": "Limit",
+          "timeWindow": "Zeitfenster",
+          "loginAttempts": "Login-Versuche",
+          "failedLogins": "Fehlgeschlagene Logins",
+          "passwordChanges": "Passwort-Änderungen",
+          "apiRequests": "API-Anfragen allgemein",
+          "perMinute": "pro Minute",
+          "per5Minutes": "pro 5 Minuten",
+          "per15Minutes": "pro 15 Minuten",
+          "note": "Bei Überschreitung erhalten Sie eine Fehlermeldung mit der verbleibenden Wartezeit."
+        },
+        "tokenBlacklist": {
+          "title": "Token Blacklist (Sofortiger Logout)",
+          "description": "Bei einem Logout wird Ihr Token sofort auf eine Blacklist gesetzt. Selbst wenn jemand Ihren Token abfängt, kann er nach dem Logout nicht mehr verwendet werden.",
+          "note": "Diese Funktion verwendet Redis für Echtzeit-Invalidierung."
+        },
+        "encryption": {
+          "title": "Verschlüsselung & Hashing",
+          "passwordHashing": "Passwort-Hashing",
+          "passwordHashingValue": "bcrypt (sichere Einweg-Verschlüsselung)",
+          "tokenSignature": "Token-Signatur",
+          "tokenSignatureValue": "HS256 mit sicherem Secret Key",
+          "transport": "Transport",
+          "transportValue": "HTTPS (TLS 1.3) in Production"
+        },
+        "auditLog": {
+          "title": "Audit Logging & Versionierung",
+          "auditLogHeading": "Audit Log:",
+          "description": "Jede Aktion wird protokolliert:",
+          "who": "Wer hat die Änderung durchgeführt?",
+          "when": "Wann wurde die Änderung durchgeführt?",
+          "what": "Was wurde geändert (vorher/nachher)?",
+          "versioningHeading": "Versionierung:",
+          "versioningDescription": "Diff-basierte Änderungshistorie:",
+          "onlyChanges": "Nur Änderungen werden gespeichert (effizient)",
+          "fullState": "Vollständiger Zustand zu jedem Zeitpunkt rekonstruierbar",
+          "snapshots": "Periodische Snapshots für schnelle Wiederherstellung"
+        }
+      },
+      "changePassword": {
+        "heading": "Passwort ändern",
+        "step1": "Klicken Sie auf Ihren Benutzernamen oben rechts",
+        "step2": "Wählen Sie \"Passwort ändern\"",
+        "step3": "Geben Sie Ihr aktuelles und neues Passwort ein",
+        "step4": "Der Passwort-Stärke-Indikator zeigt die Sicherheit an"
+      },
+      "adminFunctions": {
+        "heading": "Admin-Funktionen",
+        "adminOnly": "Nur für Administratoren:",
+        "description": "Diese Funktionen sind nur mit der ADMIN-Rolle verfügbar.",
+        "userManagement": {
+          "heading": "Benutzerverwaltung",
+          "createUsers": "Neue Benutzer anlegen",
+          "assignRoles": "Rollen zuweisen",
+          "resetPasswords": "Passwörter zurücksetzen",
+          "deactivateUsers": "Benutzer deaktivieren"
+        },
+        "auditLog": {
+          "heading": "Audit Log",
+          "viewActivities": "Alle Systemaktivitäten einsehen",
+          "filterByUser": "Nach Benutzer/Zeit filtern",
+          "trackChanges": "Änderungen nachvollziehen",
+          "securityChecks": "Sicherheitsprüfungen durchführen"
+        }
+      }
+    },
+    "troubleshooting": {
+      "title": "Fehlerbehebung",
+      "noDocuments": {
+        "title": "Crawler findet keine Dokumente",
+        "possibleCauses": "Mögliche Ursachen:",
+        "causes": {
+          "excludePatterns": "Exclude-Patterns (Blacklist) schließen zu viel aus",
+          "includePatterns": "Include-Patterns (Whitelist) zu restriktiv (falls gesetzt)",
+          "hiddenBehindJs": "Dokumente sind hinter JavaScript versteckt",
+          "blockedCrawler": "Seite blockiert Crawler (User-Agent)"
+        },
+        "solutions": "Lösungen:",
+        "solutionSteps": {
+          "checkBlacklist": "Blacklist überprüfen und ggf. Patterns entfernen",
+          "emptyWhitelist": "Whitelist leeren (empfohlen) - KI filtert relevante Inhalte",
+          "enableJs": "JavaScript-Rendering aktivieren",
+          "increaseDepth": "Max-Tiefe erhöhen"
+        }
+      },
+      "noAiResults": {
+        "title": "KI-Analyse liefert keine Ergebnisse",
+        "possibleCauses": "Mögliche Ursachen:",
+        "causes": {
+          "strictKeywords": "Keyword-Filter zu strikt",
+          "noRelevantContent": "Dokumente enthalten keine relevanten Inhalte",
+          "unsuitablePrompt": "Prompt nicht passend"
+        },
+        "solutions": "Lösungen:",
+        "solutionSteps": {
+          "expandKeywords": "Keywords erweitern",
+          "analyzeFiltered": "\"Gefilterte analysieren\" nutzen",
+          "optimizePrompt": "Prompt optimieren"
+        }
+      },
+      "pendingDocuments": {
+        "title": "Dokumente bleiben in \"Wartend\"",
+        "possibleCauses": "Mögliche Ursachen:",
+        "causes": {
+          "workerInactive": "Worker nicht aktiv",
+          "queueOverloaded": "Queue überlastet"
+        },
+        "solutions": "Lösungen:",
+        "solutionSteps": {
+          "checkWorker": "Worker-Status im Crawler prüfen",
+          "manualProcess": "\"Pending verarbeiten\" manuell klicken"
+        }
+      },
+      "statusCodes": {
+        "heading": "Status-Codes",
+        "status": "Status",
+        "meaning": "Bedeutung",
+        "action": "Aktion",
+        "pending": {
+          "meaning": "Wartet auf Verarbeitung",
+          "action": "Abwarten oder manuell starten"
+        },
+        "processing": {
+          "meaning": "Wird verarbeitet",
+          "action": "Abwarten"
+        },
+        "analyzing": {
+          "meaning": "KI-Analyse läuft",
+          "action": "Abwarten"
+        },
+        "completed": {
+          "meaning": "Erfolgreich",
+          "action": "Keine Aktion nötig"
+        },
+        "filtered": {
+          "meaning": "Durch Keywords gefiltert",
+          "action": "Ggf. manuell analysieren"
+        },
+        "failed": {
+          "meaning": "Fehler aufgetreten",
+          "action": "Fehler prüfen, neu versuchen"
+        }
+      },
+      "crawlerFindsNoDocuments": {
+        "title": "Crawler findet keine Dokumente",
+        "causes": "Mögliche Ursachen:",
+        "causesList": [
+          "Exclude-Patterns (Blacklist) schliessen zu viel aus",
+          "Include-Patterns (Whitelist) zu restriktiv (falls gesetzt)",
+          "Dokumente sind hinter JavaScript versteckt",
+          "Seite blockiert Crawler (User-Agent)"
+        ],
+        "solutions": "Lösungen:",
+        "solutionsList": [
+          "Blacklist überprüfen und ggf. Patterns entfernen",
+          "Whitelist leeren (empfohlen) - KI filtert relevante Inhalte",
+          "JavaScript-Rendering aktivieren",
+          "Max-Tiefe erhöhen"
+        ]
+      },
+      "aiAnalysisNoResults": {
+        "title": "KI-Analyse liefert keine Ergebnisse",
+        "causes": "Mögliche Ursachen:",
+        "causesList": [
+          "Keyword-Filter zu strikt",
+          "Dokumente enthalten keine relevanten Inhalte",
+          "Prompt nicht passend"
+        ],
+        "solutions": "Lösungen:",
+        "solutionsList": [
+          "Keywords erweitern",
+          "\"Gefilterte analysieren\" nutzen",
+          "Prompt optimieren"
+        ]
+      },
+      "documentsStayPending": {
+        "title": "Dokumente bleiben in \"Wartend\"",
+        "causes": "Mögliche Ursachen:",
+        "causesList": [
+          "Worker nicht aktiv",
+          "Queue überlastet"
+        ],
+        "solutions": "Lösungen:",
+        "solutionsList": [
+          "Worker-Status im Crawler prüfen",
+          "\"Pending verarbeiten\" manuell klicken"
+        ]
+      }
+    },
+    "apiGroups": {
+      "categories": {
+        "title": "Kategorien",
+        "endpoints": {
+          "list": "Liste aller Kategorien",
+          "create": "Neue Kategorie erstellen",
+          "get": "Kategorie abrufen",
+          "update": "Kategorie aktualisieren",
+          "delete": "Kategorie löschen",
+          "stats": "Kategorie-Statistiken"
+        }
+      },
+      "sources": {
+        "title": "Datenquellen",
+        "endpoints": {
+          "list": "Liste aller Quellen (mit Filtern)",
+          "create": "Neue Quelle erstellen",
+          "bulkImport": "Mehrere Quellen importieren",
+          "countries": "Verfügbare Länder",
+          "locations": "Verfügbare Standorte",
+          "get": "Quelle abrufen",
+          "update": "Quelle aktualisieren",
+          "delete": "Quelle löschen",
+          "reset": "Quelle zurücksetzen"
+        }
+      },
+      "crawler": {
+        "title": "Crawler",
+        "endpoints": {
+          "start": "Crawl starten",
+          "status": "Crawler-Status (Worker, Queue)",
+          "stats": "Crawler-Statistiken",
+          "running": "Laufende Jobs",
+          "jobs": "Alle Jobs (mit Filtern)",
+          "jobDetails": "Job-Details",
+          "jobLog": "Job-Log",
+          "cancelJob": "Job abbrechen",
+          "reanalyze": "Dokumente neu analysieren"
+        }
+      },
+      "aiTasks": {
+        "title": "KI-Tasks & Dokumente",
+        "endpoints": {
+          "list": "Alle KI-Tasks",
+          "running": "Laufende KI-Tasks",
+          "cancel": "KI-Task abbrechen",
+          "processDocument": "Dokument verarbeiten",
+          "analyzeDocument": "Dokument analysieren",
+          "processPending": "Alle Pending verarbeiten",
+          "stopAll": "Verarbeitung stoppen",
+          "reanalyzeFiltered": "Gefilterte neu analysieren"
+        }
+      },
+      "locations": {
+        "title": "Locations",
+        "endpoints": {
+          "list": "Alle Locations",
+          "get": "Einzelne Location abrufen",
+          "search": "Locations suchen",
+          "withSources": "Locations mit Quellen",
+          "countries": "Verfügbare Länder",
+          "states": "Bundesländer/States",
+          "adminLevels": "Admin-Levels (Level 1/2)",
+          "create": "Location erstellen",
+          "update": "Location aktualisieren",
+          "delete": "Location löschen",
+          "linkSources": "Quellen verknüpfen",
+          "enrichAdminLevels": "Admin-Levels anreichern"
+        }
+      },
+      "publicApi": {
+        "title": "Public API (v1/data)",
+        "endpoints": {
+          "data": "Extrahierte Daten (mit Filtern)",
+          "stats": "Extraktions-Statistiken",
+          "locations": "Locations mit Extraktionen",
+          "countries": "Länder mit Extraktionen",
+          "documents": "Alle Dokumente",
+          "documentDetails": "Dokument-Details",
+          "documentLocations": "Dokument-Locations",
+          "search": "Volltextsuche",
+          "verify": "Extraktion verifizieren"
+        }
+      },
+      "entities": {
+        "title": "Entities",
+        "endpoints": {
+          "list": "Alle Entities (mit Filtern)",
+          "create": "Entity erstellen",
+          "get": "Entity abrufen",
+          "update": "Entity aktualisieren",
+          "delete": "Entity löschen",
+          "brief": "Kurzübersicht",
+          "children": "Kind-Entities",
+          "hierarchy": "Hierarchie nach Typ",
+          "filterLocation": "Location-Filteroptionen",
+          "filterAttributes": "Attribut-Filteroptionen"
+        }
+      },
+      "smartQuery": {
+        "title": "Smart Query & Analysis",
+        "note": "Smart Query ermöglicht KI-gestützte natürlichsprachige Abfragen und automatische Erstellung von Kategorien.",
+        "endpoints": {
+          "query": "Smart Query ausführen (Read-Mode)",
+          "write": "Smart Write ausführen (Write-Mode)",
+          "examples": "Beispiel-Queries",
+          "templates": "Analyse-Templates",
+          "createTemplate": "Template erstellen",
+          "getTemplate": "Template abrufen",
+          "updateTemplate": "Template aktualisieren",
+          "deleteTemplate": "Template löschen",
+          "overview": "Analyse-Übersicht",
+          "report": "Entity-Report",
+          "stats": "Analyse-Statistiken"
+        }
+      },
+      "municipalities": {
+        "title": "Gemeinden & Reports",
+        "endpoints": {
+          "list": "Alle Gemeinden",
+          "report": "Gemeinde-Report",
+          "documents": "Gemeinde-Dokumente",
+          "overview": "Übersichts-Report",
+          "history": "Gemeinde-Historie",
+          "crawlHistory": "Crawl-Historie"
+        }
+      },
+      "export": {
+        "title": "Export",
+        "endpoints": {
+          "json": "JSON-Export",
+          "csv": "CSV-Export",
+          "changes": "Änderungs-Feed",
+          "webhookTest": "Webhook testen"
+        }
+      },
+      "pysis": {
+        "title": "PySis Integration (Optional)",
+        "note": "PySis ist eine optionale Integration zur Synchronisation mit externen Prozess-Management-Systemen. Erfordert Azure AD Konfiguration.",
+        "templates": {
+          "heading": "Templates",
+          "endpoints": {
+            "list": "Alle Templates auflisten",
+            "create": "Template erstellen",
+            "get": "Template abrufen",
+            "update": "Template aktualisieren",
+            "delete": "Template löschen"
+          }
+        },
+        "processes": {
+          "heading": "Prozesse",
+          "endpoints": {
+            "available": "Verfügbare Prozesse",
+            "locationProcesses": "Prozesse einer Location",
+            "createForLocation": "Prozess für Location erstellen",
+            "details": "Prozess-Details",
+            "update": "Prozess aktualisieren",
+            "delete": "Prozess löschen",
+            "applyTemplate": "Template anwenden",
+            "generate": "Felder KI-generieren",
+            "syncPull": "Von PySis laden",
+            "syncPush": "Zu PySis senden"
+          }
+        },
+        "fields": {
+          "heading": "Felder",
+          "endpoints": {
+            "list": "Felder eines Prozesses",
+            "add": "Feld hinzufügen",
+            "update": "Feld aktualisieren",
+            "setValue": "Feld-Wert setzen",
+            "delete": "Feld löschen",
+            "generate": "KI-Vorschlag generieren",
+            "acceptAi": "KI-Vorschlag akzeptieren",
+            "rejectAi": "KI-Vorschlag ablehnen",
+            "syncPush": "Feld zu PySis senden",
+            "history": "Feld-Änderungshistorie",
+            "restore": "Version wiederherstellen"
+          }
+        },
+        "connection": {
+          "heading": "Verbindung",
+          "endpoints": {
+            "test": "Verbindung testen"
+          }
+        }
+      },
+      "system": {
+        "title": "System & Health",
+        "endpoints": {
+          "root": "Root-Endpoint (API-Info)",
+          "health": "Health-Check",
+          "swagger": "Swagger UI (interaktive Doku)",
+          "redoc": "ReDoc (alternative Doku)",
+          "openapi": "OpenAPI Schema"
+        }
+      }
+    }
+  }
+}

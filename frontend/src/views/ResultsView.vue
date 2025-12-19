@@ -4,14 +4,14 @@
     <v-overlay :model-value="loading && initialLoad" class="align-center justify-center" persistent scrim="rgba(0,0,0,0.7)">
       <v-card class="pa-8 text-center" min-width="320" elevation="24">
         <v-progress-circular indeterminate size="80" width="6" color="primary" class="mb-4"></v-progress-circular>
-        <div class="text-h6 mb-2">Daten werden geladen</div>
-        <div class="text-body-2 text-grey">Extrahierte Ergebnisse werden abgerufen...</div>
+        <div class="text-h6 mb-2">{{ $t('results.loading.title') }}</div>
+        <div class="text-body-2 text-grey">{{ $t('results.loading.subtitle') }}</div>
       </v-card>
     </v-overlay>
 
     <div class="d-flex align-center mb-6">
-      <h1 class="text-h4">Ergebnisse</h1>
-      <v-chip class="ml-3" color="primary" variant="tonal">KI-extrahierte Daten</v-chip>
+      <h1 class="text-h4">{{ $t('results.title') }}</h1>
+      <v-chip class="ml-3" color="primary" variant="tonal">{{ $t('results.aiExtractedData') }}</v-chip>
       <v-spacer></v-spacer>
       <!-- Bulk Actions -->
       <v-btn
@@ -23,7 +23,7 @@
         :loading="bulkVerifying"
         @click="bulkVerify"
       >
-        {{ selectedResults.length }} verifizieren
+        {{ selectedResults.length }} {{ $t('results.actions.bulkVerify') }}
       </v-btn>
       <v-btn
         color="success"
@@ -32,7 +32,7 @@
         class="mr-2"
         @click="exportCsv"
       >
-        CSV Export
+        {{ $t('results.actions.csvExport') }}
       </v-btn>
       <v-btn
         color="primary"
@@ -41,7 +41,7 @@
         :loading="loading"
         @click="loadData"
       >
-        Aktualisieren
+        {{ $t('results.actions.refresh') }}
       </v-btn>
     </div>
 
@@ -51,7 +51,7 @@
         <v-card variant="outlined">
           <v-card-text class="text-center py-3">
             <div class="text-h5 text-primary">{{ stats.total }}</div>
-            <div class="text-caption">Gesamt</div>
+            <div class="text-caption">{{ $t('results.stats.total') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -64,7 +64,7 @@
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5 text-success">{{ stats.verified }}</div>
-            <div class="text-caption">Verifiziert</div>
+            <div class="text-caption">{{ $t('results.stats.verified') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -72,7 +72,7 @@
         <v-card variant="outlined">
           <v-card-text class="text-center py-3">
             <div class="text-h5 text-info">{{ stats.high_confidence_count }}</div>
-            <div class="text-caption">High Confidence</div>
+            <div class="text-caption">{{ $t('results.stats.highConfidence') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -80,7 +80,7 @@
         <v-card variant="outlined">
           <v-card-text class="text-center py-3">
             <div class="text-h5">{{ stats.avg_confidence ? (stats.avg_confidence * 100).toFixed(0) + '%' : '-' }}</div>
-            <div class="text-caption">Durchschn. Confidence</div>
+            <div class="text-caption">{{ $t('results.stats.avgConfidence') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -94,12 +94,12 @@
             <v-text-field
               v-model="searchQuery"
               prepend-inner-icon="mdi-magnify"
-              label="Volltext-Suche"
+              :label="$t('results.filters.fulltext')"
               variant="outlined"
               density="compact"
               clearable
               hide-details
-              placeholder="Summary, Pain Points, etc."
+              :placeholder="$t('results.filters.fulltextPlaceholder')"
               @update:model-value="debouncedLoadData"
             />
           </v-col>
@@ -107,7 +107,7 @@
             <v-autocomplete
               v-model="locationFilter"
               :items="locations"
-              label="Standort"
+              :label="$t('results.filters.location')"
               variant="outlined"
               density="compact"
               clearable
@@ -119,7 +119,7 @@
             <v-select
               v-model="extractionTypeFilter"
               :items="extractionTypes"
-              label="Analyse-Typ"
+              :label="$t('results.filters.analysisType')"
               variant="outlined"
               density="compact"
               clearable
@@ -133,7 +133,7 @@
               :items="categories"
               item-title="name"
               item-value="id"
-              label="Kategorie"
+              :label="$t('results.filters.category')"
               variant="outlined"
               density="compact"
               clearable
@@ -147,7 +147,7 @@
               :min="0"
               :max="100"
               :step="5"
-              label="Min. Confidence"
+              :label="$t('results.filters.minConfidence')"
               thumb-label="always"
               hide-details
               @update:model-value="debouncedLoadData"
@@ -161,7 +161,7 @@
             <v-text-field
               v-model="dateFrom"
               type="date"
-              label="Von"
+              :label="$t('results.filters.dateFrom')"
               variant="outlined"
               density="compact"
               clearable
@@ -173,7 +173,7 @@
             <v-text-field
               v-model="dateTo"
               type="date"
-              label="Bis"
+              :label="$t('results.filters.dateTo')"
               variant="outlined"
               density="compact"
               clearable
@@ -184,7 +184,7 @@
           <v-col cols="12" md="8" class="d-flex align-center">
             <v-btn v-if="hasActiveFilters" variant="text" color="primary" size="small" @click="clearFilters">
               <v-icon size="small" class="mr-1">mdi-filter-off</v-icon>
-              Filter zurücksetzen
+              {{ $t('results.filters.resetFilters') }}
             </v-btn>
           </v-col>
         </v-row>
@@ -209,11 +209,11 @@
         <template v-slot:item.document="{ item }">
           <div class="py-2">
             <div class="font-weight-medium text-truncate" style="max-width: 220px;" :title="item.document_title || item.document_url">
-              {{ item.document_title || '(Kein Titel)' }}
+              {{ item.document_title || t('results.detail.noTitle') }}
             </div>
             <div class="text-caption text-grey">
               <router-link :to="`/documents?search=${encodeURIComponent(item.document_title || '')}`" class="text-decoration-none">
-                <v-icon size="x-small" class="mr-1">mdi-file-document</v-icon>Dokument
+                <v-icon size="x-small" class="mr-1">mdi-file-document</v-icon>{{ $t('results.columns.document') }}
               </router-link>
             </div>
           </div>
@@ -254,10 +254,10 @@
 
         <template v-slot:item.actions="{ item }">
           <div class="table-actions">
-            <v-btn icon="mdi-eye" size="small" variant="text" title="Details anzeigen" @click="showDetails(item)"></v-btn>
-            <v-btn :icon="item.human_verified ? 'mdi-check-circle' : 'mdi-check'" size="small" variant="text" :color="item.human_verified ? 'success' : 'grey'" :title="item.human_verified ? 'Verifiziert' : 'Verifizieren'" @click="verifyResult(item)"></v-btn>
-            <v-btn icon="mdi-file-document" size="small" variant="text" color="info" title="Zum Dokument" :to="`/documents?search=${encodeURIComponent(item.document_title || '')}`"></v-btn>
-            <v-btn icon="mdi-code-json" size="small" variant="text" title="JSON exportieren" @click="exportJson(item)"></v-btn>
+            <v-btn icon="mdi-eye" size="small" variant="text" :title="$t('results.actions.viewDetails')" @click="showDetails(item)"></v-btn>
+            <v-btn :icon="item.human_verified ? 'mdi-check-circle' : 'mdi-check'" size="small" variant="text" :color="item.human_verified ? 'success' : 'grey'" :title="item.human_verified ? t('results.actions.verified') : t('results.actions.verify')" @click="verifyResult(item)"></v-btn>
+            <v-btn icon="mdi-file-document" size="small" variant="text" color="info" :title="$t('results.actions.goToDocument')" :to="`/documents?search=${encodeURIComponent(item.document_title || '')}`"></v-btn>
+            <v-btn icon="mdi-code-json" size="small" variant="text" :title="$t('results.actions.exportJson')" @click="exportJson(item)"></v-btn>
           </div>
         </template>
       </v-data-table-server>
@@ -268,13 +268,13 @@
       <v-card v-if="selectedResult">
         <v-card-title class="d-flex align-center">
           <v-icon class="mr-2">mdi-brain</v-icon>
-          Extrahierte Daten
+          {{ $t('results.detail.title') }}
           <v-spacer />
           <v-chip :color="getConfidenceColor(selectedResult.confidence_score)" class="mr-2">
             {{ selectedResult.confidence_score ? (selectedResult.confidence_score * 100).toFixed(0) + '%' : '-' }}
           </v-chip>
           <v-chip v-if="selectedResult.human_verified" color="success">
-            <v-icon size="small" class="mr-1">mdi-check</v-icon>Verifiziert
+            <v-icon size="small" class="mr-1">mdi-check</v-icon>{{ $t('results.columns.verified') }}
           </v-chip>
         </v-card-title>
         <v-divider />
@@ -283,16 +283,16 @@
           <v-card variant="outlined" class="mb-4">
             <v-card-title class="text-subtitle-1 d-flex align-center">
               <v-icon size="small" class="mr-2">mdi-file-document</v-icon>
-              Quelldokument
+              {{ $t('results.detail.sourceDocument') }}
               <v-spacer />
               <v-btn size="small" variant="text" color="primary" :to="`/documents?search=${encodeURIComponent(selectedResult.document_title || '')}`">
-                <v-icon size="small" class="mr-1">mdi-open-in-new</v-icon>Zum Dokument
+                <v-icon size="small" class="mr-1">mdi-open-in-new</v-icon>{{ $t('results.detail.goToDocument') }}
               </v-btn>
             </v-card-title>
             <v-card-text>
-              <div><strong>Titel:</strong> {{ selectedResult.document_title || '(Kein Titel)' }}</div>
-              <div v-if="selectedResult.document_url"><strong>URL:</strong> <a :href="selectedResult.document_url" target="_blank">{{ selectedResult.document_url }}</a></div>
-              <div><strong>Quelle:</strong> {{ selectedResult.source_name || '-' }}</div>
+              <div><strong>{{ $t('results.detail.title') }}:</strong> {{ selectedResult.document_title || t('results.detail.noTitle') }}</div>
+              <div v-if="selectedResult.document_url"><strong>{{ $t('results.detail.url') }}:</strong> <a :href="selectedResult.document_url" target="_blank">{{ selectedResult.document_url }}</a></div>
+              <div><strong>{{ $t('results.detail.source') }}:</strong> {{ selectedResult.source_name || '-' }}</div>
             </v-card-text>
           </v-card>
 
@@ -301,21 +301,21 @@
             <v-row class="mb-4">
               <v-col cols="12" md="6">
                 <v-card variant="outlined" height="100%">
-                  <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-map-marker</v-icon>Gemeinde</v-card-title>
+                  <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-map-marker</v-icon>{{ $t('results.detail.municipality') }}</v-card-title>
                   <v-card-text>
                     <v-chip v-if="getMunicipality(selectedResult)" color="primary" size="large">{{ getMunicipality(selectedResult) }}</v-chip>
-                    <span v-else class="text-grey">Nicht erkannt</span>
+                    <span v-else class="text-grey">{{ $t('results.detail.notRecognized') }}</span>
                   </v-card-text>
                 </v-card>
               </v-col>
               <v-col cols="12" md="6">
                 <v-card variant="outlined" height="100%">
-                  <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-check-circle</v-icon>Relevanz</v-card-title>
+                  <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-check-circle</v-icon>{{ $t('results.detail.relevance') }}</v-card-title>
                   <v-card-text>
                     <v-chip :color="getContent(selectedResult).is_relevant ? 'success' : 'grey'">
-                      {{ getContent(selectedResult).is_relevant ? 'Relevant' : 'Nicht relevant' }}
+                      {{ getContent(selectedResult).is_relevant ? t('results.detail.relevant') : t('results.detail.notRelevant') }}
                     </v-chip>
-                    <span v-if="getContent(selectedResult).relevanz" class="ml-2 text-caption">Stufe: {{ getContent(selectedResult).relevanz }}</span>
+                    <span v-if="getContent(selectedResult).relevanz" class="ml-2 text-caption">{{ $t('results.detail.level') }}: {{ getContent(selectedResult).relevanz }}</span>
                   </v-card-text>
                 </v-card>
               </v-col>
@@ -323,13 +323,13 @@
 
             <!-- Summary -->
             <v-card v-if="getContent(selectedResult).summary" variant="outlined" class="mb-4">
-              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-text</v-icon>Zusammenfassung</v-card-title>
+              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-text</v-icon>{{ $t('results.detail.summary') }}</v-card-title>
               <v-card-text>{{ getContent(selectedResult).summary }}</v-card-text>
             </v-card>
 
             <!-- Pain Points -->
             <v-card v-if="getContent(selectedResult).pain_points?.length" variant="outlined" class="mb-4" color="error">
-              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-alert-circle</v-icon>Pain Points ({{ getContent(selectedResult).pain_points.length }})</v-card-title>
+              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-alert-circle</v-icon>{{ $t('results.detail.painPoints') }} ({{ getContent(selectedResult).pain_points.length }})</v-card-title>
               <v-card-text>
                 <div class="d-flex flex-column ga-3">
                   <v-card
@@ -370,7 +370,7 @@
                               :tag="pp.source_url || pp.source?.startsWith('http') ? 'a' : 'span'"
                             >
                               <v-icon start size="x-small">mdi-link</v-icon>
-                              {{ pp.source_url ? 'Quelle' : pp.source }}
+                              {{ pp.source_url ? t('results.detail.source') : pp.source }}
                             </v-chip>
                           </div>
                         </div>
@@ -383,7 +383,7 @@
 
             <!-- Positive Signals -->
             <v-card v-if="getContent(selectedResult).positive_signals?.length" variant="outlined" class="mb-4" color="success">
-              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-lightbulb-on</v-icon>Positive Signale ({{ getContent(selectedResult).positive_signals.length }})</v-card-title>
+              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-lightbulb-on</v-icon>{{ $t('results.detail.positiveSignals') }} ({{ getContent(selectedResult).positive_signals.length }})</v-card-title>
               <v-card-text>
                 <div class="d-flex flex-column ga-3">
                   <v-card
@@ -420,7 +420,7 @@
                               :tag="ps.source_url || ps.source?.startsWith('http') ? 'a' : 'span'"
                             >
                               <v-icon start size="x-small">mdi-link</v-icon>
-                              {{ ps.source_url ? 'Quelle' : ps.source }}
+                              {{ ps.source_url ? t('results.detail.source') : ps.source }}
                             </v-chip>
                           </div>
                         </div>
@@ -433,7 +433,7 @@
 
             <!-- Decision Makers -->
             <v-card v-if="getContent(selectedResult).decision_makers?.length" variant="outlined" class="mb-4" color="info">
-              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-account-group</v-icon>Entscheidungsträger ({{ getContent(selectedResult).decision_makers.length }})</v-card-title>
+              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-account-group</v-icon>{{ $t('results.detail.decisionMakers') }} ({{ getContent(selectedResult).decision_makers.length }})</v-card-title>
               <v-card-text>
                 <div class="d-flex flex-column ga-3">
                   <v-card
@@ -485,7 +485,7 @@
                               :tag="dm.source_url || dm.source?.startsWith('http') ? 'a' : 'span'"
                             >
                               <v-icon start size="x-small">mdi-link</v-icon>
-                              {{ dm.source_url ? 'Quelle' : dm.source }}
+                              {{ dm.source_url ? t('results.detail.source') : dm.source }}
                             </v-chip>
                           </div>
                         </div>
@@ -498,16 +498,16 @@
 
             <!-- Outreach Recommendation -->
             <v-card v-if="getContent(selectedResult).outreach_recommendation" variant="outlined" class="mb-4" color="purple">
-              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-bullhorn</v-icon>Outreach Empfehlung</v-card-title>
+              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-bullhorn</v-icon>{{ $t('results.detail.outreachRecommendation') }}</v-card-title>
               <v-card-text>
                 <div v-if="getContent(selectedResult).outreach_recommendation.priority">
-                  <strong>Priorität:</strong>
+                  <strong>{{ $t('results.detail.priority') }}:</strong>
                   <v-chip :color="getPriorityColor(getContent(selectedResult).outreach_recommendation.priority)" size="small" class="ml-2">
                     {{ getContent(selectedResult).outreach_recommendation.priority }}
                   </v-chip>
                 </div>
                 <div v-if="getContent(selectedResult).outreach_recommendation.reason" class="mt-2">
-                  <strong>Begründung:</strong> {{ getContent(selectedResult).outreach_recommendation.reason }}
+                  <strong>{{ $t('results.detail.reason') }}:</strong> {{ getContent(selectedResult).outreach_recommendation.reason }}
                 </div>
               </v-card-text>
             </v-card>
@@ -516,7 +516,7 @@
           <!-- Raw JSON -->
           <v-expansion-panels class="mb-4">
             <v-expansion-panel>
-              <v-expansion-panel-title><v-icon size="small" class="mr-2">mdi-code-json</v-icon>Rohdaten (JSON)</v-expansion-panel-title>
+              <v-expansion-panel-title><v-icon size="small" class="mr-2">mdi-code-json</v-icon>{{ $t('results.detail.rawData') }}</v-expansion-panel-title>
               <v-expansion-panel-text>
                 <pre class="text-caption" style="overflow-x: auto; white-space: pre-wrap;">{{ JSON.stringify(getContent(selectedResult), null, 2) }}</pre>
               </v-expansion-panel-text>
@@ -525,23 +525,23 @@
 
           <!-- AI Metadata -->
           <v-card variant="outlined">
-            <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-robot</v-icon>KI-Metadaten</v-card-title>
+            <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-robot</v-icon>{{ $t('results.detail.aiMetadata') }}</v-card-title>
             <v-card-text>
               <v-row>
-                <v-col cols="6"><div><strong>Typ:</strong> {{ selectedResult.extraction_type }}</div></v-col>
-                <v-col cols="6"><div><strong>Modell:</strong> {{ selectedResult.ai_model_used || '-' }}</div></v-col>
-                <v-col cols="6"><div><strong>Erstellt:</strong> {{ formatDate(selectedResult.created_at) }}</div></v-col>
-                <v-col cols="6"><div><strong>Tokens:</strong> {{ selectedResult.tokens_used || '-' }}</div></v-col>
+                <v-col cols="6"><div><strong>{{ $t('results.columns.type') }}:</strong> {{ selectedResult.extraction_type }}</div></v-col>
+                <v-col cols="6"><div><strong>{{ $t('results.detail.model') }}:</strong> {{ selectedResult.ai_model_used || '-' }}</div></v-col>
+                <v-col cols="6"><div><strong>{{ $t('results.columns.created') }}:</strong> {{ formatDate(selectedResult.created_at) }}</div></v-col>
+                <v-col cols="6"><div><strong>{{ $t('results.detail.tokens') }}:</strong> {{ selectedResult.tokens_used || '-' }}</div></v-col>
               </v-row>
             </v-card-text>
           </v-card>
         </v-card-text>
         <v-divider />
         <v-card-actions>
-          <v-btn color="primary" variant="outlined" prepend-icon="mdi-code-json" @click="exportJson(selectedResult)">JSON Export</v-btn>
+          <v-btn color="primary" variant="outlined" prepend-icon="mdi-code-json" @click="exportJson(selectedResult)">{{ $t('results.actions.exportJson') }}</v-btn>
           <v-spacer />
-          <v-btn v-if="!selectedResult.human_verified" color="success" prepend-icon="mdi-check" @click="verifyResult(selectedResult); detailsDialog = false">Verifizieren</v-btn>
-          <v-btn variant="text" @click="detailsDialog = false">Schließen</v-btn>
+          <v-btn v-if="!selectedResult.human_verified" color="success" prepend-icon="mdi-check" @click="verifyResult(selectedResult); detailsDialog = false">{{ $t('results.actions.verify') }}</v-btn>
+          <v-btn variant="text" @click="detailsDialog = false">{{ $t('common.close') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -551,10 +551,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { dataApi, adminApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const { showSuccess, showError } = useSnackbar()
@@ -600,13 +603,13 @@ const detailsDialog = ref(false)
 const selectedResult = ref<any>(null)
 
 const headers = [
-  { title: 'Dokument', key: 'document', sortable: false },
-  { title: 'Typ', key: 'extraction_type', width: '140px', sortable: true },
-  { title: 'Gemeinde', key: 'municipality', width: '130px', sortable: false },
-  { title: 'Confidence', key: 'confidence_score', width: '110px', sortable: true },
-  { title: 'Verifiziert', key: 'human_verified', width: '90px', sortable: true },
-  { title: 'Erstellt', key: 'created_at', width: '100px', sortable: true },
-  { title: 'Aktionen', key: 'actions', sortable: false, width: '150px' },
+  { title: t('results.columns.document'), key: 'document', sortable: false },
+  { title: t('results.columns.type'), key: 'extraction_type', width: '140px', sortable: true },
+  { title: t('results.columns.municipality'), key: 'municipality', width: '130px', sortable: false },
+  { title: t('results.columns.confidence'), key: 'confidence_score', width: '110px', sortable: true },
+  { title: t('results.columns.verified'), key: 'human_verified', width: '90px', sortable: true },
+  { title: t('results.columns.created'), key: 'created_at', width: '100px', sortable: true },
+  { title: t('results.columns.actions'), key: 'actions', sortable: false, width: '150px' },
 ]
 
 const hasActiveFilters = computed(() =>
@@ -647,7 +650,7 @@ const getSentimentColor = (sentiment: string) => {
 
 const copyToClipboard = (text: string) => {
   navigator.clipboard.writeText(text)
-  showSuccess('In Zwischenablage kopiert')
+  showSuccess(t('results.messages.copiedToClipboard'))
 }
 
 const getPriorityColor = (priority: string) => {
@@ -702,7 +705,7 @@ const loadData = async () => {
     }
   } catch (error) {
     console.error('Failed to load data:', error)
-    showError('Fehler beim Laden der Daten')
+    showError(t('results.messages.errorLoading'))
   } finally {
     loading.value = false
     initialLoad.value = false
@@ -771,10 +774,10 @@ const showDetails = (item: any) => {
 const verifyResult = async (item: any) => {
   try {
     await dataApi.verifyExtraction(item.id, { verified: true, verified_by: 'user' })
-    showSuccess('Ergebnis verifiziert')
+    showSuccess(t('results.messages.verified'))
     loadData()
   } catch (error: any) {
-    showError(error.response?.data?.detail || 'Fehler beim Verifizieren')
+    showError(error.response?.data?.detail || t('results.messages.errorVerifying'))
   }
 }
 
@@ -784,11 +787,11 @@ const bulkVerify = async () => {
     for (const id of selectedResults.value) {
       await dataApi.verifyExtraction(id, { verified: true, verified_by: 'user' })
     }
-    showSuccess(`${selectedResults.value.length} Ergebnisse verifiziert`)
+    showSuccess(`${selectedResults.value.length} ${t('results.messages.bulkVerified')}`)
     selectedResults.value = []
     loadData()
   } catch (error: any) {
-    showError(error.response?.data?.detail || 'Fehler bei Bulk-Verifizierung')
+    showError(error.response?.data?.detail || t('results.messages.errorBulkVerifying'))
   } finally {
     bulkVerifying.value = false
   }
@@ -813,11 +816,20 @@ const exportJson = (item: any) => {
   a.download = `extraction-${item.id}.json`
   a.click()
   URL.revokeObjectURL(url)
-  showSuccess('JSON exportiert')
+  showSuccess(t('results.messages.jsonExported'))
 }
 
 const exportCsv = () => {
-  const csvHeaders = ['Dokument', 'URL', 'Typ', 'Gemeinde', 'Confidence', 'Verifiziert', 'Erstellt', 'Summary']
+  const csvHeaders = [
+    t('results.columns.document'),
+    t('results.detail.url'),
+    t('results.columns.type'),
+    t('results.columns.municipality'),
+    t('results.columns.confidence'),
+    t('results.columns.verified'),
+    t('results.columns.created'),
+    t('results.detail.summary')
+  ]
   const csvRows = results.value.map(r => {
     const content = r.final_content || r.extracted_content || {}
     return [
@@ -826,7 +838,7 @@ const exportCsv = () => {
       r.extraction_type,
       `"${content.municipality || ''}"`,
       r.confidence_score ? (r.confidence_score * 100).toFixed(0) + '%' : '',
-      r.human_verified ? 'Ja' : 'Nein',
+      r.human_verified ? t('common.yes') : t('common.no'),
       r.created_at,
       `"${(content.summary || '').replace(/"/g, '""').substring(0, 200)}"`
     ]
@@ -840,7 +852,7 @@ const exportCsv = () => {
   a.download = `ergebnisse-${format(new Date(), 'yyyy-MM-dd')}.csv`
   a.click()
   URL.revokeObjectURL(url)
-  showSuccess('CSV exportiert')
+  showSuccess(t('results.messages.csvExported'))
 }
 
 // Init with URL params

@@ -1,0 +1,113 @@
+{
+  "sources": {
+    "title": "Data Sources",
+    "source": "Data Source",
+    "sources": "Data Sources",
+    "loading": {
+      "title": "Loading data",
+      "subtitle": "Please wait..."
+    },
+    "filters": {
+      "country": "Country",
+      "municipality": "Municipality",
+      "category": "Category",
+      "status": "Status",
+      "search": "Search (Name/URL)",
+      "searchPlaceholder": "Enter name or URL...",
+      "noResults": "No results for",
+      "typeToSearch": "Type to search...",
+      "noLocations": "No locations found",
+      "minChars": "Enter at least 2 characters..."
+    },
+    "form": {
+      "name": "Name",
+      "sourceType": "Source Type",
+      "baseUrl": "Base URL",
+      "baseUrlHint": "e.g. https://municipality-example.com or https://oparl.city-muenster.de/system",
+      "apiEndpoint": "API Endpoint (optional)",
+      "country": "Country",
+      "location": "Location (optional)",
+      "locationHint": "Type to search",
+      "categories": "Categories",
+      "categoriesHint": "First selected category is primary",
+      "primaryCategory": "Show primary category details",
+      "maxDepth": "Maximum Depth",
+      "maxPages": "Maximum Pages",
+      "renderJs": "Render JavaScript (Playwright)",
+      "includePatterns": "Include Patterns (Whitelist)",
+      "includeHint": "URLs must match at least one pattern. e.g. /documents/, /resolutions/",
+      "excludePatterns": "Exclude Patterns (Blacklist)",
+      "excludeHint": "URLs matching a pattern will be skipped. e.g. /archive/, /login/, /search/",
+      "urls": "URLs (one per line)",
+      "urlsFormat": "Format: Name | URL or just URL",
+      "skipDuplicates": "Skip duplicates",
+      "crawlInterval": "Crawl Interval",
+      "enabled": "Active",
+      "advancedSettings": "Advanced Crawl Settings",
+      "urlFilters": "URL Filters (Regex)"
+    },
+    "types": {
+      "WEBSITE": "Website",
+      "RSS": "RSS Feed",
+      "API": "API",
+      "OPARL_API": "OParl API",
+      "CUSTOM_API": "Custom API",
+      "NEWS": "News"
+    },
+    "actions": {
+      "create": "New Source",
+      "bulkImport": "Bulk Import",
+      "edit": "Edit",
+      "delete": "Delete",
+      "startCrawl": "Start Crawl",
+      "reset": "Reset",
+      "test": "Test Connection"
+    },
+    "columns": {
+      "name": "Name",
+      "type": "Type",
+      "url": "URL",
+      "categories": "Categories",
+      "status": "Status",
+      "lastCrawl": "Last Crawl",
+      "documents": "Documents",
+      "actions": "Actions"
+    },
+    "dialog": {
+      "edit": "Edit Data Source",
+      "create": "New Data Source",
+      "bulkImport": "Bulk Import",
+      "delete": "Delete data source?",
+      "deleteConfirm": "Do you really want to delete \"{name}\"?",
+      "categoryInfo": "Category Details",
+      "purpose": "Purpose",
+      "noPurpose": "No purpose defined",
+      "statistics": "Statistics",
+      "dataSources": "Data Sources",
+      "searchTerms": "Search Terms",
+      "documentTypes": "Document Types",
+      "urlPatterns": "URL Filters",
+      "includePatterns": "Include Patterns (Whitelist)",
+      "excludePatterns": "Exclude Patterns (Blacklist)",
+      "aiPrompt": "AI Extraction Prompt",
+      "languages": "Languages",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "messages": {
+      "created": "Data source created successfully",
+      "updated": "Data source updated successfully",
+      "deleted": "Data source deleted successfully",
+      "crawlStarted": "Crawl started for \"{name}\"",
+      "crawlError": "Error starting crawl",
+      "reset": "\"{name}\" reset",
+      "resetError": "Error resetting",
+      "testSuccess": "Connection successful",
+      "testError": "Connection failed"
+    },
+    "never": "Never",
+    "fallback": {
+      "germany": "Germany"
+    }
+  }
+}

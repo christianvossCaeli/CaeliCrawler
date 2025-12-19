@@ -13,7 +13,7 @@
                 CaeliCrawler
               </span>
               <span class="text-body-2 text-medium-emphasis mt-1">
-                Datensammlungsplattform
+                {{ $t('auth.loginSubtitle') }}
               </span>
             </div>
           </v-card-title>
@@ -25,7 +25,7 @@
               <!-- Email Field -->
               <v-text-field
                 v-model="email"
-                label="E-Mail"
+                :label="$t('auth.email')"
                 type="email"
                 prepend-inner-icon="mdi-email-outline"
                 :rules="emailRules"
@@ -40,7 +40,7 @@
               <!-- Password Field -->
               <v-text-field
                 v-model="password"
-                label="Passwort"
+                :label="$t('auth.password')"
                 :type="showPassword ? 'text' : 'password'"
                 prepend-inner-icon="mdi-lock-outline"
                 :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
@@ -77,7 +77,7 @@
                 class="mt-2"
               >
                 <v-icon start>mdi-login</v-icon>
-                Anmelden
+                {{ $t('auth.login') }}
               </v-btn>
             </v-form>
           </v-card-text>
@@ -97,11 +97,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const { t } = useI18n()
 
 // Form state
 const formRef = ref<any>(null)
@@ -119,14 +121,14 @@ const isFormValid = computed(() => {
 })
 
 // Validation rules
-const emailRules = [
-  (v: string) => !!v || 'E-Mail ist erforderlich',
-  (v: string) => /.+@.+\..+/.test(v) || 'Ungültige E-Mail-Adresse',
-]
+const emailRules = computed(() => [
+  (v: string) => !!v || t('auth.validation.emailRequired'),
+  (v: string) => /.+@.+\..+/.test(v) || t('auth.validation.emailInvalid'),
+])
 
-const passwordRules = [
-  (v: string) => !!v || 'Passwort ist erforderlich',
-]
+const passwordRules = computed(() => [
+  (v: string) => !!v || t('auth.validation.passwordRequired'),
+])
 
 // Login handler
 async function handleLogin() {
@@ -142,7 +144,7 @@ async function handleLogin() {
     const redirectPath = route.query.redirect as string || '/'
     await router.push(redirectPath)
   } else {
-    errorMessage.value = auth.error || 'Anmeldung fehlgeschlagen'
+    errorMessage.value = auth.error || t('auth.loginFailed')
   }
 
   isLoading.value = false

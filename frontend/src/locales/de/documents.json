@@ -1,0 +1,96 @@
+{
+  "documents": {
+    "title": "Dokumente",
+    "document": "Dokument",
+    "documents": "Dokumente",
+    "filters": {
+      "search": "Suche (Titel, URL)",
+      "searchPlaceholder": "Titel oder URL eingeben...",
+      "location": "Standort",
+      "type": "Typ",
+      "category": "Kategorie",
+      "status": "Status",
+      "dateFrom": "Von",
+      "dateTo": "Bis",
+      "resetFilters": "Filter zurücksetzen"
+    },
+    "columns": {
+      "title": "Titel",
+      "source": "Quelle",
+      "category": "Kategorie",
+      "status": "Status",
+      "location": "Standort",
+      "date": "Datum",
+      "discovered": "Entdeckt",
+      "size": "Größe",
+      "actions": "Aktionen"
+    },
+    "actions": {
+      "process": "Verarbeiten",
+      "analyze": "KI-Analyse",
+      "download": "Herunterladen",
+      "openOriginal": "Original öffnen",
+      "viewDetails": "Details anzeigen",
+      "reprocess": "Erneut verarbeiten",
+      "processAll": "Alle Pending",
+      "stop": "Stoppen",
+      "exportCsv": "CSV Export"
+    },
+    "detail": {
+      "title": "Dokument Details",
+      "metadata": "Metadaten",
+      "rawText": "Rohtext",
+      "rawTextPreview": "Extrahierter Text (Vorschau)",
+      "extractedData": "Extrahierte Daten",
+      "processingHistory": "Verarbeitungsverlauf",
+      "processingError": "Verarbeitungsfehler / Filter-Grund",
+      "noTitle": "(Kein Titel)",
+      "url": "URL",
+      "type": "Typ",
+      "size": "Größe",
+      "pages": "Seiten",
+      "source": "Quelle",
+      "discovered": "Entdeckt",
+      "processed": "Verarbeitet",
+      "showInResults": "In Ergebnissen anzeigen",
+      "confidence": "Confidence"
+    },
+    "stats": {
+      "total": "Gesamt",
+      "pending": "Wartend",
+      "processing": "Verarbeitung",
+      "analyzing": "KI-Analyse",
+      "completed": "Fertig",
+      "filtered": "Gefiltert",
+      "failed": "Fehler"
+    },
+    "bulkActions": {
+      "processSelected": "verarbeiten",
+      "analyzeSelected": "analysieren",
+      "deleteSelected": "Ausgewählte löschen"
+    },
+    "messages": {
+      "processQueued": "Dokument zur Verarbeitung eingereiht",
+      "processError": "Fehler bei der Verarbeitung",
+      "analyzeQueued": "KI-Analyse gestartet",
+      "analyzeError": "Fehler bei der Analyse",
+      "processingStarted": "Verarbeitung gestartet",
+      "processingAllStarted": "Verarbeitung aller wartenden Dokumente gestartet",
+      "analysisStarted": "KI-Analyse gestarted",
+      "stoppingProcessing": "Verarbeitung wird gestoppt...",
+      "bulkProcessing": "Dokumente werden verarbeitet",
+      "bulkAnalyzing": "Dokumente werden analysiert",
+      "csvExported": "CSV exportiert",
+      "loadingDetails": "Fehler beim Laden der Details",
+      "loadingDocuments": "Dokumente werden abgerufen..."
+    },
+    "processStarted": "Verarbeitung gestartet",
+    "processError": "Fehler beim Starten der Verarbeitung",
+    "analysisStarted": "KI-Analyse gestartet",
+    "analysisError": "Fehler beim Starten der KI-Analyse",
+    "allProcessStarted": "Verarbeitung aller wartenden Dokumente gestartet",
+    "processingStopping": "Verarbeitung wird gestoppt...",
+    "stopError": "Fehler beim Stoppen",
+    "loadDetailsError": "Fehler beim Laden der Details"
+  }
+}

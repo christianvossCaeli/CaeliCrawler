@@ -5,10 +5,10 @@
       <v-col>
         <h1 class="text-h4 font-weight-bold">
           <v-icon start size="32">mdi-history</v-icon>
-          Audit-Log
+          {{ t('admin.auditLog.title') }}
         </h1>
         <p class="text-body-2 text-medium-emphasis mt-1">
-          Alle Benutzeraktionen und Systemänderungen
+          {{ t('admin.auditLog.subtitle') }}
         </p>
       </v-col>
     </v-row>
@@ -23,7 +23,7 @@
             </v-avatar>
             <div>
               <div class="text-h5 font-weight-bold">{{ stats.total_entries }}</div>
-              <div class="text-caption">Gesamt</div>
+              <div class="text-caption">{{ t('admin.auditLog.stats.total') }}</div>
             </div>
           </v-card-text>
         </v-card>
@@ -36,7 +36,7 @@
             </v-avatar>
             <div>
               <div class="text-h5 font-weight-bold">{{ stats.entries_today }}</div>
-              <div class="text-caption">Heute</div>
+              <div class="text-caption">{{ t('admin.auditLog.stats.today') }}</div>
             </div>
           </v-card-text>
         </v-card>
@@ -49,7 +49,7 @@
             </v-avatar>
             <div>
               <div class="text-h5 font-weight-bold">{{ stats.entries_this_week }}</div>
-              <div class="text-caption">Diese Woche</div>
+              <div class="text-caption">{{ t('admin.auditLog.stats.thisWeek') }}</div>
             </div>
           </v-card-text>
         </v-card>
@@ -62,7 +62,7 @@
             </v-avatar>
             <div>
               <div class="text-h5 font-weight-bold">{{ stats.top_users?.length || 0 }}</div>
-              <div class="text-caption">Aktive Benutzer</div>
+              <div class="text-caption">{{ t('admin.auditLog.stats.activeUsers') }}</div>
             </div>
           </v-card-text>
         </v-card>
@@ -74,7 +74,7 @@
       <v-col cols="12" md="3">
         <v-select
           v-model="actionFilter"
-          label="Aktion"
+          :label="t('admin.auditLog.filters.action')"
           :items="actionOptions"
           variant="outlined"
           density="compact"
@@ -85,18 +85,18 @@
       <v-col cols="12" md="3">
         <v-text-field
           v-model="entityTypeFilter"
-          label="Entity-Typ"
+          :label="t('admin.auditLog.filters.entityType')"
           variant="outlined"
           density="compact"
           clearable
-          placeholder="z.B. Category, User"
+          :placeholder="t('admin.auditLog.filters.entityTypePlaceholder')"
           @update:model-value="debouncedFetch"
         />
       </v-col>
       <v-col cols="12" md="3">
         <v-text-field
           v-model="startDate"
-          label="Von"
+          :label="t('common.from')"
           type="date"
           variant="outlined"
           density="compact"
@@ -107,7 +107,7 @@
       <v-col cols="12" md="3">
         <v-text-field
           v-model="endDate"
-          label="Bis"
+          :label="t('common.to')"
           type="date"
           variant="outlined"
           density="compact"
@@ -154,7 +154,7 @@
         <!-- User Column -->
         <template #item.user_email="{ item }">
           <span v-if="item.user_email">{{ item.user_email }}</span>
-          <span v-else class="text-medium-emphasis">System</span>
+          <span v-else class="text-medium-emphasis">{{ t('admin.auditLog.system') }}</span>
         </template>
 
         <!-- Changes Column -->
@@ -166,7 +166,7 @@
             @click="showChanges(item)"
           >
             <v-icon start>mdi-eye</v-icon>
-            Details
+            {{ t('common.details') }}
           </v-btn>
           <span v-else class="text-medium-emphasis">-</span>
         </template>
@@ -183,15 +183,15 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon start>mdi-delta</v-icon>
-          Änderungen
+          {{ t('admin.auditLog.changesTitle') }}
         </v-card-title>
         <v-card-text>
           <v-table density="compact" v-if="selectedLog">
             <thead>
               <tr>
-                <th>Feld</th>
-                <th>Vorher</th>
-                <th>Nachher</th>
+                <th>{{ t('admin.auditLog.field') }}</th>
+                <th>{{ t('admin.auditLog.before') }}</th>
+                <th>{{ t('admin.auditLog.after') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -210,7 +210,7 @@
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="changesDialogOpen = false">
-            Schließen
+            {{ t('common.close') }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -219,8 +219,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
+
+const { t } = useI18n()
 
 interface AuditLog {
   id: string
@@ -263,23 +266,23 @@ const changesDialogOpen = ref(false)
 const selectedLog = ref<AuditLog | null>(null)
 
 // Table headers
-const headers = [
-  { title: 'Aktion', key: 'action', sortable: false, width: 130 },
-  { title: 'Entity', key: 'entity', sortable: false },
-  { title: 'Benutzer', key: 'user_email', sortable: false, width: 200 },
-  { title: 'Änderungen', key: 'changes', sortable: false, width: 120 },
-  { title: 'Zeitpunkt', key: 'created_at', sortable: false, width: 180 },
-]
+const headers = computed(() => [
+  { title: t('admin.auditLog.columns.action'), key: 'action', sortable: false, width: 130 },
+  { title: t('admin.auditLog.columns.entity'), key: 'entity', sortable: false },
+  { title: t('admin.auditLog.columns.user'), key: 'user_email', sortable: false, width: 200 },
+  { title: t('admin.auditLog.columns.changes'), key: 'changes', sortable: false, width: 120 },
+  { title: t('admin.auditLog.columns.timestamp'), key: 'created_at', sortable: false, width: 180 },
+])
 
-const actionOptions = [
-  { title: 'CREATE', value: 'CREATE' },
-  { title: 'UPDATE', value: 'UPDATE' },
-  { title: 'DELETE', value: 'DELETE' },
-  { title: 'LOGIN', value: 'LOGIN' },
-  { title: 'LOGOUT', value: 'LOGOUT' },
-  { title: 'EXPORT', value: 'EXPORT' },
-  { title: 'VIEW', value: 'VIEW' },
-]
+const actionOptions = computed(() => [
+  { title: t('admin.auditLog.actionTypes.CREATE'), value: 'CREATE' },
+  { title: t('admin.auditLog.actionTypes.UPDATE'), value: 'UPDATE' },
+  { title: t('admin.auditLog.actionTypes.DELETE'), value: 'DELETE' },
+  { title: t('admin.auditLog.actionTypes.LOGIN'), value: 'LOGIN' },
+  { title: t('admin.auditLog.actionTypes.LOGOUT'), value: 'LOGOUT' },
+  { title: t('admin.auditLog.actionTypes.EXPORT'), value: 'EXPORT' },
+  { title: t('admin.auditLog.actionTypes.VIEW'), value: 'VIEW' },
+])
 
 // Helpers
 function getActionColor(action: string): string {

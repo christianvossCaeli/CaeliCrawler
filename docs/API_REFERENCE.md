@@ -10,17 +10,270 @@ Vollständige technische Dokumentation aller API-Endpunkte.
 
 ## Inhaltsverzeichnis
 
-1. [Kategorien](#kategorien)
-2. [Datenquellen](#datenquellen)
-3. [Crawler & Jobs](#crawler--jobs)
-4. [KI-Tasks & Dokumentenverarbeitung](#ki-tasks--dokumentenverarbeitung)
-5. [Locations (Standorte)](#locations-standorte)
-6. [Public API (v1/data)](#public-api-v1data)
-7. [Gemeinden & Reports](#gemeinden--reports)
-8. [Export](#export)
-9. [Entity-Facet System](#entity-facet-system) **NEU**
-10. [PySis Integration](#pysis-integration)
-11. [System & Health](#system--health)
+### Authentifizierung & Benutzer
+1. [Authentifizierung](#authentifizierung) **NEU**
+2. [Benutzerverwaltung (Admin)](#benutzerverwaltung-admin) **NEU**
+
+### Admin API
+3. [Kategorien](#kategorien)
+4. [Datenquellen](#datenquellen)
+5. [Crawler & Jobs](#crawler--jobs)
+6. [KI-Tasks & Dokumentenverarbeitung](#ki-tasks--dokumentenverarbeitung)
+7. [Locations (Standorte)](#locations-standorte)
+8. [Audit Logging](#audit-logging) **NEU**
+9. [Versionierung](#versionierung) **NEU**
+10. [Benachrichtigungen](#benachrichtigungen) **NEU**
+11. [PySis Integration](#pysis-integration)
+
+### Public API v1
+12. [Public API (v1/data)](#public-api-v1data)
+13. [Gemeinden & Reports](#gemeinden--reports)
+14. [Export](#export)
+15. [Entity-Facet System](#entity-facet-system)
+16. [KI-Assistant](#ki-assistant) **NEU**
+17. [Smart Query & Analyse](#smart-query--analyse) **NEU**
+
+### System
+18. [System & Health](#system--health)
+19. [Authentifizierung & Sicherheit](#authentifizierung--sicherheit)
+20. [Rate Limiting](#rate-limiting)
+
+---
+
+## Authentifizierung
+
+Die API verwendet JWT-basierte Authentifizierung. Alle geschützten Endpoints erfordern einen gültigen Bearer-Token im Authorization-Header.
+
+### POST /api/auth/login
+Benutzer authentifizieren und JWT-Token erhalten.
+
+**Rate Limiting:** 5 Versuche pro Minute pro IP-Adresse. Nach 10 fehlgeschlagenen Versuchen innerhalb von 15 Minuten wird die IP temporär blockiert.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "securePassword123"
+}
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "full_name": "Max Mustermann",
+    "role": "ADMIN",
+    "is_active": true,
+    "is_superuser": false,
+    "last_login": "2025-01-15T14:30:00Z",
+    "created_at": "2025-01-01T00:00:00Z"
+  }
+}
+```
+
+**Fehler:**
+- `401 Unauthorized` - Ungültige E-Mail oder Passwort
+- `403 Forbidden` - Benutzerkonto deaktiviert
+- `429 Too Many Requests` - Rate Limit erreicht
+
+### GET /api/auth/me
+Profil des aktuell angemeldeten Benutzers abrufen.
+
+**Header:** `Authorization: Bearer <token>`
+
+**Response:**
+```json
+{
+  "id": "uuid",
+  "email": "user@example.com",
+  "full_name": "Max Mustermann",
+  "role": "ADMIN",
+  "is_active": true,
+  "is_superuser": false,
+  "last_login": "2025-01-15T14:30:00Z",
+  "created_at": "2025-01-01T00:00:00Z"
+}
+```
+
+### POST /api/auth/change-password
+Passwort des aktuellen Benutzers ändern.
+
+**Rate Limiting:** 3 Versuche pro 5 Minuten.
+
+**Request Body:**
+```json
+{
+  "current_password": "oldPassword123",
+  "new_password": "newSecurePassword456"
+}
+```
+
+**Passwort-Anforderungen:**
+- Minimum 8 Zeichen
+- Mindestens ein Großbuchstabe (A-Z)
+- Mindestens ein Kleinbuchstabe (a-z)
+- Mindestens eine Ziffer (0-9)
+
+**Response:**
+```json
+{
+  "message": "Password changed successfully"
+}
+```
+
+**Fehler:**
+- `400 Bad Request` - Aktuelles Passwort falsch oder neues Passwort erfüllt Anforderungen nicht
+
+### POST /api/auth/logout
+Aktuellen Benutzer abmelden und Token invalidieren.
+
+**Header:** `Authorization: Bearer <token>`
+
+**Token-Blacklisting:** Der aktuelle JWT-Token wird auf eine Blacklist gesetzt und für alle zukünftigen Anfragen abgelehnt.
+
+**Response:**
+```json
+{
+  "message": "Logged out successfully"
+}
+```
+
+### POST /api/auth/check-password-strength
+Passwort-Stärke prüfen ohne es zu ändern (für Echtzeit-Feedback im UI).
+
+**Request Body:**
+```json
+{
+  "password": "testPassword123"
+}
+```
+
+**Response:**
+```json
+{
+  "is_valid": true,
+  "score": 75,
+  "errors": [],
+  "suggestions": ["Sonderzeichen verwenden für mehr Sicherheit"],
+  "requirements": "Minimum 8 Zeichen, Groß-/Kleinschreibung, Ziffern"
+}
+```
+
+---
+
+## Benutzerverwaltung (Admin)
+
+Admin-Endpoints für Benutzerverwaltung. Erfordert Admin-Rolle.
+
+### GET /api/admin/users
+Alle Benutzer auflisten mit Pagination und Filterung.
+
+**Query-Parameter:**
+| Parameter | Typ | Beschreibung |
+|-----------|-----|--------------|
+| `page` | int | Seite (default: 1) |
+| `per_page` | int | Einträge pro Seite (1-100, default: 20) |
+| `role` | string | Filter nach Rolle (ADMIN, EDITOR, VIEWER) |
+| `is_active` | boolean | Nur aktive/inaktive Benutzer |
+| `search` | string | Suche in E-Mail oder Name |
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "email": "user@example.com",
+      "full_name": "Max Mustermann",
+      "role": "ADMIN",
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": "2025-01-15T14:30:00Z",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-15T14:30:00Z"
+    }
+  ],
+  "total": 50,
+  "page": 1,
+  "per_page": 20,
+  "pages": 3
+}
+```
+
+### POST /api/admin/users
+Neuen Benutzer erstellen.
+
+**Request Body:**
+```json
+{
+  "email": "newuser@example.com",
+  "password": "securePassword123",
+  "full_name": "Neuer Benutzer",
+  "role": "EDITOR",
+  "is_active": true,
+  "is_superuser": false
+}
+```
+
+**Response:** `201 Created` mit Benutzer-Objekt
+
+**Fehler:**
+- `409 Conflict` - E-Mail bereits vergeben
+- `409 Conflict` - Passwort erfüllt Anforderungen nicht
+
+### GET /api/admin/users/{user_id}
+Einzelnen Benutzer abrufen.
+
+### PUT /api/admin/users/{user_id}
+Benutzer aktualisieren.
+
+**Request Body:**
+```json
+{
+  "email": "updated@example.com",
+  "full_name": "Aktualisierter Name",
+  "role": "ADMIN",
+  "is_active": true
+}
+```
+
+**Einschränkungen:**
+- Eigene Admin-Rolle kann nicht entfernt werden
+- Eigenes Konto kann nicht deaktiviert werden
+
+### DELETE /api/admin/users/{user_id}
+Benutzer löschen.
+
+**Einschränkungen:**
+- Eigenes Konto kann nicht gelöscht werden
+
+**Response:**
+```json
+{
+  "message": "User user@example.com deleted successfully"
+}
+```
+
+### POST /api/admin/users/{user_id}/reset-password
+Passwort eines Benutzers zurücksetzen (Admin-Funktion).
+
+**Request Body:**
+```json
+{
+  "new_password": "newSecurePassword456"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Password for user@example.com reset successfully"
+}
+```
 
 ---
 
@@ -663,6 +916,387 @@ Admin-Levels via Geocoding ermitteln.
 
 ---
 
+## Audit Logging
+
+Admin-Endpoints für Audit-Log-Verwaltung. Erfordert Admin-Rolle.
+
+### GET /api/admin/audit
+Audit-Log-Einträge auflisten mit Filterung und Pagination.
+
+**Query-Parameter:**
+| Parameter | Typ | Beschreibung |
+|-----------|-----|--------------|
+| `page` | int | Seite (default: 1) |
+| `per_page` | int | Einträge pro Seite (1-100, default: 50) |
+| `action` | string | Filter nach Aktion (CREATE, UPDATE, DELETE, LOGIN, LOGOUT) |
+| `entity_type` | string | Filter nach Entity-Typ |
+| `entity_id` | uuid | Filter nach Entity-ID |
+| `user_id` | uuid | Filter nach Benutzer |
+| `start_date` | datetime | Änderungen seit |
+| `end_date` | datetime | Änderungen bis |
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "user_id": "uuid",
+      "user_email": "user@example.com",
+      "action": "UPDATE",
+      "entity_type": "DataSource",
+      "entity_id": "uuid",
+      "entity_name": "Stadt Musterstadt",
+      "changes": {
+        "status": {"old": "PENDING", "new": "ACTIVE"}
+      },
+      "ip_address": "192.168.1.1",
+      "created_at": "2025-01-15T14:30:00Z"
+    }
+  ],
+  "total": 1234,
+  "page": 1,
+  "per_page": 50,
+  "pages": 25
+}
+```
+
+### GET /api/admin/audit/entity/{entity_type}/{entity_id}
+Änderungshistorie für eine spezifische Entity.
+
+**Response:** Wie `GET /api/admin/audit`
+
+### GET /api/admin/audit/user/{user_id}
+Änderungshistorie eines Benutzers.
+
+**Response:** Wie `GET /api/admin/audit`
+
+### GET /api/admin/audit/stats
+Audit-Log-Statistiken.
+
+**Response:**
+```json
+{
+  "total_entries": 12345,
+  "entries_today": 156,
+  "entries_this_week": 890,
+  "actions_breakdown": {
+    "CREATE": 4500,
+    "UPDATE": 6800,
+    "DELETE": 500,
+    "LOGIN": 400,
+    "LOGOUT": 145
+  },
+  "top_users": [
+    {"email": "admin@example.com", "count": 1500}
+  ],
+  "top_entity_types": [
+    {"entity_type": "DataSource", "count": 5000}
+  ]
+}
+```
+
+---
+
+## Versionierung
+
+Endpoints für Versionshistorie von Entities. Erfordert mindestens Viewer-Rolle.
+
+### GET /api/admin/versions/{entity_type}/{entity_id}
+Versionshistorie einer Entity abrufen.
+
+**Query-Parameter:**
+| Parameter | Typ | Beschreibung |
+|-----------|-----|--------------|
+| `limit` | int | Max. Einträge (1-100, default: 50) |
+| `offset` | int | Offset (default: 0) |
+
+**Unterstützte Entity-Typen:**
+- Category
+- DataSource
+- Entity
+- FacetValue
+- Und alle anderen versionierten Models...
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "entity_type": "DataSource",
+      "entity_id": "uuid",
+      "version_number": 5,
+      "diff": {
+        "status": {"old": "PENDING", "new": "ACTIVE"},
+        "last_crawl": {"old": null, "new": "2025-01-15T14:30:00Z"}
+      },
+      "has_snapshot": true,
+      "user_id": "uuid",
+      "user_email": "admin@example.com",
+      "change_reason": "Aktiviert nach Prüfung",
+      "created_at": "2025-01-15T14:30:00Z"
+    }
+  ],
+  "total": 5,
+  "entity_type": "DataSource",
+  "entity_id": "uuid"
+}
+```
+
+### GET /api/admin/versions/{entity_type}/{entity_id}/{version_number}
+Details einer spezifischen Version abrufen.
+
+**Response:** Einzelnes Version-Objekt
+
+### GET /api/admin/versions/{entity_type}/{entity_id}/{version_number}/state
+Entity-Zustand zu einer bestimmten Version rekonstruieren.
+
+**Response:**
+```json
+{
+  "entity_type": "DataSource",
+  "entity_id": "uuid",
+  "version_number": 3,
+  "state": {
+    "name": "Stadt Musterstadt",
+    "base_url": "https://musterstadt.de",
+    "status": "PENDING",
+    "last_crawl": null
+  }
+}
+```
+
+---
+
+## Benachrichtigungen
+
+Endpoints für Benachrichtigungsverwaltung.
+
+### E-Mail-Adressen
+
+#### GET /api/admin/notifications/email-addresses
+E-Mail-Adressen des aktuellen Benutzers auflisten.
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "email": "notification@example.com",
+    "label": "Arbeit",
+    "is_verified": true,
+    "is_primary": false,
+    "created_at": "2025-01-01T00:00:00Z"
+  }
+]
+```
+
+#### POST /api/admin/notifications/email-addresses
+Neue E-Mail-Adresse hinzufügen.
+
+**Request Body:**
+```json
+{
+  "email": "new@example.com",
+  "label": "Privat"
+}
+```
+
+#### DELETE /api/admin/notifications/email-addresses/{email_id}
+E-Mail-Adresse löschen.
+
+#### POST /api/admin/notifications/email-addresses/{email_id}/verify
+E-Mail-Adresse verifizieren.
+
+**Query-Parameter:**
+| Parameter | Typ | Beschreibung |
+|-----------|-----|--------------|
+| `token` | string | Verifizierungs-Token aus E-Mail |
+
+#### POST /api/admin/notifications/email-addresses/{email_id}/resend-verification
+Verifizierungs-E-Mail erneut senden.
+
+### Benachrichtigungsregeln
+
+#### GET /api/admin/notifications/rules
+Benachrichtigungsregeln des Benutzers auflisten.
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "name": "Neue Dokumente",
+    "description": "Benachrichtigung bei neuen Dokumenten",
+    "event_type": "NEW_DOCUMENT",
+    "channel": "EMAIL",
+    "conditions": {"category_id": "uuid"},
+    "channel_config": {"email_id": "uuid"},
+    "digest_enabled": true,
+    "digest_frequency": "daily",
+    "is_active": true,
+    "trigger_count": 45,
+    "last_triggered": "2025-01-15T10:00:00Z",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-15T10:00:00Z"
+  }
+]
+```
+
+#### POST /api/admin/notifications/rules
+Neue Benachrichtigungsregel erstellen.
+
+**Request Body:**
+```json
+{
+  "name": "Crawl-Fehler",
+  "description": "Benachrichtigung bei Crawl-Fehlern",
+  "event_type": "CRAWL_FAILED",
+  "channel": "WEBHOOK",
+  "conditions": {},
+  "channel_config": {"url": "https://webhook.example.com"},
+  "digest_enabled": false,
+  "is_active": true
+}
+```
+
+**Event-Typen:**
+- `NEW_DOCUMENT` - Neue Dokumente gefunden
+- `DOCUMENT_CHANGED` - Dokument geändert
+- `DOCUMENT_REMOVED` - Dokument entfernt
+- `CRAWL_STARTED` - Crawl gestartet
+- `CRAWL_COMPLETED` - Crawl abgeschlossen
+- `CRAWL_FAILED` - Crawl fehlgeschlagen
+- `AI_ANALYSIS_COMPLETED` - KI-Analyse abgeschlossen
+- `HIGH_CONFIDENCE_RESULT` - Relevantes Ergebnis gefunden
+- `SOURCE_STATUS_CHANGED` - Quellenstatus geändert
+- `SOURCE_ERROR` - Fehler bei Quelle
+
+**Kanäle:**
+- `EMAIL` - E-Mail-Benachrichtigung
+- `WEBHOOK` - HTTP-Webhook
+- `IN_APP` - In-App-Benachrichtigung
+- `MS_TEAMS` - Microsoft Teams (demnächst)
+
+#### GET /api/admin/notifications/rules/{rule_id}
+Regel abrufen.
+
+#### PUT /api/admin/notifications/rules/{rule_id}
+Regel aktualisieren.
+
+#### DELETE /api/admin/notifications/rules/{rule_id}
+Regel löschen.
+
+### Benachrichtigungen
+
+#### GET /api/admin/notifications/notifications
+Benachrichtigungen des Benutzers auflisten.
+
+**Query-Parameter:**
+| Parameter | Typ | Beschreibung |
+|-----------|-----|--------------|
+| `status` | string | PENDING, SENT, DELIVERED, READ, FAILED |
+| `channel` | string | EMAIL, WEBHOOK, IN_APP, MS_TEAMS |
+| `event_type` | string | Event-Typ |
+| `page` | int | Seite |
+| `per_page` | int | Einträge pro Seite |
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "event_type": "NEW_DOCUMENT",
+      "channel": "IN_APP",
+      "title": "Neues Dokument gefunden",
+      "body": "In Stadt Musterstadt wurde ein neues Dokument gefunden.",
+      "status": "READ",
+      "related_entity_type": "Document",
+      "related_entity_id": "uuid",
+      "sent_at": "2025-01-15T10:00:00Z",
+      "read_at": "2025-01-15T10:05:00Z",
+      "created_at": "2025-01-15T10:00:00Z"
+    }
+  ],
+  "total": 100,
+  "page": 1,
+  "per_page": 20,
+  "pages": 5
+}
+```
+
+#### GET /api/admin/notifications/notifications/unread-count
+Anzahl ungelesener In-App-Benachrichtigungen.
+
+**Response:**
+```json
+{
+  "count": 5
+}
+```
+
+#### GET /api/admin/notifications/notifications/{notification_id}
+Einzelne Benachrichtigung abrufen.
+
+#### POST /api/admin/notifications/notifications/{notification_id}/read
+Benachrichtigung als gelesen markieren.
+
+#### POST /api/admin/notifications/notifications/read-all
+Alle Benachrichtigungen als gelesen markieren.
+
+### Webhook-Test
+
+#### POST /api/admin/notifications/test-webhook
+Webhook-URL testen.
+
+**Request Body:**
+```json
+{
+  "url": "https://webhook.example.com/notify",
+  "auth": {
+    "type": "bearer",
+    "token": "abc123"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "status_code": 200,
+  "response": "OK"
+}
+```
+
+### Benutzer-Einstellungen
+
+#### GET /api/admin/notifications/preferences
+Benachrichtigungs-Einstellungen abrufen.
+
+#### PUT /api/admin/notifications/preferences
+Benachrichtigungs-Einstellungen aktualisieren.
+
+**Request Body:**
+```json
+{
+  "notifications_enabled": true,
+  "notification_digest_time": "09:00"
+}
+```
+
+### Metadaten
+
+#### GET /api/admin/notifications/event-types
+Verfügbare Event-Typen abrufen.
+
+#### GET /api/admin/notifications/channels
+Verfügbare Kanäle abrufen.
+
+---
+
 ## Public API (v1/data)
 
 ### GET /v1/data
@@ -1262,6 +1896,71 @@ Entity löschen.
 |-----------|-----|--------------|
 | `force` | boolean | Auch Kinder und Facets löschen |
 
+#### GET /v1/entities/filter-options/location
+Verfügbare Filter-Optionen für Standort-Felder abrufen.
+
+**Query-Parameter:**
+| Parameter | Typ | Beschreibung |
+|-----------|-----|--------------|
+| `country` | string | Filter admin_level_1 Optionen nach Land |
+| `admin_level_1` | string | Filter admin_level_2 Optionen nach Bundesland |
+
+**Response:**
+```json
+{
+  "countries": ["DE", "AT", "CH"],
+  "admin_level_1": ["Baden-Württemberg", "Bayern", "Berlin", "..."],
+  "admin_level_2": ["Oberbergischer Kreis", "Rheinisch-Bergischer Kreis", "..."]
+}
+```
+
+**Hinweis:** Die admin_level Optionen werden entsprechend der gewählten übergeordneten Ebene gefiltert.
+
+#### GET /v1/entities/filter-options/attributes
+Verfügbare Filter-Optionen für core_attributes basierend auf Entity-Typ Schema.
+
+**Query-Parameter:**
+| Parameter | Typ | Beschreibung |
+|-----------|-----|--------------|
+| `entity_type_slug` | string | **Erforderlich.** Entity-Typ Slug |
+| `attribute_key` | string | Spezifisches Attribut für Wertabfrage |
+
+**Response (ohne attribute_key):**
+```json
+{
+  "entity_type_slug": "municipality",
+  "entity_type_name": "Gemeinde",
+  "attributes": [
+    {
+      "key": "locality_type",
+      "title": "Gemeindetyp",
+      "description": "Art der Gemeinde",
+      "type": "string",
+      "format": null
+    },
+    {
+      "key": "population",
+      "title": "Einwohnerzahl",
+      "description": null,
+      "type": "integer",
+      "format": null
+    }
+  ]
+}
+```
+
+**Response (mit attribute_key):**
+```json
+{
+  "entity_type_slug": "municipality",
+  "entity_type_name": "Gemeinde",
+  "attributes": [...],
+  "attribute_values": {
+    "locality_type": ["Stadt", "Gemeinde", "Kreisfreie Stadt", "Große Kreisstadt"]
+  }
+}
+```
+
 ---
 
 ### Facet Types
@@ -1611,6 +2310,344 @@ Beziehungsgraph einer Entity.
 
 ---
 
+## KI-Assistant
+
+Interaktiver KI-Assistant für natürlichsprachliche Interaktionen mit dem System.
+
+### POST /api/v1/assistant/chat
+Nachricht an den KI-Assistant senden.
+
+**Request Body:**
+```json
+{
+  "message": "Zeige mir alle Bürgermeister in NRW",
+  "context": {
+    "current_route": "/entities/municipality",
+    "current_entity_id": null,
+    "current_entity_type": "municipality",
+    "view_mode": "list",
+    "available_actions": ["filter", "search", "navigate"]
+  },
+  "conversation_history": [
+    {
+      "role": "user",
+      "content": "Vorherige Nachricht",
+      "timestamp": "2025-01-15T14:25:00Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Vorherige Antwort",
+      "timestamp": "2025-01-15T14:25:05Z"
+    }
+  ],
+  "mode": "read"
+}
+```
+
+**Modi:**
+- `read` - Nur Abfragen und Navigation (Standard)
+- `write` - Erlaubt Inline-Bearbeitungen mit Preview/Bestätigung
+
+**Slash-Kommandos:**
+- `/help [topic]` - Hilfe anzeigen
+- `/search <query>` - Entities suchen
+- `/create <details>` - Neuen Datensatz erstellen (Weiterleitung zu Smart Query)
+- `/summary` - Aktuelle Entity zusammenfassen
+- `/navigate <entity>` - Zu einer Entity navigieren
+
+**Response-Typen:**
+
+1. **Query Result:**
+```json
+{
+  "success": true,
+  "response_type": "query_result",
+  "response": {
+    "results": [...],
+    "summary": "Gefunden: 15 Bürgermeister in NRW",
+    "follow_up_suggestions": ["Nach Alter filtern", "Nur aktive zeigen"]
+  },
+  "suggested_actions": ["Ergebnisse filtern", "Details anzeigen"]
+}
+```
+
+2. **Action Preview (im Write-Modus):**
+```json
+{
+  "success": true,
+  "response_type": "action_preview",
+  "response": {
+    "action_type": "update_entity",
+    "entity_id": "uuid",
+    "changes": {"position": {"old": "Bürgermeister", "new": "Oberbürgermeister"}},
+    "confirmation_required": true,
+    "confirmation_message": "Position von Max Müller ändern?"
+  }
+}
+```
+
+3. **Navigation:**
+```json
+{
+  "success": true,
+  "response_type": "navigation",
+  "response": {
+    "target_route": "/entities/person/max-mueller",
+    "target_entity_id": "uuid",
+    "message": "Navigiere zu Max Müller"
+  }
+}
+```
+
+4. **Help:**
+```json
+{
+  "success": true,
+  "response_type": "help",
+  "response": {
+    "topics": ["Suche", "Navigation", "Bearbeitung"],
+    "suggested_commands": ["/search", "/summary"]
+  }
+}
+```
+
+### POST /api/v1/assistant/execute-action
+Bestätigte Aktion ausführen.
+
+**Request Body:**
+```json
+{
+  "action": {
+    "action_type": "update_entity",
+    "entity_id": "uuid",
+    "changes": {"position": "Oberbürgermeister"}
+  },
+  "context": {
+    "current_route": "/entities/person/max-mueller"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Position von Max Müller wurde aktualisiert",
+  "affected_entity_id": "uuid",
+  "affected_entity_name": "Max Müller",
+  "refresh_required": true
+}
+```
+
+### GET /api/v1/assistant/commands
+Liste verfügbarer Slash-Kommandos abrufen.
+
+**Response:**
+```json
+[
+  {
+    "command": "/help",
+    "description": "Hilfe anzeigen",
+    "usage": "/help [topic]",
+    "examples": ["/help", "/help suche"]
+  },
+  {
+    "command": "/search",
+    "description": "Entities suchen",
+    "usage": "/search <suchbegriff>",
+    "examples": ["/search Gummersbach", "/search Bürgermeister"]
+  }
+]
+```
+
+### GET /api/v1/assistant/suggestions
+Kontextbezogene Vorschläge basierend auf aktuellem Standort.
+
+**Query-Parameter:**
+| Parameter | Typ | Beschreibung |
+|-----------|-----|--------------|
+| `route` | string | Aktuelle Route |
+| `entity_type` | string | Aktueller Entity-Typ |
+| `entity_id` | string | Aktuelle Entity-ID |
+
+**Response:**
+```json
+{
+  "suggestions": [
+    {"label": "Zusammenfassung", "query": "/summary"},
+    {"label": "Pain Points", "query": "Zeige Pain Points"},
+    {"label": "Relationen", "query": "Zeige alle Relationen"}
+  ]
+}
+```
+
+---
+
+## Smart Query & Analyse
+
+KI-gestützte Abfragen und Schreiboperationen in natürlicher Sprache.
+
+### POST /api/v1/analysis/smart-query
+KI-gestützte natürliche Sprache Abfragen ausführen.
+
+**Request Body:**
+```json
+{
+  "question": "Zeige mir auf welche künftige Events wichtige Entscheider-Personen von Gemeinden gehen",
+  "allow_write": false
+}
+```
+
+**Beispiel-Abfragen:**
+- "Welche Bürgermeister sprechen auf Windenergie-Konferenzen?"
+- "Zeige mir alle Pain Points von Gemeinden in NRW"
+- "Wo kann ich Entscheider aus Bayern in den nächsten 90 Tagen treffen?"
+
+**Response:**
+```json
+{
+  "success": true,
+  "query_type": "search",
+  "interpretation": {
+    "intent": "find_event_attendance",
+    "filters": {
+      "entity_types": ["person"],
+      "positions": ["Bürgermeister", "Landrat"],
+      "time_filter": "future"
+    }
+  },
+  "results": [
+    {
+      "person_name": "Max Müller",
+      "position": "Bürgermeister",
+      "municipality": "Gummersbach",
+      "event": "Windenergie-Konferenz 2025",
+      "event_date": "2025-03-15",
+      "confidence": 0.95
+    }
+  ],
+  "summary": "15 Entscheider besuchen in den nächsten 90 Tagen relevante Events"
+}
+```
+
+### POST /api/v1/analysis/smart-write
+Schreib-Kommandos in natürlicher Sprache mit Preview-Unterstützung.
+
+**Workflow:**
+1. Sende Kommando mit `preview_only=true` → Erhalte Vorschau
+2. Überprüfe die Vorschau
+3. Sende gleiches Kommando mit `preview_only=false, confirmed=true` → Ausführung
+
+**Request Body:**
+```json
+{
+  "question": "Erstelle eine neue Person Max Müller, Bürgermeister von Gummersbach",
+  "preview_only": true,
+  "confirmed": false
+}
+```
+
+**Beispiel-Kommandos:**
+- "Erstelle eine Person Hans Schmidt, Landrat von Oberberg"
+- "Füge einen Pain Point für Münster hinzu: Personalmangel in der IT"
+- "Verknüpfe Max Müller mit Gummersbach als Arbeitgeber"
+- "Starte Crawls für alle Gummersbach Datenquellen"
+
+**Unterstützte Operationen:**
+| Operation | Beschreibung |
+|-----------|--------------|
+| `create_entity` | Entity erstellen (Person, Gemeinde, Organisation, Event) |
+| `create_entity_type` | Neuen Entity-Typ erstellen |
+| `create_facet` | Facet hinzufügen (Pain Point, Positive Signal, Kontakt) |
+| `create_relation` | Verknüpfung zwischen Entities erstellen |
+| `create_category_setup` | Category mit Datenquellen-Verknüpfung erstellen |
+| `start_crawl` | Crawl für gefilterte Datenquellen starten |
+| `combined` | Mehrere Operationen kombiniert |
+
+**Response (Preview):**
+```json
+{
+  "success": true,
+  "mode": "preview",
+  "message": "Vorschau der geplanten Aktion",
+  "interpretation": {
+    "operation": "create_entity",
+    "entity_type": "person",
+    "entity_data": {
+      "name": "Max Müller",
+      "core_attributes": {"position": "Bürgermeister"}
+    },
+    "explanation": "Erstellt eine neue Person mit Position Bürgermeister"
+  },
+  "preview": {
+    "operation_de": "Entity erstellen",
+    "description": "Erstellt eine neue Person mit Position Bürgermeister",
+    "details": [
+      "Typ: Person",
+      "Name: Max Müller",
+      "Position: Bürgermeister"
+    ]
+  },
+  "original_question": "Erstelle eine neue Person Max Müller, Bürgermeister von Gummersbach"
+}
+```
+
+**Response (Execute):**
+```json
+{
+  "success": true,
+  "mode": "write",
+  "message": "Person 'Max Müller' wurde erfolgreich erstellt",
+  "created_entity": {
+    "id": "uuid",
+    "name": "Max Müller",
+    "slug": "max-mueller"
+  }
+}
+```
+
+### GET /api/v1/analysis/smart-query/examples
+Beispiele für Smart Query abrufen.
+
+**Response:**
+```json
+{
+  "read_examples": [
+    {
+      "question": "Zeige mir auf welche künftige Events wichtige Entscheider-Personen von Gemeinden gehen",
+      "description": "Findet alle Personen mit Positionen wie Bürgermeister, Landrat etc. und deren zukünftige Event-Teilnahmen"
+    },
+    {
+      "question": "Welche Bürgermeister sprechen auf Windenergie-Konferenzen?",
+      "description": "Filtert nach Position 'Bürgermeister' und Event-Attendance Facets"
+    }
+  ],
+  "write_examples": [
+    {
+      "question": "Erstelle eine neue Person Max Müller, Bürgermeister von Gummersbach",
+      "description": "Erstellt eine Person-Entity mit Position 'Bürgermeister'"
+    },
+    {
+      "question": "Füge einen Pain Point für Münster hinzu: Personalmangel in der IT",
+      "description": "Erstellt einen Pain Point Facet für die Gemeinde Münster"
+    }
+  ],
+  "supported_filters": {
+    "time": ["künftig", "vergangen", "zukünftig", "in den nächsten X Tagen/Monaten"],
+    "positions": ["Bürgermeister", "Landrat", "Dezernent", "Entscheider", "Amtsleiter"],
+    "entity_types": ["Person", "Gemeinde", "Event", "Organisation"],
+    "facet_types": ["Pain Points", "Positive Signale", "Event-Teilnahmen", "Kontakte"]
+  },
+  "write_operations": {
+    "create_entity": ["Erstelle", "Neue/r/s", "Anlegen"],
+    "create_facet": ["Füge hinzu", "Neuer Pain Point", "Neues Positive Signal"],
+    "create_relation": ["Verknüpfe", "Verbinde", "arbeitet für", "ist Mitglied von"]
+  }
+}
+```
+
+---
+
 ### Analysis Templates
 
 #### GET /v1/analysis/templates
@@ -1930,14 +2967,73 @@ Alle Endpunkte können folgende Fehler zurückgeben:
 
 ## Rate Limiting
 
-Aktuell kein Rate Limiting implementiert. Für Produktionsumgebungen wird empfohlen:
-- Max. 100 Requests/Minute für `/admin/*`
-- Max. 1000 Requests/Minute für `/v1/*`
+Die API implementiert Rate Limiting über Redis:
+
+| Endpoint | Limit | Beschreibung |
+|----------|-------|--------------|
+| `POST /api/auth/login` | 5/Minute | Login-Versuche pro IP |
+| `POST /api/auth/login` | 10/15Min | Nach 10 Fehlversuchen temporäre Sperre |
+| `POST /api/auth/change-password` | 3/5Min | Passwortänderungen |
+| `/api/admin/*` | 100/Minute | Admin-Endpoints |
+| `/api/v1/*` | 1000/Minute | Public API Endpoints |
+
+**Response bei Überschreitung:**
+```json
+{
+  "detail": "Rate limit exceeded. Retry in 45 seconds.",
+  "retry_after": 45
+}
+```
+
+**HTTP Status:** `429 Too Many Requests`
+
+**Header:**
+- `X-RateLimit-Limit`: Maximale Anzahl Requests
+- `X-RateLimit-Remaining`: Verbleibende Requests
+- `X-RateLimit-Reset`: Unix-Timestamp des Reset-Zeitpunkts
 
 ---
 
-## Authentifizierung
+## Authentifizierung & Sicherheit
 
-Aktuell keine Authentifizierung implementiert. Für Produktionsumgebungen wird empfohlen:
-- API-Key Header: `X-API-Key: <key>`
-- OAuth2/JWT für Admin-Endpunkte
+Die API verwendet JWT-basierte Authentifizierung mit folgenden Sicherheitsfunktionen:
+
+### JWT Token
+- **Token-Typ:** Bearer Token
+- **Header:** `Authorization: Bearer <token>`
+- **Lebensdauer:** 24 Stunden (konfigurierbar)
+- **Signatur:** HS256
+
+### Token Blacklist
+Bei Logout wird der Token auf eine Redis-basierte Blacklist gesetzt und sofort invalidiert.
+
+### Passwort-Policy
+- Minimum 8 Zeichen
+- Mindestens ein Großbuchstabe (A-Z)
+- Mindestens ein Kleinbuchstabe (a-z)
+- Mindestens eine Ziffer (0-9)
+
+### Rollen
+| Rolle | Beschreibung |
+|-------|--------------|
+| `ADMIN` | Vollzugriff auf alle Funktionen |
+| `EDITOR` | Lese- und Schreibzugriff auf Daten |
+| `VIEWER` | Nur Lesezugriff |
+
+### Security Headers (Production)
+```
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+Content-Security-Policy: default-src 'self'
+```
+
+### Audit Logging
+Alle Änderungen werden im Audit-Log protokolliert:
+- Benutzer-ID
+- Aktion (CREATE, UPDATE, DELETE)
+- Entity-Typ und ID
+- Änderungen (Diff)
+- IP-Adresse
+- Zeitstempel

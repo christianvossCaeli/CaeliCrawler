@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1 class="text-h4 mb-6">Daten Export</h1>
+    <h1 class="text-h4 mb-6">{{ t('exportView.title') }}</h1>
 
     <v-row>
       <!-- Export Options -->
@@ -8,7 +8,7 @@
         <v-card>
           <v-card-title>
             <v-icon left>mdi-download</v-icon>
-            Daten herunterladen
+            {{ t('exportView.download') }}
           </v-card-title>
           <v-card-text>
             <v-row>
@@ -18,7 +18,7 @@
                   :items="countries"
                   item-title="name"
                   item-value="code"
-                  label="Land (optional)"
+                  :label="t('exportView.countryOptional')"
                   clearable
                   density="comfortable"
                 ></v-select>
@@ -27,7 +27,7 @@
                 <v-autocomplete
                   v-model="exportOptions.location_name"
                   :items="locations"
-                  label="Gemeinde/Ort (optional)"
+                  :label="t('exportView.locationOptional')"
                   clearable
                   density="comfortable"
                 ></v-autocomplete>
@@ -39,13 +39,13 @@
               :items="categories"
               item-title="name"
               item-value="id"
-              label="Kategorie (optional)"
+              :label="t('exportView.categoryOptional')"
               clearable
             ></v-select>
 
             <v-slider
               v-model="exportOptions.min_confidence"
-              label="Mindest-Konfidenz"
+              :label="t('exportView.minConfidence')"
               :min="0"
               :max="1"
               :step="0.1"
@@ -54,7 +54,7 @@
 
             <v-switch
               v-model="exportOptions.human_verified_only"
-              label="Nur verifizierte Daten"
+              :label="t('exportView.verifiedOnly')"
               color="success"
             ></v-switch>
 
@@ -63,11 +63,11 @@
             <div class="d-flex gap-2">
               <v-btn color="primary" @click="exportJson" :loading="exporting">
                 <v-icon left>mdi-code-json</v-icon>
-                JSON Export
+                {{ t('exportView.jsonExport') }}
               </v-btn>
               <v-btn color="success" @click="exportCsv" :loading="exporting">
                 <v-icon left>mdi-file-delimited</v-icon>
-                CSV Export
+                {{ t('exportView.csvExport') }}
               </v-btn>
             </div>
           </v-card-text>
@@ -79,30 +79,30 @@
         <v-card>
           <v-card-title>
             <v-icon left>mdi-api</v-icon>
-            API Endpunkte
+            {{ t('exportView.apiEndpoints') }}
           </v-card-title>
           <v-card-text>
             <v-list>
               <v-list-item>
-                <v-list-item-title>Extrahierte Daten</v-list-item-title>
+                <v-list-item-title>{{ t('exportView.extractedData') }}</v-list-item-title>
                 <v-list-item-subtitle>
                   <code>GET /api/v1/data</code>
                 </v-list-item-subtitle>
               </v-list-item>
               <v-list-item>
-                <v-list-item-title>Dokumente</v-list-item-title>
+                <v-list-item-title>{{ t('documents.documents') }}</v-list-item-title>
                 <v-list-item-subtitle>
                   <code>GET /api/v1/data/documents</code>
                 </v-list-item-subtitle>
               </v-list-item>
               <v-list-item>
-                <v-list-item-title>Volltextsuche</v-list-item-title>
+                <v-list-item-title>{{ t('exportView.fulltextSearch') }}</v-list-item-title>
                 <v-list-item-subtitle>
                   <code>GET /api/v1/data/search?q=...</code>
                 </v-list-item-subtitle>
               </v-list-item>
               <v-list-item>
-                <v-list-item-title>Änderungs-Feed</v-list-item-title>
+                <v-list-item-title>{{ t('exportView.changesFeed') }}</v-list-item-title>
                 <v-list-item-subtitle>
                   <code>GET /api/v1/export/changes</code>
                 </v-list-item-subtitle>
@@ -119,17 +119,17 @@
         <v-card>
           <v-card-title>
             <v-icon left>mdi-webhook</v-icon>
-            Webhook Test
+            {{ t('exportView.webhookTest') }}
           </v-card-title>
           <v-card-text>
             <v-text-field
               v-model="webhookUrl"
-              label="Webhook URL"
+              :label="t('exportView.webhookUrl')"
               placeholder="https://your-endpoint.com/webhook"
             ></v-text-field>
             <v-btn color="primary" @click="testWebhook" :loading="testingWebhook">
               <v-icon left>mdi-send</v-icon>
-              Webhook testen
+              {{ t('exportView.testWebhook') }}
             </v-btn>
 
             <v-alert
@@ -137,7 +137,7 @@
               :type="webhookResult.success ? 'success' : 'error'"
               class="mt-4"
             >
-              <strong>Status:</strong> {{ webhookResult.status_code || 'Fehler' }}<br>
+              <strong>{{ t('common.status') }}:</strong> {{ webhookResult.status_code || t('common.error') }}<br>
               <span v-if="webhookResult.error">{{ webhookResult.error }}</span>
               <span v-else>{{ webhookResult.response }}</span>
             </v-alert>
@@ -152,7 +152,7 @@
         <v-card>
           <v-card-title>
             <v-icon left>mdi-history</v-icon>
-            Letzte Änderungen
+            {{ t('exportView.recentChanges') }}
           </v-card-title>
           <v-card-text>
             <v-data-table
@@ -163,7 +163,7 @@
             >
               <template v-slot:item.change_type="{ item }">
                 <v-chip :color="getChangeColor(item.change_type)" size="small">
-                  {{ item.change_type }}
+                  {{ t(`exportView.changeTypes.${item.change_type}`) }}
                 </v-chip>
               </template>
               <template v-slot:item.detected_at="{ item }">
@@ -178,13 +178,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { adminApi, exportApi, dataApi } from '@/services/api'
 import { format } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { de, enUS } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
 
+const { t, locale } = useI18n()
 const { showSuccess, showError, showInfo } = useSnackbar()
+
+const dateLocale = computed(() => locale.value === 'de' ? de : enUS)
 
 const categories = ref<any[]>([])
 const countries = ref<any[]>([])
@@ -204,11 +208,11 @@ const exportOptions = ref({
   location_name: null as string | null,
 })
 
-const changeHeaders = [
-  { title: 'Typ', key: 'change_type' },
+const changeHeaders = computed(() => [
+  { title: t('common.type'), key: 'change_type' },
   { title: 'URL', key: 'affected_url', maxWidth: '400px' },
-  { title: 'Erkannt', key: 'detected_at' },
-]
+  { title: t('exportView.detected'), key: 'detected_at' },
+])
 
 const getChangeColor = (type: string) => {
   const colors: Record<string, string> = {
@@ -221,7 +225,7 @@ const getChangeColor = (type: string) => {
 }
 
 const formatDate = (dateStr: string) => {
-  return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: de })
+  return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: dateLocale.value })
 }
 
 const loadCategories = async () => {
@@ -264,9 +268,9 @@ const exportJson = async () => {
   try {
     const response = await exportApi.exportJson(exportOptions.value)
     downloadBlob(response.data, 'caelichrawler_export.json', 'application/json')
-    showSuccess('JSON Export erfolgreich heruntergeladen')
+    showSuccess(t('exportView.messages.jsonSuccess'))
   } catch (error: any) {
-    showError(error.response?.data?.error || 'Fehler beim JSON Export')
+    showError(error.response?.data?.error || t('exportView.messages.jsonError'))
   } finally {
     exporting.value = false
   }
@@ -277,9 +281,9 @@ const exportCsv = async () => {
   try {
     const response = await exportApi.exportCsv(exportOptions.value)
     downloadBlob(response.data, 'caelichrawler_export.csv', 'text/csv')
-    showSuccess('CSV Export erfolgreich heruntergeladen')
+    showSuccess(t('exportView.messages.csvSuccess'))
   } catch (error: any) {
-    showError(error.response?.data?.error || 'Fehler beim CSV Export')
+    showError(error.response?.data?.error || t('exportView.messages.csvError'))
   } finally {
     exporting.value = false
   }
@@ -303,13 +307,13 @@ const testWebhook = async () => {
     const response = await exportApi.testWebhook(webhookUrl.value)
     webhookResult.value = response.data
     if (response.data.success) {
-      showSuccess('Webhook erfolgreich getestet')
+      showSuccess(t('exportView.messages.webhookSuccess'))
     } else {
-      showError('Webhook Test fehlgeschlagen')
+      showError(t('exportView.messages.webhookError'))
     }
   } catch (error: any) {
     webhookResult.value = { success: false, error: error.message }
-    showError('Webhook Test fehlgeschlagen: ' + error.message)
+    showError(t('exportView.messages.webhookError') + ': ' + error.message)
   } finally {
     testingWebhook.value = false
   }

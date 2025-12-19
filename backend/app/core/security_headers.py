@@ -51,22 +51,39 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # HSTS - Only enable in production with HTTPS
         if self.enable_hsts:
-            # 1 year, include subdomains
+            # 1 year, include subdomains, preload ready
             response.headers["Strict-Transport-Security"] = (
-                "max-age=31536000; includeSubDomains"
+                "max-age=31536000; includeSubDomains; preload"
             )
 
-        # Content Security Policy - Allow API usage
-        # Note: This is a basic policy, adjust based on frontend needs
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: https:; "
-            "font-src 'self' data:; "
-            "connect-src 'self' https:; "
-            "frame-ancestors 'none';"
-        )
+        # Content Security Policy
+        # Note: 'unsafe-inline' for styles is needed for Vuetify/Vue.js
+        # 'unsafe-eval' removed for better XSS protection (may need adjustment if Vue needs it)
+        if self.enable_hsts:
+            # Production: Stricter CSP
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self'; "  # Removed unsafe-inline and unsafe-eval
+                "style-src 'self' 'unsafe-inline'; "  # Vuetify needs unsafe-inline for styles
+                "img-src 'self' data: https:; "
+                "font-src 'self' data: https://fonts.gstatic.com; "
+                "connect-src 'self' https:; "
+                "frame-ancestors 'none'; "
+                "base-uri 'self'; "
+                "form-action 'self'; "
+                "upgrade-insecure-requests;"
+            )
+        else:
+            # Development: More permissive for hot-reload etc.
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: https:; "
+                "font-src 'self' data:; "
+                "connect-src 'self' https: ws: wss:; "  # ws: for hot-reload
+                "frame-ancestors 'none';"
+            )
 
         return response
 

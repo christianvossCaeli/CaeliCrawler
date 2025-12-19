@@ -5,7 +5,7 @@ services:
     container_name: caelichrawler-postgres
     environment:
       POSTGRES_USER: caelichrawler
-      POSTGRES_PASSWORD: caelichrawler_secret
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-caelichrawler_secret}
       POSTGRES_DB: caelichrawler
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -41,8 +41,8 @@ services:
       dockerfile: Dockerfile
     container_name: caelichrawler-backend
     environment:
-      - DATABASE_URL=postgresql+asyncpg://caelichrawler:caelichrawler_secret@postgres:5432/caelichrawler
-      - DATABASE_SYNC_URL=postgresql+psycopg://caelichrawler:caelichrawler_secret@postgres:5432/caelichrawler
+      - DATABASE_URL=postgresql+asyncpg://caelichrawler:${POSTGRES_PASSWORD:-caelichrawler_secret}@postgres:5432/caelichrawler
+      - DATABASE_SYNC_URL=postgresql+psycopg://caelichrawler:${POSTGRES_PASSWORD:-caelichrawler_secret}@postgres:5432/caelichrawler
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
@@ -81,8 +81,8 @@ services:
       dockerfile: Dockerfile
     container_name: caelichrawler-worker
     environment: &worker-env
-      - DATABASE_URL=postgresql+asyncpg://caelichrawler:caelichrawler_secret@postgres:5432/caelichrawler
-      - DATABASE_SYNC_URL=postgresql+psycopg://caelichrawler:caelichrawler_secret@postgres:5432/caelichrawler
+      - DATABASE_URL=postgresql+asyncpg://caelichrawler:${POSTGRES_PASSWORD:-caelichrawler_secret}@postgres:5432/caelichrawler
+      - DATABASE_SYNC_URL=postgresql+psycopg://caelichrawler:${POSTGRES_PASSWORD:-caelichrawler_secret}@postgres:5432/caelichrawler
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
@@ -131,7 +131,7 @@ services:
     environment: *worker-env
     volumes: *worker-volumes
     depends_on: *worker-depends
-    command: celery -A workers.celery_app worker --loglevel=info -Q ai --concurrency=4 --hostname=worker-ai@%h
+    command: celery -A workers.celery_app worker --loglevel=info -Q ai --concurrency=2 --hostname=worker-ai@%h
     restart: unless-stopped
 
   # Celery Beat (Scheduler)
@@ -141,8 +141,8 @@ services:
       dockerfile: Dockerfile
     container_name: caelichrawler-beat
     environment:
-      - DATABASE_URL=postgresql+asyncpg://caelichrawler:caelichrawler_secret@postgres:5432/caelichrawler
-      - DATABASE_SYNC_URL=postgresql+psycopg://caelichrawler:caelichrawler_secret@postgres:5432/caelichrawler
+      - DATABASE_URL=postgresql+asyncpg://caelichrawler:${POSTGRES_PASSWORD:-caelichrawler_secret}@postgres:5432/caelichrawler
+      - DATABASE_SYNC_URL=postgresql+psycopg://caelichrawler:${POSTGRES_PASSWORD:-caelichrawler_secret}@postgres:5432/caelichrawler
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2

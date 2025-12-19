@@ -1,0 +1,110 @@
+{
+  "errors": {
+    "not_found": "{resource} nicht gefunden",
+    "not_found_detail": "{resource} mit Kennung '{identifier}' existiert nicht",
+    "conflict": "Konflikt: {message}",
+    "validation": "Validierungsfehler: {message}",
+    "crawler": "Crawler-Fehler: {message}",
+    "external_service": "Fehler bei der Kommunikation mit {service}",
+    "invalid_credentials": "Ungültige E-Mail oder Passwort",
+    "account_deactivated": "Benutzerkonto ist deaktiviert",
+    "current_password_incorrect": "Aktuelles Passwort ist falsch",
+    "password_requirements": "Passwort erfüllt nicht die Anforderungen",
+    "token_invalid": "Token ungültig oder abgelaufen",
+    "unauthorized": "Nicht autorisiert",
+    "forbidden": "Zugriff verweigert",
+    "rate_limited": "Zu viele Anfragen. Bitte warten Sie einen Moment.",
+    "internal_server": "Interner Serverfehler",
+    "invalid_status": "Ungültiger Status: {status}",
+    "invalid_source_type": "Ungültiger Quellentyp: {source_type}",
+    "can_only_cancel_running": "Nur laufende Jobs können abgebrochen werden",
+    "document_no_text": "Dokument hat keinen extrahierten Text - bitte zuerst verarbeiten",
+    "unsupported_country": "Nicht unterstütztes Land: {country}",
+    "category_required": "Kategorie ist erforderlich",
+    "pysis_not_configured": "PySis API-Anmeldedaten nicht konfiguriert",
+    "language_unsupported": "Nicht unterstützte Sprache: {language}"
+  },
+  "messages": {
+    "password_changed": "Passwort erfolgreich geändert",
+    "logged_out": "Erfolgreich abgemeldet",
+    "job_cancelled": "Job abgebrochen",
+    "document_queued": "Dokument zur Verarbeitung eingereiht",
+    "processing_stopped": "Verarbeitung gestoppt. {count} Dokumente zurückgesetzt.",
+    "crawl_started": "Crawl gestartet",
+    "analysis_started": "Analyse gestartet",
+    "language_updated": "Spracheinstellung aktualisiert",
+    "user_created": "Benutzer erfolgreich erstellt",
+    "user_updated": "Benutzer erfolgreich aktualisiert",
+    "user_deleted": "Benutzer erfolgreich gelöscht",
+    "password_reset": "Passwort wurde zurückgesetzt",
+    "locations_enriched": "{enriched} von {total} Standorten angereichert",
+    "source_created": "Datenquelle erfolgreich erstellt",
+    "source_updated": "Datenquelle erfolgreich aktualisiert",
+    "source_deleted": "Datenquelle erfolgreich gelöscht",
+    "category_created": "Kategorie erfolgreich erstellt",
+    "category_updated": "Kategorie erfolgreich aktualisiert",
+    "category_deleted": "Kategorie erfolgreich gelöscht"
+  },
+  "analysis": {
+    "no_write_operation": "Keine Schreib-Operation erkannt. Bitte formulieren Sie das Kommando anders.",
+    "preview_message": "Vorschau der geplanten Aktion",
+    "confirmation_required": "Bestätigung erforderlich. Setzen Sie confirmed=true um fortzufahren.",
+    "operations": {
+      "create_entity": "Entity erstellen",
+      "create_entity_type": "Entity-Typ erstellen",
+      "create_facet": "Facet hinzufügen",
+      "create_relation": "Verknüpfung erstellen",
+      "update_entity": "Entity aktualisieren",
+      "create_category_setup": "Category-Setup erstellen",
+      "start_crawl": "Crawl starten",
+      "combined": "Kombinierte Operationen"
+    },
+    "entity_types": {
+      "municipality": "Gemeinde",
+      "person": "Person",
+      "organization": "Organisation",
+      "event": "Veranstaltung"
+    }
+  },
+  "reports": {
+    "no_documents": "Keine Dokumente für diese Gemeinde gefunden"
+  },
+  "crawler": {
+    "starting": "Crawler wird gestartet...",
+    "running": "Crawler läuft",
+    "completed": "Crawl abgeschlossen",
+    "failed": "Crawl fehlgeschlagen: {error}",
+    "cancelled": "Crawl abgebrochen",
+    "processing_document": "Verarbeite Dokument: {title}",
+    "documents_found": "{count} Dokumente gefunden",
+    "no_new_documents": "Keine neuen Dokumente gefunden"
+  },
+  "notifications": {
+    "new_document": "Neues Dokument gefunden",
+    "analysis_complete": "Analyse abgeschlossen",
+    "high_relevance": "Hohe Relevanz erkannt",
+    "crawler_error": "Crawler-Fehler aufgetreten"
+  },
+  "resources": {
+    "user": "Benutzer",
+    "document": "Dokument",
+    "category": "Kategorie",
+    "source": "Datenquelle",
+    "entity": "Entity",
+    "entity_type": "Entity-Typ",
+    "facet": "Facet",
+    "relation": "Verknüpfung",
+    "notification": "Benachrichtigung",
+    "crawl_job": "Crawl-Job"
+  },
+  "audit": {
+    "actions": {
+      "CREATE": "Erstellt",
+      "UPDATE": "Aktualisiert",
+      "DELETE": "Gelöscht",
+      "LOGIN": "Anmeldung",
+      "LOGOUT": "Abmeldung",
+      "PASSWORD_CHANGE": "Passwortänderung"
+    }
+  }
+}

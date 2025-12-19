@@ -20,10 +20,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.data_source import DataSource
+    from app.models.entity_relation import EntityRelation
     from app.models.entity_type import EntityType
     from app.models.facet_value import FacetValue
-    from app.models.entity_relation import EntityRelation
-    from app.models.data_source import DataSource
+    from app.models.reminder import Reminder
     from app.models.user import User
 
 
@@ -221,6 +222,12 @@ class Entity(Base):
     owner: Mapped[Optional["User"]] = relationship(
         "User",
         foreign_keys=[owner_id],
+    )
+    # Reminders linked to this entity
+    reminders: Mapped[List["Reminder"]] = relationship(
+        "Reminder",
+        back_populates="entity",
+        cascade="all, delete-orphan",
     )
 
     @property

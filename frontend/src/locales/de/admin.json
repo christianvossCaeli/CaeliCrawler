@@ -1,0 +1,169 @@
+{
+  "admin": {
+    "users": {
+      "title": "Benutzerverwaltung",
+      "subtitle": "Benutzer erstellen, bearbeiten und verwalten",
+      "filters": {
+        "search": "Suche",
+        "role": "Rolle",
+        "status": "Status"
+      },
+      "form": {
+        "email": "E-Mail",
+        "name": "Name",
+        "role": "Rolle",
+        "active": "Aktiv",
+        "password": "Passwort",
+        "confirmPassword": "Passwort bestätigen"
+      },
+      "columns": {
+        "email": "E-Mail",
+        "name": "Name",
+        "role": "Rolle",
+        "status": "Status",
+        "lastLogin": "Letzter Login",
+        "created": "Erstellt",
+        "actions": "Aktionen",
+        "active": "Aktiv"
+      },
+      "actions": {
+        "create": "Neuer Benutzer",
+        "edit": "Bearbeiten",
+        "delete": "Löschen",
+        "resetPassword": "Passwort zurücksetzen",
+        "activate": "Aktivieren",
+        "deactivate": "Deaktivieren"
+      },
+      "dialog": {
+        "editTitle": "Benutzer bearbeiten",
+        "createTitle": "Neuer Benutzer",
+        "resetPasswordTitle": "Passwort zurücksetzen",
+        "deleteTitle": "Benutzer löschen?",
+        "deleteConfirm": "Möchten Sie diesen Benutzer wirklich löschen?"
+      },
+      "messages": {
+        "created": "Benutzer erfolgreich erstellt",
+        "updated": "Benutzer erfolgreich aktualisiert",
+        "deleted": "Benutzer erfolgreich gelöscht",
+        "passwordReset": "Passwort wurde zurückgesetzt",
+        "activated": "Benutzer wurde aktiviert",
+        "deactivated": "Benutzer wurde deaktiviert"
+      },
+      "never": "Nie",
+      "activeLabel": "Aktiv",
+      "inactiveLabel": "Inaktiv",
+      "passwordNotValid": "Passwort erfüllt nicht alle Anforderungen",
+      "resetPasswordFor": "Neues Passwort für",
+      "newPassword": "Neues Passwort",
+      "resetButton": "Zurücksetzen",
+      "deleteConfirm": "Sind Sie sicher, dass Sie den Benutzer {email} löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "saveError": "Fehler beim Speichern",
+      "resetError": "Fehler beim Zurücksetzen",
+      "deleteError": "Fehler beim Löschen"
+    },
+    "auditLog": {
+      "title": "Audit-Log",
+      "subtitle": "Alle Benutzeraktionen und Systemänderungen",
+      "filters": {
+        "user": "Benutzer",
+        "action": "Aktion",
+        "resource": "Ressource",
+        "dateFrom": "Von",
+        "dateTo": "Bis",
+        "entityType": "Entity-Typ",
+        "entityTypePlaceholder": "z.B. Category, User"
+      },
+      "columns": {
+        "timestamp": "Zeitpunkt",
+        "user": "Benutzer",
+        "action": "Aktion",
+        "resource": "Ressource",
+        "details": "Details",
+        "ip": "IP-Adresse",
+        "entity": "Entity",
+        "changes": "Änderungen"
+      },
+      "actions": {
+        "CREATE": "Erstellt",
+        "UPDATE": "Aktualisiert",
+        "DELETE": "Gelöscht",
+        "LOGIN": "Anmeldung",
+        "LOGOUT": "Abmeldung",
+        "PASSWORD_CHANGE": "Passwortänderung"
+      },
+      "stats": {
+        "total": "Gesamt",
+        "today": "Heute",
+        "thisWeek": "Diese Woche",
+        "activeUsers": "Aktive Benutzer"
+      },
+      "system": "System",
+      "changesTitle": "Änderungen",
+      "field": "Feld",
+      "before": "Vorher",
+      "after": "Nachher",
+      "actionTypes": {
+        "CREATE": "Erstellen",
+        "UPDATE": "Aktualisieren",
+        "DELETE": "Löschen",
+        "LOGIN": "Anmeldung",
+        "LOGOUT": "Abmeldung",
+        "EXPORT": "Export",
+        "VIEW": "Ansicht"
+      }
+    },
+    "entityTypes": {
+      "title": "Entity-Typen",
+      "subtitle": "Kategorien für Entitäten verwalten (z.B. Gemeinden, Personen, Organisationen)",
+      "form": {
+        "name": "Name",
+        "nameRequired": "Name ist erforderlich",
+        "namePlaceholder": "z.B. Windpark",
+        "namePlural": "Plural",
+        "namePluralPlaceholder": "z.B. Windparks",
+        "description": "Beschreibung",
+        "descriptionPlaceholder": "Kurze Beschreibung des Entity-Typs",
+        "icon": "Icon",
+        "iconPlaceholder": "mdi-wind-turbine",
+        "iconHint": "Material Design Icon Name (mdi-*)",
+        "color": "Farbe",
+        "colorPlaceholder": "#4CAF50",
+        "isPrimary": "Primärer Typ",
+        "isPrimaryHint": "Wird in der Hauptnavigation angezeigt",
+        "supportsHierarchy": "Hierarchisch",
+        "supportsHierarchyHint": "Unterstützt Parent-Child Beziehungen",
+        "displayOrder": "Anzeigereihenfolge"
+      },
+      "columns": {
+        "name": "Name",
+        "slug": "Slug",
+        "color": "Farbe",
+        "entities": "Entities",
+        "system": "System",
+        "active": "Aktiv"
+      },
+      "actions": {
+        "create": "Neuer Entity-Typ",
+        "edit": "Bearbeiten",
+        "delete": "Löschen"
+      },
+      "dialog": {
+        "createTitle": "Neuer Entity-Typ",
+        "editTitle": "Entity-Typ bearbeiten",
+        "deleteTitle": "Entity-Typ löschen?",
+        "deleteConfirm": "Möchtest du {name} wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
+      },
+      "messages": {
+        "created": "Entity-Typ erstellt",
+        "updated": "Entity-Typ aktualisiert",
+        "deleted": "\"{name}\" gelöscht",
+        "loadError": "Fehler beim Laden der Entity-Typen",
+        "saveError": "Fehler beim Speichern",
+        "deleteError": "Fehler beim Löschen"
+      },
+      "systemType": "System-Typ",
+      "cannotDeleteSystem": "System-Typ kann nicht gelöscht werden",
+      "hasEntities": "Hat noch Entities"
+    }
+  }
+}

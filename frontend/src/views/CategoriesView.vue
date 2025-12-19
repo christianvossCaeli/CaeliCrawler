@@ -1,10 +1,9 @@
 <template>
   <div>
     <div class="d-flex justify-space-between align-center mb-6">
-      <h1 class="text-h4">Kategorien ({{ filteredCategories.length }})</h1>
+      <h1 class="text-h4">{{ $t('categories.title') }} ({{ filteredCategories.length }})</h1>
       <v-btn color="primary" @click="openCreateDialog">
-        <v-icon left>mdi-plus</v-icon>
-        Neue Kategorie
+        <v-icon left>mdi-plus</v-icon>{{ $t('categories.actions.create') }}
       </v-btn>
     </div>
 
@@ -15,7 +14,7 @@
           <v-col cols="12" md="4">
             <v-text-field
               v-model="categoryFilters.search"
-              label="Suche (Name/Zweck)"
+              :label="$t('categories.filters.search')"
               prepend-inner-icon="mdi-magnify"
               clearable
               hide-details
@@ -27,7 +26,7 @@
               :items="statusFilterOptions"
               item-title="label"
               item-value="value"
-              label="Status"
+              :label="$t('categories.filters.status')"
               clearable
               hide-details
             ></v-select>
@@ -38,7 +37,7 @@
               :items="documentFilterOptions"
               item-title="label"
               item-value="value"
-              label="Dokumente"
+              :label="$t('categories.filters.documents')"
               clearable
               hide-details
             ></v-select>
@@ -49,7 +48,7 @@
               :items="languageFilterOptions"
               item-title="name"
               item-value="code"
-              label="Sprache"
+              :label="$t('categories.filters.language')"
               clearable
               hide-details
             >
@@ -82,7 +81,7 @@
 
         <template v-slot:item.is_active="{ item }">
           <v-chip :color="item.is_active ? 'success' : 'grey'" size="small">
-            {{ item.is_active ? 'Aktiv' : 'Inaktiv' }}
+            {{ item.is_active ? $t('categories.statusOptions.active') : $t('categories.statusOptions.inactive') }}
           </v-chip>
         </template>
 
@@ -96,11 +95,11 @@
 
         <template v-slot:item.actions="{ item }">
           <div class="table-actions">
-            <v-btn icon="mdi-database-outline" size="small" variant="text" color="primary" @click="showSourcesForCategory(item)" title="Datenquellen anzeigen"></v-btn>
-            <v-btn icon="mdi-pencil" size="small" variant="text" @click="openEditDialog(item)" title="Bearbeiten"></v-btn>
-            <v-btn icon="mdi-play" size="small" variant="text" color="success" @click="openCrawlerDialog(item)" title="Crawlen starten"></v-btn>
-            <v-btn icon="mdi-refresh" size="small" variant="text" color="warning" @click="confirmReanalyze(item)" title="Dokumente neu analysieren"></v-btn>
-            <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="confirmDelete(item)" title="Löschen"></v-btn>
+            <v-btn icon="mdi-database-outline" size="small" variant="text" color="primary" @click="showSourcesForCategory(item)" :title="$t('categories.actions.viewSources')"></v-btn>
+            <v-btn icon="mdi-pencil" size="small" variant="text" @click="openEditDialog(item)" :title="$t('categories.actions.edit')"></v-btn>
+            <v-btn icon="mdi-play" size="small" variant="text" color="success" @click="openCrawlerDialog(item)" :title="$t('categories.actions.startCrawl')"></v-btn>
+            <v-btn icon="mdi-refresh" size="small" variant="text" color="warning" @click="confirmReanalyze(item)" :title="$t('categories.actions.reanalyze')"></v-btn>
+            <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="confirmDelete(item)" :title="$t('categories.actions.delete')"></v-btn>
           </div>
         </template>
       </v-data-table>
@@ -109,61 +108,61 @@
     <!-- Create/Edit Dialog -->
     <v-dialog v-model="dialog" max-width="800">
       <v-card>
-        <v-card-title>{{ editMode ? 'Kategorie bearbeiten' : 'Neue Kategorie' }}</v-card-title>
+        <v-card-title>{{ editMode ? $t('categories.dialog.edit') : $t('categories.dialog.create') }}</v-card-title>
         <v-card-text>
           <v-form ref="form">
             <v-text-field
               v-model="formData.name"
-              label="Name"
+              :label="$t('categories.form.name')"
               required
-              :rules="[v => !!v || 'Name ist erforderlich']"
+              :rules="[v => !!v || t('categories.form.nameRequired')]"
             ></v-text-field>
 
             <v-textarea
               v-model="formData.description"
-              label="Beschreibung"
+              :label="$t('categories.form.description')"
               rows="2"
             ></v-textarea>
 
             <v-textarea
               v-model="formData.purpose"
-              label="Zweck (z.B. 'Windkraft-Restriktionen analysieren')"
+              :label="$t('categories.form.purpose')"
               required
               rows="2"
-              :rules="[v => !!v || 'Zweck ist erforderlich']"
+              :rules="[v => !!v || t('categories.form.purposeRequired')]"
             ></v-textarea>
 
             <v-combobox
               v-model="formData.search_terms"
-              label="Suchbegriffe"
+              :label="$t('categories.form.searchTerms')"
               chips
               multiple
-              hint="Drücken Sie Enter um einen Begriff hinzuzufügen"
+              :hint="$t('categories.form.searchTermsHint')"
             ></v-combobox>
 
             <v-combobox
               v-model="formData.document_types"
-              label="Dokumenttypen"
+              :label="$t('categories.form.documentTypes')"
               chips
               multiple
-              hint="z.B. Beschluss, Protokoll, Satzung"
+              :hint="$t('categories.form.documentTypesHint')"
             ></v-combobox>
 
             <v-divider class="my-4"></v-divider>
-            <h4 class="mb-2">Sprachen</h4>
+            <h4 class="mb-2">{{ $t('categories.form.languages') }}</h4>
             <p class="text-caption text-grey mb-2">
-              Welche Sprachen werden in dieser Kategorie verwendet? Die KI passt ihre Analyse entsprechend an.
+              {{ $t('categories.form.languagesDescription') }}
             </p>
             <v-select
               v-model="formData.languages"
               :items="availableLanguages"
               item-title="name"
               item-value="code"
-              label="Sprachen"
+              :label="$t('categories.form.languages')"
               chips
               multiple
               closable-chips
-              hint="Wählen Sie die Sprachen für diese Kategorie"
+              :hint="$t('categories.form.languagesHint')"
             >
               <template v-slot:chip="{ item, props }">
                 <v-chip v-bind="props" color="primary" variant="outlined">
@@ -181,19 +180,18 @@
             </v-select>
 
             <v-divider class="my-4"></v-divider>
-            <h4 class="mb-2">URL-Filter (Regex)</h4>
+            <h4 class="mb-2">{{ $t('categories.form.urlFiltersTitle') }}</h4>
             <p class="text-caption text-grey mb-2">
-              Diese Filter gelten für alle Datenquellen in dieser Kategorie, sofern die Quelle keine eigenen Filter definiert hat.
-              Ohne Filter wird die komplette Sitemap durchsucht.
+              {{ $t('categories.form.urlFiltersDescription') }}
             </p>
 
             <v-combobox
               v-model="formData.url_include_patterns"
-              label="Include-Patterns (Whitelist)"
+              :label="$t('categories.form.includePatterns')"
               chips
               multiple
               closable-chips
-              hint="URLs müssen mindestens ein Pattern matchen. z.B. /dokumente/, /beschluesse/, /ratsinformation/"
+              :hint="$t('categories.form.includeHint')"
               persistent-hint
             >
               <template v-slot:chip="{ item, props }">
@@ -206,11 +204,11 @@
 
             <v-combobox
               v-model="formData.url_exclude_patterns"
-              label="Exclude-Patterns (Blacklist)"
+              :label="$t('categories.form.excludePatterns')"
               chips
               multiple
               closable-chips
-              hint="URLs die ein Pattern matchen werden übersprungen. z.B. /archiv/, /login/, /suche/, /\?page="
+              :hint="$t('categories.form.excludeHint')"
               persistent-hint
             >
               <template v-slot:chip="{ item, props }">
@@ -223,44 +221,42 @@
 
             <v-alert v-if="!formData.url_include_patterns?.length && !formData.url_exclude_patterns?.length" type="warning" variant="tonal" density="compact" class="mt-2">
               <v-icon start>mdi-alert</v-icon>
-              Ohne URL-Filter wird die komplette Sitemap durchsucht - dies kann sehr lange dauern!
+              {{ $t('categories.form.noFiltersWarning') }}
             </v-alert>
 
             <v-divider class="my-4"></v-divider>
 
             <v-text-field
               v-model="formData.schedule_cron"
-              label="Zeitplan (Cron)"
-              hint="z.B. '0 2 * * *' für täglich um 2 Uhr"
+              :label="$t('categories.form.scheduleCron')"
+              :hint="$t('categories.form.scheduleCronHint')"
             ></v-text-field>
 
             <v-divider class="my-4"></v-divider>
-            <h4 class="mb-2">KI-Extraktions-Prompt</h4>
+            <h4 class="mb-2">{{ $t('categories.form.aiPromptTitle') }}</h4>
             <p class="text-caption text-grey mb-2">
-              Definiert, welche Informationen die KI aus Dokumenten extrahiert.
-              Hier können Sie festlegen, auf welche Themen (z.B. Windenergie) sich
-              Pain Points und Positive Signals beziehen sollen.
+              {{ $t('categories.form.aiPromptDescription') }}
             </p>
             <v-textarea
               v-model="formData.ai_extraction_prompt"
-              label="KI-Extraktions-Prompt"
+              :label="$t('categories.form.aiPrompt')"
               rows="12"
               auto-grow
               variant="outlined"
-              hint="Definieren Sie das JSON-Format und die Extraktionsregeln"
+              :hint="$t('categories.form.aiPromptHint')"
             ></v-textarea>
 
             <v-switch
               v-model="formData.is_active"
-              label="Aktiv"
+              :label="$t('categories.form.enabled')"
               color="success"
             ></v-switch>
           </v-form>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="dialog = false">Abbrechen</v-btn>
-          <v-btn color="primary" @click="saveCategory">Speichern</v-btn>
+          <v-btn @click="dialog = false">{{ $t('common.cancel') }}</v-btn>
+          <v-btn color="primary" @click="saveCategory">{{ $t('common.save') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -268,15 +264,14 @@
     <!-- Delete Confirmation -->
     <v-dialog v-model="deleteDialog" max-width="400">
       <v-card>
-        <v-card-title>Kategorie löschen?</v-card-title>
+        <v-card-title>{{ $t('categories.dialog.delete') }}</v-card-title>
         <v-card-text>
-          Möchten Sie die Kategorie "{{ selectedCategory?.name }}" wirklich löschen?
-          Alle zugehörigen Datenquellen und Dokumente werden ebenfalls gelöscht.
+          {{ $t('categories.dialog.deleteConfirm', { name: selectedCategory?.name }) }}
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="deleteDialog = false">Abbrechen</v-btn>
-          <v-btn color="error" @click="deleteCategory">Löschen</v-btn>
+          <v-btn @click="deleteDialog = false">{{ $t('common.cancel') }}</v-btn>
+          <v-btn color="error" @click="deleteCategory">{{ $t('common.delete') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -284,25 +279,24 @@
     <!-- Reanalyze Confirmation -->
     <v-dialog v-model="reanalyzeDialog" max-width="500">
       <v-card>
-        <v-card-title>Dokumente neu analysieren?</v-card-title>
+        <v-card-title>{{ $t('categories.dialog.reanalyze') }}</v-card-title>
         <v-card-text>
           <p class="mb-4">
-            Alle Dokumente der Kategorie "{{ selectedCategory?.name }}" werden mit dem
-            aktuellen KI-Prompt neu analysiert.
+            {{ $t('categories.dialog.reanalyzeConfirm', { name: selectedCategory?.name }) }}
           </p>
           <v-switch
             v-model="reanalyzeAll"
-            label="Alle Dokumente neu analysieren (nicht nur niedrige Konfidenz)"
+            :label="$t('categories.dialog.reanalyzeAll')"
             color="warning"
           ></v-switch>
           <v-alert type="info" variant="tonal" class="mt-2">
-            {{ reanalyzeAll ? 'Alle Dokumente' : 'Nur Dokumente mit Konfidenz < 70%' }} werden neu analysiert.
+            {{ reanalyzeAll ? $t('categories.dialog.reanalyzeAllDocs') : $t('categories.dialog.reanalyzeOnlyLow') }} {{ $t('categories.dialog.reanalyzeInfo') }}
           </v-alert>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="reanalyzeDialog = false">Abbrechen</v-btn>
-          <v-btn color="warning" @click="reanalyzeDocuments">Neu analysieren</v-btn>
+          <v-btn @click="reanalyzeDialog = false">{{ $t('common.cancel') }}</v-btn>
+          <v-btn color="warning" @click="reanalyzeDocuments">{{ $t('categories.actions.reanalyze') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -312,9 +306,9 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon class="mr-2">mdi-database-outline</v-icon>
-          Datenquellen: {{ selectedCategoryForSources?.name }}
+          {{ $t('categories.dialog.sourcesFor') }} {{ selectedCategoryForSources?.name }}
           <v-chip color="primary" size="small" class="ml-2">
-            {{ categorySources.length }} Quellen
+            {{ categorySources.length }} {{ $t('categories.crawler.sourcesCount') }}
           </v-chip>
         </v-card-title>
         <v-card-text>
@@ -326,7 +320,7 @@
           <!-- Search -->
           <v-text-field
             v-model="categorySourcesSearch"
-            label="Suchen..."
+            :label="$t('categories.dialog.searchSources')"
             prepend-inner-icon="mdi-magnify"
             variant="outlined"
             density="compact"
@@ -353,7 +347,7 @@
                     {{ source.status }}
                   </v-chip>
                   <v-chip size="x-small" color="info" variant="outlined" class="mr-2">
-                    {{ source.document_count || 0 }} Docs
+                    {{ source.document_count || 0 }} {{ $t('categories.dialog.docs') }}
                   </v-chip>
                   <v-btn
                     icon="mdi-open-in-new"
@@ -361,7 +355,7 @@
                     variant="text"
                     :href="source.base_url"
                     target="_blank"
-                    title="URL öffnen"
+                    :title="$t('categories.dialog.openUrl')"
                   ></v-btn>
                 </div>
               </template>
@@ -369,8 +363,8 @@
           </v-list>
 
           <v-alert v-else type="warning" variant="tonal">
-            <span v-if="categorySourcesSearch">Keine Datenquellen gefunden für "{{ categorySourcesSearch }}"</span>
-            <span v-else>Keine Datenquellen in dieser Kategorie</span>
+            <span v-if="categorySourcesSearch">{{ $t('categories.dialog.noSourcesSearch') }} "{{ categorySourcesSearch }}"</span>
+            <span v-else>{{ $t('categories.dialog.noSources') }}</span>
           </v-alert>
 
           <!-- Statistics -->
@@ -379,25 +373,25 @@
             <v-col cols="3">
               <div class="text-center">
                 <div class="text-h5 text-primary">{{ categorySourcesStats.total }}</div>
-                <div class="text-caption">Gesamt</div>
+                <div class="text-caption">{{ $t('categories.stats.total') }}</div>
               </div>
             </v-col>
             <v-col cols="3">
               <div class="text-center">
                 <div class="text-h5 text-success">{{ categorySourcesStats.active }}</div>
-                <div class="text-caption">Aktiv</div>
+                <div class="text-caption">{{ $t('categories.stats.active') }}</div>
               </div>
             </v-col>
             <v-col cols="3">
               <div class="text-center">
                 <div class="text-h5 text-warning">{{ categorySourcesStats.pending }}</div>
-                <div class="text-caption">Ausstehend</div>
+                <div class="text-caption">{{ $t('categories.stats.pending') }}</div>
               </div>
             </v-col>
             <v-col cols="3">
               <div class="text-center">
                 <div class="text-h5 text-error">{{ categorySourcesStats.error }}</div>
-                <div class="text-caption">Fehler</div>
+                <div class="text-caption">{{ $t('categories.stats.error') }}</div>
               </div>
             </v-col>
           </v-row>
@@ -408,11 +402,10 @@
             variant="text"
             @click="navigateToSourcesFiltered"
           >
-            <v-icon left>mdi-filter</v-icon>
-            Alle in Datenquellen-Ansicht anzeigen
+            <v-icon left>mdi-filter</v-icon>{{ $t('categories.dialog.showAllInSourcesView') }}
           </v-btn>
           <v-spacer></v-spacer>
-          <v-btn @click="sourcesDialog = false">Schließen</v-btn>
+          <v-btn @click="sourcesDialog = false">{{ $t('common.close') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -422,14 +415,14 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon class="mr-2">mdi-spider-web</v-icon>
-          Crawler starten: {{ selectedCategoryForCrawler?.name }}
+          {{ $t('categories.crawler.title') }} {{ selectedCategoryForCrawler?.name }}
         </v-card-title>
         <v-card-text>
           <!-- Estimated count -->
           <v-alert :type="crawlerFilteredCount > 100 ? 'warning' : 'info'" class="mb-4">
             <div class="d-flex align-center justify-space-between">
               <span>
-                <strong>{{ crawlerFilteredCount.toLocaleString() }}</strong> Datenquellen werden gecrawlt
+                <strong>{{ crawlerFilteredCount.toLocaleString() }}</strong> {{ $t('categories.crawler.estimatedCount') }}
               </span>
               <v-btn
                 v-if="hasCrawlerFilter"
@@ -437,7 +430,7 @@
                 variant="text"
                 @click="resetCrawlerFilters"
               >
-                Filter zurücksetzen
+                {{ $t('categories.crawler.resetFilters') }}
               </v-btn>
             </div>
           </v-alert>
@@ -446,26 +439,27 @@
             <v-col cols="12" md="6">
               <v-text-field
                 v-model="crawlerFilter.search"
-                label="Suche (Name/URL)"
+                :label="$t('categories.crawler.search')"
                 prepend-inner-icon="mdi-magnify"
                 clearable
                 density="comfortable"
-                hint="Filtert nach Name oder URL"
+                :hint="$t('categories.crawler.searchHint')"
                 @update:model-value="debouncedUpdateCrawlerCount"
               ></v-text-field>
             </v-col>
             <v-col cols="12" md="6">
               <v-text-field
                 v-model.number="crawlerFilter.limit"
-                label="Maximale Anzahl"
+                :label="$t('categories.crawler.maxLimit')"
                 type="number"
                 :min="1"
                 :max="10000"
                 prepend-inner-icon="mdi-numeric"
                 clearable
                 density="comfortable"
-                hint="Leer = alle"
+                :hint="$t('categories.crawler.limitHint')"
                 persistent-hint
+                @update:model-value="updateCrawlerFilteredCount"
               ></v-text-field>
             </v-col>
           </v-row>
@@ -475,13 +469,13 @@
               <v-select
                 v-model="crawlerFilter.status"
                 :items="[
-                  { value: 'ACTIVE', label: 'Aktiv' },
-                  { value: 'PENDING', label: 'Ausstehend' },
-                  { value: 'ERROR', label: 'Fehler' },
+                  { value: 'ACTIVE', label: t('categories.sourceTypes.ACTIVE') },
+                  { value: 'PENDING', label: t('categories.sourceTypes.PENDING') },
+                  { value: 'ERROR', label: t('categories.sourceTypes.ERROR') },
                 ]"
                 item-title="label"
                 item-value="value"
-                label="Status"
+                :label="$t('categories.filters.status')"
                 clearable
                 density="comfortable"
                 @update:model-value="updateCrawlerFilteredCount"
@@ -491,13 +485,13 @@
               <v-select
                 v-model="crawlerFilter.source_type"
                 :items="[
-                  { value: 'WEBSITE', label: 'Website' },
-                  { value: 'OPARL_API', label: 'OParl API' },
-                  { value: 'RSS', label: 'RSS Feed' },
+                  { value: 'WEBSITE', label: t('categories.sourceTypes.WEBSITE') },
+                  { value: 'OPARL_API', label: t('categories.sourceTypes.OPARL_API') },
+                  { value: 'RSS', label: t('categories.sourceTypes.RSS') },
                 ]"
                 item-title="label"
                 item-value="value"
-                label="Quellentyp"
+                :label="$t('categories.crawler.typeFilter')"
                 clearable
                 density="comfortable"
                 @update:model-value="updateCrawlerFilteredCount"
@@ -516,7 +510,7 @@
             class="mb-2"
           >
             <v-icon start>mdi-filter-check</v-icon>
-            URL-Filter aktiv: {{ selectedCategoryForCrawler?.url_include_patterns?.length || 0 }} Include, {{ selectedCategoryForCrawler?.url_exclude_patterns?.length || 0 }} Exclude Patterns
+            {{ $t('categories.crawler.filterActive') }} {{ selectedCategoryForCrawler?.url_include_patterns?.length || 0 }} {{ $t('categories.crawler.includeCount') }}, {{ selectedCategoryForCrawler?.url_exclude_patterns?.length || 0 }} {{ $t('categories.crawler.excludeCount') }}
           </v-alert>
           <v-alert
             v-else
@@ -526,28 +520,27 @@
             class="mb-2"
           >
             <v-icon start>mdi-alert</v-icon>
-            Keine URL-Filter gesetzt - alle URLs werden gecrawlt!
+            {{ $t('categories.crawler.noFiltersWarning') }}
           </v-alert>
 
           <v-alert v-if="crawlerFilteredCount > 500" type="error" variant="tonal" density="compact">
             <v-icon>mdi-alert</v-icon>
-            Mehr als 500 Quellen - bitte Filter oder Limit setzen!
+            {{ $t('categories.crawler.tooManySources') }}
           </v-alert>
         </v-card-text>
         <v-card-actions>
           <v-chip size="small" variant="tonal">
-            {{ crawlerFilteredCount.toLocaleString() }} Quellen
+            {{ crawlerFilteredCount.toLocaleString() }} {{ $t('categories.crawler.sourcesCount') }}
           </v-chip>
           <v-spacer></v-spacer>
-          <v-btn @click="crawlerDialog = false">Abbrechen</v-btn>
+          <v-btn @click="crawlerDialog = false">{{ $t('common.cancel') }}</v-btn>
           <v-btn
             color="warning"
             :loading="startingCrawler"
             :disabled="crawlerFilteredCount === 0"
             @click="startFilteredCrawl"
           >
-            <v-icon left>mdi-play</v-icon>
-            Crawler starten
+            <v-icon left>mdi-play</v-icon>{{ $t('categories.crawler.start') }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -563,8 +556,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
 
+const { t } = useI18n()
 const router = useRouter()
 
 const loading = ref(false)
@@ -590,13 +585,13 @@ const categoryFilters = ref({
 })
 
 const statusFilterOptions = [
-  { value: 'active', label: 'Aktiv' },
-  { value: 'inactive', label: 'Inaktiv' },
+  { value: 'active', label: t('categories.statusOptions.active') },
+  { value: 'inactive', label: t('categories.statusOptions.inactive') },
 ]
 
 const documentFilterOptions = [
-  { value: 'with', label: 'Mit Dokumenten' },
-  { value: 'without', label: 'Ohne Dokumente' },
+  { value: 'with', label: t('categories.filters.withDocuments') },
+  { value: 'without', label: t('categories.filters.withoutDocuments') },
 ]
 
 const languageFilterOptions = [
@@ -681,13 +676,13 @@ const formData = ref({
 })
 
 const headers = [
-  { title: 'Name', key: 'name' },
-  { title: 'Zweck', key: 'purpose', maxWidth: '300px' },
-  { title: 'Sprachen', key: 'languages' },
-  { title: 'Status', key: 'is_active' },
-  { title: 'Quellen', key: 'source_count' },
-  { title: 'Dokumente', key: 'document_count' },
-  { title: 'Aktionen', key: 'actions', sortable: false },
+  { title: t('categories.columns.name'), key: 'name' },
+  { title: t('categories.columns.purpose'), key: 'purpose', maxWidth: '300px' },
+  { title: t('categories.columns.languages') },
+  { title: t('categories.columns.status'), key: 'is_active' },
+  { title: t('categories.columns.sources'), key: 'source_count' },
+  { title: t('categories.columns.documents'), key: 'document_count' },
+  { title: t('categories.columns.actions'), key: 'actions', sortable: false },
 ]
 
 // Helper to get language flag
@@ -860,12 +855,12 @@ const startFilteredCrawl = async () => {
     await adminApi.startCrawl(params)
     crawlerDialog.value = false
 
-    snackbarText.value = `Crawl für ${crawlerFilteredCount.value} Quellen gestartet`
+    snackbarText.value = t('categories.crawler.started', { count: crawlerFilteredCount.value })
     snackbarColor.value = 'success'
     snackbar.value = true
   } catch (error) {
     console.error('Failed to start crawl:', error)
-    snackbarText.value = 'Fehler beim Starten des Crawls'
+    snackbarText.value = t('categories.crawler.errorStarting')
     snackbarColor.value = 'error'
     snackbar.value = true
   } finally {
@@ -891,12 +886,12 @@ const reanalyzeDocuments = async () => {
       reanalyze_all: reanalyzeAll.value,
     })
     reanalyzeDialog.value = false
-    snackbarText.value = response.data.message || 'Neu-Analyse gestartet'
+    snackbarText.value = response.data.message || t('categories.messages.reanalyzeStarted')
     snackbarColor.value = 'success'
     snackbar.value = true
   } catch (error) {
     console.error('Failed to start reanalysis:', error)
-    snackbarText.value = 'Fehler beim Starten der Neu-Analyse'
+    snackbarText.value = t('categories.messages.reanalyzeError')
     snackbarColor.value = 'error'
     snackbar.value = true
   }
@@ -961,7 +956,7 @@ const showSourcesForCategory = async (category: any) => {
     categorySources.value = response.data.items
   } catch (error) {
     console.error('Failed to load sources for category:', error)
-    snackbarText.value = 'Fehler beim Laden der Datenquellen'
+    snackbarText.value = t('categories.messages.sourcesLoadError')
     snackbarColor.value = 'error'
     snackbar.value = true
   } finally {

@@ -1,0 +1,83 @@
+{
+  "results": {
+    "title": "Ergebnisse",
+    "aiExtractedData": "KI-extrahierte Daten",
+    "loading": {
+      "title": "Daten werden geladen",
+      "subtitle": "Extrahierte Ergebnisse werden abgerufen..."
+    },
+    "filters": {
+      "fulltext": "Volltext-Suche",
+      "fulltextPlaceholder": "Summary, Pain Points, etc.",
+      "location": "Standort",
+      "analysisType": "Analyse-Typ",
+      "category": "Kategorie",
+      "minConfidence": "Min. Confidence",
+      "dateFrom": "Von",
+      "dateTo": "Bis",
+      "resetFilters": "Filter zurücksetzen"
+    },
+    "stats": {
+      "total": "Gesamt",
+      "verified": "Verifiziert",
+      "highConfidence": "High Confidence",
+      "avgConfidence": "Durchschn. Confidence"
+    },
+    "columns": {
+      "document": "Dokument",
+      "type": "Typ",
+      "municipality": "Gemeinde",
+      "confidence": "Confidence",
+      "verified": "Verifiziert",
+      "created": "Erstellt",
+      "actions": "Aktionen"
+    },
+    "actions": {
+      "bulkVerify": "verifizieren",
+      "csvExport": "CSV Export",
+      "refresh": "Aktualisieren",
+      "viewDetails": "Details anzeigen",
+      "verify": "Verifizieren",
+      "verified": "Verifiziert",
+      "goToDocument": "Zum Dokument",
+      "exportJson": "JSON exportieren"
+    },
+    "detail": {
+      "title": "Extrahierte Daten",
+      "sourceDocument": "Quelldokument",
+      "goToDocument": "Zum Dokument",
+      "municipality": "Gemeinde",
+      "notRecognized": "Nicht erkannt",
+      "relevance": "Relevanz",
+      "relevant": "Relevant",
+      "notRelevant": "Nicht relevant",
+      "level": "Stufe",
+      "summary": "Zusammenfassung",
+      "painPoints": "Pain Points",
+      "positiveSignals": "Positive Signale",
+      "decisionMakers": "Entscheidungsträger",
+      "outreachRecommendation": "Outreach Empfehlung",
+      "priority": "Priorität",
+      "reason": "Begründung",
+      "rawData": "Rohdaten (JSON)",
+      "aiMetadata": "KI-Metadaten",
+      "model": "Modell",
+      "tokens": "Tokens",
+      "source": "Quelle",
+      "noTitle": "(Kein Titel)",
+      "url": "URL"
+    },
+    "messages": {
+      "verified": "Ergebnis verifiziert",
+      "bulkVerified": "Ergebnisse verifiziert",
+      "jsonExported": "JSON exportiert",
+      "csvExported": "CSV exportiert",
+      "copiedToClipboard": "In Zwischenablage kopiert",
+      "errorVerifying": "Fehler beim Verifizieren",
+      "errorBulkVerifying": "Fehler bei Bulk-Verifizierung",
+      "errorLoading": "Fehler beim Laden der Daten"
+    },
+    "never": "Nie",
+    "noResults": "Keine Ergebnisse gefunden"
+  }
+}

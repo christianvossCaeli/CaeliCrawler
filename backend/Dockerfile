@@ -1,38 +1,109 @@
-# Backend Dockerfile
-FROM python:3.12-slim
+# =============================================================================
+# Backend Dockerfile - Multi-Stage Build for Performance
+# =============================================================================
+# This Dockerfile uses multi-stage builds to:
+# - Reduce final image size by excluding build dependencies
+# - Improve security by minimizing attack surface
+# - Speed up deployments with smaller images
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Stage 1: Builder - Install dependencies and build wheels
+# -----------------------------------------------------------------------------
+FROM python:3.12-slim AS builder
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Install Python dependencies and create wheels
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
+
+# -----------------------------------------------------------------------------
+# Stage 2: Runtime - Minimal production image
+# -----------------------------------------------------------------------------
+FROM python:3.12-slim AS runtime
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
-# Install system dependencies
+# Install only runtime dependencies (no build tools)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
+    libpq5 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app directory
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash appuser
+
 WORKDIR /app
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
-
-# Install Playwright browsers
-RUN playwright install chromium && \
-    playwright install-deps chromium
+# Install Python packages from pre-built wheels
+COPY --from=builder /wheels /wheels
+RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
 
 # Copy application code
-COPY . .
+COPY --chown=appuser:appuser . .
 
 # Create storage directory
-RUN mkdir -p /app/storage/documents
+RUN mkdir -p /app/storage/documents && \
+    chown -R appuser:appuser /app/storage
 
 # Expose port
 EXPOSE 8000
 
+# Switch to non-root user
+USER appuser
+
 # Default command (can be overridden in docker-compose)
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# -----------------------------------------------------------------------------
+# Stage 3: Crawler - Runtime image with Playwright for crawling
+# -----------------------------------------------------------------------------
+FROM runtime AS crawler
+
+# Switch back to root for installing Playwright
+USER root
+
+# Install Playwright dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libdbus-1-3 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpango-1.0-0 \
+    libcairo2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Playwright and browsers
+RUN pip install --no-cache-dir playwright && \
+    playwright install chromium
+
+# Switch back to non-root user
+USER appuser
+
+# Default command for crawler worker
+CMD ["celery", "-A", "workers.celery_app", "worker", "--loglevel=info", "-Q", "crawl"]

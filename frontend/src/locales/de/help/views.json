@@ -1,0 +1,580 @@
+{
+  "help": {
+    "dashboard": {
+      "title": "Dashboard",
+      "description": "Das Dashboard ist die zentrale Übersichtsseite und zeigt den aktuellen Systemstatus.",
+      "statisticsCards": "Statistik-Karten",
+      "stats_cards_title": "Statistik-Karten",
+      "cards": {
+        "categories": {
+          "title": "Kategorien",
+          "description": "Anzahl konfigurierter Kategorien"
+        },
+        "sources": {
+          "title": "Datenquellen",
+          "description": "Registrierte Websites/APIs"
+        },
+        "documents": {
+          "title": "Dokumente",
+          "description": "Gefundene Dateien"
+        },
+        "active_crawlers": {
+          "title": "Aktive Crawler",
+          "description": "Laufende Jobs"
+        },
+        "categoriesOld": "Kategorien",
+        "categoriesDesc": "Anzahl konfigurierter Kategorien",
+        "dataSources": "Datenquellen",
+        "dataSourcesDesc": "Registrierte Websites/APIs",
+        "documentsOld": "Dokumente",
+        "documentsDesc": "Gefundene Dateien",
+        "activeCrawlers": "Aktive Crawler",
+        "activeCrawlersDesc": "Laufende Jobs"
+      },
+      "liveUpdates": "Live-Updates für aktive Crawler",
+      "liveUpdatesInfo": "Wenn Crawler laufen, erscheint eine Live-Ansicht mit:",
+      "liveUpdatesItems": [
+        "Gefundene Dokumente (mit Anzahl neuer)",
+        "Laufzeit seit Start",
+        "Fehleranzahl (falls vorhanden)"
+      ],
+      "live_updates_title": "Live-Updates",
+      "live_updates_description": "Wenn Crawler laufen, erscheint eine Live-Ansicht mit:",
+      "live_updates": {
+        "documents": "Gefundene Dokumente (mit Anzahl neuer)",
+        "runtime": "Laufzeit seit Start",
+        "errors": "Fehleranzahl (falls vorhanden)"
+      },
+      "crawlerStatusAndJobs": "Crawler Status & Letzte Jobs",
+      "status_jobs_title": "Crawler Status & Letzte Jobs",
+      "statusItems": {
+        "activeWorkers": "Aktive Workers",
+        "runningJobs": "Laufende Jobs",
+        "pendingJobs": "Wartende Jobs"
+      },
+      "status_section": {
+        "title": "Crawler Status",
+        "active_workers": "Aktive Workers",
+        "running_jobs": "Laufende Jobs",
+        "waiting_jobs": "Wartende Jobs"
+      },
+      "recentCrawlJobs": "Letzte Crawl-Jobs",
+      "recentCrawlJobsDesc": "Zeigt die letzten 5 abgeschlossenen Jobs mit Status und Dokumentenanzahl",
+      "recent_jobs": {
+        "title": "Letzte Crawl-Jobs",
+        "description": "Zeigt die letzten 5 abgeschlossenen Jobs mit Status und Dokumentenanzahl"
+      },
+      "quickActions": "Schnellaktionen",
+      "quick_actions_title": "Schnellaktionen",
+      "quick_actions": {
+        "new_category": "Neue Kategorie",
+        "new_source": "Neue Quelle",
+        "start_crawler": "Crawler starten",
+        "export_data": "Daten exportieren"
+      },
+      "crawler_dialog_title": "Crawler starten - Dialog",
+      "crawlerDialog": {
+        "title": "Crawler starten - Dialog",
+        "table": {
+          "filter": "Filter",
+          "description": "Beschreibung"
+        },
+        "filters": {
+          "category": {
+            "name": "Kategorie",
+            "description": "Nur Quellen einer bestimmten Kategorie"
+          },
+          "country": {
+            "name": "Land",
+            "description": "Nur Quellen aus einem bestimmten Land"
+          },
+          "search": {
+            "name": "Suche",
+            "description": "Textsuche in Name oder URL"
+          },
+          "max_count": {
+            "name": "Max. Anzahl",
+            "description": "Limit für zu crawlende Quellen"
+          },
+          "status": {
+            "name": "Status",
+            "description": "Nur aktive, ausstehende oder fehlerhafte Quellen"
+          },
+          "source_type": {
+            "name": "Quellentyp",
+            "description": "Website, OParl API oder RSS Feed"
+          },
+          "categoryOld": "Kategorie",
+          "categoryDesc": "Nur Quellen einer bestimmten Kategorie",
+          "countryOld": "Land",
+          "countryDesc": "Nur Quellen aus einem bestimmten Land",
+          "searchOld": "Suche",
+          "searchDesc": "Textsuche in Name oder URL",
+          "maxCount": "Max. Anzahl",
+          "maxCountDesc": "Limit für zu crawlende Quellen",
+          "statusOld": "Status",
+          "statusDesc": "Nur aktive, ausstehende oder fehlerhafte Quellen",
+          "sourceType": "Quellentyp",
+          "sourceTypeDesc": "Website, OParl API oder RSS Feed"
+        },
+        "warning": "Bei mehr als 500 Quellen wird ein Filter oder Limit empfohlen!"
+      }
+    },
+    "smartQuery": {
+      "title": "Smart Query",
+      "aiInfo": "KI-gestuetzte Analyse: Smart Query ermoeglicht natuerlichsprachige Abfragen und automatische Erstellung von Analyse-Setups durch KI.",
+      "twoModes": "Zwei Modi",
+      "alert": {
+        "title": "KI-gestuetzte Analyse:",
+        "description": "Smart Query ermoeglicht natuerlichsprachige Abfragen und automatische Erstellung von Analyse-Setups durch KI."
+      },
+      "modes_title": "Zwei Modi",
+      "readMode": {
+        "title": "Lese-Modus (Standard)",
+        "description": "Stellen Sie Fragen in natuerlicher Sprache:",
+        "examples": {
+          "1": "Welche Pain Points gibt es in NRW?",
+          "2": "Zeige Entscheider aus Gemeinden in Bayern",
+          "3": "Welche Events finden in den naechsten Monaten statt?"
+        },
+        "aiNote": "Die KI interpretiert Ihre Frage und zeigt passende Ergebnisse.",
+        "note": "Die KI interpretiert Ihre Frage und zeigt passende Ergebnisse."
+      },
+      "read_mode": {
+        "title": "Lese-Modus (Standard)",
+        "description": "Stellen Sie Fragen in natuerlicher Sprache:",
+        "examples": {
+          "1": "Welche Pain Points gibt es in NRW?",
+          "2": "Zeige Entscheider aus Gemeinden in Bayern",
+          "3": "Welche Events finden in den naechsten Monaten statt?"
+        },
+        "note": "Die KI interpretiert Ihre Frage und zeigt passende Ergebnisse."
+      },
+      "writeMode": {
+        "title": "Schreib-Modus",
+        "description": "Erstellen Sie automatisch neue Analyse-Setups:",
+        "examples": {
+          "1": "Finde alle Events auf denen Entscheider aus NRW teilnehmen",
+          "2": "Ueberwache Windenergie-Beschluesse in Bayern"
+        },
+        "aiNote": "Die KI erstellt EntityType, Category und verknuepft passende Datenquellen.",
+        "note": "Die KI erstellt EntityType, Category und verknuepft passende Datenquellen."
+      },
+      "write_mode": {
+        "title": "Schreib-Modus",
+        "description": "Erstellen Sie automatisch neue Analyse-Setups:",
+        "examples": {
+          "1": "Finde alle Events auf denen Entscheider aus NRW teilnehmen",
+          "2": "Ueberwache Windenergie-Beschluesse in Bayern"
+        },
+        "note": "Die KI erstellt EntityType, Category und verknuepft passende Datenquellen."
+      },
+      "category_setup_title": "KI-generiertes Category-Setup (Schreib-Modus)",
+      "category_setup_description": "Im Schreib-Modus generiert die KI in 3 Schritten ein vollstaendiges Analyse-Setup:",
+      "setup_steps": {
+        "step1": {
+          "title": "EntityType",
+          "subtitle": "Schema & Attribute"
+        },
+        "step2": {
+          "title": "Category",
+          "subtitle": "AI-Prompt & Suchbegriffe"
+        },
+        "step3": {
+          "title": "Crawl-Config",
+          "subtitle": "URL-Filter"
+        }
+      },
+      "categorySetup": {
+        "title": "KI-generiertes Category-Setup (Schreib-Modus)",
+        "description": "Im Schreib-Modus generiert die KI in 3 Schritten ein vollstaendiges Analyse-Setup:",
+        "step1": {
+          "title": "EntityType",
+          "subtitle": "Schema & Attribute",
+          "heading": "Schritt 1: EntityType-Generierung",
+          "description": "Die KI erstellt einen neuen EntityType mit:",
+          "items": [
+            "Name & Beschreibung - Passend zur Anfrage",
+            "Attribute-Schema - Relevante Felder fuer die Extraktion",
+            "Icon & Farbe - Fuer die UI-Darstellung",
+            "Search Focus - event_attendance, pain_points, contacts, etc."
+          ]
+        },
+        "step2": {
+          "title": "Category",
+          "subtitle": "AI-Prompt & Suchbegriffe",
+          "heading": "Schritt 2: Category-Generierung",
+          "description": "Die KI erstellt eine Category mit:",
+          "items": [
+            "AI-Extraktions-Prompt - Massgeschneidert fuer die Anfrage",
+            "Suchbegriffe - Erweitert (z.B. \"Entscheider\" → Buergermeister, Landrat, etc.)",
+            "Verknuepfung zum EntityType - Extrahierte Daten werden als Entities gespeichert"
+          ]
+        },
+        "step3": {
+          "title": "Crawl-Config",
+          "subtitle": "URL-Filter",
+          "heading": "Schritt 3: Crawl-Konfiguration",
+          "description": "Die KI generiert URL-Filter:",
+          "items": [
+            "Exclude-Patterns (Blacklist) - Irrelevante Seiten ausschliessen",
+            "Datenquellen-Verknuepfung - Basierend auf geografischem Filter (z.B. NRW)"
+          ],
+          "important": "Wichtig: Die KI generiert keine Include-Patterns (Whitelist). Der Crawler besucht alle Seiten und die KI filtert relevante Inhalte."
+        }
+      },
+      "write_mode_workflow": {
+        "title": "Workflow: Schreib-Modus",
+        "step1": {
+          "title": "Anfrage eingeben",
+          "description": "Beschreiben Sie in natuerlicher Sprache was Sie suchen/ueberwachen moechten."
+        },
+        "step2": {
+          "title": "Schreib-Modus aktivieren",
+          "description": "Schalten Sie den Toggle auf \"Schreib-Modus\" um."
+        },
+        "step3": {
+          "title": "Vorschau pruefen",
+          "description": "Klicken Sie \"Vorschau\" um zu sehen was erstellt wird (EntityType, Category, Datenquellen)."
+        },
+        "step4": {
+          "title": "Bestaetigen",
+          "description": "Klicken Sie \"Bestaetigen & Erstellen\". Die 3-Schritt-KI-Generierung startet."
+        },
+        "step5": {
+          "title": "Crawl starten",
+          "description": "Nach Erstellung koennen Sie direkt den Crawl fuer die neue Category starten."
+        }
+      },
+      "workflow": {
+        "title": "Workflow: Schreib-Modus",
+        "step1": "Anfrage eingeben - Beschreiben Sie in natuerlicher Sprache was Sie suchen/ueberwachen moechten.",
+        "step2": "Schreib-Modus aktivieren - Schalten Sie den Toggle auf \"Schreib-Modus\" um.",
+        "step3": "Vorschau pruefen - Klicken Sie \"Vorschau\" um zu sehen was erstellt wird (EntityType, Category, Datenquellen).",
+        "step4": "Bestaetigen - Klicken Sie \"Bestaetigen & Erstellen\". Die 3-Schritt-KI-Generierung startet.",
+        "step5": "Crawl starten - Nach Erstellung koennen Sie direkt den Crawl fuer die neue Category starten."
+      },
+      "geographic_filters": {
+        "title": "Geografische Filter",
+        "description": "Smart Query versteht geografische Begriffe und Abkuerzungen:",
+        "table": {
+          "input": "Eingabe",
+          "recognized_as": "Wird erkannt als"
+        },
+        "examples": [
+          { "input": "\"NRW\", \"nrw\"", "output": "Nordrhein-Westfalen" },
+          { "input": "\"Bayern\", \"BY\"", "output": "Bayern" },
+          { "input": "\"BW\", \"Baden-Wuerttemberg\"", "output": "Baden-Wuerttemberg" },
+          { "input": "\"Gummersbach\"", "output": "Gemeinde Gummersbach" }
+        ]
+      },
+      "geographicFilters": {
+        "title": "Geografische Filter",
+        "description": "Smart Query versteht geografische Begriffe und Abkuerzungen:",
+        "examples": {
+          "nrw": "Nordrhein-Westfalen",
+          "bayern": "Bayern",
+          "bw": "Baden-Wuerttemberg",
+          "city": "Gemeinde Gummersbach"
+        }
+      },
+      "example_queries": {
+        "title": "Beispiel-Anfragen",
+        "table": {
+          "query": "Anfrage",
+          "mode": "Modus",
+          "result": "Ergebnis"
+        },
+        "read": "Lesen",
+        "write": "Schreiben",
+        "examples": [
+          { "query": "Zeige Pain Points in NRW", "mode": "read", "result": "Liste aller Pain Points aus NRW-Gemeinden" },
+          { "query": "Welche Events finden 2025 statt?", "mode": "read", "result": "Zukuenftige Events mit Teilnehmern" },
+          { "query": "Finde Events mit Entscheidern aus NRW", "mode": "write", "result": "Neue Category + EntityType + Datenquellen-Verknuepfung" },
+          { "query": "Ueberwache Windenergie in Bayern", "mode": "write", "result": "Neues Analyse-Setup fuer Bayern" }
+        ]
+      },
+      "exampleQueries": "Beispiel-Anfragen"
+    },
+    "categories": {
+      "title": "Kategorien",
+      "description": "Kategorien sind die oberste Organisationsebene und definieren, was gesucht wird und wie die Ergebnisse analysiert werden.",
+      "basicSettings": {
+        "title": "Grundeinstellungen",
+        "name": "Name",
+        "nameDesc": "Eindeutiger Name",
+        "nameExample": "Windenergie-Beschlüsse",
+        "description": "Beschreibung",
+        "descriptionDesc": "Optionale Erläuterung",
+        "descriptionExample": "Sammelt alle Ratsbeschlüsse",
+        "purpose": "Zweck",
+        "purposeDesc": "Was soll erreicht werden?",
+        "purposeExample": "Windkraft-Restriktionen analysieren",
+        "status": "Status",
+        "statusDesc": "Aktiv/Inaktiv",
+        "documentTypes": "Dokumenttypen",
+        "documentTypesDesc": "Erwartete Typen zur Klassifizierung",
+        "documentTypesExample": "Beschluss, Protokoll, Satzung",
+        "schedule": "Zeitplan (Cron)",
+        "scheduleDesc": "Automatischer Crawl-Zeitplan",
+        "scheduleExample": "0 2 * * * (täglich 2 Uhr)"
+      },
+      "searchTerms": {
+        "title": "Suchbegriffe (Keywords)",
+        "description": "Keywords für die Relevanz-Filterung:",
+        "info": "Dokumente werden nur zur KI-Analyse weitergeleitet, wenn sie mindestens 2 dieser Keywords enthalten."
+      },
+      "urlFilters": {
+        "title": "URL-Filter (Regex)",
+        "info": "URL-Filter nutzen Regex-Patterns um zu steuern, welche URLs gecrawlt werden. Die KI-Filterung der Inhalte ersetzt weitgehend die URL-basierte Whitelist.",
+        "excludeTitle": "Exclude-Patterns (Blacklist) - Primär",
+        "excludeDesc": "URLs die ein Pattern matchen werden nicht gecrawlt:",
+        "includeTitle": "Include-Patterns (Whitelist) - Optional",
+        "includeDesc": "Nur URLs die mindestens ein Pattern matchen werden gecrawlt. Nur für manuelle Nutzung - Smart Query generiert keine Include-Patterns.",
+        "recommendation": "Empfehlung: Include-Patterns (Whitelist) leer lassen und stattdessen auf die KI-basierte Inhaltsfilterung vertrauen. Die Blacklist filtert technische und irrelevante Seiten aus."
+      },
+      "aiPrompt": {
+        "title": "KI-Extraktions-Prompt",
+        "description": "Definiert, was die KI extrahieren soll. Beispiel:"
+      },
+      "actions": {
+        "title": "Aktionen",
+        "edit": "Bearbeiten",
+        "editDesc": "Einstellungen ändern",
+        "crawl": "Crawlen",
+        "crawlDesc": "Crawl für alle Quellen starten",
+        "reanalyze": "Neu analysieren",
+        "reanalyzeDesc": "Dokumente erneut durch KI",
+        "delete": "Löschen",
+        "deleteDesc": "Mit allen Daten löschen"
+      }
+    },
+    "sources": {
+      "title": "Datenquellen",
+      "description": "Datenquellen sind die konkreten Websites oder APIs, die gecrawlt werden.",
+      "categoryAssignment": {
+        "title": "Kategorie-Zuordnung (N:M)",
+        "info": "Eine Datenquelle kann mehreren Kategorien zugeordnet werden (N:M-Beziehung). Beim Crawlen wird die Kategorie des Jobs verwendet, nicht die der Quelle.",
+        "multipleAssignment": "Mehrfachzuordnung",
+        "multipleAssignmentDesc": "Eine Quelle kann z.B. sowohl für \"Windkraft\" als auch \"Solarenergie\" relevant sein",
+        "crawlContext": "Crawl-Kontext",
+        "crawlContextDesc": "Beim Crawlen wird der AI-Prompt und die Filter der gewählten Kategorie verwendet",
+        "smartQueryIntegration": "Smart Query Integration",
+        "smartQueryIntegrationDesc": "Smart Query kann automatisch passende Quellen zu neuen Kategorien verknüpfen"
+      },
+      "sourceTypes": {
+        "title": "Quellentypen",
+        "website": "WEBSITE",
+        "websiteDesc": "Standard-Website-Crawling für kommunale Websites, Nachrichtenseiten",
+        "oparlApi": "OPARL_API",
+        "oparlApiDesc": "OParl-Schnittstelle für Ratsinformationssysteme",
+        "rss": "RSS",
+        "rssDesc": "RSS-Feed für News-Aggregation"
+      },
+      "availableFilters": "Verfügbare Filter",
+      "filterDescription": "Land (mit Anzahl), Gemeinde (Autocomplete), Kategorie, Status, Suche (Name/URL)",
+      "actions": {
+        "title": "Aktionen",
+        "bulkImport": "Bulk Import",
+        "bulkImportDesc": "Mehrere Quellen per JSON importieren",
+        "newSource": "Neue Quelle",
+        "newSourceDesc": "Einzelne Quelle manuell anlegen",
+        "edit": "Bearbeiten",
+        "editDesc": "Quelle bearbeiten",
+        "crawl": "Crawlen",
+        "crawlDesc": "Crawl für diese Quelle starten",
+        "reset": "Zurücksetzen",
+        "resetDesc": "Nur bei ERROR-Status: Quelle zurücksetzen",
+        "delete": "Löschen",
+        "deleteDesc": "Quelle mit allen Dokumenten löschen"
+      },
+      "formFields": {
+        "title": "Formular-Felder (Neue/Bearbeiten)",
+        "category": "Kategorie",
+        "categoryDesc": "Zugehörige Kategorie (bei Edit nicht änderbar)",
+        "name": "Name",
+        "nameDesc": "Anzeigename der Quelle",
+        "sourceType": "Quellentyp",
+        "sourceTypeDesc": "WEBSITE, OPARL_API, RSS, CUSTOM_API",
+        "baseUrl": "Basis-URL",
+        "baseUrlDesc": "Start-URL für den Crawler",
+        "apiEndpoint": "API-Endpunkt",
+        "apiEndpointDesc": "Nur für OPARL_API/CUSTOM_API",
+        "country": "Land",
+        "countryDesc": "Dropdown: DE, AT, CH, etc.",
+        "location": "Ort",
+        "locationDesc": "Autocomplete-Suche mit Location-Verknüpfung",
+        "required": "Ja",
+        "optional": "Nein"
+      },
+      "bulkImport": {
+        "title": "Bulk Import",
+        "info": "Mehrere Quellen auf einmal importieren:",
+        "step1": "Kategorie auswählen",
+        "step2": "JSON-Array mit Quellen eingeben:"
+      },
+      "crawlConfig": {
+        "title": "Crawl-Konfiguration",
+        "maxDepth": "Max. Tiefe",
+        "maxDepthDesc": "Wie viele Link-Ebenen verfolgen",
+        "maxDepthDefault": "3",
+        "maxPages": "Max. Seiten",
+        "maxPagesDesc": "Maximale Anzahl zu crawlender Seiten",
+        "maxPagesDefault": "200",
+        "externalLinks": "Externe Links",
+        "externalLinksDesc": "Links zu anderen Domains verfolgen",
+        "externalLinksDefault": "Nein",
+        "renderJs": "JavaScript rendern",
+        "renderJsDesc": "Playwright für dynamische Seiten",
+        "renderJsDefault": "Nein",
+        "htmlCapture": "HTML-Capture",
+        "htmlCaptureDesc": "Relevante HTML-Seiten als Dokumente speichern",
+        "htmlCaptureDefault": "Ja"
+      },
+      "urlFiltersAdvanced": {
+        "title": "URL-Filter (Erweiterte Einstellungen)",
+        "info": "URL-Filter sind Regex-Patterns. Die KI-Filterung der Inhalte macht eine strikte URL-Whitelist meist überflüssig. Stattdessen wird primär die Blacklist verwendet.",
+        "excludeTitle": "Exclude-Patterns (Blacklist) - Primär",
+        "excludeDesc": "URLs die ein Pattern matchen werden nicht gecrawlt:",
+        "includeTitle": "Include-Patterns (Whitelist) - Optional",
+        "includeDesc": "Nur für manuelle Nutzung. Smart Query generiert keine Include-Patterns."
+      },
+      "statusMeaning": {
+        "title": "Status-Bedeutung",
+        "pending": "PENDING",
+        "pendingDesc": "Noch nie gecrawlt",
+        "crawling": "CRAWLING",
+        "crawlingDesc": "Crawl läuft gerade",
+        "active": "ACTIVE",
+        "activeDesc": "Erfolgreich gecrawlt",
+        "error": "ERROR",
+        "errorDesc": "Letzter Crawl fehlgeschlagen"
+      }
+    },
+    "crawler": {
+      "title": "Crawler Status",
+      "description": "Die Crawler-Seite zeigt den Live-Status aller Crawling- und KI-Aktivitäten.",
+      "statusCards": "Status-Karten",
+      "cards": {
+        "activeWorkers": "Aktive Worker",
+        "activeWorkersDesc": "Verfügbare Prozesse",
+        "runningJobs": "Laufende Jobs",
+        "runningJobsDesc": "Aktive Crawls",
+        "pendingJobs": "Wartende Jobs",
+        "pendingJobsDesc": "In der Queue",
+        "documents": "Dokumente",
+        "documentsDesc": "Gesamt gefunden"
+      },
+      "aiTasks": {
+        "title": "KI-Aufgaben (Live)",
+        "info": "Zeigt laufende KI-Analysen mit:",
+        "items": [
+          "Task-Name und aktuelles Dokument",
+          "Fortschrittsbalken (X/Y Dokumente)",
+          "Stopp Button zum Abbrechen"
+        ]
+      },
+      "activeCrawlers": {
+        "title": "Aktive Crawler (Live)",
+        "description": "Expandierbare Panels für jeden laufenden Crawl:",
+        "items": [
+          "Quelle & aktuelle URL",
+          "Seiten gecrawlt / Dokumente gefunden / Neue",
+          "Fehlerzähler (falls vorhanden)",
+          "Stopp Button zum sofortigen Abbruch"
+        ],
+        "liveLog": "Live-Log (expandierbar)",
+        "liveLogDesc": "Virtueller Scroll mit letzten Aktivitäten: URL besucht, Dokument gefunden, Fehler. Farbcodiert mit Timestamps."
+      },
+      "jobTable": {
+        "title": "Job-Tabelle",
+        "columnHeader": "Spalte",
+        "descriptionHeader": "Beschreibung",
+        "source": "Quelle",
+        "sourceDesc": "Name der gecrawlten Datenquelle",
+        "status": "Status",
+        "statusDesc": "RUNNING, COMPLETED, FAILED, CANCELLED",
+        "started": "Gestartet",
+        "startedDesc": "Startzeitpunkt des Jobs",
+        "duration": "Dauer",
+        "durationDesc": "Laufzeit in Minuten/Stunden",
+        "progress": "Fortschritt",
+        "progressDesc": "Verarbeitete/Gefundene Dokumente mit Balken",
+        "actions": "Aktionen",
+        "actionsDesc": "Stopp (bei RUNNING), Details"
+      },
+      "jobDetails": {
+        "title": "Job-Details-Dialog",
+        "description": "Klicken Sie auf das Info-Symbol für den vollständigen Job-Report:",
+        "info": [
+          "Quelle & Kategorie",
+          "Status mit Farb-Chip",
+          "Dauer (formatiert)"
+        ],
+        "statistics": "Statistiken:",
+        "stats": [
+          "Seiten gecrawlt",
+          "Dokumente gefunden",
+          "Neue Dokumente"
+        ],
+        "errorLog": "Bei fehlgeschlagenen Jobs wird zusätzlich ein Error-Log mit Details angezeigt."
+      },
+      "statusFilter": "Status-Filter",
+      "filterButtons": {
+        "all": "Alle",
+        "running": "Laufend",
+        "completed": "Abgeschlossen",
+        "failed": "Fehlgeschlagen"
+      },
+      "stopButton": "Stopp"
+    },
+    "documents": {
+      "title": "Dokumente",
+      "description": "Die Dokumenten-Ansicht zeigt alle gefundenen und verarbeiteten Dateien.",
+      "statusOverview": "Status-Übersicht",
+      "statuses": {
+        "pending": "Wartend",
+        "processing": "In Bearbeitung",
+        "completed": "Fertig",
+        "filtered": "Gefiltert",
+        "failed": "Fehler"
+      },
+      "actionButtons": {
+        "title": "Aktions-Buttons",
+        "processPending": "Pending verarbeiten",
+        "processPendingDesc": "Alle wartenden Dokumente starten",
+        "analyzeFiltered": "Gefilterte analysieren",
+        "analyzeFilteredDesc": "Gefilterte Dokumente erneut mit KI prüfen",
+        "stopProcessing": "Verarbeitung stoppen",
+        "stopProcessingDesc": "Laufende Verarbeitung abbrechen"
+      },
+      "availableFilters": "Verfügbare Filter",
+      "filters": [
+        "Volltextsuche",
+        "Gemeinde/Ort",
+        "Kategorie",
+        "Status",
+        "Typ (PDF, HTML, ...)"
+      ],
+      "documentDetails": {
+        "title": "Dokument-Details",
+        "tabInfo": "Tab: Info",
+        "tabInfoItems": [
+          "Original-URL mit Link",
+          "Quelle und Kategorie",
+          "Zeitstempel (entdeckt, geladen, verarbeitet)",
+          "Dateigröße und Seitenanzahl",
+          "Anzahl KI-Extraktionen"
+        ],
+        "tabText": "Tab: Text",
+        "tabTextDesc": "Zeigt den extrahierten Rohtext des Dokuments in einem Textfeld.",
+        "tabExtracted": "Tab: Extrahierte Daten",
+        "tabExtractedItems": [
+          "KI-Analyse-Ergebnisse als JSON",
+          "Konfidenz-Score pro Extraktion",
+          "Verifizierungs-Status"
+        ]
+      }
+    }
+  }
+}

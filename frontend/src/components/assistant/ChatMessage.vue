@@ -1,0 +1,302 @@
+<template>
+  <div
+    class="chat-message"
+    :class="{
+      'chat-message--user': message.role === 'user',
+      'chat-message--assistant': message.role === 'assistant',
+      'chat-message--error': message.response_type === 'error'
+    }"
+  >
+    <!-- Avatar -->
+    <v-avatar
+      :color="message.role === 'user' ? 'primary' : 'surface-variant'"
+      size="32"
+      class="chat-message__avatar"
+    >
+      <v-icon :color="message.role === 'user' ? 'on-primary' : 'on-surface-variant'" size="small">
+        {{ message.role === 'user' ? 'mdi-account' : 'mdi-robot' }}
+      </v-icon>
+    </v-avatar>
+
+    <!-- Content -->
+    <div class="chat-message__content">
+      <!-- Text content with markdown-like formatting -->
+      <div
+        class="chat-message__text"
+        v-html="formatMessage(message.content)"
+        @click="handleTextClick"
+      ></div>
+
+      <!-- Query Results -->
+      <div v-if="message.response_type === 'query_result' && message.response_data?.data?.items?.length" class="mt-2">
+        <v-chip
+          v-for="(item, idx) in message.response_data.data.items.slice(0, 15)"
+          :key="idx"
+          size="small"
+          variant="outlined"
+          class="mr-1 mb-1"
+          @click="$emit('item-click', item)"
+        >
+          {{ item.entity_name || item.name || t('entities.entity') }}
+        </v-chip>
+        <v-chip
+          v-if="message.response_data.data.items.length > 15"
+          size="small"
+          variant="text"
+          class="mr-1 mb-1"
+        >
+          {{ t('assistant.more', { count: message.response_data.data.items.length - 15 }) }}
+        </v-chip>
+      </div>
+
+      <!-- Navigation Target -->
+      <v-btn
+        v-if="message.response_type === 'navigation' && message.response_data?.target"
+        size="small"
+        variant="tonal"
+        color="primary"
+        class="mt-2"
+        @click="$emit('navigate', message.response_data.target.route)"
+      >
+        <v-icon start size="small">mdi-arrow-right</v-icon>
+        {{ t('assistant.goTo', { name: message.response_data.target.entity_name || t('nav.entities') }) }}
+      </v-btn>
+
+      <!-- Redirect to Smart Query -->
+      <v-btn
+        v-if="message.response_type === 'redirect_to_smart_query'"
+        size="small"
+        variant="tonal"
+        color="warning"
+        class="mt-2"
+        @click="$emit('navigate', '/smart-query')"
+      >
+        <v-icon start size="small">mdi-magnify</v-icon>
+        {{ t('assistant.openSmartQuery') }}
+      </v-btn>
+
+      <!-- Help Topics -->
+      <div v-if="message.response_type === 'help' && message.response_data?.suggested_commands?.length" class="mt-2">
+        <v-chip
+          v-for="cmd in message.response_data.suggested_commands"
+          :key="cmd"
+          size="small"
+          variant="outlined"
+          color="info"
+          class="mr-1 mb-1"
+          @click="$emit('command', cmd)"
+        >
+          {{ cmd }}
+        </v-chip>
+      </div>
+
+      <!-- Footer: Timestamp + Actions -->
+      <div class="chat-message__footer">
+        <span class="chat-message__time">{{ formatTime(message.timestamp) }}</span>
+        <v-btn
+          v-if="message.role === 'assistant'"
+          :icon="copied ? 'mdi-check' : 'mdi-content-copy'"
+          variant="text"
+          size="x-small"
+          :color="copied ? 'success' : 'default'"
+          class="chat-message__copy-btn"
+          @click="copyMessage"
+        >
+          <v-tooltip activator="parent" location="top">
+            {{ copied ? t('assistant.copied') : t('assistant.copy') }}
+          </v-tooltip>
+        </v-btn>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import type { ConversationMessage } from '@/composables/useAssistant'
+
+const { t, locale } = useI18n()
+
+const props = defineProps<{
+  message: ConversationMessage
+}>()
+
+const emit = defineEmits<{
+  'item-click': [item: any]
+  'navigate': [route: string]
+  'command': [command: string]
+  'entity-click': [entityType: string, entitySlug: string]
+}>()
+
+// Copy functionality
+const copied = ref(false)
+
+async function copyMessage() {
+  try {
+    await navigator.clipboard.writeText(props.message.content)
+    copied.value = true
+    setTimeout(() => {
+      copied.value = false
+    }, 2000)
+  } catch (e) {
+    console.error('Failed to copy message:', e)
+  }
+}
+
+// Handle clicks on entity chips within the message text
+function handleTextClick(event: MouseEvent) {
+  const target = event.target as HTMLElement
+  if (target.classList.contains('entity-chip')) {
+    const entityType = target.dataset.type
+    const entitySlug = target.dataset.slug
+    if (entityType && entitySlug) {
+      emit('entity-click', entityType, entitySlug)
+    }
+  }
+}
+
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  }
+  return text.replace(/[&<>"']/g, (char) => map[char])
+}
+
+function formatMessage(content: string): string {
+  // 1. First escape HTML to prevent XSS
+  let formatted = escapeHtml(content)
+
+  // 2. Then apply markdown-like formatting (safe patterns only)
+  formatted = formatted
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // Code
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    // Line breaks
+    .replace(/\n/g, '<br>')
+
+  // 3. Entity-Links: [[entity_type:slug:name]] -> clickable chip
+  formatted = formatted.replace(
+    /\[\[(\w+):([^:]+):([^\]]+)\]\]/g,
+    '<span class="entity-chip" data-type="$1" data-slug="$2" role="button" tabindex="0">$3</span>'
+  )
+
+  return formatted
+}
+
+function formatTime(date: Date): string {
+  const localeMap: Record<string, string> = { de: 'de-DE', en: 'en-US' }
+  return new Date(date).toLocaleTimeString(localeMap[locale.value] || 'de-DE', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+</script>
+
+<style scoped>
+.chat-message {
+  display: flex;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.chat-message--user {
+  flex-direction: row-reverse;
+}
+
+.chat-message--user .chat-message__content {
+  align-items: flex-end;
+}
+
+.chat-message--user .chat-message__text {
+  background: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-on-primary));
+}
+
+.chat-message--assistant .chat-message__text {
+  background: rgb(var(--v-theme-surface-variant));
+  color: rgb(var(--v-theme-on-surface-variant));
+}
+
+.chat-message--error .chat-message__text {
+  background: rgb(var(--v-theme-error-container));
+  color: rgb(var(--v-theme-on-error-container));
+}
+
+.chat-message__avatar {
+  flex-shrink: 0;
+}
+
+.chat-message__content {
+  display: flex;
+  flex-direction: column;
+  max-width: 85%;
+}
+
+.chat-message__text {
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.chat-message__text :deep(code) {
+  background: rgba(var(--v-theme-on-surface), 0.1);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 0.8em;
+}
+
+.chat-message__text :deep(.entity-chip) {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  margin: 0 2px;
+  background: rgb(var(--v-theme-primary-container));
+  color: rgb(var(--v-theme-on-primary-container));
+  border-radius: 12px;
+  font-size: 0.85em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chat-message__text :deep(.entity-chip:hover) {
+  background: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-on-primary));
+  transform: translateY(-1px);
+}
+
+.chat-message__text :deep(.entity-chip:focus) {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+.chat-message__footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 0 4px;
+}
+
+.chat-message__time {
+  font-size: 0.7rem;
+  color: rgb(var(--v-theme-on-surface-variant));
+}
+
+.chat-message__copy-btn {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.chat-message:hover .chat-message__copy-btn {
+  opacity: 1;
+}
+</style>

@@ -1,0 +1,67 @@
+{
+  "documents": {
+    "title": "Documents",
+    "document": "Document",
+    "documents": "Documents",
+    "filters": {
+      "search": "Search (Title, URL)",
+      "searchPlaceholder": "Enter title or URL...",
+      "location": "Location",
+      "type": "Type",
+      "category": "Category",
+      "status": "Status",
+      "dateFrom": "From",
+      "dateTo": "To"
+    },
+    "columns": {
+      "title": "Title",
+      "source": "Source",
+      "category": "Category",
+      "status": "Status",
+      "location": "Location",
+      "date": "Date",
+      "actions": "Actions"
+    },
+    "actions": {
+      "process": "Process",
+      "analyze": "AI Analysis",
+      "download": "Download",
+      "openOriginal": "Open Original",
+      "viewDetails": "View Details",
+      "reprocess": "Reprocess"
+    },
+    "detail": {
+      "title": "Document Details",
+      "metadata": "Metadata",
+      "rawText": "Raw Text",
+      "extractedData": "Extracted Data",
+      "processingHistory": "Processing History"
+    },
+    "stats": {
+      "total": "Total",
+      "pending": "Pending",
+      "processing": "Processing",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "bulkActions": {
+      "processSelected": "Process Selected",
+      "analyzeSelected": "Analyze Selected",
+      "deleteSelected": "Delete Selected"
+    },
+    "messages": {
+      "processQueued": "Document queued for processing",
+      "processError": "Error processing document",
+      "analyzeQueued": "AI analysis started",
+      "analyzeError": "Error during analysis"
+    },
+    "processStarted": "Processing started",
+    "processError": "Error starting processing",
+    "analysisStarted": "AI analysis started",
+    "analysisError": "Error starting AI analysis",
+    "allProcessStarted": "Processing of all pending documents started",
+    "processingStopping": "Stopping processing...",
+    "stopError": "Error stopping",
+    "loadDetailsError": "Error loading details"
+  }
+}

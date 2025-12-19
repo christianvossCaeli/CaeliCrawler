@@ -1,0 +1,133 @@
+{
+  "categories": {
+    "title": "Categories",
+    "category": "Category",
+    "categories": "Categories",
+    "filters": {
+      "search": "Search (Name/Purpose)",
+      "status": "Status",
+      "documents": "Documents",
+      "language": "Language",
+      "withDocuments": "With documents",
+      "withoutDocuments": "Without documents"
+    },
+    "form": {
+      "name": "Name",
+      "nameRequired": "Name is required",
+      "description": "Description",
+      "purpose": "Purpose (e.g. 'Analyze wind power restrictions')",
+      "purposeRequired": "Purpose is required",
+      "searchTerms": "Search terms",
+      "searchTermsHint": "Press Enter to add a term",
+      "documentTypes": "Document types",
+      "documentTypesHint": "e.g. Resolution, Protocol, Statute",
+      "languages": "Languages",
+      "languagesHint": "Select languages for this category",
+      "languagesDescription": "Which languages are used in this category? The AI will adapt its analysis accordingly.",
+      "urlFiltersTitle": "URL Filters (Regex)",
+      "urlFiltersDescription": "These filters apply to all data sources in this category, unless the source has its own filters. Without filters, the complete sitemap will be searched.",
+      "includePatterns": "Include Patterns (Whitelist)",
+      "includeHint": "URLs must match at least one pattern. e.g. /documents/, /resolutions/, /council-info/",
+      "excludePatterns": "Exclude Patterns (Blacklist)",
+      "excludeHint": "URLs matching a pattern will be skipped. e.g. /archive/, /login/, /search/, /\\?page=",
+      "noFiltersWarning": "Without URL filters, the complete sitemap will be searched - this can take a very long time!",
+      "scheduleCron": "Schedule (Cron)",
+      "scheduleCronHint": "e.g. '0 2 * * *' for daily at 2 AM",
+      "aiPromptTitle": "AI Extraction Prompt",
+      "aiPromptDescription": "Defines which information the AI extracts from documents. Here you can specify which topics (e.g. wind energy) pain points and positive signals should relate to.",
+      "aiPrompt": "AI Extraction Prompt",
+      "aiPromptHint": "Define the JSON format and extraction rules",
+      "keywords": "Keywords",
+      "enabled": "Active"
+    },
+    "columns": {
+      "name": "Name",
+      "purpose": "Purpose",
+      "languages": "Languages",
+      "status": "Status",
+      "sources": "Sources",
+      "documents": "Documents",
+      "actions": "Actions"
+    },
+    "actions": {
+      "create": "New Category",
+      "edit": "Edit",
+      "delete": "Delete",
+      "viewSources": "View data sources",
+      "startCrawl": "Start crawl",
+      "reanalyze": "Reanalyze documents"
+    },
+    "dialog": {
+      "create": "New Category",
+      "edit": "Edit Category",
+      "delete": "Delete category?",
+      "deleteConfirm": "Do you really want to delete category \"{name}\"? All associated data sources and documents will also be deleted.",
+      "reanalyze": "Reanalyze documents?",
+      "reanalyzeConfirm": "All documents in category \"{name}\" will be reanalyzed with the current AI prompt.",
+      "reanalyzeAll": "Reanalyze all documents (not just low confidence)",
+      "reanalyzeInfo": "will be reanalyzed.",
+      "reanalyzeOnlyLow": "Only documents with confidence < 70%",
+      "reanalyzeAllDocs": "All documents",
+      "sources": "Data sources:",
+      "sourcesFor": "Data sources:",
+      "searchSources": "Search...",
+      "noSources": "No data sources in this category",
+      "noSourcesSearch": "No data sources found for",
+      "statistics": "Statistics",
+      "openUrl": "Open URL",
+      "showAllInSourcesView": "Show all in data sources view",
+      "docs": "Docs"
+    },
+    "crawler": {
+      "title": "Start Crawler:",
+      "estimatedCount": "data sources will be crawled",
+      "filters": "Filters",
+      "search": "Search (Name/URL)",
+      "searchHint": "Filters by name or URL",
+      "maxLimit": "Maximum count",
+      "limitHint": "Empty = all",
+      "statusFilter": "Status",
+      "typeFilter": "Source type",
+      "filterActive": "URL filters active:",
+      "includeCount": "Include",
+      "excludeCount": "Exclude patterns",
+      "noFiltersWarning": "No URL filters set - all URLs will be crawled!",
+      "tooManySources": "More than 500 sources - please set filters or limit!",
+      "sourcesCount": "sources",
+      "resetFilters": "Reset filters",
+      "start": "Start crawler",
+      "started": "Crawl started for {count} sources",
+      "errorStarting": "Error starting crawl"
+    },
+    "statusOptions": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "documentOptions": {
+      "with": "With documents",
+      "without": "Without documents"
+    },
+    "sourceTypes": {
+      "WEBSITE": "Website",
+      "OPARL_API": "OParl API",
+      "RSS": "RSS Feed",
+      "ACTIVE": "Active",
+      "PENDING": "Pending",
+      "ERROR": "Error"
+    },
+    "stats": {
+      "total": "Total",
+      "active": "Active",
+      "pending": "Pending",
+      "error": "Error"
+    },
+    "messages": {
+      "created": "Category created successfully",
+      "updated": "Category updated successfully",
+      "deleted": "Category deleted successfully",
+      "reanalyzeStarted": "Reanalysis started",
+      "reanalyzeError": "Error starting reanalysis",
+      "sourcesLoadError": "Error loading data sources"
+    }
+  }
+}

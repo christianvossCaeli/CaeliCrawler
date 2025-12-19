@@ -32,12 +32,18 @@ class Base(DeclarativeBase):
 
 
 # Async engine for application use
+# Performance optimized pool settings:
+# - pool_size=20: Base number of connections (increased from 10)
+# - max_overflow=30: Additional connections under load
+# - pool_recycle=1800: Recycle connections after 30 min to prevent stale connections
+# - pool_pre_ping=True: Verify connection health before use
 engine = create_async_engine(
     settings.database_url,
     echo=settings.debug,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=20,
+    max_overflow=30,
+    pool_recycle=1800,
 )
 
 # Session factory
@@ -106,12 +112,17 @@ def get_celery_engine():
     """
     global _celery_engine
     if _celery_engine is None:
+        # Celery workers have their own connection pools
+        # - pool_size=10: Per-worker pool (multiple workers share total load)
+        # - max_overflow=5: Limited overflow to prevent connection exhaustion
+        # - pool_recycle=1800: Same as main app
         _celery_engine = create_async_engine(
             settings.database_url,
             echo=settings.debug,
             pool_pre_ping=True,
-            pool_size=5,  # Smaller pool for workers
-            max_overflow=10,
+            pool_size=10,
+            max_overflow=5,
+            pool_recycle=1800,
         )
     return _celery_engine
 

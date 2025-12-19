@@ -18,14 +18,40 @@ if TYPE_CHECKING:
 class AuditAction(str, enum.Enum):
     """Types of auditable actions."""
 
+    # CRUD operations
     CREATE = "CREATE"
     UPDATE = "UPDATE"
     DELETE = "DELETE"
+
+    # Authentication
     LOGIN = "LOGIN"
     LOGOUT = "LOGOUT"
+    PASSWORD_CHANGE = "PASSWORD_CHANGE"
+    PASSWORD_RESET = "PASSWORD_RESET"
+
+    # Session Management
+    SESSION_REVOKE = "SESSION_REVOKE"
+    SESSION_REVOKE_ALL = "SESSION_REVOKE_ALL"
+    TOKEN_REFRESH = "TOKEN_REFRESH"
+
+    # Data Operations
     EXPORT = "EXPORT"
     VIEW = "VIEW"
     IMPORT = "IMPORT"
+
+    # Crawler Operations
+    CRAWLER_START = "CRAWLER_START"
+    CRAWLER_STOP = "CRAWLER_STOP"
+
+    # Admin Operations
+    USER_CREATE = "USER_CREATE"
+    USER_UPDATE = "USER_UPDATE"
+    USER_DELETE = "USER_DELETE"
+    ROLE_CHANGE = "ROLE_CHANGE"
+
+    # Security Events
+    SECURITY_ALERT = "SECURITY_ALERT"
+    RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED"
 
 
 class AuditLog(Base):

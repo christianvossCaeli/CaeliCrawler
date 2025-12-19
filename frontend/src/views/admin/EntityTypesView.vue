@@ -6,13 +6,13 @@
         <v-col>
           <div class="d-flex align-center justify-space-between">
             <div>
-              <h1 class="text-h4 mb-1">Entity-Typen</h1>
+              <h1 class="text-h4 mb-1">{{ t('admin.entityTypes.title') }}</h1>
               <p class="text-body-2 text-medium-emphasis">
-                Kategorien fuer Entitaeten verwalten (z.B. Gemeinden, Personen, Organisationen)
+                {{ t('admin.entityTypes.subtitle') }}
               </p>
             </div>
             <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
-              Neuer Entity-Typ
+              {{ t('admin.entityTypes.actions.create') }}
             </v-btn>
           </div>
         </v-col>
@@ -51,7 +51,7 @@
           </template>
 
           <template v-slot:item.is_system="{ item }">
-            <v-icon v-if="item.is_system" color="warning" icon="mdi-lock" size="small" title="System-Typ"></v-icon>
+            <v-icon v-if="item.is_system" color="warning" icon="mdi-lock" size="small" :title="t('admin.entityTypes.systemType')"></v-icon>
             <span v-else>-</span>
           </template>
 
@@ -70,7 +70,7 @@
                 size="small"
                 variant="text"
                 @click="openEditDialog(item)"
-                title="Bearbeiten"
+                :title="t('common.edit')"
               ></v-btn>
               <v-btn
                 icon="mdi-delete"
@@ -79,7 +79,7 @@
                 color="error"
                 :disabled="item.is_system || (item.entity_count || 0) > 0"
                 @click="confirmDelete(item)"
-                :title="item.is_system ? 'System-Typ kann nicht geloescht werden' : (item.entity_count || 0) > 0 ? 'Hat noch Entities' : 'Loeschen'"
+                :title="item.is_system ? t('admin.entityTypes.cannotDeleteSystem') : (item.entity_count || 0) > 0 ? t('admin.entityTypes.hasEntities') : t('common.delete')"
               ></v-btn>
             </div>
           </template>
@@ -91,7 +91,7 @@
         <v-card>
           <v-card-title class="d-flex align-center">
             <v-icon :icon="editingItem ? 'mdi-pencil' : 'mdi-plus'" class="mr-2"></v-icon>
-            {{ editingItem ? 'Entity-Typ bearbeiten' : 'Neuer Entity-Typ' }}
+            {{ editingItem ? t('admin.entityTypes.dialog.editTitle') : t('admin.entityTypes.dialog.createTitle') }}
           </v-card-title>
           <v-card-text>
             <v-form ref="formRef" @submit.prevent="save">
@@ -99,34 +99,34 @@
                 <v-col cols="12" md="6">
                   <v-text-field
                     v-model="form.name"
-                    label="Name *"
-                    :rules="[v => !!v || 'Name ist erforderlich']"
-                    placeholder="z.B. Windpark"
+                    :label="t('admin.entityTypes.form.name')"
+                    :rules="[v => !!v || t('admin.entityTypes.form.nameRequired')]"
+                    :placeholder="t('admin.entityTypes.form.namePlaceholder')"
                   ></v-text-field>
                 </v-col>
                 <v-col cols="12" md="6">
                   <v-text-field
                     v-model="form.name_plural"
-                    label="Plural"
-                    placeholder="z.B. Windparks"
+                    :label="t('admin.entityTypes.form.namePlural')"
+                    :placeholder="t('admin.entityTypes.form.namePluralPlaceholder')"
                   ></v-text-field>
                 </v-col>
               </v-row>
 
               <v-textarea
                 v-model="form.description"
-                label="Beschreibung"
+                :label="t('admin.entityTypes.form.description')"
                 rows="2"
-                placeholder="Kurze Beschreibung des Entity-Typs"
+                :placeholder="t('admin.entityTypes.form.descriptionPlaceholder')"
               ></v-textarea>
 
               <v-row>
                 <v-col cols="12" md="6">
                   <v-text-field
                     v-model="form.icon"
-                    label="Icon"
-                    placeholder="mdi-wind-turbine"
-                    hint="Material Design Icon Name (mdi-*)"
+                    :label="t('admin.entityTypes.form.icon')"
+                    :placeholder="t('admin.entityTypes.form.iconPlaceholder')"
+                    :hint="t('admin.entityTypes.form.iconHint')"
                     persistent-hint
                   >
                     <template v-slot:prepend-inner>
@@ -137,8 +137,8 @@
                 <v-col cols="12" md="6">
                   <v-text-field
                     v-model="form.color"
-                    label="Farbe"
-                    placeholder="#4CAF50"
+                    :label="t('admin.entityTypes.form.color')"
+                    :placeholder="t('admin.entityTypes.form.colorPlaceholder')"
                     type="color"
                   >
                     <template v-slot:prepend-inner>
@@ -154,30 +154,30 @@
                 <v-col cols="12" md="4">
                   <v-checkbox
                     v-model="form.is_primary"
-                    label="Primaerer Typ"
-                    hint="Wird in der Hauptnavigation angezeigt"
+                    :label="t('admin.entityTypes.form.isPrimary')"
+                    :hint="t('admin.entityTypes.form.isPrimaryHint')"
                     persistent-hint
                   ></v-checkbox>
                 </v-col>
                 <v-col cols="12" md="4">
                   <v-checkbox
                     v-model="form.supports_hierarchy"
-                    label="Hierarchisch"
-                    hint="Unterstuetzt Parent-Child Beziehungen"
+                    :label="t('admin.entityTypes.form.supportsHierarchy')"
+                    :hint="t('admin.entityTypes.form.supportsHierarchyHint')"
                     persistent-hint
                   ></v-checkbox>
                 </v-col>
                 <v-col cols="12" md="4">
                   <v-checkbox
                     v-model="form.is_active"
-                    label="Aktiv"
+                    :label="t('common.active')"
                   ></v-checkbox>
                 </v-col>
               </v-row>
 
               <v-text-field
                 v-model.number="form.display_order"
-                label="Anzeigereihenfolge"
+                :label="t('admin.entityTypes.form.displayOrder')"
                 type="number"
                 min="0"
               ></v-text-field>
@@ -185,9 +185,9 @@
           </v-card-text>
           <v-card-actions>
             <v-spacer></v-spacer>
-            <v-btn @click="closeDialog">Abbrechen</v-btn>
+            <v-btn @click="closeDialog">{{ t('common.cancel') }}</v-btn>
             <v-btn color="primary" :loading="saving" @click="save">
-              {{ editingItem ? 'Speichern' : 'Erstellen' }}
+              {{ editingItem ? t('common.save') : t('common.create') }}
             </v-btn>
           </v-card-actions>
         </v-card>
@@ -198,16 +198,15 @@
         <v-card>
           <v-card-title class="text-h6">
             <v-icon color="error" class="mr-2">mdi-alert</v-icon>
-            Entity-Typ loeschen?
+            {{ t('admin.entityTypes.dialog.deleteTitle') }}
           </v-card-title>
           <v-card-text>
-            Moechtest du <strong>{{ itemToDelete?.name }}</strong> wirklich loeschen?
-            Diese Aktion kann nicht rueckgaengig gemacht werden.
+            {{ t('admin.entityTypes.dialog.deleteConfirm', { name: itemToDelete?.name }) }}
           </v-card-text>
           <v-card-actions>
             <v-spacer></v-spacer>
-            <v-btn @click="deleteDialog = false">Abbrechen</v-btn>
-            <v-btn color="error" :loading="deleting" @click="deleteItem">Loeschen</v-btn>
+            <v-btn @click="deleteDialog = false">{{ t('common.cancel') }}</v-btn>
+            <v-btn color="error" :loading="deleting" @click="deleteItem">{{ t('common.delete') }}</v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
@@ -216,10 +215,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { entityApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 
+const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
 
 // State
@@ -245,16 +246,16 @@ const form = ref({
   display_order: 10,
 })
 
-const headers = [
+const headers = computed(() => [
   { title: '', key: 'icon', width: '50px', sortable: false },
-  { title: 'Name', key: 'name' },
-  { title: 'Slug', key: 'slug' },
-  { title: 'Farbe', key: 'color', width: '120px' },
-  { title: 'Entities', key: 'entity_count', width: '100px', align: 'center' as const },
-  { title: 'System', key: 'is_system', width: '80px', align: 'center' as const },
-  { title: 'Aktiv', key: 'is_active', width: '80px', align: 'center' as const },
-  { title: 'Aktionen', key: 'actions', width: '120px', sortable: false },
-]
+  { title: t('admin.entityTypes.columns.name'), key: 'name' },
+  { title: t('admin.entityTypes.columns.slug'), key: 'slug' },
+  { title: t('admin.entityTypes.columns.color'), key: 'color', width: '120px' },
+  { title: t('admin.entityTypes.columns.entities'), key: 'entity_count', width: '100px', align: 'center' as const },
+  { title: t('admin.entityTypes.columns.system'), key: 'is_system', width: '80px', align: 'center' as const },
+  { title: t('admin.entityTypes.columns.active'), key: 'is_active', width: '80px', align: 'center' as const },
+  { title: t('common.actions'), key: 'actions', width: '120px', sortable: false },
+])
 
 // Methods
 async function loadEntityTypes() {
@@ -264,7 +265,7 @@ async function loadEntityTypes() {
     entityTypes.value = response.data.items || []
   } catch (e) {
     console.error('Failed to load entity types', e)
-    showError('Fehler beim Laden der Entity-Typen')
+    showError(t('admin.entityTypes.messages.loadError'))
   } finally {
     loading.value = false
   }
@@ -319,16 +320,16 @@ async function save() {
 
     if (editingItem.value) {
       await entityApi.updateEntityType(editingItem.value.id, data)
-      showSuccess('Entity-Typ aktualisiert')
+      showSuccess(t('admin.entityTypes.messages.updated'))
     } else {
       await entityApi.createEntityType(data)
-      showSuccess('Entity-Typ erstellt')
+      showSuccess(t('admin.entityTypes.messages.created'))
     }
 
     closeDialog()
     await loadEntityTypes()
   } catch (e: any) {
-    const detail = e.response?.data?.detail || 'Fehler beim Speichern'
+    const detail = e.response?.data?.detail || t('admin.entityTypes.messages.saveError')
     showError(detail)
   } finally {
     saving.value = false
@@ -346,12 +347,12 @@ async function deleteItem() {
   deleting.value = true
   try {
     await entityApi.deleteEntityType(itemToDelete.value.id)
-    showSuccess(`"${itemToDelete.value.name}" geloescht`)
+    showSuccess(t('admin.entityTypes.messages.deleted', { name: itemToDelete.value.name }))
     deleteDialog.value = false
     itemToDelete.value = null
     await loadEntityTypes()
   } catch (e: any) {
-    const detail = e.response?.data?.detail || 'Fehler beim Loeschen'
+    const detail = e.response?.data?.detail || t('admin.entityTypes.messages.deleteError')
     showError(detail)
   } finally {
     deleting.value = false

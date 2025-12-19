@@ -1,7 +1,10 @@
 """Webhook notification channel for HTTP callbacks."""
 
+import ipaddress
 import logging
-from typing import Any, Dict
+import socket
+from typing import Any, Dict, Tuple
+from urllib.parse import urlparse
 
 import httpx
 
@@ -9,6 +12,61 @@ from app.models.notification import Notification, NotificationChannel
 from services.notifications.channels.base import NotificationChannelBase
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# SSRF Protection for Webhook URLs
+# =============================================================================
+
+BLOCKED_IP_RANGES = [
+    ipaddress.ip_network("127.0.0.0/8"),      # Localhost
+    ipaddress.ip_network("10.0.0.0/8"),       # Private Class A
+    ipaddress.ip_network("172.16.0.0/12"),    # Private Class B
+    ipaddress.ip_network("192.168.0.0/16"),   # Private Class C
+    ipaddress.ip_network("169.254.0.0/16"),   # Link-local (cloud metadata)
+    ipaddress.ip_network("0.0.0.0/8"),        # Current network
+]
+
+
+def is_safe_webhook_url(url: str) -> Tuple[bool, str]:
+    """
+    Validate webhook URL for SSRF protection.
+
+    Returns (is_safe, error_message).
+    """
+    try:
+        parsed = urlparse(url)
+
+        # Only allow https
+        if parsed.scheme != "https":
+            return False, "Only HTTPS URLs are allowed"
+
+        hostname = parsed.hostname
+        if not hostname:
+            return False, "Invalid URL: no hostname"
+
+        # Block localhost
+        if hostname.lower() in {"localhost", "127.0.0.1", "::1", "0.0.0.0"}:
+            return False, "Localhost URLs are not allowed"
+
+        # Block internal hostnames
+        if hostname.endswith(".local") or hostname.endswith(".internal"):
+            return False, "Internal hostnames are not allowed"
+
+        # Resolve and check IP
+        try:
+            ip = socket.gethostbyname(hostname)
+            ip_obj = ipaddress.ip_address(ip)
+
+            for blocked_range in BLOCKED_IP_RANGES:
+                if ip_obj in blocked_range:
+                    return False, "URL resolves to blocked IP range"
+        except socket.gaierror:
+            pass  # Can't resolve, allow
+
+        return True, ""
+    except Exception as e:
+        return False, f"Invalid URL: {str(e)}"
 
 
 class WebhookChannel(NotificationChannelBase):
@@ -29,6 +87,14 @@ class WebhookChannel(NotificationChannelBase):
         url = config.get("url")
         if not url:
             logger.warning(f"No webhook URL for notification {notification.id}")
+            return False
+
+        # SSRF Protection: Validate URL before making request
+        is_safe, error_msg = is_safe_webhook_url(url)
+        if not is_safe:
+            logger.error(
+                f"Blocked unsafe webhook URL for notification {notification.id}: {error_msg}"
+            )
             return False
 
         headers = self._build_headers(config)
@@ -76,8 +142,10 @@ class WebhookChannel(NotificationChannelBase):
         if not url:
             return False
 
-        # Basic URL validation
-        if not url.startswith(("http://", "https://")):
+        # SSRF Protection: Validate URL
+        is_safe, error_msg = is_safe_webhook_url(url)
+        if not is_safe:
+            logger.warning(f"Invalid webhook URL: {error_msg}")
             return False
 
         # Validate auth config if present

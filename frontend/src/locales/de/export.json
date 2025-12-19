@@ -1,0 +1,62 @@
+{
+  "export": {
+    "title": "Daten exportieren",
+    "format": "Format",
+    "formats": {
+      "csv": "CSV",
+      "json": "JSON",
+      "excel": "Excel",
+      "pdf": "PDF"
+    },
+    "options": {
+      "includeMetadata": "Metadaten einschließen",
+      "includeRawText": "Rohtext einschließen",
+      "dateRange": "Zeitraum",
+      "categories": "Kategorien",
+      "status": "Status"
+    },
+    "actions": {
+      "export": "Exportieren",
+      "preview": "Vorschau"
+    },
+    "messages": {
+      "exporting": "Export wird erstellt...",
+      "success": "Export erfolgreich erstellt",
+      "error": "Fehler beim Export"
+    }
+  },
+  "exportView": {
+    "title": "Daten Export",
+    "download": "Daten herunterladen",
+    "countryOptional": "Land (optional)",
+    "locationOptional": "Gemeinde/Ort (optional)",
+    "categoryOptional": "Kategorie (optional)",
+    "minConfidence": "Mindest-Konfidenz",
+    "verifiedOnly": "Nur verifizierte Daten",
+    "jsonExport": "JSON Export",
+    "csvExport": "CSV Export",
+    "apiEndpoints": "API Endpunkte",
+    "extractedData": "Extrahierte Daten",
+    "fulltextSearch": "Volltextsuche",
+    "changesFeed": "Änderungs-Feed",
+    "webhookTest": "Webhook Test",
+    "webhookUrl": "Webhook URL",
+    "testWebhook": "Webhook testen",
+    "recentChanges": "Letzte Änderungen",
+    "detected": "Erkannt",
+    "changeTypes": {
+      "NEW_DOCUMENT": "Neues Dokument",
+      "CONTENT_CHANGED": "Inhalt geändert",
+      "REMOVED": "Entfernt",
+      "METADATA_CHANGED": "Metadaten geändert"
+    },
+    "messages": {
+      "jsonSuccess": "JSON Export erfolgreich heruntergeladen",
+      "jsonError": "Fehler beim JSON Export",
+      "csvSuccess": "CSV Export erfolgreich heruntergeladen",
+      "csvError": "Fehler beim CSV Export",
+      "webhookSuccess": "Webhook erfolgreich getestet",
+      "webhookError": "Webhook Test fehlgeschlagen"
+    }
+  }
+}

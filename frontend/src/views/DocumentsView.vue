@@ -4,13 +4,13 @@
     <v-overlay :model-value="loading && initialLoad" class="align-center justify-center" persistent scrim="rgba(0,0,0,0.7)">
       <v-card class="pa-8 text-center" min-width="320" elevation="24">
         <v-progress-circular indeterminate size="80" width="6" color="primary" class="mb-4"></v-progress-circular>
-        <div class="text-h6 mb-2">Daten werden geladen</div>
-        <div class="text-body-2 text-grey">Dokumente werden abgerufen...</div>
+        <div class="text-h6 mb-2">{{ $t('documents.messages.loadingDocuments') }}</div>
+        <div class="text-body-2 text-grey">{{ $t('documents.messages.loadingDocuments') }}</div>
       </v-card>
     </v-overlay>
 
     <div class="d-flex align-center mb-6">
-      <h1 class="text-h4">Dokumente</h1>
+      <h1 class="text-h4">{{ $t('documents.title') }}</h1>
       <v-spacer></v-spacer>
       <!-- Bulk Actions -->
       <v-btn
@@ -22,7 +22,7 @@
         :loading="bulkProcessing"
         @click="bulkProcess"
       >
-        {{ selectedDocuments.length }} verarbeiten
+        {{ selectedDocuments.length }} {{ $t('documents.bulkActions.processSelected') }}
       </v-btn>
       <v-btn
         v-if="selectedDocuments.length > 0"
@@ -33,7 +33,7 @@
         :loading="bulkAnalyzing"
         @click="bulkAnalyze"
       >
-        {{ selectedDocuments.length }} analysieren
+        {{ selectedDocuments.length }} {{ $t('documents.bulkActions.analyzeSelected') }}
       </v-btn>
       <v-btn
         v-if="stats.processing > 0"
@@ -44,7 +44,7 @@
         :loading="stoppingAll"
         @click="stopAllProcessing"
       >
-        Stoppen
+        {{ $t('documents.actions.stop') }}
       </v-btn>
       <v-btn
         v-if="stats.pending > 0 && selectedDocuments.length === 0"
@@ -54,7 +54,7 @@
         :loading="processingAll"
         @click="processAllPending"
       >
-        Alle Pending ({{ stats.pending }})
+        {{ $t('documents.actions.processAll') }} ({{ stats.pending }})
       </v-btn>
       <v-btn
         color="success"
@@ -62,7 +62,7 @@
         prepend-icon="mdi-download"
         @click="exportCsv"
       >
-        CSV Export
+        {{ $t('documents.actions.exportCsv') }}
       </v-btn>
     </div>
 
@@ -77,7 +77,7 @@
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">{{ stats.pending }}</div>
-            <div class="text-caption">Wartend</div>
+            <div class="text-caption">{{ $t('documents.stats.pending') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -93,7 +93,7 @@
               <v-icon v-if="stats.processing > 0" class="mdi-spin mr-1" size="small">mdi-loading</v-icon>
               {{ stats.processing }}
             </div>
-            <div class="text-caption">Verarbeitung</div>
+            <div class="text-caption">{{ $t('documents.stats.processing') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -109,7 +109,7 @@
               <v-icon v-if="stats.analyzing > 0" class="mdi-spin mr-1" size="small">mdi-brain</v-icon>
               {{ stats.analyzing }}
             </div>
-            <div class="text-caption">KI-Analyse</div>
+            <div class="text-caption">{{ $t('documents.stats.analyzing') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -122,7 +122,7 @@
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">{{ stats.completed }}</div>
-            <div class="text-caption">Fertig</div>
+            <div class="text-caption">{{ $t('documents.stats.completed') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -135,7 +135,7 @@
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">{{ stats.filtered }}</div>
-            <div class="text-caption">Gefiltert</div>
+            <div class="text-caption">{{ $t('documents.stats.filtered') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -148,7 +148,7 @@
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">{{ stats.failed }}</div>
-            <div class="text-caption">Fehler</div>
+            <div class="text-caption">{{ $t('documents.stats.failed') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -162,7 +162,7 @@
             <v-text-field
               v-model="searchQuery"
               prepend-inner-icon="mdi-magnify"
-              label="Suche (Titel, URL)"
+              :label="$t('documents.filters.search')"
               variant="outlined"
               density="compact"
               clearable
@@ -174,7 +174,7 @@
             <v-autocomplete
               v-model="locationFilter"
               :items="locations"
-              label="Standort"
+              :label="$t('documents.filters.location')"
               variant="outlined"
               density="compact"
               clearable
@@ -186,7 +186,7 @@
             <v-select
               v-model="typeFilter"
               :items="documentTypes"
-              label="Typ"
+              :label="$t('documents.filters.type')"
               variant="outlined"
               density="compact"
               clearable
@@ -200,7 +200,7 @@
               :items="categories"
               item-title="name"
               item-value="id"
-              label="Kategorie"
+              :label="$t('documents.filters.category')"
               variant="outlined"
               density="compact"
               clearable
@@ -212,7 +212,7 @@
             <v-text-field
               v-model="dateFrom"
               type="date"
-              label="Von"
+              :label="$t('documents.filters.dateFrom')"
               variant="outlined"
               density="compact"
               clearable
@@ -224,7 +224,7 @@
             <v-text-field
               v-model="dateTo"
               type="date"
-              label="Bis"
+              :label="$t('documents.filters.dateTo')"
               variant="outlined"
               density="compact"
               clearable
@@ -237,7 +237,7 @@
           <v-col cols="12">
             <v-btn variant="text" color="primary" size="small" @click="clearFilters">
               <v-icon size="small" class="mr-1">mdi-filter-off</v-icon>
-              Filter zurücksetzen
+              {{ $t('documents.filters.resetFilters') }}
             </v-btn>
           </v-col>
         </v-row>
@@ -262,7 +262,7 @@
         <template v-slot:item.title="{ item }">
           <div class="py-2">
             <div class="font-weight-medium text-truncate" style="max-width: 280px;" :title="item.title || item.original_url">
-              {{ item.title || '(Kein Titel)' }}
+              {{ item.title || $t('documents.detail.noTitle') }}
             </div>
             <div class="text-caption text-grey text-truncate" style="max-width: 280px;">
               <a :href="item.original_url" target="_blank" class="text-decoration-none">{{ item.original_url }}</a>
@@ -414,11 +414,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { dataApi, adminApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
 
+const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
 
 // Loading states
@@ -470,14 +472,14 @@ const stats = ref({
 const documentTypes = ['PDF', 'HTML', 'DOCX', 'DOC']
 
 const headers = [
-  { title: 'Dokument', key: 'title', sortable: true },
-  { title: 'Typ', key: 'document_type', width: '90px', sortable: true },
-  { title: 'Status', key: 'processing_status', width: '140px', sortable: true },
-  { title: 'Quelle', key: 'source_name', width: '140px', sortable: true },
-  { title: 'Kategorie', key: 'category_name', width: '150px', sortable: true },
-  { title: 'Entdeckt', key: 'discovered_at', width: '110px', sortable: true },
-  { title: 'Größe', key: 'file_size', width: '80px', sortable: true },
-  { title: 'Aktionen', key: 'actions', sortable: false, width: '170px' },
+  { title: t('documents.columns.title'), key: 'title', sortable: true },
+  { title: t('common.type'), key: 'document_type', width: '90px', sortable: true },
+  { title: t('common.status'), key: 'processing_status', width: '140px', sortable: true },
+  { title: t('documents.columns.source'), key: 'source_name', width: '140px', sortable: true },
+  { title: t('documents.columns.category'), key: 'category_name', width: '150px', sortable: true },
+  { title: t('documents.columns.discovered'), key: 'discovered_at', width: '110px', sortable: true },
+  { title: t('documents.columns.size'), key: 'file_size', width: '80px', sortable: true },
+  { title: t('common.actions'), key: 'actions', sortable: false, width: '170px' },
 ]
 
 const hasActiveFilters = computed(() =>
@@ -618,10 +620,10 @@ const processDocument = async (doc: any) => {
   processingIds.value.add(doc.id)
   try {
     await adminApi.processDocument(doc.id)
-    showSuccess('Verarbeitung gestartet')
+    showSuccess(t('documents.processStarted'))
     loadData()
   } catch (error: any) {
-    showError(error.response?.data?.detail || 'Fehler beim Starten der Verarbeitung')
+    showError(error.response?.data?.detail || t('documents.processError'))
   } finally {
     processingIds.value.delete(doc.id)
   }
@@ -631,10 +633,10 @@ const analyzeDocument = async (doc: any) => {
   analyzingIds.value.add(doc.id)
   try {
     await adminApi.analyzeDocument(doc.id, true)
-    showSuccess('KI-Analyse gestartet')
+    showSuccess(t('documents.analysisStarted'))
     loadData()
   } catch (error: any) {
-    showError(error.response?.data?.detail || 'Fehler beim Starten der KI-Analyse')
+    showError(error.response?.data?.detail || t('documents.analysisError'))
   } finally {
     analyzingIds.value.delete(doc.id)
   }
@@ -644,10 +646,10 @@ const processAllPending = async () => {
   processingAll.value = true
   try {
     await adminApi.processAllPending()
-    showSuccess('Verarbeitung aller wartenden Dokumente gestartet')
+    showSuccess(t('documents.allProcessStarted'))
     loadData()
   } catch (error: any) {
-    showError(error.response?.data?.detail || 'Fehler beim Starten der Verarbeitung')
+    showError(error.response?.data?.detail || t('documents.processError'))
   } finally {
     processingAll.value = false
   }
@@ -657,10 +659,10 @@ const stopAllProcessing = async () => {
   stoppingAll.value = true
   try {
     await adminApi.stopAllProcessing()
-    showSuccess('Verarbeitung wird gestoppt...')
+    showSuccess(t('documents.processingStopping'))
     loadData()
   } catch (error: any) {
-    showError(error.response?.data?.detail || 'Fehler beim Stoppen')
+    showError(error.response?.data?.detail || t('documents.stopError'))
   } finally {
     stoppingAll.value = false
   }
@@ -705,7 +707,7 @@ const showDetails = async (doc: any) => {
     selectedDocument.value = response.data
     detailsDialog.value = true
   } catch (error: any) {
-    showError('Fehler beim Laden der Details')
+    showError(t('documents.loadDetailsError'))
   }
 }
 

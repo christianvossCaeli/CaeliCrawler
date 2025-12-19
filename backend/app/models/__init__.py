@@ -30,6 +30,7 @@ from app.models.analysis_template import AnalysisTemplate
 # Authentication & Authorization
 from app.models.user import User, UserRole
 from app.models.user_email import UserEmailAddress
+from app.models.user_session import UserSession, DeviceType, parse_user_agent
 
 # Notifications
 from app.models.notification import (
@@ -44,6 +45,9 @@ from app.models.notification_rule import NotificationRule
 from app.models.audit_log import AuditLog, AuditAction
 from app.models.entity_version import EntityVersion
 from app.models.mixins import VersionedMixin, TimestampMixin
+
+# Assistant
+from app.models.reminder import Reminder, ReminderRepeat, ReminderStatus
 
 __all__ = [
     # Core models
@@ -89,6 +93,9 @@ __all__ = [
     "User",
     "UserRole",
     "UserEmailAddress",
+    "UserSession",
+    "DeviceType",
+    "parse_user_agent",
     # Notifications
     "Notification",
     "NotificationChannel",
@@ -101,4 +108,8 @@ __all__ = [
     "EntityVersion",
     "VersionedMixin",
     "TimestampMixin",
+    # Assistant
+    "Reminder",
+    "ReminderRepeat",
+    "ReminderStatus",
 ]

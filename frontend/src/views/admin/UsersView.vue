@@ -5,16 +5,16 @@
       <v-col>
         <h1 class="text-h4 font-weight-bold">
           <v-icon start size="32">mdi-account-group</v-icon>
-          Benutzerverwaltung
+          {{ t('admin.users.title') }}
         </h1>
         <p class="text-body-2 text-medium-emphasis mt-1">
-          Benutzer erstellen, bearbeiten und verwalten
+          {{ t('admin.users.subtitle') }}
         </p>
       </v-col>
       <v-col cols="auto">
         <v-btn color="primary" @click="openCreateDialog">
           <v-icon start>mdi-plus</v-icon>
-          Neuer Benutzer
+          {{ t('admin.users.actions.create') }}
         </v-btn>
       </v-col>
     </v-row>
@@ -24,7 +24,7 @@
       <v-col cols="12" md="4">
         <v-text-field
           v-model="search"
-          label="Suche"
+          :label="t('admin.users.filters.search')"
           prepend-inner-icon="mdi-magnify"
           variant="outlined"
           density="compact"
@@ -35,7 +35,7 @@
       <v-col cols="12" md="3">
         <v-select
           v-model="roleFilter"
-          label="Rolle"
+          :label="t('admin.users.filters.role')"
           :items="roleOptions"
           variant="outlined"
           density="compact"
@@ -46,7 +46,7 @@
       <v-col cols="12" md="3">
         <v-select
           v-model="activeFilter"
-          label="Status"
+          :label="t('admin.users.filters.status')"
           :items="activeOptions"
           variant="outlined"
           density="compact"
@@ -91,7 +91,7 @@
           <span v-if="item.last_login">
             {{ formatDate(item.last_login) }}
           </span>
-          <span v-else class="text-medium-emphasis">Nie</span>
+          <span v-else class="text-medium-emphasis">{{ t('admin.users.never') }}</span>
         </template>
 
         <!-- Actions Column -->
@@ -103,7 +103,7 @@
             @click="openEditDialog(item)"
           >
             <v-icon>mdi-pencil</v-icon>
-            <v-tooltip activator="parent">Bearbeiten</v-tooltip>
+            <v-tooltip activator="parent">{{ t('admin.users.actions.edit') }}</v-tooltip>
           </v-btn>
           <v-btn
             icon
@@ -112,7 +112,7 @@
             @click="openPasswordDialog(item)"
           >
             <v-icon>mdi-lock-reset</v-icon>
-            <v-tooltip activator="parent">Passwort zurücksetzen</v-tooltip>
+            <v-tooltip activator="parent">{{ t('admin.users.actions.resetPassword') }}</v-tooltip>
           </v-btn>
           <v-btn
             icon
@@ -123,7 +123,7 @@
             @click="confirmDelete(item)"
           >
             <v-icon>mdi-delete</v-icon>
-            <v-tooltip activator="parent">Löschen</v-tooltip>
+            <v-tooltip activator="parent">{{ t('admin.users.actions.delete') }}</v-tooltip>
           </v-btn>
         </template>
       </v-data-table-server>
@@ -133,13 +133,13 @@
     <v-dialog v-model="dialogOpen" max-width="500">
       <v-card>
         <v-card-title>
-          {{ editingUser ? 'Benutzer bearbeiten' : 'Neuer Benutzer' }}
+          {{ editingUser ? t('admin.users.dialog.editTitle') : t('admin.users.dialog.createTitle') }}
         </v-card-title>
         <v-card-text>
           <v-form ref="formRef" @submit.prevent="saveUser">
             <v-text-field
               v-model="formData.email"
-              label="E-Mail"
+              :label="t('admin.users.form.email')"
               type="email"
               :rules="[required, emailRule]"
               variant="outlined"
@@ -147,7 +147,7 @@
             />
             <v-text-field
               v-model="formData.full_name"
-              label="Name"
+              :label="t('admin.users.form.name')"
               :rules="[required]"
               variant="outlined"
               class="mb-3"
@@ -155,15 +155,22 @@
             <v-text-field
               v-if="!editingUser"
               v-model="formData.password"
-              label="Passwort"
+              :label="t('admin.users.form.password')"
               type="password"
-              :rules="[required, minLength(8)]"
+              :rules="[required, passwordValidRule]"
               variant="outlined"
+              class="mb-1"
+            />
+            <PasswordStrengthIndicator
+              v-if="!editingUser && formData.password"
+              :password="formData.password"
+              :show-requirements="true"
               class="mb-3"
+              @update:is-valid="passwordValid = $event"
             />
             <v-select
               v-model="formData.role"
-              label="Rolle"
+              :label="t('admin.users.form.role')"
               :items="roleOptions"
               :rules="[required]"
               variant="outlined"
@@ -171,7 +178,7 @@
             />
             <v-switch
               v-model="formData.is_active"
-              label="Aktiv"
+              :label="t('admin.users.form.active')"
               color="success"
               :disabled="editingUser?.id === currentUser?.id"
             />
@@ -179,9 +186,9 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="dialogOpen = false">Abbrechen</v-btn>
+          <v-btn variant="text" @click="dialogOpen = false">{{ t('common.cancel') }}</v-btn>
           <v-btn color="primary" :loading="saving" @click="saveUser">
-            Speichern
+            {{ t('common.save') }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -190,26 +197,38 @@
     <!-- Password Reset Dialog -->
     <v-dialog v-model="passwordDialogOpen" max-width="400">
       <v-card>
-        <v-card-title>Passwort zurücksetzen</v-card-title>
+        <v-card-title>{{ t('admin.users.dialog.resetPasswordTitle') }}</v-card-title>
         <v-card-text>
           <p class="mb-4">
-            Neues Passwort für <strong>{{ selectedUser?.email }}</strong>:
+            {{ t('admin.users.resetPasswordFor') }} <strong>{{ selectedUser?.email }}</strong>:
           </p>
           <v-text-field
             v-model="newPassword"
-            label="Neues Passwort"
+            :label="t('admin.users.newPassword')"
             type="password"
-            :rules="[required, minLength(8)]"
+            :rules="[required, newPasswordValidRule]"
             variant="outlined"
+            class="mb-1"
+          />
+          <PasswordStrengthIndicator
+            v-if="newPassword"
+            :password="newPassword"
+            :show-requirements="true"
+            @update:is-valid="newPasswordValid = $event"
           />
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="passwordDialogOpen = false">
-            Abbrechen
+            {{ t('common.cancel') }}
           </v-btn>
-          <v-btn color="primary" :loading="saving" @click="resetPassword">
-            Zurücksetzen
+          <v-btn
+            color="primary"
+            :loading="saving"
+            :disabled="!newPasswordValid"
+            @click="resetPassword"
+          >
+            {{ t('admin.users.resetButton') }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -218,19 +237,17 @@
     <!-- Delete Confirmation Dialog -->
     <v-dialog v-model="deleteDialogOpen" max-width="400">
       <v-card>
-        <v-card-title class="text-error">Benutzer löschen?</v-card-title>
+        <v-card-title class="text-error">{{ t('admin.users.dialog.deleteTitle') }}</v-card-title>
         <v-card-text>
-          Sind Sie sicher, dass Sie den Benutzer
-          <strong>{{ selectedUser?.email }}</strong> löschen möchten?
-          Diese Aktion kann nicht rückgängig gemacht werden.
+          {{ t('admin.users.deleteConfirm', { email: selectedUser?.email }) }}
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="deleteDialogOpen = false">
-            Abbrechen
+            {{ t('common.cancel') }}
           </v-btn>
           <v-btn color="error" :loading="saving" @click="deleteUser">
-            Löschen
+            {{ t('common.delete') }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -240,9 +257,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import { useAuthStore, type User } from '@/stores/auth'
+import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator.vue'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const currentUser = computed(() => auth.user)
 
@@ -268,6 +288,8 @@ const formRef = ref<any>(null)
 const editingUser = ref<User | null>(null)
 const selectedUser = ref<User | null>(null)
 const newPassword = ref('')
+const passwordValid = ref(false)
+const newPasswordValid = ref(false)
 
 const formData = reactive({
   email: '',
@@ -278,32 +300,34 @@ const formData = reactive({
 })
 
 // Table headers
-const headers = [
-  { title: 'E-Mail', key: 'email', sortable: false },
-  { title: 'Name', key: 'full_name', sortable: false },
-  { title: 'Rolle', key: 'role', sortable: false, width: 120 },
-  { title: 'Aktiv', key: 'is_active', sortable: false, width: 80 },
-  { title: 'Letzter Login', key: 'last_login', sortable: false, width: 180 },
-  { title: 'Aktionen', key: 'actions', sortable: false, width: 150 },
-]
+const headers = computed(() => [
+  { title: t('admin.users.columns.email'), key: 'email', sortable: false },
+  { title: t('admin.users.columns.name'), key: 'full_name', sortable: false },
+  { title: t('admin.users.columns.role'), key: 'role', sortable: false, width: 120 },
+  { title: t('admin.users.columns.active'), key: 'is_active', sortable: false, width: 80 },
+  { title: t('admin.users.columns.lastLogin'), key: 'last_login', sortable: false, width: 180 },
+  { title: t('common.actions'), key: 'actions', sortable: false, width: 150 },
+])
 
 // Options
-const roleOptions = [
-  { title: 'Viewer', value: 'VIEWER' },
-  { title: 'Editor', value: 'EDITOR' },
-  { title: 'Admin', value: 'ADMIN' },
-]
+const roleOptions = computed(() => [
+  { title: t('roles.VIEWER'), value: 'VIEWER' },
+  { title: t('roles.EDITOR'), value: 'EDITOR' },
+  { title: t('roles.ADMIN'), value: 'ADMIN' },
+])
 
-const activeOptions = [
-  { title: 'Aktiv', value: true },
-  { title: 'Inaktiv', value: false },
-]
+const activeOptions = computed(() => [
+  { title: t('admin.users.activeLabel'), value: true },
+  { title: t('admin.users.inactiveLabel'), value: false },
+])
 
 // Validation rules
-const required = (v: any) => !!v || 'Pflichtfeld'
-const emailRule = (v: string) => /.+@.+\..+/.test(v) || 'Ungültige E-Mail'
+const required = (v: any) => !!v || t('validation.required')
+const emailRule = (v: string) => /.+@.+\..+/.test(v) || t('validation.email')
 const minLength = (min: number) => (v: string) =>
-  v.length >= min || `Mindestens ${min} Zeichen`
+  v.length >= min || t('validation.minLength', { min })
+const passwordValidRule = () => passwordValid.value || t('admin.users.passwordNotValid')
+const newPasswordValidRule = () => newPasswordValid.value || t('admin.users.passwordNotValid')
 
 // Helpers
 function getRoleColor(role: string): string {
@@ -316,12 +340,7 @@ function getRoleColor(role: string): string {
 }
 
 function getRoleLabel(role: string): string {
-  const labels: Record<string, string> = {
-    ADMIN: 'Admin',
-    EDITOR: 'Editor',
-    VIEWER: 'Viewer',
-  }
-  return labels[role] || role
+  return t(`roles.${role}`) || role
 }
 
 function formatDate(date: string): string {
@@ -407,7 +426,7 @@ async function saveUser() {
     await fetchUsers()
   } catch (error: any) {
     console.error('Failed to save user:', error)
-    alert(error.response?.data?.detail || 'Fehler beim Speichern')
+    alert(error.response?.data?.detail || t('admin.users.saveError'))
   } finally {
     saving.value = false
   }
@@ -430,7 +449,7 @@ async function resetPassword() {
     passwordDialogOpen.value = false
   } catch (error: any) {
     console.error('Failed to reset password:', error)
-    alert(error.response?.data?.detail || 'Fehler beim Zurücksetzen')
+    alert(error.response?.data?.detail || t('admin.users.resetError'))
   } finally {
     saving.value = false
   }
@@ -451,7 +470,7 @@ async function deleteUser() {
     await fetchUsers()
   } catch (error: any) {
     console.error('Failed to delete user:', error)
-    alert(error.response?.data?.detail || 'Fehler beim Löschen')
+    alert(error.response?.data?.detail || t('admin.users.deleteError'))
   } finally {
     saving.value = false
   }

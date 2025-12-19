@@ -1,0 +1,157 @@
+/**
+ * Vue I18n Configuration for CaeliCrawler
+ *
+ * Supports German (default) and English locales.
+ * Language preference is stored per user in the database.
+ */
+
+import { createI18n } from 'vue-i18n'
+
+// German locale modules
+import deCommon from './de/common.json'
+import deDashboard from './de/dashboard.json'
+import deCrawler from './de/crawler.json'
+import deDocuments from './de/documents.json'
+import deResults from './de/results.json'
+import deSources from './de/sources.json'
+import deCategories from './de/categories.json'
+import deEntities from './de/entities.json'
+import deExport from './de/export.json'
+import deSmartQuery from './de/smartQuery.json'
+import deNotifications from './de/notifications.json'
+import deAdmin from './de/admin.json'
+import deHelpIntro from './de/help/intro.json'
+import deHelpViews from './de/help/views.json'
+import deHelpFeatures from './de/help/features.json'
+import deHelpAdvanced from './de/help/advanced.json'
+import deHelpUi from './de/help/ui.json'
+import deAssistant from './de/assistant.json'
+import deMisc from './de/misc.json'
+
+// English locale modules
+import enCommon from './en/common.json'
+import enDashboard from './en/dashboard.json'
+import enCrawler from './en/crawler.json'
+import enDocuments from './en/documents.json'
+import enResults from './en/results.json'
+import enSources from './en/sources.json'
+import enCategories from './en/categories.json'
+import enEntities from './en/entities.json'
+import enExport from './en/export.json'
+import enSmartQuery from './en/smartQuery.json'
+import enNotifications from './en/notifications.json'
+import enAdmin from './en/admin.json'
+import enHelpIntro from './en/help/intro.json'
+import enHelpViews from './en/help/views.json'
+import enHelpFeatures from './en/help/features.json'
+import enHelpAdvanced from './en/help/advanced.json'
+import enHelpUi from './en/help/ui.json'
+import enAssistant from './en/assistant.json'
+import enMisc from './en/misc.json'
+
+// Merge German modules
+const de = {
+  ...deCommon,
+  ...deDashboard,
+  ...deCrawler,
+  ...deDocuments,
+  ...deResults,
+  ...deSources,
+  ...deCategories,
+  ...deEntities,
+  ...deExport,
+  ...deSmartQuery,
+  ...deNotifications,
+  ...deAdmin,
+  // Merge help sub-modules
+  help: {
+    ...deHelpIntro.help,
+    ...deHelpViews.help,
+    ...deHelpFeatures.help,
+    ...deHelpAdvanced.help,
+    ...deHelpUi.help,
+  },
+  ...deAssistant,
+  ...deMisc,
+}
+
+// Merge English modules
+const en = {
+  ...enCommon,
+  ...enDashboard,
+  ...enCrawler,
+  ...enDocuments,
+  ...enResults,
+  ...enSources,
+  ...enCategories,
+  ...enEntities,
+  ...enExport,
+  ...enSmartQuery,
+  ...enNotifications,
+  ...enAdmin,
+  // Merge help sub-modules
+  help: {
+    ...enHelpIntro.help,
+    ...enHelpViews.help,
+    ...enHelpFeatures.help,
+    ...enHelpAdvanced.help,
+    ...enHelpUi.help,
+  },
+  ...enAssistant,
+  ...enMisc,
+}
+
+export type SupportedLocale = 'de' | 'en'
+
+export const SUPPORTED_LOCALES: SupportedLocale[] = ['de', 'en']
+export const DEFAULT_LOCALE: SupportedLocale = 'de'
+
+export const LOCALE_NAMES: Record<SupportedLocale, string> = {
+  de: 'Deutsch',
+  en: 'English',
+}
+
+/**
+ * Get the initial locale from localStorage or use default
+ */
+function getInitialLocale(): SupportedLocale {
+  const saved = localStorage.getItem('caeli-language')
+  if (saved && SUPPORTED_LOCALES.includes(saved as SupportedLocale)) {
+    return saved as SupportedLocale
+  }
+  return DEFAULT_LOCALE
+}
+
+export const i18n = createI18n({
+  legacy: false, // Use Composition API mode
+  locale: getInitialLocale(),
+  fallbackLocale: DEFAULT_LOCALE,
+  messages: {
+    de,
+    en,
+  },
+  // Missing translation warnings only in development
+  missingWarn: import.meta.env.DEV,
+  fallbackWarn: import.meta.env.DEV,
+})
+
+/**
+ * Set the current locale and persist to localStorage
+ */
+export function setLocale(locale: SupportedLocale): void {
+  if (SUPPORTED_LOCALES.includes(locale)) {
+    i18n.global.locale.value = locale
+    localStorage.setItem('caeli-language', locale)
+    // Set HTML lang attribute for accessibility
+    document.documentElement.lang = locale
+  }
+}
+
+/**
+ * Get the current locale
+ */
+export function getLocale(): SupportedLocale {
+  return i18n.global.locale.value as SupportedLocale
+}
+
+export default i18n

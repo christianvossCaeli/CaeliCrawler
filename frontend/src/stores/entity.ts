@@ -306,6 +306,26 @@ export const useEntityStore = defineStore('entity', () => {
   const entityReport = ref<any>(null)
   const entityReportLoading = ref(false)
 
+  // Filter Options
+  const locationFilterOptions = ref<{
+    countries: string[]
+    admin_level_1: string[]
+    admin_level_2: string[]
+  }>({ countries: [], admin_level_1: [], admin_level_2: [] })
+  const attributeFilterOptions = ref<{
+    entity_type_slug: string
+    entity_type_name: string
+    attributes: Array<{
+      key: string
+      title: string
+      description: string | null
+      type: string
+      format: string | null
+    }>
+    attribute_values?: Record<string, string[]>
+  } | null>(null)
+  const filterOptionsLoading = ref(false)
+
   // Error handling
   const error = ref<string | null>(null)
 
@@ -649,6 +669,38 @@ export const useEntityStore = defineStore('entity', () => {
   }
 
   // ========================================
+  // Filter Options Actions
+  // ========================================
+
+  async function fetchLocationFilterOptions(params?: { country?: string; admin_level_1?: string }) {
+    filterOptionsLoading.value = true
+    try {
+      const response = await entityApi.getLocationFilterOptions(params)
+      locationFilterOptions.value = response.data
+      return response.data
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Failed to fetch location filter options'
+      throw err
+    } finally {
+      filterOptionsLoading.value = false
+    }
+  }
+
+  async function fetchAttributeFilterOptions(params: { entity_type_slug: string; attribute_key?: string }) {
+    filterOptionsLoading.value = true
+    try {
+      const response = await entityApi.getAttributeFilterOptions(params)
+      attributeFilterOptions.value = response.data
+      return response.data
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Failed to fetch attribute filter options'
+      throw err
+    } finally {
+      filterOptionsLoading.value = false
+    }
+  }
+
+  // ========================================
   // Utility Functions
   // ========================================
 
@@ -701,6 +753,9 @@ export const useEntityStore = defineStore('entity', () => {
     analysisOverviewLoading,
     entityReport,
     entityReportLoading,
+    locationFilterOptions,
+    attributeFilterOptions,
+    filterOptionsLoading,
     error,
 
     // Computed
@@ -747,6 +802,10 @@ export const useEntityStore = defineStore('entity', () => {
     fetchAnalysisOverview,
     fetchEntityReport,
     fetchAnalysisStats,
+
+    // Filter Options Actions
+    fetchLocationFilterOptions,
+    fetchAttributeFilterOptions,
 
     // Utility
     clearError,

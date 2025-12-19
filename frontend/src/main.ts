@@ -10,10 +10,19 @@ import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import '@mdi/font/css/materialdesignicons.css'
+import { de, en } from 'vuetify/locale'
+
+// i18n
+import i18n, { getLocale } from './locales'
 
 const vuetify = createVuetify({
   components,
   directives,
+  locale: {
+    locale: getLocale(),
+    fallback: 'de',
+    messages: { de, en },
+  },
   theme: {
     defaultTheme: 'caeliLight',
     themes: {
@@ -96,5 +105,9 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 app.use(vuetify)
+app.use(i18n)
+
+// Set HTML lang attribute
+document.documentElement.lang = getLocale()
 
 app.mount('#app')

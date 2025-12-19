@@ -1,10 +1,10 @@
 <template>
   <v-card>
     <v-card-title class="d-flex justify-space-between align-center">
-      <span>Benachrichtigungs-Regeln</span>
+      <span>{{ t('notifications.rules.title') }}</span>
       <v-btn color="primary" @click="openCreateDialog">
         <v-icon start>mdi-plus</v-icon>
-        Neue Regel
+        {{ t('notifications.rules.create') }}
       </v-btn>
     </v-card-title>
 
@@ -44,7 +44,7 @@
         <template v-slot:item.trigger_count="{ item }">
           <span>{{ item.trigger_count }}</span>
           <span v-if="item.last_triggered" class="text-caption text-medium-emphasis ml-1">
-            (zuletzt: {{ formatDate(item.last_triggered) }})
+            ({{ t('notifications.rules.lastTriggered') }}: {{ formatDate(item.last_triggered) }})
           </span>
         </template>
 
@@ -54,7 +54,7 @@
               icon="mdi-pencil"
               size="small"
               variant="text"
-              title="Bearbeiten"
+              :title="t('common.edit')"
               @click="openEditDialog(item)"
             />
             <v-btn
@@ -62,7 +62,7 @@
               size="small"
               variant="text"
               color="error"
-              title="Loeschen"
+              :title="t('common.delete')"
               @click="confirmDelete(item)"
             />
           </div>
@@ -70,7 +70,7 @@
       </v-data-table>
 
       <v-alert v-else-if="!loading" type="info" variant="tonal">
-        Noch keine Regeln erstellt. Klicken Sie auf "Neue Regel" um eine Benachrichtigungsregel zu erstellen.
+        {{ t('notifications.rules.noRules') }}
       </v-alert>
     </v-card-text>
   </v-card>
@@ -78,19 +78,19 @@
   <!-- Create/Edit Rule Dialog -->
   <v-dialog v-model="ruleDialog" max-width="700" persistent>
     <v-card>
-      <v-card-title>{{ editMode ? 'Regel bearbeiten' : 'Neue Regel erstellen' }}</v-card-title>
+      <v-card-title>{{ editMode ? t('notifications.rules.edit') : t('notifications.rules.createNew') }}</v-card-title>
       <v-card-text>
         <v-form ref="formRef" v-model="formValid">
           <v-text-field
             v-model="formData.name"
-            label="Name"
-            :rules="[v => !!v || 'Name ist erforderlich']"
+            :label="t('common.name')"
+            :rules="[v => !!v || t('notifications.rules.nameRequired')]"
             class="mb-2"
           />
 
           <v-textarea
             v-model="formData.description"
-            label="Beschreibung (optional)"
+            :label="t('notifications.rules.descriptionOptional')"
             rows="2"
             class="mb-2"
           />
@@ -98,8 +98,8 @@
           <v-select
             v-model="formData.event_type"
             :items="eventTypeOptions"
-            label="Event-Typ"
-            :rules="[v => !!v || 'Event-Typ ist erforderlich']"
+            :label="t('notifications.rules.eventType')"
+            :rules="[v => !!v || t('notifications.rules.eventTypeRequired')]"
             class="mb-2"
           >
             <template v-slot:item="{ item, props }">
@@ -114,8 +114,8 @@
           <v-select
             v-model="formData.channel"
             :items="channelOptions"
-            label="Benachrichtigungs-Kanal"
-            :rules="[v => !!v || 'Kanal ist erforderlich']"
+            :label="t('notifications.rules.channel')"
+            :rules="[v => !!v || t('notifications.rules.channelRequired')]"
             class="mb-2"
           >
             <template v-slot:item="{ item, props }">
@@ -130,20 +130,20 @@
           <!-- Channel-specific config: EMAIL -->
           <template v-if="formData.channel === 'EMAIL'">
             <v-divider class="my-4" />
-            <h4 class="mb-2">Email-Konfiguration</h4>
+            <h4 class="mb-2">{{ t('notifications.rules.emailConfig') }}</h4>
             <v-select
               v-model="formData.channel_config.email_address_ids"
               :items="emailAddressOptions"
-              label="Email-Adressen"
+              :label="t('notifications.rules.emailAddresses')"
               multiple
               chips
-              hint="Leer lassen um an die Haupt-Email zu senden"
+              :hint="t('notifications.rules.emailAddressesHint')"
               persistent-hint
               class="mb-2"
             />
             <v-checkbox
               v-model="formData.channel_config.include_primary"
-              label="Auch an Haupt-Email senden"
+              :label="t('notifications.rules.includePrimary')"
               hide-details
             />
           </template>
@@ -151,36 +151,36 @@
           <!-- Channel-specific config: WEBHOOK -->
           <template v-if="formData.channel === 'WEBHOOK'">
             <v-divider class="my-4" />
-            <h4 class="mb-2">Webhook-Konfiguration</h4>
+            <h4 class="mb-2">{{ t('notifications.rules.webhookConfig') }}</h4>
             <v-text-field
               v-model="formData.channel_config.url"
-              label="Webhook URL"
-              :rules="[v => !!v || 'URL ist erforderlich', v => isValidUrl(v) || 'Unguelige URL']"
+              :label="t('notifications.rules.webhookUrl')"
+              :rules="[v => !!v || t('notifications.rules.urlRequired'), v => isValidUrl(v) || t('notifications.rules.invalidUrl')]"
               class="mb-2"
             />
             <v-select
               v-model="webhookAuthType"
               :items="webhookAuthOptions"
-              label="Authentifizierung"
+              :label="t('notifications.rules.authentication')"
               class="mb-2"
             />
             <v-text-field
               v-if="webhookAuthType === 'bearer'"
               v-model="formData.channel_config.auth.token"
-              label="Bearer Token"
+              :label="t('notifications.rules.bearerToken')"
               class="mb-2"
             />
             <v-row v-if="webhookAuthType === 'basic'">
               <v-col cols="6">
                 <v-text-field
                   v-model="formData.channel_config.auth.username"
-                  label="Benutzername"
+                  :label="t('notifications.rules.username')"
                 />
               </v-col>
               <v-col cols="6">
                 <v-text-field
                   v-model="formData.channel_config.auth.password"
-                  label="Passwort"
+                  :label="t('notifications.rules.password')"
                   type="password"
                 />
               </v-col>
@@ -193,7 +193,7 @@
               class="mt-2"
             >
               <v-icon start>mdi-test-tube</v-icon>
-              Webhook testen
+              {{ t('notifications.rules.testWebhook') }}
             </v-btn>
             <v-alert
               v-if="webhookTestResult"
@@ -202,48 +202,48 @@
               class="mt-2"
               density="compact"
             >
-              {{ webhookTestResult.success ? 'Webhook erfolgreich getestet!' : webhookTestResult.error || 'Webhook-Test fehlgeschlagen' }}
+              {{ webhookTestResult.success ? t('notifications.rules.webhookTestSuccess') : webhookTestResult.error || t('notifications.rules.webhookTestFailed') }}
             </v-alert>
           </template>
 
           <!-- Filter Conditions -->
           <v-divider class="my-4" />
-          <h4 class="mb-2">Filter-Bedingungen (optional)</h4>
+          <h4 class="mb-2">{{ t('notifications.rules.filterConditions') }}</h4>
           <p class="text-caption text-medium-emphasis mb-3">
-            Lassen Sie die Felder leer, um alle Events dieses Typs zu erhalten.
+            {{ t('notifications.rules.filterConditionsHint') }}
           </p>
 
           <v-text-field
             v-model.number="formData.conditions.min_confidence"
-            label="Mindest-Konfidenz"
+            :label="t('notifications.rules.minConfidence')"
             type="number"
             min="0"
             max="1"
             step="0.1"
-            hint="z.B. 0.7 fuer 70% (nur fuer AI-Events relevant)"
+            :hint="t('notifications.rules.minConfidenceHint')"
             persistent-hint
             class="mb-2"
           />
 
           <v-combobox
             v-model="formData.conditions.keywords"
-            label="Schlusselwoerter"
+            :label="t('notifications.rules.keywords')"
             chips
             multiple
-            hint="Mindestens eines muss im Titel/Text vorkommen"
+            :hint="t('notifications.rules.keywordsHint')"
             persistent-hint
             class="mb-2"
           />
 
           <!-- Digest Settings -->
           <v-divider class="my-4" />
-          <h4 class="mb-2">Sammelbenachrichtigungen</h4>
+          <h4 class="mb-2">{{ t('notifications.rules.digestSettings') }}</h4>
 
           <v-switch
             v-model="formData.digest_enabled"
-            label="Sammelmeldungen aktivieren"
+            :label="t('notifications.rules.digestEnabled')"
             color="primary"
-            hint="Statt einzelner Benachrichtigungen eine Zusammenfassung senden"
+            :hint="t('notifications.rules.digestEnabledHint')"
             persistent-hint
           />
 
@@ -251,7 +251,7 @@
             v-if="formData.digest_enabled"
             v-model="formData.digest_frequency"
             :items="digestFrequencyOptions"
-            label="Haeufigkeit"
+            :label="t('notifications.rules.frequency')"
             class="mt-2"
           />
 
@@ -259,16 +259,16 @@
 
           <v-switch
             v-model="formData.is_active"
-            label="Regel aktiv"
+            :label="t('notifications.rules.ruleActive')"
             color="success"
           />
         </v-form>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn @click="closeDialog">Abbrechen</v-btn>
+        <v-btn @click="closeDialog">{{ t('common.cancel') }}</v-btn>
         <v-btn color="primary" :disabled="!formValid" :loading="loading" @click="saveRule">
-          Speichern
+          {{ t('common.save') }}
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -277,15 +277,14 @@
   <!-- Delete Confirmation -->
   <v-dialog v-model="deleteDialog" max-width="400">
     <v-card>
-      <v-card-title>Regel loeschen?</v-card-title>
+      <v-card-title>{{ t('notifications.rules.deleteTitle') }}</v-card-title>
       <v-card-text>
-        Moechten Sie die Regel "{{ ruleToDelete?.name }}" wirklich loeschen?
-        Diese Aktion kann nicht rueckgaengig gemacht werden.
+        {{ t('notifications.rules.deleteConfirm', { name: ruleToDelete?.name }) }}
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn @click="deleteDialog = false">Abbrechen</v-btn>
-        <v-btn color="error" @click="handleDelete">Loeschen</v-btn>
+        <v-btn @click="deleteDialog = false">{{ t('common.cancel') }}</v-btn>
+        <v-btn color="error" @click="handleDelete">{{ t('common.delete') }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -293,9 +292,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useNotifications, type NotificationRule } from '@/composables/useNotifications'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
+
+const { t } = useI18n()
 
 const {
   rules,
@@ -314,14 +316,14 @@ const {
 } = useNotifications()
 
 // Table headers
-const headers = [
-  { title: 'Name', key: 'name', sortable: true },
-  { title: 'Event-Typ', key: 'event_type', sortable: true },
-  { title: 'Kanal', key: 'channel', sortable: true },
-  { title: 'Aktiv', key: 'is_active', sortable: true, width: '80px', align: 'center' },
-  { title: 'Ausloesungen', key: 'trigger_count', sortable: true },
+const headers = computed(() => [
+  { title: t('common.name'), key: 'name', sortable: true },
+  { title: t('notifications.rules.eventType'), key: 'event_type', sortable: true },
+  { title: t('notifications.rules.channel'), key: 'channel', sortable: true },
+  { title: t('notifications.rules.active'), key: 'is_active', sortable: true, width: '80px', align: 'center' },
+  { title: t('notifications.rules.triggerCount'), key: 'trigger_count', sortable: true },
   { title: '', key: 'actions', sortable: false, width: '90px', align: 'end' },
-]
+])
 
 // Dialog state
 const ruleDialog = ref(false)
@@ -392,17 +394,17 @@ const emailAddressOptions = computed(() =>
     }))
 )
 
-const webhookAuthOptions = [
-  { title: 'Keine', value: 'none' },
-  { title: 'Bearer Token', value: 'bearer' },
-  { title: 'Basic Auth', value: 'basic' },
-]
+const webhookAuthOptions = computed(() => [
+  { title: t('notifications.rules.authNone'), value: 'none' },
+  { title: t('notifications.rules.authBearer'), value: 'bearer' },
+  { title: t('notifications.rules.authBasic'), value: 'basic' },
+])
 
-const digestFrequencyOptions = [
-  { title: 'Stuendlich', value: 'hourly' },
-  { title: 'Taeglich', value: 'daily' },
-  { title: 'Woechentlich', value: 'weekly' },
-]
+const digestFrequencyOptions = computed(() => [
+  { title: t('notifications.rules.frequencyHourly'), value: 'hourly' },
+  { title: t('notifications.rules.frequencyDaily'), value: 'daily' },
+  { title: t('notifications.rules.frequencyWeekly'), value: 'weekly' },
+])
 
 // Methods
 const openCreateDialog = () => {

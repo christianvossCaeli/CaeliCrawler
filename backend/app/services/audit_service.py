@@ -262,3 +262,138 @@ async def log_logout(
         ip_address=ip_address,
         user_agent=user_agent,
     )
+
+
+async def log_password_change(
+    session: AsyncSession,
+    user: User,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> AuditLog:
+    """Log password change."""
+    return await create_audit_log(
+        session=session,
+        action=AuditAction.PASSWORD_CHANGE,
+        entity_type="User",
+        entity_id=user.id,
+        entity_name=user.email,
+        changes={"password_changed": True},
+        user=user,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
+
+async def log_session_revoke(
+    session: AsyncSession,
+    user: User,
+    user_session: Any,
+    reason: str,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> AuditLog:
+    """Log session revocation."""
+    return await create_audit_log(
+        session=session,
+        action=AuditAction.SESSION_REVOKE,
+        entity_type="UserSession",
+        entity_id=user_session.id,
+        entity_name=user_session.device_name,
+        changes={
+            "reason": reason,
+            "device_type": user_session.device_type.value if hasattr(user_session.device_type, 'value') else str(user_session.device_type),
+            "session_ip": user_session.ip_address,
+        },
+        user=user,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
+
+async def log_bulk_session_revoke(
+    session: AsyncSession,
+    user: User,
+    count: int,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> AuditLog:
+    """Log bulk session revocation (sign out everywhere)."""
+    return await create_audit_log(
+        session=session,
+        action=AuditAction.SESSION_REVOKE_ALL,
+        entity_type="User",
+        entity_id=user.id,
+        entity_name=user.email,
+        changes={"sessions_revoked": count},
+        user=user,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
+
+async def log_crawler_start(
+    session: AsyncSession,
+    user: User,
+    source: Any,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> AuditLog:
+    """Log crawler start."""
+    return await create_audit_log(
+        session=session,
+        action=AuditAction.CRAWLER_START,
+        entity_type="DataSource",
+        entity_id=source.id,
+        entity_name=source.name,
+        changes={"url": source.url if hasattr(source, 'url') else None},
+        user=user,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
+
+async def log_export(
+    session: AsyncSession,
+    user: User,
+    export_type: str,
+    record_count: int,
+    filters: Optional[Dict[str, Any]] = None,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> AuditLog:
+    """Log data export."""
+    return await create_audit_log(
+        session=session,
+        action=AuditAction.EXPORT,
+        entity_type="Export",
+        entity_name=export_type,
+        changes={
+            "export_type": export_type,
+            "record_count": record_count,
+            "filters": filters or {},
+        },
+        user=user,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
+
+async def log_security_event(
+    session: AsyncSession,
+    event_type: str,
+    details: Dict[str, Any],
+    user: Optional[User] = None,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> AuditLog:
+    """Log security events (rate limiting, suspicious activity, etc.)."""
+    return await create_audit_log(
+        session=session,
+        action=AuditAction.SECURITY_ALERT,
+        entity_type="Security",
+        entity_name=event_type,
+        changes=details,
+        user=user,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )

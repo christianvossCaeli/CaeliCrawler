@@ -1,14 +1,14 @@
 <template>
   <v-card>
     <v-card-title class="d-flex justify-space-between align-center">
-      <span>Posteingang</span>
+      <span>{{ t('notificationsView.inbox') }}</span>
       <v-btn
         variant="text"
         color="primary"
         :disabled="unreadCount === 0"
         @click="handleMarkAllRead"
       >
-        Alle als gelesen markieren
+        {{ t('notifications.messages.markAllRead') }}
       </v-btn>
     </v-card-title>
 
@@ -19,7 +19,7 @@
           <v-select
             v-model="filters.status"
             :items="statusOptions"
-            label="Status"
+            :label="t('common.status')"
             clearable
             hide-details
             density="compact"
@@ -29,7 +29,7 @@
           <v-select
             v-model="filters.channel"
             :items="channelOptions"
-            label="Kanal"
+            :label="t('notifications.inbox.channel')"
             clearable
             hide-details
             density="compact"
@@ -39,7 +39,7 @@
           <v-select
             v-model="filters.event_type"
             :items="eventTypeOptions"
-            label="Event-Typ"
+            :label="t('notifications.inbox.eventType')"
             clearable
             hide-details
             density="compact"
@@ -73,7 +73,7 @@
               color="primary"
               class="ml-2"
             >
-              Neu
+              {{ t('common.new') }}
             </v-chip>
           </v-list-item-title>
           <v-list-item-subtitle class="text-wrap">
@@ -92,7 +92,7 @@
       </v-list>
 
       <v-alert v-else-if="!loading" type="info" variant="tonal">
-        Keine Benachrichtigungen vorhanden
+        {{ t('notifications.messages.noNotifications') }}
       </v-alert>
 
       <!-- Pagination -->
@@ -123,36 +123,36 @@
 
         <v-row>
           <v-col cols="6">
-            <div class="text-caption text-medium-emphasis">Event-Typ</div>
+            <div class="text-caption text-medium-emphasis">{{ t('notifications.inbox.eventType') }}</div>
             <v-chip size="small" :color="getEventTypeColor(selectedNotification.event_type)">
               {{ getEventTypeLabel(selectedNotification.event_type) }}
             </v-chip>
           </v-col>
           <v-col cols="6">
-            <div class="text-caption text-medium-emphasis">Kanal</div>
+            <div class="text-caption text-medium-emphasis">{{ t('notifications.inbox.channel') }}</div>
             <v-chip size="small" :color="getChannelColor(selectedNotification.channel)">
               {{ getChannelLabel(selectedNotification.channel) }}
             </v-chip>
           </v-col>
           <v-col cols="6">
-            <div class="text-caption text-medium-emphasis">Erstellt</div>
+            <div class="text-caption text-medium-emphasis">{{ t('notifications.inbox.created') }}</div>
             <div>{{ formatDateTime(selectedNotification.created_at) }}</div>
           </v-col>
           <v-col cols="6">
-            <div class="text-caption text-medium-emphasis">Status</div>
+            <div class="text-caption text-medium-emphasis">{{ t('common.status') }}</div>
             <div>{{ getStatusLabel(selectedNotification.status) }}</div>
           </v-col>
         </v-row>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn @click="detailDialog = false">Schliessen</v-btn>
+        <v-btn @click="detailDialog = false">{{ t('common.close') }}</v-btn>
         <v-btn
           v-if="selectedNotification.related_entity_type"
           color="primary"
           @click="navigateToEntity(selectedNotification)"
         >
-          Zum {{ getEntityLabel(selectedNotification.related_entity_type) }}
+          {{ t('notifications.inbox.goTo', { entity: getEntityLabel(selectedNotification.related_entity_type) }) }}
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -163,9 +163,12 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
+import { useI18n } from 'vue-i18n'
 import { useNotifications, type Notification } from '@/composables/useNotifications'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const theme = useTheme()
@@ -195,13 +198,13 @@ const filters = ref({
 })
 
 // Options for filters
-const statusOptions = [
-  { title: 'Ausstehend', value: 'PENDING' },
-  { title: 'In Warteschlange', value: 'QUEUED' },
-  { title: 'Gesendet', value: 'SENT' },
-  { title: 'Fehlgeschlagen', value: 'FAILED' },
-  { title: 'Gelesen', value: 'READ' },
-]
+const statusOptions = computed(() => [
+  { title: t('notifications.inbox.statusPending'), value: 'PENDING' },
+  { title: t('notifications.inbox.statusQueued'), value: 'QUEUED' },
+  { title: t('notifications.inbox.statusSent'), value: 'SENT' },
+  { title: t('notifications.inbox.statusFailed'), value: 'FAILED' },
+  { title: t('notifications.inbox.statusRead'), value: 'READ' },
+])
 
 const channelOptions = computed(() =>
   channels.value.map((c) => ({ title: c.label, value: c.value }))
@@ -314,20 +317,20 @@ const getChannelLabel = (channel: string): string => {
 
 const getStatusLabel = (status: string): string => {
   const labels: Record<string, string> = {
-    PENDING: 'Ausstehend',
-    QUEUED: 'In Warteschlange',
-    SENT: 'Gesendet',
-    FAILED: 'Fehlgeschlagen',
-    READ: 'Gelesen',
+    PENDING: t('notifications.inbox.statusPending'),
+    QUEUED: t('notifications.inbox.statusQueued'),
+    SENT: t('notifications.inbox.statusSent'),
+    FAILED: t('notifications.inbox.statusFailed'),
+    READ: t('notifications.inbox.statusRead'),
   }
   return labels[status] || status
 }
 
 const getEntityLabel = (entityType: string): string => {
   const labels: Record<string, string> = {
-    document: 'Dokument',
-    crawl_job: 'Crawl-Job',
-    data_source: 'Datenquelle',
+    document: t('documents.document'),
+    crawl_job: t('crawler.jobDetails'),
+    data_source: t('sources.source'),
   }
   return labels[entityType] || entityType
 }

@@ -1,0 +1,580 @@
+{
+  "help": {
+    "dashboard": {
+      "title": "Dashboard",
+      "description": "The Dashboard is the central overview page showing the current system status.",
+      "statisticsCards": "Statistics Cards",
+      "stats_cards_title": "Statistics Cards",
+      "cards": {
+        "categories": {
+          "title": "Categories",
+          "description": "Number of configured categories"
+        },
+        "sources": {
+          "title": "Data Sources",
+          "description": "Registered websites/APIs"
+        },
+        "documents": {
+          "title": "Documents",
+          "description": "Found files"
+        },
+        "active_crawlers": {
+          "title": "Active Crawlers",
+          "description": "Running jobs"
+        },
+        "categoriesOld": "Categories",
+        "categoriesDesc": "Number of configured categories",
+        "dataSources": "Data Sources",
+        "dataSourcesDesc": "Registered websites/APIs",
+        "documentsOld": "Documents",
+        "documentsDesc": "Found files",
+        "activeCrawlers": "Active Crawlers",
+        "activeCrawlersDesc": "Running jobs"
+      },
+      "liveUpdates": "Live Updates for Active Crawlers",
+      "liveUpdatesInfo": "When crawlers are running, a live view appears with:",
+      "liveUpdatesItems": [
+        "Found documents (with number of new ones)",
+        "Runtime since start",
+        "Error count (if any)"
+      ],
+      "live_updates_title": "Live Updates",
+      "live_updates_description": "When crawlers are running, a live view appears with:",
+      "live_updates": {
+        "documents": "Found documents (with number of new ones)",
+        "runtime": "Runtime since start",
+        "errors": "Error count (if any)"
+      },
+      "crawlerStatusAndJobs": "Crawler Status & Recent Jobs",
+      "status_jobs_title": "Crawler Status & Recent Jobs",
+      "statusItems": {
+        "activeWorkers": "Active Workers",
+        "runningJobs": "Running Jobs",
+        "pendingJobs": "Pending Jobs"
+      },
+      "status_section": {
+        "title": "Crawler Status",
+        "active_workers": "Active Workers",
+        "running_jobs": "Running Jobs",
+        "waiting_jobs": "Pending Jobs"
+      },
+      "recentCrawlJobs": "Recent Crawl Jobs",
+      "recentCrawlJobsDesc": "Shows the last 5 completed jobs with status and document count",
+      "recent_jobs": {
+        "title": "Recent Crawl Jobs",
+        "description": "Shows the last 5 completed jobs with status and document count"
+      },
+      "quickActions": "Quick Actions",
+      "quick_actions_title": "Quick Actions",
+      "quick_actions": {
+        "new_category": "New Category",
+        "new_source": "New Source",
+        "start_crawler": "Start Crawler",
+        "export_data": "Export Data"
+      },
+      "crawler_dialog_title": "Start Crawler - Dialog",
+      "crawlerDialog": {
+        "title": "Start Crawler - Dialog",
+        "table": {
+          "filter": "Filter",
+          "description": "Description"
+        },
+        "filters": {
+          "category": {
+            "name": "Category",
+            "description": "Only sources from a specific category"
+          },
+          "country": {
+            "name": "Country",
+            "description": "Only sources from a specific country"
+          },
+          "search": {
+            "name": "Search",
+            "description": "Text search in name or URL"
+          },
+          "max_count": {
+            "name": "Max. Count",
+            "description": "Limit for sources to crawl"
+          },
+          "status": {
+            "name": "Status",
+            "description": "Only active, pending or failed sources"
+          },
+          "source_type": {
+            "name": "Source Type",
+            "description": "Website, OParl API or RSS Feed"
+          },
+          "categoryOld": "Category",
+          "categoryDesc": "Only sources from a specific category",
+          "countryOld": "Country",
+          "countryDesc": "Only sources from a specific country",
+          "searchOld": "Search",
+          "searchDesc": "Text search in name or URL",
+          "maxCount": "Max. Count",
+          "maxCountDesc": "Limit for sources to crawl",
+          "statusOld": "Status",
+          "statusDesc": "Only active, pending or failed sources",
+          "sourceType": "Source Type",
+          "sourceTypeDesc": "Website, OParl API or RSS Feed"
+        },
+        "warning": "With more than 500 sources, a filter or limit is recommended!"
+      }
+    },
+    "smartQuery": {
+      "title": "Smart Query",
+      "aiInfo": "AI-powered analysis: Smart Query enables natural language queries and automatic creation of analysis setups through AI.",
+      "twoModes": "Two Modes",
+      "alert": {
+        "title": "AI-powered analysis:",
+        "description": "Smart Query enables natural language queries and automatic creation of analysis setups through AI."
+      },
+      "modes_title": "Two Modes",
+      "readMode": {
+        "title": "Read Mode (Default)",
+        "description": "Ask questions in natural language:",
+        "examples": {
+          "1": "What pain points exist in NRW?",
+          "2": "Show decision makers from municipalities in Bavaria",
+          "3": "Which events take place in the coming months?"
+        },
+        "aiNote": "The AI interprets your question and shows matching results.",
+        "note": "The AI interprets your question and shows matching results."
+      },
+      "read_mode": {
+        "title": "Read Mode (Default)",
+        "description": "Ask questions in natural language:",
+        "examples": {
+          "1": "What pain points exist in NRW?",
+          "2": "Show decision makers from municipalities in Bavaria",
+          "3": "Which events take place in the coming months?"
+        },
+        "note": "The AI interprets your question and shows matching results."
+      },
+      "writeMode": {
+        "title": "Write Mode",
+        "description": "Automatically create new analysis setups:",
+        "examples": {
+          "1": "Find all events attended by decision makers from NRW",
+          "2": "Monitor wind energy decisions in Bavaria"
+        },
+        "aiNote": "The AI creates EntityType, Category and links suitable data sources.",
+        "note": "The AI creates EntityType, Category and links suitable data sources."
+      },
+      "write_mode": {
+        "title": "Write Mode",
+        "description": "Automatically create new analysis setups:",
+        "examples": {
+          "1": "Find all events attended by decision makers from NRW",
+          "2": "Monitor wind energy decisions in Bavaria"
+        },
+        "note": "The AI creates EntityType, Category and links suitable data sources."
+      },
+      "category_setup_title": "AI-generated Category Setup (Write Mode)",
+      "category_setup_description": "In write mode, the AI generates a complete analysis setup in 3 steps:",
+      "setup_steps": {
+        "step1": {
+          "title": "EntityType",
+          "subtitle": "Schema & Attributes"
+        },
+        "step2": {
+          "title": "Category",
+          "subtitle": "AI Prompt & Search Terms"
+        },
+        "step3": {
+          "title": "Crawl Config",
+          "subtitle": "URL Filters"
+        }
+      },
+      "categorySetup": {
+        "title": "AI-generated Category Setup (Write Mode)",
+        "description": "In write mode, the AI generates a complete analysis setup in 3 steps:",
+        "step1": {
+          "title": "EntityType",
+          "subtitle": "Schema & Attributes",
+          "heading": "Step 1: EntityType Generation",
+          "description": "The AI creates a new EntityType with:",
+          "items": [
+            "Name & Description - Matching the request",
+            "Attribute Schema - Relevant fields for extraction",
+            "Icon & Color - For UI representation",
+            "Search Focus - event_attendance, pain_points, contacts, etc."
+          ]
+        },
+        "step2": {
+          "title": "Category",
+          "subtitle": "AI Prompt & Search Terms",
+          "heading": "Step 2: Category Generation",
+          "description": "The AI creates a Category with:",
+          "items": [
+            "AI Extraction Prompt - Tailored for the request",
+            "Search Terms - Expanded (e.g. \"decision maker\" → mayor, district administrator, etc.)",
+            "Link to EntityType - Extracted data is saved as entities"
+          ]
+        },
+        "step3": {
+          "title": "Crawl Config",
+          "subtitle": "URL Filters",
+          "heading": "Step 3: Crawl Configuration",
+          "description": "The AI generates URL filters:",
+          "items": [
+            "Exclude Patterns (Blacklist) - Exclude irrelevant pages",
+            "Data Source Linking - Based on geographic filter (e.g. NRW)"
+          ],
+          "important": "Important: The AI does not generate Include Patterns (Whitelist). The crawler visits all pages and the AI filters relevant content."
+        }
+      },
+      "write_mode_workflow": {
+        "title": "Workflow: Write Mode",
+        "step1": {
+          "title": "Enter query",
+          "description": "Describe in natural language what you want to find/monitor."
+        },
+        "step2": {
+          "title": "Activate write mode",
+          "description": "Toggle to \"Write Mode\"."
+        },
+        "step3": {
+          "title": "Check preview",
+          "description": "Click \"Preview\" to see what will be created (EntityType, Category, Data Sources)."
+        },
+        "step4": {
+          "title": "Confirm",
+          "description": "Click \"Confirm & Create\". The 3-step AI generation starts."
+        },
+        "step5": {
+          "title": "Start crawl",
+          "description": "After creation, you can directly start the crawl for the new Category."
+        }
+      },
+      "workflow": {
+        "title": "Workflow: Write Mode",
+        "step1": "Enter query - Describe in natural language what you want to find/monitor.",
+        "step2": "Activate write mode - Toggle to \"Write Mode\".",
+        "step3": "Check preview - Click \"Preview\" to see what will be created (EntityType, Category, Data Sources).",
+        "step4": "Confirm - Click \"Confirm & Create\". The 3-step AI generation starts.",
+        "step5": "Start crawl - After creation, you can directly start the crawl for the new Category."
+      },
+      "geographic_filters": {
+        "title": "Geographic Filters",
+        "description": "Smart Query understands geographic terms and abbreviations:",
+        "table": {
+          "input": "Input",
+          "recognized_as": "Recognized as"
+        },
+        "examples": [
+          { "input": "\"NRW\", \"nrw\"", "output": "North Rhine-Westphalia" },
+          { "input": "\"Bayern\", \"BY\"", "output": "Bavaria" },
+          { "input": "\"BW\", \"Baden-Wuerttemberg\"", "output": "Baden-Württemberg" },
+          { "input": "\"Gummersbach\"", "output": "Municipality Gummersbach" }
+        ]
+      },
+      "geographicFilters": {
+        "title": "Geographic Filters",
+        "description": "Smart Query understands geographic terms and abbreviations:",
+        "examples": {
+          "nrw": "North Rhine-Westphalia",
+          "bayern": "Bavaria",
+          "bw": "Baden-Württemberg",
+          "city": "Municipality Gummersbach"
+        }
+      },
+      "example_queries": {
+        "title": "Example Queries",
+        "table": {
+          "query": "Query",
+          "mode": "Mode",
+          "result": "Result"
+        },
+        "read": "Read",
+        "write": "Write",
+        "examples": [
+          { "query": "Show Pain Points in NRW", "mode": "read", "result": "List of all Pain Points from NRW municipalities" },
+          { "query": "Which events take place in 2025?", "mode": "read", "result": "Future events with participants" },
+          { "query": "Find events with decision makers from NRW", "mode": "write", "result": "New Category + EntityType + Data Source linking" },
+          { "query": "Monitor wind energy in Bavaria", "mode": "write", "result": "New analysis setup for Bavaria" }
+        ]
+      },
+      "exampleQueries": "Example Queries"
+    },
+    "categories": {
+      "title": "Categories",
+      "description": "Categories are the top organizational level and define what is searched for and how results are analyzed.",
+      "basicSettings": {
+        "title": "Basic Settings",
+        "name": "Name",
+        "nameDesc": "Unique name",
+        "nameExample": "Wind Energy Resolutions",
+        "description": "Description",
+        "descriptionDesc": "Optional explanation",
+        "descriptionExample": "Collects all council resolutions",
+        "purpose": "Purpose",
+        "purposeDesc": "What should be achieved?",
+        "purposeExample": "Analyze wind power restrictions",
+        "status": "Status",
+        "statusDesc": "Active/Inactive",
+        "documentTypes": "Document Types",
+        "documentTypesDesc": "Expected types for classification",
+        "documentTypesExample": "Resolution, Protocol, Statute",
+        "schedule": "Schedule (Cron)",
+        "scheduleDesc": "Automatic crawl schedule",
+        "scheduleExample": "0 2 * * * (daily at 2 AM)"
+      },
+      "searchTerms": {
+        "title": "Search Terms (Keywords)",
+        "description": "Keywords for relevance filtering:",
+        "info": "Documents are only forwarded to AI analysis if they contain at least 2 of these keywords."
+      },
+      "urlFilters": {
+        "title": "URL Filters (Regex)",
+        "info": "URL filters use regex patterns to control which URLs are crawled. AI content filtering largely replaces URL-based whitelist.",
+        "excludeTitle": "Exclude Patterns (Blacklist) - Primary",
+        "excludeDesc": "URLs matching a pattern will not be crawled:",
+        "includeTitle": "Include Patterns (Whitelist) - Optional",
+        "includeDesc": "Only URLs matching at least one pattern will be crawled. For manual use only - Smart Query does not generate Include Patterns.",
+        "recommendation": "Recommendation: Leave Include Patterns (Whitelist) empty and rely on AI-based content filtering instead. The blacklist filters technical and irrelevant pages."
+      },
+      "aiPrompt": {
+        "title": "AI Extraction Prompt",
+        "description": "Defines what the AI should extract. Example:"
+      },
+      "actions": {
+        "title": "Actions",
+        "edit": "Edit",
+        "editDesc": "Change settings",
+        "crawl": "Crawl",
+        "crawlDesc": "Start crawl for all sources",
+        "reanalyze": "Reanalyze",
+        "reanalyzeDesc": "Documents again through AI",
+        "delete": "Delete",
+        "deleteDesc": "Delete with all data"
+      }
+    },
+    "sources": {
+      "title": "Data Sources",
+      "description": "Data sources are the concrete websites or APIs that are crawled.",
+      "categoryAssignment": {
+        "title": "Category Assignment (N:M)",
+        "info": "A data source can be assigned to multiple categories (N:M relationship). When crawling, the job's category is used, not the source's.",
+        "multipleAssignment": "Multiple Assignment",
+        "multipleAssignmentDesc": "A source can be relevant for both \"Wind Power\" and \"Solar Energy\", for example",
+        "crawlContext": "Crawl Context",
+        "crawlContextDesc": "When crawling, the AI prompt and filters of the selected category are used",
+        "smartQueryIntegration": "Smart Query Integration",
+        "smartQueryIntegrationDesc": "Smart Query can automatically link suitable sources to new categories"
+      },
+      "sourceTypes": {
+        "title": "Source Types",
+        "website": "WEBSITE",
+        "websiteDesc": "Standard website crawling for municipal websites, news sites",
+        "oparlApi": "OPARL_API",
+        "oparlApiDesc": "OParl interface for council information systems",
+        "rss": "RSS",
+        "rssDesc": "RSS feed for news aggregation"
+      },
+      "availableFilters": "Available Filters",
+      "filterDescription": "Country (with count), Municipality (Autocomplete), Category, Status, Search (Name/URL)",
+      "actions": {
+        "title": "Actions",
+        "bulkImport": "Bulk Import",
+        "bulkImportDesc": "Import multiple sources via JSON",
+        "newSource": "New Source",
+        "newSourceDesc": "Add single source manually",
+        "edit": "Edit",
+        "editDesc": "Edit source",
+        "crawl": "Crawl",
+        "crawlDesc": "Start crawl for this source",
+        "reset": "Reset",
+        "resetDesc": "Only for ERROR status: Reset source",
+        "delete": "Delete",
+        "deleteDesc": "Delete source with all documents"
+      },
+      "formFields": {
+        "title": "Form Fields (New/Edit)",
+        "category": "Category",
+        "categoryDesc": "Associated category (not changeable in edit)",
+        "name": "Name",
+        "nameDesc": "Display name of the source",
+        "sourceType": "Source Type",
+        "sourceTypeDesc": "WEBSITE, OPARL_API, RSS, CUSTOM_API",
+        "baseUrl": "Base URL",
+        "baseUrlDesc": "Start URL for the crawler",
+        "apiEndpoint": "API Endpoint",
+        "apiEndpointDesc": "Only for OPARL_API/CUSTOM_API",
+        "country": "Country",
+        "countryDesc": "Dropdown: DE, AT, CH, etc.",
+        "location": "Location",
+        "locationDesc": "Autocomplete search with location linking",
+        "required": "Yes",
+        "optional": "No"
+      },
+      "bulkImport": {
+        "title": "Bulk Import",
+        "info": "Import multiple sources at once:",
+        "step1": "Select category",
+        "step2": "Enter JSON array with sources:"
+      },
+      "crawlConfig": {
+        "title": "Crawl Configuration",
+        "maxDepth": "Max. Depth",
+        "maxDepthDesc": "How many link levels to follow",
+        "maxDepthDefault": "3",
+        "maxPages": "Max. Pages",
+        "maxPagesDesc": "Maximum number of pages to crawl",
+        "maxPagesDefault": "200",
+        "externalLinks": "External Links",
+        "externalLinksDesc": "Follow links to other domains",
+        "externalLinksDefault": "No",
+        "renderJs": "Render JavaScript",
+        "renderJsDesc": "Playwright for dynamic pages",
+        "renderJsDefault": "No",
+        "htmlCapture": "HTML Capture",
+        "htmlCaptureDesc": "Save relevant HTML pages as documents",
+        "htmlCaptureDefault": "Yes"
+      },
+      "urlFiltersAdvanced": {
+        "title": "URL Filters (Advanced Settings)",
+        "info": "URL filters are regex patterns. AI content filtering usually makes a strict URL whitelist obsolete. Instead, the blacklist is primarily used.",
+        "excludeTitle": "Exclude Patterns (Blacklist) - Primary",
+        "excludeDesc": "URLs matching a pattern will not be crawled:",
+        "includeTitle": "Include Patterns (Whitelist) - Optional",
+        "includeDesc": "For manual use only. Smart Query does not generate Include Patterns."
+      },
+      "statusMeaning": {
+        "title": "Status Meaning",
+        "pending": "PENDING",
+        "pendingDesc": "Never crawled",
+        "crawling": "CRAWLING",
+        "crawlingDesc": "Crawl is running",
+        "active": "ACTIVE",
+        "activeDesc": "Successfully crawled",
+        "error": "ERROR",
+        "errorDesc": "Last crawl failed"
+      }
+    },
+    "crawler": {
+      "title": "Crawler Status",
+      "description": "The Crawler page shows the live status of all crawling and AI activities.",
+      "statusCards": "Status Cards",
+      "cards": {
+        "activeWorkers": "Active Workers",
+        "activeWorkersDesc": "Available processes",
+        "runningJobs": "Running Jobs",
+        "runningJobsDesc": "Active crawls",
+        "pendingJobs": "Pending Jobs",
+        "pendingJobsDesc": "In the queue",
+        "documents": "Documents",
+        "documentsDesc": "Total found"
+      },
+      "aiTasks": {
+        "title": "AI Tasks (Live)",
+        "info": "Shows running AI analyses with:",
+        "items": [
+          "Task name and current document",
+          "Progress bar (X/Y documents)",
+          "Stop button to cancel"
+        ]
+      },
+      "activeCrawlers": {
+        "title": "Active Crawlers (Live)",
+        "description": "Expandable panels for each running crawl:",
+        "items": [
+          "Source & current URL",
+          "Pages crawled / Documents found / New",
+          "Error counter (if any)",
+          "Stop button for immediate cancellation"
+        ],
+        "liveLog": "Live Log (expandable)",
+        "liveLogDesc": "Virtual scroll with recent activities: URL visited, document found, error. Color-coded with timestamps."
+      },
+      "jobTable": {
+        "title": "Job Table",
+        "columnHeader": "Column",
+        "descriptionHeader": "Description",
+        "source": "Source",
+        "sourceDesc": "Name of the crawled data source",
+        "status": "Status",
+        "statusDesc": "RUNNING, COMPLETED, FAILED, CANCELLED",
+        "started": "Started",
+        "startedDesc": "Job start time",
+        "duration": "Duration",
+        "durationDesc": "Runtime in minutes/hours",
+        "progress": "Progress",
+        "progressDesc": "Processed/Found documents with bar",
+        "actions": "Actions",
+        "actionsDesc": "Stop (when RUNNING), Details"
+      },
+      "jobDetails": {
+        "title": "Job Details Dialog",
+        "description": "Click the info icon for the complete job report:",
+        "info": [
+          "Source & Category",
+          "Status with color chip",
+          "Duration (formatted)"
+        ],
+        "statistics": "Statistics:",
+        "stats": [
+          "Pages crawled",
+          "Documents found",
+          "New documents"
+        ],
+        "errorLog": "For failed jobs, an error log with details is additionally displayed."
+      },
+      "statusFilter": "Status Filter",
+      "filterButtons": {
+        "all": "All",
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed"
+      },
+      "stopButton": "Stop"
+    },
+    "documents": {
+      "title": "Documents",
+      "description": "The Documents view shows all found and processed files.",
+      "statusOverview": "Status Overview",
+      "statuses": {
+        "pending": "Pending",
+        "processing": "Processing",
+        "completed": "Completed",
+        "filtered": "Filtered",
+        "failed": "Failed"
+      },
+      "actionButtons": {
+        "title": "Action Buttons",
+        "processPending": "Process Pending",
+        "processPendingDesc": "Start all pending documents",
+        "analyzeFiltered": "Analyze Filtered",
+        "analyzeFilteredDesc": "Check filtered documents again with AI",
+        "stopProcessing": "Stop Processing",
+        "stopProcessingDesc": "Cancel running processing"
+      },
+      "availableFilters": "Available Filters",
+      "filters": [
+        "Full-text search",
+        "Municipality/Location",
+        "Category",
+        "Status",
+        "Type (PDF, HTML, ...)"
+      ],
+      "documentDetails": {
+        "title": "Document Details",
+        "tabInfo": "Tab: Info",
+        "tabInfoItems": [
+          "Original URL with link",
+          "Source and category",
+          "Timestamps (discovered, loaded, processed)",
+          "File size and page count",
+          "Number of AI extractions"
+        ],
+        "tabText": "Tab: Text",
+        "tabTextDesc": "Shows the extracted raw text of the document in a text field.",
+        "tabExtracted": "Tab: Extracted Data",
+        "tabExtractedItems": [
+          "AI analysis results as JSON",
+          "Confidence score per extraction",
+          "Verification status"
+        ]
+      }
+    }
+  }
+}

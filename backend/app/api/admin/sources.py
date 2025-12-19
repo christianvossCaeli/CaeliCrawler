@@ -1,10 +1,14 @@
 """Admin API endpoints for data source management."""
 
+import ipaddress
+import socket
 import uuid as uuid_module
-from typing import Optional
+from collections import defaultdict
+from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +26,83 @@ from app.schemas.data_source import (
 )
 from app.schemas.common import MessageResponse
 from app.core.exceptions import NotFoundError, ConflictError
+
+
+# =============================================================================
+# SSRF Protection for Crawler URLs
+# =============================================================================
+
+# IP ranges that should NOT be crawled (internal networks, cloud metadata, etc.)
+BLOCKED_CRAWLER_IP_RANGES = [
+    ipaddress.ip_network("127.0.0.0/8"),      # Localhost
+    ipaddress.ip_network("10.0.0.0/8"),       # Private Class A
+    ipaddress.ip_network("172.16.0.0/12"),    # Private Class B
+    ipaddress.ip_network("192.168.0.0/16"),   # Private Class C
+    ipaddress.ip_network("169.254.0.0/16"),   # Link-local (cloud metadata)
+    ipaddress.ip_network("0.0.0.0/8"),        # Current network
+]
+
+# Hostnames that should never be crawled
+BLOCKED_HOSTNAMES = {
+    "localhost",
+    "127.0.0.1",
+    "::1",
+    "0.0.0.0",
+    "metadata.google.internal",
+    "metadata.google.com",
+}
+
+
+def validate_crawler_url(url: str, allow_http: bool = True) -> Tuple[bool, str]:
+    """
+    Validate a URL for safe crawling (SSRF protection).
+
+    Args:
+        url: The URL to validate
+        allow_http: Whether to allow HTTP (not just HTTPS)
+
+    Returns:
+        Tuple of (is_safe, error_message)
+    """
+    try:
+        parsed = urlparse(url)
+
+        # Check scheme
+        allowed_schemes = ["https"]
+        if allow_http:
+            allowed_schemes.append("http")
+
+        if parsed.scheme not in allowed_schemes:
+            return False, f"URL scheme must be one of: {', '.join(allowed_schemes)}"
+
+        hostname = parsed.hostname
+        if not hostname:
+            return False, "Invalid URL: no hostname"
+
+        # Check blocked hostnames
+        if hostname.lower() in BLOCKED_HOSTNAMES:
+            return False, f"Hostname '{hostname}' is not allowed"
+
+        # Check for internal hostnames
+        if hostname.endswith(".local") or hostname.endswith(".internal"):
+            return False, "Internal hostnames are not allowed"
+
+        # Try to resolve and check IP
+        try:
+            ip = socket.gethostbyname(hostname)
+            ip_obj = ipaddress.ip_address(ip)
+
+            for blocked_range in BLOCKED_CRAWLER_IP_RANGES:
+                if ip_obj in blocked_range:
+                    return False, f"URL resolves to blocked IP range (internal network)"
+        except socket.gaierror:
+            # Can't resolve - allow for now, will fail at crawl time
+            pass
+
+        return True, ""
+
+    except Exception as e:
+        return False, f"Invalid URL: {str(e)}"
 
 
 async def get_or_create_location(
@@ -83,6 +164,38 @@ async def get_categories_for_source(
     return links
 
 
+async def get_categories_for_sources_bulk(
+    session: AsyncSession,
+    source_ids: List[UUID],
+) -> Dict[UUID, List[CategoryLink]]:
+    """
+    Bulk-load all categories for multiple data sources.
+
+    Returns a dict mapping source_id -> list of CategoryLink.
+    This avoids N+1 queries when listing multiple sources.
+    """
+    if not source_ids:
+        return {}
+
+    result = await session.execute(
+        select(DataSourceCategory, Category)
+        .join(Category, DataSourceCategory.category_id == Category.id)
+        .where(DataSourceCategory.data_source_id.in_(source_ids))
+        .order_by(DataSourceCategory.is_primary.desc(), Category.name)
+    )
+
+    categories_by_source: Dict[UUID, List[CategoryLink]] = defaultdict(list)
+    for dsc, cat in result.all():
+        categories_by_source[dsc.data_source_id].append(CategoryLink(
+            id=cat.id,
+            name=cat.name,
+            slug=cat.slug,
+            is_primary=dsc.is_primary,
+        ))
+
+    return categories_by_source
+
+
 async def sync_source_categories(
     session: AsyncSession,
     source: DataSource,
@@ -102,7 +215,7 @@ async def sync_source_categories(
     for link in existing:
         await session.delete(link)
 
-    # Create new links
+    # Create new links (N:M via junction table only)
     for i, cat_id in enumerate(category_ids):
         is_primary = cat_id == primary_category_id if primary_category_id else (i == 0)
         link = DataSourceCategory(
@@ -111,10 +224,6 @@ async def sync_source_categories(
             is_primary=is_primary,
         )
         session.add(link)
-
-        # Also update legacy category_id with primary
-        if is_primary:
-            source.category_id = cat_id
 
     await session.flush()
 
@@ -127,9 +236,11 @@ def build_source_response(
 ) -> DataSourceResponse:
     """Build a DataSourceResponse from a DataSource model."""
     category_name = None
+    primary_category_id = None
     if categories:
         primary = next((c for c in categories if c.is_primary), categories[0])
         category_name = primary.name
+        primary_category_id = primary.id
 
     return DataSourceResponse(
         id=source.id,
@@ -137,7 +248,7 @@ def build_source_response(
         source_type=source.source_type,
         base_url=source.base_url,
         api_endpoint=source.api_endpoint,
-        category_id=source.category_id,
+        category_id=primary_category_id,  # From junction table, not legacy field
         location_id=getattr(source, 'location_id', None),
         country=source.country,
         location_name=source.location_name,
@@ -216,15 +327,25 @@ async def list_sources(
     result = await session.execute(query)
     sources = result.scalars().all()
 
-    # Get document counts and categories
+    # Bulk-load document counts and categories to avoid N+1 queries
+    source_ids = [s.id for s in sources]
+
+    # Single query for all document counts
+    doc_counts_result = await session.execute(
+        select(Document.source_id, func.count(Document.id))
+        .where(Document.source_id.in_(source_ids))
+        .group_by(Document.source_id)
+    )
+    doc_counts = dict(doc_counts_result.all())
+
+    # Bulk-load all categories
+    categories_by_source = await get_categories_for_sources_bulk(session, source_ids)
+
+    # Build responses
     items = []
     for source in sources:
-        doc_count = (await session.execute(
-            select(func.count()).where(Document.source_id == source.id)
-        )).scalar()
-
-        # Load categories via N:M
-        categories = await get_categories_for_source(session, source.id)
+        doc_count = doc_counts.get(source.id, 0)
+        categories = categories_by_source.get(source.id, [])
 
         # Build response using helper to avoid lazy-loading issues
         item = build_source_response(source, categories, document_count=doc_count)
@@ -244,7 +365,28 @@ async def create_source(
     data: DataSourceCreate,
     session: AsyncSession = Depends(get_session),
 ):
-    """Create a new data source."""
+    """
+    Create a new data source.
+
+    **Security**: URL is validated against SSRF attacks (internal networks blocked).
+    """
+    # SSRF Protection: Validate URL before creating source
+    is_safe, error_msg = validate_crawler_url(data.base_url)
+    if not is_safe:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid URL: {error_msg}",
+        )
+
+    # Also validate API endpoint if provided
+    if data.api_endpoint:
+        is_safe, error_msg = validate_crawler_url(data.api_endpoint)
+        if not is_safe:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid API endpoint URL: {error_msg}",
+            )
+
     # Determine category IDs - support both legacy single and new multi-category
     category_ids = data.category_ids or []
     if data.category_id and data.category_id not in category_ids:
@@ -339,12 +481,33 @@ async def update_source(
     data: DataSourceUpdate,
     session: AsyncSession = Depends(get_session),
 ):
-    """Update a data source."""
+    """
+    Update a data source.
+
+    **Security**: URL changes are validated against SSRF attacks.
+    """
     source = await session.get(DataSource, source_id)
     if not source:
         raise NotFoundError("Data Source", str(source_id))
 
     update_data = data.model_dump(exclude_unset=True)
+
+    # SSRF Protection: Validate URLs if being updated
+    if "base_url" in update_data:
+        is_safe, error_msg = validate_crawler_url(update_data["base_url"])
+        if not is_safe:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid URL: {error_msg}",
+            )
+
+    if "api_endpoint" in update_data and update_data["api_endpoint"]:
+        is_safe, error_msg = validate_crawler_url(update_data["api_endpoint"])
+        if not is_safe:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid API endpoint URL: {error_msg}",
+            )
 
     # Handle N:M category updates
     category_ids = update_data.pop("category_ids", None)

@@ -1,0 +1,113 @@
+{
+  "sources": {
+    "title": "Datenquellen",
+    "source": "Datenquelle",
+    "sources": "Datenquellen",
+    "loading": {
+      "title": "Daten werden geladen",
+      "subtitle": "Bitte warten..."
+    },
+    "filters": {
+      "country": "Land",
+      "municipality": "Gemeinde",
+      "category": "Kategorie",
+      "status": "Status",
+      "search": "Suche (Name/URL)",
+      "searchPlaceholder": "Name oder URL eingeben...",
+      "noResults": "Keine Ergebnisse für",
+      "typeToSearch": "Tippen zum Suchen...",
+      "noLocations": "Keine Orte gefunden",
+      "minChars": "Min. 2 Zeichen eingeben..."
+    },
+    "form": {
+      "name": "Name",
+      "sourceType": "Quellentyp",
+      "baseUrl": "Basis-URL",
+      "baseUrlHint": "z.B. https://gemeinde-musterstadt.de oder https://oparl.stadt-muenster.de/system",
+      "apiEndpoint": "API-Endpunkt (optional)",
+      "country": "Land",
+      "location": "Ort (optional)",
+      "locationHint": "Tippen Sie um zu suchen",
+      "categories": "Kategorien",
+      "categoriesHint": "Erste ausgewählte Kategorie ist die Primäre",
+      "primaryCategory": "Primäre Kategorie-Details anzeigen",
+      "maxDepth": "Maximale Tiefe",
+      "maxPages": "Maximale Seiten",
+      "renderJs": "JavaScript rendern (Playwright)",
+      "includePatterns": "Include-Patterns (Whitelist)",
+      "includeHint": "URLs müssen mindestens ein Pattern matchen. z.B. /dokumente/, /beschluesse/",
+      "excludePatterns": "Exclude-Patterns (Blacklist)",
+      "excludeHint": "URLs die ein Pattern matchen werden übersprungen. z.B. /archiv/, /login/, /suche/",
+      "urls": "URLs (eine pro Zeile)",
+      "urlsFormat": "Format: Name | URL oder nur URL",
+      "skipDuplicates": "Duplikate überspringen",
+      "crawlInterval": "Crawl-Intervall",
+      "enabled": "Aktiv",
+      "advancedSettings": "Erweiterte Crawl-Einstellungen",
+      "urlFilters": "URL-Filter (Regex)"
+    },
+    "types": {
+      "WEBSITE": "Website",
+      "RSS": "RSS-Feed",
+      "API": "API",
+      "OPARL_API": "OParl API",
+      "CUSTOM_API": "Benutzerdefinierte API",
+      "NEWS": "Nachrichten"
+    },
+    "actions": {
+      "create": "Neue Quelle",
+      "bulkImport": "Bulk Import",
+      "edit": "Bearbeiten",
+      "delete": "Löschen",
+      "startCrawl": "Crawlen starten",
+      "reset": "Zurücksetzen",
+      "test": "Verbindung testen"
+    },
+    "columns": {
+      "name": "Name",
+      "type": "Typ",
+      "url": "URL",
+      "categories": "Kategorien",
+      "status": "Status",
+      "lastCrawl": "Letzter Crawl",
+      "documents": "Dokumente",
+      "actions": "Aktionen"
+    },
+    "dialog": {
+      "edit": "Datenquelle bearbeiten",
+      "create": "Neue Datenquelle",
+      "bulkImport": "Bulk Import",
+      "delete": "Datenquelle löschen?",
+      "deleteConfirm": "Möchten Sie \"{name}\" wirklich löschen?",
+      "categoryInfo": "Kategorie-Details",
+      "purpose": "Zweck",
+      "noPurpose": "Kein Zweck definiert",
+      "statistics": "Statistiken",
+      "dataSources": "Datenquellen",
+      "searchTerms": "Suchbegriffe",
+      "documentTypes": "Dokumenttypen",
+      "urlPatterns": "URL-Filter",
+      "includePatterns": "Include-Patterns (Whitelist)",
+      "excludePatterns": "Exclude-Patterns (Blacklist)",
+      "aiPrompt": "KI-Extraktions-Prompt",
+      "languages": "Sprachen",
+      "active": "Aktiv",
+      "inactive": "Inaktiv"
+    },
+    "messages": {
+      "created": "Datenquelle erfolgreich erstellt",
+      "updated": "Datenquelle erfolgreich aktualisiert",
+      "deleted": "Datenquelle erfolgreich gelöscht",
+      "crawlStarted": "Crawl für \"{name}\" gestartet",
+      "crawlError": "Fehler beim Starten des Crawls",
+      "reset": "\"{name}\" zurückgesetzt",
+      "resetError": "Fehler beim Zurücksetzen",
+      "testSuccess": "Verbindung erfolgreich",
+      "testError": "Verbindung fehlgeschlagen"
+    },
+    "never": "Nie",
+    "fallback": {
+      "germany": "Deutschland"
+    }
+  }
+}

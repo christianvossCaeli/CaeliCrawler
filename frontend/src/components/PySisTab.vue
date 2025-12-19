@@ -3,11 +3,11 @@
     <!-- Process List -->
     <v-card variant="outlined" class="mb-4">
       <v-card-title class="d-flex align-center">
-        <span>PySis Prozesse</span>
+        <span>{{ t('pysis.processes') }}</span>
         <v-spacer></v-spacer>
         <v-btn color="primary" size="small" @click="showAddProcessDialog = true">
           <v-icon start>mdi-plus</v-icon>
-          Prozess hinzufügen
+          {{ t('pysis.addProcess') }}
         </v-btn>
       </v-card-title>
 
@@ -27,7 +27,7 @@
             {{ process.name || process.pysis_process_id }}
           </v-list-item-title>
           <v-list-item-subtitle>
-            {{ process.field_count }} Felder | Zuletzt: {{ formatDate(process.last_synced_at) }}
+            {{ process.field_count }} {{ t('pysis.fields') }} | {{ t('pysis.lastSynced') }}: {{ formatDate(process.last_synced_at) }}
           </v-list-item-subtitle>
           <template v-slot:append>
             <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click.stop="deleteProcess(process)"></v-btn>
@@ -35,37 +35,37 @@
         </v-list-item>
       </v-list>
       <v-card-text v-else class="text-center text-grey">
-        Keine PySis Prozesse verknüpft
+        {{ t('pysis.noProcesses') }}
       </v-card-text>
     </v-card>
 
     <!-- Selected Process Fields -->
     <v-card v-if="selectedProcess" variant="outlined">
       <v-card-title class="d-flex align-center flex-wrap ga-2">
-        <span>Felder: {{ selectedProcess.name || selectedProcess.pysis_process_id }}</span>
+        <span>{{ t('pysis.fieldsFor') }}: {{ selectedProcess.name || selectedProcess.pysis_process_id }}</span>
         <v-spacer></v-spacer>
         <v-btn-group density="compact" variant="outlined">
           <v-btn size="small" @click="showTemplateDialog = true">
             <v-icon start>mdi-content-copy</v-icon>
-            Vorlage
+            {{ t('pysis.template') }}
           </v-btn>
           <v-btn size="small" @click="showAddFieldDialog = true">
             <v-icon start>mdi-plus</v-icon>
-            Feld
+            {{ t('pysis.field') }}
           </v-btn>
         </v-btn-group>
         <v-btn-group density="compact" class="ml-2">
           <v-btn size="small" color="secondary" @click="generateAllFields" :loading="generating">
             <v-icon start>mdi-auto-fix</v-icon>
-            KI
+            {{ t('pysis.ai') }}
           </v-btn>
           <v-btn size="small" color="info" @click="pullFromPySis" :loading="syncing">
             <v-icon start>mdi-download</v-icon>
-            Pull
+            {{ t('pysis.pull') }}
           </v-btn>
           <v-btn size="small" color="success" @click="pushToPySis" :loading="syncing">
             <v-icon start>mdi-upload</v-icon>
-            Push
+            {{ t('pysis.push') }}
           </v-btn>
         </v-btn-group>
       </v-card-title>
@@ -83,7 +83,7 @@
         <div class="d-flex align-center">
           <v-progress-circular size="18" width="2" indeterminate class="mr-3"></v-progress-circular>
           <span>
-            <strong>{{ generatingFieldIds.size }}</strong> {{ generatingFieldIds.size === 1 ? 'Feld wird' : 'Felder werden' }} gerade von der KI generiert...
+            <strong>{{ generatingFieldIds.size }}</strong> {{ t('pysis.fieldsGenerating', { count: generatingFieldIds.size }) }}
           </span>
         </div>
       </v-alert>
@@ -91,11 +91,11 @@
       <v-table v-if="fields.length" density="compact">
         <thead>
           <tr>
-            <th style="width: 40px;">KI</th>
-            <th style="width: 150px;">Feld</th>
-            <th style="min-width: 300px;">Wert</th>
-            <th style="width: 70px;">Quelle</th>
-            <th style="width: 90px;">Aktionen</th>
+            <th style="width: 40px;">{{ t('pysis.ai') }}</th>
+            <th style="width: 150px;">{{ t('pysis.field') }}</th>
+            <th style="min-width: 300px;">{{ t('common.value') }}</th>
+            <th style="width: 70px;">{{ t('pysis.source') }}</th>
+            <th style="width: 90px;">{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -117,17 +117,17 @@
               <!-- Generating indicator -->
               <div v-if="generatingFieldIds.has(field.id)" class="generating-indicator mb-2">
                 <v-progress-circular size="16" width="2" indeterminate color="info" class="mr-2"></v-progress-circular>
-                <span class="text-info text-caption">KI generiert...</span>
+                <span class="text-info text-caption">{{ t('pysis.aiGenerating') }}</span>
               </div>
               <!-- Current Value -->
               <div class="field-value-preview" @click="openFieldEditor(field)">
-                {{ truncateValue(field.current_value) || '(leer)' }}
+                {{ truncateValue(field.current_value) || t('pysis.empty') }}
               </div>
               <!-- AI Suggestion (if different from current) -->
               <div v-if="!generatingFieldIds.has(field.id) && field.ai_extracted_value && field.ai_extracted_value !== field.current_value" class="ai-suggestion mt-2">
                 <div class="d-flex align-center ga-1 mb-1">
                   <v-icon size="small" color="info">mdi-auto-fix</v-icon>
-                  <span class="text-caption text-info font-weight-medium">KI-Vorschlag</span>
+                  <span class="text-caption text-info font-weight-medium">{{ t('pysis.aiSuggestion') }}</span>
                   <v-chip v-if="field.confidence_score" size="x-small" :color="getConfidenceColor(field.confidence_score)" class="ml-1">
                     {{ Math.round(field.confidence_score * 100) }}%
                   </v-chip>
@@ -138,11 +138,11 @@
                 <div class="d-flex ga-1 mt-1">
                   <v-btn size="x-small" color="success" variant="tonal" @click="acceptAiSuggestion(field)">
                     <v-icon start size="small">mdi-check</v-icon>
-                    Übernehmen
+                    {{ t('pysis.accept') }}
                   </v-btn>
                   <v-btn size="x-small" color="error" variant="tonal" @click="rejectAiSuggestion(field)">
                     <v-icon start size="small">mdi-close</v-icon>
-                    Ablehnen
+                    {{ t('pysis.reject') }}
                   </v-btn>
                 </div>
               </div>
@@ -151,7 +151,7 @@
               <v-chip size="x-small" :color="getSourceColor(field.value_source)">
                 {{ field.value_source }}
               </v-chip>
-              <v-icon v-if="field.needs_push" size="x-small" color="warning" class="ml-1" title="Änderungen nicht synchronisiert">
+              <v-icon v-if="field.needs_push" size="x-small" color="warning" class="ml-1" :title="t('pysis.notSynced')">
                 mdi-alert-circle
               </v-icon>
             </td>
@@ -162,37 +162,37 @@
                   size="x-small"
                   variant="text"
                   @click="generateField(field)"
-                  title="KI Generieren"
+                  :title="t('pysis.generateAI')"
                   :disabled="!field.ai_extraction_enabled || generatingFieldIds.has(field.id)"
                   :loading="generatingFieldIds.has(field.id)"
                 ></v-btn>
-                <v-btn icon="mdi-cog" size="x-small" variant="text" @click="openFieldSettings(field)" title="Einstellungen"></v-btn>
-                <v-btn icon="mdi-history" size="x-small" variant="text" @click="showHistory(field)" title="Verlauf"></v-btn>
-                <v-btn icon="mdi-upload" size="x-small" variant="text" color="info" @click="pushFieldToPySis(field)" title="Push zu PySis"></v-btn>
-                <v-btn icon="mdi-delete" size="x-small" variant="text" color="error" @click="deleteField(field)" title="Löschen"></v-btn>
+                <v-btn icon="mdi-cog" size="x-small" variant="text" @click="openFieldSettings(field)" :title="t('pysis.settings')"></v-btn>
+                <v-btn icon="mdi-history" size="x-small" variant="text" @click="showHistory(field)" :title="t('pysis.history')"></v-btn>
+                <v-btn icon="mdi-upload" size="x-small" variant="text" color="info" @click="pushFieldToPySis(field)" :title="t('pysis.pushToPySis')"></v-btn>
+                <v-btn icon="mdi-delete" size="x-small" variant="text" color="error" @click="deleteField(field)" :title="t('common.delete')"></v-btn>
               </div>
             </td>
           </tr>
         </tbody>
       </v-table>
       <v-card-text v-else class="text-center text-grey">
-        Keine Felder vorhanden. Klicke auf "Pull" um alle Felder von PySis zu laden.
+        {{ t('pysis.noFields') }}
       </v-card-text>
     </v-card>
 
     <!-- Add Process Dialog -->
     <v-dialog v-model="showAddProcessDialog" max-width="500">
       <v-card>
-        <v-card-title>PySis Prozess hinzufügen</v-card-title>
+        <v-card-title>{{ t('pysis.addProcess') }}</v-card-title>
         <v-card-text>
           <v-autocomplete
             v-model="newProcess.pysis_process_id"
             :items="availableProcesses"
             :item-title="(item: any) => item.name || item.titel || item.id"
             item-value="id"
-            label="PySis Prozess auswählen"
+            :label="t('pysis.selectProcess')"
             :loading="loadingAvailableProcesses"
-            placeholder="Prozess suchen..."
+            :placeholder="t('pysis.searchProcess')"
             clearable
             class="mb-3"
             @update:menu="onProcessMenuOpen"
@@ -206,12 +206,12 @@
             </template>
             <template v-slot:no-data>
               <v-list-item v-if="loadingAvailableProcesses">
-                <v-list-item-title>Lade Prozesse...</v-list-item-title>
+                <v-list-item-title>{{ t('pysis.loadingProcesses') }}</v-list-item-title>
               </v-list-item>
               <v-list-item v-else>
-                <v-list-item-title>Keine Prozesse gefunden</v-list-item-title>
+                <v-list-item-title>{{ t('pysis.noProcessesFound') }}</v-list-item-title>
                 <v-list-item-subtitle>
-                  Gib die UUID manuell ein oder prüfe die PySis-Verbindung
+                  {{ t('pysis.checkConnection') }}
                 </v-list-item-subtitle>
               </v-list-item>
             </template>
@@ -220,7 +220,7 @@
               <v-list-item @click="showManualInput = true">
                 <v-list-item-title class="text-primary">
                   <v-icon start>mdi-pencil</v-icon>
-                  UUID manuell eingeben
+                  {{ t('pysis.enterUUIDManually') }}
                 </v-list-item-title>
               </v-list-item>
             </template>
@@ -228,31 +228,31 @@
           <v-text-field
             v-if="showManualInput || availableProcesses.length === 0"
             v-model="newProcess.pysis_process_id"
-            label="PySis Process ID (manuell)"
-            placeholder="z.B. 402bd7d6-b0b2-4524-a2b2-e1bc5ea2e591"
-            hint="Die UUID des Prozesses in PySis"
+            :label="t('pysis.processIdManual')"
+            :placeholder="t('pysis.processIdPlaceholder')"
+            :hint="t('pysis.processIdHint')"
             persistent-hint
             class="mb-3"
           ></v-text-field>
           <v-text-field
             v-model="newProcess.name"
-            label="Anzeigename (optional)"
-            placeholder="z.B. Windpark Gummersbach"
+            :label="t('pysis.displayName')"
+            :placeholder="t('pysis.displayNamePlaceholder')"
           ></v-text-field>
           <v-select
             v-model="newProcess.template_id"
             :items="templates"
             item-title="name"
             item-value="id"
-            label="Vorlage anwenden (optional)"
+            :label="t('pysis.applyTemplate')"
             clearable
             class="mt-3"
           ></v-select>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="showAddProcessDialog = false">Abbrechen</v-btn>
-          <v-btn color="primary" @click="createProcess" :loading="loading">Hinzufügen</v-btn>
+          <v-btn @click="showAddProcessDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn color="primary" @click="createProcess" :loading="loading">{{ t('common.add') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -260,45 +260,45 @@
     <!-- Add Field Dialog -->
     <v-dialog v-model="showAddFieldDialog" max-width="500">
       <v-card>
-        <v-card-title>Feld hinzufügen</v-card-title>
+        <v-card-title>{{ t('pysis.addField') }}</v-card-title>
         <v-card-text>
           <v-text-field
             v-model="newField.internal_name"
-            label="Interner Name"
-            placeholder="z.B. Ansprechpartner Gemeinde"
+            :label="t('pysis.internalName')"
+            :placeholder="t('pysis.internalNamePlaceholder')"
             class="mb-3"
           ></v-text-field>
           <v-text-field
             v-model="newField.pysis_field_name"
-            label="PySis Feldname"
-            placeholder="z.B. zustndigkeitpm"
-            hint="Der Feldname in der PySis API"
+            :label="t('pysis.pysisFieldName')"
+            :placeholder="t('pysis.pysisFieldNamePlaceholder')"
+            :hint="t('pysis.pysisFieldNameHint')"
             persistent-hint
             class="mb-3"
           ></v-text-field>
           <v-select
             v-model="newField.field_type"
             :items="fieldTypes"
-            label="Feldtyp"
+            :label="t('pysis.fieldType')"
             class="mb-3"
           ></v-select>
           <v-switch
             v-model="newField.ai_extraction_enabled"
-            label="KI-Extraktion aktiviert"
+            :label="t('pysis.aiExtractionEnabled')"
             color="primary"
           ></v-switch>
           <v-textarea
             v-if="newField.ai_extraction_enabled"
             v-model="newField.ai_extraction_prompt"
-            label="KI-Prompt (optional)"
-            placeholder="Spezifische Anweisungen für die KI-Extraktion..."
+            :label="t('pysis.aiPrompt')"
+            :placeholder="t('pysis.aiPromptPlaceholder')"
             rows="3"
           ></v-textarea>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="showAddFieldDialog = false">Abbrechen</v-btn>
-          <v-btn color="primary" @click="createField" :loading="loading">Hinzufügen</v-btn>
+          <v-btn @click="showAddFieldDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn color="primary" @click="createField" :loading="loading">{{ t('common.add') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -306,34 +306,34 @@
     <!-- Apply Template Dialog -->
     <v-dialog v-model="showTemplateDialog" max-width="500">
       <v-card>
-        <v-card-title>Vorlage anwenden</v-card-title>
+        <v-card-title>{{ t('pysis.template') }}</v-card-title>
         <v-card-text>
           <v-select
             v-model="selectedTemplateId"
             :items="templates"
             item-title="name"
             item-value="id"
-            label="Vorlage auswählen"
+            :label="t('pysis.selectTemplate')"
             class="mb-3"
           >
             <template v-slot:item="{ item, props }">
               <v-list-item v-bind="props">
                 <v-list-item-subtitle>
-                  {{ item.raw.fields?.length || 0 }} Felder
+                  {{ item.raw.fields?.length || 0 }} {{ t('pysis.fields') }}
                 </v-list-item-subtitle>
               </v-list-item>
             </template>
           </v-select>
           <v-switch
             v-model="overwriteExisting"
-            label="Bestehende Felder überschreiben"
+            :label="t('pysis.overwriteExisting')"
             color="warning"
           ></v-switch>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="showTemplateDialog = false">Abbrechen</v-btn>
-          <v-btn color="primary" @click="applyTemplate" :loading="loading" :disabled="!selectedTemplateId">Anwenden</v-btn>
+          <v-btn @click="showTemplateDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn color="primary" @click="applyTemplate" :loading="loading" :disabled="!selectedTemplateId">{{ t('pysis.apply') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -353,21 +353,21 @@
         <v-card-text>
           <v-textarea
             v-model="editingField.current_value"
-            label="Wert"
+            :label="t('common.value')"
             variant="outlined"
             rows="10"
             auto-grow
           ></v-textarea>
           <v-alert v-if="editingField.ai_extracted_value && editingField.ai_extracted_value !== editingField.current_value" type="info" density="compact" class="mt-3">
-            <strong>KI-Vorschlag:</strong>
+            <strong>{{ t('pysis.aiSuggestion') }}:</strong>
             <div class="text-body-2 mt-1">{{ editingField.ai_extracted_value }}</div>
-            <v-btn size="small" class="mt-2" @click="useAiValue">KI-Wert übernehmen</v-btn>
+            <v-btn size="small" class="mt-2" @click="useAiValue">{{ t('pysis.useAiValue') }}</v-btn>
           </v-alert>
         </v-card-text>
         <v-card-actions>
-          <v-btn @click="showFieldEditorDialog = false">Abbrechen</v-btn>
+          <v-btn @click="showFieldEditorDialog = false">{{ t('common.cancel') }}</v-btn>
           <v-spacer></v-spacer>
-          <v-btn color="primary" @click="saveFieldValue">Speichern</v-btn>
+          <v-btn color="primary" @click="saveFieldValue">{{ t('common.save') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -377,7 +377,7 @@
       <v-card v-if="historyField">
         <v-card-title>
           <v-icon start>mdi-history</v-icon>
-          Verlauf: {{ historyField.internal_name }}
+          {{ t('pysis.history') }}: {{ historyField.internal_name }}
         </v-card-title>
         <v-card-text>
           <v-progress-linear v-if="loadingHistory" indeterminate></v-progress-linear>
@@ -398,11 +398,11 @@
                 </v-chip>
                 <span class="text-grey">{{ formatHistoryAction(entry.action) }}</span>
                 <span v-if="entry.confidence_score" class="ml-2 text-grey-darken-1">
-                  ({{ Math.round(entry.confidence_score * 100) }}% Konfidenz)
+                  ({{ Math.round(entry.confidence_score * 100) }}% {{ t('pysis.confidence') }})
                 </span>
               </v-list-item-title>
               <v-list-item-subtitle class="mt-1">
-                <div class="history-value">{{ truncateValue(entry.value, 200) || '(leer)' }}</div>
+                <div class="history-value">{{ truncateValue(entry.value, 200) || t('pysis.empty') }}</div>
                 <div class="text-caption text-grey mt-1">{{ formatDate(entry.created_at) }}</div>
               </v-list-item-subtitle>
               <template v-slot:append>
@@ -412,18 +412,18 @@
                   size="x-small"
                   variant="text"
                   @click="restoreFromHistory(entry)"
-                  title="Diesen Wert wiederherstellen"
+                  :title="t('pysis.restoreValue')"
                 ></v-btn>
               </template>
             </v-list-item>
           </v-list>
           <div v-else class="text-center text-grey py-4">
-            Kein Verlauf vorhanden
+            {{ t('pysis.noHistory') }}
           </div>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="showHistoryDialog = false">Schließen</v-btn>
+          <v-btn @click="showHistoryDialog = false">{{ t('common.close') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -433,12 +433,12 @@
       <v-card v-if="editingFieldSettings">
         <v-card-title>
           <v-icon start>mdi-cog</v-icon>
-          Feld-Einstellungen: {{ editingFieldSettings.internal_name }}
+          {{ t('pysis.fieldSettings') }}: {{ editingFieldSettings.internal_name }}
         </v-card-title>
         <v-card-text>
           <v-text-field
             v-model="editingFieldSettings.internal_name"
-            label="Interner Name"
+            :label="t('pysis.internalName')"
             variant="outlined"
             density="compact"
             class="mb-3"
@@ -446,35 +446,34 @@
           <v-select
             v-model="editingFieldSettings.field_type"
             :items="fieldTypes"
-            label="Feldtyp"
+            :label="t('pysis.fieldType')"
             variant="outlined"
             density="compact"
             class="mb-3"
           ></v-select>
           <v-switch
             v-model="editingFieldSettings.ai_extraction_enabled"
-            label="KI-Extraktion aktiviert"
+            :label="t('pysis.aiExtractionEnabled')"
             color="primary"
             class="mb-3"
           ></v-switch>
           <v-textarea
             v-model="editingFieldSettings.ai_extraction_prompt"
-            label="KI-Prompt"
+            :label="t('pysis.aiPrompt')"
             variant="outlined"
             rows="6"
             :placeholder="getDefaultPromptPlaceholder()"
-            hint="Spezifische Anweisungen für die KI, wie dieses Feld extrahiert werden soll. Leer = nur Feldname wird verwendet."
+            :hint="t('pysis.aiPromptHint')"
             persistent-hint
           ></v-textarea>
           <v-alert v-if="!editingFieldSettings.ai_extraction_prompt" type="warning" variant="tonal" density="compact" class="mt-3">
-            <strong>Hinweis:</strong> Ohne spezifischen Prompt verwendet die KI nur den Feldnamen "{{ editingFieldSettings.internal_name }}" als Anweisung.
-            Für bessere Ergebnisse empfehlen wir einen detaillierten Prompt.
+            {{ t('pysis.noPromptWarning', { name: editingFieldSettings.internal_name }) }}
           </v-alert>
         </v-card-text>
         <v-card-actions>
-          <v-btn @click="showFieldSettingsDialog = false">Abbrechen</v-btn>
+          <v-btn @click="showFieldSettingsDialog = false">{{ t('common.cancel') }}</v-btn>
           <v-spacer></v-spacer>
-          <v-btn color="primary" @click="saveFieldSettings" :loading="loading">Speichern</v-btn>
+          <v-btn color="primary" @click="saveFieldSettings" :loading="loading">{{ t('common.save') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -488,9 +487,12 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { pysisApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   municipality: string
@@ -571,13 +573,13 @@ const snackbar = ref(false)
 const snackbarText = ref('')
 const snackbarColor = ref('success')
 
-const fieldTypes = [
-  { title: 'Text', value: 'text' },
-  { title: 'Nummer', value: 'number' },
-  { title: 'Datum', value: 'date' },
-  { title: 'Boolean', value: 'boolean' },
-  { title: 'Liste', value: 'list' },
-]
+const fieldTypes = computed(() => [
+  { title: t('pysis.fieldTypes.text'), value: 'text' },
+  { title: t('pysis.fieldTypes.number'), value: 'number' },
+  { title: t('pysis.fieldTypes.date'), value: 'date' },
+  { title: t('pysis.fieldTypes.boolean'), value: 'boolean' },
+  { title: t('pysis.fieldTypes.list'), value: 'list' },
+])
 
 // Methods
 const showMessage = (text: string, color = 'success') => {
@@ -587,7 +589,7 @@ const showMessage = (text: string, color = 'success') => {
 }
 
 const formatDate = (dateStr: string | null) => {
-  if (!dateStr) return 'Nie'
+  if (!dateStr) return t('results.never')
   return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: de })
 }
 
@@ -654,9 +656,9 @@ const saveFieldValue = async () => {
       field.needs_push = true
     }
     showFieldEditorDialog.value = false
-    showMessage('Wert gespeichert')
+    showMessage(t('pysis.valueSaved'))
   } catch (error: any) {
-    showMessage(error.response?.data?.error || 'Fehler beim Speichern', 'error')
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
   }
 }
 
@@ -727,31 +729,31 @@ const loadFields = async () => {
 
 const createProcess = async () => {
   if (!newProcess.value.pysis_process_id) {
-    showMessage('Bitte PySis Process ID eingeben', 'error')
+    showMessage(t('pysis.enterProcessId'), 'error')
     return
   }
 
   loading.value = true
   try {
     await pysisApi.createProcess(props.municipality, newProcess.value)
-    showMessage('Prozess hinzugefügt')
+    showMessage(t('pysis.processAdded'))
     showAddProcessDialog.value = false
     newProcess.value = { pysis_process_id: '', name: '', template_id: null }
     await loadProcesses()
     emit('updated')
   } catch (error: any) {
-    showMessage(error.response?.data?.error || 'Fehler beim Hinzufügen', 'error')
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
   } finally {
     loading.value = false
   }
 }
 
 const deleteProcess = async (process: any) => {
-  if (!confirm(`Prozess "${process.name || process.pysis_process_id}" wirklich löschen?`)) return
+  if (!confirm(t('pysis.confirmDeleteProcess', { name: process.name || process.pysis_process_id }))) return
 
   try {
     await pysisApi.deleteProcess(process.id)
-    showMessage('Prozess gelöscht')
+    showMessage(t('pysis.processDeleted'))
     if (selectedProcess.value?.id === process.id) {
       selectedProcess.value = null
       fields.value = []
@@ -759,26 +761,26 @@ const deleteProcess = async (process: any) => {
     await loadProcesses()
     emit('updated')
   } catch (error: any) {
-    showMessage(error.response?.data?.error || 'Fehler beim Löschen', 'error')
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
   }
 }
 
 const createField = async () => {
   if (!selectedProcess.value || !newField.value.internal_name || !newField.value.pysis_field_name) {
-    showMessage('Bitte alle Pflichtfelder ausfüllen', 'error')
+    showMessage(t('pysis.fillRequired'), 'error')
     return
   }
 
   loading.value = true
   try {
     await pysisApi.createField(selectedProcess.value.id, newField.value)
-    showMessage('Feld hinzugefügt')
+    showMessage(t('pysis.fieldAdded'))
     showAddFieldDialog.value = false
     newField.value = { internal_name: '', pysis_field_name: '', field_type: 'text', ai_extraction_enabled: true, ai_extraction_prompt: '' }
     await loadFields()
     await loadProcesses()
   } catch (error: any) {
-    showMessage(error.response?.data?.error || 'Fehler beim Hinzufügen', 'error')
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
   } finally {
     loading.value = false
   }
@@ -801,7 +803,7 @@ const toggleAiExtraction = async (field: any) => {
     console.error('Failed to toggle AI extraction', error)
     // Revert on error
     field.ai_extraction_enabled = !field.ai_extraction_enabled
-    showMessage('Fehler beim Aktualisieren', 'error')
+    showMessage(t('pysis.error'), 'error')
   }
 }
 
@@ -839,9 +841,9 @@ const saveFieldSettings = async () => {
     }
 
     showFieldSettingsDialog.value = false
-    showMessage('Einstellungen gespeichert')
+    showMessage(t('pysis.settingsSaved'))
   } catch (error: any) {
-    showMessage(error.response?.data?.error || 'Fehler beim Speichern', 'error')
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
   } finally {
     loading.value = false
   }
@@ -849,19 +851,19 @@ const saveFieldSettings = async () => {
 
 const getDefaultPromptPlaceholder = () => {
   if (!editingFieldSettings.value) return ''
-  return `Beispiel: Finde den Namen und die Position der Person, die in der Gemeinde für ${editingFieldSettings.value.internal_name} zuständig ist. Extrahiere präzise Informationen aus den verfügbaren Dokumenten.`
+  return t('pysis.defaultPromptPlaceholder', { name: editingFieldSettings.value.internal_name })
 }
 
 const deleteField = async (field: any) => {
-  if (!confirm(`Feld "${field.internal_name}" wirklich löschen?`)) return
+  if (!confirm(t('pysis.confirmDeleteField', { name: field.internal_name }))) return
 
   try {
     await pysisApi.deleteField(field.id)
-    showMessage('Feld gelöscht')
+    showMessage(t('pysis.fieldDeleted'))
     await loadFields()
     await loadProcesses()
   } catch (error: any) {
-    showMessage(error.response?.data?.error || 'Fehler beim Löschen', 'error')
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
   }
 }
 
@@ -874,14 +876,14 @@ const applyTemplate = async () => {
       template_id: selectedTemplateId.value,
       overwrite_existing: overwriteExisting.value,
     })
-    showMessage('Vorlage angewendet')
+    showMessage(t('pysis.templateApplied'))
     showTemplateDialog.value = false
     selectedTemplateId.value = null
     overwriteExisting.value = false
     await loadFields()
     await loadProcesses()
   } catch (error: any) {
-    showMessage(error.response?.data?.error || 'Fehler beim Anwenden', 'error')
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
   } finally {
     loading.value = false
   }
@@ -898,22 +900,22 @@ const pullFromPySis = async () => {
       const updated = response.data.fields_updated || 0
       let msg = ''
       if (created > 0 && updated > 0) {
-        msg = `${created} neue Felder erstellt, ${updated} aktualisiert`
+        msg = t('pysis.newFieldsCreated', { created }) + ', ' + t('pysis.fieldsUpdated', { updated })
       } else if (created > 0) {
-        msg = `${created} neue Felder erstellt`
+        msg = t('pysis.newFieldsCreated', { created })
       } else if (updated > 0) {
-        msg = `${updated} Felder aktualisiert`
+        msg = t('pysis.fieldsUpdated', { updated })
       } else {
-        msg = 'Keine Änderungen von PySis'
+        msg = t('pysis.noChanges')
       }
       showMessage(msg)
       await loadFields()
       await loadProcesses()
     } else {
-      showMessage(response.data.errors?.join(', ') || 'Pull fehlgeschlagen', 'error')
+      showMessage(response.data.errors?.join(', ') || t('pysis.error'), 'error')
     }
   } catch (error: any) {
-    showMessage(error.response?.data?.error || 'Pull fehlgeschlagen', 'error')
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
   } finally {
     syncing.value = false
   }
@@ -926,14 +928,14 @@ const pushToPySis = async () => {
   try {
     const response = await pysisApi.pushToPySis(selectedProcess.value.id)
     if (response.data.success) {
-      showMessage(`${response.data.fields_synced} Felder synchronisiert`)
+      showMessage(t('pysis.fieldsSynced', { count: response.data.fields_synced }))
       await loadFields()
       await loadProcesses()
     } else {
-      showMessage(response.data.errors?.join(', ') || 'Push fehlgeschlagen', 'error')
+      showMessage(response.data.errors?.join(', ') || t('pysis.error'), 'error')
     }
   } catch (error: any) {
-    showMessage(error.response?.data?.error || 'Push fehlgeschlagen', 'error')
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
   } finally {
     syncing.value = false
   }
@@ -943,13 +945,13 @@ const pushFieldToPySis = async (field: any) => {
   try {
     const response = await pysisApi.pushFieldToPySis(field.id)
     if (response.data.success) {
-      showMessage('Feld synchronisiert')
+      showMessage(t('pysis.fieldsSynced', { count: 1 }))
       await loadFields()
     } else {
-      showMessage(response.data.errors?.join(', ') || 'Push fehlgeschlagen', 'error')
+      showMessage(response.data.errors?.join(', ') || t('pysis.error'), 'error')
     }
   } catch (error: any) {
-    showMessage(error.response?.data?.error || 'Push fehlgeschlagen', 'error')
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
   }
 }
 
@@ -960,14 +962,14 @@ const generateAllFields = async () => {
   try {
     const response = await pysisApi.generateFields(selectedProcess.value.id)
     if (response.data.success) {
-      showMessage(`KI-Generierung für ${response.data.fields_generated} Felder gestartet`)
+      showMessage(t('pysis.fieldsGenerated', { count: response.data.fields_generated }))
       // Poll for updates after a delay
       setTimeout(loadFields, 5000)
     } else {
-      showMessage(response.data.errors?.join(', ') || 'Generierung fehlgeschlagen', 'error')
+      showMessage(response.data.errors?.join(', ') || t('pysis.error'), 'error')
     }
   } catch (error: any) {
-    showMessage(error.response?.data?.error || 'Generierung fehlgeschlagen', 'error')
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
   } finally {
     generating.value = false
   }
@@ -979,15 +981,15 @@ const generateField = async (field: any) => {
     if (response.data.success) {
       // Mark field as generating
       generatingFieldIds.value.add(field.id)
-      showMessage('KI-Generierung gestartet...', 'info')
+      showMessage(t('pysis.aiGenerationStarted'), 'info')
 
       // Poll for completion
       pollForFieldCompletion(field.id, field.internal_name)
     } else {
-      showMessage(response.data.errors?.join(', ') || 'Generierung fehlgeschlagen', 'error')
+      showMessage(response.data.errors?.join(', ') || t('pysis.error'), 'error')
     }
   } catch (error: any) {
-    showMessage(error.response?.data?.error || 'Generierung fehlgeschlagen', 'error')
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
   }
 }
 
@@ -1023,7 +1025,7 @@ const pollForFieldCompletion = (fieldId: string, fieldName: string) => {
         // AI suggestion is ready!
         stopGenerating(fieldId)
         fields.value = updatedFields
-        showMessage(`KI-Vorschlag für "${fieldName}" bereit!`, 'success')
+        showMessage(t('pysis.aiReady', { name: fieldName }), 'success')
       }
     } catch (error) {
       console.error('Polling error', error)
@@ -1057,17 +1059,17 @@ const acceptAiSuggestion = async (field: any) => {
   try {
     const response = await pysisApi.acceptAiSuggestion(field.id)
     if (response.data.success) {
-      showMessage('KI-Vorschlag übernommen')
+      showMessage(t('pysis.aiSuggestionAccepted'))
       // Update field in list
       field.current_value = response.data.accepted_value
       field.value_source = 'AI'
       field.ai_extracted_value = null
       field.needs_push = true
     } else {
-      showMessage(response.data.message || 'Fehler', 'error')
+      showMessage(response.data.message || t('pysis.error'), 'error')
     }
   } catch (error: any) {
-    showMessage(error.response?.data?.error || 'Fehler beim Übernehmen', 'error')
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
   }
 }
 
@@ -1075,15 +1077,15 @@ const rejectAiSuggestion = async (field: any) => {
   try {
     const response = await pysisApi.rejectAiSuggestion(field.id)
     if (response.data.success) {
-      showMessage('KI-Vorschlag abgelehnt')
+      showMessage(t('pysis.aiSuggestionRejected'))
       // Update field in list
       field.ai_extracted_value = null
       field.confidence_score = null
     } else {
-      showMessage(response.data.message || 'Fehler', 'error')
+      showMessage(response.data.message || t('pysis.error'), 'error')
     }
   } catch (error: any) {
-    showMessage(error.response?.data?.error || 'Fehler beim Ablehnen', 'error')
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
   }
 }
 
@@ -1099,7 +1101,7 @@ const showHistory = async (field: any) => {
     historyEntries.value = response.data.items || []
   } catch (error) {
     console.error('Failed to load history', error)
-    showMessage('Fehler beim Laden des Verlaufs', 'error')
+    showMessage(t('pysis.error'), 'error')
   } finally {
     loadingHistory.value = false
   }
@@ -1111,7 +1113,7 @@ const restoreFromHistory = async (entry: any) => {
   try {
     const response = await pysisApi.restoreFromHistory(historyField.value.id, entry.id)
     if (response.data.success) {
-      showMessage('Wert wiederhergestellt')
+      showMessage(t('pysis.valueRestored'))
       // Update field in list
       const field = fields.value.find((f) => f.id === historyField.value.id)
       if (field) {
@@ -1121,10 +1123,10 @@ const restoreFromHistory = async (entry: any) => {
       }
       showHistoryDialog.value = false
     } else {
-      showMessage(response.data.message || 'Fehler', 'error')
+      showMessage(response.data.message || t('pysis.error'), 'error')
     }
   } catch (error: any) {
-    showMessage(error.response?.data?.error || 'Fehler beim Wiederherstellen', 'error')
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
   }
 }
 
@@ -1157,17 +1159,9 @@ const getHistoryActionColor = (action: string) => {
 }
 
 const formatHistoryAction = (action: string) => {
-  const labels: Record<string, string> = {
-    accepted: 'Übernommen',
-    rejected: 'Abgelehnt',
-    replaced: 'Ersetzt',
-    restored: 'Wiederhergestellt',
-    manual_edit: 'Manuell bearbeitet',
-    generated: 'KI-generiert',
-    pulled: 'Von PySis geladen',
-    pushed: 'An PySis gesendet',
-  }
-  return labels[action] || action
+  const key = `pysis.historyActions.${action}`
+  const translated = t(key)
+  return translated !== key ? translated : action
 }
 
 const getHistoryItemClass = (action: string) => {

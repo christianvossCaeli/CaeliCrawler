@@ -1,0 +1,29 @@
+# Batch replacement patterns for HelpView.vue lines 317-800
+
+# Smart Query Expansion Panels
+Schritt 1: EntityType-Generierung|{{ t('help.smart_query.expansion.entity_type.title') }}
+Die KI erstellt einen neuen EntityType mit:|{{ t('help.smart_query.expansion.entity_type.description') }}
+Name & Beschreibung|{{ t('help.smart_query.expansion.entity_type.items.name.title') }}
+Passend zur Anfrage|{{ t('help.smart_query.expansion.entity_type.items.name.description') }}
+Attribute-Schema|{{ t('help.smart_query.expansion.entity_type.items.schema.title') }}
+Relevante Felder fuer die Extraktion|{{ t('help.smart_query.expansion.entity_type.items.schema.description') }}
+Icon & Farbe|{{ t('help.smart_query.expansion.entity_type.items.icon.title') }}
+Fuer die UI-Darstellung|{{ t('help.smart_query.expansion.entity_type.items.icon.description') }}
+Search Focus|{{ t('help.smart_query.expansion.entity_type.items.search_focus.title') }}
+event_attendance, pain_points, contacts, etc.|{{ t('help.smart_query.expansion.entity_type.items.search_focus.description') }}
+
+Schritt 2: Category-Generierung|{{ t('help.smart_query.expansion.category.title') }}
+Die KI erstellt eine Category mit:|{{ t('help.smart_query.expansion.category.description') }}
+AI-Extraktions-Prompt|{{ t('help.smart_query.expansion.category.items.prompt.title') }}
+Massgeschneidert fuer die Anfrage|{{ t('help.smart_query.expansion.category.items.prompt.description') }}
+Suchbegriffe|{{ t('help.smart_query.expansion.category.items.keywords.title') }}
+Erweitert (z.B. "Entscheider" → Buergermeister, Landrat, etc.)|{{ t('help.smart_query.expansion.category.items.keywords.description') }}
+Verknuepfung zum EntityType|{{ t('help.smart_query.expansion.category.items.link.title') }}
+Extrahierte Daten werden als Entities gespeichert|{{ t('help.smart_query.expansion.category.items.link.description') }}
+
+Schritt 3: Crawl-Konfiguration|{{ t('help.smart_query.expansion.crawl_config.title') }}
+Die KI generiert URL-Filter:|{{ t('help.smart_query.expansion.crawl_config.description') }}
+Exclude-Patterns (Blacklist)|{{ t('help.smart_query.expansion.crawl_config.items.exclude.title') }}
+Irrelevante Seiten ausschliessen|{{ t('help.smart_query.expansion.crawl_config.items.exclude.description') }}
+Datenquellen-Verknuepfung|{{ t('help.smart_query.expansion.crawl_config.items.link_sources.title') }}
+Basierend auf geografischem Filter (z.B. NRW)|{{ t('help.smart_query.expansion.crawl_config.items.link_sources.description') }}

@@ -1,0 +1,62 @@
+{
+  "export": {
+    "title": "Export Data",
+    "format": "Format",
+    "formats": {
+      "csv": "CSV",
+      "json": "JSON",
+      "excel": "Excel",
+      "pdf": "PDF"
+    },
+    "options": {
+      "includeMetadata": "Include Metadata",
+      "includeRawText": "Include Raw Text",
+      "dateRange": "Date Range",
+      "categories": "Categories",
+      "status": "Status"
+    },
+    "actions": {
+      "export": "Export",
+      "preview": "Preview"
+    },
+    "messages": {
+      "exporting": "Creating export...",
+      "success": "Export created successfully",
+      "error": "Error during export"
+    }
+  },
+  "exportView": {
+    "title": "Data Export",
+    "download": "Download Data",
+    "countryOptional": "Country (optional)",
+    "locationOptional": "Municipality/Location (optional)",
+    "categoryOptional": "Category (optional)",
+    "minConfidence": "Minimum Confidence",
+    "verifiedOnly": "Verified data only",
+    "jsonExport": "JSON Export",
+    "csvExport": "CSV Export",
+    "apiEndpoints": "API Endpoints",
+    "extractedData": "Extracted Data",
+    "fulltextSearch": "Fulltext Search",
+    "changesFeed": "Changes Feed",
+    "webhookTest": "Webhook Test",
+    "webhookUrl": "Webhook URL",
+    "testWebhook": "Test Webhook",
+    "recentChanges": "Recent Changes",
+    "detected": "Detected",
+    "changeTypes": {
+      "NEW_DOCUMENT": "New Document",
+      "CONTENT_CHANGED": "Content Changed",
+      "REMOVED": "Removed",
+      "METADATA_CHANGED": "Metadata Changed"
+    },
+    "messages": {
+      "jsonSuccess": "JSON export downloaded successfully",
+      "jsonError": "JSON export failed",
+      "csvSuccess": "CSV export downloaded successfully",
+      "csvError": "CSV export failed",
+      "webhookSuccess": "Webhook tested successfully",
+      "webhookError": "Webhook test failed"
+    }
+  }
+}

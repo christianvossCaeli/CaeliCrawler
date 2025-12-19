@@ -1,0 +1,471 @@
+{
+  "help": {
+    "municipalities": {
+      "title": "Municipalities / Locations",
+      "description": "Overview of all locations with aggregated data and detailed reports.",
+      "statisticsCards": "Statistics Cards",
+      "cards": {
+        "municipalities": "Municipalities",
+        "municipalitiesDesc": "Number of locations",
+        "documents": "Documents",
+        "documentsDesc": "Total",
+        "relevant": "Relevant",
+        "relevantDesc": "With results",
+        "highPriority": "High Priority",
+        "highPriorityDesc": "Priority municipalities"
+      },
+      "tableColumns": {
+        "title": "Table Columns",
+        "columnHeader": "Column",
+        "descriptionHeader": "Description",
+        "name": "Name",
+        "nameDesc": "Municipality name (clickable for report)",
+        "adminLevels": "Admin Level 1/2",
+        "adminLevelsDesc": "State / District",
+        "sources": "Sources",
+        "sourcesDesc": "Number of linked data sources",
+        "documents": "Documents",
+        "documentsDesc": "Chips: Total / Relevant / High Priority / Opportunity Score",
+        "confidence": "Confidence",
+        "confidenceDesc": "Average AI confidence as progress bar",
+        "decisionMakers": "Decision Makers",
+        "decisionMakersDesc": "Number of identified decision makers"
+      },
+      "filters": "Filters",
+      "filterList": [
+        "Country",
+        "State (Admin Level 1)",
+        "District (Admin Level 2)",
+        "Category",
+        "Min. Confidence",
+        "Search"
+      ],
+      "municipalityReport": {
+        "title": "Municipality Report (Detail Dialog)",
+        "description": "Click on a row or the eye icon for the complete report:",
+        "reportHeader": "Report Header: Municipality name, Opportunity Score, Category purpose",
+        "overviewCards": "Overview Cards",
+        "overviewCardLabels": {
+          "documents": "Documents",
+          "relevant": "Relevant",
+          "confidence": "Confidence %",
+          "priority": "Priority"
+        },
+        "reportTabs": "Report Tabs",
+        "tabs": {
+          "decisionMakers": "Decision Makers",
+          "decisionMakersDesc": "List of all identified decision makers with name, role, contact and related documents",
+          "painPoints": "Pain Points",
+          "painPointsDesc": "Critical points and obstacles extracted from documents. With type, severity and source document.",
+          "positiveSignals": "Positive Signals",
+          "positiveSignalsDesc": "Opportunities and positive developments. With type, priority and source document.",
+          "summaries": "Summaries",
+          "summariesDesc": "AI-generated summaries per document (expandable)",
+          "dataSources": "Data Sources",
+          "dataSourcesDesc": "All linked sources of this municipality with status and last crawl date",
+          "pysis": "PySis (Optional)",
+          "pysisDesc": "Integration with external process management system (if configured)"
+        }
+      },
+      "locationManagement": {
+        "title": "Location Management (Admin)",
+        "functionColumn": "Function",
+        "descriptionColumn": "Description",
+        "newLocation": "New Location",
+        "newLocationDesc": "Create location manually",
+        "edit": "Edit",
+        "editDesc": "Change name, country, admin levels",
+        "showReport": "Show Report",
+        "showReportDesc": "Open detail report",
+        "documents": "Documents",
+        "documentsDesc": "All documents of this location",
+        "linkSources": "Link Sources",
+        "linkSourcesDesc": "Automatic linking based on location name",
+        "enrichAdminLevels": "Enrich Admin Levels",
+        "enrichAdminLevelsDesc": "Determine state/district via geocoding"
+      }
+    },
+    "entityFacet": {
+      "title": "Entity-Facet System",
+      "newInfo": "NEW: The Entity-Facet System enables a flexible, generic data structure for various analysis scenarios - from pain point analyses to event tracking to decision maker profiles.",
+      "concept": {
+        "title": "Concept: What are Entities and Facets?",
+        "description": "The system is based on two main concepts:",
+        "entities": {
+          "title": "Entities (Objects)",
+          "description": "Basic objects that are analyzed:",
+          "municipality": "Municipalities, cities",
+          "person": "Decision makers, contacts",
+          "organization": "Authorities, companies",
+          "event": "Events, meetings",
+          "types": [
+            "Municipality - Municipalities, cities",
+            "Person - Decision makers, contacts",
+            "Organization - Authorities, companies",
+            "Event - Events, meetings"
+          ],
+          "note": "Entity types are configurable and extensible."
+        },
+        "facets": {
+          "title": "Facets (Properties)",
+          "description": "Dynamic properties assigned to entities:",
+          "painPoint": "Problems, challenges",
+          "positiveSignal": "Positive signals",
+          "contact": "Contact data",
+          "eventAttendance": "Event participation",
+          "types": [
+            "Pain Point - Problems, challenges",
+            "Positive Signal - Positive signals",
+            "Contact - Contact data",
+            "Event Attendance - Event participation"
+          ],
+          "note": "Facet types can be individually defined."
+        }
+      },
+      "relations": {
+        "title": "Relations (Links)",
+        "description": "Entities can be linked with each other:",
+        "tableHeaders": {
+          "relationType": "Relation Type",
+          "description": "Description",
+          "example": "Example"
+        },
+        "types": {
+          "worksFor": "works_for",
+          "worksForDesc": "Person works for organization/municipality",
+          "worksForExample": "Max Mustermann → Mayor → Municipality Musterstadt",
+          "memberOf": "member_of",
+          "memberOfDesc": "Person is member of an organization",
+          "memberOfExample": "Person → Member → Municipal Council",
+          "attends": "attends",
+          "attendsDesc": "Person attends event",
+          "attendsExample": "Person → Participant → Wind Energy Conference",
+          "organizes": "organizes",
+          "organizesDesc": "Organization organizes event",
+          "organizesExample": "District Office → Organizer → Public Meeting"
+        }
+      },
+      "timeBased": {
+        "title": "Time-based Facets",
+        "info": "Some facet types support time-based filtering:",
+        "futureOnly": "future_only - Only future events (e.g. upcoming events)",
+        "pastOnly": "past_only - Only past events (e.g. historical data)",
+        "all": "all - All time periods (default)"
+      },
+      "analysisTemplates": {
+        "title": "Analysis Templates",
+        "description": "Templates define which facets are relevant for which entity types and how they are aggregated and displayed:",
+        "painPoint": {
+          "title": "Pain Point Analysis (Default)",
+          "description": "Aggregates pain points and positive signals per municipality:",
+          "items": [
+            "Primary Entity Type: Municipality",
+            "Active Facets: Pain Point, Positive Signal",
+            "Grouping: By municipality",
+            "Sorting: By Opportunity Score"
+          ]
+        },
+        "eventTracking": {
+          "title": "Event Tracking",
+          "description": "Tracks events and participants:",
+          "items": [
+            "Primary Entity Type: Event",
+            "Active Facets: Event Attendance",
+            "Time filter: future_only (only upcoming events)",
+            "Links: Person attends Event"
+          ]
+        },
+        "decisionMakerProfile": {
+          "title": "Decision Maker Profile",
+          "description": "Creates profiles of decision makers:",
+          "items": [
+            "Primary Entity Type: Person",
+            "Active Facets: Contact, Event Attendance",
+            "Links: works_for Municipality, member_of Organization"
+          ]
+        }
+      },
+      "entitiesView": {
+        "title": "Entities View",
+        "description": "Access the new generic view via Entities in the main menu:",
+        "tableHeaders": {
+          "function": "Function",
+          "description": "Description"
+        },
+        "functions": {
+          "entityTypeTabs": "Entity Type Tabs",
+          "entityTypeTabsDesc": "Switch between different entity types (municipalities, persons, etc.)",
+          "tableCardView": "Table / Card View",
+          "tableCardViewDesc": "Toggle between table view and card view",
+          "filter": "Filter",
+          "filterDesc": "Filter by category, parent element, facet types",
+          "facetOverview": "Facet Overview",
+          "facetOverviewDesc": "Shows aggregated facet counters per entity"
+        }
+      },
+      "entityDetailView": {
+        "title": "Entity Detail View",
+        "description": "Click on an entity for the detail view:",
+        "tabsTitle": "Tabs",
+        "actionsTitle": "Actions",
+        "tabs": {
+          "facets": "Facets - All facet values grouped by type",
+          "relations": "Relations - Relations to other entities",
+          "dataSources": "Data Sources - Linked crawl sources",
+          "documents": "Documents - Found documents",
+          "pysis": "PySis - Integration (for municipalities)"
+        },
+        "actions": {
+          "addFacet": "Add Facet - Manually record new values",
+          "verify": "Verify - Confirm AI results",
+          "edit": "Edit - Adjust entity data",
+          "startCrawl": "Start Crawl - Update data sources"
+        }
+      },
+      "aiIntegration": {
+        "title": "AI Integration",
+        "description": "The Entity-Facet System is tightly integrated with AI analysis:",
+        "automaticExtraction": {
+          "title": "Automatic Extraction",
+          "description": "The AI extracts facet values from documents based on facet type"
+        },
+        "facetPrompts": {
+          "title": "Facet-specific Prompts",
+          "description": "Each facet type has its own extraction prompt"
+        },
+        "confidenceRating": {
+          "title": "Confidence Assessment",
+          "description": "The AI evaluates the reliability of each extracted value"
+        },
+        "humanInLoop": {
+          "title": "Human-in-the-Loop",
+          "description": "Manual verification for quality assurance"
+        }
+      },
+      "bestPractices": {
+        "title": "Best Practices",
+        "items": {
+          "predefinedTypes": "Start with predefined entity types",
+          "useTemplates": "Use analysis templates for consistent evaluations",
+          "verifyResults": "Verify AI results regularly",
+          "timeFilters": "Use time-based filters for event tracking"
+        }
+      }
+    },
+    "results": {
+      "title": "Results",
+      "description": "Central view of all AI-extracted data.",
+      "statisticsCards": "Statistics Cards",
+      "cards": {
+        "total": "Total",
+        "totalDesc": "All extractions",
+        "verified": "Verified",
+        "verifiedDesc": "Manually confirmed",
+        "highConfidence": "High Confidence",
+        "highConfidenceDesc": "≥80% certainty",
+        "average": "Average",
+        "averageDesc": "Avg. Confidence"
+      },
+      "availableFilters": "Available Filters",
+      "filters": [
+        "Country",
+        "Municipality/Location (Autocomplete)",
+        "Category",
+        "Min. Confidence (Slider)"
+      ],
+      "whatIsExtracted": "What is extracted?",
+      "extracted": {
+        "topicSummary": "Topic & Summary",
+        "painPoints": "Pain Points",
+        "painPointsDesc": "Critical points, obstacles, problems",
+        "opportunities": "Opportunities",
+        "opportunitiesDesc": "Opportunities, positive developments",
+        "sentiment": "Sentiment",
+        "sentimentDesc": "Positive / Neutral / Negative",
+        "confidence": "Confidence Score",
+        "confidenceDesc": "How confident is the AI (0-100%)"
+      },
+      "detailDialog": {
+        "title": "Detail Dialog",
+        "description": "Click the eye icon to see details:",
+        "header": "Header",
+        "headerItems": [
+          "Extraction topic",
+          "Confidence with color chip",
+          "Document link + source"
+        ],
+        "infoCards": "Info Cards",
+        "sections": {
+          "summary": "Summary",
+          "summaryDesc": "AI-generated content summary",
+          "painPoints": "Pain Points",
+          "painPointsDesc": "Expandable list with critical points from the document",
+          "positiveSignals": "Positive Signals",
+          "positiveSignalsDesc": "Expandable list with opportunities and positive developments",
+          "decisionMakers": "Decision Makers",
+          "decisionMakersDesc": "Identified decision makers with name and role",
+          "rawJson": "Raw JSON",
+          "rawJsonDesc": "Complete AI response in JSON format for analysis"
+        },
+        "tip": "Tip: Use \"Open Document\" to view the original."
+      },
+      "understandingConfidence": {
+        "title": "Understanding Confidence",
+        "low": "0-50%",
+        "lowDesc": "Low confidence",
+        "lowAction": "Review critically",
+        "medium": "50-70%",
+        "mediumDesc": "Medium confidence",
+        "mediumAction": "Spot check",
+        "high": "70-100%",
+        "highDesc": "High confidence",
+        "highAction": "Usually reliable"
+      }
+    },
+    "export": {
+      "title": "Export",
+      "exportFormats": "Export Formats",
+      "formats": {
+        "json": "JSON",
+        "jsonDesc": "Structured with all details",
+        "csv": "CSV",
+        "csvDesc": "Table format for Excel"
+      },
+      "exportFilters": "Export Filters",
+      "filters": [
+        "Country",
+        "Municipality/Location",
+        "Category",
+        "Minimum Confidence (Slider)",
+        "Verified data only"
+      ],
+      "webhookTest": {
+        "title": "Webhook Test",
+        "description": "Test webhook integrations with external systems:",
+        "items": [
+          "Enter webhook URL",
+          "Send test request",
+          "Show result with status code"
+        ]
+      },
+      "changesFeed": {
+        "title": "Changes Feed",
+        "description": "Shows recent changes in the system:",
+        "new": "NEW",
+        "newDesc": "New extraction added",
+        "updated": "UPDATED",
+        "updatedDesc": "Existing extraction updated",
+        "verified": "VERIFIED",
+        "verifiedDesc": "Manually verified"
+      },
+      "apiEndpoints": {
+        "title": "API Endpoints",
+        "getData": "Retrieve extracted data",
+        "getDocuments": "Retrieve documents",
+        "search": "Full-text search",
+        "exportJson": "JSON export (with filters)",
+        "exportCsv": "CSV export (with filters)",
+        "getChanges": "Changes feed",
+        "testWebhook": "Test webhook"
+      }
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "The notification system allows you to be automatically informed about important events - via email, webhook or in-app notification.",
+      "overview": {
+        "title": "Overview",
+        "description": "Under Notifications (accessible via the bell icon in the app bar) you will find three areas:",
+        "inbox": "Inbox",
+        "inboxDesc": "All your notifications with filter functions",
+        "rules": "Rules",
+        "rulesDesc": "Create and manage notification rules",
+        "settings": "Settings",
+        "settingsDesc": "Manage general settings and email addresses"
+      },
+      "eventTypes": {
+        "title": "Event Types",
+        "description": "The following events can trigger notifications:",
+        "newDocument": "New Document",
+        "newDocumentDesc": "A new document was found during crawling",
+        "documentChanged": "Document Changed",
+        "documentChangedDesc": "An existing document was updated",
+        "documentRemoved": "Document Removed",
+        "documentRemovedDesc": "A document is no longer available",
+        "crawlStarted": "Crawl Started",
+        "crawlStartedDesc": "A crawl job was started",
+        "crawlCompleted": "Crawl Completed",
+        "crawlCompletedDesc": "A crawl job completed successfully",
+        "crawlFailed": "Crawl Failed",
+        "crawlFailedDesc": "A crawl job ended with errors",
+        "aiAnalysisCompleted": "AI Analysis Completed",
+        "aiAnalysisCompletedDesc": "The AI analysis of a document is finished",
+        "highConfidence": "High Confidence",
+        "highConfidenceDesc": "An AI result with high confidence was found",
+        "sourceStatusChanged": "Source Status Changed",
+        "sourceStatusChangedDesc": "The status of a data source has changed",
+        "sourceError": "Source Error",
+        "sourceErrorDesc": "There was an error with a data source"
+      },
+      "channels": {
+        "title": "Notification Channels",
+        "email": "Email",
+        "emailDesc": "Receive notifications via email. You can store multiple email addresses and select which addresses should be notified per rule.",
+        "webhook": "Webhook",
+        "webhookDesc": "Send notifications to an HTTP endpoint. Bearer token, API key and basic authentication are supported.",
+        "inApp": "In-App",
+        "inAppDesc": "Notifications are displayed in the inbox. The bell icon shows the number of unread messages."
+      },
+      "createRules": {
+        "title": "Create Rules",
+        "description": "How to create a new notification rule:",
+        "step1Title": "Basic Settings",
+        "step1Desc": "Give a name and select the event type.",
+        "step2Title": "Choose Channel",
+        "step2Desc": "Select email, webhook or in-app as notification channel.",
+        "step3Title": "Configure Filters (optional)",
+        "step3Desc": "Restrict for which categories, sources or confidence values the rule should apply.",
+        "step4Title": "Channel-specific Settings",
+        "step4Desc": "For email: Select recipients. For webhook: Provide URL and authentication."
+      },
+      "filterOptions": {
+        "title": "Filter Options",
+        "categories": "Categories",
+        "categoriesDesc": "Only notify for events in specific categories",
+        "dataSources": "Data Sources",
+        "dataSourcesDesc": "Only notify for events from specific sources",
+        "minConfidence": "Min. Confidence",
+        "minConfidenceDesc": "Only for AI results above a threshold (0.0 - 1.0)",
+        "keywords": "Keywords",
+        "keywordsDesc": "Only when specific terms appear in the document"
+      },
+      "digestMode": {
+        "title": "Digest Mode",
+        "description": "Instead of each individual notification, you can activate a digest:",
+        "info": "Digest Function: Collects multiple notifications and sends them bundled (hourly, daily or weekly). You can set the digest time in the settings."
+      },
+      "emailAddresses": {
+        "title": "Manage Email Addresses",
+        "description": "Under Settings you can store additional email addresses:",
+        "add": "Add Address",
+        "addDesc": "Enter an email and optionally a label",
+        "verify": "Verification",
+        "verifyDesc": "New addresses must be verified via confirmation link",
+        "delete": "Delete",
+        "deleteDesc": "Remove addresses that are no longer needed"
+      },
+      "webhookConfig": {
+        "title": "Webhook Configuration",
+        "description": "For webhook notifications, the following authentication methods are supported:",
+        "none": "None",
+        "noneDesc": "No authentication (only recommended for internal endpoints)",
+        "bearer": "Bearer Token",
+        "bearerDesc": "Authorization: Bearer <token>",
+        "apiKey": "API Key",
+        "apiKeyDesc": "Custom header with API key",
+        "basicAuth": "Basic Auth",
+        "basicAuthDesc": "HTTP Basic Authentication (username/password)",
+        "warning": "Test Webhook: Use the test function to check if your endpoint is reachable and responds correctly before activating the rule."
+      }
+    }
+  }
+}

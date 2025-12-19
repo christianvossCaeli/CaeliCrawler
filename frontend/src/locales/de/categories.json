@@ -1,0 +1,133 @@
+{
+  "categories": {
+    "title": "Kategorien",
+    "category": "Kategorie",
+    "categories": "Kategorien",
+    "filters": {
+      "search": "Suche (Name/Zweck)",
+      "status": "Status",
+      "documents": "Dokumente",
+      "language": "Sprache",
+      "withDocuments": "Mit Dokumenten",
+      "withoutDocuments": "Ohne Dokumente"
+    },
+    "form": {
+      "name": "Name",
+      "nameRequired": "Name ist erforderlich",
+      "description": "Beschreibung",
+      "purpose": "Zweck (z.B. 'Windkraft-Restriktionen analysieren')",
+      "purposeRequired": "Zweck ist erforderlich",
+      "searchTerms": "Suchbegriffe",
+      "searchTermsHint": "Drücken Sie Enter um einen Begriff hinzuzufügen",
+      "documentTypes": "Dokumenttypen",
+      "documentTypesHint": "z.B. Beschluss, Protokoll, Satzung",
+      "languages": "Sprachen",
+      "languagesHint": "Wählen Sie die Sprachen für diese Kategorie",
+      "languagesDescription": "Welche Sprachen werden in dieser Kategorie verwendet? Die KI passt ihre Analyse entsprechend an.",
+      "urlFiltersTitle": "URL-Filter (Regex)",
+      "urlFiltersDescription": "Diese Filter gelten für alle Datenquellen in dieser Kategorie, sofern die Quelle keine eigenen Filter definiert hat. Ohne Filter wird die komplette Sitemap durchsucht.",
+      "includePatterns": "Include-Patterns (Whitelist)",
+      "includeHint": "URLs müssen mindestens ein Pattern matchen. z.B. /dokumente/, /beschluesse/, /ratsinformation/",
+      "excludePatterns": "Exclude-Patterns (Blacklist)",
+      "excludeHint": "URLs die ein Pattern matchen werden übersprungen. z.B. /archiv/, /login/, /suche/, /\\?page=",
+      "noFiltersWarning": "Ohne URL-Filter wird die komplette Sitemap durchsucht - dies kann sehr lange dauern!",
+      "scheduleCron": "Zeitplan (Cron)",
+      "scheduleCronHint": "z.B. '0 2 * * *' für täglich um 2 Uhr",
+      "aiPromptTitle": "KI-Extraktions-Prompt",
+      "aiPromptDescription": "Definiert, welche Informationen die KI aus Dokumenten extrahiert. Hier können Sie festlegen, auf welche Themen (z.B. Windenergie) sich Pain Points und Positive Signals beziehen sollen.",
+      "aiPrompt": "KI-Extraktions-Prompt",
+      "aiPromptHint": "Definieren Sie das JSON-Format und die Extraktionsregeln",
+      "keywords": "Schlüsselwörter",
+      "enabled": "Aktiv"
+    },
+    "columns": {
+      "name": "Name",
+      "purpose": "Zweck",
+      "languages": "Sprachen",
+      "status": "Status",
+      "sources": "Quellen",
+      "documents": "Dokumente",
+      "actions": "Aktionen"
+    },
+    "actions": {
+      "create": "Neue Kategorie",
+      "edit": "Bearbeiten",
+      "delete": "Löschen",
+      "viewSources": "Datenquellen anzeigen",
+      "startCrawl": "Crawlen starten",
+      "reanalyze": "Dokumente neu analysieren"
+    },
+    "dialog": {
+      "create": "Neue Kategorie",
+      "edit": "Kategorie bearbeiten",
+      "delete": "Kategorie löschen?",
+      "deleteConfirm": "Möchten Sie die Kategorie \"{name}\" wirklich löschen? Alle zugehörigen Datenquellen und Dokumente werden ebenfalls gelöscht.",
+      "reanalyze": "Dokumente neu analysieren?",
+      "reanalyzeConfirm": "Alle Dokumente der Kategorie \"{name}\" werden mit dem aktuellen KI-Prompt neu analysiert.",
+      "reanalyzeAll": "Alle Dokumente neu analysieren (nicht nur niedrige Konfidenz)",
+      "reanalyzeInfo": "werden neu analysiert.",
+      "reanalyzeOnlyLow": "Nur Dokumente mit Konfidenz < 70%",
+      "reanalyzeAllDocs": "Alle Dokumente",
+      "sources": "Datenquellen:",
+      "sourcesFor": "Datenquellen:",
+      "searchSources": "Suchen...",
+      "noSources": "Keine Datenquellen in dieser Kategorie",
+      "noSourcesSearch": "Keine Datenquellen gefunden für",
+      "statistics": "Statistik",
+      "openUrl": "URL öffnen",
+      "showAllInSourcesView": "Alle in Datenquellen-Ansicht anzeigen",
+      "docs": "Docs"
+    },
+    "crawler": {
+      "title": "Crawler starten:",
+      "estimatedCount": "Datenquellen werden gecrawlt",
+      "filters": "Filter",
+      "search": "Suche (Name/URL)",
+      "searchHint": "Filtert nach Name oder URL",
+      "maxLimit": "Maximale Anzahl",
+      "limitHint": "Leer = alle",
+      "statusFilter": "Status",
+      "typeFilter": "Quellentyp",
+      "filterActive": "URL-Filter aktiv:",
+      "includeCount": "Include",
+      "excludeCount": "Exclude Patterns",
+      "noFiltersWarning": "Keine URL-Filter gesetzt - alle URLs werden gecrawlt!",
+      "tooManySources": "Mehr als 500 Quellen - bitte Filter oder Limit setzen!",
+      "sourcesCount": "Quellen",
+      "resetFilters": "Filter zurücksetzen",
+      "start": "Crawler starten",
+      "started": "Crawl für {count} Quellen gestartet",
+      "errorStarting": "Fehler beim Starten des Crawls"
+    },
+    "statusOptions": {
+      "active": "Aktiv",
+      "inactive": "Inaktiv"
+    },
+    "documentOptions": {
+      "with": "Mit Dokumenten",
+      "without": "Ohne Dokumente"
+    },
+    "sourceTypes": {
+      "WEBSITE": "Website",
+      "OPARL_API": "OParl API",
+      "RSS": "RSS Feed",
+      "ACTIVE": "Aktiv",
+      "PENDING": "Ausstehend",
+      "ERROR": "Fehler"
+    },
+    "stats": {
+      "total": "Gesamt",
+      "active": "Aktiv",
+      "pending": "Ausstehend",
+      "error": "Fehler"
+    },
+    "messages": {
+      "created": "Kategorie erfolgreich erstellt",
+      "updated": "Kategorie erfolgreich aktualisiert",
+      "deleted": "Kategorie erfolgreich gelöscht",
+      "reanalyzeStarted": "Neu-Analyse gestartet",
+      "reanalyzeError": "Fehler beim Starten der Neu-Analyse",
+      "sourcesLoadError": "Fehler beim Laden der Datenquellen"
+    }
+  }
+}

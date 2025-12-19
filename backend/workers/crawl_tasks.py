@@ -152,7 +152,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
 def check_scheduled_crawls():
     """Check for sources due for scheduled crawling."""
     from app.database import get_celery_session_context
-    from app.models import Category, DataSource, SourceStatus
+    from app.models import Category, DataSource, DataSourceCategory, SourceStatus
     from sqlalchemy import select
     import asyncio
     from croniter import croniter
@@ -174,10 +174,12 @@ def check_scheduled_crawls():
                 next_run = cron.get_next(datetime)
 
                 if next_run <= now:
-                    # Get sources that need crawling
+                    # Get sources via junction table (N:M relationship)
                     source_result = await session.execute(
-                        select(DataSource).where(
-                            DataSource.category_id == category.id,
+                        select(DataSource)
+                        .join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id)
+                        .where(
+                            DataSourceCategory.category_id == category.id,
                             DataSource.status.in_([SourceStatus.ACTIVE, SourceStatus.PENDING]),
                         )
                     )

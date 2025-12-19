@@ -1,15 +1,15 @@
 <template>
   <v-card>
-    <v-card-title>Einstellungen</v-card-title>
+    <v-card-title>{{ t('notificationsView.settings') }}</v-card-title>
 
     <v-card-text>
       <!-- Global Preferences -->
       <v-card variant="outlined" class="mb-6">
-        <v-card-title class="text-subtitle-1">Allgemeine Einstellungen</v-card-title>
+        <v-card-title class="text-subtitle-1">{{ t('notifications.settings.generalSettings') }}</v-card-title>
         <v-card-text>
           <v-switch
             v-model="localPreferences.notifications_enabled"
-            label="Benachrichtigungen aktiviert"
+            :label="t('notifications.settings.notificationsEnabled')"
             color="primary"
             hide-details
             class="mb-4"
@@ -18,9 +18,9 @@
 
           <v-text-field
             v-model="localPreferences.notification_digest_time"
-            label="Digest-Uhrzeit"
+            :label="t('notifications.settings.digestTime')"
             type="time"
-            hint="Uhrzeit fuer taegliche Zusammenfassungen"
+            :hint="t('notifications.settings.digestTimeHint')"
             persistent-hint
             :disabled="!localPreferences.notifications_enabled"
             @update:model-value="handlePreferencesChange"
@@ -31,21 +31,20 @@
       <!-- Email Addresses -->
       <v-card variant="outlined">
         <v-card-title class="d-flex justify-space-between align-center">
-          <span class="text-subtitle-1">E-Mail-Adressen</span>
+          <span class="text-subtitle-1">{{ t('notifications.settings.emailAddresses') }}</span>
           <v-btn
             color="primary"
             size="small"
             prepend-icon="mdi-plus"
             @click="openAddEmailDialog"
           >
-            Hinzufuegen
+            {{ t('common.add') }}
           </v-btn>
         </v-card-title>
 
         <v-card-text>
           <v-alert v-if="emailAddresses.length === 0" type="info" variant="tonal" class="mb-4">
-            Keine zusaetzlichen E-Mail-Adressen konfiguriert. Benachrichtigungen werden an Ihre
-            Haupt-E-Mail-Adresse gesendet.
+            {{ t('notifications.settings.noEmailAddresses') }}
           </v-alert>
 
           <v-list v-else>
@@ -64,7 +63,7 @@
               <v-list-item-title>
                 {{ email.email }}
                 <v-chip v-if="email.is_primary" size="x-small" color="primary" class="ml-2">
-                  Primaer
+                  {{ t('notifications.settings.primary') }}
                 </v-chip>
                 <v-chip
                   v-if="!email.is_verified"
@@ -72,7 +71,7 @@
                   color="warning"
                   class="ml-2"
                 >
-                  Nicht verifiziert
+                  {{ t('notifications.settings.notVerified') }}
                 </v-chip>
               </v-list-item-title>
               <v-list-item-subtitle v-if="email.label">
@@ -86,7 +85,7 @@
                   variant="text"
                   size="small"
                   color="primary"
-                  title="Verifizierungs-E-Mail erneut senden"
+                  :title="t('notifications.settings.resendVerification')"
                   @click="resendVerification(email)"
                 />
                 <v-btn
@@ -108,12 +107,12 @@
   <!-- Add Email Dialog -->
   <v-dialog v-model="addEmailDialog" max-width="500">
     <v-card>
-      <v-card-title>E-Mail-Adresse hinzufuegen</v-card-title>
+      <v-card-title>{{ t('notifications.settings.addEmailTitle') }}</v-card-title>
       <v-card-text>
         <v-form ref="emailForm" @submit.prevent="handleAddEmail">
           <v-text-field
             v-model="newEmail.email"
-            label="E-Mail-Adresse"
+            :label="t('notifications.settings.emailAddress')"
             type="email"
             :rules="emailRules"
             required
@@ -121,17 +120,17 @@
           />
           <v-text-field
             v-model="newEmail.label"
-            label="Bezeichnung (optional)"
-            hint="z.B. 'Arbeit', 'Privat'"
+            :label="t('notifications.settings.labelOptional')"
+            :hint="t('notifications.settings.labelHint')"
             persistent-hint
           />
         </v-form>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn @click="addEmailDialog = false">Abbrechen</v-btn>
+        <v-btn @click="addEmailDialog = false">{{ t('common.cancel') }}</v-btn>
         <v-btn color="primary" :loading="saving" @click="handleAddEmail">
-          Hinzufuegen
+          {{ t('common.add') }}
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -140,16 +139,15 @@
   <!-- Delete Confirmation Dialog -->
   <v-dialog v-model="deleteEmailDialog" max-width="400">
     <v-card>
-      <v-card-title>E-Mail-Adresse loeschen?</v-card-title>
+      <v-card-title>{{ t('notifications.settings.deleteEmailTitle') }}</v-card-title>
       <v-card-text>
-        Moechten Sie die E-Mail-Adresse <strong>{{ emailToDelete?.email }}</strong> wirklich loeschen?
-        Benachrichtigungen werden nicht mehr an diese Adresse gesendet.
+        {{ t('notifications.settings.deleteEmailConfirm', { email: emailToDelete?.email }) }}
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn @click="deleteEmailDialog = false">Abbrechen</v-btn>
+        <v-btn @click="deleteEmailDialog = false">{{ t('common.cancel') }}</v-btn>
         <v-btn color="error" :loading="saving" @click="handleDeleteEmail">
-          Loeschen
+          {{ t('common.delete') }}
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -164,7 +162,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useTheme } from 'vuetify'
+import { useI18n } from 'vue-i18n'
 import { useNotifications, type UserEmailAddress, type NotificationPreferences } from '@/composables/useNotifications'
+
+const { t } = useI18n()
 
 const theme = useTheme()
 const isDark = computed(() => theme.global.current.value.dark)
@@ -203,10 +204,10 @@ const snackbar = ref({
 })
 
 // Validation rules
-const emailRules = [
-  (v: string) => !!v || 'E-Mail-Adresse ist erforderlich',
-  (v: string) => /.+@.+\..+/.test(v) || 'Ungueltige E-Mail-Adresse',
-]
+const emailRules = computed(() => [
+  (v: string) => !!v || t('notifications.settings.emailRequired'),
+  (v: string) => /.+@.+\..+/.test(v) || t('notifications.settings.emailInvalid'),
+])
 
 // Watch preferences changes
 watch(preferences, (newVal) => {
@@ -221,9 +222,9 @@ const showSnackbar = (message: string, color: string = 'success') => {
 const handlePreferencesChange = async () => {
   try {
     await updatePreferences(localPreferences.value)
-    showSnackbar('Einstellungen gespeichert')
+    showSnackbar(t('notifications.settings.settingsSaved'))
   } catch (e) {
-    showSnackbar('Fehler beim Speichern der Einstellungen', 'error')
+    showSnackbar(t('notifications.settings.settingsError'), 'error')
   }
 }
 
@@ -243,9 +244,9 @@ const handleAddEmail = async () => {
       label: newEmail.value.label || undefined,
     })
     addEmailDialog.value = false
-    showSnackbar('E-Mail-Adresse hinzugefuegt. Bitte bestaetigen Sie die Verifizierungs-E-Mail.')
+    showSnackbar(t('notifications.settings.emailAdded'))
   } catch (e) {
-    showSnackbar('Fehler beim Hinzufuegen der E-Mail-Adresse', 'error')
+    showSnackbar(t('notifications.settings.emailAddError'), 'error')
   } finally {
     saving.value = false
   }
@@ -263,9 +264,9 @@ const handleDeleteEmail = async () => {
   try {
     await deleteEmailAddress(emailToDelete.value.id)
     deleteEmailDialog.value = false
-    showSnackbar('E-Mail-Adresse geloescht')
+    showSnackbar(t('notifications.settings.emailDeleted'))
   } catch (e) {
-    showSnackbar('Fehler beim Loeschen der E-Mail-Adresse', 'error')
+    showSnackbar(t('notifications.settings.emailDeleteError'), 'error')
   } finally {
     saving.value = false
   }
@@ -273,7 +274,7 @@ const handleDeleteEmail = async () => {
 
 const resendVerification = async (email: UserEmailAddress) => {
   // TODO: Implement resend verification endpoint
-  showSnackbar('Verifizierungs-E-Mail wurde erneut gesendet')
+  showSnackbar(t('notifications.settings.verificationResent'))
 }
 
 // Dark mode aware styling

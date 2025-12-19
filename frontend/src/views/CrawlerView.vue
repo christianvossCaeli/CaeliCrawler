@@ -4,13 +4,13 @@
     <v-overlay :model-value="loading && initialLoad" class="align-center justify-center" persistent scrim="rgba(0,0,0,0.7)">
       <v-card class="pa-8 text-center" min-width="320" elevation="24">
         <v-progress-circular indeterminate size="80" width="6" color="primary" class="mb-4"></v-progress-circular>
-        <div class="text-h6 mb-2">Daten werden geladen</div>
-        <div class="text-body-2 text-grey">Crawler-Status wird abgerufen...</div>
+        <div class="text-h6 mb-2">{{ $t('crawler.dataLoading') }}</div>
+        <div class="text-body-2 text-grey">{{ $t('crawler.loadingStatus') }}</div>
       </v-card>
     </v-overlay>
 
     <div class="d-flex align-center mb-6">
-      <h1 class="text-h4">Crawler Status</h1>
+      <h1 class="text-h4">{{ $t('crawler.title') }}</h1>
       <v-spacer></v-spacer>
       <v-btn
         v-if="status.running_jobs > 0 || status.pending_jobs > 0"
@@ -20,7 +20,7 @@
         :loading="stoppingAll"
         @click="stopAllCrawlers"
       >
-        Alles Stoppen
+        {{ $t('crawler.stopAll') }}
       </v-btn>
     </div>
 
@@ -30,7 +30,7 @@
         <v-card color="success" dark>
           <v-card-text class="text-center">
             <div class="text-h3">{{ status.worker_count }}</div>
-            <div>Aktive Worker</div>
+            <div>{{ $t('crawler.activeWorkers') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -38,7 +38,7 @@
         <v-card color="info" dark>
           <v-card-text class="text-center">
             <div class="text-h3">{{ status.running_jobs }}</div>
-            <div>Laufende Jobs</div>
+            <div>{{ $t('crawler.runningJobs') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -46,7 +46,7 @@
         <v-card color="warning" dark>
           <v-card-text class="text-center">
             <div class="text-h3">{{ status.pending_jobs }}</div>
-            <div>Wartende Jobs</div>
+            <div>{{ $t('crawler.pendingJobs') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -54,7 +54,7 @@
         <v-card color="primary" dark>
           <v-card-text class="text-center">
             <div class="text-h3">{{ stats.total_documents }}</div>
-            <div>Dokumente gesamt</div>
+            <div>{{ $t('crawler.totalDocuments') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -64,9 +64,9 @@
     <v-card v-if="runningAiTasks.length > 0" class="mb-4" color="purple-lighten-5">
       <v-card-title class="d-flex align-center">
         <v-icon color="purple" class="mr-2 mdi-spin">mdi-loading</v-icon>
-        KI-Aufgaben ({{ runningAiTasks.length }})
+        {{ $t('crawler.aiTasks') }} ({{ runningAiTasks.length }})
         <v-spacer></v-spacer>
-        <v-chip size="small" color="purple">Live-Updates</v-chip>
+        <v-chip size="small" color="purple">{{ $t('crawler.liveUpdates') }}</v-chip>
       </v-card-title>
       <v-card-text>
         <v-list dense>
@@ -79,8 +79,8 @@
             </template>
             <v-list-item-title>{{ task.name }}</v-list-item-title>
             <v-list-item-subtitle>
-              <span v-if="task.current_item">Aktuell: {{ task.current_item }}</span>
-              <span v-else>Verarbeite...</span>
+              <span v-if="task.current_item">{{ $t('crawler.current') }}: {{ task.current_item }}</span>
+              <span v-else>{{ $t('crawler.processing') }}</span>
               <span class="ml-2">{{ task.progress_current }}/{{ task.progress_total }}</span>
             </v-list-item-subtitle>
             <template v-slot:append>
@@ -100,7 +100,7 @@
                   color="error"
                   variant="text"
                   @click.stop="cancelAiTask(task)"
-                  title="Abbrechen"
+                  :title="$t('crawler.cancel')"
                 ></v-btn>
               </div>
             </template>
@@ -113,9 +113,9 @@
     <v-card v-if="runningJobs.length > 0" class="mb-4 card-running">
       <v-card-title class="d-flex align-center">
         <v-icon color="info" class="mr-2 mdi-spin">mdi-loading</v-icon>
-        Aktive Crawler ({{ runningJobs.length }})
+        {{ $t('crawler.activeCrawlers') }} ({{ runningJobs.length }})
         <v-spacer></v-spacer>
-        <v-chip size="small" color="info">Live-Updates alle 3s</v-chip>
+        <v-chip size="small" color="info">{{ $t('crawler.liveUpdatesInterval') }}</v-chip>
       </v-card-title>
       <v-card-text>
         <v-expansion-panels variant="accordion">
@@ -139,13 +139,13 @@
                 </div>
                 <div class="d-flex align-center mr-4">
                   <v-chip size="x-small" color="primary" class="mr-1">
-                    {{ rj.pages_crawled }} Seiten
+                    {{ rj.pages_crawled }} {{ $t('crawler.pages') }}
                   </v-chip>
                   <v-chip size="x-small" color="success" class="mr-1">
-                    {{ rj.documents_found }} Docs
+                    {{ rj.documents_found }} {{ $t('crawler.docs') }}
                   </v-chip>
                   <v-chip size="x-small" color="warning" v-if="rj.error_count > 0">
-                    {{ rj.error_count }} Fehler
+                    {{ rj.error_count }} {{ $t('crawler.errors') }}
                   </v-chip>
                 </div>
                 <v-btn
@@ -154,18 +154,18 @@
                   color="error"
                   variant="text"
                   @click.stop="cancelJob(rj)"
-                  title="Abbrechen"
+                  :title="$t('crawler.cancel')"
                 ></v-btn>
               </div>
             </v-expansion-panel-title>
             <v-expansion-panel-text>
               <div v-if="jobLogs[rj.id]" class="pa-2">
                 <div class="text-subtitle-2 mb-2">
-                  Aktuelle URL:
+                  {{ $t('crawler.currentUrl') }}:
                   <code class="text-caption">{{ jobLogs[rj.id].current_url || '-' }}</code>
                 </div>
                 <v-divider class="mb-2"></v-divider>
-                <div class="text-subtitle-2 mb-1">Letzte Aktivitäten:</div>
+                <div class="text-subtitle-2 mb-1">{{ $t('crawler.recentActivities') }}:</div>
                 <v-virtual-scroll
                   :items="jobLogs[rj.id].log_entries || []"
                   height="200"
@@ -188,7 +188,7 @@
               </div>
               <div v-else class="text-center pa-4">
                 <v-progress-circular indeterminate size="24"></v-progress-circular>
-                <div class="text-caption mt-2">Lade Log...</div>
+                <div class="text-caption mt-2">{{ $t('crawler.loadingLog') }}</div>
               </div>
             </v-expansion-panel-text>
           </v-expansion-panel>
@@ -200,13 +200,13 @@
     <v-card>
       <v-card-title>
         <v-row align="center">
-          <v-col>Crawl-Jobs</v-col>
+          <v-col>{{ $t('crawler.crawlJobs') }}</v-col>
           <v-col cols="auto">
             <v-btn-toggle v-model="statusFilter" color="primary" mandatory>
-              <v-btn value="">Alle</v-btn>
-              <v-btn value="RUNNING">Laufend</v-btn>
-              <v-btn value="COMPLETED">Abgeschlossen</v-btn>
-              <v-btn value="FAILED">Fehlgeschlagen</v-btn>
+              <v-btn value="">{{ $t('crawler.all') }}</v-btn>
+              <v-btn value="RUNNING">{{ $t('crawler.running') }}</v-btn>
+              <v-btn value="COMPLETED">{{ $t('crawler.completed') }}</v-btn>
+              <v-btn value="FAILED">{{ $t('crawler.failed') }}</v-btn>
             </v-btn-toggle>
           </v-col>
         </v-row>
@@ -254,14 +254,14 @@
               size="small"
               variant="text"
               color="error"
-              title="Abbrechen"
+              :title="$t('common.cancel')"
               @click="cancelJob(item)"
             ></v-btn>
             <v-btn
               icon="mdi-information"
               size="small"
               variant="text"
-              title="Details"
+              :title="$t('common.details')"
               @click="showJobDetails(item)"
             ></v-btn>
           </div>
@@ -272,23 +272,23 @@
     <!-- Job Details Dialog -->
     <v-dialog v-model="detailsDialog" max-width="800">
       <v-card v-if="selectedJob">
-        <v-card-title>Job Details</v-card-title>
+        <v-card-title>{{ $t('crawler.jobDetails') }}</v-card-title>
         <v-card-text>
           <v-row>
             <v-col cols="6">
-              <strong>Quelle:</strong> {{ selectedJob.source_name }}
+              <strong>{{ $t('crawler.source') }}:</strong> {{ selectedJob.source_name }}
             </v-col>
             <v-col cols="6">
-              <strong>Kategorie:</strong> {{ selectedJob.category_name }}
+              <strong>{{ $t('crawler.category') }}:</strong> {{ selectedJob.category_name }}
             </v-col>
             <v-col cols="6">
-              <strong>Status:</strong>
+              <strong>{{ $t('crawler.status') }}:</strong>
               <v-chip :color="getStatusColor(selectedJob.status)" size="small">
                 {{ selectedJob.status }}
               </v-chip>
             </v-col>
             <v-col cols="6">
-              <strong>Dauer:</strong> {{ selectedJob.duration_seconds ? formatDuration(selectedJob.duration_seconds) : '-' }}
+              <strong>{{ $t('crawler.duration') }}:</strong> {{ selectedJob.duration_seconds ? formatDuration(selectedJob.duration_seconds) : '-' }}
             </v-col>
           </v-row>
 
@@ -299,7 +299,7 @@
               <v-card outlined>
                 <v-card-text class="text-center">
                   <div class="text-h5">{{ selectedJob.pages_crawled }}</div>
-                  <div class="text-caption">Seiten gecrawlt</div>
+                  <div class="text-caption">{{ $t('crawler.pagesCrawled') }}</div>
                 </v-card-text>
               </v-card>
             </v-col>
@@ -307,7 +307,7 @@
               <v-card outlined>
                 <v-card-text class="text-center">
                   <div class="text-h5">{{ selectedJob.documents_found }}</div>
-                  <div class="text-caption">Dokumente gefunden</div>
+                  <div class="text-caption">{{ $t('crawler.documentsFound') }}</div>
                 </v-card-text>
               </v-card>
             </v-col>
@@ -315,14 +315,14 @@
               <v-card outlined>
                 <v-card-text class="text-center">
                   <div class="text-h5">{{ selectedJob.documents_new }}</div>
-                  <div class="text-caption">Neue Dokumente</div>
+                  <div class="text-caption">{{ $t('crawler.newDocuments') }}</div>
                 </v-card-text>
               </v-card>
             </v-col>
           </v-row>
 
           <div v-if="selectedJob.error_log && selectedJob.error_log.length > 0" class="mt-4">
-            <strong>Fehler:</strong>
+            <strong>{{ $t('crawler.errors') }}:</strong>
             <v-alert
               v-for="(error, idx) in selectedJob.error_log"
               :key="idx"
@@ -336,7 +336,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="detailsDialog = false">Schließen</v-btn>
+          <v-btn @click="detailsDialog = false">{{ $t('crawler.close') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -345,11 +345,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
 
+const { t } = useI18n()
 const { showSuccess, showError, showInfo } = useSnackbar()
 
 const loading = ref(true)
@@ -381,13 +383,13 @@ const stats = ref({
 })
 
 const headers = [
-  { title: 'Quelle', key: 'source_name' },
-  { title: 'Kategorie', key: 'category_name' },
-  { title: 'Status', key: 'status' },
-  { title: 'Gestartet', key: 'scheduled_at' },
-  { title: 'Dauer', key: 'duration' },
-  { title: 'Fortschritt', key: 'progress' },
-  { title: 'Aktionen', key: 'actions', sortable: false },
+  { title: t('crawler.source'), key: 'source_name' },
+  { title: t('crawler.category'), key: 'category_name' },
+  { title: t('crawler.status'), key: 'status' },
+  { title: t('crawler.startedAt'), key: 'scheduled_at' },
+  { title: t('crawler.duration'), key: 'duration' },
+  { title: t('crawler.progress'), key: 'progress' },
+  { title: t('common.actions'), key: 'actions', sortable: false },
 ]
 
 const filteredJobs = computed(() => {
@@ -483,20 +485,20 @@ const refreshRunningJobLogs = async () => {
 const cancelJob = async (job: any) => {
   try {
     await adminApi.cancelJob(job.id)
-    showSuccess('Job wird abgebrochen...')
+    showSuccess(t('crawler.jobCancelling'))
     loadData()
   } catch (error: any) {
-    showError(error.response?.data?.error || 'Fehler beim Abbrechen des Jobs')
+    showError(error.response?.data?.error || t('crawler.cancelJobError'))
   }
 }
 
 const cancelAiTask = async (task: any) => {
   try {
     await adminApi.cancelAiTask(task.id)
-    showSuccess('KI-Aufgabe wird abgebrochen...')
+    showSuccess(t('crawler.aiTaskCancelling'))
     loadData()
   } catch (error: any) {
-    showError(error.response?.data?.error || 'Fehler beim Abbrechen der KI-Aufgabe')
+    showError(error.response?.data?.error || t('crawler.cancelAiTaskError'))
   }
 }
 
@@ -533,7 +535,7 @@ const stopAllCrawlers = async () => {
     showSuccess(`${cancelledCount} Jobs gestoppt`)
     await loadData()
   } catch (error: any) {
-    showError('Fehler beim Stoppen der Crawler')
+    showError(t('crawler.stopError'))
   } finally {
     stoppingAll.value = false
   }

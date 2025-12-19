@@ -4,23 +4,21 @@
     <v-overlay :model-value="loading" class="align-center justify-center" persistent scrim="rgba(0,0,0,0.7)">
       <v-card class="pa-8 text-center" min-width="320" elevation="24">
         <v-progress-circular indeterminate size="80" width="6" color="primary" class="mb-4"></v-progress-circular>
-        <div class="text-h6 mb-2">Daten werden geladen</div>
+        <div class="text-h6 mb-2">{{ $t('sources.loading.title') }}</div>
         <div class="text-body-2 text-grey">
-          {{ totalSources > 0 ? `${totalSources.toLocaleString()} Datenquellen` : 'Bitte warten...' }}
+          {{ totalSources > 0 ? `${totalSources.toLocaleString()} ${$t('sources.sources')}` : $t('sources.loading.subtitle') }}
         </div>
       </v-card>
     </v-overlay>
 
     <div class="d-flex justify-space-between align-center mb-6">
-      <h1 class="text-h4">Datenquellen ({{ totalSources.toLocaleString() }})</h1>
+      <h1 class="text-h4">{{ $t('sources.title') }} ({{ totalSources.toLocaleString() }})</h1>
       <div>
         <v-btn color="secondary" class="mr-2" @click="openBulkImportDialog">
-          <v-icon left>mdi-upload</v-icon>
-          Bulk Import
+          <v-icon left>mdi-upload</v-icon>{{ $t('sources.actions.bulkImport') }}
         </v-btn>
         <v-btn color="primary" @click="openCreateDialog">
-          <v-icon left>mdi-plus</v-icon>
-          Neue Quelle
+          <v-icon left>mdi-plus</v-icon>{{ $t('sources.actions.create') }}
         </v-btn>
       </div>
     </div>
@@ -35,7 +33,7 @@
               :items="countryOptions"
               item-title="label"
               item-value="value"
-              label="Land"
+              :label="$t('sources.filters.country')"
               clearable
               @update:model-value="onCountryChange"
             >
@@ -56,7 +54,7 @@
               :loading="locationFilterLoading"
               item-title="name"
               item-value="name"
-              label="Gemeinde"
+              :label="$t('sources.filters.municipality')"
               prepend-inner-icon="mdi-map-marker"
               clearable
               no-filter
@@ -71,10 +69,10 @@
               </template>
               <template v-slot:no-data>
                 <v-list-item v-if="locationFilterSearch && locationFilterSearch.length >= 2">
-                  <v-list-item-title>Keine Ergebnisse für "{{ locationFilterSearch }}"</v-list-item-title>
+                  <v-list-item-title>{{ $t('sources.filters.noResults') }} "{{ locationFilterSearch }}"</v-list-item-title>
                 </v-list-item>
                 <v-list-item v-else>
-                  <v-list-item-title>Tippen zum Suchen...</v-list-item-title>
+                  <v-list-item-title>{{ $t('sources.filters.typeToSearch') }}</v-list-item-title>
                 </v-list-item>
               </template>
             </v-autocomplete>
@@ -85,7 +83,7 @@
               :items="categories"
               item-title="name"
               item-value="id"
-              label="Kategorie"
+              :label="$t('sources.filters.category')"
               clearable
               @update:model-value="onFilterChange"
             ></v-select>
@@ -94,7 +92,7 @@
             <v-select
               v-model="filters.status"
               :items="statusOptions"
-              label="Status"
+              :label="$t('sources.filters.status')"
               clearable
               @update:model-value="onFilterChange"
             ></v-select>
@@ -102,7 +100,7 @@
           <v-col cols="12" md="3">
             <v-text-field
               v-model="filters.search"
-              label="Suche (Name/URL)"
+              :label="$t('sources.filters.search')"
               prepend-inner-icon="mdi-magnify"
               clearable
               @update:model-value="debouncedLoadSources"
@@ -154,15 +152,15 @@
         </template>
 
         <template v-slot:item.last_crawl="{ item }">
-          {{ item.last_crawl ? formatDate(item.last_crawl) : 'Nie' }}
+          {{ item.last_crawl ? formatDate(item.last_crawl) : $t('sources.never') }}
         </template>
 
         <template v-slot:item.actions="{ item }">
           <div class="table-actions">
-            <v-btn icon="mdi-pencil" size="small" variant="text" title="Bearbeiten" @click="openEditDialog(item)"></v-btn>
-            <v-btn icon="mdi-play" size="small" variant="text" color="success" title="Crawlen starten" @click="startCrawl(item)"></v-btn>
-            <v-btn icon="mdi-refresh" size="small" variant="text" color="warning" title="Zurücksetzen" @click="resetSource(item)" v-if="item.status === 'ERROR'"></v-btn>
-            <v-btn icon="mdi-delete" size="small" variant="text" color="error" title="Löschen" @click="confirmDelete(item)"></v-btn>
+            <v-btn icon="mdi-pencil" size="small" variant="text" :title="$t('sources.actions.edit')" @click="openEditDialog(item)"></v-btn>
+            <v-btn icon="mdi-play" size="small" variant="text" color="success" :title="$t('sources.actions.startCrawl')" @click="startCrawl(item)"></v-btn>
+            <v-btn icon="mdi-refresh" size="small" variant="text" color="warning" :title="$t('sources.actions.reset')" @click="resetSource(item)" v-if="item.status === 'ERROR'"></v-btn>
+            <v-btn icon="mdi-delete" size="small" variant="text" color="error" :title="$t('sources.actions.delete')" @click="confirmDelete(item)"></v-btn>
           </div>
         </template>
       </v-data-table-server>
@@ -171,7 +169,7 @@
     <!-- Create/Edit Dialog -->
     <v-dialog v-model="dialog" max-width="800">
       <v-card>
-        <v-card-title>{{ editMode ? 'Datenquelle bearbeiten' : 'Neue Datenquelle' }}</v-card-title>
+        <v-card-title>{{ editMode ? $t('sources.dialog.edit') : $t('sources.dialog.create') }}</v-card-title>
         <v-card-text>
           <v-form ref="form">
             <div class="d-flex align-center">
@@ -180,13 +178,13 @@
                 :items="categories"
                 item-title="name"
                 item-value="id"
-                label="Kategorien"
+                :label="$t('sources.form.categories')"
                 required
                 multiple
                 chips
                 closable-chips
                 class="flex-grow-1"
-                hint="Erste ausgewählte Kategorie ist die Primäre"
+                :hint="$t('sources.form.categoriesHint')"
                 persistent-hint
               >
                 <template v-slot:chip="{ item, index }">
@@ -208,33 +206,33 @@
                 class="ml-2"
                 :disabled="formData.category_ids.length === 0"
                 @click="showCategoryInfo(formData.category_ids[0])"
-                title="Primäre Kategorie-Details anzeigen"
+                :title="$t('sources.form.primaryCategory')"
               ></v-btn>
             </div>
 
             <v-text-field
               v-model="formData.name"
-              label="Name"
+              :label="$t('sources.form.name')"
               required
             ></v-text-field>
 
             <v-select
               v-model="formData.source_type"
               :items="['WEBSITE', 'OPARL_API', 'RSS', 'CUSTOM_API']"
-              label="Quellentyp"
+              :label="$t('sources.form.sourceType')"
               required
             ></v-select>
 
             <v-text-field
               v-model="formData.base_url"
-              label="Basis-URL"
+              :label="$t('sources.form.baseUrl')"
               required
-              hint="z.B. https://gemeinde-musterstadt.de oder https://oparl.stadt-muenster.de/system"
+              :hint="$t('sources.form.baseUrlHint')"
             ></v-text-field>
 
             <v-text-field
               v-model="formData.api_endpoint"
-              label="API-Endpunkt (optional)"
+              :label="$t('sources.form.apiEndpoint')"
               v-if="formData.source_type === 'OPARL_API' || formData.source_type === 'CUSTOM_API'"
             ></v-text-field>
 
@@ -243,7 +241,7 @@
               :items="countryOptions"
               item-title="label"
               item-value="value"
-              label="Land"
+              :label="$t('sources.filters.country')"
             ></v-select>
 
             <v-autocomplete
@@ -254,8 +252,8 @@
               item-title="name"
               item-value="id"
               return-object
-              label="Ort (optional)"
-              hint="Tippen Sie um zu suchen"
+              :label="$t('sources.form.location')"
+              :hint="$t('sources.form.locationHint')"
               persistent-hint
               clearable
               no-filter
@@ -271,37 +269,37 @@
               <template v-slot:no-data>
                 <v-list-item>
                   <v-list-item-title>
-                    {{ locationSearch?.length >= 2 ? 'Keine Orte gefunden' : 'Min. 2 Zeichen eingeben...' }}
+                    {{ locationSearch?.length >= 2 ? $t('sources.filters.noLocations') : $t('sources.filters.minChars') }}
                   </v-list-item-title>
                 </v-list-item>
               </template>
             </v-autocomplete>
 
             <v-expansion-panels class="mt-4">
-              <v-expansion-panel title="Erweiterte Crawl-Einstellungen">
+              <v-expansion-panel :title="$t('sources.form.advancedSettings')">
                 <v-expansion-panel-text>
                   <v-text-field
                     v-model.number="formData.crawl_config.max_depth"
-                    label="Maximale Tiefe"
+                    :label="$t('sources.form.maxDepth')"
                     type="number"
                   ></v-text-field>
                   <v-text-field
                     v-model.number="formData.crawl_config.max_pages"
-                    label="Maximale Seiten"
+                    :label="$t('sources.form.maxPages')"
                     type="number"
                   ></v-text-field>
                   <v-switch
                     v-model="formData.crawl_config.render_javascript"
-                    label="JavaScript rendern (Playwright)"
+                    :label="$t('sources.form.renderJs')"
                   ></v-switch>
 
                   <v-divider class="my-4"></v-divider>
-                  <div class="text-subtitle-2 mb-2">URL-Filter (Regex)</div>
+                  <div class="text-subtitle-2 mb-2">{{ t('sources.form.urlFilters') }}</div>
 
                   <v-combobox
                     v-model="formData.crawl_config.url_include_patterns"
-                    label="Include-Patterns (Whitelist)"
-                    hint="URLs müssen mindestens ein Pattern matchen. z.B. /dokumente/, /beschluesse/"
+                    :label="$t('sources.form.includePatterns')"
+                    :hint="$t('sources.form.includeHint')"
                     persistent-hint
                     multiple
                     chips
@@ -312,8 +310,8 @@
 
                   <v-combobox
                     v-model="formData.crawl_config.url_exclude_patterns"
-                    label="Exclude-Patterns (Blacklist)"
-                    hint="URLs die ein Pattern matchen werden übersprungen. z.B. /archiv/, /login/, /suche/"
+                    :label="$t('sources.form.excludePatterns')"
+                    :hint="$t('sources.form.excludeHint')"
                     persistent-hint
                     multiple
                     chips
@@ -327,8 +325,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="dialog = false">Abbrechen</v-btn>
-          <v-btn color="primary" @click="saveSource">Speichern</v-btn>
+          <v-btn @click="dialog = false">{{ $t('common.cancel') }}</v-btn>
+          <v-btn color="primary" @click="saveSource">{{ $t('common.save') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -336,33 +334,33 @@
     <!-- Bulk Import Dialog -->
     <v-dialog v-model="bulkDialog" max-width="600">
       <v-card>
-        <v-card-title>Bulk Import</v-card-title>
+        <v-card-title>{{ $t('sources.dialog.bulkImport') }}</v-card-title>
         <v-card-text>
           <v-select
             v-model="bulkImport.category_id"
             :items="categories"
             item-title="name"
             item-value="id"
-            label="Kategorie"
+            :label="$t('sources.filters.category')"
             required
           ></v-select>
 
           <v-textarea
             v-model="bulkImport.urls"
-            label="URLs (eine pro Zeile)"
+            :label="$t('sources.form.urls')"
             rows="10"
-            hint="Format: Name | URL oder nur URL"
+            :hint="$t('sources.form.urlsFormat')"
           ></v-textarea>
 
           <v-switch
             v-model="bulkImport.skip_duplicates"
-            label="Duplikate überspringen"
+            :label="$t('sources.form.skipDuplicates')"
           ></v-switch>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="bulkDialog = false">Abbrechen</v-btn>
-          <v-btn color="primary" @click="executeBulkImport">Importieren</v-btn>
+          <v-btn @click="bulkDialog = false">{{ $t('common.cancel') }}</v-btn>
+          <v-btn color="primary" @click="executeBulkImport">{{ $t('common.import') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -370,14 +368,14 @@
     <!-- Delete Dialog -->
     <v-dialog v-model="deleteDialog" max-width="400">
       <v-card>
-        <v-card-title>Datenquelle löschen?</v-card-title>
+        <v-card-title>{{ $t('sources.dialog.delete') }}</v-card-title>
         <v-card-text>
-          Möchten Sie "{{ selectedSource?.name }}" wirklich löschen?
+          {{ $t('sources.dialog.deleteConfirm', { name: selectedSource?.name }) }}
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="deleteDialog = false">Abbrechen</v-btn>
-          <v-btn color="error" @click="deleteSource">Löschen</v-btn>
+          <v-btn @click="deleteDialog = false">{{ $t('common.cancel') }}</v-btn>
+          <v-btn color="error" @click="deleteSource">{{ $t('common.delete') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -389,19 +387,19 @@
           <v-icon class="mr-2">mdi-folder-outline</v-icon>
           {{ selectedCategoryInfo.name }}
           <v-chip :color="selectedCategoryInfo.is_active ? 'success' : 'grey'" size="small" class="ml-2">
-            {{ selectedCategoryInfo.is_active ? 'Aktiv' : 'Inaktiv' }}
+            {{ selectedCategoryInfo.is_active ? t('sources.dialog.active') : t('sources.dialog.inactive') }}
           </v-chip>
         </v-card-title>
         <v-card-text>
           <!-- Purpose -->
           <div class="mb-4">
-            <div class="text-overline text-grey">Zweck</div>
-            <div class="text-body-1">{{ selectedCategoryInfo.purpose || 'Kein Zweck definiert' }}</div>
+            <div class="text-overline text-grey">{{ $t('sources.dialog.purpose') }}</div>
+            <div class="text-body-1">{{ selectedCategoryInfo.purpose || $t('sources.dialog.noPurpose') }}</div>
           </div>
 
           <!-- Description -->
           <div class="mb-4" v-if="selectedCategoryInfo.description">
-            <div class="text-overline text-grey">Beschreibung</div>
+            <div class="text-overline text-grey">{{ $t('common.description') }}</div>
             <div class="text-body-2">{{ selectedCategoryInfo.description }}</div>
           </div>
 
@@ -410,13 +408,13 @@
             <v-col cols="4">
               <v-card variant="tonal" color="primary" class="pa-3 text-center">
                 <div class="text-h5">{{ selectedCategoryInfo.source_count || 0 }}</div>
-                <div class="text-caption">Datenquellen</div>
+                <div class="text-caption">{{ $t('sources.dialog.dataSources') }}</div>
               </v-card>
             </v-col>
             <v-col cols="4">
               <v-card variant="tonal" color="info" class="pa-3 text-center">
                 <div class="text-h5">{{ selectedCategoryInfo.document_count || 0 }}</div>
-                <div class="text-caption">Dokumente</div>
+                <div class="text-caption">{{ $t('sources.columns.documents') }}</div>
               </v-card>
             </v-col>
             <v-col cols="4">
@@ -426,14 +424,14 @@
                     {{ getLanguageFlag(lang) }}
                   </span>
                 </div>
-                <div class="text-caption">Sprachen</div>
+                <div class="text-caption">{{ $t('sources.dialog.languages') }}</div>
               </v-card>
             </v-col>
           </v-row>
 
           <!-- Search Terms -->
           <div class="mb-4" v-if="selectedCategoryInfo.search_terms?.length">
-            <div class="text-overline text-grey">Suchbegriffe</div>
+            <div class="text-overline text-grey">{{ $t('sources.dialog.searchTerms') }}</div>
             <div>
               <v-chip v-for="term in selectedCategoryInfo.search_terms" :key="term" size="small" class="mr-1 mb-1" color="primary" variant="outlined">
                 {{ term }}
@@ -443,7 +441,7 @@
 
           <!-- Document Types -->
           <div class="mb-4" v-if="selectedCategoryInfo.document_types?.length">
-            <div class="text-overline text-grey">Dokumenttypen</div>
+            <div class="text-overline text-grey">{{ $t('sources.dialog.documentTypes') }}</div>
             <div>
               <v-chip v-for="type in selectedCategoryInfo.document_types" :key="type" size="small" class="mr-1 mb-1" color="secondary" variant="outlined">
                 {{ type }}
@@ -455,18 +453,17 @@
           <v-expansion-panels variant="accordion" class="mb-4" v-if="selectedCategoryInfo.url_include_patterns?.length || selectedCategoryInfo.url_exclude_patterns?.length">
             <v-expansion-panel>
               <v-expansion-panel-title>
-                <v-icon size="small" class="mr-2">mdi-filter</v-icon>
-                URL-Filter
+                <v-icon size="small" class="mr-2">mdi-filter</v-icon>{{ $t('sources.dialog.urlPatterns') }}
               </v-expansion-panel-title>
               <v-expansion-panel-text>
                 <div v-if="selectedCategoryInfo.url_include_patterns?.length" class="mb-3">
-                  <div class="text-caption text-grey mb-1">Include-Patterns (Whitelist)</div>
+                  <div class="text-caption text-grey mb-1">{{ $t('sources.dialog.includePatterns') }}</div>
                   <v-chip v-for="p in selectedCategoryInfo.url_include_patterns" :key="p" size="small" class="mr-1 mb-1" color="success" variant="outlined">
                     <v-icon start size="x-small">mdi-check</v-icon>{{ p }}
                   </v-chip>
                 </div>
                 <div v-if="selectedCategoryInfo.url_exclude_patterns?.length">
-                  <div class="text-caption text-grey mb-1">Exclude-Patterns (Blacklist)</div>
+                  <div class="text-caption text-grey mb-1">{{ $t('sources.dialog.excludePatterns') }}</div>
                   <v-chip v-for="p in selectedCategoryInfo.url_exclude_patterns" :key="p" size="small" class="mr-1 mb-1" color="error" variant="outlined">
                     <v-icon start size="x-small">mdi-close</v-icon>{{ p }}
                   </v-chip>
@@ -479,8 +476,7 @@
           <v-expansion-panels variant="accordion" v-if="selectedCategoryInfo.ai_extraction_prompt">
             <v-expansion-panel>
               <v-expansion-panel-title>
-                <v-icon size="small" class="mr-2">mdi-robot</v-icon>
-                KI-Extraktions-Prompt
+                <v-icon size="small" class="mr-2">mdi-robot</v-icon>{{ $t('sources.dialog.aiPrompt') }}
               </v-expansion-panel-title>
               <v-expansion-panel-text>
                 <pre class="text-caption" style="white-space: pre-wrap; max-height: 300px; overflow-y: auto;">{{ selectedCategoryInfo.ai_extraction_prompt }}</pre>
@@ -490,7 +486,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="categoryInfoDialog = false">Schließen</v-btn>
+          <v-btn @click="categoryInfoDialog = false">{{ $t('common.close') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -505,10 +501,12 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { adminApi, locationApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 
+const { t } = useI18n()
 const route = useRoute()
 
 const loading = ref(false)
@@ -570,7 +568,7 @@ const loadCountries = async () => {
     console.error('Failed to load countries:', e)
     // Fallback
     countryOptions.value = [
-      { value: 'DE', label: 'Deutschland', count: 0 },
+      { value: 'DE', label: t('sources.fallback.germany'), count: 0 },
     ]
   }
 }
@@ -709,13 +707,13 @@ const bulkImport = ref({
 })
 
 const headers = [
-  { title: 'Name', key: 'name' },
-  { title: 'Kategorien', key: 'categories' },
-  { title: 'Typ', key: 'source_type' },
-  { title: 'Status', key: 'status' },
-  { title: 'Letzter Crawl', key: 'last_crawl' },
-  { title: 'Dokumente', key: 'document_count' },
-  { title: 'Aktionen', key: 'actions', sortable: false },
+  { title: t('sources.columns.name'), key: 'name' },
+  { title: t('sources.columns.categories'), key: 'categories' },
+  { title: t('sources.columns.type'), key: 'source_type' },
+  { title: t('sources.columns.status'), key: 'status' },
+  { title: t('sources.columns.lastCrawl'), key: 'last_crawl' },
+  { title: t('sources.columns.documents'), key: 'document_count' },
+  { title: t('sources.columns.actions'), key: 'actions', sortable: false },
 ]
 
 const getTypeColor = (type: string) => {
@@ -886,12 +884,12 @@ const executeBulkImport = async () => {
 const startCrawl = async (source: any) => {
   try {
     await adminApi.startCrawl({ source_ids: [source.id] })
-    snackbarText.value = `Crawl für "${source.name}" gestartet`
+    snackbarText.value = t('sources.messages.crawlStarted', { name: source.name })
     snackbarColor.value = 'success'
     snackbar.value = true
   } catch (error) {
     console.error('Failed to start crawl:', error)
-    snackbarText.value = 'Fehler beim Starten des Crawls'
+    snackbarText.value = t('sources.messages.crawlError')
     snackbarColor.value = 'error'
     snackbar.value = true
   }
@@ -900,13 +898,13 @@ const startCrawl = async (source: any) => {
 const resetSource = async (source: any) => {
   try {
     await adminApi.resetSource(source.id)
-    snackbarText.value = `"${source.name}" zurückgesetzt`
+    snackbarText.value = t('sources.messages.reset', { name: source.name })
     snackbarColor.value = 'success'
     snackbar.value = true
     loadSources()
   } catch (error) {
     console.error('Failed to reset source:', error)
-    snackbarText.value = 'Fehler beim Zurücksetzen'
+    snackbarText.value = t('sources.messages.resetError')
     snackbarColor.value = 'error'
     snackbar.value = true
   }

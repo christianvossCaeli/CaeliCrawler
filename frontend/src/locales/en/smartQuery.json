@@ -1,0 +1,129 @@
+{
+  "smartQuery": {
+    "title": "Smart Query",
+    "subtitle": "Ask questions in natural language",
+    "input": {
+      "placeholder": "e.g. 'Show me all municipalities with wind power discussions'",
+      "submit": "Query"
+    },
+    "results": {
+      "title": "Results",
+      "noResults": "No results found",
+      "preview": "Preview",
+      "execute": "Execute"
+    },
+    "history": {
+      "title": "History",
+      "clear": "Clear history"
+    },
+    "createError": "Error creating"
+  },
+  "smartQueryView": {
+    "title": "Smart Query",
+    "subtitle": "Ask questions in natural language or create data via commands",
+    "input": {
+      "labelRead": "Your Question",
+      "labelWrite": "Your Command",
+      "placeholderListening": "Speak now...",
+      "placeholderRead": "e.g. Show me all pain points from municipalities",
+      "placeholderWrite": "e.g. Create a person Max Mueller, Mayor of Gummersbach"
+    },
+    "voice": {
+      "startRecording": "Start voice input",
+      "stopRecording": "Stop recording"
+    },
+    "mode": {
+      "read": "Read Mode",
+      "write": "Write Mode",
+      "previewFirst": "Preview will be shown first"
+    },
+    "actions": {
+      "preview": "Preview",
+      "query": "Query"
+    },
+    "examples": {
+      "questionsTitle": "Example Questions",
+      "commandsTitle": "Example Commands",
+      "read": {
+        "futureEvents": "Show me which future events important decision-makers from municipalities are attending",
+        "mayorsOnEvents": "Which mayors are speaking at events?",
+        "allPainPoints": "Show me all pain points from municipalities",
+        "gummersbachPainPoints": "Show me pain points from Gummersbach"
+      },
+      "write": {
+        "createPerson": "Create a person Max Mueller, mayor",
+        "addPainPoint": "Add a pain point for Muenster: IT staffing shortage",
+        "findEvents": "Find all events attended by decision-makers from NRW",
+        "startCrawls": "Start crawls for all Gummersbach data sources",
+        "createCategory": "Create category for wind energy in Bavaria and start a crawl immediately"
+      }
+    },
+    "generation": {
+      "running": "AI generation running...",
+      "processing": "Processing...",
+      "step1": "Generating EntityType schema and configuration...",
+      "step2": "Creating Category with AI prompt and search terms...",
+      "step3": "Optimizing crawl configuration and URL patterns...",
+      "step4": "Linking data sources and finalizing setup...",
+      "stepperTitles": {
+        "entityType": "EntityType",
+        "category": "Category",
+        "crawlConfig": "Crawl-Config"
+      },
+      "stepperSubtitles": {
+        "entityType": "Schema & Configuration",
+        "category": "AI Prompt & Search Terms",
+        "crawlConfig": "URL Patterns"
+      }
+    },
+    "preview": {
+      "title": "Preview - Please Confirm",
+      "technicalDetails": "Technical Details",
+      "confirmAndCreate": "Confirm & Create"
+    },
+    "results": {
+      "successfullyCreated": "Successfully Created",
+      "createdItems": "Created Items:",
+      "crawlDetails": "Crawl Details",
+      "dataSources": "{count} Data Sources",
+      "jobsStarted": "{count} Jobs Started",
+      "dataSourcesLink": "Data Source Linking",
+      "dataSourcesLinked": "{count} Data Sources Linked",
+      "aiGenerationSteps": "AI Generation Steps",
+      "step": "Step {current}/{total}",
+      "aiSearchTerms": "AI-Generated Search Terms",
+      "urlPatternConfig": "URL Pattern Configuration",
+      "includePatterns": "Include Patterns:",
+      "excludePatterns": "Exclude Patterns:",
+      "aiExtractionPrompt": "AI-Generated Extraction Prompt",
+      "executedOperations": "Executed Operations",
+      "interpretation": "Interpretation",
+      "newCommand": "New Command",
+      "newQuery": "New Query",
+      "backToAssistant": "Back to Assistant"
+    },
+    "read": {
+      "aiInterpretation": "AI Interpretation",
+      "resultsCount": "{count} Results",
+      "grouping": "Grouping",
+      "attendees": "Attendees ({count})",
+      "moreItems": "+{count} more",
+      "noResults": "No Results Found",
+      "noResultsHint": "Try a different wording or check if the relevant data is available.",
+      "dateUnknown": "Date unknown",
+      "locationUnknown": "Location unknown",
+      "noDetails": "No details",
+      "entity": "Entity",
+      "facet": "Facet"
+    },
+    "assistant": {
+      "elementsCreated": "{count} elements created",
+      "executionError": "Error during execution",
+      "resultsFound": "{count} results found"
+    },
+    "errors": {
+      "noWriteOperation": "No write operation detected",
+      "queryError": "Error during query"
+    }
+  }
+}

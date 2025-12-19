@@ -63,9 +63,9 @@ class NewsCrawler(BaseCrawler):
         result = CrawlResult()
         config = source.crawl_config or {}
 
-        # Get keywords from category for filtering
+        # Get keywords from category for filtering (use job.category_id, not source)
         async with get_celery_session_context() as session:
-            category = await session.get(Category, source.category_id)
+            category = await session.get(Category, job.category_id)
             keywords = category.search_terms if category else []
 
         crawl_type = config.get("crawl_type", "auto")  # auto, rss, html
@@ -275,7 +275,11 @@ class NewsCrawler(BaseCrawler):
     async def _crawl_html_news(
         self, base_url: str, news_path: str, max_articles: int
     ) -> List[NewsArticle]:
-        """Crawl HTML news page for articles."""
+        """Crawl HTML news page for articles.
+
+        Performance optimized: Uses controlled parallelism with semaphore
+        to fetch multiple articles concurrently while respecting rate limits.
+        """
         articles = []
 
         # Common news page paths to try
@@ -287,6 +291,25 @@ class NewsCrawler(BaseCrawler):
             "/pressemitteilungen",
             "/nachrichten",
         ]
+
+        # Semaphore for controlled parallelism (max 5 concurrent requests)
+        semaphore = asyncio.Semaphore(5)
+
+        async def fetch_article_with_limit(
+            client: httpx.AsyncClient, url: str
+        ) -> Optional[NewsArticle]:
+            """Fetch article with rate limiting and semaphore control."""
+            async with semaphore:
+                await asyncio.sleep(settings.crawler_default_delay)
+                try:
+                    return await self._extract_article(client, url)
+                except Exception as e:
+                    self.logger.warning(
+                        "Failed to extract article",
+                        url=url,
+                        error=str(e)
+                    )
+                    return None
 
         async with httpx.AsyncClient(
             timeout=30,
@@ -305,23 +328,18 @@ class NewsCrawler(BaseCrawler):
                     # Find article links - common patterns
                     article_links = self._find_article_links(soup, news_url)
 
-                    for link_url in article_links[:max_articles]:
-                        if len(articles) >= max_articles:
-                            break
+                    # Fetch articles in parallel with controlled concurrency
+                    tasks = [
+                        fetch_article_with_limit(client, url)
+                        for url in article_links[:max_articles]
+                    ]
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                        try:
-                            article = await self._extract_article(client, link_url)
-                            if article:
-                                articles.append(article)
-                        except Exception as e:
-                            self.logger.warning(
-                                "Failed to extract article",
-                                url=link_url,
-                                error=str(e)
-                            )
-
-                        # Rate limiting
-                        await asyncio.sleep(settings.crawler_default_delay)
+                    for result in results:
+                        if isinstance(result, NewsArticle):
+                            articles.append(result)
+                        elif isinstance(result, Exception):
+                            self.logger.debug("Article fetch exception", error=str(result))
 
                     if articles:
                         break  # Found articles, stop trying other paths
@@ -495,27 +513,39 @@ class NewsCrawler(BaseCrawler):
     async def _store_articles(
         self, session, source: "DataSource", job: "CrawlJob"
     ) -> tuple[int, int]:
-        """Store articles as documents."""
+        """Store articles as documents using batch operations.
+
+        Performance optimized: Uses bulk loading and single commit instead of
+        individual commits per article. Reduces N+1 queries and transaction overhead.
+        """
         from app.models import Document, ProcessingStatus
         from sqlalchemy import select
+
+        if not self.articles:
+            return 0, 0
 
         new_count = 0
         updated_count = 0
 
-        for article in self.articles:
-            # Create hash from URL
-            file_hash = hashlib.sha256(
-                f"{source.id}:{article.url}".encode()
-            ).hexdigest()
+        # Pre-compute all hashes
+        article_hashes = {
+            hashlib.sha256(f"{source.id}:{article.url}".encode()).hexdigest(): article
+            for article in self.articles
+        }
 
-            # Check if exists
-            result = await session.execute(
-                select(Document).where(
-                    Document.source_id == source.id,
-                    Document.file_hash == file_hash,
-                )
+        # Bulk-load all existing documents for this source with matching hashes
+        existing_result = await session.execute(
+            select(Document).where(
+                Document.source_id == source.id,
+                Document.file_hash.in_(article_hashes.keys()),
             )
-            existing = result.scalar_one_or_none()
+        )
+        existing_docs = {doc.file_hash: doc for doc in existing_result.scalars().all()}
+
+        # Process articles: separate updates from inserts
+        docs_to_add = []
+        for file_hash, article in article_hashes.items():
+            existing = existing_docs.get(file_hash)
 
             if existing:
                 # Update if content changed
@@ -525,12 +555,11 @@ class NewsCrawler(BaseCrawler):
                     existing.document_date = article.published_date
                     existing.processing_status = ProcessingStatus.COMPLETED
                     updated_count += 1
-                    await session.commit()
             else:
-                # Create new
+                # Prepare new document for bulk insert
                 doc = Document(
                     source_id=source.id,
-                    category_id=job.category_id,  # Use job's category
+                    category_id=job.category_id,
                     crawl_job_id=job.id,
                     document_type="HTML",
                     original_url=article.url,
@@ -539,20 +568,33 @@ class NewsCrawler(BaseCrawler):
                     file_size=len(article.content.encode("utf-8")),
                     raw_text=article.content,
                     document_date=article.published_date,
-                    processing_status=ProcessingStatus.COMPLETED,  # Already has text
+                    processing_status=ProcessingStatus.COMPLETED,
                 )
-                session.add(doc)
+                docs_to_add.append(doc)
 
+        # Bulk add all new documents
+        if docs_to_add:
+            session.add_all(docs_to_add)
+            new_count = len(docs_to_add)
+
+        # Single commit for all changes
+        try:
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+            self.logger.error(
+                "Batch commit failed, falling back to individual inserts",
+                error=str(e)[:200],
+            )
+            # Fallback: try to insert documents one by one to identify conflicts
+            new_count = 0
+            for doc in docs_to_add:
                 try:
+                    session.add(doc)
                     await session.commit()
                     new_count += 1
-                except Exception as e:
+                except Exception:
                     await session.rollback()
-                    self.logger.debug(
-                        "Article already exists",
-                        url=article.url,
-                        error=str(e)[:100],
-                    )
 
         return new_count, updated_count
 
