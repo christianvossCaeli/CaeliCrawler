@@ -62,7 +62,7 @@
       "deleteError": "Error deleting"
     },
     "auditLog": {
-      "title": "Audit Log",
+      "title": "Change History",
       "subtitle": "Track system activities and changes",
       "filters": {
         "user": "User",
@@ -163,7 +163,82 @@
       },
       "systemType": "System Type",
       "cannotDeleteSystem": "System type cannot be deleted",
-      "hasEntities": "Still has entities"
+      "hasEntities": "Still has entities",
+      "facets": "Facets",
+      "facetsHint": "Facet types available for this entity type"
+    },
+    "facetTypes": {
+      "title": "Facet Types",
+      "subtitle": "Manage attributes and properties for entity types",
+      "allTypes": "All Types",
+      "systemType": "System Type",
+      "cannotDeleteSystem": "System type cannot be deleted",
+      "hasValues": "Still has values",
+      "filters": {
+        "entityType": "Entity Type"
+      },
+      "tabs": {
+        "basic": "Basic Settings",
+        "schema": "Schema",
+        "ai": "AI Extraction"
+      },
+      "columns": {
+        "name": "Name",
+        "entityTypes": "Entity Types",
+        "valueType": "Value Type",
+        "values": "Values",
+        "ai": "AI",
+        "system": "System",
+        "active": "Active"
+      },
+      "form": {
+        "name": "Name",
+        "nameRequired": "Name is required",
+        "namePlaceholder": "e.g. Contact",
+        "namePlural": "Plural",
+        "namePluralPlaceholder": "e.g. Contacts",
+        "description": "Description",
+        "icon": "Icon",
+        "iconPlaceholder": "mdi-account",
+        "iconHint": "Material Design Icon Name (mdi-*)",
+        "color": "Color",
+        "applicableEntityTypes": "Applicable Entity Types",
+        "applicableEntityTypesHint": "Empty = applies to all entity types",
+        "valueType": "Value Type",
+        "aggregationMethod": "Aggregation Method",
+        "displayOrder": "Display Order",
+        "isTimeBased": "Time-based",
+        "isTimeBasedHint": "Has a date/time component",
+        "timeFieldPath": "Time Field Path",
+        "timeFieldPathPlaceholder": "e.g. event_date",
+        "valueSchema": "Value Schema (JSON)",
+        "valueSchemePlaceholder": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"name\": { \"type\": \"string\" }\n  }\n}",
+        "schemaInfo": "The JSON schema defines the structure of values for this facet type",
+        "invalidJson": "Invalid JSON",
+        "deduplicationFields": "Deduplication Fields",
+        "deduplicationFieldsHint": "Fields used for duplicate detection",
+        "aiExtractionEnabled": "AI Extraction Enabled",
+        "aiExtractionEnabledHint": "Automatic extraction by AI from documents",
+        "aiExtractionPrompt": "AI Extraction Prompt",
+        "aiExtractionPromptPlaceholder": "Extract the following information from the document..."
+      },
+      "actions": {
+        "create": "New Facet Type"
+      },
+      "dialog": {
+        "createTitle": "New Facet Type",
+        "editTitle": "Edit Facet Type",
+        "deleteTitle": "Delete Facet Type?",
+        "deleteConfirm": "Do you really want to delete {name}? This action cannot be undone."
+      },
+      "messages": {
+        "created": "Facet type created",
+        "updated": "Facet type updated",
+        "deleted": "\"{name}\" deleted",
+        "loadError": "Error loading facet types",
+        "saveError": "Error saving",
+        "deleteError": "Error deleting"
+      }
     }
   }
 }

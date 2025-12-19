@@ -110,10 +110,12 @@ async def create_facet_type(
 
     facet_type = FacetType(
         name=data.name,
+        name_plural=data.name_plural,
         slug=slug,
         description=data.description,
         value_type=data.value_type,
         value_schema=data.value_schema,
+        applicable_entity_type_slugs=data.applicable_entity_type_slugs,
         icon=data.icon,
         color=data.color,
         display_order=data.display_order,

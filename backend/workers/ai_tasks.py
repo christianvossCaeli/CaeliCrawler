@@ -930,3 +930,402 @@ async def _batch_sync_entities_async():
             errors=errors,
             total_sources=len(sources),
         )
+
+
+@celery_app.task(bind=True, name="workers.ai_tasks.analyze_pysis_fields_for_facets")
+def analyze_pysis_fields_for_facets(
+    self,
+    process_id: str,
+    include_empty: bool = False,
+    min_confidence: float = 0.0,
+):
+    """
+    Analyze PySis fields and create FacetValues.
+
+    Args:
+        process_id: UUID of the PySis process
+        include_empty: Include empty fields in analysis
+        min_confidence: Minimum field confidence
+    """
+    import asyncio
+    asyncio.run(_analyze_pysis_for_facets_async(
+        process_id,
+        include_empty,
+        min_confidence,
+        self.request.id
+    ))
+
+
+async def _analyze_pysis_for_facets_async(
+    process_id: str,
+    include_empty: bool,
+    min_confidence: float,
+    celery_task_id: Optional[str] = None,
+):
+    """Async implementation of PySis-to-Facets analysis."""
+    from app.database import get_celery_session_context
+    from app.models.pysis import PySisProcess, PySisProcessField
+    from app.models import AITask, AITaskStatus, AITaskType, Entity, FacetType
+    from sqlalchemy import select
+    from datetime import datetime, timezone
+
+    async with get_celery_session_context() as session:
+        # 1. Load process
+        process = await session.get(PySisProcess, UUID(process_id))
+        if not process:
+            logger.error("PySis process not found", process_id=process_id)
+            return
+
+        if not process.entity_id:
+            logger.error("Process has no entity", process_id=process_id)
+            return
+
+        # Load entity
+        entity = await session.get(Entity, process.entity_id)
+        if not entity:
+            logger.error("Entity not found", entity_id=str(process.entity_id))
+            return
+
+        # 2. Load all active FacetTypes with AI extraction enabled
+        facet_types_result = await session.execute(
+            select(FacetType)
+            .where(FacetType.is_active == True)
+            .where(FacetType.ai_extraction_enabled == True)
+            .order_by(FacetType.display_order)
+        )
+        facet_types = facet_types_result.scalars().all()
+
+        if not facet_types:
+            logger.warning("No active FacetTypes with AI extraction enabled")
+            return
+
+        # 3. Create AI task for tracking
+        ai_task = AITask(
+            task_type=AITaskType.PYSIS_TO_FACETS,
+            status=AITaskStatus.RUNNING,
+            name=f"PySis-Facet-Analyse: {entity.name}",
+            description=f"Extrahiere {len(facet_types)} Facet-Typen aus {len(process.fields)} PySis-Feldern",
+            process_id=process.id,
+            started_at=datetime.now(timezone.utc),
+            progress_total=len(facet_types),
+            celery_task_id=celery_task_id,
+        )
+        session.add(ai_task)
+        await session.commit()
+        await session.refresh(ai_task)
+        task_id = ai_task.id
+
+        # 4. Collect field values
+        field_data = []
+        for field in process.fields:
+            value = field.current_value or field.pysis_value or field.ai_extracted_value
+
+            if not value and not include_empty:
+                continue
+
+            if field.confidence_score and field.confidence_score < min_confidence:
+                continue
+
+            field_data.append({
+                "name": field.internal_name,
+                "pysis_name": field.pysis_field_name,
+                "value": value,
+                "source": field.value_source.value if field.value_source else "UNKNOWN",
+                "confidence": field.confidence_score,
+            })
+
+        if not field_data:
+            ai_task.status = AITaskStatus.COMPLETED
+            ai_task.completed_at = datetime.now(timezone.utc)
+            ai_task.error_message = "Keine Felder zum Analysieren"
+            await session.commit()
+            return
+
+        logger.info(
+            "Analyzing PySis fields for facets",
+            process_id=process_id,
+            entity_name=entity.name,
+            field_count=len(field_data),
+            facet_type_count=len(facet_types),
+        )
+
+        # 5. Run AI analysis with dynamic FacetTypes
+        try:
+            facet_extractions = await _extract_facets_from_pysis_fields_dynamic(
+                field_data,
+                entity.name,
+                facet_types,
+            )
+        except Exception as e:
+            ai_task = await session.get(AITask, task_id)
+            ai_task.status = AITaskStatus.FAILED
+            ai_task.error_message = str(e)
+            ai_task.completed_at = datetime.now(timezone.utc)
+            await session.commit()
+            raise
+
+        # 6. Create FacetValues dynamically
+        facet_counts = await _create_facets_from_pysis_extraction_dynamic(
+            session,
+            entity,
+            facet_extractions,
+            facet_types,
+            task_id,
+        )
+
+        # 7. Complete task
+        ai_task = await session.get(AITask, task_id)
+        ai_task.status = AITaskStatus.COMPLETED
+        ai_task.completed_at = datetime.now(timezone.utc)
+        ai_task.fields_extracted = sum(facet_counts.values())
+        await session.commit()
+
+        logger.info(
+            "PySis to facets analysis completed",
+            process_id=process_id,
+            entity_name=entity.name,
+            facet_counts=facet_counts,
+        )
+
+
+async def _extract_facets_from_pysis_fields_dynamic(
+    fields: list[Dict[str, Any]],
+    entity_name: str,
+    facet_types: list,
+) -> Dict[str, Any]:
+    """
+    Extract facets from PySis field values using AI with dynamic FacetTypes.
+
+    Args:
+        fields: List of PySis field data
+        entity_name: Name of the entity (e.g., municipality)
+        facet_types: List of FacetType objects to extract
+
+    Returns:
+        Dict with slug as key and list of extracted items as value
+    """
+    from openai import AsyncAzureOpenAI
+
+    if not settings.azure_openai_api_key:
+        raise ValueError("Azure OpenAI not configured")
+
+    client = AsyncAzureOpenAI(
+        azure_endpoint=settings.azure_openai_endpoint,
+        api_key=settings.azure_openai_api_key,
+        api_version=settings.azure_openai_api_version,
+    )
+
+    # Prepare field values as structured text
+    fields_text = "PYSIS-FELDER:\n\n"
+    for f in fields:
+        fields_text += f"--- {f['name']} ({f['pysis_name']}) ---\n"
+        fields_text += f"Wert: {f['value']}\n"
+        if f['confidence']:
+            fields_text += f"Konfidenz: {f['confidence']:.0%}\n"
+        fields_text += "\n"
+
+    # Limit context size
+    max_context = 50000
+    if len(fields_text) > max_context:
+        fields_text = fields_text[:max_context] + "\n\n[... Text gekürzt ...]"
+
+    # Build dynamic facet type descriptions
+    facet_descriptions = []
+    response_schema = {}
+
+    for idx, ft in enumerate(facet_types, 1):
+        # Use custom ai_extraction_prompt if available, otherwise build from name/description
+        if ft.ai_extraction_prompt:
+            instruction = ft.ai_extraction_prompt
+        else:
+            instruction = f"Extrahiere Informationen zu: {ft.name}"
+            if ft.description:
+                instruction += f" - {ft.description}"
+
+        # Build schema description from value_schema
+        schema_desc = ""
+        if ft.value_schema and isinstance(ft.value_schema, dict):
+            props = ft.value_schema.get("properties", {})
+            if props:
+                schema_fields = []
+                for field_name, field_def in props.items():
+                    field_type = field_def.get("type", "string")
+                    field_desc = field_def.get("description", "")
+                    if field_desc:
+                        schema_fields.append(f"  - {field_name}: {field_desc}")
+                    else:
+                        schema_fields.append(f"  - {field_name} ({field_type})")
+                if schema_fields:
+                    schema_desc = "\n   Felder:\n" + "\n".join(schema_fields)
+
+        facet_descriptions.append(
+            f"{idx}. {ft.name.upper()} (slug: {ft.slug})\n"
+            f"   {instruction}{schema_desc}"
+        )
+
+        # Build response schema hint
+        if ft.value_type == "text":
+            response_schema[ft.slug] = "string oder null"
+        else:
+            response_schema[ft.slug] = "[{...}, {...}] (Array von Objekten)"
+
+    facet_list = "\n\n".join(facet_descriptions)
+    response_format_hint = json.dumps(response_schema, ensure_ascii=False, indent=2)
+
+    system_prompt = f"""Du bist ein Experte für die Analyse von Projektdaten.
+
+AUFGABE:
+Analysiere die folgenden PySis-Feldwerte für "{entity_name}" und extrahiere strukturierte Informationen.
+
+Du sollst folgende Kategorien von Informationen extrahieren:
+
+{facet_list}
+
+WICHTIGE REGELN:
+- Extrahiere NUR Informationen, die tatsächlich in den Felddaten enthalten sind
+- Erfinde KEINE Informationen
+- Wenn keine Informationen für eine Kategorie vorhanden sind, gib ein leeres Array [] oder null zurück
+- Jeder extrahierte Eintrag sollte eine aussagekräftige Beschreibung oder einen Wert haben
+
+ANTWORTFORMAT (JSON):
+{{
+{response_format_hint},
+  "extraction_confidence": 0.8,
+  "extraction_notes": "Kurze Notiz zur Qualität der Extraktion"
+}}
+"""
+
+    try:
+        response = await client.chat.completions.create(
+            model=settings.azure_openai_deployment_name,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": fields_text},
+            ],
+            temperature=0.2,
+            max_tokens=4000,
+            response_format={"type": "json_object"},
+        )
+
+        result = json.loads(response.choices[0].message.content)
+        return result
+
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse AI response", error=str(e))
+        raise
+    except Exception as e:
+        logger.exception("Azure OpenAI API call failed for PySis facet extraction")
+        raise
+
+
+async def _create_facets_from_pysis_extraction_dynamic(
+    session,
+    entity,
+    extractions: Dict[str, Any],
+    facet_types: list,
+    task_id: UUID,
+) -> Dict[str, int]:
+    """
+    Create FacetValues from AI extraction dynamically based on FacetTypes.
+
+    Args:
+        session: Database session
+        entity: Entity to attach facets to
+        extractions: Dict with slug as key and extracted data as value
+        facet_types: List of FacetType objects
+        task_id: AI task ID for progress tracking
+
+    Returns:
+        Dict with facet type slug as key and count of created facets as value
+    """
+    from app.models import AITask
+    from services.entity_facet_service import (
+        check_duplicate_facet,
+        create_facet_value,
+    )
+
+    counts = {}
+    base_confidence = extractions.get("extraction_confidence", 0.7)
+
+    for idx, ft in enumerate(facet_types):
+        # Update progress
+        ai_task = await session.get(AITask, task_id)
+        ai_task.progress_current = idx + 1
+        ai_task.current_item = ft.name
+        await session.commit()
+
+        counts[ft.slug] = 0
+
+        # Get extracted data for this facet type
+        extracted_data = extractions.get(ft.slug)
+        if not extracted_data:
+            continue
+
+        # Handle different value types
+        if ft.value_type == "text":
+            # Single text value (like summary)
+            if isinstance(extracted_data, str) and len(extracted_data) > 10:
+                await create_facet_value(
+                    session,
+                    entity_id=entity.id,
+                    facet_type_id=ft.id,
+                    value={"text": extracted_data},
+                    text_representation=extracted_data[:500],
+                    confidence_score=base_confidence,
+                    source_url=f"pysis://process/{task_id}",
+                )
+                counts[ft.slug] = 1
+        else:
+            # List of structured values
+            if not isinstance(extracted_data, list):
+                extracted_data = [extracted_data] if extracted_data else []
+
+            for item in extracted_data:
+                if not isinstance(item, dict):
+                    continue
+
+                # Get text representation for deduplication
+                # Try common field names
+                text_repr = (
+                    item.get("description")
+                    or item.get("text")
+                    or item.get("name")
+                    or item.get("title")
+                    or str(item)
+                )
+
+                if not text_repr or len(str(text_repr)) < 5:
+                    continue
+
+                text_repr = str(text_repr)
+
+                # Check for duplicates using deduplication_fields if configured
+                dedup_text = text_repr
+                if ft.deduplication_fields:
+                    dedup_parts = [str(item.get(f, "")) for f in ft.deduplication_fields if item.get(f)]
+                    if dedup_parts:
+                        dedup_text = " ".join(dedup_parts)
+
+                is_dupe = await check_duplicate_facet(
+                    session,
+                    entity.id,
+                    ft.id,
+                    dedup_text,
+                    similarity_threshold=0.85,
+                )
+                if is_dupe:
+                    logger.debug(f"Skipping duplicate {ft.slug}", text=dedup_text[:50])
+                    continue
+
+                await create_facet_value(
+                    session,
+                    entity_id=entity.id,
+                    facet_type_id=ft.id,
+                    value=item,
+                    text_representation=text_repr[:2000],
+                    confidence_score=min(0.95, base_confidence + 0.05),
+                    source_url=f"pysis://process/{task_id}",
+                )
+                counts[ft.slug] += 1
+
+    return counts

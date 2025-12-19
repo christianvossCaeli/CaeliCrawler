@@ -84,6 +84,7 @@
     "dashboard": "Dashboard",
     "entities": "Entities",
     "entityTypes": "Entity Types",
+    "facetTypes": "Facet Types",
     "categories": "Categories",
     "dataSources": "Data Sources",
     "crawlerStatus": "Crawler Status",
@@ -96,7 +97,7 @@
     "admin": {
       "title": "Administration",
       "users": "User Management",
-      "auditLog": "Audit Log"
+      "auditLog": "Change History"
     }
   },
   "auth": {

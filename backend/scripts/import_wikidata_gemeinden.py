@@ -182,13 +182,28 @@ async def fetch_gemeinden_from_wikidata(
 
 
 def normalize_name(name: str, country: str = "DE") -> str:
-    """Normalize location name for search."""
-    result = name.lower()
-    if country == "DE":
-        replacements = {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}
-        for old, new in replacements.items():
-            result = result.replace(old, new)
-    return result
+    """
+    Normalize location name for search.
+
+    Uses centralized normalization to ensure consistency across all imports.
+    This prevents duplicate entities caused by different normalization methods.
+    """
+    try:
+        from app.utils.text import normalize_entity_name
+        return normalize_entity_name(name, country=country)
+    except ImportError:
+        # Fallback for standalone execution - must match central algorithm!
+        import unicodedata
+        import re
+        result = name.lower()
+        if country == "DE":
+            replacements = {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}
+            for old, new in replacements.items():
+                result = result.replace(old, new)
+        result = unicodedata.normalize("NFD", result)
+        result = "".join(c for c in result if not unicodedata.combining(c))
+        result = re.sub(r"[^a-z0-9]", "", result)
+        return result
 
 
 def get_bundesland_from_ags(ags: str) -> Optional[str]:

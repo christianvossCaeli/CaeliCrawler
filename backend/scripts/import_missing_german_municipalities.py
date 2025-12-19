@@ -131,9 +131,29 @@ def generate_slug(name: str) -> str:
 
 
 def normalize_name(name: str) -> str:
-    """Normalize name for search (lowercase, ASCII)."""
-    normalized = unicodedata.normalize("NFKD", name.lower())
-    return normalized
+    """
+    Normalize name for search (lowercase, ASCII).
+
+    Uses centralized normalization to ensure consistency with entity_facet_service.
+    This prevents duplicate entities caused by different normalization methods.
+    """
+    # Import here to avoid circular imports during script execution
+    try:
+        from app.utils.text import normalize_entity_name
+        return normalize_entity_name(name, country="DE")
+    except ImportError:
+        # Fallback for standalone execution - use same algorithm
+        result = name.lower()
+        # German umlauts
+        replacements = {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}
+        for old, new in replacements.items():
+            result = result.replace(old, new)
+        # Remove diacritics
+        result = unicodedata.normalize("NFD", result)
+        result = "".join(c for c in result if not unicodedata.combining(c))
+        # Remove non-alphanumeric
+        result = re.sub(r"[^a-z0-9]", "", result)
+        return result
 
 
 def get_bundesland_from_ags(ags: str) -> Optional[str]:

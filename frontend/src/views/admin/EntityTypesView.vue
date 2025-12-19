@@ -38,6 +38,29 @@
             </div>
           </template>
 
+          <template v-slot:item.facets="{ item }">
+            <div class="d-flex flex-wrap gap-1">
+              <v-chip
+                v-for="facet in getFacetsForEntityType(item.slug)"
+                :key="facet.id"
+                size="x-small"
+                :color="facet.color"
+                variant="tonal"
+              >
+                <v-icon :icon="facet.icon" size="x-small" start></v-icon>
+                {{ facet.name }}
+              </v-chip>
+              <v-chip
+                v-if="getFacetsForEntityType(item.slug).length === 0"
+                size="x-small"
+                color="grey"
+                variant="outlined"
+              >
+                {{ t('common.none') }}
+              </v-chip>
+            </div>
+          </template>
+
           <template v-slot:item.color="{ item }">
             <v-chip :color="item.color" size="small" variant="flat">
               {{ item.color }}
@@ -217,7 +240,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { entityApi } from '@/services/api'
+import { entityApi, facetApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 
 const { t } = useI18n()
@@ -225,6 +248,7 @@ const { showSuccess, showError } = useSnackbar()
 
 // State
 const entityTypes = ref<any[]>([])
+const facetTypes = ref<any[]>([])
 const loading = ref(false)
 const dialog = ref(false)
 const deleteDialog = ref(false)
@@ -246,10 +270,19 @@ const form = ref({
   display_order: 10,
 })
 
+// Get facets that are applicable to a given entity type
+function getFacetsForEntityType(entityTypeSlug: string): any[] {
+  return facetTypes.value.filter(ft =>
+    ft.applicable_entity_type_slugs?.length === 0 ||
+    ft.applicable_entity_type_slugs?.includes(entityTypeSlug)
+  )
+}
+
 const headers = computed(() => [
   { title: '', key: 'icon', width: '50px', sortable: false },
   { title: t('admin.entityTypes.columns.name'), key: 'name' },
   { title: t('admin.entityTypes.columns.slug'), key: 'slug' },
+  { title: t('admin.entityTypes.facets'), key: 'facets', sortable: false },
   { title: t('admin.entityTypes.columns.color'), key: 'color', width: '120px' },
   { title: t('admin.entityTypes.columns.entities'), key: 'entity_count', width: '100px', align: 'center' as const },
   { title: t('admin.entityTypes.columns.system'), key: 'is_system', width: '80px', align: 'center' as const },
@@ -268,6 +301,15 @@ async function loadEntityTypes() {
     showError(t('admin.entityTypes.messages.loadError'))
   } finally {
     loading.value = false
+  }
+}
+
+async function loadFacetTypes() {
+  try {
+    const response = await facetApi.getFacetTypes({ per_page: 100, is_active: true })
+    facetTypes.value = response.data.items || []
+  } catch (e) {
+    console.error('Failed to load facet types', e)
   }
 }
 
@@ -362,6 +404,7 @@ async function deleteItem() {
 // Init
 onMounted(() => {
   loadEntityTypes()
+  loadFacetTypes()
 })
 </script>
 

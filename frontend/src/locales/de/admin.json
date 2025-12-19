@@ -62,7 +62,7 @@
       "deleteError": "Fehler beim Löschen"
     },
     "auditLog": {
-      "title": "Audit-Log",
+      "title": "Änderungsverlauf",
       "subtitle": "Alle Benutzeraktionen und Systemänderungen",
       "filters": {
         "user": "Benutzer",
@@ -163,7 +163,82 @@
       },
       "systemType": "System-Typ",
       "cannotDeleteSystem": "System-Typ kann nicht gelöscht werden",
-      "hasEntities": "Hat noch Entities"
+      "hasEntities": "Hat noch Entities",
+      "facets": "Facets",
+      "facetsHint": "Facet-Typen, die für diesen Entity-Typ verfügbar sind"
+    },
+    "facetTypes": {
+      "title": "Facet-Typen",
+      "subtitle": "Attribute und Eigenschaften für Entity-Typen verwalten",
+      "allTypes": "Alle Typen",
+      "systemType": "System-Typ",
+      "cannotDeleteSystem": "System-Typ kann nicht gelöscht werden",
+      "hasValues": "Hat noch Werte",
+      "filters": {
+        "entityType": "Entity-Typ"
+      },
+      "tabs": {
+        "basic": "Grundeinstellungen",
+        "schema": "Schema",
+        "ai": "KI-Extraktion"
+      },
+      "columns": {
+        "name": "Name",
+        "entityTypes": "Entity-Typen",
+        "valueType": "Werttyp",
+        "values": "Werte",
+        "ai": "KI",
+        "system": "System",
+        "active": "Aktiv"
+      },
+      "form": {
+        "name": "Name",
+        "nameRequired": "Name ist erforderlich",
+        "namePlaceholder": "z.B. Kontakt",
+        "namePlural": "Plural",
+        "namePluralPlaceholder": "z.B. Kontakte",
+        "description": "Beschreibung",
+        "icon": "Icon",
+        "iconPlaceholder": "mdi-account",
+        "iconHint": "Material Design Icon Name (mdi-*)",
+        "color": "Farbe",
+        "applicableEntityTypes": "Gültig für Entity-Typen",
+        "applicableEntityTypesHint": "Leer = gilt für alle Entity-Typen",
+        "valueType": "Werttyp",
+        "aggregationMethod": "Aggregationsmethode",
+        "displayOrder": "Anzeigereihenfolge",
+        "isTimeBased": "Zeitbasiert",
+        "isTimeBasedHint": "Hat einen Datums-/Zeitbezug",
+        "timeFieldPath": "Zeitfeld-Pfad",
+        "timeFieldPathPlaceholder": "z.B. event_date",
+        "valueSchema": "Wert-Schema (JSON)",
+        "valueSchemePlaceholder": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"name\": { \"type\": \"string\" }\n  }\n}",
+        "schemaInfo": "Das JSON-Schema definiert die Struktur der Werte für diesen Facet-Typ",
+        "invalidJson": "Ungültiges JSON",
+        "deduplicationFields": "Deduplizierungsfelder",
+        "deduplicationFieldsHint": "Felder, die für die Duplikaterkennung verwendet werden",
+        "aiExtractionEnabled": "KI-Extraktion aktiviert",
+        "aiExtractionEnabledHint": "Automatische Extraktion durch KI aus Dokumenten",
+        "aiExtractionPrompt": "KI-Extraktions-Prompt",
+        "aiExtractionPromptPlaceholder": "Extrahiere folgende Informationen aus dem Dokument..."
+      },
+      "actions": {
+        "create": "Neuer Facet-Typ"
+      },
+      "dialog": {
+        "createTitle": "Neuer Facet-Typ",
+        "editTitle": "Facet-Typ bearbeiten",
+        "deleteTitle": "Facet-Typ löschen?",
+        "deleteConfirm": "Möchtest du {name} wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
+      },
+      "messages": {
+        "created": "Facet-Typ erstellt",
+        "updated": "Facet-Typ aktualisiert",
+        "deleted": "\"{name}\" gelöscht",
+        "loadError": "Fehler beim Laden der Facet-Typen",
+        "saveError": "Fehler beim Speichern",
+        "deleteError": "Fehler beim Löschen"
+      }
     }
   }
 }

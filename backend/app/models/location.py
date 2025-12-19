@@ -3,13 +3,16 @@
 import unicodedata
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from sqlalchemy import String, Integer, Float, Boolean, DateTime, func, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.data_source import DataSource
 
 
 class Location(Base):
@@ -128,9 +131,11 @@ class Location(Base):
         nullable=False,
     )
 
-    # Note: Location is legacy and will be replaced by Entity.
-    # Sources are now linked via DataSource.entity_id -> Entity
-    # or via location_name string matching for backward compatibility.
+    # Relationships
+    data_sources: Mapped[List["DataSource"]] = relationship(
+        "DataSource",
+        back_populates="location",
+    )
 
     # Composite unique constraint: official_code must be unique within a country
     __table_args__ = (

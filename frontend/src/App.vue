@@ -237,6 +237,7 @@ import LanguageSwitcher from './components/LanguageSwitcher.vue'
 import { useSnackbar } from './composables/useSnackbar'
 import { useAuthStore } from './stores/auth'
 import { useNotifications } from './composables/useNotifications'
+import { useFeatureFlags } from './composables/useFeatureFlags'
 import { dataApi } from './services/api'
 import { setLocale, type SupportedLocale } from './locales'
 
@@ -248,6 +249,7 @@ const vuetifyLocale = useLocale()
 const pendingDocsCount = ref(0)
 const unverifiedResultsCount = ref(0)
 const { unreadCount, loadUnreadCount } = useNotifications()
+const { loadFeatureFlags } = useFeatureFlags()
 
 const drawer = ref(true)
 const router = useRouter()
@@ -272,6 +274,7 @@ const mainNavItems = computed(() => [
   { title: t('nav.dashboard'), icon: 'mdi-view-dashboard', to: '/' },
   { title: t('nav.entities'), icon: 'mdi-database', to: '/entities' },
   { title: t('nav.entityTypes'), icon: 'mdi-shape', to: '/admin/entity-types' },
+  { title: t('nav.facetTypes'), icon: 'mdi-tag-multiple', to: '/admin/facet-types' },
   { title: t('nav.categories'), icon: 'mdi-folder-multiple', to: '/categories' },
   { title: t('nav.dataSources'), icon: 'mdi-web', to: '/sources' },
   { title: t('nav.crawlerStatus'), icon: 'mdi-robot', to: '/crawler' },
@@ -374,13 +377,14 @@ async function loadBadgeCounts() {
   }
 }
 
-// Load notifications when authenticated
+// Load notifications and feature flags when authenticated
 watch(
   () => auth.isAuthenticated,
   async (isAuth) => {
     if (isAuth) {
       await loadUnreadCount()
       await loadBadgeCounts()
+      await loadFeatureFlags()
       // Poll every 60 seconds
       notificationInterval = setInterval(loadUnreadCount, 60000)
       badgeInterval = setInterval(loadBadgeCounts, 60000)

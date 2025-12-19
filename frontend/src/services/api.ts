@@ -425,7 +425,7 @@ export const notificationApi = {
   deleteEmailAddress: (id: string) =>
     api.delete(`/admin/notifications/email-addresses/${id}`),
   verifyEmailAddress: (id: string, token: string) =>
-    api.post(`/admin/notifications/email-addresses/${id}/verify?token=${token}`),
+    api.post(`/admin/notifications/email-addresses/${id}/verify`, null, { params: { token } }),
   resendVerification: (id: string) =>
     api.post(`/admin/notifications/email-addresses/${id}/resend-verification`),
 

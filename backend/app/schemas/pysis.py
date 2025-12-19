@@ -80,7 +80,7 @@ class PySisProcessResponse(BaseModel):
     """Schema for process response."""
 
     id: UUID
-    location_name: Optional[str] = None
+    entity_name: Optional[str] = None
     pysis_process_id: str
     name: Optional[str] = None
     description: Optional[str] = None
@@ -265,6 +265,32 @@ class AcceptAISuggestionResult(BaseModel):
     field_id: UUID
     accepted_value: Optional[str]
     message: str
+
+
+# === Analyze for Facets Schemas ===
+
+class PySisAnalyzeForFacetsRequest(BaseModel):
+    """Schema for facet analysis from PySis fields."""
+
+    include_empty_fields: bool = Field(
+        default=False,
+        description="Include empty fields in analysis",
+    )
+    min_field_confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Minimum confidence for fields to include",
+    )
+
+
+class PySisAnalyzeForFacetsResult(BaseModel):
+    """Schema for facet analysis result."""
+
+    success: bool
+    task_id: UUID = Field(..., description="AI Task ID for progress tracking")
+    message: str
+    fields_analyzed: int = Field(default=0, description="Number of fields analyzed")
 
 
 # Update forward references

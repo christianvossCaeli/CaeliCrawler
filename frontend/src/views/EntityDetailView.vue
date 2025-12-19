@@ -43,7 +43,7 @@
               <v-icon start>mdi-pencil</v-icon>
               {{ t('entityDetail.edit') }}
             </v-btn>
-            <v-btn color="primary" @click="addFacetDialog = true">
+            <v-btn v-if="featureFlags.entityLevelFacets" color="primary" @click="addFacetDialog = true">
               <v-icon start>mdi-plus</v-icon>
               {{ t('entityDetail.addFacet') }}
             </v-btn>
@@ -398,7 +398,7 @@
             {{ t('entityDetail.emptyState.noPropertiesDesc') }}
           </p>
           <div class="d-flex justify-center ga-2">
-            <v-btn color="primary" @click="addFacetDialog = true">
+            <v-btn v-if="featureFlags.entityLevelFacets" color="primary" @click="addFacetDialog = true">
               <v-icon start>mdi-plus</v-icon>
               {{ t('entityDetail.emptyState.addManually') }}
             </v-btn>
@@ -964,9 +964,11 @@ import { adminApi, facetApi, relationApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { useFeatureFlags } from '@/composables/useFeatureFlags'
 import PySisTab from '@/components/PySisTab.vue'
 
 const { t } = useI18n()
+const { flags: featureFlags } = useFeatureFlags()
 
 // ============================================================================
 // Local Types

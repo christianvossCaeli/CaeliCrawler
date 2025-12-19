@@ -112,6 +112,14 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
 
+    // Facet Types (accessible to all authenticated users)
+    {
+      path: '/admin/facet-types',
+      name: 'admin-facet-types',
+      component: () => import('@/views/admin/FacetTypesView.vue'),
+      meta: { requiresAuth: true }
+    },
+
     // Admin routes
     {
       path: '/admin/users',

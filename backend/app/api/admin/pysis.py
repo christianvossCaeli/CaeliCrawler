@@ -41,6 +41,8 @@ from app.schemas.pysis import (
     PySisFieldHistoryListResponse,
     AcceptAISuggestionRequest,
     AcceptAISuggestionResult,
+    PySisAnalyzeForFacetsRequest,
+    PySisAnalyzeForFacetsResult,
 )
 from app.schemas.common import MessageResponse
 from app.core.exceptions import NotFoundError, ValidationError
@@ -982,3 +984,58 @@ async def list_available_processes():
     except Exception as e:
         # Return empty list with error info if endpoint doesn't exist
         return {"items": [], "total": 0, "error": str(e)}
+
+
+# === Analyze for Facets ===
+
+@router.post("/processes/{process_id}/analyze-for-facets", response_model=PySisAnalyzeForFacetsResult)
+async def analyze_pysis_for_facets(
+    process_id: UUID,
+    data: Optional[PySisAnalyzeForFacetsRequest] = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Analyze PySis fields and extract Facets for the linked Entity.
+
+    This endpoint:
+    1. Loads all field values from the PySis process
+    2. Starts an AI task for analysis
+    3. Creates FacetValues (pain_point, positive_signal, contact, summary)
+
+    The process must have an entity_id linked.
+    """
+    import uuid as uuid_module
+    from workers.ai_tasks import analyze_pysis_fields_for_facets
+
+    process = await session.get(PySisProcess, process_id)
+    if not process:
+        raise NotFoundError("Process", str(process_id))
+
+    if not process.entity_id:
+        raise ValidationError("Prozess hat keine verknüpfte Entity. Bitte zuerst Entity verknüpfen.")
+
+    # Count fields with values
+    fields_with_values = [
+        f for f in process.fields
+        if f.current_value or f.pysis_value or f.ai_extracted_value
+    ]
+
+    if not fields_with_values and not (data and data.include_empty_fields):
+        raise ValidationError("Keine Felder mit Werten gefunden.")
+
+    # Queue Celery task
+    result = analyze_pysis_fields_for_facets.delay(
+        str(process_id),
+        include_empty=data.include_empty_fields if data else False,
+        min_confidence=data.min_field_confidence if data else 0.0,
+    )
+
+    # Generate a placeholder task_id (the actual AITask is created in the Celery task)
+    task_id = uuid_module.uuid4()
+
+    return PySisAnalyzeForFacetsResult(
+        success=True,
+        task_id=task_id,
+        message=f"Analyse gestartet für {len(fields_with_values)} Felder",
+        fields_analyzed=len(fields_with_values),
+    )

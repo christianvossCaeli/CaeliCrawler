@@ -23,33 +23,24 @@ logger = structlog.get_logger()
 
 
 def normalize_name(name: str) -> str:
-    """Normalize entity name for matching."""
-    # Lowercase
-    result = name.lower()
-    # German umlaut replacements
-    replacements = {"ae": "ae", "oe": "oe", "ue": "ue", "ss": "ss"}
-    for old, new in replacements.items():
-        result = result.replace(old, new)
-    # Remove diacritics
-    result = unicodedata.normalize("NFD", result)
-    result = "".join(c for c in result if not unicodedata.combining(c))
-    # Remove non-alphanumeric
-    result = re.sub(r"[^a-z0-9]", "", result)
-    return result
+    """
+    Normalize entity name for matching.
+
+    Uses centralized normalization to ensure consistency across all imports.
+    This prevents duplicate entities caused by different normalization methods.
+    """
+    from app.utils.text import normalize_entity_name
+    return normalize_entity_name(name, country="DE")
 
 
 def create_slug(name: str) -> str:
-    """Create URL-safe slug from name."""
-    result = name.lower()
-    # German umlaut replacements
-    replacements = {"ae": "ae", "oe": "oe", "ue": "ue", "ss": "ss", " ": "-"}
-    for old, new in replacements.items():
-        result = result.replace(old, new)
-    # Remove special chars except hyphens
-    result = re.sub(r"[^a-z0-9-]", "", result)
-    # Remove multiple hyphens
-    result = re.sub(r"-+", "-", result)
-    return result.strip("-")
+    """
+    Create URL-safe slug from name.
+
+    Uses centralized slug creation for consistency.
+    """
+    from app.utils.text import create_slug as _create_slug
+    return _create_slug(name, country="DE")
 
 
 async def get_or_create_entity(

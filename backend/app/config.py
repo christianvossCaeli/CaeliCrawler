@@ -145,6 +145,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "json"
 
+    # Feature Flags
+    feature_entity_level_facets: bool = False  # Allow assigning facets to individual entities (vs. only at type level)
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, v):

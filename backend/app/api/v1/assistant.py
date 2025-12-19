@@ -262,6 +262,82 @@ def get_attachment(attachment_id: str) -> Optional[Dict]:
 # ============================================================================
 
 
+@router.post("/create-facet-type")
+async def create_facet_type_via_assistant(
+    data: dict,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """
+    Create a new facet type via the assistant.
+
+    This endpoint is called after the user confirms facet type creation.
+    Requires EDITOR or ADMIN role.
+    """
+    from app.models import FacetType
+    import re
+
+    # Check permissions
+    allowed_roles = [UserRole.ADMIN, UserRole.EDITOR]
+    if not current_user.is_superuser and current_user.role not in allowed_roles:
+        raise HTTPException(
+            status_code=403,
+            detail="Keine Berechtigung zum Erstellen von Facet-Typen. Erforderliche Rolle: EDITOR oder ADMIN"
+        )
+
+    name = data.get("name")
+    if not name:
+        raise HTTPException(status_code=400, detail="Name ist erforderlich")
+
+    # Generate slug
+    slug = data.get("slug")
+    if not slug:
+        slug = re.sub(r'[^a-z0-9_]', '_', name.lower())
+        slug = re.sub(r'_+', '_', slug).strip('_')
+
+    # Check for existing
+    from sqlalchemy import select
+    existing = await session.execute(
+        select(FacetType).where(FacetType.slug == slug)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"Facet-Typ mit Slug '{slug}' existiert bereits")
+
+    # Create facet type
+    facet_type = FacetType(
+        name=name,
+        name_plural=data.get("name_plural", f"{name}s" if not name.endswith("s") else name),
+        slug=slug,
+        description=data.get("description", f"Automatisch erstellter Facet-Typ: {name}"),
+        value_type=data.get("value_type", "structured"),
+        value_schema=data.get("value_schema"),
+        applicable_entity_type_slugs=data.get("applicable_entity_type_slugs", []),
+        aggregation_method=data.get("aggregation_method", "dedupe"),
+        ai_extraction_enabled=data.get("ai_extraction_enabled", True),
+        ai_extraction_prompt=data.get("ai_extraction_prompt", f"Extrahiere Informationen zum Thema '{name}' aus dem Dokument."),
+        icon=data.get("icon", "mdi-tag"),
+        color=data.get("color", "#607D8B"),
+        display_order=data.get("display_order", 10),
+        is_active=True,
+        is_system=False,
+    )
+
+    session.add(facet_type)
+    await session.commit()
+    await session.refresh(facet_type)
+
+    return {
+        "success": True,
+        "message": f"Facet-Typ '{name}' wurde erstellt",
+        "facet_type": {
+            "id": str(facet_type.id),
+            "name": facet_type.name,
+            "slug": facet_type.slug,
+            "description": facet_type.description,
+        }
+    }
+
+
 @router.post("/execute-action", response_model=ActionExecuteResponse)
 async def execute_action(
     request: ActionExecuteRequest,
@@ -328,42 +404,68 @@ async def get_suggestions(
     route: str,
     entity_type: Optional[str] = None,
     entity_id: Optional[str] = None,
+    session: AsyncSession = Depends(get_session),
 ) -> dict:
     """
     Get contextual suggestions based on current location.
 
     Returns suggested queries and actions based on where the user is in the app.
+    Dynamically includes available facet types in suggestions.
     """
+    from sqlalchemy import select
+    from app.models import FacetType, EntityType as EntityTypeModel
+
+    # Load active facet types for dynamic suggestions
+    facet_result = await session.execute(
+        select(FacetType)
+        .where(FacetType.is_active == True)
+        .order_by(FacetType.display_order)
+        .limit(5)
+    )
+    facet_types = facet_result.scalars().all()
+    primary_facet = facet_types[0] if facet_types else None
+
     suggestions = []
 
     if entity_id:
         # On entity detail page
         suggestions = [
             {"label": "Zusammenfassung", "query": "/summary"},
-            {"label": "Pain Points", "query": "Zeige Pain Points"},
-            {"label": "Relationen", "query": "Zeige alle Relationen"},
         ]
+        # Add dynamic facet suggestions
+        for ft in facet_types[:2]:
+            suggestions.append({"label": ft.name, "query": f"Zeige {ft.name_plural or ft.name}"})
+        suggestions.append({"label": "Relationen", "query": "Zeige alle Relationen"})
     elif entity_type:
-        # On entity list page
-        type_name = {
-            "municipality": "Gemeinden",
-            "person": "Personen",
-            "organization": "Organisationen",
-            "event": "Events"
-        }.get(entity_type, entity_type)
+        # On entity list page - load entity type name
+        type_result = await session.execute(
+            select(EntityTypeModel).where(EntityTypeModel.slug == entity_type)
+        )
+        et = type_result.scalar_one_or_none()
+        type_name = et.name_plural if et else entity_type
+
         suggestions = [
             {"label": f"Alle {type_name}", "query": f"Zeige alle {type_name}"},
-            {"label": "Mit Pain Points", "query": f"{type_name} mit Pain Points"},
-            {"label": "Suchen", "query": "/search "},
         ]
+        # Add dynamic facet filter suggestions
+        if primary_facet:
+            suggestions.append({
+                "label": f"Mit {primary_facet.name_plural or primary_facet.name}",
+                "query": f"{type_name} mit {primary_facet.name_plural or primary_facet.name}"
+            })
+        suggestions.append({"label": "Suchen", "query": "/search "})
     elif "dashboard" in route or route == "/":
         # On dashboard
         suggestions = [
             {"label": "Übersicht", "query": "Zeige mir eine Übersicht"},
-            {"label": "Pain Points", "query": "Zeige aktuelle Pain Points"},
-            {"label": "Bürgermeister", "query": "Liste alle Bürgermeister"},
-            {"label": "Hilfe", "query": "/help"},
         ]
+        # Add dynamic facet suggestions
+        for ft in facet_types[:2]:
+            suggestions.append({
+                "label": f"Aktuelle {ft.name_plural or ft.name}",
+                "query": f"Zeige aktuelle {ft.name_plural or ft.name}"
+            })
+        suggestions.append({"label": "Hilfe", "query": "/help"})
     else:
         # Default
         suggestions = [
@@ -371,7 +473,10 @@ async def get_suggestions(
             {"label": "Suchen", "query": "/search "},
         ]
 
-    return {"suggestions": suggestions}
+    return {"suggestions": suggestions, "available_facet_types": [
+        {"slug": ft.slug, "name": ft.name, "name_plural": ft.name_plural, "icon": ft.icon}
+        for ft in facet_types
+    ]}
 
 
 # ============================================================================

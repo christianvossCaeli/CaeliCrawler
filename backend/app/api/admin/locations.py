@@ -146,25 +146,16 @@ async def link_all_sources(
             source.location_id = locations[source.location_name.lower()]
             sources_linked += 1
 
-    # Link PySis processes
-    unlinked_processes = await session.execute(
-        select(PySisProcess).where(
-            PySisProcess.location_id.is_(None),
-            PySisProcess.location_name.is_not(None)
-        )
-    )
+    # Note: PySisProcess links via entity_id, not location_id
+    # PySis process linking would require entity-based matching
     processes_linked = 0
-    for process in unlinked_processes.scalars().all():
-        if process.location_name and process.location_name.lower() in locations:
-            process.location_id = locations[process.location_name.lower()]
-            processes_linked += 1
 
     await session.flush()
 
     return {
         "sources_linked": sources_linked,
         "processes_linked": processes_linked,
-        "message": f"Linked {sources_linked} sources and {processes_linked} PySis processes"
+        "message": f"Linked {sources_linked} sources"
     }
 
 
@@ -499,10 +490,9 @@ async def list_locations(
         )
         source_count = (await session.execute(source_count_q)).scalar() or 0
 
-        pysis_count_q = select(func.count(PySisProcess.id)).where(
-            PySisProcess.location_id == loc.id
-        )
-        pysis_count = (await session.execute(pysis_count_q)).scalar() or 0
+        # PySisProcess links via entity_id, not location_id
+        # For now, set to 0 - would need Entity join for accurate count
+        pysis_count = 0
 
         item = LocationResponse.model_validate(loc)
         item.source_count = source_count
@@ -558,9 +548,8 @@ async def get_location(
         select(func.count(DataSource.id)).where(DataSource.location_id == location.id)
     )).scalar() or 0
 
-    pysis_count = (await session.execute(
-        select(func.count(PySisProcess.id)).where(PySisProcess.location_id == location.id)
-    )).scalar() or 0
+    # PySisProcess links via entity_id, not location_id
+    pysis_count = 0
 
     response = LocationResponse.model_validate(location)
     response.source_count = source_count
@@ -648,17 +637,8 @@ async def create_location(
             source.country = data.country
         linked_sources += 1
 
-    # Auto-link PySis processes
-    processes_to_link = await session.execute(
-        select(PySisProcess).where(
-            PySisProcess.location_id.is_(None),
-            sql_func.lower(PySisProcess.location_name) == data.name.lower(),
-        )
-    )
+    # Note: PySisProcess links via entity_id, not location_id
     linked_processes = 0
-    for process in processes_to_link.scalars().all():
-        process.location_id = location.id
-        linked_processes += 1
 
     await session.flush()
 
@@ -702,9 +682,8 @@ async def update_location(
         select(func.count(DataSource.id)).where(DataSource.location_id == location.id)
     )).scalar() or 0
 
-    pysis_count = (await session.execute(
-        select(func.count(PySisProcess.id)).where(PySisProcess.location_id == location.id)
-    )).scalar() or 0
+    # PySisProcess links via entity_id, not location_id
+    pysis_count = 0
 
     response = LocationResponse.model_validate(location)
     response.source_count = source_count

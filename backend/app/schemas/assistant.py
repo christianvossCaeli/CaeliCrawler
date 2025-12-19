@@ -18,6 +18,7 @@ class IntentType(str, Enum):
     SUMMARIZE = "summarize"  # Summarize current entity
     HELP = "help"  # App help
     BATCH_ACTION = "batch_action"  # Bulk operation on multiple entities
+    FACET_MANAGEMENT = "facet_management"  # Create, modify, or assign facet types
 
 
 class ViewMode(str, Enum):
@@ -184,6 +185,8 @@ class SuggestedAction(BaseModel):
 
 
 # Union type for all possible responses
+# Note: FacetManagementResponse and BatchActionChatResponse are defined later in file
+# but referenced here via forward reference pattern
 AssistantResponseData = Union[
     QueryResponse,
     ActionPreviewResponse,
@@ -191,6 +194,8 @@ AssistantResponseData = Union[
     RedirectResponse,
     HelpResponse,
     ErrorResponseData,
+    "BatchActionChatResponse",
+    "FacetManagementResponse",
 ]
 
 
@@ -476,3 +481,45 @@ class ReminderChatResponse(BaseModel):
     type: Literal["reminder_created"] = "reminder_created"
     message: str
     reminder: ReminderResponse
+
+
+# ============================================================================
+# Facet Management
+# ============================================================================
+
+
+class FacetManagementAction(str, Enum):
+    """Types of facet management actions."""
+
+    CREATE_FACET_TYPE = "create_facet_type"
+    ASSIGN_FACET_TYPE = "assign_facet_type"
+    LIST_FACET_TYPES = "list_facet_types"
+    SUGGEST_FACET_TYPES = "suggest_facet_types"
+
+
+class FacetTypePreview(BaseModel):
+    """Preview of a facet type to be created or assigned."""
+
+    name: str
+    name_plural: Optional[str] = None
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    value_type: str = "structured"
+    icon: str = "mdi-tag"
+    color: str = "#607D8B"
+    applicable_entity_type_slugs: List[str] = Field(default_factory=list)
+    ai_extraction_enabled: bool = True
+    ai_extraction_prompt: Optional[str] = None
+
+
+class FacetManagementResponse(BaseModel):
+    """Response for facet management operations."""
+
+    type: Literal["facet_management"] = "facet_management"
+    message: str
+    action: FacetManagementAction
+    facet_type_preview: Optional[FacetTypePreview] = None
+    existing_facet_types: Optional[List[Dict[str, Any]]] = None
+    target_entity_types: Optional[List[str]] = None
+    requires_confirmation: bool = True
+    auto_suggested: bool = False  # True if AI suggested new facet types

@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from app.models.change_log import ChangeLog
     from app.models.entity import Entity
     from app.models.data_source_category import DataSourceCategory
+    from app.models.location import Location
 
 
 class SourceType(str, enum.Enum):
@@ -79,6 +80,13 @@ class DataSource(Base):
         nullable=True,
         index=True,
         comment="FK to entity (municipality/person/organization/event)",
+    )
+    location_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("locations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="FK to location for geographic clustering",
     )
 
     # Basic info
@@ -207,6 +215,10 @@ class DataSource(Base):
 
     entity: Mapped[Optional["Entity"]] = relationship(
         "Entity",
+        back_populates="data_sources",
+    )
+    location: Mapped[Optional["Location"]] = relationship(
+        "Location",
         back_populates="data_sources",
     )
     crawl_jobs: Mapped[List["CrawlJob"]] = relationship(

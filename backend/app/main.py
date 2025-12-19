@@ -189,6 +189,14 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
             "environment": settings.app_env,
         }
 
+    # Feature flags endpoint
+    @app.get("/api/config/features", tags=["Config"])
+    async def get_feature_flags():
+        """Get feature flags for the frontend."""
+        return {
+            "entityLevelFacets": settings.feature_entity_level_facets,
+        }
+
     # Root endpoint
     @app.get("/", tags=["Root"])
     async def root():
