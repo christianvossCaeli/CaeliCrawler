@@ -65,11 +65,11 @@ SELECT DISTINCT
     ?lat
     ?lon
 WHERE {
-    # Municipality of Austria (including subclasses)
-    ?gemeinde wdt:P31/wdt:P279* wd:Q667509 .
+    # Municipality of Austria (direct instance, not subclasses to avoid noise)
+    ?gemeinde wdt:P31 wd:Q667509 .
 
-    # Gemeindekennziffer (Austrian municipality key)
-    OPTIONAL { ?gemeinde wdt:P964 ?gkz }
+    # Must have Gemeindekennziffer (ensures it's a real Austrian municipality)
+    ?gemeinde wdt:P964 ?gkz .
 
     # Official website
     OPTIONAL { ?gemeinde wdt:P856 ?website }
@@ -77,10 +77,10 @@ WHERE {
     # Population
     OPTIONAL { ?gemeinde wdt:P1082 ?population }
 
-    # Bundesland (via administrative hierarchy)
+    # Bundesland (direct P131 to federal state)
     OPTIONAL {
-        ?gemeinde wdt:P131* ?bundesland .
-        ?bundesland wdt:P31 wd:Q261543 .  # Austrian federal state
+        ?gemeinde wdt:P131+ ?bundesland .
+        ?bundesland wdt:P31 wd:Q261543 .
     }
 
     # Coordinates
@@ -102,18 +102,19 @@ ORDER BY ?bundeslandLabel ?gemeindeLabel
 
 AUSTRIAN_CATEGORIES = [
     {
-        "name": "Kommunale News Österreich",
+        "name": "Kommunale News Österreich - Windenergie",
         "slug": "kommunale-news-at",
-        "description": "Aktuelle Meldungen und Pressemitteilungen von österreichischen Gemeinden",
+        "description": "Aktuelle Meldungen österreichischer Gemeinden zu Windenergie-Themen",
         "purpose": """Monitoring öffentlicher Kommunikation zu Windenergie in Österreich:
-- Pressemitteilungen zu Energieprojekten
-- News über Bürgerbeteiligungen
-- Ankündigungen von Informationsveranstaltungen
-- Statements von Bürgermeistern""",
+- Pressemitteilungen zu Windenergieprojekten
+- News über Bürgerwindparks und Beteiligungen
+- Ankündigungen von Informationsveranstaltungen zu Windkraft
+- Statements von Bürgermeistern zu Windenergie""",
         "search_terms": [
-            "Windkraft", "Windenergie", "Erneuerbare Energie",
-            "Energiewende", "Klimaschutz", "Windpark",
-            "Repowering", "Bürgerwindpark"
+            "Windkraft", "Windenergie", "Windrad", "Windpark", "Windenergieanlage",
+            "Erneuerbare Energie", "Energiewende", "Bürgerwindpark",
+            "Repowering", "Flächenwidmung", "Raumordnung",
+            "UVP Windkraft", "Windvorrangzone", "Klimaschutz"
         ],
         "ai_extraction_prompt": """Analysiere diese österreichische kommunale Pressemitteilung/News für Sales Intelligence.
 
@@ -134,18 +135,19 @@ EXTRAHIERE IM JSON-FORMAT:
         "schedule_cron": "0 8 * * *",
     },
     {
-        "name": "Ratsinformationen Österreich",
+        "name": "Ratsinformationen Österreich - Windenergie",
         "slug": "ratsinformationen-at",
-        "description": "Gemeinderats- und Landtagssitzungen aus österreichischen Kommunen",
+        "description": "Gemeinderats-Beschlüsse zu Windenergie in österreichischen Kommunen",
         "purpose": """Monitoring kommunaler Entscheidungen zu Windenergie in Österreich:
-- Flächenwidmungspläne
-- Genehmigungsverfahren
-- Bürgerbeteiligung
-- Beschlüsse zu Windkraftanlagen""",
+- Flächenwidmungspläne für Windkraftanlagen
+- UVP-Verfahren für Windparks
+- Bürgerbeteiligung an Windenergieprojekten
+- Beschlüsse zu Windkraftanlagen und Repowering""",
         "search_terms": [
-            "Windkraft", "Windenergie", "Windrad", "Windpark",
-            "Flächenwidmung", "Raumordnung", "UVP",
-            "Genehmigung", "Bauverfahren"
+            "Windkraft", "Windenergie", "Windrad", "Windpark", "Windenergieanlage",
+            "Flächenwidmung Windkraft", "Raumordnung Wind", "UVP",
+            "Genehmigung Windkraftanlage", "Bauverfahren Wind",
+            "Bürgerwindpark", "Repowering", "Abstandsregelung"
         ],
         "ai_extraction_prompt": """Analysiere dieses österreichische kommunale Dokument für Sales Intelligence.
 
@@ -193,8 +195,8 @@ async def fetch_municipalities_from_wikidata(limit: Optional[int] = None) -> Lis
     for binding in data.get("results", {}).get("bindings", []):
         name = binding.get("gemeindeLabel", {}).get("value", "")
 
-        # Skip if no name or duplicate
-        if not name or name in seen_names:
+        # Skip if no name, duplicate, or just a Wikidata ID (Q...)
+        if not name or name in seen_names or name.startswith("Q"):
             continue
         seen_names.add(name)
 
@@ -490,9 +492,9 @@ async def main():
     print("\nMunicipalities by Bundesland:")
     by_bundesland = {}
     for m in municipalities:
-        bl = m.get("bundesland", "Unbekannt")
+        bl = m.get("bundesland") or "Unbekannt"
         by_bundesland[bl] = by_bundesland.get(bl, 0) + 1
-    for bl, count in sorted(by_bundesland.items()):
+    for bl, count in sorted(by_bundesland.items(), key=lambda x: x[0] or ""):
         print(f"  {bl}: {count}")
 
     with_website = sum(1 for m in municipalities if m.get("website"))

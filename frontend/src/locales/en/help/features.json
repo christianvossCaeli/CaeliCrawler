@@ -250,6 +250,44 @@
           "verifyResults": "Verify AI results regularly",
           "timeFilters": "Use time-based filters for event tracking"
         }
+      },
+      "pysisToFacets": {
+        "title": "Analyze PySis Data for Facets",
+        "description": "This feature allows you to analyze PySis field values using AI and automatically extract relevant information into existing FacetTypes.",
+        "workflow": {
+          "title": "Workflow",
+          "step1": "Link PySis process with an Entity",
+          "step2": "Load PySis fields from external API (Pull)",
+          "step3": "Click the Analyze for Facets button",
+          "step4": "AI analyzes all field values and extracts relevant information",
+          "step5": "FacetValues are automatically created (with deduplication)"
+        },
+        "dynamicFacetTypes": {
+          "title": "Dynamic FacetType Detection",
+          "description": "The AI automatically uses all active FacetTypes with AI extraction enabled:",
+          "aiPrompt": "ai_extraction_prompt - Specific instructions for the AI",
+          "description2": "description - Description of the FacetType",
+          "valueSchema": "value_schema - Expected data format (JSON Schema)"
+        },
+        "progressTracking": {
+          "title": "Progress Tracking",
+          "description": "The analysis process runs as an AI task:",
+          "taskId": "Task ID is returned immediately",
+          "statusCheck": "Status can be checked under AI Tasks",
+          "steps": "Steps based on active FacetTypes"
+        },
+        "deduplication": {
+          "title": "Deduplication",
+          "description": "Existing FacetValues are not duplicated:",
+          "similarity": "Similarity check based on FacetType configuration",
+          "threshold": "Configurable thresholds (default: 85% for content, 90% for contacts)"
+        },
+        "requirements": {
+          "title": "Requirements",
+          "entityLinked": "PySis process must be linked to an Entity",
+          "fieldsWithValues": "At least one field must have a value",
+          "facetTypesActive": "FacetTypes must be active and AI extraction enabled"
+        }
       }
     },
     "results": {
@@ -465,6 +503,338 @@
         "basicAuth": "Basic Auth",
         "basicAuthDesc": "HTTP Basic Authentication (username/password)",
         "warning": "Test Webhook: Use the test function to check if your endpoint is reachable and responds correctly before activating the rule."
+      }
+    },
+    "aiAssistant": {
+      "title": "AI Assistant",
+      "description": "The interactive AI assistant enables natural language interactions with the system - from simple questions to complex data queries.",
+      "overview": {
+        "title": "Overview",
+        "description": "The AI assistant is accessible via the chat icon in the app bar and offers:",
+        "naturalLanguage": "Natural Language",
+        "naturalLanguageDesc": "Ask questions in plain English",
+        "contextAware": "Context-Aware",
+        "contextAwareDesc": "The assistant knows your current view and can respond accordingly",
+        "slashCommands": "Slash Commands",
+        "slashCommandsDesc": "Quick commands for common actions"
+      },
+      "modes": {
+        "title": "Modes",
+        "readMode": "Read Mode (Default)",
+        "readModeDesc": "Queries and navigation only - no changes to the system",
+        "writeMode": "Write Mode",
+        "writeModeDesc": "Allows inline edits with preview and confirmation"
+      },
+      "slashCommands": {
+        "title": "Available Slash Commands",
+        "help": "/help [topic]",
+        "helpDesc": "Show help, optionally for a specific topic",
+        "search": "/search <query>",
+        "searchDesc": "Search entities",
+        "create": "/create <details>",
+        "createDesc": "Create new record (redirects to Smart Query)",
+        "summary": "/summary",
+        "summaryDesc": "Summarize current entity",
+        "navigate": "/navigate <entity>",
+        "navigateDesc": "Navigate to an entity"
+      },
+      "exampleQueries": {
+        "title": "Example Queries",
+        "examples": {
+          "painPoints": "Show all pain points in NRW",
+          "decisionMakers": "Which mayors are there in Bavaria?",
+          "events": "Which events are happening next month?",
+          "summary": "Summarize the municipality Gummersbach",
+          "relations": "Show all relations of Max Mueller"
+        }
+      },
+      "responseTypes": {
+        "title": "Response Types",
+        "queryResult": "Query Result",
+        "queryResultDesc": "Results of a data query with summary",
+        "navigation": "Navigation",
+        "navigationDesc": "Redirect to an entity or view",
+        "actionPreview": "Action Preview",
+        "actionPreviewDesc": "Preview of a planned change (in write mode)",
+        "help": "Help",
+        "helpDesc": "Help texts and instructions"
+      },
+      "tips": {
+        "title": "Tips",
+        "beSpecific": "Be specific - the more precise your question, the better the answer",
+        "useContext": "Use context - the assistant knows where you are",
+        "slashShortcuts": "Use slash commands for quick actions",
+        "confirmWrite": "In write mode, changes are always shown for confirmation first"
+      },
+      "facetManagement": {
+        "title": "Facet Management via AI",
+        "description": "The AI assistant can also manage facet types:",
+        "capabilities": {
+          "createFacetType": "Create Facet Types",
+          "createFacetTypeDesc": "Describe what kind of data you want to capture",
+          "assignFacetType": "Assign Facet Types",
+          "assignFacetTypeDesc": "Assign facet types to entity types",
+          "listFacetTypes": "List Facet Types",
+          "listFacetTypesDesc": "Shows all available facet types",
+          "suggestFacetTypes": "Suggest Facet Types",
+          "suggestFacetTypesDesc": "The AI suggests suitable facet types based on your requirements"
+        },
+        "examples": {
+          "title": "Examples",
+          "create": "Create a facet type for contact data with email, phone and position",
+          "assign": "Assign the pain point facet type to all municipalities",
+          "suggest": "Which facet types would fit events?",
+          "list": "Show all available facet types"
+        },
+        "dynamicQueries": {
+          "title": "Dynamic Facet Queries",
+          "description": "The AI assistant can dynamically query all configured facet types:",
+          "allFacets": "Ask about any facet types, not just pain points",
+          "combinedQueries": "Combine facet queries with geographic filters",
+          "example": "Example: Show all contact data of decision makers in Bavaria"
+        }
+      }
+    },
+    "userManagement": {
+      "title": "User Management",
+      "description": "User management allows administrators to create, edit and manage user accounts.",
+      "accessInfo": "Administrators only: User management is only available with the ADMIN role.",
+      "overview": {
+        "title": "Overview",
+        "description": "Access user management via the user menu top right → 'User Management'.",
+        "features": {
+          "list": "User list with search and filtering",
+          "create": "Create new users",
+          "edit": "Edit users (role, status)",
+          "resetPassword": "Reset passwords",
+          "deactivate": "Deactivate users"
+        }
+      },
+      "roles": {
+        "title": "User Roles",
+        "admin": {
+          "name": "Administrator",
+          "description": "Full access to all functions",
+          "permissions": [
+            "User management (create, edit, delete)",
+            "Access to audit log and version history",
+            "System configuration",
+            "All editor and viewer permissions"
+          ]
+        },
+        "editor": {
+          "name": "Editor",
+          "description": "Read and write access to data",
+          "permissions": [
+            "Manage categories and data sources",
+            "Start and stop crawlers",
+            "Process and analyze documents",
+            "Export results"
+          ]
+        },
+        "viewer": {
+          "name": "Viewer",
+          "description": "Read-only access",
+          "permissions": [
+            "View all data",
+            "Export results",
+            "No editing rights"
+          ]
+        }
+      },
+      "createUser": {
+        "title": "Create User",
+        "steps": {
+          "step1": "Click on 'New User'",
+          "step2": "Enter email address and name",
+          "step3": "Assign a secure password",
+          "step4": "Select the appropriate role",
+          "step5": "Save the new user"
+        },
+        "passwordRequirements": "The password must be at least 8 characters long and contain upper/lowercase letters and digits."
+      },
+      "editUser": {
+        "title": "Edit User",
+        "editableFields": {
+          "email": "Email address",
+          "fullName": "Full name",
+          "role": "User role",
+          "isActive": "Active/Inactive status"
+        },
+        "restrictions": {
+          "title": "Restrictions",
+          "ownRole": "Your own admin role cannot be removed",
+          "ownAccount": "Your own account cannot be deactivated",
+          "deleteOwnAccount": "Your own account cannot be deleted"
+        }
+      },
+      "resetPassword": {
+        "title": "Reset Password",
+        "description": "Administrators can reset passwords of other users:",
+        "steps": [
+          "Select the user",
+          "Click on 'Reset Password'",
+          "Enter a new secure password",
+          "The user will be prompted to change the password on next login"
+        ]
+      }
+    },
+    "facetTypeAdmin": {
+      "title": "Facet Type Management",
+      "description": "Facet type management allows administrators to create, edit and assign facet types to entity types.",
+      "accessInfo": "Admin function: Facet type management is accessible via the Admin menu.",
+      "overview": {
+        "title": "Overview",
+        "description": "Access facet type management via Administration → Facet Types.",
+        "features": {
+          "list": "List of all defined facet types with filter and search functionality",
+          "create": "Create new facet types",
+          "edit": "Edit existing facet types",
+          "assign": "Assign facet types to entity types",
+          "aiExtraction": "Configure AI extraction prompts"
+        }
+      },
+      "concept": {
+        "title": "Concept: Facet Types and Entity Types",
+        "description": "Facet types are assigned at the entity type level, not to individual entities. This means:",
+        "inheritance": "Inheritance",
+        "inheritanceDesc": "All entities of a type automatically receive the assigned facet types",
+        "consistency": "Consistency",
+        "consistencyDesc": "Uniform data structure for all entities of a type",
+        "efficiency": "Efficiency",
+        "efficiencyDesc": "No manual assignment at entity level required"
+      },
+      "createFacetType": {
+        "title": "Create Facet Type",
+        "basicSettings": {
+          "title": "Basic Settings",
+          "name": "Name",
+          "nameDesc": "Display name of the facet type",
+          "namePlural": "Plural",
+          "namePluralDesc": "Plural form for lists",
+          "slug": "Slug",
+          "slugDesc": "Technical identifier (automatically generated)",
+          "description": "Description",
+          "descriptionDesc": "Explanation of the facet type",
+          "icon": "Icon",
+          "iconDesc": "Material Design Icon (e.g. mdi-alert-circle)",
+          "color": "Color",
+          "colorDesc": "Hex color code for display"
+        },
+        "valueType": {
+          "title": "Value Type",
+          "structured": "Structured",
+          "structuredDesc": "Complex data with schema (default)",
+          "text": "Text",
+          "textDesc": "Simple free text",
+          "number": "Number",
+          "numberDesc": "Numeric value",
+          "boolean": "Boolean",
+          "booleanDesc": "Yes/No value",
+          "date": "Date",
+          "dateDesc": "Date value"
+        },
+        "entityTypeAssignment": {
+          "title": "Entity Type Assignment",
+          "description": "Select which entity types this facet type should be available for:",
+          "allTypes": "All Types",
+          "allTypesDesc": "If no entity types are selected, the facet type is available for all",
+          "specificTypes": "Specific Types",
+          "specificTypesDesc": "Select one or more entity types"
+        }
+      },
+      "schema": {
+        "title": "Schema Definition",
+        "description": "For structured facet types, you can define a JSON schema:",
+        "example": "Example for Pain Point:",
+        "exampleSchema": "{ \"type\": \"object\", \"properties\": { \"severity\": { \"type\": \"string\", \"enum\": [\"low\", \"medium\", \"high\"] }, \"category\": { \"type\": \"string\" }, \"details\": { \"type\": \"string\" } } }",
+        "tip": "Tip: The AI uses the schema to extract structured data."
+      },
+      "aiExtraction": {
+        "title": "Configure AI Extraction",
+        "enabled": "Enable AI Extraction",
+        "enabledDesc": "When enabled, the AI automatically extracts facet values from documents",
+        "prompt": "Extraction Prompt",
+        "promptDesc": "Instructions for the AI on how to extract this facet type",
+        "promptExample": "Example: Identify all mentioned challenges, problems or obstacles. Assess the severity (low/medium/high) of each and categorize them.",
+        "timeBased": "Time-based",
+        "timeBasedDesc": "Enable if facet values have a time reference (e.g. events)"
+      },
+      "entityTypesView": {
+        "title": "Integration in Entity Types View",
+        "description": "In the Entity Types management, you can directly see which facet types are assigned:",
+        "features": {
+          "facetColumn": "Facets column shows all assigned facet types",
+          "colorCoded": "Facet types are displayed with their configured colors",
+          "quickAssign": "Quick assignment via the Facet Type management"
+        }
+      }
+    },
+    "auditLog": {
+      "title": "Audit Log",
+      "description": "The audit log records all important changes in the system and enables complete traceability.",
+      "accessInfo": "Administrators only: The audit log is only visible with the ADMIN role.",
+      "overview": {
+        "title": "Overview",
+        "description": "Access the audit log via the Admin menu → 'Audit Log'.",
+        "recordedInfo": {
+          "title": "The following information is recorded:",
+          "who": "Who made the change (user)",
+          "when": "When was the change made (timestamp)",
+          "what": "What was changed (entity type and ID)",
+          "changes": "Which fields were changed (before/after)",
+          "ip": "IP address of the user"
+        }
+      },
+      "actionTypes": {
+        "title": "Action Types",
+        "create": "CREATE",
+        "createDesc": "New record was created",
+        "update": "UPDATE",
+        "updateDesc": "Existing record was modified",
+        "delete": "DELETE",
+        "deleteDesc": "Record was deleted",
+        "login": "LOGIN",
+        "loginDesc": "User logged in",
+        "logout": "LOGOUT",
+        "logoutDesc": "User logged out"
+      },
+      "filters": {
+        "title": "Available Filters",
+        "action": "Action type (CREATE, UPDATE, DELETE, etc.)",
+        "entityType": "Entity type (Category, DataSource, Entity, etc.)",
+        "entityId": "Specific entity ID",
+        "userId": "User",
+        "dateRange": "Date range (from/to)"
+      },
+      "entityHistory": {
+        "title": "Entity History",
+        "description": "For each entity, you can view the complete change history:",
+        "features": [
+          "All versions chronologically sorted",
+          "Diff view shows changed fields",
+          "User and timestamp per change",
+          "Change reason (if provided)"
+        ]
+      },
+      "versioning": {
+        "title": "Versioning",
+        "description": "The system stores versions efficiently:",
+        "diffBased": "Diff-based",
+        "diffBasedDesc": "Only changes are stored, not the complete state",
+        "snapshots": "Snapshots",
+        "snapshotsDesc": "Periodic full backups for fast reconstruction",
+        "reconstruction": "Reconstruction",
+        "reconstructionDesc": "The state at any point in time can be restored"
+      },
+      "statistics": {
+        "title": "Statistics",
+        "description": "The audit log also offers aggregated statistics:",
+        "totalEntries": "Total number of entries",
+        "entriesToday": "Entries today",
+        "actionsBreakdown": "Breakdown by action type",
+        "topUsers": "Most active users",
+        "topEntityTypes": "Most changed entity types"
       }
     }
   }

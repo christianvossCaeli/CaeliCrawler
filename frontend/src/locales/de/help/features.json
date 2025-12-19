@@ -250,6 +250,44 @@
           "verifyResults": "Verifizieren Sie KI-Ergebnisse regelmaessig",
           "timeFilters": "Nutzen Sie zeitbasierte Filter fuer Event-Tracking"
         }
+      },
+      "pysisToFacets": {
+        "title": "PySis-Daten fuer Facets analysieren",
+        "description": "Diese Funktion ermoeglicht es, PySis-Feldwerte mittels KI zu analysieren und relevante Informationen automatisch in bestehende FacetTypes zu extrahieren.",
+        "workflow": {
+          "title": "Workflow",
+          "step1": "PySis-Prozess mit Entity verknuepfen",
+          "step2": "PySis-Felder von der externen API laden (Pull)",
+          "step3": "Fuer Facets analysieren Button klicken",
+          "step4": "KI analysiert alle Feldwerte und extrahiert relevante Informationen",
+          "step5": "FacetValues werden automatisch erstellt (mit Deduplizierung)"
+        },
+        "dynamicFacetTypes": {
+          "title": "Dynamische FacetType-Erkennung",
+          "description": "Die KI nutzt automatisch alle aktiven FacetTypes mit aktivierter KI-Extraktion:",
+          "aiPrompt": "ai_extraction_prompt - Spezifische Anweisungen fuer die KI",
+          "description2": "description - Beschreibung des FacetTypes",
+          "valueSchema": "value_schema - Erwartetes Datenformat (JSON Schema)"
+        },
+        "progressTracking": {
+          "title": "Fortschritts-Tracking",
+          "description": "Der Analyse-Prozess wird als KI-Task ausgefuehrt:",
+          "taskId": "Task-ID wird sofort zurueckgegeben",
+          "statusCheck": "Status kann unter KI-Tasks geprueft werden",
+          "steps": "Schritte basierend auf aktiven FacetTypes"
+        },
+        "deduplication": {
+          "title": "Deduplizierung",
+          "description": "Bestehende FacetValues werden nicht dupliziert:",
+          "similarity": "Aehnlichkeitspruefung basierend auf FacetType-Konfiguration",
+          "threshold": "Konfigurierbare Schwellenwerte (Standard: 85% fuer Inhalte, 90% fuer Kontakte)"
+        },
+        "requirements": {
+          "title": "Voraussetzungen",
+          "entityLinked": "PySis-Prozess muss mit einer Entity verknuepft sein",
+          "fieldsWithValues": "Mindestens ein Feld muss einen Wert haben",
+          "facetTypesActive": "FacetTypes muessen aktiv und KI-Extraktion aktiviert sein"
+        }
       }
     },
     "results": {
@@ -465,6 +503,338 @@
         "basicAuth": "Basic Auth",
         "basicAuthDesc": "HTTP Basic Authentication (Benutzername/Passwort)",
         "warning": "Webhook testen: Nutzen Sie die Test-Funktion, um zu pruefen, ob Ihr Endpunkt erreichbar ist und korrekt antwortet, bevor Sie die Regel aktivieren."
+      }
+    },
+    "aiAssistant": {
+      "title": "KI-Assistent",
+      "description": "Der interaktive KI-Assistent ermoeglicht natuerlichsprachliche Interaktionen mit dem System - von einfachen Fragen bis hin zu komplexen Datenabfragen.",
+      "overview": {
+        "title": "Uebersicht",
+        "description": "Der KI-Assistent ist ueber das Chat-Symbol in der App-Leiste erreichbar und bietet:",
+        "naturalLanguage": "Natuerliche Sprache",
+        "naturalLanguageDesc": "Stellen Sie Fragen in normalem Deutsch",
+        "contextAware": "Kontextbewusst",
+        "contextAwareDesc": "Der Assistent kennt Ihre aktuelle Ansicht und kann darauf reagieren",
+        "slashCommands": "Slash-Kommandos",
+        "slashCommandsDesc": "Schnellbefehle fuer haeufige Aktionen"
+      },
+      "modes": {
+        "title": "Modi",
+        "readMode": "Lese-Modus (Standard)",
+        "readModeDesc": "Nur Abfragen und Navigation - keine Aenderungen am System",
+        "writeMode": "Schreib-Modus",
+        "writeModeDesc": "Erlaubt Inline-Bearbeitungen mit Vorschau und Bestaetigung"
+      },
+      "slashCommands": {
+        "title": "Verfuegbare Slash-Kommandos",
+        "help": "/help [thema]",
+        "helpDesc": "Hilfe anzeigen, optional zu einem bestimmten Thema",
+        "search": "/search <suchbegriff>",
+        "searchDesc": "Entities durchsuchen",
+        "create": "/create <details>",
+        "createDesc": "Neuen Datensatz erstellen (leitet zu Smart Query weiter)",
+        "summary": "/summary",
+        "summaryDesc": "Aktuelle Entity zusammenfassen",
+        "navigate": "/navigate <entity>",
+        "navigateDesc": "Zu einer Entity navigieren"
+      },
+      "exampleQueries": {
+        "title": "Beispiel-Anfragen",
+        "examples": {
+          "painPoints": "Zeige alle Pain Points in NRW",
+          "decisionMakers": "Welche Buergermeister gibt es in Bayern?",
+          "events": "Welche Events finden naechsten Monat statt?",
+          "summary": "Fasse die Gemeinde Gummersbach zusammen",
+          "relations": "Zeige alle Beziehungen von Max Mueller"
+        }
+      },
+      "responseTypes": {
+        "title": "Antwort-Typen",
+        "queryResult": "Suchergebnis",
+        "queryResultDesc": "Ergebnisse einer Datenabfrage mit Zusammenfassung",
+        "navigation": "Navigation",
+        "navigationDesc": "Weiterleitung zu einer Entity oder Ansicht",
+        "actionPreview": "Aktions-Vorschau",
+        "actionPreviewDesc": "Vorschau einer geplanten Aenderung (im Schreib-Modus)",
+        "help": "Hilfe",
+        "helpDesc": "Hilfetexte und Anleitungen"
+      },
+      "tips": {
+        "title": "Tipps",
+        "beSpecific": "Seien Sie spezifisch - je genauer Ihre Frage, desto besser die Antwort",
+        "useContext": "Nutzen Sie den Kontext - der Assistent weiss, wo Sie sich befinden",
+        "slashShortcuts": "Verwenden Sie Slash-Kommandos fuer schnelle Aktionen",
+        "confirmWrite": "Im Schreib-Modus werden Aenderungen immer erst zur Bestaetigung angezeigt"
+      },
+      "facetManagement": {
+        "title": "Facet-Verwaltung per KI",
+        "description": "Der KI-Assistent kann auch Facet-Typen verwalten:",
+        "capabilities": {
+          "createFacetType": "Facet-Typen erstellen",
+          "createFacetTypeDesc": "Beschreiben Sie, welche Art von Daten Sie erfassen moechten",
+          "assignFacetType": "Facet-Typen zuordnen",
+          "assignFacetTypeDesc": "Weisen Sie Facet-Typen Entity-Typen zu",
+          "listFacetTypes": "Facet-Typen auflisten",
+          "listFacetTypesDesc": "Zeigt alle verfuegbaren Facet-Typen an",
+          "suggestFacetTypes": "Facet-Typen vorschlagen",
+          "suggestFacetTypesDesc": "Die KI schlaegt passende Facet-Typen basierend auf Ihren Anforderungen vor"
+        },
+        "examples": {
+          "title": "Beispiele",
+          "create": "Erstelle einen Facet-Typ fuer Kontaktdaten mit E-Mail, Telefon und Position",
+          "assign": "Weise den Pain-Point Facet-Typ allen Gemeinden zu",
+          "suggest": "Welche Facet-Typen wuerden zu Veranstaltungen passen?",
+          "list": "Zeige alle verfuegbaren Facet-Typen"
+        },
+        "dynamicQueries": {
+          "title": "Dynamische Facet-Abfragen",
+          "description": "Der KI-Assistent kann alle konfigurierten Facet-Typen dynamisch abfragen:",
+          "allFacets": "Fragen Sie nach beliebigen Facet-Typen, nicht nur Pain Points",
+          "combinedQueries": "Kombinieren Sie Facet-Abfragen mit geografischen Filtern",
+          "example": "Beispiel: Zeige alle Kontaktdaten von Entscheidern in Bayern"
+        }
+      }
+    },
+    "userManagement": {
+      "title": "Benutzerverwaltung",
+      "description": "Die Benutzerverwaltung ermoeglicht Administratoren das Anlegen, Bearbeiten und Verwalten von Benutzerkonten.",
+      "accessInfo": "Nur fuer Administratoren: Die Benutzerverwaltung ist nur mit der ADMIN-Rolle verfuegbar.",
+      "overview": {
+        "title": "Uebersicht",
+        "description": "Die Benutzerverwaltung erreichen Sie ueber das Benutzer-Menue oben rechts → 'Benutzerverwaltung'.",
+        "features": {
+          "list": "Benutzerliste mit Suche und Filterung",
+          "create": "Neue Benutzer anlegen",
+          "edit": "Benutzer bearbeiten (Rolle, Status)",
+          "resetPassword": "Passwoerter zuruecksetzen",
+          "deactivate": "Benutzer deaktivieren"
+        }
+      },
+      "roles": {
+        "title": "Benutzerrollen",
+        "admin": {
+          "name": "Administrator",
+          "description": "Vollzugriff auf alle Funktionen",
+          "permissions": [
+            "Benutzerverwaltung (anlegen, bearbeiten, loeschen)",
+            "Zugriff auf Audit-Log und Versionshistorie",
+            "Systemkonfiguration",
+            "Alle Editor- und Viewer-Berechtigungen"
+          ]
+        },
+        "editor": {
+          "name": "Editor",
+          "description": "Lese- und Schreibzugriff auf Daten",
+          "permissions": [
+            "Kategorien und Datenquellen verwalten",
+            "Crawler starten und stoppen",
+            "Dokumente verarbeiten und analysieren",
+            "Ergebnisse exportieren"
+          ]
+        },
+        "viewer": {
+          "name": "Betrachter",
+          "description": "Nur Lesezugriff",
+          "permissions": [
+            "Alle Daten einsehen",
+            "Ergebnisse exportieren",
+            "Keine Bearbeitungsrechte"
+          ]
+        }
+      },
+      "createUser": {
+        "title": "Benutzer anlegen",
+        "steps": {
+          "step1": "Klicken Sie auf 'Neuer Benutzer'",
+          "step2": "Geben Sie E-Mail-Adresse und Namen ein",
+          "step3": "Vergeben Sie ein sicheres Passwort",
+          "step4": "Waehlen Sie die passende Rolle",
+          "step5": "Speichern Sie den neuen Benutzer"
+        },
+        "passwordRequirements": "Das Passwort muss mindestens 8 Zeichen lang sein und Gross-/Kleinbuchstaben sowie Ziffern enthalten."
+      },
+      "editUser": {
+        "title": "Benutzer bearbeiten",
+        "editableFields": {
+          "email": "E-Mail-Adresse",
+          "fullName": "Vollstaendiger Name",
+          "role": "Benutzerrolle",
+          "isActive": "Aktiv/Inaktiv Status"
+        },
+        "restrictions": {
+          "title": "Einschraenkungen",
+          "ownRole": "Die eigene Admin-Rolle kann nicht entfernt werden",
+          "ownAccount": "Das eigene Konto kann nicht deaktiviert werden",
+          "deleteOwnAccount": "Das eigene Konto kann nicht geloescht werden"
+        }
+      },
+      "resetPassword": {
+        "title": "Passwort zuruecksetzen",
+        "description": "Administratoren koennen Passwoerter anderer Benutzer zuruecksetzen:",
+        "steps": [
+          "Waehlen Sie den Benutzer aus",
+          "Klicken Sie auf 'Passwort zuruecksetzen'",
+          "Geben Sie ein neues sicheres Passwort ein",
+          "Der Benutzer wird beim naechsten Login aufgefordert, das Passwort zu aendern"
+        ]
+      }
+    },
+    "facetTypeAdmin": {
+      "title": "Facet-Typ Verwaltung",
+      "description": "Die Facet-Typ Verwaltung ermoeglicht Administratoren das Erstellen, Bearbeiten und Zuordnen von Facet-Typen zu Entity-Typen.",
+      "accessInfo": "Admin-Funktion: Die Facet-Typ Verwaltung ist ueber das Admin-Menue erreichbar.",
+      "overview": {
+        "title": "Uebersicht",
+        "description": "Die Facet-Typ Verwaltung erreichen Sie ueber Administration → Facet-Typen.",
+        "features": {
+          "list": "Liste aller definierten Facet-Typen mit Filter- und Suchfunktion",
+          "create": "Neue Facet-Typen anlegen",
+          "edit": "Bestehende Facet-Typen bearbeiten",
+          "assign": "Facet-Typen Entity-Typen zuordnen",
+          "aiExtraction": "KI-Extraktions-Prompts konfigurieren"
+        }
+      },
+      "concept": {
+        "title": "Konzept: Facet-Typen und Entity-Typen",
+        "description": "Facet-Typen werden auf Entity-Typ-Ebene zugeordnet, nicht auf einzelne Entities. Das bedeutet:",
+        "inheritance": "Vererbung",
+        "inheritanceDesc": "Alle Entities eines Typs erhalten automatisch die zugeordneten Facet-Typen",
+        "consistency": "Konsistenz",
+        "consistencyDesc": "Einheitliche Datenstruktur fuer alle Entities eines Typs",
+        "efficiency": "Effizienz",
+        "efficiencyDesc": "Keine manuelle Zuordnung auf Entity-Ebene erforderlich"
+      },
+      "createFacetType": {
+        "title": "Facet-Typ erstellen",
+        "basicSettings": {
+          "title": "Grundeinstellungen",
+          "name": "Name",
+          "nameDesc": "Anzeigename des Facet-Typs",
+          "namePlural": "Plural",
+          "namePluralDesc": "Pluralform fuer Listen",
+          "slug": "Slug",
+          "slugDesc": "Technischer Bezeichner (wird automatisch generiert)",
+          "description": "Beschreibung",
+          "descriptionDesc": "Erklaerung des Facet-Typs",
+          "icon": "Icon",
+          "iconDesc": "Material Design Icon (z.B. mdi-alert-circle)",
+          "color": "Farbe",
+          "colorDesc": "Hex-Farbcode fuer die Darstellung"
+        },
+        "valueType": {
+          "title": "Werte-Typ",
+          "structured": "Strukturiert",
+          "structuredDesc": "Komplexe Daten mit Schema (Standard)",
+          "text": "Text",
+          "textDesc": "Einfacher Freitext",
+          "number": "Zahl",
+          "numberDesc": "Numerischer Wert",
+          "boolean": "Boolean",
+          "booleanDesc": "Ja/Nein Wert",
+          "date": "Datum",
+          "dateDesc": "Datumswert"
+        },
+        "entityTypeAssignment": {
+          "title": "Entity-Typ Zuordnung",
+          "description": "Waehlen Sie, fuer welche Entity-Typen dieser Facet-Typ verfuegbar sein soll:",
+          "allTypes": "Alle Typen",
+          "allTypesDesc": "Wenn keine Entity-Typen ausgewaehlt sind, ist der Facet-Typ fuer alle verfuegbar",
+          "specificTypes": "Bestimmte Typen",
+          "specificTypesDesc": "Waehlen Sie einen oder mehrere Entity-Typen aus"
+        }
+      },
+      "schema": {
+        "title": "Schema-Definition",
+        "description": "Fuer strukturierte Facet-Typen koennen Sie ein JSON-Schema definieren:",
+        "example": "Beispiel fuer Pain Point:",
+        "exampleSchema": "{ \"type\": \"object\", \"properties\": { \"severity\": { \"type\": \"string\", \"enum\": [\"low\", \"medium\", \"high\"] }, \"category\": { \"type\": \"string\" }, \"details\": { \"type\": \"string\" } } }",
+        "tip": "Tipp: Die KI verwendet das Schema, um strukturierte Daten zu extrahieren."
+      },
+      "aiExtraction": {
+        "title": "KI-Extraktion konfigurieren",
+        "enabled": "KI-Extraktion aktivieren",
+        "enabledDesc": "Wenn aktiviert, extrahiert die KI automatisch Facet-Werte aus Dokumenten",
+        "prompt": "Extraktions-Prompt",
+        "promptDesc": "Anweisungen fuer die KI, wie dieser Facet-Typ extrahiert werden soll",
+        "promptExample": "Beispiel: Identifiziere alle genannten Herausforderungen, Probleme oder Hindernisse. Bewerte jeweils die Schwere (low/medium/high) und kategorisiere sie.",
+        "timeBased": "Zeitbasiert",
+        "timeBasedDesc": "Aktivieren, wenn Facet-Werte einen Zeitbezug haben (z.B. Events)"
+      },
+      "entityTypesView": {
+        "title": "Integration in Entity-Typen Ansicht",
+        "description": "In der Entity-Typen Verwaltung sehen Sie direkt, welche Facet-Typen zugeordnet sind:",
+        "features": {
+          "facetColumn": "Facets-Spalte zeigt alle zugeordneten Facet-Typen",
+          "colorCoded": "Facet-Typen werden mit ihren konfigurierten Farben angezeigt",
+          "quickAssign": "Schnellzuordnung ueber die Facet-Typ Verwaltung"
+        }
+      }
+    },
+    "auditLog": {
+      "title": "Audit Log",
+      "description": "Das Audit Log protokolliert alle wichtigen Aenderungen im System und ermoeglicht eine lueckenlose Nachverfolgung.",
+      "accessInfo": "Nur fuer Administratoren: Das Audit Log ist nur mit der ADMIN-Rolle einsehbar.",
+      "overview": {
+        "title": "Uebersicht",
+        "description": "Das Audit Log erreichen Sie ueber das Admin-Menue → 'Audit Log'.",
+        "recordedInfo": {
+          "title": "Folgende Informationen werden protokolliert:",
+          "who": "Wer hat die Aenderung durchgefuehrt (Benutzer)",
+          "when": "Wann wurde die Aenderung durchgefuehrt (Zeitstempel)",
+          "what": "Was wurde geaendert (Entity-Typ und ID)",
+          "changes": "Welche Felder wurden geaendert (vorher/nachher)",
+          "ip": "IP-Adresse des Benutzers"
+        }
+      },
+      "actionTypes": {
+        "title": "Aktions-Typen",
+        "create": "CREATE",
+        "createDesc": "Neuer Datensatz wurde erstellt",
+        "update": "UPDATE",
+        "updateDesc": "Bestehender Datensatz wurde geaendert",
+        "delete": "DELETE",
+        "deleteDesc": "Datensatz wurde geloescht",
+        "login": "LOGIN",
+        "loginDesc": "Benutzer hat sich angemeldet",
+        "logout": "LOGOUT",
+        "logoutDesc": "Benutzer hat sich abgemeldet"
+      },
+      "filters": {
+        "title": "Verfuegbare Filter",
+        "action": "Aktions-Typ (CREATE, UPDATE, DELETE, etc.)",
+        "entityType": "Entity-Typ (Category, DataSource, Entity, etc.)",
+        "entityId": "Spezifische Entity-ID",
+        "userId": "Benutzer",
+        "dateRange": "Zeitraum (von/bis)"
+      },
+      "entityHistory": {
+        "title": "Entity-Historie",
+        "description": "Fuer jede Entity koennen Sie die vollstaendige Aenderungshistorie einsehen:",
+        "features": [
+          "Alle Versionen chronologisch sortiert",
+          "Diff-Ansicht zeigt geaenderte Felder",
+          "Benutzer und Zeitstempel pro Aenderung",
+          "Aenderungsgrund (falls angegeben)"
+        ]
+      },
+      "versioning": {
+        "title": "Versionierung",
+        "description": "Das System speichert Versionen effizient:",
+        "diffBased": "Diff-basiert",
+        "diffBasedDesc": "Nur Aenderungen werden gespeichert, nicht der vollstaendige Zustand",
+        "snapshots": "Snapshots",
+        "snapshotsDesc": "Periodische Vollsicherungen fuer schnelle Rekonstruktion",
+        "reconstruction": "Rekonstruktion",
+        "reconstructionDesc": "Der Zustand zu jedem Zeitpunkt kann wiederhergestellt werden"
+      },
+      "statistics": {
+        "title": "Statistiken",
+        "description": "Das Audit Log bietet auch aggregierte Statistiken:",
+        "totalEntries": "Gesamtzahl der Eintraege",
+        "entriesToday": "Eintraege heute",
+        "actionsBreakdown": "Aufschluesselung nach Aktions-Typ",
+        "topUsers": "Aktivste Benutzer",
+        "topEntityTypes": "Meist geaenderte Entity-Typen"
       }
     }
   }

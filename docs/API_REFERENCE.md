@@ -60,7 +60,7 @@ Benutzer authentifizieren und JWT-Token erhalten.
 **Response:**
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "access_token": "<JWT_ACCESS_TOKEN>",
   "token_type": "bearer",
   "user": {
     "id": "uuid",
@@ -2477,9 +2477,114 @@ Kontextbezogene Vorschläge basierend auf aktuellem Standort.
     {"label": "Zusammenfassung", "query": "/summary"},
     {"label": "Pain Points", "query": "Zeige Pain Points"},
     {"label": "Relationen", "query": "Zeige alle Relationen"}
+  ],
+  "available_facet_types": [
+    {"slug": "pain_point", "name": "Pain Point", "name_plural": "Pain Points", "icon": "mdi-alert-circle"},
+    {"slug": "contact", "name": "Kontakt", "name_plural": "Kontakte", "icon": "mdi-account"}
   ]
 }
 ```
+
+**Hinweis:** Die Vorschläge werden dynamisch basierend auf den in der Datenbank vorhandenen Facet-Typen generiert.
+
+### POST /api/v1/assistant/create-facet-type
+Neuen Facet-Typ über den KI-Assistant erstellen.
+
+**Berechtigung:** EDITOR oder ADMIN
+
+**Request Body:**
+```json
+{
+  "name": "Budget",
+  "name_plural": "Budgets",
+  "slug": "budget",
+  "description": "Haushaltsinformationen einer Gemeinde",
+  "value_type": "structured",
+  "icon": "mdi-currency-eur",
+  "color": "#4CAF50",
+  "applicable_entity_type_slugs": ["municipality"],
+  "ai_extraction_enabled": true,
+  "ai_extraction_prompt": "Extrahiere Budget- und Haushaltsinformationen aus dem Dokument...",
+  "aggregation_method": "dedupe",
+  "display_order": 10
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Facet-Typ 'Budget' wurde erstellt",
+  "facet_type": {
+    "id": "uuid",
+    "name": "Budget",
+    "slug": "budget",
+    "description": "Haushaltsinformationen einer Gemeinde"
+  }
+}
+```
+
+**Fehler:**
+- `400 Bad Request` - Name fehlt oder Slug existiert bereits
+- `403 Forbidden` - Keine Berechtigung (VIEWER-Rolle)
+
+### Facet-Management Response-Typ
+
+Der KI-Assistant kann auf Facet-Management-Anfragen mit einem speziellen Response-Typ antworten:
+
+**Beispiel-Anfragen:**
+- "Welche Facet-Typen gibt es?"
+- "Erstelle einen Facet-Typ für Fördergelder"
+- "Schlage mir passende Facets für Gemeinden vor"
+
+**Response:**
+```json
+{
+  "success": true,
+  "response": {
+    "type": "facet_management",
+    "message": "**5 Facet-Typen verfügbar:**\n\n- **Pain Point** (`pain_point`): Probleme...",
+    "action": "list_facet_types",
+    "existing_facet_types": [
+      {"slug": "pain_point", "name": "Pain Point", "description": "..."}
+    ],
+    "facet_type_preview": null,
+    "target_entity_types": null,
+    "requires_confirmation": false,
+    "auto_suggested": false
+  },
+  "suggested_actions": [
+    {"label": "Neuen Facet-Typ erstellen", "action": "query", "value": "Erstelle einen neuen Facet-Typ"}
+  ]
+}
+```
+
+**Facet-Management Actions:**
+| Action | Beschreibung |
+|--------|--------------|
+| `list_facet_types` | Alle Facet-Typen auflisten |
+| `create_facet_type` | Neuen Facet-Typ erstellen (Preview) |
+| `assign_facet_type` | Facet-Typ einem Entity-Typ zuweisen |
+| `suggest_facet_types` | KI-Vorschläge für neue Facet-Typen |
+
+---
+
+## Konfiguration
+
+### GET /api/config/features
+Feature-Flags für das Frontend abrufen.
+
+**Response:**
+```json
+{
+  "entityLevelFacets": false
+}
+```
+
+**Feature-Flags:**
+| Flag | Beschreibung |
+|------|--------------|
+| `entityLevelFacets` | Wenn `true`, können Facets einzelnen Entities zugewiesen werden (nicht nur über Entity-Typ) |
 
 ---
 
@@ -2886,6 +2991,55 @@ Feld-Änderungshistorie.
 
 ### POST /admin/pysis/fields/{field_id}/restore/{history_id}
 Version wiederherstellen.
+
+### POST /admin/pysis/processes/{process_id}/analyze-for-facets
+PySis-Felder analysieren und Facets für die verknüpfte Entity erstellen.
+
+Dieser Endpoint startet eine KI-Analyse aller PySis-Feldwerte und extrahiert automatisch strukturierte Informationen in die bestehenden FacetTypes (pain_point, positive_signal, contact, summary, etc.).
+
+**Voraussetzung:** Der Prozess muss eine `entity_id` haben (mit Entity verknüpft sein).
+
+**Request Body (optional):**
+```json
+{
+  "include_empty_fields": false,
+  "min_field_confidence": 0.0
+}
+```
+
+| Parameter | Typ | Beschreibung |
+|-----------|-----|--------------|
+| `include_empty_fields` | boolean | Auch leere Felder in Analyse einbeziehen (default: false) |
+| `min_field_confidence` | float | Minimale Konfidenz für Felder (0.0-1.0, default: 0.0) |
+
+**Response:**
+```json
+{
+  "success": true,
+  "task_id": "uuid",
+  "message": "Analyse gestartet für 15 Felder",
+  "fields_analyzed": 15
+}
+```
+
+**Fehler:**
+- `404 Not Found` - Prozess nicht gefunden
+- `400 Bad Request` - Prozess hat keine verknüpfte Entity
+- `400 Bad Request` - Keine Felder mit Werten gefunden
+
+**Ablauf:**
+1. Lädt alle aktiven FacetTypes mit `ai_extraction_enabled=true`
+2. Sammelt alle PySis-Feldwerte
+3. Generiert dynamischen KI-Prompt basierend auf FacetType-Konfiguration
+4. Azure OpenAI analysiert die Felder
+5. Erstellt FacetValues für die verknüpfte Entity
+6. Dedupliziert gegen bestehende Facets
+
+**Progress-Tracking:**
+Der Task-Fortschritt kann via `/admin/crawler/ai-tasks/{task_id}` abgefragt werden.
+
+**Quellen-Markierung:**
+Erstellte FacetValues erhalten `source_url: "pysis://process/{process_id}"` zur Nachverfolgung.
 
 ---
 

@@ -135,8 +135,8 @@ async def smart_query(
             result["interpretation"] = write_command
             return result
 
-    # Fall through to read query
-    query_params = await interpret_query(question)
+    # Fall through to read query - pass session for dynamic prompt generation
+    query_params = await interpret_query(question, session=session)
 
     if not query_params:
         # Fallback: try a simple keyword-based interpretation

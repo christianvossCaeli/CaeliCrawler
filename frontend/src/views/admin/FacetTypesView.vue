@@ -380,10 +380,18 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { facetApi, entityApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
-import { useDebounceFn } from '@vueuse/core'
 
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
+
+// Simple debounce function
+function debounce<T extends (...args: any[]) => any>(fn: T, delay: number): (...args: Parameters<T>) => void {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+  return (...args: Parameters<T>) => {
+    if (timeoutId) clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => fn(...args), delay)
+  }
+}
 
 // State
 const facetTypes = ref<any[]>([])
@@ -502,7 +510,7 @@ async function loadEntityTypes() {
   }
 }
 
-const debouncedSearch = useDebounceFn(() => {
+const debouncedSearch = debounce(() => {
   loadFacetTypes()
 }, 300)
 

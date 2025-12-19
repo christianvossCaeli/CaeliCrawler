@@ -118,21 +118,22 @@ NOCHMAL: Wenn keine Windenergie-Inhalte vorhanden sind → is_relevant=false, pa
     },
 
     # -------------------------------------------------------------------------
-    # 2. KOMMUNALE WEBSITES & NEWS
+    # 2. KOMMUNALE WEBSITES & NEWS - WINDENERGIE
     # -------------------------------------------------------------------------
     {
-        "name": "Kommunale News & Pressemitteilungen",
+        "name": "Kommunale News - Windenergie",
         "slug": "kommunale-news",
-        "description": "Aktuelle Meldungen und Pressemitteilungen von Gemeinden",
+        "description": "Aktuelle Meldungen und Pressemitteilungen von Gemeinden zu Windenergie-Themen",
         "purpose": """Monitoring öffentlicher Kommunikation zu Windenergie:
-- Pressemitteilungen zu Energieprojekten
-- News über Bürgerbeteiligungen
-- Ankündigungen von Informationsveranstaltungen
-- Statements von Bürgermeistern und Räten""",
+- Pressemitteilungen zu Windenergieprojekten
+- News über Bürgerwindparks und Beteiligungen
+- Ankündigungen von Informationsveranstaltungen zu Windkraft
+- Statements von Bürgermeistern und Räten zu Windenergie""",
         "search_terms": [
-            "Windkraft", "Windenergie", "Erneuerbare Energien",
-            "Energiewende", "Klimaschutz", "Bürgerenergie",
-            "Windpark", "Informationsveranstaltung"
+            "Windkraft", "Windenergie", "Windrad", "Windpark", "Windenergieanlage",
+            "Erneuerbare Energien", "Energiewende", "Bürgerwindpark",
+            "Repowering", "Flächennutzungsplan", "Konzentrationsfläche",
+            "Genehmigung Windkraft", "Windvorranggebiet", "Klimaschutz Windenergie"
         ],
         "ai_extraction_prompt": """Analysiere diese kommunale Pressemitteilung/News für Sales Intelligence.
 
@@ -324,18 +325,23 @@ EXTRAHIERE IM JSON-FORMAT:
     },
 
     # -------------------------------------------------------------------------
-    # 6. LEAD-QUALIFIZIERUNG (Meta-Kategorie)
+    # 6. LEAD-QUALIFIZIERUNG WINDENERGIE (Meta-Kategorie)
     # -------------------------------------------------------------------------
     {
-        "name": "Lead-Qualifizierung Kommunen",
+        "name": "Lead-Qualifizierung Windenergie",
         "slug": "lead-qualifizierung",
-        "description": "Aggregierte Bewertung von Kommunen als potenzielle Leads",
-        "purpose": """Konsolidierte Lead-Bewertung:
-- Zusammenführung aller Signale pro Kommune
-- Lead-Scoring basierend auf Aktivität
-- Priorisierung für Vertrieb
-- Personalisierte Ansprache-Empfehlungen""",
-        "search_terms": [],  # Meta-Kategorie, keine direkte Suche
+        "description": "Bewertung von Kommunen als potenzielle Windenergie-Leads",
+        "purpose": """Konsolidierte Lead-Bewertung für Windenergie-Vertrieb:
+- Zusammenführung aller Windenergie-Signale pro Kommune
+- Lead-Scoring basierend auf Windkraft-Aktivität und -Interesse
+- Priorisierung für Windenergie-Vertrieb
+- Personalisierte Ansprache-Empfehlungen für Windprojekte""",
+        "search_terms": [
+            "Windkraft Interesse", "Windenergie Potenzial", "Windvorranggebiet",
+            "Flächennutzungsplan Wind", "Bürgermeister Windkraft",
+            "Energiebeauftragter", "Klimaschutzmanager",
+            "Windpark Planung", "Repowering Interesse", "Bürgerenergie"
+        ],
         "ai_extraction_prompt": """Erstelle eine Lead-Bewertung für diese Kommune basierend auf allen verfügbaren Informationen.
 
 EXTRAHIERE IM JSON-FORMAT:

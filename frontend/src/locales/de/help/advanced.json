@@ -435,6 +435,7 @@
             "delete": "Prozess löschen",
             "applyTemplate": "Template anwenden",
             "generate": "Felder KI-generieren",
+            "analyzeForFacets": "PySis-Daten für Facets analysieren",
             "syncPull": "Von PySis laden",
             "syncPush": "Zu PySis senden"
           }

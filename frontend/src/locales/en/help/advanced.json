@@ -390,6 +390,7 @@
             "delete": "Delete process",
             "applyTemplate": "Apply template",
             "generate": "AI-generate fields",
+            "analyzeForFacets": "Analyze PySis data for facets",
             "syncPull": "Load from PySis",
             "syncPush": "Send to PySis"
           }
