@@ -87,129 +87,319 @@
           </template>
 
           <template v-slot:item.actions="{ item }">
-            <div class="d-flex gap-1">
-              <v-btn
-                icon="mdi-pencil"
-                size="small"
-                variant="text"
-                @click="openEditDialog(item)"
-                :title="t('common.edit')"
-              ></v-btn>
-              <v-btn
-                icon="mdi-delete"
-                size="small"
-                variant="text"
-                color="error"
-                :disabled="item.is_system || (item.entity_count || 0) > 0"
-                @click="confirmDelete(item)"
-                :title="item.is_system ? t('admin.entityTypes.cannotDeleteSystem') : (item.entity_count || 0) > 0 ? t('admin.entityTypes.hasEntities') : t('common.delete')"
-              ></v-btn>
+            <div class="d-flex justify-end ga-1">
+              <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="t('common.edit')" @click="openEditDialog(item)"></v-btn>
+              <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="t('common.delete')" :disabled="item.is_system || (item.entity_count || 0) > 0" @click="confirmDelete(item)"></v-btn>
             </div>
           </template>
         </v-data-table>
       </v-card>
 
       <!-- Create/Edit Dialog -->
-      <v-dialog v-model="dialog" max-width="600" persistent>
+      <v-dialog v-model="dialog" max-width="900" persistent scrollable>
         <v-card>
-          <v-card-title class="d-flex align-center">
-            <v-icon :icon="editingItem ? 'mdi-pencil' : 'mdi-plus'" class="mr-2"></v-icon>
-            {{ editingItem ? t('admin.entityTypes.dialog.editTitle') : t('admin.entityTypes.dialog.createTitle') }}
+          <v-card-title class="d-flex align-center pa-4 bg-primary">
+            <v-icon :icon="form.icon || 'mdi-folder'" class="mr-3" size="28"></v-icon>
+            <div>
+              <div class="text-h6">{{ editingItem ? t('admin.entityTypes.dialog.editTitle') : t('admin.entityTypes.dialog.createTitle') }}</div>
+              <div v-if="form.name" class="text-caption opacity-80">{{ form.name }}</div>
+            </div>
           </v-card-title>
-          <v-card-text>
+
+          <v-tabs v-model="activeTab" class="dialog-tabs">
+            <v-tab value="basic">
+              <v-icon start>mdi-form-textbox</v-icon>
+              {{ t('admin.entityTypes.tabs.basic') }}
+            </v-tab>
+            <v-tab value="appearance">
+              <v-icon start>mdi-palette</v-icon>
+              {{ t('admin.entityTypes.tabs.appearance') }}
+            </v-tab>
+            <v-tab value="facets">
+              <v-icon start>mdi-tag-multiple</v-icon>
+              {{ t('admin.entityTypes.tabs.facets') }}
+              <v-chip v-if="selectedFacetIds.length > 0" size="x-small" class="ml-2" color="primary">
+                {{ selectedFacetIds.length }}
+              </v-chip>
+            </v-tab>
+            <v-tab value="settings">
+              <v-icon start>mdi-cog</v-icon>
+              {{ t('admin.entityTypes.tabs.settings') }}
+            </v-tab>
+          </v-tabs>
+
+          <v-card-text class="pa-6" style="min-height: 400px;">
             <v-form ref="formRef" @submit.prevent="save">
-              <v-row>
-                <v-col cols="12" md="6">
+              <v-window v-model="activeTab">
+                <!-- Basic Tab -->
+                <v-window-item value="basic">
+                  <v-row>
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model="form.name"
+                        :label="t('admin.entityTypes.form.name')"
+                        :rules="[v => !!v || t('admin.entityTypes.form.nameRequired')]"
+                        :placeholder="t('admin.entityTypes.form.namePlaceholder')"
+                        variant="outlined"
+                      ></v-text-field>
+                    </v-col>
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model="form.name_plural"
+                        :label="t('admin.entityTypes.form.namePlural')"
+                        :placeholder="t('admin.entityTypes.form.namePluralPlaceholder')"
+                        variant="outlined"
+                      ></v-text-field>
+                    </v-col>
+                  </v-row>
+
+                  <v-textarea
+                    v-model="form.description"
+                    :label="t('admin.entityTypes.form.description')"
+                    rows="3"
+                    :placeholder="t('admin.entityTypes.form.descriptionPlaceholder')"
+                    variant="outlined"
+                  ></v-textarea>
+
+                  <!-- Preview Card -->
+                  <v-card variant="outlined" class="mt-4">
+                    <v-card-title class="text-subtitle-2 pb-2">
+                      <v-icon start size="small">mdi-eye</v-icon>
+                      {{ t('admin.entityTypes.form.preview') }}
+                    </v-card-title>
+                    <v-card-text>
+                      <div class="d-flex align-center ga-3">
+                        <v-avatar :color="form.color" size="48">
+                          <v-icon :icon="form.icon || 'mdi-folder'" color="white"></v-icon>
+                        </v-avatar>
+                        <div>
+                          <div class="text-h6">{{ form.name || t('admin.entityTypes.form.namePlaceholder') }}</div>
+                          <div class="text-caption text-medium-emphasis">{{ form.name_plural || form.name + 's' }}</div>
+                        </div>
+                      </div>
+                    </v-card-text>
+                  </v-card>
+                </v-window-item>
+
+                <!-- Appearance Tab -->
+                <v-window-item value="appearance">
+                  <v-row>
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model="form.icon"
+                        :label="t('admin.entityTypes.form.icon')"
+                        :placeholder="t('admin.entityTypes.form.iconPlaceholder')"
+                        variant="outlined"
+                      >
+                        <template v-slot:prepend-inner>
+                          <v-icon :icon="form.icon || 'mdi-help'" :color="form.color"></v-icon>
+                        </template>
+                      </v-text-field>
+                      <v-alert type="info" variant="tonal" density="compact" class="mt-2">
+                        {{ t('admin.entityTypes.form.iconHint') }}
+                      </v-alert>
+                    </v-col>
+                    <v-col cols="12" md="6">
+                      <v-label class="mb-2">{{ t('admin.entityTypes.form.color') }}</v-label>
+                      <v-color-picker
+                        v-model="form.color"
+                        mode="hexa"
+                        show-swatches
+                        swatches-max-height="150"
+                        hide-inputs
+                      ></v-color-picker>
+                    </v-col>
+                  </v-row>
+
+                  <!-- Icon Suggestions -->
+                  <v-card variant="outlined" class="mt-4">
+                    <v-card-title class="text-subtitle-2 pb-2">
+                      <v-icon start size="small">mdi-lightbulb</v-icon>
+                      {{ t('admin.entityTypes.form.iconSuggestions') }}
+                    </v-card-title>
+                    <v-card-text>
+                      <div class="d-flex flex-wrap ga-2">
+                        <v-btn
+                          v-for="icon in suggestedIcons"
+                          :key="icon"
+                          :icon="icon"
+                          size="small"
+                          :variant="form.icon === icon ? 'flat' : 'tonal'"
+                          :color="form.icon === icon ? 'primary' : undefined"
+                          @click="form.icon = icon"
+                        ></v-btn>
+                      </div>
+                    </v-card-text>
+                  </v-card>
+                </v-window-item>
+
+                <!-- Facets Tab -->
+                <v-window-item value="facets">
+                  <v-alert type="info" variant="tonal" class="mb-4">
+                    {{ t('admin.entityTypes.form.facetsInfo') }}
+                  </v-alert>
+
                   <v-text-field
-                    v-model="form.name"
-                    :label="t('admin.entityTypes.form.name')"
-                    :rules="[v => !!v || t('admin.entityTypes.form.nameRequired')]"
-                    :placeholder="t('admin.entityTypes.form.namePlaceholder')"
+                    v-model="facetSearch"
+                    :label="t('common.search')"
+                    prepend-inner-icon="mdi-magnify"
+                    variant="outlined"
+                    density="compact"
+                    clearable
+                    hide-details
+                    class="mb-4"
                   ></v-text-field>
-                </v-col>
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    v-model="form.name_plural"
-                    :label="t('admin.entityTypes.form.namePlural')"
-                    :placeholder="t('admin.entityTypes.form.namePluralPlaceholder')"
-                  ></v-text-field>
-                </v-col>
-              </v-row>
 
-              <v-textarea
-                v-model="form.description"
-                :label="t('admin.entityTypes.form.description')"
-                rows="2"
-                :placeholder="t('admin.entityTypes.form.descriptionPlaceholder')"
-              ></v-textarea>
+                  <v-list lines="two" class="border rounded">
+                    <v-list-item
+                      v-for="facet in filteredFacets"
+                      :key="facet.id"
+                      :value="facet.id"
+                      @click="toggleFacet(facet.id)"
+                    >
+                      <template v-slot:prepend>
+                        <v-checkbox-btn
+                          :model-value="selectedFacetIds.includes(facet.id)"
+                          @click.stop="toggleFacet(facet.id)"
+                        ></v-checkbox-btn>
+                        <v-avatar :color="facet.color" size="36" class="mr-3">
+                          <v-icon :icon="facet.icon" color="white" size="small"></v-icon>
+                        </v-avatar>
+                      </template>
 
-              <v-row>
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    v-model="form.icon"
-                    :label="t('admin.entityTypes.form.icon')"
-                    :placeholder="t('admin.entityTypes.form.iconPlaceholder')"
-                    :hint="t('admin.entityTypes.form.iconHint')"
-                    persistent-hint
-                  >
-                    <template v-slot:prepend-inner>
-                      <v-icon :icon="form.icon || 'mdi-help'" size="small"></v-icon>
-                    </template>
-                  </v-text-field>
-                </v-col>
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    v-model="form.color"
-                    :label="t('admin.entityTypes.form.color')"
-                    :placeholder="t('admin.entityTypes.form.colorPlaceholder')"
-                    type="color"
-                  >
-                    <template v-slot:prepend-inner>
-                      <div
-                        :style="{ backgroundColor: form.color, width: '20px', height: '20px', borderRadius: '4px' }"
-                      ></div>
-                    </template>
-                  </v-text-field>
-                </v-col>
-              </v-row>
+                      <v-list-item-title>{{ facet.name }}</v-list-item-title>
+                      <v-list-item-subtitle>
+                        {{ facet.description || facet.slug }}
+                        <v-chip v-if="facet.value_type" size="x-small" class="ml-2" variant="outlined">
+                          {{ facet.value_type }}
+                        </v-chip>
+                      </v-list-item-subtitle>
 
-              <v-row>
-                <v-col cols="12" md="4">
-                  <v-checkbox
-                    v-model="form.is_primary"
-                    :label="t('admin.entityTypes.form.isPrimary')"
-                    :hint="t('admin.entityTypes.form.isPrimaryHint')"
-                    persistent-hint
-                  ></v-checkbox>
-                </v-col>
-                <v-col cols="12" md="4">
-                  <v-checkbox
-                    v-model="form.supports_hierarchy"
-                    :label="t('admin.entityTypes.form.supportsHierarchy')"
-                    :hint="t('admin.entityTypes.form.supportsHierarchyHint')"
-                    persistent-hint
-                  ></v-checkbox>
-                </v-col>
-                <v-col cols="12" md="4">
-                  <v-checkbox
-                    v-model="form.is_active"
-                    :label="t('common.active')"
-                  ></v-checkbox>
-                </v-col>
-              </v-row>
+                      <template v-slot:append>
+                        <v-chip
+                          v-if="facet.is_system"
+                          size="x-small"
+                          color="warning"
+                          variant="tonal"
+                        >
+                          System
+                        </v-chip>
+                      </template>
+                    </v-list-item>
 
-              <v-text-field
-                v-model.number="form.display_order"
-                :label="t('admin.entityTypes.form.displayOrder')"
-                type="number"
-                min="0"
-              ></v-text-field>
+                    <v-list-item v-if="filteredFacets.length === 0">
+                      <v-list-item-title class="text-center text-medium-emphasis">
+                        {{ t('admin.entityTypes.form.noFacetsFound') }}
+                      </v-list-item-title>
+                    </v-list-item>
+                  </v-list>
+
+                  <div class="d-flex justify-space-between align-center mt-4">
+                    <span class="text-caption text-medium-emphasis">
+                      {{ selectedFacetIds.length }} {{ t('admin.entityTypes.form.facetsSelected') }}
+                    </span>
+                    <div class="d-flex ga-2">
+                      <v-btn size="small" variant="text" @click="selectedFacetIds = []">
+                        {{ t('admin.entityTypes.form.deselectAll') }}
+                      </v-btn>
+                      <v-btn size="small" variant="text" @click="selectAllFacets">
+                        {{ t('admin.entityTypes.form.selectAll') }}
+                      </v-btn>
+                    </div>
+                  </div>
+                </v-window-item>
+
+                <!-- Settings Tab -->
+                <v-window-item value="settings">
+                  <v-row>
+                    <v-col cols="12" md="6">
+                      <v-card variant="outlined" class="pa-4">
+                        <v-switch
+                          v-model="form.is_primary"
+                          :label="t('admin.entityTypes.form.isPrimary')"
+                          color="primary"
+                          hide-details
+                        ></v-switch>
+                        <div class="text-caption text-medium-emphasis mt-2">
+                          {{ t('admin.entityTypes.form.isPrimaryHint') }}
+                        </div>
+                      </v-card>
+                    </v-col>
+                    <v-col cols="12" md="6">
+                      <v-card variant="outlined" class="pa-4">
+                        <v-switch
+                          v-model="form.supports_hierarchy"
+                          :label="t('admin.entityTypes.form.supportsHierarchy')"
+                          color="primary"
+                          hide-details
+                        ></v-switch>
+                        <div class="text-caption text-medium-emphasis mt-2">
+                          {{ t('admin.entityTypes.form.supportsHierarchyHint') }}
+                        </div>
+                      </v-card>
+                    </v-col>
+                  </v-row>
+
+                  <v-row class="mt-4">
+                    <v-col cols="12" md="6">
+                      <v-card variant="outlined" class="pa-4">
+                        <v-switch
+                          v-model="form.is_active"
+                          :label="t('common.active')"
+                          color="success"
+                          hide-details
+                        ></v-switch>
+                        <div class="text-caption text-medium-emphasis mt-2">
+                          {{ t('admin.entityTypes.form.isActiveHint') }}
+                        </div>
+                      </v-card>
+                    </v-col>
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model.number="form.display_order"
+                        :label="t('admin.entityTypes.form.displayOrder')"
+                        type="number"
+                        min="0"
+                        variant="outlined"
+                        :hint="t('admin.entityTypes.form.displayOrderHint')"
+                        persistent-hint
+                      ></v-text-field>
+                    </v-col>
+                  </v-row>
+                </v-window-item>
+              </v-window>
             </v-form>
           </v-card-text>
-          <v-card-actions>
+
+          <v-divider></v-divider>
+
+          <v-card-actions class="pa-4">
+            <v-btn variant="text" @click="closeDialog">{{ t('common.cancel') }}</v-btn>
             <v-spacer></v-spacer>
-            <v-btn @click="closeDialog">{{ t('common.cancel') }}</v-btn>
-            <v-btn color="primary" :loading="saving" @click="save">
+            <v-btn
+              v-if="activeTab !== 'basic'"
+              variant="tonal"
+              @click="activeTab = getPrevTab()"
+            >
+              <v-icon start>mdi-chevron-left</v-icon>
+              {{ t('common.back') }}
+            </v-btn>
+            <v-btn
+              v-if="activeTab !== 'settings'"
+              color="primary"
+              variant="tonal"
+              @click="activeTab = getNextTab()"
+            >
+              {{ t('common.next') }}
+              <v-icon end>mdi-chevron-right</v-icon>
+            </v-btn>
+            <v-btn
+              v-if="activeTab === 'settings'"
+              color="primary"
+              :loading="saving"
+              @click="save"
+            >
+              <v-icon start>mdi-check</v-icon>
               {{ editingItem ? t('common.save') : t('common.create') }}
             </v-btn>
           </v-card-actions>
@@ -258,6 +448,12 @@ const saving = ref(false)
 const deleting = ref(false)
 const formRef = ref<any>(null)
 
+// Dialog state
+const activeTab = ref('basic')
+const selectedFacetIds = ref<string[]>([])
+const facetSearch = ref('')
+const originalFacetIds = ref<string[]>([])
+
 const form = ref({
   name: '',
   name_plural: '',
@@ -269,6 +465,66 @@ const form = ref({
   is_active: true,
   display_order: 10,
 })
+
+// Suggested icons for entity types
+const suggestedIcons = [
+  'mdi-office-building',
+  'mdi-domain',
+  'mdi-account-group',
+  'mdi-account',
+  'mdi-map-marker',
+  'mdi-city',
+  'mdi-home',
+  'mdi-factory',
+  'mdi-school',
+  'mdi-hospital-building',
+  'mdi-store',
+  'mdi-bank',
+  'mdi-church',
+  'mdi-stadium',
+  'mdi-folder',
+  'mdi-file-document',
+  'mdi-calendar-clock',
+  'mdi-tag',
+  'mdi-shape',
+  'mdi-cube',
+]
+
+// Tab navigation
+const tabOrder = ['basic', 'appearance', 'facets', 'settings']
+function getNextTab() {
+  const currentIndex = tabOrder.indexOf(activeTab.value)
+  return tabOrder[Math.min(currentIndex + 1, tabOrder.length - 1)]
+}
+function getPrevTab() {
+  const currentIndex = tabOrder.indexOf(activeTab.value)
+  return tabOrder[Math.max(currentIndex - 1, 0)]
+}
+
+// Filtered facets for search
+const filteredFacets = computed(() => {
+  if (!facetSearch.value) return facetTypes.value
+  const search = facetSearch.value.toLowerCase()
+  return facetTypes.value.filter(f =>
+    f.name.toLowerCase().includes(search) ||
+    f.slug?.toLowerCase().includes(search) ||
+    f.description?.toLowerCase().includes(search)
+  )
+})
+
+// Facet selection
+function toggleFacet(facetId: string) {
+  const index = selectedFacetIds.value.indexOf(facetId)
+  if (index === -1) {
+    selectedFacetIds.value.push(facetId)
+  } else {
+    selectedFacetIds.value.splice(index, 1)
+  }
+}
+
+function selectAllFacets() {
+  selectedFacetIds.value = facetTypes.value.map(f => f.id)
+}
 
 // Get facets that are applicable to a given entity type
 function getFacetsForEntityType(entityTypeSlug: string): any[] {
@@ -287,7 +543,7 @@ const headers = computed(() => [
   { title: t('admin.entityTypes.columns.entities'), key: 'entity_count', width: '100px', align: 'center' as const },
   { title: t('admin.entityTypes.columns.system'), key: 'is_system', width: '80px', align: 'center' as const },
   { title: t('admin.entityTypes.columns.active'), key: 'is_active', width: '80px', align: 'center' as const },
-  { title: t('common.actions'), key: 'actions', width: '120px', sortable: false },
+  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' as const },
 ])
 
 // Methods
@@ -315,6 +571,10 @@ async function loadFacetTypes() {
 
 function openCreateDialog() {
   editingItem.value = null
+  activeTab.value = 'basic'
+  facetSearch.value = ''
+  selectedFacetIds.value = []
+  originalFacetIds.value = []
   form.value = {
     name: '',
     name_plural: '',
@@ -331,6 +591,21 @@ function openCreateDialog() {
 
 function openEditDialog(item: any) {
   editingItem.value = item
+  activeTab.value = 'basic'
+  facetSearch.value = ''
+
+  // Get facets that are assigned to this entity type
+  const assignedFacetIds = facetTypes.value
+    .filter(ft => {
+      // If empty array, it applies to all - but we don't select it by default
+      if (!ft.applicable_entity_type_slugs?.length) return false
+      return ft.applicable_entity_type_slugs.includes(item.slug)
+    })
+    .map(ft => ft.id)
+
+  selectedFacetIds.value = [...assignedFacetIds]
+  originalFacetIds.value = [...assignedFacetIds]
+
   form.value = {
     name: item.name,
     name_plural: item.name_plural || '',
@@ -348,6 +623,7 @@ function openEditDialog(item: any) {
 function closeDialog() {
   dialog.value = false
   editingItem.value = null
+  activeTab.value = 'basic'
 }
 
 async function save() {
@@ -360,21 +636,59 @@ async function save() {
       name_plural: form.value.name_plural || `${form.value.name}s`,
     }
 
+    let entityTypeSlug: string
+
     if (editingItem.value) {
       await entityApi.updateEntityType(editingItem.value.id, data)
+      entityTypeSlug = editingItem.value.slug
       showSuccess(t('admin.entityTypes.messages.updated'))
     } else {
-      await entityApi.createEntityType(data)
+      const response = await entityApi.createEntityType(data)
+      entityTypeSlug = response.data.slug
       showSuccess(t('admin.entityTypes.messages.created'))
     }
 
+    // Update facet assignments
+    await updateFacetAssignments(entityTypeSlug)
+
     closeDialog()
-    await loadEntityTypes()
+    await Promise.all([loadEntityTypes(), loadFacetTypes()])
   } catch (e: any) {
     const detail = e.response?.data?.detail || t('admin.entityTypes.messages.saveError')
     showError(detail)
   } finally {
     saving.value = false
+  }
+}
+
+// Update facet assignments for this entity type
+async function updateFacetAssignments(entityTypeSlug: string) {
+  // Find which facets need to be updated
+  const addedFacetIds = selectedFacetIds.value.filter(id => !originalFacetIds.value.includes(id))
+  const removedFacetIds = originalFacetIds.value.filter(id => !selectedFacetIds.value.includes(id))
+
+  // Add entity type to newly selected facets
+  for (const facetId of addedFacetIds) {
+    const facet = facetTypes.value.find(f => f.id === facetId)
+    if (facet) {
+      const newSlugs = [...(facet.applicable_entity_type_slugs || []), entityTypeSlug]
+      await facetApi.updateFacetType(facetId, {
+        ...facet,
+        applicable_entity_type_slugs: newSlugs,
+      })
+    }
+  }
+
+  // Remove entity type from deselected facets
+  for (const facetId of removedFacetIds) {
+    const facet = facetTypes.value.find(f => f.id === facetId)
+    if (facet && facet.applicable_entity_type_slugs?.length) {
+      const newSlugs = facet.applicable_entity_type_slugs.filter((s: string) => s !== entityTypeSlug)
+      await facetApi.updateFacetType(facetId, {
+        ...facet,
+        applicable_entity_type_slugs: newSlugs,
+      })
+    }
   }
 }
 
@@ -411,5 +725,17 @@ onMounted(() => {
 <style scoped>
 .entity-types-view {
   min-height: 100%;
+}
+
+.dialog-tabs {
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+:deep(.v-theme--light) .dialog-tabs {
+  background-color: rgb(var(--v-theme-surface-light));
+}
+
+:deep(.v-theme--dark) .dialog-tabs {
+  background-color: rgb(var(--v-theme-surface-dark));
 }
 </style>

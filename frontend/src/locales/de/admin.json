@@ -115,6 +115,12 @@
     "entityTypes": {
       "title": "Entity-Typen",
       "subtitle": "Kategorien für Entitäten verwalten (z.B. Gemeinden, Personen, Organisationen)",
+      "tabs": {
+        "basic": "Allgemein",
+        "appearance": "Darstellung",
+        "facets": "Facets",
+        "settings": "Einstellungen"
+      },
       "form": {
         "name": "Name",
         "nameRequired": "Name ist erforderlich",
@@ -125,14 +131,23 @@
         "descriptionPlaceholder": "Kurze Beschreibung des Entity-Typs",
         "icon": "Icon",
         "iconPlaceholder": "mdi-wind-turbine",
-        "iconHint": "Material Design Icon Name (mdi-*)",
+        "iconHint": "Verwende Material Design Icons (mdi-*). Siehe materialdesignicons.com",
         "color": "Farbe",
         "colorPlaceholder": "#4CAF50",
         "isPrimary": "Primärer Typ",
         "isPrimaryHint": "Wird in der Hauptnavigation angezeigt",
         "supportsHierarchy": "Hierarchisch",
         "supportsHierarchyHint": "Unterstützt Parent-Child Beziehungen",
-        "displayOrder": "Anzeigereihenfolge"
+        "displayOrder": "Anzeigereihenfolge",
+        "displayOrderHint": "Kleinere Zahlen werden zuerst angezeigt",
+        "isActiveHint": "Inaktive Typen werden nicht mehr angezeigt",
+        "preview": "Vorschau",
+        "iconSuggestions": "Icon-Vorschläge",
+        "facetsInfo": "Wähle die Facet-Typen aus, die für diesen Entity-Typ verfügbar sein sollen. Facets mit leerem Entity-Type-Filter gelten für alle Typen.",
+        "noFacetsFound": "Keine Facets gefunden",
+        "facetsSelected": "Facets ausgewählt",
+        "deselectAll": "Alle abwählen",
+        "selectAll": "Alle auswählen"
       },
       "columns": {
         "name": "Name",
@@ -178,8 +193,9 @@
         "entityType": "Entity-Typ"
       },
       "tabs": {
-        "basic": "Grundeinstellungen",
-        "schema": "Schema",
+        "basic": "Allgemein",
+        "appearance": "Darstellung",
+        "schema": "Schema & Einstellungen",
         "ai": "KI-Extraktion"
       },
       "columns": {
@@ -220,7 +236,14 @@
         "aiExtractionEnabled": "KI-Extraktion aktiviert",
         "aiExtractionEnabledHint": "Automatische Extraktion durch KI aus Dokumenten",
         "aiExtractionPrompt": "KI-Extraktions-Prompt",
-        "aiExtractionPromptPlaceholder": "Extrahiere folgende Informationen aus dem Dokument..."
+        "aiExtractionPromptPlaceholder": "Extrahiere folgende Informationen aus dem Dokument...",
+        "preview": "Vorschau",
+        "iconSuggestions": "Icon-Vorschläge",
+        "aiPromptInfo": "Der KI-Prompt wird verwendet, um relevante Informationen aus Dokumenten zu extrahieren.",
+        "aiDisabledInfo": "Die KI-Extraktion ist deaktiviert. Aktiviere sie, um automatisch Daten aus Dokumenten zu extrahieren.",
+        "aiSchemaGenerator": "KI-Assistent",
+        "aiSchemaGeneratorHint": "Generiere Schema, Prompt und Einstellungen automatisch basierend auf Name und Beschreibung",
+        "generateSchema": "Generieren"
       },
       "actions": {
         "create": "Neuer Facet-Typ"
@@ -237,7 +260,9 @@
         "deleted": "\"{name}\" gelöscht",
         "loadError": "Fehler beim Laden der Facet-Typen",
         "saveError": "Fehler beim Speichern",
-        "deleteError": "Fehler beim Löschen"
+        "deleteError": "Fehler beim Löschen",
+        "schemaGenerated": "Schema und Einstellungen wurden generiert",
+        "schemaGenerationError": "Fehler bei der Schema-Generierung"
       }
     }
   }

@@ -31,7 +31,7 @@ def get_openai_client() -> Optional[AzureOpenAI]:
     return _client
 
 
-def build_dynamic_query_prompt(facet_types: List[Dict[str, Any]], entity_types: List[Dict[str, Any]]) -> str:
+def build_dynamic_query_prompt(facet_types: List[Dict[str, Any]], entity_types: List[Dict[str, Any]], query: str = "") -> str:
     """Build the query interpretation prompt dynamically with current facet and entity types."""
 
     # Build facet types section
@@ -93,7 +93,7 @@ Analysiere die Benutzeranfrage und gib ein JSON zurück mit:
   "explanation": "Kurze Erklärung was abgefragt wird"
 }}
 
-Benutzeranfrage: {{query}}
+Benutzeranfrage: {query}
 
 Antworte NUR mit validem JSON."""
 
@@ -148,8 +148,7 @@ async def interpret_query(question: str, session: Optional[AsyncSession] = None)
         # Build prompt dynamically if session is available
         if session:
             facet_types, entity_types = await load_facet_and_entity_types(session)
-            prompt_template = build_dynamic_query_prompt(facet_types, entity_types)
-            prompt = prompt_template.format(query=question)
+            prompt = build_dynamic_query_prompt(facet_types, entity_types, query=question)
             logger.debug("Using dynamic prompt with facet_types", facet_count=len(facet_types))
         else:
             # Fallback to static prompt if no session (backwards compatibility)

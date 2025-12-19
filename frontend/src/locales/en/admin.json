@@ -115,6 +115,12 @@
     "entityTypes": {
       "title": "Entity Types",
       "subtitle": "Manage categories for entities (e.g. municipalities, persons, organizations)",
+      "tabs": {
+        "basic": "General",
+        "appearance": "Appearance",
+        "facets": "Facets",
+        "settings": "Settings"
+      },
       "form": {
         "name": "Name",
         "nameRequired": "Name is required",
@@ -125,14 +131,23 @@
         "descriptionPlaceholder": "Brief description of the entity type",
         "icon": "Icon",
         "iconPlaceholder": "mdi-wind-turbine",
-        "iconHint": "Material Design Icon Name (mdi-*)",
+        "iconHint": "Use Material Design Icons (mdi-*). See materialdesignicons.com",
         "color": "Color",
         "colorPlaceholder": "#4CAF50",
         "isPrimary": "Primary Type",
         "isPrimaryHint": "Displayed in main navigation",
         "supportsHierarchy": "Hierarchical",
         "supportsHierarchyHint": "Supports parent-child relationships",
-        "displayOrder": "Display Order"
+        "displayOrder": "Display Order",
+        "displayOrderHint": "Smaller numbers are displayed first",
+        "isActiveHint": "Inactive types are no longer displayed",
+        "preview": "Preview",
+        "iconSuggestions": "Icon Suggestions",
+        "facetsInfo": "Select the facet types that should be available for this entity type. Facets with an empty entity type filter apply to all types.",
+        "noFacetsFound": "No facets found",
+        "facetsSelected": "facets selected",
+        "deselectAll": "Deselect all",
+        "selectAll": "Select all"
       },
       "columns": {
         "name": "Name",
@@ -178,8 +193,9 @@
         "entityType": "Entity Type"
       },
       "tabs": {
-        "basic": "Basic Settings",
-        "schema": "Schema",
+        "basic": "General",
+        "appearance": "Appearance",
+        "schema": "Schema & Settings",
         "ai": "AI Extraction"
       },
       "columns": {
@@ -220,7 +236,14 @@
         "aiExtractionEnabled": "AI Extraction Enabled",
         "aiExtractionEnabledHint": "Automatic extraction by AI from documents",
         "aiExtractionPrompt": "AI Extraction Prompt",
-        "aiExtractionPromptPlaceholder": "Extract the following information from the document..."
+        "aiExtractionPromptPlaceholder": "Extract the following information from the document...",
+        "preview": "Preview",
+        "iconSuggestions": "Icon Suggestions",
+        "aiPromptInfo": "The AI prompt is used to extract relevant information from documents.",
+        "aiDisabledInfo": "AI extraction is disabled. Enable it to automatically extract data from documents.",
+        "aiSchemaGenerator": "AI Assistant",
+        "aiSchemaGeneratorHint": "Generate schema, prompt and settings automatically based on name and description",
+        "generateSchema": "Generate"
       },
       "actions": {
         "create": "New Facet Type"
@@ -237,7 +260,9 @@
         "deleted": "\"{name}\" deleted",
         "loadError": "Error loading facet types",
         "saveError": "Error saving",
-        "deleteError": "Error deleting"
+        "deleteError": "Error deleting",
+        "schemaGenerated": "Schema and settings have been generated",
+        "schemaGenerationError": "Error generating schema"
       }
     }
   }

@@ -5,6 +5,12 @@
     "entities": "Entities",
     "overview": "Übersicht",
     "entries": "Einträge",
+    "tabs": {
+      "general": "Allgemein",
+      "attributes": "Eigenschaften",
+      "location": "Standort",
+      "assignment": "Zuweisung"
+    },
     "properties": "Eigenschaften",
     "relations": "Verknüpfungen",
     "facetValues": "Facet-Werte",
@@ -52,6 +58,15 @@
     "geoCoordinates": "Geo-Koordinaten (optional)",
     "latitude": "Breitengrad",
     "longitude": "Längengrad",
+    "latitudeHint": "z.B. 51.1657 (Dezimalgrad)",
+    "longitudeHint": "z.B. 10.4515 (Dezimalgrad)",
+    "coordinatesSet": "Koordinaten gesetzt",
+    "assignedTo": "Zugewiesen an",
+    "createInfo": "Nach dem Erstellen können Sie Facets (Eigenschaften) und Verknüpfungen zu anderen Entities hinzufügen.",
+    "attributesInfo": "Definieren Sie die Kerneigenschaften für diese Entity basierend auf dem Schema des Entity-Typs.",
+    "locationInfo": "Optional können Sie geografische Koordinaten für diese Entity angeben, um Kartenansichten zu ermöglichen.",
+    "assignmentInfo": "Weisen Sie einen verantwortlichen Benutzer für diese Entity zu, der Benachrichtigungen über Änderungen erhält.",
+    "noAttributesConfigured": "Keine Eigenschaften für diesen Entity-Typ konfiguriert.",
     "path": "Pfad",
     "summary": "Übersicht",
     "filters": {

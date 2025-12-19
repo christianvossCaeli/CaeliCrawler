@@ -20,8 +20,8 @@
 
       <!-- Filters -->
       <v-card class="mb-4">
-        <v-card-text>
-          <v-row>
+        <v-card-text class="pt-5 pb-3">
+          <v-row align="center">
             <v-col cols="12" md="4">
               <v-text-field
                 v-model="filters.search"
@@ -30,6 +30,7 @@
                 clearable
                 hide-details
                 density="compact"
+                variant="outlined"
                 @update:model-value="debouncedSearch"
               ></v-text-field>
             </v-col>
@@ -41,6 +42,7 @@
                 clearable
                 hide-details
                 density="compact"
+                variant="outlined"
                 @update:model-value="loadFacetTypes"
               ></v-select>
             </v-col>
@@ -52,6 +54,7 @@
                 clearable
                 hide-details
                 density="compact"
+                variant="outlined"
                 @update:model-value="loadFacetTypes"
               ></v-select>
             </v-col>
@@ -140,43 +143,49 @@
           </template>
 
           <template v-slot:item.actions="{ item }">
-            <div class="d-flex gap-1">
-              <v-btn
-                icon="mdi-pencil"
-                size="small"
-                variant="text"
-                @click="openEditDialog(item)"
-                :title="t('common.edit')"
-              ></v-btn>
-              <v-btn
-                icon="mdi-delete"
-                size="small"
-                variant="text"
-                color="error"
-                :disabled="item.is_system || (item.value_count || 0) > 0"
-                @click="confirmDelete(item)"
-                :title="getDeleteTooltip(item)"
-              ></v-btn>
+            <div class="d-flex justify-end ga-1">
+              <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="t('common.edit')" @click="openEditDialog(item)"></v-btn>
+              <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="t('common.delete')" :disabled="item.is_system || (item.value_count || 0) > 0" @click="confirmDelete(item)"></v-btn>
             </div>
           </template>
         </v-data-table>
       </v-card>
 
       <!-- Create/Edit Dialog -->
-      <v-dialog v-model="dialog" max-width="800" persistent scrollable>
+      <v-dialog v-model="dialog" max-width="900" persistent scrollable>
         <v-card>
-          <v-card-title class="d-flex align-center">
-            <v-icon :icon="editingItem ? 'mdi-pencil' : 'mdi-plus'" class="mr-2"></v-icon>
-            {{ editingItem ? t('admin.facetTypes.dialog.editTitle') : t('admin.facetTypes.dialog.createTitle') }}
+          <v-card-title class="d-flex align-center pa-4 bg-primary">
+            <v-avatar :color="form.color || '#607D8B'" size="40" class="mr-3">
+              <v-icon :icon="form.icon || 'mdi-tag'" color="white"></v-icon>
+            </v-avatar>
+            <div>
+              <div class="text-h6">{{ editingItem ? t('admin.facetTypes.dialog.editTitle') : t('admin.facetTypes.dialog.createTitle') }}</div>
+              <div v-if="form.name" class="text-caption opacity-80">{{ form.name }}</div>
+            </div>
           </v-card-title>
-          <v-card-text>
-            <v-form ref="formRef" @submit.prevent="save">
-              <v-tabs v-model="activeTab" class="mb-4">
-                <v-tab value="basic">{{ t('admin.facetTypes.tabs.basic') }}</v-tab>
-                <v-tab value="schema">{{ t('admin.facetTypes.tabs.schema') }}</v-tab>
-                <v-tab value="ai">{{ t('admin.facetTypes.tabs.ai') }}</v-tab>
-              </v-tabs>
 
+          <v-tabs v-model="activeTab" class="dialog-tabs">
+            <v-tab value="basic">
+              <v-icon start>mdi-form-textbox</v-icon>
+              {{ t('admin.facetTypes.tabs.basic') }}
+            </v-tab>
+            <v-tab value="appearance">
+              <v-icon start>mdi-palette</v-icon>
+              {{ t('admin.facetTypes.tabs.appearance') }}
+            </v-tab>
+            <v-tab value="schema">
+              <v-icon start>mdi-code-json</v-icon>
+              {{ t('admin.facetTypes.tabs.schema') }}
+            </v-tab>
+            <v-tab value="ai">
+              <v-icon start>mdi-robot</v-icon>
+              {{ t('admin.facetTypes.tabs.ai') }}
+              <v-icon v-if="form.ai_extraction_enabled" size="x-small" color="success" class="ml-1">mdi-check-circle</v-icon>
+            </v-tab>
+          </v-tabs>
+
+          <v-card-text class="pa-6" style="min-height: 420px;">
+            <v-form ref="formRef" @submit.prevent="save">
               <v-window v-model="activeTab">
                 <!-- Basic Tab -->
                 <v-window-item value="basic">
@@ -187,6 +196,7 @@
                         :label="t('admin.facetTypes.form.name')"
                         :rules="[v => !!v || t('admin.facetTypes.form.nameRequired')]"
                         :placeholder="t('admin.facetTypes.form.namePlaceholder')"
+                        variant="outlined"
                       ></v-text-field>
                     </v-col>
                     <v-col cols="12" md="6">
@@ -194,6 +204,7 @@
                         v-model="form.name_plural"
                         :label="t('admin.facetTypes.form.namePlural')"
                         :placeholder="t('admin.facetTypes.form.namePluralPlaceholder')"
+                        variant="outlined"
                       ></v-text-field>
                     </v-col>
                   </v-row>
@@ -202,36 +213,8 @@
                     v-model="form.description"
                     :label="t('admin.facetTypes.form.description')"
                     rows="2"
+                    variant="outlined"
                   ></v-textarea>
-
-                  <v-row>
-                    <v-col cols="12" md="6">
-                      <v-text-field
-                        v-model="form.icon"
-                        :label="t('admin.facetTypes.form.icon')"
-                        :placeholder="t('admin.facetTypes.form.iconPlaceholder')"
-                        :hint="t('admin.facetTypes.form.iconHint')"
-                        persistent-hint
-                      >
-                        <template v-slot:prepend-inner>
-                          <v-icon :icon="form.icon || 'mdi-help'" size="small"></v-icon>
-                        </template>
-                      </v-text-field>
-                    </v-col>
-                    <v-col cols="12" md="6">
-                      <v-text-field
-                        v-model="form.color"
-                        :label="t('admin.facetTypes.form.color')"
-                        type="color"
-                      >
-                        <template v-slot:prepend-inner>
-                          <div
-                            :style="{ backgroundColor: form.color, width: '20px', height: '20px', borderRadius: '4px' }"
-                          ></div>
-                        </template>
-                      </v-text-field>
-                    </v-col>
-                  </v-row>
 
                   <v-select
                     v-model="form.applicable_entity_type_slugs"
@@ -244,70 +227,140 @@
                     chips
                     closable-chips
                     persistent-hint
+                    variant="outlined"
                   ></v-select>
 
-                  <v-row class="mt-2">
-                    <v-col cols="12" md="4">
-                      <v-select
-                        v-model="form.value_type"
-                        :items="valueTypeOptions"
-                        :label="t('admin.facetTypes.form.valueType')"
-                      ></v-select>
-                    </v-col>
-                    <v-col cols="12" md="4">
-                      <v-select
-                        v-model="form.aggregation_method"
-                        :items="aggregationOptions"
-                        :label="t('admin.facetTypes.form.aggregationMethod')"
-                      ></v-select>
-                    </v-col>
-                    <v-col cols="12" md="4">
-                      <v-text-field
-                        v-model.number="form.display_order"
-                        :label="t('admin.facetTypes.form.displayOrder')"
-                        type="number"
-                        min="0"
-                      ></v-text-field>
-                    </v-col>
-                  </v-row>
+                  <!-- Preview -->
+                  <v-card variant="outlined" class="mt-4">
+                    <v-card-title class="text-subtitle-2 pb-2">
+                      <v-icon start size="small">mdi-eye</v-icon>
+                      {{ t('admin.facetTypes.form.preview') }}
+                    </v-card-title>
+                    <v-card-text>
+                      <div class="d-flex align-center ga-3">
+                        <v-avatar :color="form.color || '#607D8B'" size="40">
+                          <v-icon :icon="form.icon || 'mdi-tag'" color="white"></v-icon>
+                        </v-avatar>
+                        <div>
+                          <div class="text-body-1 font-weight-medium">{{ form.name || t('admin.facetTypes.form.namePlaceholder') }}</div>
+                          <div class="text-caption text-medium-emphasis">{{ form.name_plural || (form.name ? form.name + 's' : '') }}</div>
+                        </div>
+                        <v-chip v-if="form.value_type" size="small" variant="outlined" class="ml-auto">
+                          {{ form.value_type }}
+                        </v-chip>
+                      </div>
+                    </v-card-text>
+                  </v-card>
+                </v-window-item>
 
+                <!-- Appearance Tab -->
+                <v-window-item value="appearance">
                   <v-row>
-                    <v-col cols="12" md="4">
-                      <v-checkbox
-                        v-model="form.is_time_based"
-                        :label="t('admin.facetTypes.form.isTimeBased')"
-                        :hint="t('admin.facetTypes.form.isTimeBasedHint')"
-                        persistent-hint
-                      ></v-checkbox>
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model="form.icon"
+                        :label="t('admin.facetTypes.form.icon')"
+                        :placeholder="t('admin.facetTypes.form.iconPlaceholder')"
+                        variant="outlined"
+                      >
+                        <template v-slot:prepend-inner>
+                          <v-icon :icon="form.icon || 'mdi-help'" :color="form.color"></v-icon>
+                        </template>
+                      </v-text-field>
+                      <v-alert type="info" variant="tonal" density="compact" class="mt-2">
+                        {{ t('admin.facetTypes.form.iconHint') }}
+                      </v-alert>
+
+                      <!-- Icon Suggestions -->
+                      <v-card variant="outlined" class="mt-4">
+                        <v-card-title class="text-subtitle-2 pb-2">
+                          <v-icon start size="small">mdi-lightbulb</v-icon>
+                          {{ t('admin.facetTypes.form.iconSuggestions') }}
+                        </v-card-title>
+                        <v-card-text>
+                          <div class="d-flex flex-wrap ga-2">
+                            <v-btn
+                              v-for="icon in suggestedFacetIcons"
+                              :key="icon"
+                              :icon="icon"
+                              size="small"
+                              :variant="form.icon === icon ? 'flat' : 'tonal'"
+                              :color="form.icon === icon ? 'primary' : undefined"
+                              @click="form.icon = icon"
+                            ></v-btn>
+                          </div>
+                        </v-card-text>
+                      </v-card>
                     </v-col>
-                    <v-col cols="12" md="4">
-                      <v-checkbox
-                        v-model="form.is_active"
-                        :label="t('common.active')"
-                      ></v-checkbox>
+                    <v-col cols="12" md="6">
+                      <v-label class="mb-2">{{ t('admin.facetTypes.form.color') }}</v-label>
+                      <v-color-picker
+                        v-model="form.color"
+                        mode="hexa"
+                        show-swatches
+                        swatches-max-height="120"
+                        hide-inputs
+                      ></v-color-picker>
                     </v-col>
                   </v-row>
-
-                  <v-text-field
-                    v-if="form.is_time_based"
-                    v-model="form.time_field_path"
-                    :label="t('admin.facetTypes.form.timeFieldPath')"
-                    :placeholder="t('admin.facetTypes.form.timeFieldPathPlaceholder')"
-                    class="mt-2"
-                  ></v-text-field>
                 </v-window-item>
 
                 <!-- Schema Tab -->
                 <v-window-item value="schema">
+                  <!-- AI Schema Generator -->
+                  <v-card variant="tonal" color="purple" class="mb-4">
+                    <v-card-text class="d-flex align-center">
+                      <v-avatar color="purple-darken-1" size="40" class="mr-3">
+                        <v-icon color="white">mdi-auto-fix</v-icon>
+                      </v-avatar>
+                      <div class="flex-grow-1">
+                        <div class="text-body-1 font-weight-medium">{{ t('admin.facetTypes.form.aiSchemaGenerator') }}</div>
+                        <div class="text-caption">{{ t('admin.facetTypes.form.aiSchemaGeneratorHint') }}</div>
+                      </div>
+                      <v-btn
+                        color="purple-darken-1"
+                        :loading="generatingSchema"
+                        :disabled="!form.name"
+                        @click="generateSchemaWithAI"
+                      >
+                        <v-icon start>mdi-creation</v-icon>
+                        {{ t('admin.facetTypes.form.generateSchema') }}
+                      </v-btn>
+                    </v-card-text>
+                  </v-card>
+
+                  <v-row>
+                    <v-col cols="12" sm="6">
+                      <v-select
+                        v-model="form.value_type"
+                        :items="valueTypeOptions"
+                        :label="t('admin.facetTypes.form.valueType')"
+                        variant="outlined"
+                        density="comfortable"
+                      ></v-select>
+                    </v-col>
+                    <v-col cols="12" sm="6">
+                      <v-select
+                        v-model="form.aggregation_method"
+                        :items="aggregationOptions"
+                        :label="t('admin.facetTypes.form.aggregationMethod')"
+                        variant="outlined"
+                        density="comfortable"
+                      ></v-select>
+                    </v-col>
+                  </v-row>
+
                   <v-alert type="info" variant="tonal" class="mb-4">
                     {{ t('admin.facetTypes.form.schemaInfo') }}
                   </v-alert>
+
                   <v-textarea
                     v-model="schemaJson"
                     :label="t('admin.facetTypes.form.valueSchema')"
                     :placeholder="t('admin.facetTypes.form.valueSchemePlaceholder')"
-                    rows="12"
-                    font="monospace"
+                    rows="10"
+                    variant="outlined"
+                    style="font-family: monospace;"
                     :error-messages="schemaError"
                   ></v-textarea>
 
@@ -319,35 +372,109 @@
                     chips
                     closable-chips
                     persistent-hint
+                    variant="outlined"
                     class="mt-4"
                   ></v-combobox>
+
+                  <v-row class="mt-4">
+                    <v-col cols="12" md="6">
+                      <v-card variant="outlined" class="pa-4">
+                        <v-switch
+                          v-model="form.is_time_based"
+                          :label="t('admin.facetTypes.form.isTimeBased')"
+                          color="primary"
+                          hide-details
+                        ></v-switch>
+                        <div class="text-caption text-medium-emphasis mt-2">
+                          {{ t('admin.facetTypes.form.isTimeBasedHint') }}
+                        </div>
+                        <v-text-field
+                          v-if="form.is_time_based"
+                          v-model="form.time_field_path"
+                          :label="t('admin.facetTypes.form.timeFieldPath')"
+                          :placeholder="t('admin.facetTypes.form.timeFieldPathPlaceholder')"
+                          variant="outlined"
+                          density="compact"
+                          class="mt-3"
+                        ></v-text-field>
+                      </v-card>
+                    </v-col>
+                    <v-col cols="12" md="6">
+                      <v-row>
+                        <v-col cols="6">
+                          <v-text-field
+                            v-model.number="form.display_order"
+                            :label="t('admin.facetTypes.form.displayOrder')"
+                            type="number"
+                            min="0"
+                            variant="outlined"
+                          ></v-text-field>
+                        </v-col>
+                        <v-col cols="6">
+                          <v-card variant="outlined" class="pa-4 h-100 d-flex align-center">
+                            <v-switch
+                              v-model="form.is_active"
+                              :label="t('common.active')"
+                              color="success"
+                              hide-details
+                            ></v-switch>
+                          </v-card>
+                        </v-col>
+                      </v-row>
+                    </v-col>
+                  </v-row>
                 </v-window-item>
 
                 <!-- AI Tab -->
                 <v-window-item value="ai">
-                  <v-checkbox
-                    v-model="form.ai_extraction_enabled"
-                    :label="t('admin.facetTypes.form.aiExtractionEnabled')"
-                    :hint="t('admin.facetTypes.form.aiExtractionEnabledHint')"
-                    persistent-hint
-                  ></v-checkbox>
+                  <v-card variant="outlined" class="mb-4">
+                    <v-card-text class="d-flex align-center">
+                      <v-avatar color="purple" size="48" class="mr-4">
+                        <v-icon color="white">mdi-robot</v-icon>
+                      </v-avatar>
+                      <div class="flex-grow-1">
+                        <div class="text-body-1 font-weight-medium">{{ t('admin.facetTypes.form.aiExtractionEnabled') }}</div>
+                        <div class="text-caption text-medium-emphasis">{{ t('admin.facetTypes.form.aiExtractionEnabledHint') }}</div>
+                      </div>
+                      <v-switch
+                        v-model="form.ai_extraction_enabled"
+                        color="purple"
+                        hide-details
+                      ></v-switch>
+                    </v-card-text>
+                  </v-card>
 
-                  <v-textarea
-                    v-if="form.ai_extraction_enabled"
-                    v-model="form.ai_extraction_prompt"
-                    :label="t('admin.facetTypes.form.aiExtractionPrompt')"
-                    :placeholder="t('admin.facetTypes.form.aiExtractionPromptPlaceholder')"
-                    rows="8"
-                    class="mt-4"
-                  ></v-textarea>
+                  <v-expand-transition>
+                    <div v-if="form.ai_extraction_enabled">
+                      <v-alert type="info" variant="tonal" class="mb-4">
+                        {{ t('admin.facetTypes.form.aiPromptInfo') }}
+                      </v-alert>
+
+                      <v-textarea
+                        v-model="form.ai_extraction_prompt"
+                        :label="t('admin.facetTypes.form.aiExtractionPrompt')"
+                        :placeholder="t('admin.facetTypes.form.aiExtractionPromptPlaceholder')"
+                        rows="12"
+                        variant="outlined"
+                      ></v-textarea>
+                    </div>
+                  </v-expand-transition>
+
+                  <v-alert v-if="!form.ai_extraction_enabled" type="warning" variant="tonal" class="mt-4">
+                    {{ t('admin.facetTypes.form.aiDisabledInfo') }}
+                  </v-alert>
                 </v-window-item>
               </v-window>
             </v-form>
           </v-card-text>
-          <v-card-actions>
+
+          <v-divider></v-divider>
+
+          <v-card-actions class="pa-4">
+            <v-btn variant="text" @click="closeDialog">{{ t('common.cancel') }}</v-btn>
             <v-spacer></v-spacer>
-            <v-btn @click="closeDialog">{{ t('common.cancel') }}</v-btn>
             <v-btn color="primary" :loading="saving" @click="save">
+              <v-icon start>mdi-check</v-icon>
               {{ editingItem ? t('common.save') : t('common.create') }}
             </v-btn>
           </v-card-actions>
@@ -407,6 +534,31 @@ const formRef = ref<any>(null)
 const activeTab = ref('basic')
 const schemaJson = ref('')
 const schemaError = ref('')
+const generatingSchema = ref(false)
+
+// Suggested icons for facet types
+const suggestedFacetIcons = [
+  'mdi-tag',
+  'mdi-label',
+  'mdi-account',
+  'mdi-calendar',
+  'mdi-clock',
+  'mdi-map-marker',
+  'mdi-phone',
+  'mdi-email',
+  'mdi-link',
+  'mdi-file-document',
+  'mdi-currency-eur',
+  'mdi-chart-line',
+  'mdi-alert',
+  'mdi-lightbulb',
+  'mdi-check-circle',
+  'mdi-information',
+  'mdi-star',
+  'mdi-heart',
+  'mdi-flag',
+  'mdi-bookmark',
+]
 
 const filters = ref({
   search: '',
@@ -443,7 +595,7 @@ const headers = computed(() => [
   { title: t('admin.facetTypes.columns.ai'), key: 'ai_extraction_enabled', width: '60px', align: 'center' as const },
   { title: t('admin.facetTypes.columns.system'), key: 'is_system', width: '80px', align: 'center' as const },
   { title: t('admin.facetTypes.columns.active'), key: 'is_active', width: '80px', align: 'center' as const },
-  { title: t('common.actions'), key: 'actions', width: '120px', sortable: false },
+  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' as const },
 ])
 
 const valueTypeOptions = [
@@ -654,6 +806,63 @@ async function deleteItem() {
   }
 }
 
+async function generateSchemaWithAI() {
+  if (!form.value.name) {
+    showError(t('admin.facetTypes.form.nameRequired'))
+    return
+  }
+
+  generatingSchema.value = true
+  try {
+    // Get entity type names for context
+    const entityTypeNames = form.value.applicable_entity_type_slugs
+      .map(slug => entityTypes.value.find(et => et.slug === slug)?.name || slug)
+
+    const response = await facetApi.generateFacetTypeSchema({
+      name: form.value.name,
+      name_plural: form.value.name_plural,
+      description: form.value.description,
+      applicable_entity_types: entityTypeNames,
+    })
+
+    const generated = response.data
+
+    // Apply generated values
+    if (generated.value_schema) {
+      form.value.value_schema = generated.value_schema
+      schemaJson.value = JSON.stringify(generated.value_schema, null, 2)
+    }
+    if (generated.value_type) {
+      form.value.value_type = generated.value_type
+    }
+    if (generated.deduplication_fields) {
+      form.value.deduplication_fields = generated.deduplication_fields
+    }
+    if (generated.is_time_based !== undefined) {
+      form.value.is_time_based = generated.is_time_based
+    }
+    if (generated.time_field_path) {
+      form.value.time_field_path = generated.time_field_path
+    }
+    if (generated.ai_extraction_prompt) {
+      form.value.ai_extraction_prompt = generated.ai_extraction_prompt
+    }
+    if (generated.icon) {
+      form.value.icon = generated.icon
+    }
+    if (generated.color) {
+      form.value.color = generated.color
+    }
+
+    showSuccess(t('admin.facetTypes.messages.schemaGenerated'))
+  } catch (e: any) {
+    const detail = e.response?.data?.detail || t('admin.facetTypes.messages.schemaGenerationError')
+    showError(detail)
+  } finally {
+    generatingSchema.value = false
+  }
+}
+
 // Init
 onMounted(() => {
   loadEntityTypes()
@@ -664,5 +873,9 @@ onMounted(() => {
 <style scoped>
 .facet-types-view {
   min-height: 100%;
+}
+
+.dialog-tabs {
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 </style>

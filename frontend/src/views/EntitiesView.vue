@@ -154,13 +154,13 @@
           <v-col cols="auto" class="d-flex align-center">
             <v-btn
               v-if="hasAnyFilters"
-              variant="text"
+              variant="outlined"
               color="error"
               size="small"
               @click="clearAllFilters"
-              :title="t('entities.resetAllFilters')"
             >
-              <v-icon>mdi-filter-off</v-icon>
+              <v-icon start>mdi-filter-off</v-icon>
+              {{ t('entities.resetAllFilters') }}
             </v-btn>
           </v-col>
         </v-row>
@@ -400,10 +400,10 @@
         </template>
 
         <template v-slot:item.actions="{ item }">
-          <div class="table-actions">
-            <v-btn icon="mdi-eye" size="small" variant="text" :title="t('common.details')" @click.stop="openEntityDetail(item)"></v-btn>
-            <v-btn icon="mdi-pencil" size="small" variant="text" :title="t('common.edit')" @click.stop="openEditDialog(item)"></v-btn>
-            <v-btn icon="mdi-delete" size="small" variant="text" color="error" :title="t('common.delete')" @click.stop="confirmDelete(item)"></v-btn>
+          <div class="table-actions d-flex justify-end ga-1">
+            <v-btn icon="mdi-eye" size="small" variant="tonal" color="primary" :title="t('common.details')" @click.stop="openEntityDetail(item)"></v-btn>
+            <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="t('common.edit')" @click.stop="openEditDialog(item)"></v-btn>
+            <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="t('common.delete')" @click.stop="confirmDelete(item)"></v-btn>
           </div>
         </template>
       </v-data-table-server>
@@ -463,115 +463,243 @@
     </v-card>
 
     <!-- Create/Edit Dialog -->
-    <v-dialog v-model="createDialog" max-width="600">
+    <v-dialog v-model="createDialog" max-width="800" persistent scrollable>
       <v-card>
-        <v-card-title>
-          {{ editingEntity ? t('entities.editEntity', { type: currentEntityType?.name || 'Entity' }) : t('entities.createEntity', { type: currentEntityType?.name || 'Entity' }) }}
+        <v-card-title class="d-flex align-center pa-4 bg-primary">
+          <v-avatar :color="currentEntityType?.color || 'rgba(255,255,255,0.2)'" size="40" class="mr-3">
+            <v-icon :color="isLightColor(currentEntityType?.color) ? 'black' : 'white'" :icon="currentEntityType?.icon || (editingEntity ? 'mdi-pencil' : 'mdi-plus')"></v-icon>
+          </v-avatar>
+          <div>
+            <div class="text-h6">
+              {{ editingEntity ? t('entities.editEntity', { type: currentEntityType?.name || 'Entity' }) : t('entities.createEntity', { type: currentEntityType?.name || 'Entity' }) }}
+            </div>
+            <div v-if="entityForm.name" class="text-caption opacity-80">{{ entityForm.name }}</div>
+          </div>
         </v-card-title>
-        <v-card-text>
+
+        <v-tabs v-model="entityTab" class="dialog-tabs">
+          <v-tab value="general">
+            <v-icon start>mdi-form-textbox</v-icon>
+            {{ t('entities.tabs.general') }}
+          </v-tab>
+          <v-tab v-if="currentEntityType?.attribute_schema?.properties && Object.keys(currentEntityType.attribute_schema.properties).length > 0" value="attributes">
+            <v-icon start>mdi-tag-multiple</v-icon>
+            {{ t('entities.tabs.attributes') }}
+          </v-tab>
+          <v-tab value="location">
+            <v-icon start>mdi-map-marker</v-icon>
+            {{ t('entities.tabs.location') }}
+          </v-tab>
+          <v-tab value="assignment">
+            <v-icon start>mdi-account-check</v-icon>
+            {{ t('entities.tabs.assignment') }}
+          </v-tab>
+        </v-tabs>
+
+        <v-card-text class="pa-6" style="min-height: 350px;">
           <v-form ref="formRef" @submit.prevent="saveEntity">
-            <v-text-field
-              v-model="entityForm.name"
-              :label="t('common.name') + ' *'"
-              :rules="[v => !!v || t('entities.nameRequired')]"
-              required
-            ></v-text-field>
+            <v-window v-model="entityTab">
+              <!-- General Tab -->
+              <v-window-item value="general">
+                <v-row>
+                  <v-col cols="12" :md="currentEntityType?.supports_hierarchy ? 6 : 12">
+                    <v-text-field
+                      v-model="entityForm.name"
+                      :label="t('common.name') + ' *'"
+                      :rules="[v => !!v || t('entities.nameRequired')]"
+                      required
+                      variant="outlined"
+                      prepend-inner-icon="mdi-format-text"
+                    ></v-text-field>
+                  </v-col>
+                  <v-col cols="12" md="6" v-if="currentEntityType?.supports_hierarchy">
+                    <v-select
+                      v-model="entityForm.parent_id"
+                      :items="parentOptions"
+                      item-title="name"
+                      item-value="id"
+                      :label="$t('entities.parentElement')"
+                      clearable
+                      variant="outlined"
+                      prepend-inner-icon="mdi-family-tree"
+                    ></v-select>
+                  </v-col>
+                </v-row>
 
-            <v-text-field
-              v-model="entityForm.external_id"
-              :label="t('entities.externalId')"
-              :hint="t('entities.externalIdHint')"
-            ></v-text-field>
-
-            <v-select
-              v-if="currentEntityType?.supports_hierarchy"
-              v-model="entityForm.parent_id"
-              :items="parentOptions"
-              item-title="name"
-              item-value="id"
-              :label="$t('entities.parentElement')"
-              clearable
-            ></v-select>
-
-            <!-- Dynamic core_attributes based on attribute_schema -->
-            <template v-if="currentEntityType?.attribute_schema?.properties">
-              <v-divider class="my-4"></v-divider>
-              <div class="text-subtitle-2 mb-2">{{ $t('entities.attributes') }}</div>
-              <template v-for="(prop, key) in currentEntityType.attribute_schema.properties" :key="key">
                 <v-text-field
-                  v-if="prop.type === 'string'"
-                  v-model="entityForm.core_attributes[key]"
-                  :label="prop.title || key"
-                  :hint="prop.description"
+                  v-model="entityForm.external_id"
+                  :label="t('entities.externalId')"
+                  :hint="t('entities.externalIdHint')"
+                  persistent-hint
+                  variant="outlined"
+                  prepend-inner-icon="mdi-identifier"
                 ></v-text-field>
-                <v-text-field
-                  v-else-if="prop.type === 'integer' || prop.type === 'number'"
-                  v-model.number="entityForm.core_attributes[key]"
-                  :label="prop.title || key"
-                  :hint="prop.description"
-                  type="number"
-                ></v-text-field>
-                <v-checkbox
-                  v-else-if="prop.type === 'boolean'"
-                  v-model="entityForm.core_attributes[key]"
-                  :label="prop.title || key"
-                  :hint="prop.description"
-                ></v-checkbox>
-              </template>
-            </template>
 
-            <!-- Owner selection -->
-            <v-divider class="my-4"></v-divider>
-            <div class="text-subtitle-2 mb-2">{{ $t('entities.responsibility') }}</div>
-            <v-autocomplete
-              v-model="entityForm.owner_id"
-              :items="userOptions"
-              :loading="loadingUsers"
-              item-title="display"
-              item-value="id"
-              :label="$t('entities.responsibleUser')"
-              clearable
-              :hint="$t('entities.responsibleUserHint')"
-              persistent-hint
-            >
-              <template v-slot:item="{ props, item }">
-                <v-list-item v-bind="props">
-                  <template v-slot:subtitle>{{ item.raw.email }}</template>
-                </v-list-item>
-              </template>
-            </v-autocomplete>
+                <v-card variant="tonal" color="info" class="mt-4 pa-3">
+                  <div class="d-flex align-center">
+                    <v-icon class="mr-3" color="info">mdi-information</v-icon>
+                    <div class="text-body-2">
+                      {{ t('entities.createInfo') }}
+                    </div>
+                  </div>
+                </v-card>
+              </v-window-item>
 
-            <!-- Geo coordinates -->
-            <v-divider class="my-4"></v-divider>
-            <div class="text-subtitle-2 mb-2">{{ $t('entities.geoCoordinates') }}</div>
-            <v-row>
-              <v-col cols="6">
-                <v-text-field
-                  v-model.number="entityForm.latitude"
-                  :label="$t('entities.latitude')"
-                  type="number"
-                  step="0.000001"
-                ></v-text-field>
-              </v-col>
-              <v-col cols="6">
-                <v-text-field
-                  v-model.number="entityForm.longitude"
-                  :label="$t('entities.longitude')"
-                  type="number"
-                  step="0.000001"
-                ></v-text-field>
-              </v-col>
-            </v-row>
+              <!-- Attributes Tab -->
+              <v-window-item value="attributes">
+                <v-alert type="info" variant="tonal" class="mb-4">
+                  {{ t('entities.attributesInfo') }}
+                </v-alert>
+
+                <template v-if="currentEntityType?.attribute_schema?.properties">
+                  <v-row>
+                    <v-col
+                      v-for="(prop, key) in currentEntityType.attribute_schema.properties"
+                      :key="key"
+                      cols="12"
+                      :md="prop.type === 'boolean' ? 6 : 12"
+                    >
+                      <v-text-field
+                        v-if="prop.type === 'string'"
+                        v-model="entityForm.core_attributes[key]"
+                        :label="prop.title || key"
+                        :hint="prop.description"
+                        persistent-hint
+                        variant="outlined"
+                      ></v-text-field>
+                      <v-text-field
+                        v-else-if="prop.type === 'integer' || prop.type === 'number'"
+                        v-model.number="entityForm.core_attributes[key]"
+                        :label="prop.title || key"
+                        :hint="prop.description"
+                        persistent-hint
+                        type="number"
+                        variant="outlined"
+                      ></v-text-field>
+                      <v-card v-else-if="prop.type === 'boolean'" variant="outlined" class="pa-3">
+                        <div class="d-flex align-center justify-space-between">
+                          <div>
+                            <div class="text-body-2 font-weight-medium">{{ prop.title || key }}</div>
+                            <div v-if="prop.description" class="text-caption text-medium-emphasis">{{ prop.description }}</div>
+                          </div>
+                          <v-switch
+                            v-model="entityForm.core_attributes[key]"
+                            color="primary"
+                            hide-details
+                          ></v-switch>
+                        </div>
+                      </v-card>
+                    </v-col>
+                  </v-row>
+                </template>
+
+                <v-alert v-else type="warning" variant="tonal">
+                  {{ t('entities.noAttributesConfigured') }}
+                </v-alert>
+              </v-window-item>
+
+              <!-- Location Tab -->
+              <v-window-item value="location">
+                <v-alert type="info" variant="tonal" class="mb-4">
+                  {{ t('entities.locationInfo') }}
+                </v-alert>
+
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model.number="entityForm.latitude"
+                      :label="$t('entities.latitude')"
+                      type="number"
+                      step="0.000001"
+                      variant="outlined"
+                      prepend-inner-icon="mdi-latitude"
+                      :hint="t('entities.latitudeHint')"
+                      persistent-hint
+                    ></v-text-field>
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model.number="entityForm.longitude"
+                      :label="$t('entities.longitude')"
+                      type="number"
+                      step="0.000001"
+                      variant="outlined"
+                      prepend-inner-icon="mdi-longitude"
+                      :hint="t('entities.longitudeHint')"
+                      persistent-hint
+                    ></v-text-field>
+                  </v-col>
+                </v-row>
+
+                <v-card v-if="entityForm.latitude && entityForm.longitude" variant="tonal" color="success" class="mt-4">
+                  <v-card-text class="d-flex align-center">
+                    <v-icon color="success" class="mr-3">mdi-map-check</v-icon>
+                    <div>
+                      <div class="font-weight-medium">{{ t('entities.coordinatesSet') }}</div>
+                      <div class="text-caption">{{ entityForm.latitude }}, {{ entityForm.longitude }}</div>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-window-item>
+
+              <!-- Assignment Tab -->
+              <v-window-item value="assignment">
+                <v-alert type="info" variant="tonal" class="mb-4">
+                  {{ t('entities.assignmentInfo') }}
+                </v-alert>
+
+                <v-autocomplete
+                  v-model="entityForm.owner_id"
+                  :items="userOptions"
+                  :loading="loadingUsers"
+                  item-title="display"
+                  item-value="id"
+                  :label="$t('entities.responsibleUser')"
+                  clearable
+                  :hint="$t('entities.responsibleUserHint')"
+                  persistent-hint
+                  variant="outlined"
+                  prepend-inner-icon="mdi-account"
+                >
+                  <template v-slot:item="{ props, item }">
+                    <v-list-item v-bind="props">
+                      <template v-slot:prepend>
+                        <v-avatar color="primary" size="32">
+                          <span class="text-caption">{{ item.raw.full_name?.charAt(0) || 'U' }}</span>
+                        </v-avatar>
+                      </template>
+                      <template v-slot:subtitle>{{ item.raw.email }}</template>
+                    </v-list-item>
+                  </template>
+                </v-autocomplete>
+
+                <v-card v-if="entityForm.owner_id" variant="tonal" color="primary" class="mt-4">
+                  <v-card-text class="d-flex align-center">
+                    <v-avatar color="primary" size="40" class="mr-3">
+                      <v-icon color="white">mdi-account-check</v-icon>
+                    </v-avatar>
+                    <div>
+                      <div class="font-weight-medium">{{ t('entities.assignedTo') }}</div>
+                      <div class="text-caption">{{ userOptions.find(u => u.id === entityForm.owner_id)?.display }}</div>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-window-item>
+            </v-window>
           </v-form>
         </v-card-text>
-        <v-card-actions>
+
+        <v-divider></v-divider>
+
+        <v-card-actions class="pa-4">
+          <v-btn variant="text" @click="closeDialog">{{ t('common.cancel') }}</v-btn>
           <v-spacer></v-spacer>
-          <v-btn @click="closeDialog">{{ t('common.cancel') }}</v-btn>
           <v-btn
             color="primary"
             :loading="saving"
             @click="saveEntity"
           >
+            <v-icon start>mdi-check</v-icon>
             {{ editingEntity ? t('common.save') : t('common.create') }}
           </v-btn>
         </v-card-actions>
@@ -675,6 +803,7 @@ const createDialog = ref(false)
 const templateDialog = ref(false)
 const deleteDialog = ref(false)
 const extendedFilterDialog = ref(false)
+const entityTab = ref('general')
 const editingEntity = ref<any>(null)
 const entityToDelete = ref<any>(null)
 const saving = ref(false)
@@ -797,7 +926,7 @@ const tableHeaders = computed(() => {
     { title: t('entities.properties'), key: 'facet_count', align: 'center' as const },
     { title: t('entities.relations'), key: 'relation_count', align: 'center' as const },
     { title: t('entities.summary'), key: 'facet_summary', sortable: false },
-    { title: '', key: 'actions', sortable: false, width: '120px' },
+    { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' as const },
   )
 
   return headers
@@ -1062,6 +1191,19 @@ function getTopFacetCounts(entity: any): Array<{ slug: string; name: string; ico
   return []
 }
 
+function isLightColor(color: string | undefined): boolean {
+  if (!color) return false
+  // Convert hex to RGB and calculate luminance
+  const hex = color.replace('#', '')
+  if (hex.length !== 6) return false
+  const r = parseInt(hex.substr(0, 2), 16)
+  const g = parseInt(hex.substr(2, 2), 16)
+  const b = parseInt(hex.substr(4, 2), 16)
+  // Calculate relative luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.6
+}
+
 // Extended Filter Functions (Location + Schema Attributes)
 async function loadLocationOptions() {
   try {
@@ -1278,5 +1420,9 @@ onMounted(async () => {
 }
 .filter-section-content {
   padding: 12px 16px 16px;
+}
+
+.dialog-tabs {
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 </style>

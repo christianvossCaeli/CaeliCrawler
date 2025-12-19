@@ -187,6 +187,10 @@ export const facetApi = {
   // Entity Facets Summary
   getEntityFacetsSummary: (entityId: string, params?: any) =>
     api.get(`/v1/facets/entity/${entityId}/summary`, { params }),
+
+  // AI Schema Generation
+  generateFacetTypeSchema: (data: { name: string; name_plural?: string; description?: string; applicable_entity_types?: string[] }) =>
+    api.post('/v1/facets/types/generate-schema', data),
 }
 
 export const relationApi = {

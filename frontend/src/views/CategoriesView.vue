@@ -94,169 +94,299 @@
         </template>
 
         <template v-slot:item.actions="{ item }">
-          <div class="table-actions">
-            <v-btn icon="mdi-database-outline" size="small" variant="text" color="primary" @click="showSourcesForCategory(item)" :title="$t('categories.actions.viewSources')"></v-btn>
-            <v-btn icon="mdi-pencil" size="small" variant="text" @click="openEditDialog(item)" :title="$t('categories.actions.edit')"></v-btn>
-            <v-btn icon="mdi-play" size="small" variant="text" color="success" @click="openCrawlerDialog(item)" :title="$t('categories.actions.startCrawl')"></v-btn>
-            <v-btn icon="mdi-refresh" size="small" variant="text" color="warning" @click="confirmReanalyze(item)" :title="$t('categories.actions.reanalyze')"></v-btn>
-            <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="confirmDelete(item)" :title="$t('categories.actions.delete')"></v-btn>
+          <div class="table-actions d-flex justify-end ga-1">
+            <v-btn icon="mdi-database-outline" size="small" variant="tonal" color="primary" :title="$t('categories.actions.viewSources')" @click="showSourcesForCategory(item)"></v-btn>
+            <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="$t('common.edit')" @click="openEditDialog(item)"></v-btn>
+            <v-btn icon="mdi-play" size="small" variant="tonal" color="success" :title="$t('categories.actions.startCrawl')" @click="openCrawlerDialog(item)"></v-btn>
+            <v-btn icon="mdi-refresh" size="small" variant="tonal" color="warning" :title="$t('categories.actions.reanalyze')" @click="confirmReanalyze(item)"></v-btn>
+            <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="$t('common.delete')" @click="confirmDelete(item)"></v-btn>
           </div>
         </template>
       </v-data-table>
     </v-card>
 
     <!-- Create/Edit Dialog -->
-    <v-dialog v-model="dialog" max-width="800">
+    <v-dialog v-model="dialog" max-width="900" persistent scrollable>
       <v-card>
-        <v-card-title>{{ editMode ? $t('categories.dialog.edit') : $t('categories.dialog.create') }}</v-card-title>
-        <v-card-text>
+        <v-card-title class="d-flex align-center pa-4 bg-primary">
+          <v-avatar color="rgba(255,255,255,0.2)" size="40" class="mr-3">
+            <v-icon color="white">{{ editMode ? 'mdi-folder-edit' : 'mdi-folder-plus' }}</v-icon>
+          </v-avatar>
+          <div>
+            <div class="text-h6">{{ editMode ? $t('categories.dialog.edit') : $t('categories.dialog.create') }}</div>
+            <div v-if="formData.name" class="text-caption opacity-80">{{ formData.name }}</div>
+          </div>
+        </v-card-title>
+
+        <v-tabs v-model="categoryTab" class="dialog-tabs">
+          <v-tab value="general">
+            <v-icon start>mdi-form-textbox</v-icon>
+            {{ $t('categories.tabs.general') }}
+          </v-tab>
+          <v-tab value="search">
+            <v-icon start>mdi-magnify</v-icon>
+            {{ $t('categories.tabs.search') }}
+          </v-tab>
+          <v-tab value="filters">
+            <v-icon start>mdi-filter</v-icon>
+            {{ $t('categories.tabs.filters') }}
+            <v-icon v-if="!formData.url_include_patterns?.length && !formData.url_exclude_patterns?.length" color="warning" size="x-small" class="ml-1">mdi-alert</v-icon>
+          </v-tab>
+          <v-tab value="ai">
+            <v-icon start>mdi-robot</v-icon>
+            {{ $t('categories.tabs.ai') }}
+          </v-tab>
+        </v-tabs>
+
+        <v-card-text class="pa-6" style="min-height: 420px;">
           <v-form ref="form">
-            <v-text-field
-              v-model="formData.name"
-              :label="$t('categories.form.name')"
-              required
-              :rules="[v => !!v || t('categories.form.nameRequired')]"
-            ></v-text-field>
+            <v-window v-model="categoryTab">
+              <!-- General Tab -->
+              <v-window-item value="general">
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="formData.name"
+                      :label="$t('categories.form.name')"
+                      required
+                      :rules="[v => !!v || t('categories.form.nameRequired')]"
+                      variant="outlined"
+                      prepend-inner-icon="mdi-folder"
+                    ></v-text-field>
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <v-card variant="outlined" class="pa-3 h-100 d-flex align-center justify-space-between">
+                      <div>
+                        <div class="text-body-2 font-weight-medium">{{ $t('categories.form.enabled') }}</div>
+                        <div class="text-caption text-medium-emphasis">{{ $t('categories.form.enabledHint') }}</div>
+                      </div>
+                      <v-switch
+                        v-model="formData.is_active"
+                        color="success"
+                        hide-details
+                      ></v-switch>
+                    </v-card>
+                  </v-col>
+                </v-row>
 
-            <v-textarea
-              v-model="formData.description"
-              :label="$t('categories.form.description')"
-              rows="2"
-            ></v-textarea>
+                <v-textarea
+                  v-model="formData.description"
+                  :label="$t('categories.form.description')"
+                  rows="2"
+                  variant="outlined"
+                ></v-textarea>
 
-            <v-textarea
-              v-model="formData.purpose"
-              :label="$t('categories.form.purpose')"
-              required
-              rows="2"
-              :rules="[v => !!v || t('categories.form.purposeRequired')]"
-            ></v-textarea>
+                <v-textarea
+                  v-model="formData.purpose"
+                  :label="$t('categories.form.purpose')"
+                  required
+                  rows="3"
+                  :rules="[v => !!v || t('categories.form.purposeRequired')]"
+                  variant="outlined"
+                  :hint="$t('categories.form.purposeHint')"
+                  persistent-hint
+                ></v-textarea>
 
-            <v-combobox
-              v-model="formData.search_terms"
-              :label="$t('categories.form.searchTerms')"
-              chips
-              multiple
-              :hint="$t('categories.form.searchTermsHint')"
-            ></v-combobox>
+                <v-card variant="outlined" class="mt-4">
+                  <v-card-title class="text-subtitle-2 pb-2">
+                    <v-icon start size="small">mdi-translate</v-icon>
+                    {{ $t('categories.form.languages') }}
+                  </v-card-title>
+                  <v-card-text>
+                    <p class="text-caption text-medium-emphasis mb-3">
+                      {{ $t('categories.form.languagesDescription') }}
+                    </p>
+                    <v-select
+                      v-model="formData.languages"
+                      :items="availableLanguages"
+                      item-title="name"
+                      item-value="code"
+                      chips
+                      multiple
+                      closable-chips
+                      variant="outlined"
+                      :hint="$t('categories.form.languagesHint')"
+                      persistent-hint
+                    >
+                      <template v-slot:chip="{ item, props }">
+                        <v-chip v-bind="props" color="primary" variant="outlined">
+                          <span class="mr-1">{{ item.raw.flag }}</span>
+                          {{ item.raw.name }}
+                        </v-chip>
+                      </template>
+                      <template v-slot:item="{ item, props }">
+                        <v-list-item v-bind="props">
+                          <template v-slot:prepend>
+                            <span class="mr-2 text-h6">{{ item.raw.flag }}</span>
+                          </template>
+                        </v-list-item>
+                      </template>
+                    </v-select>
+                  </v-card-text>
+                </v-card>
+              </v-window-item>
 
-            <v-combobox
-              v-model="formData.document_types"
-              :label="$t('categories.form.documentTypes')"
-              chips
-              multiple
-              :hint="$t('categories.form.documentTypesHint')"
-            ></v-combobox>
+              <!-- Search Tab -->
+              <v-window-item value="search">
+                <v-alert type="info" variant="tonal" class="mb-4">
+                  {{ $t('categories.form.searchInfo') }}
+                </v-alert>
 
-            <v-divider class="my-4"></v-divider>
-            <h4 class="mb-2">{{ $t('categories.form.languages') }}</h4>
-            <p class="text-caption text-grey mb-2">
-              {{ $t('categories.form.languagesDescription') }}
-            </p>
-            <v-select
-              v-model="formData.languages"
-              :items="availableLanguages"
-              item-title="name"
-              item-value="code"
-              :label="$t('categories.form.languages')"
-              chips
-              multiple
-              closable-chips
-              :hint="$t('categories.form.languagesHint')"
-            >
-              <template v-slot:chip="{ item, props }">
-                <v-chip v-bind="props" color="primary" variant="outlined">
-                  <span class="mr-1">{{ item.raw.flag }}</span>
-                  {{ item.raw.name }}
-                </v-chip>
-              </template>
-              <template v-slot:item="{ item, props }">
-                <v-list-item v-bind="props">
-                  <template v-slot:prepend>
-                    <span class="mr-2">{{ item.raw.flag }}</span>
+                <v-combobox
+                  v-model="formData.search_terms"
+                  :label="$t('categories.form.searchTerms')"
+                  chips
+                  multiple
+                  closable-chips
+                  :hint="$t('categories.form.searchTermsHint')"
+                  persistent-hint
+                  variant="outlined"
+                >
+                  <template v-slot:chip="{ item, props }">
+                    <v-chip v-bind="props" color="primary" variant="tonal">
+                      <v-icon start size="small">mdi-magnify</v-icon>
+                      {{ item.raw }}
+                    </v-chip>
                   </template>
-                </v-list-item>
-              </template>
-            </v-select>
+                </v-combobox>
 
-            <v-divider class="my-4"></v-divider>
-            <h4 class="mb-2">{{ $t('categories.form.urlFiltersTitle') }}</h4>
-            <p class="text-caption text-grey mb-2">
-              {{ $t('categories.form.urlFiltersDescription') }}
-            </p>
+                <v-combobox
+                  v-model="formData.document_types"
+                  :label="$t('categories.form.documentTypes')"
+                  chips
+                  multiple
+                  closable-chips
+                  :hint="$t('categories.form.documentTypesHint')"
+                  persistent-hint
+                  variant="outlined"
+                  class="mt-4"
+                >
+                  <template v-slot:chip="{ item, props }">
+                    <v-chip v-bind="props" color="secondary" variant="tonal">
+                      <v-icon start size="small">mdi-file-document</v-icon>
+                      {{ item.raw }}
+                    </v-chip>
+                  </template>
+                </v-combobox>
 
-            <v-combobox
-              v-model="formData.url_include_patterns"
-              :label="$t('categories.form.includePatterns')"
-              chips
-              multiple
-              closable-chips
-              :hint="$t('categories.form.includeHint')"
-              persistent-hint
-            >
-              <template v-slot:chip="{ item, props }">
-                <v-chip v-bind="props" color="success" variant="outlined">
-                  <v-icon start size="small">mdi-check</v-icon>
-                  {{ item.raw }}
-                </v-chip>
-              </template>
-            </v-combobox>
+                <v-card variant="outlined" class="mt-6">
+                  <v-card-title class="text-subtitle-2 pb-2">
+                    <v-icon start size="small">mdi-clock</v-icon>
+                    {{ $t('categories.form.scheduleTitle') }}
+                  </v-card-title>
+                  <v-card-text>
+                    <v-text-field
+                      v-model="formData.schedule_cron"
+                      :label="$t('categories.form.scheduleCron')"
+                      :hint="$t('categories.form.scheduleCronHint')"
+                      persistent-hint
+                      variant="outlined"
+                      prepend-inner-icon="mdi-timer-cog"
+                    ></v-text-field>
+                  </v-card-text>
+                </v-card>
+              </v-window-item>
 
-            <v-combobox
-              v-model="formData.url_exclude_patterns"
-              :label="$t('categories.form.excludePatterns')"
-              chips
-              multiple
-              closable-chips
-              :hint="$t('categories.form.excludeHint')"
-              persistent-hint
-            >
-              <template v-slot:chip="{ item, props }">
-                <v-chip v-bind="props" color="error" variant="outlined">
-                  <v-icon start size="small">mdi-close</v-icon>
-                  {{ item.raw }}
-                </v-chip>
-              </template>
-            </v-combobox>
+              <!-- URL Filters Tab -->
+              <v-window-item value="filters">
+                <v-alert type="info" variant="tonal" class="mb-4">
+                  {{ $t('categories.form.urlFiltersDescription') }}
+                </v-alert>
 
-            <v-alert v-if="!formData.url_include_patterns?.length && !formData.url_exclude_patterns?.length" type="warning" variant="tonal" density="compact" class="mt-2">
-              <v-icon start>mdi-alert</v-icon>
-              {{ $t('categories.form.noFiltersWarning') }}
-            </v-alert>
+                <v-card variant="outlined" color="success" class="mb-4">
+                  <v-card-title class="text-subtitle-2 pb-2">
+                    <v-icon start size="small" color="success">mdi-check-circle</v-icon>
+                    {{ $t('categories.form.includePatterns') }}
+                  </v-card-title>
+                  <v-card-text>
+                    <v-combobox
+                      v-model="formData.url_include_patterns"
+                      chips
+                      multiple
+                      closable-chips
+                      :hint="$t('categories.form.includeHint')"
+                      persistent-hint
+                      variant="outlined"
+                      :placeholder="$t('categories.form.includePlaceholder')"
+                    >
+                      <template v-slot:chip="{ item, props }">
+                        <v-chip v-bind="props" color="success" variant="tonal">
+                          <v-icon start size="small">mdi-check</v-icon>
+                          {{ item.raw }}
+                        </v-chip>
+                      </template>
+                    </v-combobox>
+                  </v-card-text>
+                </v-card>
 
-            <v-divider class="my-4"></v-divider>
+                <v-card variant="outlined" color="error">
+                  <v-card-title class="text-subtitle-2 pb-2">
+                    <v-icon start size="small" color="error">mdi-close-circle</v-icon>
+                    {{ $t('categories.form.excludePatterns') }}
+                  </v-card-title>
+                  <v-card-text>
+                    <v-combobox
+                      v-model="formData.url_exclude_patterns"
+                      chips
+                      multiple
+                      closable-chips
+                      :hint="$t('categories.form.excludeHint')"
+                      persistent-hint
+                      variant="outlined"
+                      :placeholder="$t('categories.form.excludePlaceholder')"
+                    >
+                      <template v-slot:chip="{ item, props }">
+                        <v-chip v-bind="props" color="error" variant="tonal">
+                          <v-icon start size="small">mdi-close</v-icon>
+                          {{ item.raw }}
+                        </v-chip>
+                      </template>
+                    </v-combobox>
+                  </v-card-text>
+                </v-card>
 
-            <v-text-field
-              v-model="formData.schedule_cron"
-              :label="$t('categories.form.scheduleCron')"
-              :hint="$t('categories.form.scheduleCronHint')"
-            ></v-text-field>
+                <v-alert v-if="!formData.url_include_patterns?.length && !formData.url_exclude_patterns?.length" type="warning" variant="tonal" class="mt-4">
+                  <v-icon start>mdi-alert</v-icon>
+                  {{ $t('categories.form.noFiltersWarning') }}
+                </v-alert>
+              </v-window-item>
 
-            <v-divider class="my-4"></v-divider>
-            <h4 class="mb-2">{{ $t('categories.form.aiPromptTitle') }}</h4>
-            <p class="text-caption text-grey mb-2">
-              {{ $t('categories.form.aiPromptDescription') }}
-            </p>
-            <v-textarea
-              v-model="formData.ai_extraction_prompt"
-              :label="$t('categories.form.aiPrompt')"
-              rows="12"
-              auto-grow
-              variant="outlined"
-              :hint="$t('categories.form.aiPromptHint')"
-            ></v-textarea>
+              <!-- AI Tab -->
+              <v-window-item value="ai">
+                <v-card variant="outlined" class="mb-4">
+                  <v-card-text class="d-flex align-center">
+                    <v-avatar color="purple" size="48" class="mr-4">
+                      <v-icon color="white">mdi-robot</v-icon>
+                    </v-avatar>
+                    <div>
+                      <div class="text-body-1 font-weight-medium">{{ $t('categories.form.aiPromptTitle') }}</div>
+                      <div class="text-caption text-medium-emphasis">{{ $t('categories.form.aiPromptDescription') }}</div>
+                    </div>
+                  </v-card-text>
+                </v-card>
 
-            <v-switch
-              v-model="formData.is_active"
-              :label="$t('categories.form.enabled')"
-              color="success"
-            ></v-switch>
+                <v-textarea
+                  v-model="formData.ai_extraction_prompt"
+                  :label="$t('categories.form.aiPrompt')"
+                  rows="14"
+                  variant="outlined"
+                  :hint="$t('categories.form.aiPromptHint')"
+                  persistent-hint
+                ></v-textarea>
+              </v-window-item>
+            </v-window>
           </v-form>
         </v-card-text>
-        <v-card-actions>
+
+        <v-divider></v-divider>
+
+        <v-card-actions class="pa-4">
+          <v-btn variant="text" @click="dialog = false">{{ $t('common.cancel') }}</v-btn>
           <v-spacer></v-spacer>
-          <v-btn @click="dialog = false">{{ $t('common.cancel') }}</v-btn>
-          <v-btn color="primary" @click="saveCategory">{{ $t('common.save') }}</v-btn>
+          <v-btn color="primary" @click="saveCategory">
+            <v-icon start>mdi-check</v-icon>
+            {{ $t('common.save') }}
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -565,6 +695,7 @@ const router = useRouter()
 const loading = ref(false)
 const categories = ref<any[]>([])
 const dialog = ref(false)
+const categoryTab = ref('general')
 const deleteDialog = ref(false)
 const reanalyzeDialog = ref(false)
 const sourcesDialog = ref(false)
@@ -682,7 +813,7 @@ const headers = [
   { title: t('categories.columns.status'), key: 'is_active' },
   { title: t('categories.columns.sources'), key: 'source_count' },
   { title: t('categories.columns.documents'), key: 'document_count' },
-  { title: t('categories.columns.actions'), key: 'actions', sortable: false },
+  { title: t('categories.columns.actions'), key: 'actions', sortable: false, align: 'end' as const },
 ]
 
 // Helper to get language flag
@@ -981,5 +1112,9 @@ onMounted(() => {
 .sources-list {
   max-height: 400px;
   overflow-y: auto;
+}
+
+.dialog-tabs {
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 </style>

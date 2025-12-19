@@ -147,6 +147,7 @@ class Settings(BaseSettings):
 
     # Feature Flags
     feature_entity_level_facets: bool = False  # Allow assigning facets to individual entities (vs. only at type level)
+    feature_pysis_field_templates: bool = False  # Enable PySis field templates functionality
 
     @field_validator("cors_origins", mode="before")
     @classmethod

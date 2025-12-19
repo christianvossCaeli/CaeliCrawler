@@ -5,6 +5,12 @@
     "entities": "Entities",
     "overview": "Overview",
     "entries": "Entries",
+    "tabs": {
+      "general": "General",
+      "attributes": "Attributes",
+      "location": "Location",
+      "assignment": "Assignment"
+    },
     "properties": "Properties",
     "relations": "Relations",
     "facetValues": "Facet Values",
@@ -52,6 +58,15 @@
     "geoCoordinates": "Geo Coordinates (optional)",
     "latitude": "Latitude",
     "longitude": "Longitude",
+    "latitudeHint": "e.g. 51.1657 (decimal degrees)",
+    "longitudeHint": "e.g. 10.4515 (decimal degrees)",
+    "coordinatesSet": "Coordinates set",
+    "assignedTo": "Assigned to",
+    "createInfo": "After creating the entity, you can add facets (properties) and relations to other entities.",
+    "attributesInfo": "Define the core attributes for this entity based on the schema of the entity type.",
+    "locationInfo": "Optionally specify geographic coordinates for this entity to enable map views.",
+    "assignmentInfo": "Assign a responsible user for this entity who will receive notifications about changes.",
+    "noAttributesConfigured": "No attributes configured for this entity type.",
     "path": "Path",
     "summary": "Summary",
     "filters": {

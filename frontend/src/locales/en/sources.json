@@ -3,6 +3,11 @@
     "title": "Data Sources",
     "source": "Data Source",
     "sources": "Data Sources",
+    "tabs": {
+      "general": "General",
+      "location": "Location",
+      "crawl": "Crawl Settings"
+    },
     "loading": {
       "title": "Loading data",
       "subtitle": "Please wait..."
@@ -44,7 +49,11 @@
       "crawlInterval": "Crawl Interval",
       "enabled": "Active",
       "advancedSettings": "Advanced Crawl Settings",
-      "urlFilters": "URL Filters (Regex)"
+      "urlFilters": "URL Filters (Regex)",
+      "locationInfo": "Assign a geographic location to this data source for filtering and grouping",
+      "maxDepthHint": "How many link levels to follow from the start page",
+      "maxPagesHint": "Maximum number of pages to crawl",
+      "renderJsHint": "Enable for dynamic websites that require JavaScript"
     },
     "types": {
       "WEBSITE": "Website",

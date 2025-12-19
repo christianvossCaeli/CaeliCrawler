@@ -156,177 +156,325 @@
         </template>
 
         <template v-slot:item.actions="{ item }">
-          <div class="table-actions">
-            <v-btn icon="mdi-pencil" size="small" variant="text" :title="$t('sources.actions.edit')" @click="openEditDialog(item)"></v-btn>
-            <v-btn icon="mdi-play" size="small" variant="text" color="success" :title="$t('sources.actions.startCrawl')" @click="startCrawl(item)"></v-btn>
-            <v-btn icon="mdi-refresh" size="small" variant="text" color="warning" :title="$t('sources.actions.reset')" @click="resetSource(item)" v-if="item.status === 'ERROR'"></v-btn>
-            <v-btn icon="mdi-delete" size="small" variant="text" color="error" :title="$t('sources.actions.delete')" @click="confirmDelete(item)"></v-btn>
+          <div class="table-actions d-flex justify-end ga-1">
+            <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="$t('common.edit')" @click="openEditDialog(item)"></v-btn>
+            <v-btn icon="mdi-play" size="small" variant="tonal" color="success" :title="$t('sources.actions.startCrawl')" @click="startCrawl(item)"></v-btn>
+            <v-btn v-if="item.status === 'ERROR'" icon="mdi-refresh" size="small" variant="tonal" color="warning" :title="$t('sources.actions.reset')" @click="resetSource(item)"></v-btn>
+            <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="$t('common.delete')" @click="confirmDelete(item)"></v-btn>
           </div>
         </template>
       </v-data-table-server>
     </v-card>
 
     <!-- Create/Edit Dialog -->
-    <v-dialog v-model="dialog" max-width="800">
+    <v-dialog v-model="dialog" max-width="900" persistent scrollable>
       <v-card>
-        <v-card-title>{{ editMode ? $t('sources.dialog.edit') : $t('sources.dialog.create') }}</v-card-title>
-        <v-card-text>
+        <v-card-title class="d-flex align-center pa-4 bg-primary">
+          <v-avatar color="rgba(255,255,255,0.2)" size="40" class="mr-3">
+            <v-icon color="white">{{ editMode ? 'mdi-database-edit' : 'mdi-database-plus' }}</v-icon>
+          </v-avatar>
+          <div>
+            <div class="text-h6">{{ editMode ? $t('sources.dialog.edit') : $t('sources.dialog.create') }}</div>
+            <div v-if="formData.name" class="text-caption opacity-80">{{ formData.name }}</div>
+          </div>
+        </v-card-title>
+
+        <v-tabs v-model="sourceTab" class="dialog-tabs">
+          <v-tab value="general">
+            <v-icon start>mdi-form-textbox</v-icon>
+            {{ $t('sources.tabs.general') }}
+          </v-tab>
+          <v-tab value="location">
+            <v-icon start>mdi-map-marker</v-icon>
+            {{ $t('sources.tabs.location') }}
+          </v-tab>
+          <v-tab value="crawl">
+            <v-icon start>mdi-cog</v-icon>
+            {{ $t('sources.tabs.crawl') }}
+          </v-tab>
+        </v-tabs>
+
+        <v-card-text class="pa-6" style="min-height: 400px;">
           <v-form ref="form">
-            <div class="d-flex align-center">
-              <v-select
-                v-model="formData.category_ids"
-                :items="categories"
-                item-title="name"
-                item-value="id"
-                :label="$t('sources.form.categories')"
-                required
-                multiple
-                chips
-                closable-chips
-                class="flex-grow-1"
-                :hint="$t('sources.form.categoriesHint')"
-                persistent-hint
-              >
-                <template v-slot:chip="{ item, index }">
-                  <v-chip
-                    :color="index === 0 ? 'primary' : 'default'"
-                    closable
-                    @click:close="formData.category_ids.splice(index, 1)"
-                  >
-                    {{ item.title }}
-                    <v-icon v-if="index === 0" end size="x-small">mdi-star</v-icon>
-                  </v-chip>
-                </template>
-              </v-select>
-              <v-btn
-                icon="mdi-information-outline"
-                variant="text"
-                color="primary"
-                size="small"
-                class="ml-2"
-                :disabled="formData.category_ids.length === 0"
-                @click="showCategoryInfo(formData.category_ids[0])"
-                :title="$t('sources.form.primaryCategory')"
-              ></v-btn>
-            </div>
+            <v-window v-model="sourceTab">
+              <!-- General Tab -->
+              <v-window-item value="general">
+                <v-row>
+                  <v-col cols="12" md="8">
+                    <v-text-field
+                      v-model="formData.name"
+                      :label="$t('sources.form.name')"
+                      required
+                      variant="outlined"
+                      prepend-inner-icon="mdi-database"
+                    ></v-text-field>
+                  </v-col>
+                  <v-col cols="12" md="4">
+                    <v-select
+                      v-model="formData.source_type"
+                      :items="sourceTypeOptions"
+                      item-title="label"
+                      item-value="value"
+                      :label="$t('sources.form.sourceType')"
+                      required
+                      variant="outlined"
+                    >
+                      <template v-slot:item="{ item, props }">
+                        <v-list-item v-bind="props">
+                          <template v-slot:prepend>
+                            <v-icon :color="getTypeColor(item.raw.value)">{{ item.raw.icon }}</v-icon>
+                          </template>
+                        </v-list-item>
+                      </template>
+                    </v-select>
+                  </v-col>
+                </v-row>
 
-            <v-text-field
-              v-model="formData.name"
-              :label="$t('sources.form.name')"
-              required
-            ></v-text-field>
+                <v-text-field
+                  v-model="formData.base_url"
+                  :label="$t('sources.form.baseUrl')"
+                  required
+                  variant="outlined"
+                  :hint="$t('sources.form.baseUrlHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-link"
+                ></v-text-field>
 
-            <v-select
-              v-model="formData.source_type"
-              :items="['WEBSITE', 'OPARL_API', 'RSS', 'CUSTOM_API']"
-              :label="$t('sources.form.sourceType')"
-              required
-            ></v-select>
+                <v-text-field
+                  v-model="formData.api_endpoint"
+                  :label="$t('sources.form.apiEndpoint')"
+                  v-if="formData.source_type === 'OPARL_API' || formData.source_type === 'CUSTOM_API'"
+                  variant="outlined"
+                  prepend-inner-icon="mdi-api"
+                  class="mt-3"
+                ></v-text-field>
 
-            <v-text-field
-              v-model="formData.base_url"
-              :label="$t('sources.form.baseUrl')"
-              required
-              :hint="$t('sources.form.baseUrlHint')"
-            ></v-text-field>
+                <v-card variant="outlined" class="mt-4">
+                  <v-card-title class="text-subtitle-2 pb-2">
+                    <v-icon start size="small">mdi-folder-multiple</v-icon>
+                    {{ $t('sources.form.categories') }}
+                  </v-card-title>
+                  <v-card-text>
+                    <p class="text-caption text-medium-emphasis mb-3">{{ $t('sources.form.categoriesHint') }}</p>
+                    <div class="d-flex align-center">
+                      <v-select
+                        v-model="formData.category_ids"
+                        :items="categories"
+                        item-title="name"
+                        item-value="id"
+                        multiple
+                        chips
+                        closable-chips
+                        class="flex-grow-1"
+                        variant="outlined"
+                        density="comfortable"
+                      >
+                        <template v-slot:chip="{ item, index }">
+                          <v-chip
+                            :color="index === 0 ? 'primary' : 'default'"
+                            closable
+                            @click:close="formData.category_ids.splice(index, 1)"
+                          >
+                            {{ item.title }}
+                            <v-icon v-if="index === 0" end size="x-small">mdi-star</v-icon>
+                          </v-chip>
+                        </template>
+                      </v-select>
+                      <v-btn
+                        icon="mdi-information-outline"
+                        variant="tonal"
+                        color="primary"
+                        size="small"
+                        class="ml-2"
+                        :disabled="formData.category_ids.length === 0"
+                        @click="showCategoryInfo(formData.category_ids[0])"
+                        :title="$t('sources.form.primaryCategory')"
+                      ></v-btn>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-window-item>
 
-            <v-text-field
-              v-model="formData.api_endpoint"
-              :label="$t('sources.form.apiEndpoint')"
-              v-if="formData.source_type === 'OPARL_API' || formData.source_type === 'CUSTOM_API'"
-            ></v-text-field>
+              <!-- Location Tab -->
+              <v-window-item value="location">
+                <v-alert type="info" variant="tonal" class="mb-4">
+                  {{ $t('sources.form.locationInfo') }}
+                </v-alert>
 
-            <v-select
-              v-model="formData.country"
-              :items="countryOptions"
-              item-title="label"
-              item-value="value"
-              :label="$t('sources.filters.country')"
-            ></v-select>
+                <v-row>
+                  <v-col cols="12" md="4">
+                    <v-select
+                      v-model="formData.country"
+                      :items="countryOptions"
+                      item-title="label"
+                      item-value="value"
+                      :label="$t('sources.filters.country')"
+                      variant="outlined"
+                      prepend-inner-icon="mdi-flag"
+                    ></v-select>
+                  </v-col>
+                  <v-col cols="12" md="8">
+                    <v-autocomplete
+                      v-model="selectedLocation"
+                      v-model:search="locationSearch"
+                      :items="locationItems"
+                      :loading="locationLoading"
+                      item-title="name"
+                      item-value="id"
+                      return-object
+                      :label="$t('sources.form.location')"
+                      :hint="$t('sources.form.locationHint')"
+                      persistent-hint
+                      clearable
+                      no-filter
+                      variant="outlined"
+                      prepend-inner-icon="mdi-map-marker"
+                      @update:model-value="(val: any) => {
+                        formData.location_id = val?.id || null
+                        formData.location_name = val?.name || ''
+                        formData.admin_level_1 = val?.admin_level_1 || ''
+                      }"
+                    >
+                      <template v-slot:item="{ item, props }">
+                        <v-list-item v-bind="props" :title="item.raw.name" :subtitle="`${item.raw.admin_level_1 || ''} ${item.raw.admin_level_2 ? '• ' + item.raw.admin_level_2 : ''}`"></v-list-item>
+                      </template>
+                      <template v-slot:no-data>
+                        <v-list-item>
+                          <v-list-item-title>
+                            {{ locationSearch?.length >= 2 ? $t('sources.filters.noLocations') : $t('sources.filters.minChars') }}
+                          </v-list-item-title>
+                        </v-list-item>
+                      </template>
+                    </v-autocomplete>
+                  </v-col>
+                </v-row>
 
-            <v-autocomplete
-              v-model="selectedLocation"
-              v-model:search="locationSearch"
-              :items="locationItems"
-              :loading="locationLoading"
-              item-title="name"
-              item-value="id"
-              return-object
-              :label="$t('sources.form.location')"
-              :hint="$t('sources.form.locationHint')"
-              persistent-hint
-              clearable
-              no-filter
-              @update:model-value="(val: any) => {
-                formData.location_id = val?.id || null
-                formData.location_name = val?.name || ''
-                formData.admin_level_1 = val?.admin_level_1 || ''
-              }"
-            >
-              <template v-slot:item="{ item, props }">
-                <v-list-item v-bind="props" :title="item.raw.name" :subtitle="`${item.raw.admin_level_1 || ''} ${item.raw.admin_level_2 ? '• ' + item.raw.admin_level_2 : ''}`"></v-list-item>
-              </template>
-              <template v-slot:no-data>
-                <v-list-item>
-                  <v-list-item-title>
-                    {{ locationSearch?.length >= 2 ? $t('sources.filters.noLocations') : $t('sources.filters.minChars') }}
-                  </v-list-item-title>
-                </v-list-item>
-              </template>
-            </v-autocomplete>
+                <v-card v-if="selectedLocation" variant="tonal" color="success" class="mt-4">
+                  <v-card-text class="d-flex align-center">
+                    <v-icon color="success" class="mr-3">mdi-check-circle</v-icon>
+                    <div>
+                      <div class="font-weight-medium">{{ selectedLocation.name }}</div>
+                      <div class="text-caption">{{ selectedLocation.admin_level_1 }}</div>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-window-item>
 
-            <v-expansion-panels class="mt-4">
-              <v-expansion-panel :title="$t('sources.form.advancedSettings')">
-                <v-expansion-panel-text>
-                  <v-text-field
-                    v-model.number="formData.crawl_config.max_depth"
-                    :label="$t('sources.form.maxDepth')"
-                    type="number"
-                  ></v-text-field>
-                  <v-text-field
-                    v-model.number="formData.crawl_config.max_pages"
-                    :label="$t('sources.form.maxPages')"
-                    type="number"
-                  ></v-text-field>
-                  <v-switch
-                    v-model="formData.crawl_config.render_javascript"
-                    :label="$t('sources.form.renderJs')"
-                  ></v-switch>
+              <!-- Crawl Settings Tab -->
+              <v-window-item value="crawl">
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model.number="formData.crawl_config.max_depth"
+                      :label="$t('sources.form.maxDepth')"
+                      type="number"
+                      variant="outlined"
+                      :hint="$t('sources.form.maxDepthHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-arrow-expand-down"
+                    ></v-text-field>
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model.number="formData.crawl_config.max_pages"
+                      :label="$t('sources.form.maxPages')"
+                      type="number"
+                      variant="outlined"
+                      :hint="$t('sources.form.maxPagesHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-file-multiple"
+                    ></v-text-field>
+                  </v-col>
+                </v-row>
 
-                  <v-divider class="my-4"></v-divider>
-                  <div class="text-subtitle-2 mb-2">{{ t('sources.form.urlFilters') }}</div>
+                <v-card variant="outlined" class="mt-4 pa-3">
+                  <div class="d-flex align-center justify-space-between">
+                    <div>
+                      <div class="text-body-2 font-weight-medium">{{ $t('sources.form.renderJs') }}</div>
+                      <div class="text-caption text-medium-emphasis">{{ $t('sources.form.renderJsHint') }}</div>
+                    </div>
+                    <v-switch
+                      v-model="formData.crawl_config.render_javascript"
+                      color="primary"
+                      hide-details
+                    ></v-switch>
+                  </div>
+                </v-card>
 
-                  <v-combobox
-                    v-model="formData.crawl_config.url_include_patterns"
-                    :label="$t('sources.form.includePatterns')"
-                    :hint="$t('sources.form.includeHint')"
-                    persistent-hint
-                    multiple
-                    chips
-                    closable-chips
-                    clearable
-                    class="mb-3"
-                  ></v-combobox>
+                <v-divider class="my-6"></v-divider>
 
-                  <v-combobox
-                    v-model="formData.crawl_config.url_exclude_patterns"
-                    :label="$t('sources.form.excludePatterns')"
-                    :hint="$t('sources.form.excludeHint')"
-                    persistent-hint
-                    multiple
-                    chips
-                    closable-chips
-                    clearable
-                  ></v-combobox>
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-            </v-expansion-panels>
+                <div class="text-subtitle-2 mb-4">
+                  <v-icon start size="small">mdi-filter</v-icon>
+                  {{ $t('sources.form.urlFilters') }}
+                </div>
+
+                <v-card variant="outlined" color="success" class="mb-4">
+                  <v-card-title class="text-subtitle-2 pb-2">
+                    <v-icon start size="small" color="success">mdi-check-circle</v-icon>
+                    {{ $t('sources.form.includePatterns') }}
+                  </v-card-title>
+                  <v-card-text>
+                    <v-combobox
+                      v-model="formData.crawl_config.url_include_patterns"
+                      :hint="$t('sources.form.includeHint')"
+                      persistent-hint
+                      multiple
+                      chips
+                      closable-chips
+                      clearable
+                      variant="outlined"
+                      density="comfortable"
+                    >
+                      <template v-slot:chip="{ item, props }">
+                        <v-chip v-bind="props" color="success" variant="tonal">
+                          <v-icon start size="small">mdi-check</v-icon>
+                          {{ item.raw }}
+                        </v-chip>
+                      </template>
+                    </v-combobox>
+                  </v-card-text>
+                </v-card>
+
+                <v-card variant="outlined" color="error">
+                  <v-card-title class="text-subtitle-2 pb-2">
+                    <v-icon start size="small" color="error">mdi-close-circle</v-icon>
+                    {{ $t('sources.form.excludePatterns') }}
+                  </v-card-title>
+                  <v-card-text>
+                    <v-combobox
+                      v-model="formData.crawl_config.url_exclude_patterns"
+                      :hint="$t('sources.form.excludeHint')"
+                      persistent-hint
+                      multiple
+                      chips
+                      closable-chips
+                      clearable
+                      variant="outlined"
+                      density="comfortable"
+                    >
+                      <template v-slot:chip="{ item, props }">
+                        <v-chip v-bind="props" color="error" variant="tonal">
+                          <v-icon start size="small">mdi-close</v-icon>
+                          {{ item.raw }}
+                        </v-chip>
+                      </template>
+                    </v-combobox>
+                  </v-card-text>
+                </v-card>
+              </v-window-item>
+            </v-window>
           </v-form>
         </v-card-text>
-        <v-card-actions>
+
+        <v-divider></v-divider>
+
+        <v-card-actions class="pa-4">
+          <v-btn variant="text" @click="dialog = false">{{ $t('common.cancel') }}</v-btn>
           <v-spacer></v-spacer>
-          <v-btn @click="dialog = false">{{ $t('common.cancel') }}</v-btn>
-          <v-btn color="primary" @click="saveSource">{{ $t('common.save') }}</v-btn>
+          <v-btn color="primary" @click="saveSource">
+            <v-icon start>mdi-check</v-icon>
+            {{ $t('common.save') }}
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -516,6 +664,14 @@ const currentPage = ref(1)
 const itemsPerPage = ref(50)
 const categories = ref<any[]>([])
 const dialog = ref(false)
+const sourceTab = ref('general')
+
+const sourceTypeOptions = [
+  { value: 'WEBSITE', label: 'Website', icon: 'mdi-web' },
+  { value: 'OPARL_API', label: 'OParl API', icon: 'mdi-api' },
+  { value: 'RSS', label: 'RSS Feed', icon: 'mdi-rss' },
+  { value: 'CUSTOM_API', label: 'Custom API', icon: 'mdi-code-json' },
+]
 const bulkDialog = ref(false)
 const deleteDialog = ref(false)
 const categoryInfoDialog = ref(false)
@@ -713,7 +869,7 @@ const headers = [
   { title: t('sources.columns.status'), key: 'status' },
   { title: t('sources.columns.lastCrawl'), key: 'last_crawl' },
   { title: t('sources.columns.documents'), key: 'document_count' },
-  { title: t('sources.columns.actions'), key: 'actions', sortable: false },
+  { title: t('sources.columns.actions'), key: 'actions', sortable: false, align: 'end' as const },
 ]
 
 const getTypeColor = (type: string) => {
@@ -941,3 +1097,9 @@ onMounted(() => {
   searchLocationFilter('')
 })
 </script>
+
+<style scoped>
+.dialog-tabs {
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+</style>

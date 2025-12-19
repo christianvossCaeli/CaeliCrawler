@@ -3,6 +3,12 @@
     "title": "Kategorien",
     "category": "Kategorie",
     "categories": "Kategorien",
+    "tabs": {
+      "general": "Allgemein",
+      "search": "Suche",
+      "filters": "URL-Filter",
+      "ai": "KI"
+    },
     "filters": {
       "search": "Suche (Name/Zweck)",
       "status": "Status",
@@ -38,7 +44,13 @@
       "aiPrompt": "KI-Extraktions-Prompt",
       "aiPromptHint": "Definieren Sie das JSON-Format und die Extraktionsregeln",
       "keywords": "Schlüsselwörter",
-      "enabled": "Aktiv"
+      "enabled": "Aktiv",
+      "enabledHint": "Inaktive Kategorien werden nicht gecrawlt",
+      "purposeHint": "Beschreiben Sie, was die KI in dieser Kategorie analysieren soll",
+      "searchInfo": "Suchbegriffe und Dokumenttypen helfen dem Crawler, relevante Dokumente zu finden",
+      "scheduleTitle": "Zeitplanung",
+      "includePlaceholder": "z.B. /dokumente/",
+      "excludePlaceholder": "z.B. /archiv/"
     },
     "columns": {
       "name": "Name",

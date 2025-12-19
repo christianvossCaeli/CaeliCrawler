@@ -108,7 +108,7 @@ async def execute_smart_query(
 
     # Calculate time boundaries
     now = datetime.utcnow()
-    days_ahead = filters.get("date_range_days", 90)
+    days_ahead = filters.get("date_range_days") or 90  # Default to 90 days
     future_cutoff = now + timedelta(days=days_ahead)
 
     # Get relation types for enrichment

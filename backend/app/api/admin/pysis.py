@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_session
 from app.models.pysis import (
     PySisFieldTemplate,
@@ -45,9 +46,16 @@ from app.schemas.pysis import (
     PySisAnalyzeForFacetsResult,
 )
 from app.schemas.common import MessageResponse
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import NotFoundError, ValidationError, FeatureDisabledError
 
 router = APIRouter()
+
+
+def require_templates_feature():
+    """Dependency that checks if the PySis field templates feature is enabled."""
+    if not settings.feature_pysis_field_templates:
+        raise FeatureDisabledError("pysis_field_templates")
+    return True
 
 
 # === Templates ===
@@ -56,6 +64,7 @@ router = APIRouter()
 async def list_templates(
     is_active: Optional[bool] = Query(default=None),
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_templates_feature),
 ):
     """List all field templates."""
     query = select(PySisFieldTemplate)
@@ -76,6 +85,7 @@ async def list_templates(
 async def create_template(
     data: PySisFieldTemplateCreate,
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_templates_feature),
 ):
     """Create a new field template."""
     template = PySisFieldTemplate(
@@ -94,6 +104,7 @@ async def create_template(
 async def get_template(
     template_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_templates_feature),
 ):
     """Get a template by ID."""
     template = await session.get(PySisFieldTemplate, template_id)
@@ -107,6 +118,7 @@ async def update_template(
     template_id: UUID,
     data: PySisFieldTemplateUpdate,
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_templates_feature),
 ):
     """Update a template."""
     template = await session.get(PySisFieldTemplate, template_id)
@@ -131,6 +143,7 @@ async def update_template(
 async def delete_template(
     template_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_templates_feature),
 ):
     """Delete a template."""
     template = await session.get(PySisFieldTemplate, template_id)
@@ -173,20 +186,24 @@ async def create_process(
     session: AsyncSession = Depends(get_session),
 ):
     """Create a new PySis process link for a location."""
+    # Check if template feature is enabled when template_id is provided
+    if data.template_id and not settings.feature_pysis_field_templates:
+        raise FeatureDisabledError("pysis_field_templates")
+
     process = PySisProcess(
         entity_name=location_name,
         pysis_process_id=data.pysis_process_id,
         name=data.name,
         description=data.description,
-        template_id=data.template_id,
+        template_id=data.template_id if settings.feature_pysis_field_templates else None,
         sync_status=SyncStatus.NEVER,
     )
     session.add(process)
     await session.commit()
     await session.refresh(process)
 
-    # If template provided, apply it
-    if data.template_id:
+    # If template provided and feature enabled, apply it
+    if data.template_id and settings.feature_pysis_field_templates:
         template = await session.get(PySisFieldTemplate, data.template_id)
         if template:
             for field_def in template.fields:
@@ -268,6 +285,7 @@ async def apply_template_to_process(
     process_id: UUID,
     data: ApplyTemplateRequest,
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_templates_feature),
 ):
     """
     Apply a template to a process.

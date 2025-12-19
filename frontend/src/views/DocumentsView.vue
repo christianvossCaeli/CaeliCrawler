@@ -303,12 +303,12 @@
         </template>
 
         <template v-slot:item.actions="{ item }">
-          <div class="table-actions">
-            <v-btn v-if="item.processing_status === 'PENDING'" icon="mdi-play" size="small" variant="text" color="primary" title="Verarbeiten" :loading="processingIds.has(item.id)" @click="processDocument(item)"></v-btn>
-            <v-btn v-if="item.processing_status === 'COMPLETED' || item.processing_status === 'FILTERED'" icon="mdi-brain" size="small" variant="text" color="purple" title="KI-Analyse" :loading="analyzingIds.has(item.id)" @click="analyzeDocument(item)"></v-btn>
-            <v-btn v-if="item.file_path" icon="mdi-download" size="small" variant="text" color="success" title="Herunterladen" @click="downloadDocument(item)"></v-btn>
-            <v-btn icon="mdi-open-in-new" size="small" variant="text" title="Original öffnen" :href="item.original_url" target="_blank"></v-btn>
-            <v-btn icon="mdi-information" size="small" variant="text" title="Details" @click="showDetails(item)"></v-btn>
+          <div class="table-actions d-flex justify-end ga-1">
+            <v-btn v-if="item.processing_status === 'PENDING'" icon="mdi-play" size="small" variant="tonal" color="primary" :title="$t('documents.actions.process')" :loading="processingIds.has(item.id)" @click="processDocument(item)"></v-btn>
+            <v-btn v-if="item.processing_status === 'COMPLETED' || item.processing_status === 'FILTERED'" icon="mdi-brain" size="small" variant="tonal" color="purple" :title="$t('documents.actions.analyze')" :loading="analyzingIds.has(item.id)" @click="analyzeDocument(item)"></v-btn>
+            <v-btn v-if="item.file_path" icon="mdi-download" size="small" variant="tonal" color="success" :title="$t('common.download')" @click="downloadDocument(item)"></v-btn>
+            <v-btn icon="mdi-open-in-new" size="small" variant="tonal" :title="$t('common.open')" :href="item.original_url" target="_blank"></v-btn>
+            <v-btn icon="mdi-information" size="small" variant="tonal" :title="$t('common.details')" @click="showDetails(item)"></v-btn>
           </div>
         </template>
       </v-data-table-server>
@@ -479,7 +479,7 @@ const headers = [
   { title: t('documents.columns.category'), key: 'category_name', width: '150px', sortable: true },
   { title: t('documents.columns.discovered'), key: 'discovered_at', width: '110px', sortable: true },
   { title: t('documents.columns.size'), key: 'file_size', width: '80px', sortable: true },
-  { title: t('common.actions'), key: 'actions', sortable: false, width: '170px' },
+  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' as const },
 ]
 
 const hasActiveFilters = computed(() =>

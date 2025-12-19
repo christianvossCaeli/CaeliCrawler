@@ -195,6 +195,7 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         """Get feature flags for the frontend."""
         return {
             "entityLevelFacets": settings.feature_entity_level_facets,
+            "pysisFieldTemplates": settings.feature_pysis_field_templates,
         }
 
     # Root endpoint

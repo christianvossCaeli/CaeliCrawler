@@ -18,6 +18,8 @@ from app.schemas.facet_type import (
     FacetTypeUpdate,
     FacetTypeResponse,
     FacetTypeListResponse,
+    FacetTypeSchemaGenerateRequest,
+    FacetTypeSchemaGenerateResponse,
     generate_slug,
 )
 from app.schemas.facet_value import (
@@ -177,6 +179,110 @@ async def get_facet_type_by_slug(
     response.value_count = value_count
 
     return response
+
+
+@router.post("/types/generate-schema", response_model=FacetTypeSchemaGenerateResponse)
+async def generate_facet_type_schema(
+    data: FacetTypeSchemaGenerateRequest,
+):
+    """
+    Generate facet type schema and configuration using AI.
+
+    Takes the facet name, description, and applicable entity types as input
+    and generates:
+    - JSON Schema for the value structure
+    - Recommended value type
+    - Deduplication fields
+    - Time-based settings if applicable
+    - AI extraction prompt
+    - Suggested icon and color
+    """
+    from services.ai_service import AIService
+
+    ai_service = AIService()
+
+    entity_context = ""
+    if data.applicable_entity_types:
+        entity_context = f"\nDieser Facet-Typ wird für folgende Entity-Typen verwendet: {', '.join(data.applicable_entity_types)}"
+
+    system_prompt = """Du bist ein Experte für Datenmodellierung und JSON Schema Design.
+Deine Aufgabe ist es, ein passendes Schema und Konfiguration für einen neuen Facet-Typ zu erstellen.
+
+Ein Facet-Typ definiert eine Art von Information, die zu Entities (wie Gemeinden, Personen, Organisationen) erfasst werden kann.
+Beispiele für Facet-Typen: "Pain Point" (Probleme/Herausforderungen), "Kontakt" (Kontaktpersonen), "Event" (Termine/Veranstaltungen).
+
+Beachte folgende Richtlinien:
+1. Das JSON Schema sollte alle relevanten Felder für diesen Informationstyp enthalten
+2. Verwende deutsche Feldnamen und Beschreibungen
+3. Wähle einen passenden Werttyp: "text" für einfache Texte, "structured" für komplexe Objekte, "list" für Listen
+4. Bei zeitbezogenen Facets (Events, Termine) setze is_time_based=true und gib den Pfad zum Datumsfeld an
+5. Definiere Deduplikationsfelder um Duplikate zu erkennen
+6. Erstelle einen AI-Extraktions-Prompt der beschreibt, wie diese Information aus Dokumenten extrahiert werden soll
+7. Wähle ein passendes Material Design Icon (mdi-*) und eine Farbe
+
+Antworte im JSON-Format."""
+
+    user_prompt = f"""Erstelle ein Schema und Konfiguration für folgenden Facet-Typ:
+
+Name: {data.name}
+Plural: {data.name_plural or data.name + 's'}
+Beschreibung: {data.description or 'Keine Beschreibung angegeben'}{entity_context}
+
+Generiere ein JSON mit folgender Struktur:
+{{
+  "value_type": "structured|text|list",
+  "value_schema": {{ ... JSON Schema ... }},
+  "deduplication_fields": ["feld1", "feld2"],
+  "is_time_based": true|false,
+  "time_field_path": "datum" oder null,
+  "ai_extraction_prompt": "Prompt für KI-Extraktion...",
+  "icon": "mdi-icon-name",
+  "color": "#hexcolor"
+}}"""
+
+    try:
+        result = await ai_service.analyze_custom(
+            text="",  # No document text needed
+            prompt=user_prompt,
+            system_context=system_prompt,
+        )
+
+        # Parse the AI response
+        generated = result.extracted_data if hasattr(result, 'extracted_data') else {}
+
+        return FacetTypeSchemaGenerateResponse(
+            value_type=generated.get("value_type", "structured"),
+            value_schema=generated.get("value_schema"),
+            deduplication_fields=generated.get("deduplication_fields", []),
+            is_time_based=generated.get("is_time_based", False),
+            time_field_path=generated.get("time_field_path"),
+            ai_extraction_prompt=generated.get("ai_extraction_prompt"),
+            icon=generated.get("icon", "mdi-tag"),
+            color=generated.get("color", "#607D8B"),
+        )
+    except Exception as e:
+        # Return sensible defaults on error
+        import structlog
+        logger = structlog.get_logger()
+        logger.error("Schema generation failed", error=str(e))
+
+        return FacetTypeSchemaGenerateResponse(
+            value_type="structured",
+            value_schema={
+                "type": "object",
+                "properties": {
+                    "beschreibung": {"type": "string", "description": "Beschreibung"},
+                },
+                "required": ["beschreibung"],
+            },
+            deduplication_fields=["beschreibung"],
+            is_time_based=False,
+            ai_extraction_prompt=f"Extrahiere alle {data.name} Informationen aus dem Dokument.",
+            icon="mdi-tag",
+            color="#607D8B",
+        )
+    finally:
+        await ai_service.close()
 
 
 @router.put("/types/{facet_type_id}", response_model=FacetTypeResponse)
@@ -509,12 +615,31 @@ async def get_entity_facets_summary(
         raise NotFoundError("Entity", str(entity_id))
 
     entity_type = await session.get(EntityType, entity.entity_type_id)
+    entity_type_slug = entity_type.slug if entity_type else None
 
-    # Base query for facet values
+    # Build subquery for applicable facet types based on entity type
+    # A FacetType is applicable if:
+    # 1. applicable_entity_type_slugs is empty (applies to all entity types), OR
+    # 2. applicable_entity_type_slugs contains the current entity's type slug
+    if entity_type_slug:
+        applicable_facet_types_subq = select(FacetType.id).where(
+            or_(
+                FacetType.applicable_entity_type_slugs == [],  # Empty = applies to all
+                FacetType.applicable_entity_type_slugs.any(entity_type_slug)  # Contains this type
+            )
+        )
+    else:
+        # If entity has no type, only show facets that apply to all
+        applicable_facet_types_subq = select(FacetType.id).where(
+            FacetType.applicable_entity_type_slugs == []
+        )
+
+    # Base query for facet values - only include values from applicable facet types
     query = select(FacetValue).where(
         FacetValue.entity_id == entity_id,
         FacetValue.is_active == True,
         FacetValue.confidence_score >= min_confidence,
+        FacetValue.facet_type_id.in_(applicable_facet_types_subq),
     )
 
     if category_id:
@@ -541,25 +666,57 @@ async def get_entity_facets_summary(
     result = await session.execute(query)
     values = result.scalars().all()
 
-    # Group by facet type
+    # Group values by facet type
     by_facet_type: Dict[UUID, List[FacetValue]] = {}
     for fv in values:
         if fv.facet_type_id not in by_facet_type:
             by_facet_type[fv.facet_type_id] = []
         by_facet_type[fv.facet_type_id].append(fv)
 
-    # Build aggregated facets
+    # Load ALL applicable facet types for this entity type (including those without values)
+    if entity_type_slug:
+        applicable_types_query = select(FacetType).where(
+            FacetType.is_active == True,
+            or_(
+                FacetType.applicable_entity_type_slugs == [],  # Empty = applies to all
+                FacetType.applicable_entity_type_slugs.any(entity_type_slug)  # Contains this type
+            )
+        ).order_by(FacetType.display_order, FacetType.name)
+    else:
+        applicable_types_query = select(FacetType).where(
+            FacetType.is_active == True,
+            FacetType.applicable_entity_type_slugs == []
+        ).order_by(FacetType.display_order, FacetType.name)
+
+    applicable_types_result = await session.execute(applicable_types_query)
+    applicable_facet_types = applicable_types_result.scalars().all()
+
+    # Build aggregated facets for ALL applicable types (even without values)
     facets_by_type = []
     total_values = 0
     verified_count = 0
 
-    for facet_type_id, type_values in by_facet_type.items():
-        facet_type = await session.get(FacetType, facet_type_id)
-        if not facet_type:
-            continue
+    for facet_type in applicable_facet_types:
+        type_values = by_facet_type.get(facet_type.id, [])
 
-        avg_confidence = sum(v.confidence_score or 0 for v in type_values) / len(type_values)
-        type_verified_count = sum(1 for v in type_values if v.human_verified)
+        if type_values:
+            avg_confidence = sum(v.confidence_score or 0 for v in type_values) / len(type_values)
+            type_verified_count = sum(1 for v in type_values if v.human_verified)
+            latest_value = max((v.created_at for v in type_values), default=None)
+            sample_values = [
+                {
+                    "id": str(v.id),
+                    "value": v.value,
+                    "text": v.text_representation,
+                    "confidence": v.confidence_score,
+                }
+                for v in sorted(type_values, key=lambda x: x.confidence_score or 0, reverse=True)[:3]
+            ]
+        else:
+            avg_confidence = 0.0
+            type_verified_count = 0
+            latest_value = None
+            sample_values = []
 
         facets_by_type.append(FacetValueAggregated(
             facet_type_id=facet_type.id,
@@ -571,16 +728,8 @@ async def get_entity_facets_summary(
             value_count=len(type_values),
             verified_count=type_verified_count,
             avg_confidence=round(avg_confidence, 2),
-            latest_value=max((v.created_at for v in type_values), default=None),
-            sample_values=[
-                {
-                    "id": str(v.id),
-                    "value": v.value,
-                    "text": v.text_representation,
-                    "confidence": v.confidence_score,
-                }
-                for v in sorted(type_values, key=lambda x: x.confidence_score or 0, reverse=True)[:3]
-            ],
+            latest_value=latest_value,
+            sample_values=sample_values,
         ))
 
         total_values += len(type_values)

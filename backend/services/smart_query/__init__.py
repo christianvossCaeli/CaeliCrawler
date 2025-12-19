@@ -105,6 +105,26 @@ class SmartQueryService:
         self.logger.info("executing_query", query=query)
         return await smart_query(self.db, query, allow_write=False)
 
+    async def smart_query(
+        self,
+        query: str,
+        allow_write: bool = False,
+        current_user_id: Optional[UUID] = None
+    ) -> Dict[str, Any]:
+        """
+        Execute a natural language query with optional write support.
+
+        Args:
+            query: Natural language query string
+            allow_write: Whether to allow write operations
+            current_user_id: Optional user ID for tracking
+
+        Returns:
+            Query results as dictionary
+        """
+        self.logger.info("smart_query", query=query, allow_write=allow_write)
+        return await smart_query(self.db, query, allow_write=allow_write, current_user_id=current_user_id)
+
 
 async def smart_query(
     session: AsyncSession,

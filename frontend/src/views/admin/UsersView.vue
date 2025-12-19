@@ -96,98 +96,96 @@
 
         <!-- Actions Column -->
         <template #item.actions="{ item }">
-          <v-btn
-            icon
-            variant="text"
-            size="small"
-            @click="openEditDialog(item)"
-          >
-            <v-icon>mdi-pencil</v-icon>
-            <v-tooltip activator="parent">{{ t('admin.users.actions.edit') }}</v-tooltip>
-          </v-btn>
-          <v-btn
-            icon
-            variant="text"
-            size="small"
-            @click="openPasswordDialog(item)"
-          >
-            <v-icon>mdi-lock-reset</v-icon>
-            <v-tooltip activator="parent">{{ t('admin.users.actions.resetPassword') }}</v-tooltip>
-          </v-btn>
-          <v-btn
-            icon
-            variant="text"
-            size="small"
-            color="error"
-            :disabled="item.id === currentUser?.id"
-            @click="confirmDelete(item)"
-          >
-            <v-icon>mdi-delete</v-icon>
-            <v-tooltip activator="parent">{{ t('admin.users.actions.delete') }}</v-tooltip>
-          </v-btn>
+          <div class="d-flex justify-end ga-1">
+            <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="t('common.edit')" @click="openEditDialog(item)"></v-btn>
+            <v-btn icon="mdi-lock-reset" size="small" variant="tonal" :title="t('admin.users.actions.resetPassword')" @click="openPasswordDialog(item)"></v-btn>
+            <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="t('common.delete')" :disabled="item.id === currentUser?.id" @click="confirmDelete(item)"></v-btn>
+          </div>
         </template>
       </v-data-table-server>
     </v-card>
 
     <!-- Create/Edit Dialog -->
-    <v-dialog v-model="dialogOpen" max-width="500">
+    <v-dialog v-model="dialogOpen" max-width="550">
       <v-card>
-        <v-card-title>
-          {{ editingUser ? t('admin.users.dialog.editTitle') : t('admin.users.dialog.createTitle') }}
+        <v-card-title class="d-flex align-center pa-4 bg-primary">
+          <v-avatar :color="editingUser ? 'white' : 'rgba(255,255,255,0.2)'" size="40" class="mr-3">
+            <v-icon :color="editingUser ? 'primary' : 'white'">{{ editingUser ? 'mdi-account-edit' : 'mdi-account-plus' }}</v-icon>
+          </v-avatar>
+          <div>
+            <div class="text-h6">{{ editingUser ? t('admin.users.dialog.editTitle') : t('admin.users.dialog.createTitle') }}</div>
+            <div v-if="editingUser" class="text-caption opacity-80">{{ editingUser.email }}</div>
+          </div>
         </v-card-title>
-        <v-card-text>
+        <v-card-text class="pa-6">
           <v-form ref="formRef" @submit.prevent="saveUser">
-            <v-text-field
-              v-model="formData.email"
-              :label="t('admin.users.form.email')"
-              type="email"
-              :rules="[required, emailRule]"
-              variant="outlined"
-              class="mb-3"
-            />
-            <v-text-field
-              v-model="formData.full_name"
-              :label="t('admin.users.form.name')"
-              :rules="[required]"
-              variant="outlined"
-              class="mb-3"
-            />
-            <v-text-field
-              v-if="!editingUser"
-              v-model="formData.password"
-              :label="t('admin.users.form.password')"
-              type="password"
-              :rules="[required, passwordValidRule]"
-              variant="outlined"
-              class="mb-1"
-            />
-            <PasswordStrengthIndicator
-              v-if="!editingUser && formData.password"
-              :password="formData.password"
-              :show-requirements="true"
-              class="mb-3"
-              @update:is-valid="passwordValid = $event"
-            />
-            <v-select
-              v-model="formData.role"
-              :label="t('admin.users.form.role')"
-              :items="roleOptions"
-              :rules="[required]"
-              variant="outlined"
-              class="mb-3"
-            />
-            <v-switch
-              v-model="formData.is_active"
-              :label="t('admin.users.form.active')"
-              color="success"
-              :disabled="editingUser?.id === currentUser?.id"
-            />
+            <v-row>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="formData.email"
+                  :label="t('admin.users.form.email')"
+                  type="email"
+                  :rules="[required, emailRule]"
+                  variant="outlined"
+                  prepend-inner-icon="mdi-email"
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="formData.full_name"
+                  :label="t('admin.users.form.name')"
+                  :rules="[required]"
+                  variant="outlined"
+                  prepend-inner-icon="mdi-account"
+                />
+              </v-col>
+              <v-col v-if="!editingUser" cols="12">
+                <v-text-field
+                  v-model="formData.password"
+                  :label="t('admin.users.form.password')"
+                  type="password"
+                  :rules="[required, passwordValidRule]"
+                  variant="outlined"
+                  prepend-inner-icon="mdi-lock"
+                />
+                <PasswordStrengthIndicator
+                  v-if="formData.password"
+                  :password="formData.password"
+                  :show-requirements="true"
+                  class="mt-2"
+                  @update:is-valid="passwordValid = $event"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-select
+                  v-model="formData.role"
+                  :label="t('admin.users.form.role')"
+                  :items="roleOptions"
+                  :rules="[required]"
+                  variant="outlined"
+                  prepend-inner-icon="mdi-shield-account"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-card variant="outlined" class="pa-3 h-100 d-flex align-center">
+                  <v-switch
+                    v-model="formData.is_active"
+                    :label="t('admin.users.form.active')"
+                    color="success"
+                    hide-details
+                    :disabled="editingUser?.id === currentUser?.id"
+                  />
+                </v-card>
+              </v-col>
+            </v-row>
           </v-form>
         </v-card-text>
-        <v-card-actions>
-          <v-spacer />
+        <v-divider />
+        <v-card-actions class="pa-4">
           <v-btn variant="text" @click="dialogOpen = false">{{ t('common.cancel') }}</v-btn>
+          <v-spacer />
           <v-btn color="primary" :loading="saving" @click="saveUser">
+            <v-icon start>mdi-check</v-icon>
             {{ t('common.save') }}
           </v-btn>
         </v-card-actions>
@@ -195,39 +193,50 @@
     </v-dialog>
 
     <!-- Password Reset Dialog -->
-    <v-dialog v-model="passwordDialogOpen" max-width="400">
+    <v-dialog v-model="passwordDialogOpen" max-width="450">
       <v-card>
-        <v-card-title>{{ t('admin.users.dialog.resetPasswordTitle') }}</v-card-title>
-        <v-card-text>
-          <p class="mb-4">
-            {{ t('admin.users.resetPasswordFor') }} <strong>{{ selectedUser?.email }}</strong>:
-          </p>
+        <v-card-title class="d-flex align-center pa-4 bg-warning">
+          <v-avatar color="rgba(255,255,255,0.2)" size="40" class="mr-3">
+            <v-icon color="white">mdi-lock-reset</v-icon>
+          </v-avatar>
+          <div>
+            <div class="text-h6">{{ t('admin.users.dialog.resetPasswordTitle') }}</div>
+            <div class="text-caption opacity-80">{{ selectedUser?.email }}</div>
+          </div>
+        </v-card-title>
+        <v-card-text class="pa-6">
+          <v-alert type="info" variant="tonal" class="mb-4">
+            {{ t('admin.users.resetPasswordFor') }} <strong>{{ selectedUser?.full_name || selectedUser?.email }}</strong>
+          </v-alert>
           <v-text-field
             v-model="newPassword"
             :label="t('admin.users.newPassword')"
             type="password"
             :rules="[required, newPasswordValidRule]"
             variant="outlined"
-            class="mb-1"
+            prepend-inner-icon="mdi-lock"
           />
           <PasswordStrengthIndicator
             v-if="newPassword"
             :password="newPassword"
             :show-requirements="true"
+            class="mt-2"
             @update:is-valid="newPasswordValid = $event"
           />
         </v-card-text>
-        <v-card-actions>
-          <v-spacer />
+        <v-divider />
+        <v-card-actions class="pa-4">
           <v-btn variant="text" @click="passwordDialogOpen = false">
             {{ t('common.cancel') }}
           </v-btn>
+          <v-spacer />
           <v-btn
-            color="primary"
+            color="warning"
             :loading="saving"
             :disabled="!newPasswordValid"
             @click="resetPassword"
           >
+            <v-icon start>mdi-lock-reset</v-icon>
             {{ t('admin.users.resetButton') }}
           </v-btn>
         </v-card-actions>
@@ -235,18 +244,27 @@
     </v-dialog>
 
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="deleteDialogOpen" max-width="400">
+    <v-dialog v-model="deleteDialogOpen" max-width="450">
       <v-card>
-        <v-card-title class="text-error">{{ t('admin.users.dialog.deleteTitle') }}</v-card-title>
-        <v-card-text>
-          {{ t('admin.users.deleteConfirm', { email: selectedUser?.email }) }}
+        <v-card-title class="d-flex align-center pa-4 bg-error">
+          <v-avatar color="rgba(255,255,255,0.2)" size="40" class="mr-3">
+            <v-icon color="white">mdi-account-remove</v-icon>
+          </v-avatar>
+          <div class="text-h6">{{ t('admin.users.dialog.deleteTitle') }}</div>
+        </v-card-title>
+        <v-card-text class="pa-6">
+          <v-alert type="error" variant="tonal">
+            {{ t('admin.users.deleteConfirm', { email: selectedUser?.email }) }}
+          </v-alert>
         </v-card-text>
-        <v-card-actions>
-          <v-spacer />
+        <v-divider />
+        <v-card-actions class="pa-4">
           <v-btn variant="text" @click="deleteDialogOpen = false">
             {{ t('common.cancel') }}
           </v-btn>
+          <v-spacer />
           <v-btn color="error" :loading="saving" @click="deleteUser">
+            <v-icon start>mdi-delete</v-icon>
             {{ t('common.delete') }}
           </v-btn>
         </v-card-actions>
@@ -306,7 +324,7 @@ const headers = computed(() => [
   { title: t('admin.users.columns.role'), key: 'role', sortable: false, width: 120 },
   { title: t('admin.users.columns.active'), key: 'is_active', sortable: false, width: 80 },
   { title: t('admin.users.columns.lastLogin'), key: 'last_login', sortable: false, width: 180 },
-  { title: t('common.actions'), key: 'actions', sortable: false, width: 150 },
+  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' as const },
 ])
 
 // Options

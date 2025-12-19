@@ -3,6 +3,12 @@
     "title": "Categories",
     "category": "Category",
     "categories": "Categories",
+    "tabs": {
+      "general": "General",
+      "search": "Search",
+      "filters": "URL Filters",
+      "ai": "AI"
+    },
     "filters": {
       "search": "Search (Name/Purpose)",
       "status": "Status",
@@ -38,7 +44,13 @@
       "aiPrompt": "AI Extraction Prompt",
       "aiPromptHint": "Define the JSON format and extraction rules",
       "keywords": "Keywords",
-      "enabled": "Active"
+      "enabled": "Active",
+      "enabledHint": "Inactive categories are not crawled",
+      "purposeHint": "Describe what the AI should analyze in this category",
+      "searchInfo": "Search terms and document types help the crawler find relevant documents",
+      "scheduleTitle": "Scheduling",
+      "includePlaceholder": "e.g. /documents/",
+      "excludePlaceholder": "e.g. /archive/"
     },
     "columns": {
       "name": "Name",

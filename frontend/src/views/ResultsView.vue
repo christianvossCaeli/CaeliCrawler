@@ -253,11 +253,11 @@
         </template>
 
         <template v-slot:item.actions="{ item }">
-          <div class="table-actions">
-            <v-btn icon="mdi-eye" size="small" variant="text" :title="$t('results.actions.viewDetails')" @click="showDetails(item)"></v-btn>
-            <v-btn :icon="item.human_verified ? 'mdi-check-circle' : 'mdi-check'" size="small" variant="text" :color="item.human_verified ? 'success' : 'grey'" :title="item.human_verified ? t('results.actions.verified') : t('results.actions.verify')" @click="verifyResult(item)"></v-btn>
-            <v-btn icon="mdi-file-document" size="small" variant="text" color="info" :title="$t('results.actions.goToDocument')" :to="`/documents?search=${encodeURIComponent(item.document_title || '')}`"></v-btn>
-            <v-btn icon="mdi-code-json" size="small" variant="text" :title="$t('results.actions.exportJson')" @click="exportJson(item)"></v-btn>
+          <div class="table-actions d-flex justify-end ga-1">
+            <v-btn icon="mdi-eye" size="small" variant="tonal" :title="$t('common.details')" @click="showDetails(item)"></v-btn>
+            <v-btn :icon="item.human_verified ? 'mdi-check-circle' : 'mdi-check'" size="small" variant="tonal" :color="item.human_verified ? 'success' : 'grey'" :title="item.human_verified ? $t('results.actions.verified') : $t('results.actions.verify')" @click="verifyResult(item)"></v-btn>
+            <v-btn icon="mdi-file-document" size="small" variant="tonal" color="info" :title="$t('results.actions.goToDocument')" :to="`/documents?search=${encodeURIComponent(item.document_title || '')}`"></v-btn>
+            <v-btn icon="mdi-code-json" size="small" variant="tonal" :title="$t('results.actions.exportJson')" @click="exportJson(item)"></v-btn>
           </div>
         </template>
       </v-data-table-server>
@@ -357,7 +357,7 @@
                               {{ pp.severity }}
                             </v-chip>
                           </div>
-                          <div v-if="pp.quote" class="mt-2 pa-2 rounded bg-grey-lighten-4">
+                          <div v-if="pp.quote" class="mt-2 pa-2 rounded bg-surface-variant">
                             <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
                             <span class="text-body-2 font-italic">{{ pp.quote }}</span>
                           </div>
@@ -407,7 +407,7 @@
                           <div v-if="ps.type" class="d-flex flex-wrap ga-2 mt-2">
                             <v-chip size="small" variant="outlined" color="success">{{ ps.type }}</v-chip>
                           </div>
-                          <div v-if="ps.quote" class="mt-2 pa-2 rounded bg-grey-lighten-4">
+                          <div v-if="ps.quote" class="mt-2 pa-2 rounded bg-surface-variant">
                             <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
                             <span class="text-body-2 font-italic">{{ ps.quote }}</span>
                           </div>
@@ -472,7 +472,7 @@
                               {{ dm.sentiment }}
                             </v-chip>
                           </div>
-                          <div v-if="dm.statement || dm.quote" class="mt-2 pa-2 rounded bg-grey-lighten-4">
+                          <div v-if="dm.statement || dm.quote" class="mt-2 pa-2 rounded bg-surface-variant">
                             <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
                             <span class="text-body-2 font-italic">{{ dm.statement || dm.quote }}</span>
                           </div>
@@ -609,7 +609,7 @@ const headers = [
   { title: t('results.columns.confidence'), key: 'confidence_score', width: '110px', sortable: true },
   { title: t('results.columns.verified'), key: 'human_verified', width: '90px', sortable: true },
   { title: t('results.columns.created'), key: 'created_at', width: '100px', sortable: true },
-  { title: t('results.columns.actions'), key: 'actions', sortable: false, width: '150px' },
+  { title: t('results.columns.actions'), key: 'actions', sortable: false, align: 'end' as const },
 ]
 
 const hasActiveFilters = computed(() =>

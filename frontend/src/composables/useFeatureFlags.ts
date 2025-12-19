@@ -3,10 +3,12 @@ import { api } from '@/services/api'
 
 interface FeatureFlags {
   entityLevelFacets: boolean
+  pysisFieldTemplates: boolean
 }
 
 const flags = ref<FeatureFlags>({
   entityLevelFacets: false,
+  pysisFieldTemplates: false,
 })
 
 const loaded = ref(false)

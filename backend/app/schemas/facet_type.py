@@ -114,3 +114,28 @@ class FacetTypeListResponse(BaseModel):
 
     items: List[FacetTypeResponse]
     total: int
+
+
+class FacetTypeSchemaGenerateRequest(BaseModel):
+    """Request schema for AI-powered facet type schema generation."""
+
+    name: str = Field(..., min_length=1, description="Name of the facet type")
+    name_plural: Optional[str] = Field(None, description="Plural form of the name")
+    description: Optional[str] = Field(None, description="Description of what this facet captures")
+    applicable_entity_types: List[str] = Field(
+        default_factory=list,
+        description="Entity type names this facet applies to (e.g. 'Gemeinde', 'Person')",
+    )
+
+
+class FacetTypeSchemaGenerateResponse(BaseModel):
+    """Response schema for AI-generated facet type configuration."""
+
+    value_type: str = Field(default="structured", description="Recommended value type")
+    value_schema: Optional[Dict[str, Any]] = Field(None, description="Generated JSON Schema")
+    deduplication_fields: List[str] = Field(default_factory=list, description="Suggested deduplication fields")
+    is_time_based: bool = Field(default=False, description="Whether facet has time component")
+    time_field_path: Optional[str] = Field(None, description="JSON path to date field if time-based")
+    ai_extraction_prompt: Optional[str] = Field(None, description="Generated AI extraction prompt")
+    icon: Optional[str] = Field(None, description="Suggested icon")
+    color: Optional[str] = Field(None, description="Suggested color")

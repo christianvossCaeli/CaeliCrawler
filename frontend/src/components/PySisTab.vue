@@ -45,7 +45,7 @@
         <span>{{ t('pysis.fieldsFor') }}: {{ selectedProcess.name || selectedProcess.pysis_process_id }}</span>
         <v-spacer></v-spacer>
         <v-btn-group density="compact" variant="outlined">
-          <v-btn size="small" @click="showTemplateDialog = true">
+          <v-btn v-if="flags.pysisFieldTemplates" size="small" @click="showTemplateDialog = true">
             <v-icon start>mdi-content-copy</v-icon>
             {{ t('pysis.template') }}
           </v-btn>
@@ -240,6 +240,7 @@
             :placeholder="t('pysis.displayNamePlaceholder')"
           ></v-text-field>
           <v-select
+            v-if="flags.pysisFieldTemplates"
             v-model="newProcess.template_id"
             :items="templates"
             item-title="name"
@@ -304,7 +305,7 @@
     </v-dialog>
 
     <!-- Apply Template Dialog -->
-    <v-dialog v-model="showTemplateDialog" max-width="500">
+    <v-dialog v-if="flags.pysisFieldTemplates" v-model="showTemplateDialog" max-width="500">
       <v-card>
         <v-card-title>{{ t('pysis.template') }}</v-card-title>
         <v-card-text>
@@ -491,8 +492,10 @@ import { useI18n } from 'vue-i18n'
 import { pysisApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
+import { useFeatureFlags } from '@/composables/useFeatureFlags'
 
 const { t } = useI18n()
+const { flags } = useFeatureFlags()
 
 const props = defineProps<{
   municipality: string
@@ -1190,7 +1193,9 @@ watch(showAddProcessDialog, (isOpen) => {
 
 onMounted(() => {
   loadProcesses()
-  loadTemplates()
+  if (flags.value.pysisFieldTemplates) {
+    loadTemplates()
+  }
 })
 
 onUnmounted(() => {

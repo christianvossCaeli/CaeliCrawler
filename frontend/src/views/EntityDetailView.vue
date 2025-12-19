@@ -203,7 +203,7 @@
                                 {{ getStructuredSeverity(sample) }}
                               </v-chip>
                             </div>
-                            <div v-if="getStructuredQuote(sample)" class="mt-2 pa-2 rounded bg-grey-lighten-4">
+                            <div v-if="getStructuredQuote(sample)" class="mt-2 pa-2 rounded bg-surface-variant">
                               <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
                               <span class="text-body-2 font-italic">{{ getStructuredQuote(sample) }}</span>
                             </div>
@@ -228,7 +228,7 @@
                                 {{ getStructuredType(sample) }}
                               </v-chip>
                             </div>
-                            <div v-if="getStructuredQuote(sample)" class="mt-2 pa-2 rounded bg-grey-lighten-4">
+                            <div v-if="getStructuredQuote(sample)" class="mt-2 pa-2 rounded bg-surface-variant">
                               <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
                               <span class="text-body-2 font-italic">{{ getStructuredQuote(sample) }}</span>
                             </div>
@@ -266,7 +266,7 @@
                                 {{ getContactSentiment(sample) }}
                               </v-chip>
                             </div>
-                            <div v-if="getContactStatement(sample)" class="mt-2 pa-2 rounded bg-grey-lighten-4">
+                            <div v-if="getContactStatement(sample)" class="mt-2 pa-2 rounded bg-surface-variant">
                               <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
                               <span class="text-body-2 font-italic">{{ getContactStatement(sample) }}</span>
                             </div>
@@ -668,7 +668,7 @@
                         {{ getStructuredSeverity(fv) }}
                       </v-chip>
                     </div>
-                    <div v-if="getStructuredQuote(fv)" class="mt-2 pa-2 rounded bg-grey-lighten-4">
+                    <div v-if="getStructuredQuote(fv)" class="mt-2 pa-2 rounded bg-surface-variant">
                       <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
                       <span class="text-body-2 font-italic">{{ getStructuredQuote(fv) }}</span>
                     </div>
@@ -687,7 +687,7 @@
                         {{ getStructuredType(fv) }}
                       </v-chip>
                     </div>
-                    <div v-if="getStructuredQuote(fv)" class="mt-2 pa-2 rounded bg-grey-lighten-4">
+                    <div v-if="getStructuredQuote(fv)" class="mt-2 pa-2 rounded bg-surface-variant">
                       <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
                       <span class="text-body-2 font-italic">{{ getStructuredQuote(fv) }}</span>
                     </div>
@@ -721,7 +721,7 @@
                         {{ getContactSentiment(fv) }}
                       </v-chip>
                     </div>
-                    <div v-if="getContactStatement(fv)" class="mt-2 pa-2 rounded bg-grey-lighten-4">
+                    <div v-if="getContactStatement(fv)" class="mt-2 pa-2 rounded bg-surface-variant">
                       <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
                       <span class="text-body-2 font-italic">{{ getContactStatement(fv) }}</span>
                     </div>

@@ -78,3 +78,15 @@ class ExternalServiceError(AppException):
             detail=detail,
             code="EXTERNAL_SERVICE_ERROR",
         )
+
+
+class FeatureDisabledError(AppException):
+    """Feature is disabled via feature flag."""
+
+    def __init__(self, feature: str):
+        super().__init__(
+            message=f"Feature '{feature}' is currently disabled",
+            status_code=403,
+            detail=f"The feature '{feature}' is disabled. Enable it via the corresponding feature flag.",
+            code="FEATURE_DISABLED",
+        )
