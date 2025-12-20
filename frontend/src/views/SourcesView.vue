@@ -124,7 +124,7 @@
         <template v-slot:item.categories="{ item }">
           <div class="d-flex flex-wrap gap-1">
             <v-chip
-              v-for="(cat, idx) in (item.categories || [])"
+              v-for="cat in (item.categories || [])"
               :key="cat.id"
               :color="cat.is_primary ? 'primary' : 'default'"
               size="x-small"
@@ -364,26 +364,30 @@
               <v-window-item value="crawl">
                 <v-row>
                   <v-col cols="12" md="6">
-                    <v-text-field
-                      v-model.number="formData.crawl_config.max_depth"
+                    <v-number-input
+                      v-model="formData.crawl_config.max_depth"
                       :label="$t('sources.form.maxDepth')"
-                      type="number"
+                      :min="1"
+                      :max="10"
                       variant="outlined"
                       :hint="$t('sources.form.maxDepthHint')"
                       persistent-hint
                       prepend-inner-icon="mdi-arrow-expand-down"
-                    ></v-text-field>
+                      control-variant="stacked"
+                    ></v-number-input>
                   </v-col>
                   <v-col cols="12" md="6">
-                    <v-text-field
-                      v-model.number="formData.crawl_config.max_pages"
+                    <v-number-input
+                      v-model="formData.crawl_config.max_pages"
                       :label="$t('sources.form.maxPages')"
-                      type="number"
+                      :min="1"
+                      :max="10000"
                       variant="outlined"
                       :hint="$t('sources.form.maxPagesHint')"
                       persistent-hint
                       prepend-inner-icon="mdi-file-multiple"
-                    ></v-text-field>
+                      control-variant="stacked"
+                    ></v-number-input>
                   </v-col>
                 </v-row>
 
@@ -813,7 +817,7 @@ const searchLocations = async (search: string) => {
   }
   locationLoading.value = true
   try {
-    const response = await locationApi.search(search, { country: filters.value.country })
+    const response = await locationApi.search(search, { country: filters.value.country ?? undefined })
     locationItems.value = response.data.items
   } catch (e) {
     console.error('Location search failed:', e)
@@ -828,8 +832,8 @@ watch(locationSearch, (val) => {
 
 const filters = ref({
   country: null as string | null,
-  category_id: null,
-  status: null,
+  category_id: null as string | null,
+  status: null as string | null,
   search: '',
   location_name: null as string | null,
 })

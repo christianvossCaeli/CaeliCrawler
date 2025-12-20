@@ -106,7 +106,6 @@ const auth = useAuthStore()
 const { t } = useI18n()
 
 // Form state
-const formRef = ref<any>(null)
 const email = ref('')
 const password = ref('')
 const showPassword = ref(false)

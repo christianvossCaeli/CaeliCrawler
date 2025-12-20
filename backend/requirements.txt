@@ -10,8 +10,10 @@ alembic>=1.14.0
 psycopg[binary]>=3.2.0
 
 # Celery & Redis
-celery[redis]>=5.4.0
-redis>=5.2.0
+# Note: redis-py is constrained to <6.5 by kombu (see https://github.com/celery/kombu/releases)
+celery[redis]==5.6.0
+kombu==5.6.1
+redis==6.4.0
 croniter>=3.0.0
 
 # Pydantic & Validation

@@ -789,16 +789,6 @@ const createField = async () => {
   }
 }
 
-const updateFieldValue = async (field: any) => {
-  try {
-    await pysisApi.updateFieldValue(field.id, { value: field.current_value, source: 'MANUAL' })
-    field.value_source = 'MANUAL'
-    field.needs_push = true
-  } catch (error) {
-    console.error('Failed to update field value', error)
-  }
-}
-
 const toggleAiExtraction = async (field: any) => {
   try {
     await pysisApi.updateField(field.id, { ai_extraction_enabled: field.ai_extraction_enabled })

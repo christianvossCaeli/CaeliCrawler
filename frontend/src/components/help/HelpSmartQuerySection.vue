@@ -80,7 +80,7 @@
           <v-expansion-panel-text>
             <p class="mb-2">{{ t('help.smart_query.categorySetup.step1.description') }}</p>
             <v-list density="compact">
-              <v-list-item v-for="(item, index) in (t('help.smart_query.categorySetup.step1.items') as string[])" :key="index">{{ item }}</v-list-item>
+              <v-list-item v-for="(item, index) in (t('help.smart_query.categorySetup.step1.items') as unknown as string[])" :key="index">{{ item }}</v-list-item>
             </v-list>
           </v-expansion-panel-text>
         </v-expansion-panel>
@@ -92,7 +92,7 @@
           <v-expansion-panel-text>
             <p class="mb-2">{{ t('help.smart_query.categorySetup.step2.description') }}</p>
             <v-list density="compact">
-              <v-list-item v-for="(item, index) in (t('help.smart_query.categorySetup.step2.items') as string[])" :key="index">{{ item }}</v-list-item>
+              <v-list-item v-for="(item, index) in (t('help.smart_query.categorySetup.step2.items') as unknown as string[])" :key="index">{{ item }}</v-list-item>
             </v-list>
           </v-expansion-panel-text>
         </v-expansion-panel>
@@ -104,7 +104,7 @@
           <v-expansion-panel-text>
             <p class="mb-2">{{ t('help.smart_query.categorySetup.step3.description') }}</p>
             <v-list density="compact">
-              <v-list-item v-for="(item, index) in (t('help.smart_query.categorySetup.step3.items') as string[])" :key="index">{{ item }}</v-list-item>
+              <v-list-item v-for="(item, index) in (t('help.smart_query.categorySetup.step3.items') as unknown as string[])" :key="index">{{ item }}</v-list-item>
             </v-list>
             <v-alert type="info" variant="tonal" density="compact" class="mt-2">
               {{ t('help.smart_query.categorySetup.step3.important') }}
@@ -157,7 +157,7 @@
       <v-table density="compact" class="mb-4">
         <thead><tr><th>{{ t('help.smart_query.geographic_filters.table.input') }}</th><th>{{ t('help.smart_query.geographic_filters.table.recognized_as') }}</th></tr></thead>
         <tbody>
-          <tr v-for="(example, index) in (t('help.smart_query.geographic_filters.examples') as any[])" :key="index">
+          <tr v-for="(example, index) in (t('help.smart_query.geographic_filters.examples') as unknown as any[])" :key="index">
             <td>{{ example.input }}</td>
             <td>{{ example.output }}</td>
           </tr>
@@ -168,7 +168,7 @@
       <v-table density="compact">
         <thead><tr><th>{{ t('help.smart_query.example_queries.table.query') }}</th><th>{{ t('help.smart_query.example_queries.table.mode') }}</th><th>{{ t('help.smart_query.example_queries.table.result') }}</th></tr></thead>
         <tbody>
-          <tr v-for="(example, index) in (t('help.smart_query.example_queries.examples') as any[])" :key="index">
+          <tr v-for="(example, index) in (t('help.smart_query.example_queries.examples') as unknown as any[])" :key="index">
             <td>"{{ example.query }}"</td>
             <td><v-chip size="x-small" :color="example.mode === 'read' ? 'info' : 'warning'">{{ example.mode === 'read' ? t('help.smart_query.example_queries.read') : t('help.smart_query.example_queries.write') }}</v-chip></td>
             <td>{{ example.result }}</td>

@@ -30,13 +30,13 @@
       />
 
       <!-- Preview of affected entities -->
-      <div v-if="preview.length > 0 && !isRunning" class="mb-3">
+      <div v-if="preview && preview.length > 0 && !isRunning" class="mb-3">
         <div class="text-caption text-medium-emphasis mb-1">
           {{ t('assistant.batchPreviewLabel') }}
         </div>
         <div class="batch-progress__preview">
           <v-chip
-            v-for="entity in preview.slice(0, 5)"
+            v-for="entity in (preview || []).slice(0, 5)"
             :key="entity.entity_id"
             size="small"
             variant="outlined"
@@ -45,12 +45,12 @@
             {{ entity.entity_name }}
           </v-chip>
           <v-chip
-            v-if="preview.length > 5"
+            v-if="preview && preview.length > 5"
             size="small"
             variant="text"
             class="mb-1"
           >
-            +{{ preview.length - 5 }} {{ t('assistant.batchMore') }}
+            +{{ (preview?.length || 0) - 5 }} {{ t('assistant.batchMore') }}
           </v-chip>
         </div>
       </div>

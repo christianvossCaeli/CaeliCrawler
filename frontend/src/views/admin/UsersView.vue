@@ -342,8 +342,6 @@ const activeOptions = computed(() => [
 // Validation rules
 const required = (v: any) => !!v || t('validation.required')
 const emailRule = (v: string) => /.+@.+\..+/.test(v) || t('validation.email')
-const minLength = (min: number) => (v: string) =>
-  v.length >= min || t('validation.minLength', { min })
 const passwordValidRule = () => passwordValid.value || t('admin.users.passwordNotValid')
 const newPasswordValidRule = () => newPasswordValid.value || t('admin.users.passwordNotValid')
 

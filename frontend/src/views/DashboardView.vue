@@ -260,10 +260,9 @@
               ></v-text-field>
             </v-col>
             <v-col cols="12" md="6">
-              <v-text-field
-                v-model.number="crawlerFilter.limit"
+              <v-number-input
+                v-model="crawlerFilter.limit"
                 :label="$t('dashboard.startCrawlerDialog.maxCount')"
-                type="number"
                 :min="1"
                 :max="10000"
                 prepend-inner-icon="mdi-numeric"
@@ -271,7 +270,8 @@
                 density="comfortable"
                 :hint="$t('dashboard.startCrawlerDialog.emptyAllLabel')"
                 persistent-hint
-              ></v-text-field>
+                control-variant="stacked"
+              ></v-number-input>
             </v-col>
           </v-row>
 

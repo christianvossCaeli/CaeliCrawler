@@ -106,7 +106,7 @@
               :label="t('entities.category')"
               clearable
               hide-details
-              @update:model-value="loadEntities"
+              @update:model-value="() => loadEntities()"
             ></v-select>
           </v-col>
           <v-col cols="12" md="2" v-if="currentEntityType?.supports_hierarchy">
@@ -120,7 +120,7 @@
               clearable
               hide-details
               @update:search="searchParents"
-              @update:model-value="loadEntities"
+              @update:model-value="() => loadEntities()"
             ></v-autocomplete>
           </v-col>
           <v-col cols="12" md="2">
@@ -131,7 +131,7 @@
               item-value="value"
               :label="t('entities.withFacets')"
               hide-details
-              @update:model-value="loadEntities"
+              @update:model-value="() => loadEntities()"
             ></v-select>
           </v-col>
           <v-col cols="auto">
@@ -343,7 +343,7 @@
         :items-per-page="itemsPerPage"
         :page="currentPage"
         @update:options="onTableOptionsUpdate"
-        @click:row="(event, { item }) => openEntityDetail(item)"
+        @click:row="(_event: Event, { item }: { item: any }) => openEntityDetail(item)"
         class="cursor-pointer"
       >
         <template v-slot:item.name="{ item }">
@@ -567,15 +567,15 @@
                         persistent-hint
                         variant="outlined"
                       ></v-text-field>
-                      <v-text-field
+                      <v-number-input
                         v-else-if="prop.type === 'integer' || prop.type === 'number'"
-                        v-model.number="entityForm.core_attributes[key]"
+                        v-model="entityForm.core_attributes[key]"
                         :label="prop.title || key"
                         :hint="prop.description"
                         persistent-hint
-                        type="number"
                         variant="outlined"
-                      ></v-text-field>
+                        control-variant="stacked"
+                      ></v-number-input>
                       <v-card v-else-if="prop.type === 'boolean'" variant="outlined" class="pa-3">
                         <div class="d-flex align-center justify-space-between">
                           <div>
@@ -606,28 +606,32 @@
 
                 <v-row>
                   <v-col cols="12" md="6">
-                    <v-text-field
-                      v-model.number="entityForm.latitude"
+                    <v-number-input
+                      v-model="entityForm.latitude"
                       :label="$t('entities.latitude')"
-                      type="number"
-                      step="0.000001"
+                      :step="0.000001"
+                      :min="-90"
+                      :max="90"
                       variant="outlined"
                       prepend-inner-icon="mdi-latitude"
                       :hint="t('entities.latitudeHint')"
                       persistent-hint
-                    ></v-text-field>
+                      control-variant="stacked"
+                    ></v-number-input>
                   </v-col>
                   <v-col cols="12" md="6">
-                    <v-text-field
-                      v-model.number="entityForm.longitude"
+                    <v-number-input
+                      v-model="entityForm.longitude"
                       :label="$t('entities.longitude')"
-                      type="number"
-                      step="0.000001"
+                      :step="0.000001"
+                      :min="-180"
+                      :max="180"
                       variant="outlined"
                       prepend-inner-icon="mdi-longitude"
                       :hint="t('entities.longitudeHint')"
                       persistent-hint
-                    ></v-text-field>
+                      control-variant="stacked"
+                    ></v-number-input>
                   </v-col>
                 </v-row>
 
@@ -914,7 +918,7 @@ function hasAttribute(key: string): boolean {
 }
 
 const tableHeaders = computed(() => {
-  const headers = [
+  const headers: Array<{ title: string; key: string; align?: 'start' | 'center' | 'end'; sortable?: boolean }> = [
     { title: t('common.name'), key: 'name' },
   ]
 
@@ -923,10 +927,10 @@ const tableHeaders = computed(() => {
   }
 
   headers.push(
-    { title: t('entities.properties'), key: 'facet_count', align: 'center' as const },
-    { title: t('entities.relations'), key: 'relation_count', align: 'center' as const },
+    { title: t('entities.properties'), key: 'facet_count', align: 'center' },
+    { title: t('entities.relations'), key: 'relation_count', align: 'center' },
     { title: t('entities.summary'), key: 'facet_summary', sortable: false },
-    { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' as const },
+    { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' },
   )
 
   return headers
@@ -1185,7 +1189,7 @@ async function deleteEntity() {
   }
 }
 
-function getTopFacetCounts(entity: any): Array<{ slug: string; name: string; icon: string; color: string; count: number }> {
+function getTopFacetCounts(_entity: any): Array<{ slug: string; name: string; icon: string; color: string; count: number }> {
   // This would ideally come from the API with aggregated facet counts
   // For now, we return an empty array - would be populated from facet_summary in real data
   return []

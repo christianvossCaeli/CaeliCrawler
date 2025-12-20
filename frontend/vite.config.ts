@@ -18,5 +18,23 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vue core - rarely changes
+          'vue-core': ['vue', 'vue-router', 'pinia'],
+          // Vuetify - large framework, cache separately
+          'vuetify': ['vuetify'],
+          // Charts - only used on specific pages
+          'charts': ['chart.js', 'vue-chartjs'],
+          // Internationalization
+          'i18n': ['vue-i18n'],
+          // Date utilities with timezone support
+          'date-utils': ['date-fns', '@date-fns/tz'],
+        }
+      }
+    }
   }
 })

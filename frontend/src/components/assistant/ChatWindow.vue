@@ -284,7 +284,7 @@ import WizardStep from './WizardStep.vue'
 import ReminderNotification from './ReminderNotification.vue'
 import type { QuickAction } from './QuickActionsPanel.vue'
 import type { BatchStatus, BatchPreviewEntity } from './BatchActionProgress.vue'
-import type { WizardStepDef, WizardState } from './WizardStep.vue'
+// WizardStepDef and WizardState available from './WizardStep.vue' if needed
 import { useSpeechRecognition } from '@/composables/useSpeechRecognition'
 import type { ConversationMessage, SuggestedAction, AssistantContext, AttachmentInfo, Insight, ActiveWizard, Reminder } from '@/composables/useAssistant'
 

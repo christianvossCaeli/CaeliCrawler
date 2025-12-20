@@ -6,7 +6,7 @@
  * - Extended filters (location, schema attributes)
  * - Filter application and clearing
  */
-import { ref, computed, type Ref, type ComputedRef } from 'vue'
+import { ref, computed } from 'vue'
 
 export interface BasicFilters {
   category_id: string | null
@@ -80,15 +80,6 @@ export function useEntitiesFilters() {
     return result
   })
 
-  const hasAnyFilters = computed(
-    (searchQuery: Ref<string>) =>
-      searchQuery.value ||
-      filters.value.category_id !== null ||
-      filters.value.parent_id !== null ||
-      filters.value.has_facets !== null ||
-      filters.value.facet_type_slugs.length > 0 ||
-      hasExtendedFilters.value
-  )
 
   // Split schema attributes into location and non-location
   const locationAttributes = computed(() =>

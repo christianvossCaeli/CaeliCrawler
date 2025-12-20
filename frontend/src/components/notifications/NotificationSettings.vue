@@ -272,8 +272,8 @@ const handleDeleteEmail = async () => {
   }
 }
 
-const resendVerification = async (email: UserEmailAddress) => {
-  // TODO: Implement resend verification endpoint
+const resendVerification = async (_email: UserEmailAddress) => {
+  // TODO: Implement resend verification endpoint - _email will be used when endpoint is added
   showSnackbar(t('notifications.settings.verificationResent'))
 }
 

@@ -54,15 +54,15 @@
       />
 
       <!-- NUMBER Input -->
-      <v-text-field
+      <v-number-input
         v-if="currentStep.input_type === 'number'"
-        v-model.number="answer"
+        v-model="answer"
         :placeholder="currentStep.placeholder"
         :rules="validationRules"
-        type="number"
         variant="outlined"
         density="comfortable"
         autofocus
+        control-variant="stacked"
         @keydown.enter="handleNext"
       />
 

@@ -250,7 +250,7 @@
                             <div class="text-body-1 font-weight-medium">{{ getContactName(sample) }}</div>
                             <div v-if="getContactRole(sample)" class="text-body-2 text-grey">{{ getContactRole(sample) }}</div>
                             <div class="d-flex flex-wrap ga-2 mt-2">
-                              <v-chip v-if="getContactEmail(sample)" size="small" variant="outlined" @click.stop="copyToClipboard(getContactEmail(sample))">
+                              <v-chip v-if="getContactEmail(sample)" size="small" variant="outlined" @click.stop="copyToClipboard(getContactEmail(sample)!)">
                                 <v-icon start size="small">mdi-email</v-icon>
                                 {{ getContactEmail(sample) }}
                               </v-chip>
@@ -705,7 +705,7 @@
                     <div class="text-body-1 font-weight-medium">{{ getContactName(fv) }}</div>
                     <div v-if="getContactRole(fv)" class="text-body-2 text-grey">{{ getContactRole(fv) }}</div>
                     <div class="d-flex flex-wrap ga-2 mt-2">
-                      <v-chip v-if="getContactEmail(fv)" size="small" variant="outlined" @click.stop="copyToClipboard(getContactEmail(fv))">
+                      <v-chip v-if="getContactEmail(fv)" size="small" variant="outlined" @click.stop="copyToClipboard(getContactEmail(fv)!)">
                         <v-icon start size="small">mdi-email</v-icon>
                         {{ getContactEmail(fv) }}
                       </v-chip>
@@ -960,7 +960,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useEntityStore, type FacetValue, type Entity, type EntityType } from '@/stores/entity'
-import { adminApi, facetApi, relationApi } from '@/services/api'
+import { adminApi, facetApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
@@ -1650,7 +1650,8 @@ async function loadDocuments() {
   try {
     // This would need an endpoint to get documents by entity
     // For now we can use the location_name based endpoint
-    const response = await adminApi.getSources({ location_name: entity.value.name })
+    // Query sources to see if entity is referenced - result stored for potential future use
+    await adminApi.getSources({ location_name: entity.value.name })
     // This is a placeholder - would need proper document listing by entity
     documents.value = []
   } catch (e) {

@@ -402,13 +402,13 @@
                     <v-col cols="12" md="6">
                       <v-row>
                         <v-col cols="6">
-                          <v-text-field
-                            v-model.number="form.display_order"
+                          <v-number-input
+                            v-model="form.display_order"
                             :label="t('admin.facetTypes.form.displayOrder')"
-                            type="number"
-                            min="0"
+                            :min="0"
                             variant="outlined"
-                          ></v-text-field>
+                            control-variant="stacked"
+                          ></v-number-input>
                         </v-col>
                         <v-col cols="6">
                           <v-card variant="outlined" class="pa-4 h-100 d-flex align-center">
@@ -669,12 +669,6 @@ const debouncedSearch = debounce(() => {
 function getEntityTypeName(slug: string): string {
   const et = entityTypes.value.find(e => e.slug === slug)
   return et?.name || slug
-}
-
-function getDeleteTooltip(item: any): string {
-  if (item.is_system) return t('admin.facetTypes.cannotDeleteSystem')
-  if ((item.value_count || 0) > 0) return t('admin.facetTypes.hasValues')
-  return t('common.delete')
 }
 
 function openCreateDialog() {

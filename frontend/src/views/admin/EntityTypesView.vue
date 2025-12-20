@@ -355,15 +355,15 @@
                       </v-card>
                     </v-col>
                     <v-col cols="12" md="6">
-                      <v-text-field
-                        v-model.number="form.display_order"
+                      <v-number-input
+                        v-model="form.display_order"
                         :label="t('admin.entityTypes.form.displayOrder')"
-                        type="number"
-                        min="0"
+                        :min="0"
                         variant="outlined"
                         :hint="t('admin.entityTypes.form.displayOrderHint')"
                         persistent-hint
-                      ></v-text-field>
+                        control-variant="stacked"
+                      ></v-number-input>
                     </v-col>
                   </v-row>
                 </v-window-item>

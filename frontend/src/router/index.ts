@@ -145,7 +145,7 @@ const router = createRouter({
 // Navigation guard
 router.beforeEach(async (
   to: RouteLocationNormalized,
-  from: RouteLocationNormalized,
+  _from: RouteLocationNormalized,
   next: NavigationGuardNext
 ) => {
   const auth = useAuthStore()

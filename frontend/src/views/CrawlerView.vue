@@ -351,8 +351,19 @@ import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
 
+interface LogEntry {
+  status: string
+  url: string
+  timestamp: string
+}
+
+interface JobLog {
+  current_url: string
+  log_entries: LogEntry[]
+}
+
 const { t } = useI18n()
-const { showSuccess, showError, showInfo } = useSnackbar()
+const { showSuccess, showError } = useSnackbar()
 
 const loading = ref(true)
 const initialLoad = ref(true)
@@ -360,7 +371,7 @@ const stoppingAll = ref(false)
 const jobs = ref<any[]>([])
 const runningJobs = ref<any[]>([])
 const runningAiTasks = ref<any[]>([])
-const jobLogs = ref<Record<string, any>>({})
+const jobLogs = ref<Record<string, JobLog>>({})
 const statusFilter = ref('')
 const detailsDialog = ref(false)
 const selectedJob = ref<any>(null)

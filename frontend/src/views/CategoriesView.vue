@@ -578,10 +578,9 @@
               ></v-text-field>
             </v-col>
             <v-col cols="12" md="6">
-              <v-text-field
-                v-model.number="crawlerFilter.limit"
+              <v-number-input
+                v-model="crawlerFilter.limit"
                 :label="$t('categories.crawler.maxLimit')"
-                type="number"
                 :min="1"
                 :max="10000"
                 prepend-inner-icon="mdi-numeric"
@@ -589,8 +588,9 @@
                 density="comfortable"
                 :hint="$t('categories.crawler.limitHint')"
                 persistent-hint
+                control-variant="stacked"
                 @update:model-value="updateCrawlerFilteredCount"
-              ></v-text-field>
+              ></v-number-input>
             </v-col>
           </v-row>
 
@@ -997,11 +997,6 @@ const startFilteredCrawl = async () => {
   } finally {
     startingCrawler.value = false
   }
-}
-
-// Legacy function - kept for backwards compatibility
-const startCrawl = async (category: any) => {
-  openCrawlerDialog(category)
 }
 
 const confirmReanalyze = (category: any) => {

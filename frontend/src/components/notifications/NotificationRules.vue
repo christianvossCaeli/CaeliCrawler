@@ -213,16 +213,16 @@
             {{ t('notifications.rules.filterConditionsHint') }}
           </p>
 
-          <v-text-field
-            v-model.number="formData.conditions.min_confidence"
+          <v-number-input
+            v-model="formData.conditions.min_confidence"
             :label="t('notifications.rules.minConfidence')"
-            type="number"
-            min="0"
-            max="1"
-            step="0.1"
+            :min="0"
+            :max="1"
+            :step="0.1"
             :hint="t('notifications.rules.minConfidenceHint')"
             persistent-hint
             class="mb-2"
+            control-variant="stacked"
           />
 
           <v-combobox
@@ -320,9 +320,9 @@ const headers = computed(() => [
   { title: t('common.name'), key: 'name', sortable: true },
   { title: t('notifications.rules.eventType'), key: 'event_type', sortable: true },
   { title: t('notifications.rules.channel'), key: 'channel', sortable: true },
-  { title: t('notifications.rules.active'), key: 'is_active', sortable: true, width: '80px', align: 'center' },
+  { title: t('notifications.rules.active'), key: 'is_active', sortable: true, width: '80px', align: 'center' as const },
   { title: t('notifications.rules.triggerCount'), key: 'trigger_count', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '90px', align: 'end' },
+  { title: '', key: 'actions', sortable: false, width: '90px', align: 'end' as const },
 ])
 
 // Dialog state
@@ -484,9 +484,10 @@ const saveRule = async () => {
   } else if (formData.value.channel === 'WEBHOOK') {
     data.channel_config.url = formData.value.channel_config.url
     if (webhookAuthType.value !== 'none') {
+      const { type: _existingType, ...authWithoutType } = formData.value.channel_config.auth || {}
       data.channel_config.auth = {
+        ...authWithoutType,
         type: webhookAuthType.value,
-        ...formData.value.channel_config.auth,
       }
     }
   }
@@ -535,8 +536,10 @@ const handleTestWebhook = async () => {
   webhookTestResult.value = null
 
   try {
+    const authConfig = formData.value.channel_config.auth || {}
+    const { type: _existingAuthType, ...authConfigWithoutType } = authConfig
     const auth = webhookAuthType.value !== 'none'
-      ? { type: webhookAuthType.value, ...formData.value.channel_config.auth }
+      ? { ...authConfigWithoutType, type: webhookAuthType.value }
       : undefined
 
     const result = await testWebhook(formData.value.channel_config.url, auth)

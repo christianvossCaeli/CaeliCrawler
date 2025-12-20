@@ -195,14 +195,12 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { useDisplay, useTheme } from 'vuetify'
+// Display and theme utilities available via Vuetify's useDisplay/useTheme if needed
 import { useI18n } from 'vue-i18n'
 import { useAssistant } from '@/composables/useAssistant'
 
 const { t, locale } = useI18n()
 const router = useRouter()
-const { mobile } = useDisplay()
-const theme = useTheme()
 
 const {
   isOpen,
@@ -218,8 +216,6 @@ const {
   handleSuggestedAction,
 } = useAssistant()
 
-const isDark = computed(() => theme.global.current.value.dark)
-const isMobile = computed(() => mobile.value)
 const inputText = ref('')
 const localMode = ref(mode.value)
 const messagesContainer = ref<HTMLElement | null>(null)

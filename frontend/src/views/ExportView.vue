@@ -186,7 +186,7 @@ import { de, enUS } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
 
 const { t, locale } = useI18n()
-const { showSuccess, showError, showInfo } = useSnackbar()
+const { showSuccess, showError } = useSnackbar()
 
 const dateLocale = computed(() => locale.value === 'de' ? de : enUS)
 

@@ -7,9 +7,11 @@
  * - Confidence score colors
  * - History action formatting
  * - Value truncation
+ * - Timezone-aware date formatting (date-fns 4 TZDate)
  */
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
+import { TZDate } from '@date-fns/tz'
 
 export function usePySisHelpers() {
   /**
@@ -63,12 +65,35 @@ export function usePySisHelpers() {
   }
 
   /**
-   * Format date for display
+   * Format date for display (timezone-aware)
+   * @param dateStr - ISO date string or Date object
+   * @param timezone - IANA timezone name (default: 'Europe/Berlin')
    */
-  function formatDate(dateStr: string | null | undefined): string {
+  function formatDate(dateStr: string | null | undefined, timezone = 'Europe/Berlin'): string {
     if (!dateStr) return '-'
     try {
-      return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: de })
+      const tzDate = new TZDate(dateStr, timezone)
+      return format(tzDate, 'dd.MM.yyyy HH:mm', { locale: de })
+    } catch {
+      return dateStr
+    }
+  }
+
+  /**
+   * Format date with custom format string (timezone-aware)
+   * @param dateStr - ISO date string or Date object
+   * @param formatStr - date-fns format string
+   * @param timezone - IANA timezone name (default: 'Europe/Berlin')
+   */
+  function formatDateCustom(
+    dateStr: string | null | undefined,
+    formatStr: string,
+    timezone = 'Europe/Berlin'
+  ): string {
+    if (!dateStr) return '-'
+    try {
+      const tzDate = new TZDate(dateStr, timezone)
+      return format(tzDate, formatStr, { locale: de })
     } catch {
       return dateStr
     }
@@ -163,6 +188,7 @@ export function usePySisHelpers() {
 
     // Formatting
     formatDate,
+    formatDateCustom,
     truncateValue,
 
     // History

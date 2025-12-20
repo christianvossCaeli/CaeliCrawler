@@ -241,7 +241,7 @@ import { useFeatureFlags } from './composables/useFeatureFlags'
 import { dataApi } from './services/api'
 import { setLocale, type SupportedLocale } from './locales'
 
-const { snackbar, snackbarText, snackbarColor, snackbarTimeout, showSnackbar } = useSnackbar()
+const { snackbar, snackbarText, snackbarColor, snackbarTimeout, showMessage } = useSnackbar()
 const { t, locale } = useI18n()
 const vuetifyLocale = useLocale()
 
@@ -353,9 +353,9 @@ async function changePassword() {
 
   if (result.success) {
     passwordDialogOpen.value = false
-    showSnackbar(t('auth.passwordChanged'), 'success')
+    showMessage(t('auth.passwordChanged'), 'success')
   } else {
-    showSnackbar(result.error || t('auth.passwordChangeError'), 'error')
+    showMessage(result.error || t('auth.passwordChangeError'), 'error')
   }
 }
 

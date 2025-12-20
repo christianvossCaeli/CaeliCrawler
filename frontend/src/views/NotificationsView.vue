@@ -47,7 +47,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useNotifications } from '@/composables/useNotifications'
 import NotificationInbox from '@/components/notifications/NotificationInbox.vue'
 import NotificationRules from '@/components/notifications/NotificationRules.vue'
@@ -55,7 +55,6 @@ import NotificationSettings from '@/components/notifications/NotificationSetting
 
 const { t } = useI18n()
 const route = useRoute()
-const router = useRouter()
 const { unreadCount, loadUnreadCount } = useNotifications()
 
 // Tab management
