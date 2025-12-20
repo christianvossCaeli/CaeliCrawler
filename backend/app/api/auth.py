@@ -56,6 +56,7 @@ class UserResponse(BaseModel):
     role: UserRole
     is_active: bool
     is_superuser: bool
+    email_verified: bool = False
     last_login: Optional[datetime] = None
     created_at: datetime
     language: str = "de"
@@ -138,6 +139,27 @@ class LanguageUpdateRequest(BaseModel):
     """Language update request schema."""
 
     language: str = Field(..., pattern="^(de|en)$", description="Language code (de or en)")
+
+
+class EmailVerificationRequest(BaseModel):
+    """Request to send verification email."""
+
+    pass  # Uses authenticated user's email
+
+
+class EmailVerificationConfirmRequest(BaseModel):
+    """Confirm email with verification token."""
+
+    token: str = Field(..., min_length=32, max_length=64)
+
+
+class EmailVerificationStatusResponse(BaseModel):
+    """Email verification status response."""
+
+    email: str
+    email_verified: bool
+    verification_pending: bool = False
+    message: str
 
 
 # =============================================================================
@@ -619,3 +641,232 @@ async def revoke_all_sessions(
     await session.commit()
 
     return MessageResponse(message=f"Revoked {revoked_count} session(s)")
+
+
+# =============================================================================
+# Email Verification Endpoints
+# =============================================================================
+
+
+async def _send_verification_email(user: User, token: str) -> bool:
+    """Send verification email to user.
+
+    Args:
+        user: The user to send verification to
+        token: The verification token
+
+    Returns:
+        True if email was sent successfully
+    """
+    import aiosmtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from app.config import settings
+
+    # Build verification URL
+    frontend_url = getattr(settings, "frontend_url", "https://app.caeli-wind.de")
+    verification_url = f"{frontend_url}/verify-email?token={token}"
+
+    # Create message
+    message = MIMEMultipart("alternative")
+    message["Subject"] = "E-Mail-Adresse bestätigen - CaeliCrawler"
+    message["From"] = f"{settings.smtp_from_name} <{settings.smtp_from_email}>"
+    message["To"] = user.email
+
+    # Plain text
+    text_content = f"""Hallo {user.full_name},
+
+bitte bestätigen Sie Ihre E-Mail-Adresse, indem Sie den folgenden Link aufrufen:
+
+{verification_url}
+
+Dieser Link ist 24 Stunden gültig.
+
+Falls Sie diese E-Mail nicht angefordert haben, können Sie sie ignorieren.
+
+Mit freundlichen Grüßen,
+Das CaeliCrawler-Team
+"""
+
+    # HTML
+    html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {{ font-family: -apple-system, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: #113634; color: white; padding: 20px; border-radius: 8px 8px 0 0; }}
+        .content {{ background: #f9f9f9; padding: 20px; border: 1px solid #e0e0e0; border-top: none; }}
+        .button {{ display: inline-block; background: #113634; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 20px 0; }}
+        .footer {{ background: #f0f0f0; padding: 15px 20px; border-radius: 0 0 8px 8px; font-size: 12px; color: #666; border: 1px solid #e0e0e0; border-top: none; }}
+    </style>
+</head>
+<body>
+    <div class="header"><h1 style="margin: 0; font-size: 20px;">E-Mail bestätigen</h1></div>
+    <div class="content">
+        <p>Hallo {user.full_name},</p>
+        <p>bitte bestätigen Sie Ihre E-Mail-Adresse, indem Sie auf den folgenden Button klicken:</p>
+        <a href="{verification_url}" class="button">E-Mail bestätigen</a>
+        <p style="font-size: 13px; color: #666; margin-top: 20px;">
+            Oder kopieren Sie diesen Link in Ihren Browser:<br>
+            <code>{verification_url}</code>
+        </p>
+        <p style="font-size: 13px; color: #666;">Dieser Link ist 24 Stunden gültig.</p>
+    </div>
+    <div class="footer">Falls Sie diese E-Mail nicht angefordert haben, können Sie sie ignorieren.</div>
+</body>
+</html>
+"""
+
+    message.attach(MIMEText(text_content, "plain", "utf-8"))
+    message.attach(MIMEText(html_content, "html", "utf-8"))
+
+    try:
+        await aiosmtplib.send(
+            message,
+            hostname=settings.smtp_host,
+            port=settings.smtp_port,
+            username=settings.smtp_username or None,
+            password=settings.smtp_password or None,
+            use_tls=settings.smtp_use_tls,
+            start_tls=settings.smtp_use_tls and not settings.smtp_use_ssl,
+            timeout=settings.smtp_timeout,
+        )
+        return True
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to send verification email: {e}")
+        return False
+
+
+@router.get("/email-verification/status", response_model=EmailVerificationStatusResponse)
+async def get_email_verification_status(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get current user's email verification status.
+
+    Returns whether the user's email is verified and if a verification is pending.
+    """
+    verification_pending = (
+        current_user.email_verification_token is not None
+        and current_user.email_verification_sent_at is not None
+    )
+
+    return EmailVerificationStatusResponse(
+        email=current_user.email,
+        email_verified=current_user.email_verified,
+        verification_pending=verification_pending,
+        message=(
+            "E-Mail ist bestätigt"
+            if current_user.email_verified
+            else "E-Mail noch nicht bestätigt"
+        ),
+    )
+
+
+@router.post("/email-verification/request", response_model=MessageResponse)
+async def request_email_verification(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Request a verification email to be sent.
+
+    Rate limited to 1 request per 5 minutes per user.
+    """
+    import secrets
+    from datetime import timedelta
+
+    # Check if already verified
+    if current_user.email_verified:
+        return MessageResponse(message="E-Mail ist bereits bestätigt")
+
+    # Rate limiting: max 1 request per 5 minutes
+    if current_user.email_verification_sent_at:
+        time_since_last = datetime.now(timezone.utc) - current_user.email_verification_sent_at
+        if time_since_last < timedelta(minutes=5):
+            remaining = 5 - int(time_since_last.total_seconds() / 60)
+            raise HTTPException(
+                status_code=429,
+                detail=f"Bitte warten Sie {remaining} Minute(n) bevor Sie eine neue E-Mail anfordern",
+            )
+
+    # Generate secure token
+    token = secrets.token_urlsafe(32)
+
+    # Update user
+    current_user.email_verification_token = token
+    current_user.email_verification_sent_at = datetime.now(timezone.utc)
+
+    # Send email
+    email_sent = await _send_verification_email(current_user, token)
+
+    if not email_sent:
+        # Reset token if email failed
+        current_user.email_verification_token = None
+        current_user.email_verification_sent_at = None
+        await session.commit()
+        raise HTTPException(
+            status_code=500,
+            detail="E-Mail konnte nicht gesendet werden. Bitte versuchen Sie es später erneut.",
+        )
+
+    await session.commit()
+
+    return MessageResponse(
+        message=f"Bestätigungs-E-Mail wurde an {current_user.email} gesendet"
+    )
+
+
+@router.post("/email-verification/confirm", response_model=MessageResponse)
+async def confirm_email_verification(
+    data: EmailVerificationConfirmRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Confirm email verification with token.
+
+    Token is valid for 24 hours after being sent.
+    """
+    from datetime import timedelta
+
+    # Apply rate limiting
+    await check_rate_limit(request, "email_verification")
+
+    # Find user by token
+    result = await session.execute(
+        select(User).where(User.email_verification_token == data.token)
+    )
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=400,
+            detail="Ungültiger oder abgelaufener Bestätigungslink",
+        )
+
+    # Check token expiry (24 hours)
+    if user.email_verification_sent_at:
+        token_age = datetime.now(timezone.utc) - user.email_verification_sent_at
+        if token_age > timedelta(hours=24):
+            # Clear expired token
+            user.email_verification_token = None
+            user.email_verification_sent_at = None
+            await session.commit()
+            raise HTTPException(
+                status_code=400,
+                detail="Bestätigungslink ist abgelaufen. Bitte fordern Sie einen neuen an.",
+            )
+
+    # Mark as verified
+    user.email_verified = True
+    user.email_verification_token = None
+    user.email_verification_sent_at = None
+
+    await session.commit()
+
+    return MessageResponse(message="E-Mail-Adresse erfolgreich bestätigt")

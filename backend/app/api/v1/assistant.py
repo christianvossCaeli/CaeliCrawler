@@ -41,12 +41,18 @@ _batch_store: Dict[str, Dict] = {}
 _CLEANUP_INTERVAL_SECONDS = AssistantConstants.ATTACHMENT_EXPIRY_HOURS * 3600
 _last_cleanup_time = time.time()
 
+# Maximum number of entries to prevent memory exhaustion
+_MAX_ATTACHMENTS = 1000  # Max concurrent temp attachments across all users
+_MAX_BATCHES = 500  # Max concurrent batch jobs
+_BATCH_TIMEOUT_SECONDS = 1800  # 30 minutes timeout for running batches
+
 
 def _cleanup_expired_stores() -> None:
     """Clean up expired entries from in-memory stores.
 
     Called periodically during request handling to prevent memory leaks.
     Removes entries older than ATTACHMENT_EXPIRY_HOURS.
+    Also enforces max size limits by evicting oldest entries.
     """
     global _last_cleanup_time
     current_time = time.time()
@@ -66,6 +72,16 @@ def _cleanup_expired_stores() -> None:
     for key in expired_attachments:
         del _attachment_store[key]
 
+    # Enforce max size for attachments - evict oldest if over limit
+    if len(_attachment_store) > _MAX_ATTACHMENTS:
+        sorted_attachments = sorted(
+            _attachment_store.items(),
+            key=lambda x: x[1].get("created_at", 0)
+        )
+        evict_count = len(_attachment_store) - _MAX_ATTACHMENTS
+        for key, _ in sorted_attachments[:evict_count]:
+            del _attachment_store[key]
+
     # Clean up completed/failed batch jobs (keep running ones)
     expired_batches = [
         key for key, value in _batch_store.items()
@@ -74,6 +90,29 @@ def _cleanup_expired_stores() -> None:
     ]
     for key in expired_batches:
         del _batch_store[key]
+
+    # Timeout stale running batches (mark as failed after 30 minutes)
+    batch_timeout_threshold = current_time - _BATCH_TIMEOUT_SECONDS
+    stale_running_batches = [
+        key for key, value in _batch_store.items()
+        if value.get("status") == "running"
+        and value.get("created_at", 0) < batch_timeout_threshold
+    ]
+    for key in stale_running_batches:
+        _batch_store[key]["status"] = "failed"
+        _batch_store[key]["message"] = "Batch-Operation hat das Timeout überschritten"
+
+    # Enforce max size for batches - evict oldest completed/failed
+    if len(_batch_store) > _MAX_BATCHES:
+        # Only evict non-running batches
+        completed_batches = sorted(
+            [(k, v) for k, v in _batch_store.items()
+             if v.get("status") in ("completed", "failed", "cancelled")],
+            key=lambda x: x[1].get("created_at", 0)
+        )
+        evict_count = len(_batch_store) - _MAX_BATCHES
+        for key, _ in completed_batches[:evict_count]:
+            del _batch_store[key]
 
 router = APIRouter()
 
@@ -283,6 +322,13 @@ async def upload_attachment(
 
     # Run periodic cleanup
     _cleanup_expired_stores()
+
+    # Check if we're at capacity (prevent memory exhaustion)
+    if len(_attachment_store) >= _MAX_ATTACHMENTS:
+        raise HTTPException(
+            status_code=503,
+            detail="Server temporär überlastet. Bitte versuchen Sie es später erneut."
+        )
 
     # Generate unique ID
     attachment_id = str(uuid4())
@@ -713,6 +759,12 @@ async def batch_action(
 
     # Store batch status if not dry run
     if not request.dry_run and result.get("batch_id"):
+        # Check if we're at capacity (prevent memory exhaustion)
+        if len(_batch_store) >= _MAX_BATCHES:
+            raise HTTPException(
+                status_code=503,
+                detail="Zu viele gleichzeitige Batch-Operationen. Bitte warten Sie."
+            )
         _batch_store[result["batch_id"]] = {
             "status": "running",
             "processed": 0,

@@ -1174,6 +1174,68 @@
         "topUsers": "Most active users",
         "topEntityTypes": "Most changed entity types"
       }
+    },
+    "attachments": {
+      "title": "Attachments",
+      "description": "Upload files like images, PDFs, or documents to entities. These can be automatically analyzed by AI to extract relevant facets.",
+      "supportedFormats": {
+        "title": "Supported Formats",
+        "images": {
+          "title": "Images",
+          "description": "Screenshots, scans, photos for visual analysis"
+        },
+        "documents": {
+          "title": "Documents",
+          "description": "PDF documents for text extraction and analysis"
+        }
+      },
+      "maxSize": {
+        "title": "Maximum Size:",
+        "description": "20 MB per file"
+      },
+      "upload": {
+        "title": "Upload",
+        "methods": {
+          "title": "Upload Methods",
+          "button": "Click 'Upload' in the Attachments tab",
+          "dragDrop": "Drag and drop files into the upload area"
+        }
+      },
+      "aiAnalysis": {
+        "title": "AI Analysis",
+        "description": "AI can automatically analyze uploaded files and extract relevant information:",
+        "textExtraction": "Text recognition (OCR) for scanned documents",
+        "entityDetection": "Detection of persons, organizations, and locations",
+        "facetSuggestions": "Automatic facet suggestions based on content",
+        "note": "Enable 'Automatically analyze' during upload to start AI analysis immediately."
+      },
+      "workflow": {
+        "title": "Workflow",
+        "step1": "Open the Attachments tab in the entity detail view",
+        "step2": "Upload a file (optional: enable automatic analysis)",
+        "step3": "Wait for AI analysis (if enabled)",
+        "step4": "Review and apply the suggested facets"
+      },
+      "status": {
+        "title": "Status Overview",
+        "statusColumn": "Status",
+        "descriptionColumn": "Description",
+        "pending": "Pending",
+        "pendingDesc": "File uploaded, analysis not yet started",
+        "analyzing": "Analyzing",
+        "analyzingDesc": "AI is analyzing the file",
+        "completed": "Completed",
+        "completedDesc": "Analysis successful, results available",
+        "failed": "Failed",
+        "failedDesc": "Error occurred during analysis"
+      },
+      "facetApplication": {
+        "title": "Apply Facets",
+        "description": "After analysis, you can review and apply the suggested facets:",
+        "step1": "Click 'View Analysis' on the attachment",
+        "step2": "Select the desired facet suggestions",
+        "step3": "Click 'Apply Facets' to add them to the entity"
+      }
     }
   }
 }

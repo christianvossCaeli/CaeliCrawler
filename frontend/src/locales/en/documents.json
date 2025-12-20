@@ -11,7 +11,8 @@
       "category": "Category",
       "status": "Status",
       "dateFrom": "From",
-      "dateTo": "To"
+      "dateTo": "To",
+      "resetFilters": "Reset filters"
     },
     "columns": {
       "title": "Title",
@@ -20,6 +21,8 @@
       "status": "Status",
       "location": "Location",
       "date": "Date",
+      "discovered": "Discovered",
+      "size": "Size",
       "actions": "Actions"
     },
     "actions": {
@@ -28,32 +31,58 @@
       "download": "Download",
       "openOriginal": "Open Original",
       "viewDetails": "View Details",
-      "reprocess": "Reprocess"
+      "reprocess": "Reprocess",
+      "processAll": "All Pending",
+      "stop": "Stop",
+      "exportCsv": "CSV Export"
     },
     "detail": {
       "title": "Document Details",
       "metadata": "Metadata",
       "rawText": "Raw Text",
+      "rawTextPreview": "Extracted text (Preview)",
       "extractedData": "Extracted Data",
-      "processingHistory": "Processing History"
+      "processingHistory": "Processing History",
+      "processingError": "Processing error / Filter reason",
+      "noTitle": "(No title)",
+      "url": "URL",
+      "type": "Type",
+      "size": "Size",
+      "pages": "Pages",
+      "source": "Source",
+      "discovered": "Discovered",
+      "processed": "Processed",
+      "showInResults": "Show in results",
+      "confidence": "Confidence"
     },
     "stats": {
       "total": "Total",
       "pending": "Pending",
       "processing": "Processing",
+      "analyzing": "AI Analysis",
       "completed": "Completed",
+      "filtered": "Filtered",
       "failed": "Failed"
     },
     "bulkActions": {
-      "processSelected": "Process Selected",
-      "analyzeSelected": "Analyze Selected",
-      "deleteSelected": "Delete Selected"
+      "processSelected": "process",
+      "analyzeSelected": "analyze",
+      "deleteSelected": "Delete selected"
     },
     "messages": {
       "processQueued": "Document queued for processing",
       "processError": "Error processing document",
       "analyzeQueued": "AI analysis started",
-      "analyzeError": "Error during analysis"
+      "analyzeError": "Error during analysis",
+      "processingStarted": "Processing started",
+      "processingAllStarted": "Processing of all pending documents started",
+      "analysisStarted": "AI analysis started",
+      "stoppingProcessing": "Stopping processing...",
+      "bulkProcessing": "Documents are being processed",
+      "bulkAnalyzing": "Documents are being analyzed",
+      "csvExported": "CSV exported",
+      "loadingDetails": "Error loading details",
+      "loadingDocuments": "Loading documents..."
     },
     "processStarted": "Processing started",
     "processError": "Error starting processing",

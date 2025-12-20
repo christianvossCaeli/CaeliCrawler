@@ -1168,11 +1168,73 @@
       "statistics": {
         "title": "Statistiken",
         "description": "Das Audit Log bietet auch aggregierte Statistiken:",
-        "totalEntries": "Gesamtzahl der Eintraege",
-        "entriesToday": "Eintraege heute",
-        "actionsBreakdown": "Aufschluesselung nach Aktions-Typ",
+        "totalEntries": "Gesamtzahl der Einträge",
+        "entriesToday": "Einträge heute",
+        "actionsBreakdown": "Aufschlüsselung nach Aktions-Typ",
         "topUsers": "Aktivste Benutzer",
-        "topEntityTypes": "Meist geaenderte Entity-Typen"
+        "topEntityTypes": "Meist geänderte Entity-Typen"
+      }
+    },
+    "attachments": {
+      "title": "Anhänge",
+      "description": "Laden Sie Dateien wie Bilder, PDFs oder Dokumente zu Entities hoch. Diese können automatisch von der KI analysiert werden, um relevante Facets zu extrahieren.",
+      "supportedFormats": {
+        "title": "Unterstützte Formate",
+        "images": {
+          "title": "Bilder",
+          "description": "Screenshots, Scans, Fotos für visuelle Analyse"
+        },
+        "documents": {
+          "title": "Dokumente",
+          "description": "PDF-Dokumente für Textextraktion und Analyse"
+        }
+      },
+      "maxSize": {
+        "title": "Maximale Größe:",
+        "description": "20 MB pro Datei"
+      },
+      "upload": {
+        "title": "Hochladen",
+        "methods": {
+          "title": "Upload-Methoden",
+          "button": "Klicken Sie auf 'Hochladen' im Anhänge-Tab",
+          "dragDrop": "Ziehen Sie Dateien per Drag & Drop in den Upload-Bereich"
+        }
+      },
+      "aiAnalysis": {
+        "title": "KI-Analyse",
+        "description": "Die KI kann hochgeladene Dateien automatisch analysieren und relevante Informationen extrahieren:",
+        "textExtraction": "Texterkennung (OCR) für gescannte Dokumente",
+        "entityDetection": "Erkennung von Personen, Organisationen und Orten",
+        "facetSuggestions": "Automatische Facet-Vorschläge basierend auf dem Inhalt",
+        "note": "Aktivieren Sie 'Automatisch analysieren' beim Upload, um die KI-Analyse sofort zu starten."
+      },
+      "workflow": {
+        "title": "Workflow",
+        "step1": "Öffnen Sie den Anhänge-Tab in der Entity-Detailansicht",
+        "step2": "Laden Sie eine Datei hoch (optional: automatische Analyse aktivieren)",
+        "step3": "Warten Sie auf die KI-Analyse (falls aktiviert)",
+        "step4": "Prüfen und übernehmen Sie die vorgeschlagenen Facets"
+      },
+      "status": {
+        "title": "Status-Übersicht",
+        "statusColumn": "Status",
+        "descriptionColumn": "Beschreibung",
+        "pending": "Ausstehend",
+        "pendingDesc": "Datei hochgeladen, Analyse noch nicht gestartet",
+        "analyzing": "Wird analysiert",
+        "analyzingDesc": "KI analysiert die Datei",
+        "completed": "Abgeschlossen",
+        "completedDesc": "Analyse erfolgreich, Ergebnisse verfügbar",
+        "failed": "Fehlgeschlagen",
+        "failedDesc": "Fehler bei der Analyse aufgetreten"
+      },
+      "facetApplication": {
+        "title": "Facets übernehmen",
+        "description": "Nach der Analyse können Sie die vorgeschlagenen Facets prüfen und übernehmen:",
+        "step1": "Klicken Sie auf 'Analyse anzeigen' beim Anhang",
+        "step2": "Wählen Sie die gewünschten Facet-Vorschläge aus",
+        "step3": "Klicken Sie auf 'Facets übernehmen' um sie der Entity hinzuzufügen"
       }
     }
   }

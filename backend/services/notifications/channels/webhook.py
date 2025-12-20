@@ -3,8 +3,8 @@
 import ipaddress
 import logging
 import socket
-from typing import Any, Dict, Tuple
-from urllib.parse import urlparse
+from typing import Any, Dict, Optional, Tuple
+from urllib.parse import urlparse, urlunparse
 
 import httpx
 
@@ -28,45 +28,72 @@ BLOCKED_IP_RANGES = [
 ]
 
 
-def is_safe_webhook_url(url: str) -> Tuple[bool, str]:
+def is_safe_webhook_url(url: str) -> Tuple[bool, str, Optional[str]]:
     """
     Validate webhook URL for SSRF protection.
 
-    Returns (is_safe, error_message).
+    Returns (is_safe, error_message, resolved_ip).
+    The resolved_ip should be used for the actual request to prevent DNS rebinding attacks.
     """
     try:
         parsed = urlparse(url)
 
         # Only allow https
         if parsed.scheme != "https":
-            return False, "Only HTTPS URLs are allowed"
+            return False, "Only HTTPS URLs are allowed", None
 
         hostname = parsed.hostname
         if not hostname:
-            return False, "Invalid URL: no hostname"
+            return False, "Invalid URL: no hostname", None
 
         # Block localhost
         if hostname.lower() in {"localhost", "127.0.0.1", "::1", "0.0.0.0"}:
-            return False, "Localhost URLs are not allowed"
+            return False, "Localhost URLs are not allowed", None
 
         # Block internal hostnames
         if hostname.endswith(".local") or hostname.endswith(".internal"):
-            return False, "Internal hostnames are not allowed"
+            return False, "Internal hostnames are not allowed", None
 
-        # Resolve and check IP
+        # Resolve and check IP - REQUIRED for DNS rebinding protection
         try:
-            ip = socket.gethostbyname(hostname)
-            ip_obj = ipaddress.ip_address(ip)
+            resolved_ip = socket.gethostbyname(hostname)
+            ip_obj = ipaddress.ip_address(resolved_ip)
 
             for blocked_range in BLOCKED_IP_RANGES:
                 if ip_obj in blocked_range:
-                    return False, "URL resolves to blocked IP range"
-        except socket.gaierror:
-            pass  # Can't resolve, allow
+                    return False, "URL resolves to blocked IP range", None
 
-        return True, ""
+            # Return the resolved IP to pin the connection
+            return True, "", resolved_ip
+        except socket.gaierror:
+            # Can't resolve - this is now an error since we need IP pinning
+            return False, "Cannot resolve hostname", None
+
     except Exception as e:
-        return False, f"Invalid URL: {str(e)}"
+        return False, f"Invalid URL: {str(e)}", None
+
+
+def create_pinned_url(original_url: str, resolved_ip: str) -> Tuple[str, str]:
+    """
+    Create a URL with IP instead of hostname for DNS rebinding protection.
+
+    Returns (pinned_url, original_hostname) for setting Host header.
+    """
+    parsed = urlparse(original_url)
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+
+    # Replace hostname with IP in URL
+    netloc = f"{resolved_ip}:{port}" if port not in (80, 443) else resolved_ip
+    pinned = urlunparse((
+        parsed.scheme,
+        netloc,
+        parsed.path,
+        parsed.params,
+        parsed.query,
+        parsed.fragment,
+    ))
+
+    return pinned, parsed.hostname
 
 
 class WebhookChannel(NotificationChannelBase):
@@ -89,21 +116,27 @@ class WebhookChannel(NotificationChannelBase):
             logger.warning(f"No webhook URL for notification {notification.id}")
             return False
 
-        # SSRF Protection: Validate URL before making request
-        is_safe, error_msg = is_safe_webhook_url(url)
-        if not is_safe:
+        # SSRF Protection: Validate URL and get resolved IP
+        is_safe, error_msg, resolved_ip = is_safe_webhook_url(url)
+        if not is_safe or not resolved_ip:
             logger.error(
                 f"Blocked unsafe webhook URL for notification {notification.id}: {error_msg}"
             )
             return False
 
+        # Create pinned URL to prevent DNS rebinding attacks
+        pinned_url, original_hostname = create_pinned_url(url, resolved_ip)
+
         headers = self._build_headers(config)
+        # Add Host header with original hostname for server routing
+        headers["Host"] = original_hostname
         payload = self._build_payload(notification)
 
         try:
-            async with httpx.AsyncClient() as client:
+            # Use pinned URL with resolved IP to prevent DNS rebinding
+            async with httpx.AsyncClient(verify=True) as client:
                 response = await client.post(
-                    url,
+                    pinned_url,
                     json=payload,
                     headers=headers,
                     timeout=30.0,
@@ -143,7 +176,7 @@ class WebhookChannel(NotificationChannelBase):
             return False
 
         # SSRF Protection: Validate URL
-        is_safe, error_msg = is_safe_webhook_url(url)
+        is_safe, error_msg, _ = is_safe_webhook_url(url)
         if not is_safe:
             logger.warning(f"Invalid webhook URL: {error_msg}")
             return False

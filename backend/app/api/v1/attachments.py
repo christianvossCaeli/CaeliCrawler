@@ -209,6 +209,7 @@ async def get_thumbnail(
     entity_id: UUID,
     attachment_id: UUID,
     session: AsyncSession = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """Get thumbnail for image attachments."""
     service = AttachmentService(session)

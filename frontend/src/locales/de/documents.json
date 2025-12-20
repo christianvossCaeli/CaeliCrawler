@@ -76,7 +76,7 @@
       "analyzeError": "Fehler bei der Analyse",
       "processingStarted": "Verarbeitung gestartet",
       "processingAllStarted": "Verarbeitung aller wartenden Dokumente gestartet",
-      "analysisStarted": "KI-Analyse gestarted",
+      "analysisStarted": "KI-Analyse gestartet",
       "stoppingProcessing": "Verarbeitung wird gestoppt...",
       "bulkProcessing": "Dokumente werden verarbeitet",
       "bulkAnalyzing": "Dokumente werden analysiert",

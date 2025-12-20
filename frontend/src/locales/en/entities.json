@@ -247,7 +247,20 @@
       "exportDataSources": "Data Sources",
       "exportNotes": "Notes",
       "addNote": "Add new note...",
-      "saveNote": "Save note"
+      "saveNote": "Save note",
+      "addRelation": "Add Relation",
+      "editRelation": "Edit Relation",
+      "deleteRelation": "Delete relation?",
+      "deleteRelationConfirm": "Are you sure you want to delete this relation?",
+      "relationType": "Relation Type *",
+      "relationDirection": "Direction",
+      "outgoing": "Outgoing (from this entity)",
+      "incoming": "Incoming (to this entity)",
+      "targetEntity": "Target Entity *",
+      "noEntitiesFound": "No entities found",
+      "typeToSearch": "Type at least 2 characters to search",
+      "relationAttributes": "Attributes (JSON, optional)",
+      "relationAttributesHint": "e.g. {\"since\": \"2024\", \"role\": \"Partner\"}"
     },
     "messages": {
       "entityNotFound": "Entity not found",
@@ -275,7 +288,12 @@
       "crawlStarted": "Crawl started for \"{name}\"",
       "crawlStartError": "Error starting crawl",
       "copiedToClipboard": "Copied to clipboard",
-      "enrichError": "Error starting enrichment"
+      "enrichError": "Error starting enrichment",
+      "relationCreated": "Relation created",
+      "relationUpdated": "Relation updated",
+      "relationDeleted": "Relation deleted",
+      "relationSaveError": "Error saving relation",
+      "invalidJson": "Invalid JSON format"
     },
     "enrichFromPysis": "Enrich from PySis",
     "enrichFromPysisTitle": "Enrich Facets with PySis Data",

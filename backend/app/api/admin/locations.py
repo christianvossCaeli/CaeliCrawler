@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.countries import get_country_config, get_supported_countries, is_country_supported
 from app.database import get_session
+from app.core.deps import require_editor, require_admin
+from app.models import User
 from app.models.location import Location
 from app.models.data_source import DataSource
 from app.models.pysis import PySisProcess
@@ -31,6 +33,7 @@ router = APIRouter()
 @router.get("/countries", response_model=List[CountryInfo])
 async def list_countries(
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """
     Get list of supported countries with location counts.
@@ -65,6 +68,7 @@ async def get_admin_levels(
     level: int = Query(1, ge=1, le=2, description="Admin level (1 or 2)"),
     parent: Optional[str] = Query(None, description="Parent admin level value (for level 2)"),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """
     Get distinct admin level values for a country.
@@ -118,6 +122,7 @@ async def get_admin_levels(
 @router.post("/link-sources", response_model=dict)
 async def link_all_sources(
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """
     Link all unlinked DataSources and PySis processes to their locations.
@@ -168,6 +173,7 @@ async def list_locations_with_sources(
     admin_level_2: Optional[str] = Query(None, description="Filter by admin level 2 (e.g., Landkreis)"),
     search: Optional[str] = Query(None),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """
     List all locations that have data sources assigned.
@@ -369,6 +375,7 @@ async def search_locations(
     country: Optional[str] = Query(None, min_length=2, max_length=2, description="Filter by country"),
     admin_level_1: Optional[str] = Query(None, description="Filter by state/region"),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """
     Search locations by name for autocomplete.
@@ -439,6 +446,7 @@ async def list_locations(
     admin_level_1: Optional[str] = Query(None, description="Filter by state/region"),
     search: Optional[str] = Query(None, description="Search by name"),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """List all locations with pagination."""
     # Normalize country filter
@@ -512,6 +520,7 @@ async def list_locations(
 async def list_states(
     country: str = Query(default="DE", min_length=2, max_length=2),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Get list of all admin_level_1 values (states/regions) for a country."""
     country = country.upper()
@@ -533,6 +542,7 @@ async def list_states(
 async def get_location(
     location_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Get a specific location by ID."""
     result = await session.execute(
@@ -561,6 +571,7 @@ async def get_location(
 async def create_location(
     data: LocationCreate,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Create a new location."""
     # Validate country
@@ -653,6 +664,7 @@ async def update_location(
     location_id: UUID,
     data: LocationUpdate,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Update a location."""
     result = await session.execute(
@@ -695,6 +707,7 @@ async def update_location(
 async def delete_location(
     location_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Delete a location (soft delete)."""
     result = await session.execute(
@@ -725,6 +738,7 @@ async def enrich_admin_levels(
     country: str = Query(default="DE", min_length=2, max_length=2),
     limit: int = Query(default=50, ge=1, le=500),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """
     Enrich locations without admin_level_2 using Nominatim API.

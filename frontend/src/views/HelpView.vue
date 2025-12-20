@@ -37,6 +37,7 @@
         <HelpDocumentsSection />
         <HelpMunicipalitiesSection />
         <HelpEntityFacetSection />
+        <HelpAttachmentsSection />
         <HelpFacetTypeAdminSection />
         <HelpResultsSection />
         <HelpExportSection />
@@ -86,6 +87,7 @@ import {
   HelpDocumentsSection,
   HelpMunicipalitiesSection,
   HelpEntityFacetSection,
+  HelpAttachmentsSection,
   HelpFacetTypeAdminSection,
   HelpResultsSection,
   HelpExportSection,
@@ -110,6 +112,7 @@ const sections = [
   { id: 'documents', title: t('help.sections.documents'), icon: 'mdi-file-document-multiple' },
   { id: 'municipalities', title: t('help.sections.municipalities'), icon: 'mdi-city' },
   { id: 'entity-facet', title: t('help.sections.entityFacet'), icon: 'mdi-database' },
+  { id: 'attachments', title: t('help.sections.attachments'), icon: 'mdi-paperclip' },
   { id: 'facet-type-admin', title: t('help.sections.facetTypeAdmin'), icon: 'mdi-tag-multiple' },
   { id: 'results', title: t('help.sections.results'), icon: 'mdi-chart-bar' },
   { id: 'export', title: t('help.sections.export'), icon: 'mdi-export' },

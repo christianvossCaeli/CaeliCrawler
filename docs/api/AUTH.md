@@ -36,6 +36,8 @@ Benutzer authentifizieren und JWT-Token erhalten.
     "role": "ADMIN",
     "is_active": true,
     "is_superuser": false,
+    "email_verified": true,
+    "language": "de",
     "last_login": "2025-01-15T14:30:00Z",
     "created_at": "2025-01-01T00:00:00Z"
   }
@@ -61,6 +63,8 @@ Profil des aktuell angemeldeten Benutzers abrufen.
   "role": "ADMIN",
   "is_active": true,
   "is_superuser": false,
+  "email_verified": true,
+  "language": "de",
   "last_login": "2025-01-15T14:30:00Z",
   "created_at": "2025-01-01T00:00:00Z"
 }
@@ -243,6 +247,85 @@ Alle Sessions ausser der aktuellen widerrufen ("Ueberall abmelden").
 - Maximum 5 gleichzeitige Sessions pro Benutzer
 - Bei Ueberschreitung wird die aelteste Session automatisch widerrufen
 - Widerrufene Sessions koennen nicht mehr fuer Token-Refresh verwendet werden
+
+---
+
+## E-Mail-Verifizierung
+
+Endpoints zur Verwaltung der E-Mail-Verifizierung. Verifizierte E-Mail-Adressen sind Voraussetzung fuer bestimmte Funktionen wie Passwort-Zuruecksetzung.
+
+### GET /auth/email-verification/status
+Verifizierungsstatus der eigenen E-Mail-Adresse abrufen.
+
+**Header:** `Authorization: Bearer <token>`
+
+**Response:**
+```json
+{
+  "email": "user@example.com",
+  "email_verified": true,
+  "verification_sent_at": "2025-01-15T10:00:00Z"
+}
+```
+
+**Hinweise:**
+- `verification_sent_at` ist `null` wenn noch nie eine Verifizierungs-E-Mail gesendet wurde
+
+### POST /auth/email-verification/request
+Neue Verifizierungs-E-Mail anfordern.
+
+**Rate Limiting:** 1 Anfrage pro 5 Minuten (um Spam zu verhindern).
+
+**Header:** `Authorization: Bearer <token>`
+
+**Response (Erfolg):**
+```json
+{
+  "message": "Verifizierungs-E-Mail wurde gesendet"
+}
+```
+
+**Response (bereits verifiziert):**
+```json
+{
+  "message": "E-Mail-Adresse ist bereits verifiziert"
+}
+```
+
+**Fehler:**
+- `429 Too Many Requests` - Rate Limit erreicht (5 Minuten warten)
+
+**Hinweise:**
+- Die Verifizierungs-E-Mail enthaelt einen Link zum Frontend mit Token
+- Token ist 24 Stunden gueltig
+- Bei erneuter Anforderung wird ein neuer Token generiert (alter wird ungueltig)
+
+### POST /auth/email-verification/confirm
+E-Mail-Adresse mit Token verifizieren.
+
+**Kein Authorization-Header erforderlich** (Token enthaelt Benutzer-Identifikation).
+
+**Request Body:**
+```json
+{
+  "token": "<VERIFICATION_TOKEN>"
+}
+```
+
+**Response (Erfolg):**
+```json
+{
+  "message": "E-Mail-Adresse erfolgreich verifiziert"
+}
+```
+
+**Fehler:**
+- `400 Bad Request` - Token ungueltig oder abgelaufen
+- `400 Bad Request` - E-Mail bereits verifiziert
+
+**Hinweise:**
+- Nach erfolgreicher Verifizierung wird `email_verified` auf `true` gesetzt
+- Token kann nur einmal verwendet werden
 
 ---
 

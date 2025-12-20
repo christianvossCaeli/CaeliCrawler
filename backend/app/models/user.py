@@ -82,6 +82,21 @@ class User(Base):
         nullable=True,
     )
 
+    # Email verification
+    email_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+    email_verification_token: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    email_verification_sent_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     # User preferences
     language: Mapped[str] = mapped_column(
         String(5),

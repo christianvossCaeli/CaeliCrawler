@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
-from app.api.deps import get_current_active_user
+from app.core.deps import get_current_user
 from app.models import User
 from services.entity_data_facet_service import EntityDataFacetService
 
@@ -108,7 +108,7 @@ class ApplyChangesResponse(BaseModel):
 async def get_enrichment_sources(
     entity_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_user),
 ) -> EnrichmentSourcesResponse:
     """Get available data sources for entity enrichment."""
     service = EntityDataFacetService(session)
@@ -131,7 +131,7 @@ async def get_enrichment_sources(
 async def analyze_for_facets(
     request: StartAnalysisRequest,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_user),
 ) -> StartAnalysisResponse:
     """Start an AI analysis task for facet enrichment."""
     service = EntityDataFacetService(session)
@@ -161,7 +161,7 @@ async def analyze_for_facets(
 async def get_analysis_preview(
     task_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Get the preview of proposed changes."""
     service = EntityDataFacetService(session)
@@ -183,7 +183,7 @@ async def get_analysis_preview(
 async def apply_changes(
     request: ApplyChangesRequest,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_user),
 ) -> ApplyChangesResponse:
     """Apply selected changes from analysis preview."""
     service = EntityDataFacetService(session)

@@ -13,7 +13,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
-from app.models import DataSource, Document, Category, SourceStatus, SourceType, DataSourceCategory
+from app.core.deps import require_editor, require_admin
+from app.models import DataSource, Document, Category, SourceStatus, SourceType, DataSourceCategory, User
 from app.models.location import Location
 from app.schemas.data_source import (
     CategoryLink,
@@ -286,6 +287,7 @@ async def list_sources(
     location_id: Optional[UUID] = Query(default=None, description="Filter by location ID"),
     country: Optional[str] = Query(default=None, description="Filter by country code"),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """List all data sources with pagination and filters."""
     query = select(DataSource)
@@ -364,6 +366,7 @@ async def list_sources(
 async def create_source(
     data: DataSourceCreate,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """
     Create a new data source.
@@ -459,6 +462,7 @@ async def create_source(
 async def get_source(
     source_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Get a single data source by ID."""
     source = await session.get(DataSource, source_id)
@@ -480,6 +484,7 @@ async def update_source(
     source_id: UUID,
     data: DataSourceUpdate,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """
     Update a data source.
@@ -553,6 +558,7 @@ async def update_source(
 async def delete_source(
     source_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Delete a data source and all related data."""
     source = await session.get(DataSource, source_id)
@@ -570,6 +576,7 @@ async def delete_source(
 async def bulk_import_sources(
     data: DataSourceBulkImport,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """
     Bulk import data sources from a list.
@@ -636,6 +643,7 @@ async def bulk_import_sources(
 @router.get("/meta/countries")
 async def get_source_countries(
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Get list of countries that have data sources."""
     query = (
@@ -678,6 +686,7 @@ async def get_source_locations(
     search: Optional[str] = Query(None, min_length=2, description="Search location name"),
     limit: int = Query(default=50, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Get list of locations that have data sources (for filtering)."""
     query = (
@@ -718,6 +727,7 @@ async def get_source_locations(
 async def reset_source(
     source_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Reset a source status (clear errors, set to pending)."""
     source = await session.get(DataSource, source_id)
@@ -734,6 +744,7 @@ async def reset_source(
 @router.get("/meta/counts")
 async def get_source_counts(
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """
     Get aggregated counts for sidebar navigation.

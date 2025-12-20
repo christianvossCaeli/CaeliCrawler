@@ -10,9 +10,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.deps import require_editor, require_admin
 from app.core.exceptions import FeatureDisabledError, NotFoundError, ValidationError
 from app.database import get_session
-from app.models import Entity
+from app.models import Entity, User
 from app.models.pysis import (
     PySisFieldHistory,
     PySisFieldTemplate,
@@ -70,6 +71,7 @@ async def list_templates(
     is_active: Optional[bool] = Query(default=None),
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_templates_feature),
+    __: User = Depends(require_editor),
 ):
     """List all field templates."""
     query = select(PySisFieldTemplate)
@@ -91,6 +93,7 @@ async def create_template(
     data: PySisFieldTemplateCreate,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_templates_feature),
+    __: User = Depends(require_admin),
 ):
     """Create a new field template."""
     template = PySisFieldTemplate(
@@ -110,6 +113,7 @@ async def get_template(
     template_id: UUID,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_templates_feature),
+    __: User = Depends(require_editor),
 ):
     """Get a template by ID."""
     template = await session.get(PySisFieldTemplate, template_id)
@@ -124,6 +128,7 @@ async def update_template(
     data: PySisFieldTemplateUpdate,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_templates_feature),
+    __: User = Depends(require_admin),
 ):
     """Update a template."""
     template = await session.get(PySisFieldTemplate, template_id)
@@ -149,6 +154,7 @@ async def delete_template(
     template_id: UUID,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_templates_feature),
+    __: User = Depends(require_admin),
 ):
     """Delete a template."""
     template = await session.get(PySisFieldTemplate, template_id)
@@ -166,6 +172,7 @@ async def delete_template(
 async def list_location_processes(
     location_name: str,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """List all PySis processes for a location."""
     query = select(PySisProcess).where(
@@ -189,6 +196,7 @@ async def create_process(
     location_name: str,
     data: PySisProcessCreate,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Create a new PySis process link for a location."""
     # Check if template feature is enabled when template_id is provided
@@ -247,6 +255,7 @@ async def create_process(
 async def get_process(
     process_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Get process details with all fields."""
     process = await session.get(PySisProcess, process_id)
@@ -264,6 +273,7 @@ async def update_process(
     process_id: UUID,
     data: PySisProcessUpdate,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Update a process."""
     process = await session.get(PySisProcess, process_id)
@@ -287,6 +297,7 @@ async def update_process(
 async def delete_process(
     process_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Delete a process and all its fields."""
     process = await session.get(PySisProcess, process_id)
@@ -304,6 +315,7 @@ async def apply_template_to_process(
     data: ApplyTemplateRequest,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_templates_feature),
+    __: User = Depends(require_editor),
 ):
     """
     Apply a template to a process.
@@ -362,6 +374,7 @@ async def apply_template_to_process(
 async def list_process_fields(
     process_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """List all fields for a process."""
     process = await session.get(PySisProcess, process_id)
@@ -376,6 +389,7 @@ async def create_field(
     process_id: UUID,
     data: PySisFieldCreate,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Create a new field for a process."""
     process = await session.get(PySisProcess, process_id)
@@ -402,6 +416,7 @@ async def update_field(
     field_id: UUID,
     data: PySisFieldUpdate,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Update a field."""
     field = await session.get(PySisProcessField, field_id)
@@ -427,6 +442,7 @@ async def update_field_value(
     field_id: UUID,
     data: PySisFieldValueUpdate,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Update a field's value."""
     field = await session.get(PySisProcessField, field_id)
@@ -452,6 +468,7 @@ async def update_field_value(
 async def delete_field(
     field_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Delete a field."""
     field = await session.get(PySisProcessField, field_id)
@@ -469,6 +486,7 @@ async def delete_field(
 async def pull_from_pysis(
     process_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """
     Pull current values from PySis API.
@@ -590,6 +608,7 @@ async def push_to_pysis(
     process_id: UUID,
     field_ids: Optional[List[UUID]] = Body(None, embed=True),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Push field values to PySis API."""
     process = await session.get(PySisProcess, process_id)
@@ -659,6 +678,7 @@ async def push_to_pysis(
 async def push_field_to_pysis(
     field_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Push a single field value to PySis API."""
     field = await session.get(PySisProcessField, field_id)
@@ -717,6 +737,7 @@ async def generate_fields(
     process_id: UUID,
     data: Optional[PySisGenerateRequest] = None,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Generate field values using AI."""
     process = await session.get(PySisProcess, process_id)
@@ -746,6 +767,7 @@ async def generate_fields(
 async def generate_single_field(
     field_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Generate a single field value using AI."""
     field = await session.get(PySisProcessField, field_id)
@@ -769,6 +791,7 @@ async def accept_ai_suggestion(
     field_id: UUID,
     data: Optional[AcceptAISuggestionRequest] = None,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """
     Accept the AI-generated suggestion for a field.
@@ -857,6 +880,7 @@ async def accept_ai_suggestion(
 async def reject_ai_suggestion(
     field_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """
     Reject the AI-generated suggestion for a field.
@@ -909,6 +933,7 @@ async def get_field_history(
     field_id: UUID,
     limit: int = Query(default=20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Get the value history for a field."""
     field = await session.get(PySisProcessField, field_id)
@@ -934,6 +959,7 @@ async def restore_from_history(
     field_id: UUID,
     history_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Restore a field value from history."""
     field = await session.get(PySisProcessField, field_id)
@@ -985,6 +1011,7 @@ async def restore_from_history(
 @router.get("/test-connection", response_model=PySisTestConnectionResult)
 async def test_pysis_connection(
     process_id: Optional[str] = Query(default=None, description="Optional process ID to test"),
+    _: User = Depends(require_editor),
 ):
     """Test the PySis API connection."""
     pysis = get_pysis_service()
@@ -996,7 +1023,9 @@ async def test_pysis_connection(
 # === List Available Processes from PySis ===
 
 @router.get("/available-processes")
-async def list_available_processes():
+async def list_available_processes(
+    _: User = Depends(require_editor),
+):
     """
     List all available processes from PySis API.
 
@@ -1021,6 +1050,7 @@ async def analyze_pysis_for_facets_admin(
     process_id: UUID,
     data: Optional[PySisAnalyzeForFacetsRequest] = None,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """
     Analyze PySis fields and extract Facets for the linked Entity.

@@ -37,6 +37,7 @@ export { default as HelpApiSection } from './HelpApiSection.vue'
 export { default as HelpTipsSection } from './HelpTipsSection.vue'
 export { default as HelpSecuritySection } from './HelpSecuritySection.vue'
 export { default as HelpTroubleshootingSection } from './HelpTroubleshootingSection.vue'
+export { default as HelpAttachmentsSection } from './HelpAttachmentsSection.vue'
 
 // Data and types
 export {

@@ -9,7 +9,8 @@
       "general": "Allgemein",
       "attributes": "Eigenschaften",
       "location": "Standort",
-      "assignment": "Zuweisung"
+      "assignment": "Zuweisung",
+      "attachments": "Anhänge"
     },
     "properties": "Eigenschaften",
     "relations": "Verknüpfungen",
@@ -246,7 +247,20 @@
       "exportDataSources": "Datenquellen",
       "exportNotes": "Notizen",
       "addNote": "Neue Notiz hinzufügen...",
-      "saveNote": "Notiz speichern"
+      "saveNote": "Notiz speichern",
+      "addRelation": "Verknüpfung hinzufügen",
+      "editRelation": "Verknüpfung bearbeiten",
+      "deleteRelation": "Verknüpfung löschen?",
+      "deleteRelationConfirm": "Möchten Sie diese Verknüpfung wirklich löschen?",
+      "relationType": "Verknüpfungstyp *",
+      "relationDirection": "Richtung",
+      "outgoing": "Ausgehend (von dieser Entity)",
+      "incoming": "Eingehend (zu dieser Entity)",
+      "targetEntity": "Ziel-Entity *",
+      "noEntitiesFound": "Keine Entities gefunden",
+      "typeToSearch": "Mind. 2 Zeichen eingeben zum Suchen",
+      "relationAttributes": "Attribute (JSON, optional)",
+      "relationAttributesHint": "z.B. {\"since\": \"2024\", \"role\": \"Partner\"}"
     },
     "messages": {
       "entityNotFound": "Entity nicht gefunden",
@@ -274,7 +288,12 @@
       "crawlStarted": "Crawl für \"{name}\" gestartet",
       "crawlStartError": "Fehler beim Starten",
       "copiedToClipboard": "In Zwischenablage kopiert",
-      "enrichError": "Fehler beim Starten der Anreicherung"
+      "enrichError": "Fehler beim Starten der Anreicherung",
+      "relationCreated": "Verknüpfung erstellt",
+      "relationUpdated": "Verknüpfung aktualisiert",
+      "relationDeleted": "Verknüpfung gelöscht",
+      "relationSaveError": "Fehler beim Speichern der Verknüpfung",
+      "invalidJson": "Ungültiges JSON-Format"
     },
     "enrichFromPysis": "Aus PySis anreichern",
     "enrichFromPysisTitle": "Facets mit PySis-Daten anreichern",
@@ -347,7 +366,49 @@
       "existingFacets": "{count} Facets vorhanden",
       "startAnalysis": "Analyse starten",
       "noSourcesSelected": "Bitte wählen Sie mindestens eine Datenquelle aus",
-      "noSourcesAvailable": "Keine Datenquellen verfügbar"
+      "noSourcesAvailable": "Keine Datenquellen verfügbar",
+      "sourceAttachments": "Anhänge"
+    },
+    "attachments": {
+      "title": "Anhänge",
+      "upload": "Hochladen",
+      "uploadTitle": "Datei hochladen",
+      "selectFile": "Datei auswählen",
+      "description": "Beschreibung",
+      "autoAnalyze": "Automatisch mit KI analysieren",
+      "dropHint": "Dateien hier ablegen oder klicken zum Auswählen",
+      "empty": "Keine Anhänge vorhanden",
+      "analyze": "Mit KI analysieren",
+      "viewAnalysis": "Analyse anzeigen",
+      "analysisTitle": "Analyse-Ergebnis",
+      "analysisDescription": "Beschreibung",
+      "detectedText": "Erkannter Text",
+      "extractedEntities": "Extrahierte Entitäten",
+      "facetSuggestions": "Vorgeschlagene Eigenschaften",
+      "facetSuggestionsHint": "Wähle die Eigenschaften aus, die du für diese Entity übernehmen möchtest.",
+      "applyFacets": "Eigenschaften übernehmen",
+      "noFacetSuggestions": "Keine Eigenschafts-Vorschläge gefunden",
+      "uploadError": "Fehler beim Hochladen",
+      "uploadSuccess": "Datei erfolgreich hochgeladen",
+      "deleteConfirm": "Anhang löschen?",
+      "deleteMessage": "Möchten Sie \"{filename}\" wirklich löschen?",
+      "deleteSuccess": "Anhang gelöscht",
+      "analysisStarted": "Analyse wurde gestartet",
+      "analysisError": "Fehler beim Starten der Analyse",
+      "facetsApplied": "{count} Eigenschaft(en) übernommen",
+      "facetsApplyError": "Fehler beim Übernehmen der Eigenschaften",
+      "status": {
+        "pending": "Ausstehend",
+        "analyzing": "Wird analysiert",
+        "completed": "Analysiert",
+        "failed": "Fehler"
+      },
+      "entityTypes": {
+        "persons": "Personen",
+        "organizations": "Organisationen",
+        "locations": "Orte",
+        "dates": "Daten"
+      }
     }
   },
   "facetEnrichment": {
@@ -372,46 +433,5 @@
     "applyError": "Fehler beim Anwenden der Änderungen",
     "taskMinimized": "Analyse läuft im Hintergrund",
     "clickToReturn": "Klicken um zur Vorschau zurückzukehren"
-  },
-  "attachments": {
-    "title": "Anhänge",
-    "upload": "Hochladen",
-    "uploadTitle": "Datei hochladen",
-    "selectFile": "Datei auswählen",
-    "description": "Beschreibung",
-    "autoAnalyze": "Automatisch mit KI analysieren",
-    "dropHint": "Dateien hier ablegen oder klicken zum Auswählen",
-    "empty": "Keine Anhänge vorhanden",
-    "analyze": "Mit KI analysieren",
-    "viewAnalysis": "Analyse anzeigen",
-    "analysisTitle": "Analyse-Ergebnis",
-    "analysisDescription": "Beschreibung",
-    "detectedText": "Erkannter Text",
-    "extractedEntities": "Extrahierte Entitäten",
-    "facetSuggestions": "Vorgeschlagene Eigenschaften",
-    "facetSuggestionsHint": "Wähle die Eigenschaften aus, die du für diese Entity übernehmen möchtest.",
-    "applyFacets": "Eigenschaften übernehmen",
-    "noFacetSuggestions": "Keine Eigenschafts-Vorschläge gefunden",
-    "uploadError": "Fehler beim Hochladen",
-    "uploadSuccess": "Datei erfolgreich hochgeladen",
-    "deleteConfirm": "Anhang löschen?",
-    "deleteMessage": "Möchten Sie \"{filename}\" wirklich löschen?",
-    "deleteSuccess": "Anhang gelöscht",
-    "analysisStarted": "Analyse wurde gestartet",
-    "analysisError": "Fehler beim Starten der Analyse",
-    "facetsApplied": "{count} Eigenschaft(en) übernommen",
-    "facetsApplyError": "Fehler beim Übernehmen der Eigenschaften",
-    "status": {
-      "pending": "Ausstehend",
-      "analyzing": "Wird analysiert",
-      "completed": "Analysiert",
-      "failed": "Fehler"
-    },
-    "entityTypes": {
-      "persons": "Personen",
-      "organizations": "Organisationen",
-      "locations": "Orte",
-      "dates": "Daten"
-    }
   }
 }

@@ -692,17 +692,23 @@
               <p class="mt-4 text-medium-emphasis">{{ t('entityDetail.loadingRelations') }}</p>
             </div>
             <div v-else-if="relations.length">
+              <!-- Add button at top when relations exist -->
+              <div class="d-flex justify-end mb-2">
+                <v-btn variant="tonal" color="primary" size="small" @click="openAddRelationDialog">
+                  <v-icon start>mdi-link-plus</v-icon>
+                  {{ t('entityDetail.addRelation') }}
+                </v-btn>
+              </div>
               <v-list>
                 <v-list-item
                   v-for="rel in relations"
                   :key="rel.id"
-                  @click="navigateToRelatedEntity(rel)"
                   class="cursor-pointer"
                 >
                   <template v-slot:prepend>
                     <v-icon :color="rel.relation_type_color || 'primary'">mdi-link-variant</v-icon>
                   </template>
-                  <v-list-item-title>
+                  <v-list-item-title @click="navigateToRelatedEntity(rel)" class="cursor-pointer">
                     <span v-if="rel.source_entity_id === entity?.id">
                       {{ rel.relation_type_name }}: <strong>{{ rel.target_entity_name }}</strong>
                     </span>
@@ -720,7 +726,15 @@
                       <v-chip v-if="rel.human_verified" size="x-small" color="success">
                         <v-icon size="x-small">mdi-check</v-icon>
                       </v-chip>
-                      <v-icon>mdi-chevron-right</v-icon>
+                      <v-btn icon size="small" variant="text" @click.stop="editRelation(rel)">
+                        <v-icon size="small">mdi-pencil</v-icon>
+                        <v-tooltip activator="parent" location="top">{{ t('common.edit') }}</v-tooltip>
+                      </v-btn>
+                      <v-btn icon size="small" variant="text" color="error" @click.stop="confirmDeleteRelation(rel)">
+                        <v-icon size="small">mdi-delete</v-icon>
+                        <v-tooltip activator="parent" location="top">{{ t('common.delete') }}</v-tooltip>
+                      </v-btn>
+                      <v-icon @click="navigateToRelatedEntity(rel)">mdi-chevron-right</v-icon>
                     </div>
                   </template>
                 </v-list-item>
@@ -733,7 +747,7 @@
               <p class="text-body-2 text-medium-emphasis mb-4">
                 {{ t('entityDetail.emptyState.noRelationsDesc') }}
               </p>
-              <v-btn variant="tonal" color="primary" @click="addRelationDialog = true">
+              <v-btn variant="tonal" color="primary" @click="openAddRelationDialog">
                 <v-icon start>mdi-link-plus</v-icon>
                 {{ t('entityDetail.addRelation') }}
               </v-btn>
@@ -1288,6 +1302,131 @@
       </v-card>
     </v-dialog>
 
+    <!-- Add/Edit Relation Dialog -->
+    <v-dialog v-model="addRelationDialog" max-width="600" scrollable>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon start>{{ editingRelation ? 'mdi-pencil' : 'mdi-link-plus' }}</v-icon>
+          {{ editingRelation ? t('entityDetail.dialog.editRelation') : t('entityDetail.dialog.addRelation') }}
+        </v-card-title>
+        <v-card-text>
+          <v-form ref="relationForm" @submit.prevent="saveRelation">
+            <!-- Relation Type Selection -->
+            <v-select
+              v-model="newRelation.relation_type_id"
+              :items="relationTypes"
+              item-title="name"
+              item-value="id"
+              :label="t('entityDetail.dialog.relationType')"
+              :rules="[v => !!v || t('common.required')]"
+              variant="outlined"
+              density="comfortable"
+              class="mb-3"
+              :loading="loadingRelationTypes"
+            >
+              <template v-slot:item="{ item, props }">
+                <v-list-item v-bind="props">
+                  <template v-slot:prepend>
+                    <v-icon :color="item.raw.color || 'primary'">mdi-link-variant</v-icon>
+                  </template>
+                  <v-list-item-subtitle v-if="item.raw.description">
+                    {{ item.raw.description }}
+                  </v-list-item-subtitle>
+                </v-list-item>
+              </template>
+            </v-select>
+
+            <!-- Direction Selection -->
+            <v-radio-group
+              v-model="newRelation.direction"
+              :label="t('entityDetail.dialog.relationDirection')"
+              inline
+              class="mb-3"
+            >
+              <v-radio :label="t('entityDetail.dialog.outgoing')" value="outgoing"></v-radio>
+              <v-radio :label="t('entityDetail.dialog.incoming')" value="incoming"></v-radio>
+            </v-radio-group>
+
+            <!-- Target Entity Selection -->
+            <v-autocomplete
+              v-model="newRelation.target_entity_id"
+              :items="targetEntities"
+              item-title="name"
+              item-value="id"
+              :label="t('entityDetail.dialog.targetEntity')"
+              :rules="[v => !!v || t('common.required')]"
+              variant="outlined"
+              density="comfortable"
+              :loading="searchingEntities"
+              :search-input.sync="entitySearchQuery"
+              @update:search="searchEntities"
+              no-filter
+              class="mb-3"
+            >
+              <template v-slot:item="{ item, props }">
+                <v-list-item v-bind="props">
+                  <template v-slot:prepend>
+                    <v-icon color="grey">mdi-domain</v-icon>
+                  </template>
+                  <v-list-item-subtitle>
+                    {{ item.raw.entity_type_name }}
+                  </v-list-item-subtitle>
+                </v-list-item>
+              </template>
+              <template v-slot:no-data>
+                <v-list-item>
+                  <v-list-item-title>
+                    {{ entitySearchQuery?.length >= 2 ? t('entityDetail.dialog.noEntitiesFound') : t('entityDetail.dialog.typeToSearch') }}
+                  </v-list-item-title>
+                </v-list-item>
+              </template>
+            </v-autocomplete>
+
+            <!-- Optional Attributes (JSON) -->
+            <v-textarea
+              v-model="newRelation.attributes_json"
+              :label="t('entityDetail.dialog.relationAttributes')"
+              :hint="t('entityDetail.dialog.relationAttributesHint')"
+              persistent-hint
+              variant="outlined"
+              rows="2"
+              class="mb-3"
+            ></v-textarea>
+          </v-form>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="tonal" @click="closeRelationDialog">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="primary" :loading="savingRelation" @click="saveRelation">
+            {{ t('common.save') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Delete Relation Confirmation -->
+    <v-dialog v-model="deleteRelationConfirm" max-width="400">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="error" class="mr-2">mdi-alert</v-icon>
+          {{ t('entityDetail.dialog.deleteRelation') }}
+        </v-card-title>
+        <v-card-text>
+          <p>{{ t('entityDetail.dialog.deleteRelationConfirm') }}</p>
+          <p v-if="relationToDelete" class="text-caption text-medium-emphasis mt-2">
+            {{ relationToDelete.relation_type_name }}: {{ relationToDelete.target_entity_name || relationToDelete.source_entity_name }}
+          </p>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="tonal" @click="deleteRelationConfirm = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="error" :loading="deletingRelation" @click="deleteRelation">
+            {{ t('common.delete') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Export Dialog -->
     <v-dialog v-model="exportDialog" max-width="500">
       <v-card>
@@ -1751,6 +1890,7 @@ interface FacetsSummary {
 
 interface Relation {
   id: string
+  relation_type_id: string
   source_entity_id: string
   source_entity_name: string
   source_entity_slug: string
@@ -1844,6 +1984,25 @@ const newFacet = ref({
   confidence_score: 0.8,
   value: {} as Record<string, any>,
 })
+
+// Relation CRUD State
+const relationForm = ref<any>(null)
+const relationTypes = ref<any[]>([])
+const loadingRelationTypes = ref(false)
+const editingRelation = ref<Relation | null>(null)
+const newRelation = ref({
+  relation_type_id: '',
+  target_entity_id: '',
+  direction: 'outgoing' as 'outgoing' | 'incoming',
+  attributes_json: '',
+})
+const targetEntities = ref<any[]>([])
+const searchingEntities = ref(false)
+const entitySearchQuery = ref('')
+const savingRelation = ref(false)
+const deleteRelationConfirm = ref(false)
+const relationToDelete = ref<Relation | null>(null)
+const deletingRelation = ref(false)
 
 // Form ref
 const addFacetForm = ref<any>(null)
@@ -2837,6 +2996,167 @@ async function deleteSingleFacet() {
     showError(e.response?.data?.detail || t('entityDetail.messages.deleteError'))
   } finally {
     deletingFacet.value = false
+  }
+}
+
+// =============================================================================
+// Relation CRUD Functions
+// =============================================================================
+
+async function loadRelationTypes() {
+  if (relationTypes.value.length > 0) return // Already loaded
+
+  loadingRelationTypes.value = true
+  try {
+    const response = await relationApi.getRelationTypes()
+    relationTypes.value = response.data.items || response.data || []
+  } catch (e) {
+    console.error('Failed to load relation types', e)
+  } finally {
+    loadingRelationTypes.value = false
+  }
+}
+
+async function searchEntities(query: string) {
+  if (!query || query.length < 2) {
+    targetEntities.value = []
+    return
+  }
+
+  searchingEntities.value = true
+  try {
+    const response = await entityApi.searchEntities({ q: query, per_page: 20 })
+    // Filter out the current entity from results
+    targetEntities.value = (response.data.items || []).filter(
+      (e: any) => e.id !== entity.value?.id
+    )
+  } catch (e) {
+    console.error('Failed to search entities', e)
+    targetEntities.value = []
+  } finally {
+    searchingEntities.value = false
+  }
+}
+
+function openAddRelationDialog() {
+  editingRelation.value = null
+  newRelation.value = {
+    relation_type_id: '',
+    target_entity_id: '',
+    direction: 'outgoing',
+    attributes_json: '',
+  }
+  targetEntities.value = []
+  entitySearchQuery.value = ''
+  addRelationDialog.value = true
+  loadRelationTypes()
+}
+
+function editRelation(rel: Relation) {
+  editingRelation.value = rel
+  // Determine direction based on whether current entity is source or target
+  const isSource = rel.source_entity_id === entity.value?.id
+  newRelation.value = {
+    relation_type_id: rel.relation_type_id || '',
+    target_entity_id: isSource ? rel.target_entity_id : rel.source_entity_id,
+    direction: isSource ? 'outgoing' : 'incoming',
+    attributes_json: rel.attributes ? JSON.stringify(rel.attributes, null, 2) : '',
+  }
+  // Pre-populate the target entities list with the current target
+  targetEntities.value = [{
+    id: isSource ? rel.target_entity_id : rel.source_entity_id,
+    name: isSource ? rel.target_entity_name : rel.source_entity_name,
+    entity_type_name: isSource ? rel.target_entity_type_slug : rel.source_entity_type_slug,
+  }]
+  addRelationDialog.value = true
+  loadRelationTypes()
+}
+
+function closeRelationDialog() {
+  addRelationDialog.value = false
+  editingRelation.value = null
+  newRelation.value = {
+    relation_type_id: '',
+    target_entity_id: '',
+    direction: 'outgoing',
+    attributes_json: '',
+  }
+}
+
+async function saveRelation() {
+  if (!entity.value || !newRelation.value.relation_type_id || !newRelation.value.target_entity_id) {
+    return
+  }
+
+  savingRelation.value = true
+  try {
+    // Parse attributes JSON if provided
+    let attributes = {}
+    if (newRelation.value.attributes_json.trim()) {
+      try {
+        attributes = JSON.parse(newRelation.value.attributes_json)
+      } catch (e) {
+        showError(t('entityDetail.messages.invalidJson'))
+        savingRelation.value = false
+        return
+      }
+    }
+
+    // Determine source and target based on direction
+    const sourceId = newRelation.value.direction === 'outgoing'
+      ? entity.value.id
+      : newRelation.value.target_entity_id
+    const targetId = newRelation.value.direction === 'outgoing'
+      ? newRelation.value.target_entity_id
+      : entity.value.id
+
+    const data = {
+      relation_type_id: newRelation.value.relation_type_id,
+      source_entity_id: sourceId,
+      target_entity_id: targetId,
+      attributes: Object.keys(attributes).length > 0 ? attributes : null,
+    }
+
+    if (editingRelation.value) {
+      await relationApi.updateRelation(editingRelation.value.id, data)
+      showSuccess(t('entityDetail.messages.relationUpdated'))
+    } else {
+      await relationApi.createRelation(data)
+      showSuccess(t('entityDetail.messages.relationCreated'))
+    }
+
+    closeRelationDialog()
+    // Reload relations
+    relationsLoaded.value = false
+    await loadRelations()
+  } catch (e: any) {
+    showError(e.response?.data?.detail || t('entityDetail.messages.relationSaveError'))
+  } finally {
+    savingRelation.value = false
+  }
+}
+
+function confirmDeleteRelation(rel: Relation) {
+  relationToDelete.value = rel
+  deleteRelationConfirm.value = true
+}
+
+async function deleteRelation() {
+  if (!relationToDelete.value) return
+
+  deletingRelation.value = true
+  try {
+    await relationApi.deleteRelation(relationToDelete.value.id)
+    showSuccess(t('entityDetail.messages.relationDeleted'))
+    deleteRelationConfirm.value = false
+    relationToDelete.value = null
+    // Reload relations
+    relationsLoaded.value = false
+    await loadRelations()
+  } catch (e: any) {
+    showError(e.response?.data?.detail || t('entityDetail.messages.deleteError'))
+  } finally {
+    deletingRelation.value = false
   }
 }
 

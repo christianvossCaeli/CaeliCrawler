@@ -15,6 +15,8 @@ from app.models import (
     TimeFilter,
 )
 from app.models.facet_value import FacetValueSourceType
+from app.models.user import User
+from app.core.deps import get_current_user, require_editor
 from app.schemas.facet_type import (
     FacetTypeCreate,
     FacetTypeUpdate,
@@ -79,17 +81,27 @@ async def list_facet_types(
     # Paginate
     query = query.order_by(FacetType.display_order, FacetType.name).offset((page - 1) * per_page).limit(per_page)
     result = await session.execute(query)
-    facet_types = result.scalars().all()
+    facet_types = list(result.scalars().all())
 
-    # Get value counts
+    # Get all value counts in a single query to avoid N+1
+    facet_type_ids = [ft.id for ft in facet_types]
+    value_counts_map: Dict[UUID, int] = {}
+
+    if facet_type_ids:
+        value_counts_query = (
+            select(FacetValue.facet_type_id, func.count(FacetValue.id))
+            .where(FacetValue.facet_type_id.in_(facet_type_ids))
+            .group_by(FacetValue.facet_type_id)
+        )
+        value_counts_result = await session.execute(value_counts_query)
+        for facet_type_id, count in value_counts_result.all():
+            value_counts_map[facet_type_id] = count
+
+    # Build response items
     items = []
     for ft in facet_types:
-        value_count = (await session.execute(
-            select(func.count()).where(FacetValue.facet_type_id == ft.id)
-        )).scalar()
-
         item = FacetTypeResponse.model_validate(ft)
-        item.value_count = value_count
+        item.value_count = value_counts_map.get(ft.id, 0)
         items.append(item)
 
     return FacetTypeListResponse(items=items, total=total)
@@ -492,9 +504,10 @@ async def list_facet_values(
 @router.post("/values", response_model=FacetValueResponse, status_code=201)
 async def create_facet_value(
     data: FacetValueCreate,
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
-    """Create a new facet value."""
+    """Create a new facet value. Requires Editor role."""
     # Verify entity exists
     entity = await session.get(Entity, data.entity_id)
     if not entity:
@@ -577,6 +590,7 @@ async def get_facet_value(
 async def update_facet_value(
     facet_value_id: UUID,
     data: FacetValueUpdate,
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
     """Update a facet value."""
@@ -620,6 +634,7 @@ async def verify_facet_value(
     verified: bool = Query(default=True),
     verified_by: Optional[str] = Query(default=None),
     corrections: Optional[Dict[str, Any]] = None,
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
     """Verify a facet value and optionally apply corrections."""
@@ -657,9 +672,10 @@ async def verify_facet_value(
 @router.delete("/values/{facet_value_id}", response_model=MessageResponse)
 async def delete_facet_value(
     facet_value_id: UUID,
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
-    """Delete a facet value."""
+    """Delete a facet value. Requires Editor role."""
     fv = await session.get(FacetValue, facet_value_id)
     if not fv:
         raise NotFoundError("FacetValue", str(facet_value_id))

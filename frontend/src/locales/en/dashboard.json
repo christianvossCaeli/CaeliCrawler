@@ -85,14 +85,17 @@
       "documents": "Documents",
       "activeCrawlers": "Active Crawlers",
       "newDocuments": "New Documents",
-      "errors": "Errors"
+      "errors": "Errors",
+      "documentsNew": "new",
+      "documentsError": "Errors"
     },
     "crawlerStatus": {
       "title": "Crawler Status",
       "activeWorkers": "Active Workers",
       "runningJobs": "Running Jobs",
       "pendingJobs": "Pending Jobs",
-      "autoUpdateActive": "Auto-update active"
+      "autoUpdateActive": "Auto-update active",
+      "totalDocuments": "Total documents"
     },
     "activeCrawlers": {
       "started": "Started",

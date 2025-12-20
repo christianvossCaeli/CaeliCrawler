@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
+from app.models.user import User
+from app.core.deps import get_current_user, require_editor
 from services.pysis_facet_service import PySisFacetService
 
 router = APIRouter(tags=["PySis Facets"])
@@ -75,6 +77,7 @@ class StatusResponse(BaseModel):
 @router.post("/analyze", response_model=OperationResponse)
 async def analyze_pysis_for_facets(
     request: AnalyzeForFacetsRequest,
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -107,6 +110,7 @@ async def analyze_pysis_for_facets(
 @router.post("/enrich", response_model=OperationResponse)
 async def enrich_facets_from_pysis(
     request: EnrichFacetsRequest,
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -139,6 +143,7 @@ async def enrich_facets_from_pysis(
 async def get_operation_preview(
     entity_id: UUID = Query(..., description="Entity-ID"),
     operation: Literal["analyze", "enrich"] = Query(..., description="Operation: 'analyze' oder 'enrich'"),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -161,6 +166,7 @@ async def get_operation_preview(
 @router.get("/status", response_model=StatusResponse)
 async def get_pysis_status(
     entity_id: UUID = Query(..., description="Entity-ID"),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -183,6 +189,7 @@ async def get_pysis_status(
 @router.get("/summary")
 async def get_entity_pysis_summary(
     entity_id: UUID = Query(..., description="Entity-ID"),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Dict[str, Any]:
     """

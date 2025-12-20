@@ -12,6 +12,8 @@ from app.database import get_session
 from app.models import (
     RelationType, EntityRelation, Entity, EntityType, Document,
 )
+from app.models.user import User
+from app.core.deps import get_current_user, get_current_user_optional, require_editor
 from app.schemas.relation import (
     RelationTypeCreate,
     RelationTypeUpdate,
@@ -44,6 +46,7 @@ async def list_relation_types(
     target_entity_type_id: Optional[UUID] = Query(default=None),
     search: Optional[str] = Query(default=None),
     session: AsyncSession = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """List all relation types with pagination."""
     query = select(RelationType)
@@ -125,9 +128,10 @@ async def list_relation_types(
 @router.post("/types", response_model=RelationTypeResponse, status_code=201)
 async def create_relation_type(
     data: RelationTypeCreate,
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
-    """Create a new relation type."""
+    """Create a new relation type. Requires Editor role."""
     # Verify entity types exist
     source_et = await session.get(EntityType, data.source_entity_type_id)
     if not source_et:
@@ -184,6 +188,7 @@ async def create_relation_type(
 async def get_relation_type(
     relation_type_id: UUID,
     session: AsyncSession = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """Get a single relation type by ID."""
     rt = await session.get(RelationType, relation_type_id)
@@ -211,6 +216,7 @@ async def get_relation_type(
 async def get_relation_type_by_slug(
     slug: str,
     session: AsyncSession = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """Get a single relation type by slug."""
     result = await session.execute(
@@ -241,6 +247,7 @@ async def get_relation_type_by_slug(
 async def update_relation_type(
     relation_type_id: UUID,
     data: RelationTypeUpdate,
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
     """Update a relation type."""
@@ -262,9 +269,10 @@ async def update_relation_type(
 @router.delete("/types/{relation_type_id}", response_model=MessageResponse)
 async def delete_relation_type(
     relation_type_id: UUID,
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
-    """Delete a relation type."""
+    """Delete a relation type. Requires Editor role."""
     rt = await session.get(RelationType, relation_type_id)
     if not rt:
         raise NotFoundError("RelationType", str(relation_type_id))
@@ -310,6 +318,7 @@ async def list_entity_relations(
     human_verified: Optional[bool] = Query(default=None),
     is_active: Optional[bool] = Query(default=None),
     session: AsyncSession = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """List entity relations with filters."""
     query = select(EntityRelation)
@@ -421,9 +430,10 @@ async def list_entity_relations(
 @router.post("", response_model=EntityRelationResponse, status_code=201)
 async def create_entity_relation(
     data: EntityRelationCreate,
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
-    """Create a new entity relation."""
+    """Create a new entity relation. Requires Editor role."""
     # Verify entities exist
     source = await session.get(Entity, data.source_entity_id)
     if not source:
@@ -506,6 +516,7 @@ async def create_entity_relation(
 async def get_entity_relation(
     relation_id: UUID,
     session: AsyncSession = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """Get a single entity relation by ID."""
     rel = await session.get(EntityRelation, relation_id)
@@ -536,6 +547,7 @@ async def get_entity_relation(
 async def update_entity_relation(
     relation_id: UUID,
     data: EntityRelationUpdate,
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
     """Update an entity relation."""
@@ -559,6 +571,7 @@ async def verify_entity_relation(
     relation_id: UUID,
     verified: bool = Query(default=True),
     verified_by: Optional[str] = Query(default=None),
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
     """Verify an entity relation."""
@@ -579,9 +592,10 @@ async def verify_entity_relation(
 @router.delete("/{relation_id}", response_model=MessageResponse)
 async def delete_entity_relation(
     relation_id: UUID,
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
-    """Delete an entity relation."""
+    """Delete an entity relation. Requires Editor role."""
     rel = await session.get(EntityRelation, relation_id)
     if not rel:
         raise NotFoundError("EntityRelation", str(relation_id))
@@ -603,93 +617,136 @@ async def get_entity_relations_graph(
     depth: int = Query(default=1, ge=1, le=3),
     relation_type_slugs: Optional[List[str]] = Query(default=None),
     session: AsyncSession = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """Get a graph of entity relations centered on the given entity."""
     entity = await session.get(Entity, entity_id)
     if not entity:
         raise NotFoundError("Entity", str(entity_id))
 
+    # Pre-load all RelationTypes and EntityTypes to avoid N+1 queries
+    relation_types_result = await session.execute(select(RelationType))
+    relation_types_map: Dict[UUID, RelationType] = {
+        rt.id: rt for rt in relation_types_result.scalars().all()
+    }
+
+    entity_types_result = await session.execute(select(EntityType))
+    entity_types_map: Dict[UUID, EntityType] = {
+        et.id: et for et in entity_types_result.scalars().all()
+    }
+
+    # Build filter for relation type slugs if provided
+    allowed_relation_type_ids: Optional[set] = None
+    if relation_type_slugs:
+        allowed_relation_type_ids = {
+            rt.id for rt in relation_types_map.values()
+            if rt.slug in relation_type_slugs
+        }
+
+    # Cache for loaded entities
+    entities_cache: Dict[UUID, Entity] = {entity_id: entity}
     visited_entities: set = set()
     nodes: List[Dict[str, Any]] = []
     edges: List[Dict[str, Any]] = []
+    seen_edges: set = set()
 
-    async def explore(ent_id: UUID, current_depth: int):
-        if current_depth > depth or ent_id in visited_entities:
-            return
+    # Collect entity IDs to explore at each depth level
+    current_level_ids = {entity_id}
 
-        visited_entities.add(ent_id)
-        ent = await session.get(Entity, ent_id)
-        if not ent:
-            return
+    for current_depth in range(depth + 1):
+        if not current_level_ids:
+            break
 
-        ent_type = await session.get(EntityType, ent.entity_type_id)
+        next_level_ids: set = set()
 
-        nodes.append({
-            "id": str(ent.id),
-            "name": ent.name,
-            "slug": ent.slug,
-            "type": ent_type.slug if ent_type else None,
-            "type_name": ent_type.name if ent_type else None,
-            "icon": ent_type.icon if ent_type else None,
-            "color": ent_type.color if ent_type else None,
-            "depth": current_depth,
-        })
+        # Batch load entities not yet cached
+        entities_to_load = current_level_ids - set(entities_cache.keys())
+        if entities_to_load:
+            ents_result = await session.execute(
+                select(Entity).where(Entity.id.in_(entities_to_load))
+            )
+            for ent in ents_result.scalars().all():
+                entities_cache[ent.id] = ent
 
-        # Find outgoing relations
-        outgoing_query = select(EntityRelation).where(
-            EntityRelation.source_entity_id == ent_id,
-            EntityRelation.is_active.is_(True),
-        )
-        if relation_type_slugs:
-            subq = select(RelationType.id).where(RelationType.slug.in_(relation_type_slugs))
-            outgoing_query = outgoing_query.where(EntityRelation.relation_type_id.in_(subq))
+        # Process entities at current depth
+        for ent_id in current_level_ids:
+            if ent_id in visited_entities:
+                continue
+            visited_entities.add(ent_id)
 
-        outgoing_result = await session.execute(outgoing_query)
-        for rel in outgoing_result.scalars().all():
-            rt = await session.get(RelationType, rel.relation_type_id)
-            edges.append({
-                "id": str(rel.id),
-                "source": str(rel.source_entity_id),
-                "target": str(rel.target_entity_id),
-                "type": rt.slug if rt else None,
-                "type_name": rt.name if rt else None,
-                "color": rt.color if rt else None,
-                "attributes": rel.attributes,
+            ent = entities_cache.get(ent_id)
+            if not ent:
+                continue
+
+            ent_type = entity_types_map.get(ent.entity_type_id)
+
+            nodes.append({
+                "id": str(ent.id),
+                "name": ent.name,
+                "slug": ent.slug,
+                "type": ent_type.slug if ent_type else None,
+                "type_name": ent_type.name if ent_type else None,
+                "icon": ent_type.icon if ent_type else None,
+                "color": ent_type.color if ent_type else None,
+                "depth": current_depth,
             })
-            await explore(rel.target_entity_id, current_depth + 1)
 
-        # Find incoming relations
-        incoming_query = select(EntityRelation).where(
-            EntityRelation.target_entity_id == ent_id,
-            EntityRelation.is_active.is_(True),
-        )
-        if relation_type_slugs:
-            subq = select(RelationType.id).where(RelationType.slug.in_(relation_type_slugs))
-            incoming_query = incoming_query.where(EntityRelation.relation_type_id.in_(subq))
+        # Batch load all relations for current level entities
+        if current_depth < depth:
+            # Outgoing relations
+            outgoing_query = select(EntityRelation).where(
+                EntityRelation.source_entity_id.in_(current_level_ids),
+                EntityRelation.is_active.is_(True),
+            )
+            if allowed_relation_type_ids is not None:
+                outgoing_query = outgoing_query.where(
+                    EntityRelation.relation_type_id.in_(allowed_relation_type_ids)
+                )
 
-        incoming_result = await session.execute(incoming_query)
-        for rel in incoming_result.scalars().all():
-            rt = await session.get(RelationType, rel.relation_type_id)
-            edges.append({
-                "id": str(rel.id),
-                "source": str(rel.source_entity_id),
-                "target": str(rel.target_entity_id),
-                "type": rt.slug if rt else None,
-                "type_name": rt.name_inverse if rt else None,  # Use inverse name for incoming
-                "color": rt.color if rt else None,
-                "attributes": rel.attributes,
-            })
-            await explore(rel.source_entity_id, current_depth + 1)
+            outgoing_result = await session.execute(outgoing_query)
+            for rel in outgoing_result.scalars().all():
+                if rel.id not in seen_edges:
+                    seen_edges.add(rel.id)
+                    rt = relation_types_map.get(rel.relation_type_id)
+                    edges.append({
+                        "id": str(rel.id),
+                        "source": str(rel.source_entity_id),
+                        "target": str(rel.target_entity_id),
+                        "type": rt.slug if rt else None,
+                        "type_name": rt.name if rt else None,
+                        "color": rt.color if rt else None,
+                        "attributes": rel.attributes,
+                    })
+                    if rel.target_entity_id not in visited_entities:
+                        next_level_ids.add(rel.target_entity_id)
 
-    await explore(entity_id, 0)
+            # Incoming relations
+            incoming_query = select(EntityRelation).where(
+                EntityRelation.target_entity_id.in_(current_level_ids),
+                EntityRelation.is_active.is_(True),
+            )
+            if allowed_relation_type_ids is not None:
+                incoming_query = incoming_query.where(
+                    EntityRelation.relation_type_id.in_(allowed_relation_type_ids)
+                )
 
-    # Deduplicate edges
-    seen_edges = set()
-    unique_edges = []
-    for edge in edges:
-        edge_key = edge["id"]
-        if edge_key not in seen_edges:
-            seen_edges.add(edge_key)
-            unique_edges.append(edge)
+            incoming_result = await session.execute(incoming_query)
+            for rel in incoming_result.scalars().all():
+                if rel.id not in seen_edges:
+                    seen_edges.add(rel.id)
+                    rt = relation_types_map.get(rel.relation_type_id)
+                    edges.append({
+                        "id": str(rel.id),
+                        "source": str(rel.source_entity_id),
+                        "target": str(rel.target_entity_id),
+                        "type": rt.slug if rt else None,
+                        "type_name": rt.name_inverse if rt else None,
+                        "color": rt.color if rt else None,
+                        "attributes": rel.attributes,
+                    })
+                    if rel.source_entity_id not in visited_entities:
+                        next_level_ids.add(rel.source_entity_id)
 
-    return EntityRelationsGraph(nodes=nodes, edges=unique_edges)
+        current_level_ids = next_level_ids
+
+    return EntityRelationsGraph(nodes=nodes, edges=edges)

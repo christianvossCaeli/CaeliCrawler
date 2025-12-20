@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.models.user import User
-from app.core.deps import get_current_user_optional
+from app.core.deps import get_current_user_optional, get_current_user, require_editor
 from .helpers import build_preview
 
 router = APIRouter()
@@ -31,6 +31,7 @@ class SmartWriteRequest(BaseModel):
 async def smart_query_endpoint(
     request: SmartQueryRequest,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Execute a natural language query or command against the Entity-Facet system.
@@ -57,7 +58,7 @@ async def smart_query_endpoint(
 async def smart_write_endpoint(
     request: SmartWriteRequest,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User = Depends(require_editor),
 ):
     """
     Execute a write command in natural language with preview support.
@@ -119,8 +120,7 @@ async def smart_write_endpoint(
         }
 
     # Execute the command with current user context
-    current_user_id = current_user.id if current_user else None
-    result = await execute_write_command(session, command, current_user_id)
+    result = await execute_write_command(session, command, current_user.id)
     result["original_question"] = request.question
     result["mode"] = "write"
     result["interpretation"] = command

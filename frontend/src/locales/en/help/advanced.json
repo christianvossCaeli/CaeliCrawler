@@ -125,6 +125,29 @@
           "snapshots": "Periodic snapshots for quick recovery"
         }
       },
+      "emailVerification": {
+        "heading": "Email Verification",
+        "description": "Email verification ensures that users have access to the specified email address.",
+        "status": {
+          "verified": "Verified",
+          "verifiedDesc": "Your email address has been successfully verified.",
+          "pending": "Pending",
+          "pendingDesc": "A verification email has been sent. Please check your inbox."
+        },
+        "workflow": {
+          "title": "Workflow",
+          "step1": "Request a verification email",
+          "step2": "Open the link in the email (valid for 24h)",
+          "step3": "Your email address will be marked as verified"
+        },
+        "rateLimit": "Note: You can request a new verification email every 5 minutes.",
+        "benefits": {
+          "title": "Benefits of Verification",
+          "passwordReset": "Password reset via email possible",
+          "notifications": "Receive email notifications",
+          "security": "Enhanced account security"
+        }
+      },
       "changePassword": {
         "heading": "Change Password",
         "step1": "Click on your username in the top right",

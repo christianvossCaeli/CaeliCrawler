@@ -19,7 +19,7 @@ from app.schemas.entity_type import (
 )
 from app.schemas.common import MessageResponse
 from app.core.exceptions import NotFoundError, ConflictError
-from app.core.deps import get_current_user_optional
+from app.core.deps import get_current_user_optional, require_editor, require_admin
 
 router = APIRouter()
 
@@ -119,7 +119,7 @@ async def list_entity_types(
 async def create_entity_type(
     data: EntityTypeCreate,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User = Depends(require_editor),
 ):
     """Create a new entity type.
 
@@ -214,6 +214,7 @@ async def update_entity_type(
     entity_type_id: UUID,
     data: EntityTypeUpdate,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Update an entity type."""
     entity_type = await session.get(EntityType, entity_type_id)
@@ -235,6 +236,7 @@ async def update_entity_type(
 async def delete_entity_type(
     entity_type_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Delete an entity type."""
     entity_type = await session.get(EntityType, entity_type_id)

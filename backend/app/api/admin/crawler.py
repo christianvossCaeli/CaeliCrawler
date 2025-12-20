@@ -8,7 +8,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
-from app.models import CrawlJob, DataSource, Category, JobStatus, SourceStatus, SourceType, AITask, AITaskStatus, AITaskType
+from app.core.deps import require_editor, require_admin
+from app.models import CrawlJob, DataSource, Category, JobStatus, SourceStatus, SourceType, AITask, AITaskStatus, AITaskType, User
 from app.schemas.crawl_job import (
     CrawlJobResponse,
     CrawlJobListResponse,
@@ -31,6 +32,7 @@ async def list_jobs(
     category_id: Optional[UUID] = Query(default=None),
     source_id: Optional[UUID] = Query(default=None),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """List all crawl jobs with pagination."""
     query = select(CrawlJob)
@@ -95,6 +97,7 @@ async def list_jobs(
 async def get_job(
     job_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Get detailed info about a crawl job."""
     job = await session.get(CrawlJob, job_id)
@@ -116,6 +119,7 @@ async def get_job(
 async def start_crawl(
     request: StartCrawlRequest,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Start crawling for specific sources or a whole category.
 
@@ -238,6 +242,7 @@ async def start_crawl(
 async def cancel_job(
     job_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Cancel a running crawl job."""
     from workers.celery_app import celery_app
@@ -262,6 +267,7 @@ async def cancel_job(
 @router.get("/stats", response_model=CrawlJobStats)
 async def get_crawler_stats(
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Get overall crawler statistics."""
     from app.models import Document
@@ -314,6 +320,7 @@ async def reanalyze_documents(
     category_id: Optional[UUID] = Query(default=None),
     reanalyze_all: bool = Query(default=False, description="Re-analyze all documents, not just low confidence"),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """
     Re-analyze documents with the updated AI prompt.
@@ -358,6 +365,7 @@ async def reanalyze_documents(
 @router.get("/status", response_model=dict)
 async def get_crawler_status(
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Get current crawler status (running jobs, queued jobs, etc.)."""
     from workers.celery_app import celery_app
@@ -395,6 +403,7 @@ async def get_job_log(
     job_id: UUID,
     limit: int = Query(default=30, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Get live crawl log for a running job."""
     from app.services.crawler_progress import crawler_progress
@@ -425,6 +434,7 @@ async def get_job_log(
 @router.get("/running")
 async def get_running_jobs(
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Get all currently running crawl jobs with live progress."""
     from app.services.crawler_progress import crawler_progress
@@ -491,6 +501,7 @@ async def list_ai_tasks(
     status: Optional[AITaskStatus] = Query(default=None),
     task_type: Optional[AITaskType] = Query(default=None),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """List all AI tasks with pagination."""
     from app.models.pysis import PySisProcess
@@ -565,6 +576,7 @@ async def list_ai_tasks(
 @router.get("/ai-tasks/running")
 async def get_running_ai_tasks(
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Get all currently running AI tasks."""
     from app.models.pysis import PySisProcess
@@ -617,6 +629,7 @@ async def get_running_ai_tasks(
 async def cancel_ai_task(
     task_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Cancel a running AI task."""
     from workers.celery_app import celery_app
@@ -642,6 +655,7 @@ async def cancel_ai_task(
 async def process_document(
     document_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Manually trigger processing for a single document."""
     from app.models import Document, ProcessingStatus
@@ -668,6 +682,7 @@ async def analyze_document(
     document_id: UUID,
     skip_relevance_check: bool = Query(default=False, description="Skip relevance pre-filter"),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Manually trigger AI analysis for a single document."""
     from app.models import Document, ProcessingStatus
@@ -695,6 +710,7 @@ async def analyze_document(
 @router.post("/documents/process-pending", response_model=MessageResponse)
 async def process_all_pending(
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Trigger processing for all pending documents."""
     from workers.processing_tasks import process_pending_documents
@@ -707,6 +723,7 @@ async def process_all_pending(
 @router.post("/documents/stop-all", response_model=MessageResponse)
 async def stop_all_processing(
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """
     Stop all document processing.
@@ -742,6 +759,7 @@ async def stop_all_processing(
 async def reanalyze_filtered_documents(
     limit: int = Query(default=100, ge=1, le=1000),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """
     Re-analyze all FILTERED documents, skipping relevance check.

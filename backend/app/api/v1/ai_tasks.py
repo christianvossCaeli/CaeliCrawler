@@ -16,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.models.ai_task import AITask, AITaskStatus, AITaskType
+from app.models.user import User
+from app.core.deps import get_current_user
 
 router = APIRouter(tags=["AI Tasks"])
 
@@ -69,6 +71,7 @@ class AITaskResultResponse(BaseModel):
 async def get_ai_task_status(
     task_id: UUID = Query(..., description="AI-Task ID"),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_current_user),
 ):
     """
     Gibt den aktuellen Status eines AI-Tasks zurück.
@@ -104,6 +107,7 @@ async def get_ai_task_status(
 async def get_ai_task_result(
     task_id: UUID = Query(..., description="AI-Task ID"),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_current_user),
 ):
     """
     Gibt die Ergebnis-Daten eines abgeschlossenen AI-Tasks zurück.
@@ -135,6 +139,7 @@ async def get_entity_tasks(
     status: Optional[str] = Query(None, description="Filter nach Status"),
     limit: int = Query(10, ge=1, le=50, description="Max. Anzahl"),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_current_user),
 ):
     """
     Listet AI-Tasks für eine Entity auf.

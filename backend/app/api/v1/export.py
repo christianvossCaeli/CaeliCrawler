@@ -176,6 +176,7 @@ async def export_json(
     min_confidence: Optional[float] = Query(default=None, ge=0, le=1),
     human_verified_only: bool = Query(default=False),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_current_user),
 ):
     """Export extracted data as JSON."""
     query = select(ExtractedData)
@@ -233,6 +234,7 @@ async def export_csv(
     min_confidence: Optional[float] = Query(default=None, ge=0, le=1),
     human_verified_only: bool = Query(default=False),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_current_user),
 ):
     """Export extracted data as CSV."""
     query = select(ExtractedData)
@@ -307,6 +309,7 @@ async def get_changes_feed(
     category_id: Optional[UUID] = Query(default=None),
     limit: int = Query(default=100, ge=1, le=1000),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(get_current_user),
 ):
     """Get a feed of recent changes (for polling)."""
     from datetime import datetime, timezone

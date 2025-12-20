@@ -125,6 +125,29 @@
           "snapshots": "Periodische Snapshots für schnelle Wiederherstellung"
         }
       },
+      "emailVerification": {
+        "heading": "E-Mail-Verifizierung",
+        "description": "Die E-Mail-Verifizierung stellt sicher, dass Benutzer Zugriff auf die angegebene E-Mail-Adresse haben.",
+        "status": {
+          "verified": "Verifiziert",
+          "verifiedDesc": "Ihre E-Mail-Adresse wurde erfolgreich verifiziert.",
+          "pending": "Ausstehend",
+          "pendingDesc": "Eine Verifizierungs-E-Mail wurde gesendet. Bitte prüfen Sie Ihren Posteingang."
+        },
+        "workflow": {
+          "title": "Ablauf",
+          "step1": "Fordern Sie eine Verifizierungs-E-Mail an",
+          "step2": "Öffnen Sie den Link in der E-Mail (24h gültig)",
+          "step3": "Ihre E-Mail-Adresse wird als verifiziert markiert"
+        },
+        "rateLimit": "Hinweis: Sie können alle 5 Minuten eine neue Verifizierungs-E-Mail anfordern.",
+        "benefits": {
+          "title": "Vorteile der Verifizierung",
+          "passwordReset": "Passwort-Zurücksetzung per E-Mail möglich",
+          "notifications": "E-Mail-Benachrichtigungen erhalten",
+          "security": "Erhöhte Kontosicherheit"
+        }
+      },
       "changePassword": {
         "heading": "Passwort ändern",
         "step1": "Klicken Sie auf Ihren Benutzernamen oben rechts",

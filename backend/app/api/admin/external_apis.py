@@ -11,6 +11,8 @@ from sqlalchemy import Integer, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
+from app.core.deps import require_admin
+from app.models import User
 from app.schemas.external_api import (
     ExternalAPIConfigCreate,
     ExternalAPIConfigDetail,
@@ -41,6 +43,7 @@ async def list_external_api_configs(
     is_active: Optional[bool] = Query(None),
     api_type: Optional[str] = Query(None),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """List all external API configurations."""
     query = select(ExternalAPIConfig)
@@ -65,6 +68,7 @@ async def list_external_api_configs(
 async def create_external_api_config(
     data: ExternalAPIConfigCreate,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Create a new external API configuration."""
     import uuid
@@ -104,6 +108,7 @@ async def create_external_api_config(
 async def get_external_api_config(
     config_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Get a single external API configuration with statistics."""
     config = await session.get(ExternalAPIConfig, config_id)
@@ -158,6 +163,7 @@ async def update_external_api_config(
     config_id: UUID,
     data: ExternalAPIConfigUpdate,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Update an external API configuration."""
     config = await session.get(ExternalAPIConfig, config_id)
@@ -179,6 +185,7 @@ async def update_external_api_config(
 async def delete_external_api_config(
     config_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Delete an external API configuration.
 
@@ -204,6 +211,7 @@ async def trigger_sync(
     config_id: UUID,
     request: Optional[TriggerSyncRequest] = None,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Trigger a manual sync for an external API."""
     config = await session.get(ExternalAPIConfig, config_id)
@@ -228,6 +236,7 @@ async def trigger_sync(
 async def test_connection(
     config_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Test connection to an external API."""
     config = await session.get(ExternalAPIConfig, config_id)
@@ -246,6 +255,7 @@ async def test_connection(
 async def get_sync_stats(
     config_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Get synchronization statistics for an external API."""
     config = await session.get(ExternalAPIConfig, config_id)
@@ -316,6 +326,7 @@ async def list_sync_records(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """List sync records for an external API configuration."""
     # Verify config exists
@@ -361,6 +372,7 @@ async def get_sync_record(
     config_id: UUID,
     record_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Get a single sync record with full details including raw data."""
     record = await session.get(SyncRecord, record_id)
@@ -376,6 +388,7 @@ async def delete_sync_record(
     config_id: UUID,
     record_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Delete a single sync record.
 
@@ -396,7 +409,9 @@ async def delete_sync_record(
 
 
 @router.get("/types/available", response_model=List[str])
-async def list_available_api_types():
+async def list_available_api_types(
+    _: User = Depends(require_admin),
+):
     """List available API client types.
 
     Returns the api_type values that have registered client implementations.

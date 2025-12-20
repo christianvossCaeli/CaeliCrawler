@@ -12,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_session
 from app.models import Entity, EntityType, FacetValue, EntityRelation
 from app.models.document import Document
+from app.models.user import User
+from app.core.deps import get_current_user, require_editor
 
 # Import for external API data
 try:
@@ -207,9 +209,10 @@ async def list_entities(
 @router.post("", response_model=EntityResponse, status_code=201)
 async def create_entity(
     data: EntityCreate,
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
-    """Create a new entity."""
+    """Create a new entity. Requires Editor role."""
     # Verify entity type exists
     entity_type = await session.get(EntityType, data.entity_type_id)
     if not entity_type:
@@ -297,24 +300,37 @@ async def get_entity_hierarchy(
     if not entity_type:
         raise NotFoundError("EntityType", entity_type_slug)
 
-    async def build_tree(parent_id: Optional[UUID], depth: int) -> List[Dict[str, Any]]:
-        if depth > max_depth:
-            return []
-
-        query = select(Entity).where(
+    # Load ALL entities of this type in a single query to avoid N+1
+    all_entities_result = await session.execute(
+        select(Entity).where(
             and_(
                 Entity.entity_type_id == entity_type.id,
-                Entity.parent_id == parent_id if parent_id else Entity.parent_id.is_(None),
                 Entity.is_active.is_(True)
             )
         ).order_by(Entity.name)
+    )
+    all_entities = list(all_entities_result.scalars().all())
 
-        result = await session.execute(query)
-        entities = result.scalars().all()
+    # Build lookup maps for efficient tree construction
+    entities_by_id: Dict[UUID, Entity] = {e.id: e for e in all_entities}
+    children_by_parent: Dict[Optional[UUID], List[Entity]] = {}
 
+    for entity in all_entities:
+        parent_key = entity.parent_id
+        if parent_key not in children_by_parent:
+            children_by_parent[parent_key] = []
+        children_by_parent[parent_key].append(entity)
+
+    def build_tree_from_cache(parent_id: Optional[UUID], depth: int) -> List[Dict[str, Any]]:
+        """Build tree from cached entities - no database queries."""
+        if depth > max_depth:
+            return []
+
+        children_entities = children_by_parent.get(parent_id, [])
         tree = []
-        for entity in entities:
-            children = await build_tree(entity.id, depth + 1)
+
+        for entity in children_entities:
+            children = build_tree_from_cache(entity.id, depth + 1)
             tree.append({
                 "id": str(entity.id),
                 "name": entity.name,
@@ -324,9 +340,10 @@ async def get_entity_hierarchy(
                 "children": children,
                 "children_count": len(children),
             })
+
         return tree
 
-    tree = await build_tree(root_id, 0)
+    tree = build_tree_from_cache(root_id, 0)
 
     return EntityHierarchy(
         entity_type_id=entity_type.id,
@@ -615,6 +632,7 @@ async def get_entity_children(
 async def update_entity(
     entity_id: UUID,
     data: EntityUpdate,
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
     """Update an entity."""
@@ -679,6 +697,7 @@ async def update_entity(
 async def delete_entity(
     entity_id: UUID,
     force: bool = Query(default=False, description="Force delete with all facets and relations"),
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
     """Delete an entity.

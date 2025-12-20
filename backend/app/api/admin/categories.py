@@ -35,7 +35,7 @@ from app.schemas.category import (
 )
 from app.schemas.common import MessageResponse, ErrorResponse
 from app.core.exceptions import NotFoundError, ConflictError, CategoryNotFoundError, CategoryDuplicateError
-from app.core.deps import get_current_user_optional
+from app.core.deps import get_current_user_optional, require_editor, require_admin
 
 router = APIRouter(prefix="", tags=["Categories"])
 
@@ -206,7 +206,7 @@ async def list_categories(
 async def create_category(
     data: CategoryCreate,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User = Depends(require_editor),
 ):
     """
     Create a new category for document crawling and analysis.
@@ -295,6 +295,7 @@ async def create_category(
 async def get_category(
     category_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """
     Get a single category by ID.
@@ -355,6 +356,7 @@ async def update_category(
     category_id: UUID,
     data: CategoryUpdate,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """
     Update an existing category.
@@ -424,6 +426,7 @@ async def update_category(
 async def delete_category(
     category_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """
     Delete a category and all related data.
@@ -465,6 +468,7 @@ async def delete_category(
 async def get_category_stats(
     category_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """
     Get detailed statistics for a category.

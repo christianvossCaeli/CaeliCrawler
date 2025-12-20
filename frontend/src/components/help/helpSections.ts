@@ -20,6 +20,7 @@ export const helpSections: HelpSection[] = [
   { id: 'documents', title: 'help.sections.documents', icon: 'mdi-file-document-multiple', color: 'blue-grey' },
   { id: 'municipalities', title: 'help.sections.municipalities', icon: 'mdi-city', color: 'indigo' },
   { id: 'entity-facet', title: 'help.sections.entityFacet', icon: 'mdi-database', color: 'deep-purple' },
+  { id: 'attachments', title: 'help.sections.attachments', icon: 'mdi-paperclip', color: 'info' },
   { id: 'results', title: 'help.sections.results', icon: 'mdi-chart-bar', color: 'orange' },
   { id: 'export', title: 'help.sections.export', icon: 'mdi-export', color: 'deep-purple' },
   { id: 'notifications', title: 'help.sections.notifications', icon: 'mdi-bell', color: 'orange-darken-2' },
