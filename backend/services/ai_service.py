@@ -694,8 +694,9 @@ DOKUMENT (erste 2000 Zeichen):
             is_relevant = result.get("relevant", False) and score >= threshold
             reason = result.get("reason", "")
             return is_relevant, score, reason
-        except (json.JSONDecodeError, ValueError):
-            return False, 0.0, "Could not parse response"
+        except (json.JSONDecodeError, ValueError) as e:
+            self.logger.error("Relevance check parse error", error=str(e))
+            raise RuntimeError(f"KI-Service Fehler: Relevanz-Antwort konnte nicht verarbeitet werden - {str(e)}")
 
 
 # Singleton instance

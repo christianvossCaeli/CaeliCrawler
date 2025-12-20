@@ -1,7 +1,7 @@
 """Redis-based crawler progress tracking for live updates."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import UUID
 
@@ -37,7 +37,7 @@ class CrawlerProgress:
             "url": url,
             "status": status,
             "doc_found": doc_found,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         key = self.LOG_KEY.format(job_id=str(job_id))

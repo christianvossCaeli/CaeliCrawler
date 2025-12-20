@@ -5,7 +5,7 @@
       <v-card-title class="d-flex align-center">
         <span>{{ t('pysis.processes') }}</span>
         <v-spacer></v-spacer>
-        <v-btn color="primary" size="small" @click="showAddProcessDialog = true">
+        <v-btn variant="tonal" color="primary" size="small" @click="showAddProcessDialog = true">
           <v-icon start>mdi-plus</v-icon>
           {{ t('pysis.addProcess') }}
         </v-btn>
@@ -30,11 +30,11 @@
             {{ process.field_count }} {{ t('pysis.fields') }} | {{ t('pysis.lastSynced') }}: {{ formatDate(process.last_synced_at) }}
           </v-list-item-subtitle>
           <template v-slot:append>
-            <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click.stop="deleteProcess(process)"></v-btn>
+            <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" @click.stop="deleteProcess(process)" :aria-label="t('common.delete')"></v-btn>
           </template>
         </v-list-item>
       </v-list>
-      <v-card-text v-else class="text-center text-grey">
+      <v-card-text v-else class="text-center text-medium-emphasis">
         {{ t('pysis.noProcesses') }}
       </v-card-text>
     </v-card>
@@ -68,6 +68,31 @@
             {{ t('pysis.push') }}
           </v-btn>
         </v-btn-group>
+        <!-- PySis-Facets Integration -->
+        <v-btn-group density="compact" class="ml-2">
+          <v-btn
+            size="small"
+            color="info"
+            @click="showAnalyzeForFacetsDialog = true"
+            :loading="analyzingForFacets"
+            :disabled="!selectedProcess?.entity_id"
+            :title="!selectedProcess?.entity_id ? t('pysis.facets.needsEntity') : ''"
+          >
+            <v-icon start>mdi-brain</v-icon>
+            {{ t('pysis.facets.analyzeForFacets') }}
+          </v-btn>
+          <v-btn
+            size="small"
+            color="secondary"
+            @click="showEnrichFacetsDialog = true"
+            :loading="enrichingFacets"
+            :disabled="!selectedProcess?.entity_id"
+            :title="!selectedProcess?.entity_id ? t('pysis.facets.needsEntity') : ''"
+          >
+            <v-icon start>mdi-database-arrow-up</v-icon>
+            {{ t('pysis.facets.enrichFacets') }}
+          </v-btn>
+        </v-btn-group>
       </v-card-title>
 
       <v-divider></v-divider>
@@ -91,11 +116,11 @@
       <v-table v-if="fields.length" density="compact">
         <thead>
           <tr>
-            <th style="width: 40px;">{{ t('pysis.ai') }}</th>
-            <th style="width: 150px;">{{ t('pysis.field') }}</th>
-            <th style="min-width: 300px;">{{ t('common.value') }}</th>
-            <th style="width: 70px;">{{ t('pysis.source') }}</th>
-            <th style="width: 90px;">{{ t('common.actions') }}</th>
+            <th class="col-width-xs">{{ t('pysis.ai') }}</th>
+            <th class="col-width-lg">{{ t('pysis.field') }}</th>
+            <th class="col-min-width-lg">{{ t('common.value') }}</th>
+            <th class="col-width-sm">{{ t('pysis.source') }}</th>
+            <th class="col-width-actions">{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -111,7 +136,7 @@
             </td>
             <td>
               <div class="font-weight-medium">{{ field.internal_name }}</div>
-              <code class="text-caption text-grey">{{ field.pysis_field_name }}</code>
+              <code class="text-caption text-medium-emphasis">{{ field.pysis_field_name }}</code>
             </td>
             <td>
               <!-- Generating indicator -->
@@ -120,7 +145,7 @@
                 <span class="text-info text-caption">{{ t('pysis.aiGenerating') }}</span>
               </div>
               <!-- Current Value -->
-              <div class="field-value-preview" @click="openFieldEditor(field)">
+              <div class="field-value-preview" role="button" tabindex="0" :aria-label="t('pysis.editField')" @click="openFieldEditor(field)" @keydown.enter.prevent="openFieldEditor(field)" @keydown.space.prevent="openFieldEditor(field)">
                 {{ truncateValue(field.current_value) || t('pysis.empty') }}
               </div>
               <!-- AI Suggestion (if different from current) -->
@@ -160,22 +185,23 @@
                 <v-btn
                   icon="mdi-auto-fix"
                   size="x-small"
-                  variant="text"
+                  variant="tonal"
                   @click="generateField(field)"
                   :title="t('pysis.generateAI')"
+                  :aria-label="t('pysis.generateAI')"
                   :disabled="!field.ai_extraction_enabled || generatingFieldIds.has(field.id)"
                   :loading="generatingFieldIds.has(field.id)"
                 ></v-btn>
-                <v-btn icon="mdi-cog" size="x-small" variant="text" @click="openFieldSettings(field)" :title="t('pysis.settings')"></v-btn>
-                <v-btn icon="mdi-history" size="x-small" variant="text" @click="showHistory(field)" :title="t('pysis.history')"></v-btn>
-                <v-btn icon="mdi-upload" size="x-small" variant="text" color="info" @click="pushFieldToPySis(field)" :title="t('pysis.pushToPySis')"></v-btn>
-                <v-btn icon="mdi-delete" size="x-small" variant="text" color="error" @click="deleteField(field)" :title="t('common.delete')"></v-btn>
+                <v-btn icon="mdi-cog" size="x-small" variant="tonal" @click="openFieldSettings(field)" :title="t('pysis.settings')" :aria-label="t('pysis.settings')"></v-btn>
+                <v-btn icon="mdi-history" size="x-small" variant="tonal" @click="showHistory(field)" :title="t('pysis.history')" :aria-label="t('pysis.history')"></v-btn>
+                <v-btn icon="mdi-upload" size="x-small" variant="tonal" color="info" @click="pushFieldToPySis(field)" :title="t('pysis.pushToPySis')" :aria-label="t('pysis.pushToPySis')"></v-btn>
+                <v-btn icon="mdi-delete" size="x-small" variant="tonal" color="error" @click="deleteField(field)" :title="t('common.delete')" :aria-label="t('common.delete')"></v-btn>
               </div>
             </td>
           </tr>
         </tbody>
       </v-table>
-      <v-card-text v-else class="text-center text-grey">
+      <v-card-text v-else class="text-center text-medium-emphasis">
         {{ t('pysis.noFields') }}
       </v-card-text>
     </v-card>
@@ -184,7 +210,7 @@
     <v-dialog v-model="showAddProcessDialog" max-width="500">
       <v-card>
         <v-card-title>{{ t('pysis.addProcess') }}</v-card-title>
-        <v-card-text>
+        <v-card-text class="pt-4">
           <v-autocomplete
             v-model="newProcess.pysis_process_id"
             :items="availableProcesses"
@@ -252,8 +278,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="showAddProcessDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn color="primary" @click="createProcess" :loading="loading">{{ t('common.add') }}</v-btn>
+          <v-btn variant="tonal" @click="showAddProcessDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="primary" @click="createProcess" :loading="loading">{{ t('common.add') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -262,7 +288,7 @@
     <v-dialog v-model="showAddFieldDialog" max-width="500">
       <v-card>
         <v-card-title>{{ t('pysis.addField') }}</v-card-title>
-        <v-card-text>
+        <v-card-text class="pt-4">
           <v-text-field
             v-model="newField.internal_name"
             :label="t('pysis.internalName')"
@@ -298,8 +324,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="showAddFieldDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn color="primary" @click="createField" :loading="loading">{{ t('common.add') }}</v-btn>
+          <v-btn variant="tonal" @click="showAddFieldDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="primary" @click="createField" :loading="loading">{{ t('common.add') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -308,7 +334,7 @@
     <v-dialog v-if="flags.pysisFieldTemplates" v-model="showTemplateDialog" max-width="500">
       <v-card>
         <v-card-title>{{ t('pysis.template') }}</v-card-title>
-        <v-card-text>
+        <v-card-text class="pt-4">
           <v-select
             v-model="selectedTemplateId"
             :items="templates"
@@ -333,8 +359,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="showTemplateDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn color="primary" @click="applyTemplate" :loading="loading" :disabled="!selectedTemplateId">{{ t('pysis.apply') }}</v-btn>
+          <v-btn variant="tonal" @click="showTemplateDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="primary" @click="applyTemplate" :loading="loading" :disabled="!selectedTemplateId">{{ t('pysis.apply') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -366,9 +392,9 @@
           </v-alert>
         </v-card-text>
         <v-card-actions>
-          <v-btn @click="showFieldEditorDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" @click="showFieldEditorDialog = false">{{ t('common.cancel') }}</v-btn>
           <v-spacer></v-spacer>
-          <v-btn color="primary" @click="saveFieldValue">{{ t('common.save') }}</v-btn>
+          <v-btn variant="tonal" color="primary" @click="saveFieldValue">{{ t('common.save') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -397,34 +423,34 @@
                 <v-chip size="x-small" :color="getSourceColor(entry.source)" class="mr-2">
                   {{ entry.source }}
                 </v-chip>
-                <span class="text-grey">{{ formatHistoryAction(entry.action) }}</span>
-                <span v-if="entry.confidence_score" class="ml-2 text-grey-darken-1">
+                <span class="text-medium-emphasis">{{ formatHistoryAction(entry.action) }}</span>
+                <span v-if="entry.confidence_score" class="ml-2 text-medium-emphasis-darken-1">
                   ({{ Math.round(entry.confidence_score * 100) }}% {{ t('pysis.confidence') }})
                 </span>
               </v-list-item-title>
               <v-list-item-subtitle class="mt-1">
                 <div class="history-value">{{ truncateValue(entry.value, 200) || t('pysis.empty') }}</div>
-                <div class="text-caption text-grey mt-1">{{ formatDate(entry.created_at) }}</div>
+                <div class="text-caption text-medium-emphasis mt-1">{{ formatDate(entry.created_at) }}</div>
               </v-list-item-subtitle>
               <template v-slot:append>
                 <v-btn
                   v-if="entry.action !== 'rejected'"
                   icon="mdi-restore"
                   size="x-small"
-                  variant="text"
+                  variant="tonal"
                   @click="restoreFromHistory(entry)"
                   :title="t('pysis.restoreValue')"
                 ></v-btn>
               </template>
             </v-list-item>
           </v-list>
-          <div v-else class="text-center text-grey py-4">
+          <div v-else class="text-center text-medium-emphasis py-4">
             {{ t('pysis.noHistory') }}
           </div>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="showHistoryDialog = false">{{ t('common.close') }}</v-btn>
+          <v-btn variant="tonal" @click="showHistoryDialog = false">{{ t('common.close') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -436,7 +462,7 @@
           <v-icon start>mdi-cog</v-icon>
           {{ t('pysis.fieldSettings') }}: {{ editingFieldSettings.internal_name }}
         </v-card-title>
-        <v-card-text>
+        <v-card-text class="pt-4">
           <v-text-field
             v-model="editingFieldSettings.internal_name"
             :label="t('pysis.internalName')"
@@ -472,9 +498,106 @@
           </v-alert>
         </v-card-text>
         <v-card-actions>
-          <v-btn @click="showFieldSettingsDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" @click="showFieldSettingsDialog = false">{{ t('common.cancel') }}</v-btn>
           <v-spacer></v-spacer>
-          <v-btn color="primary" @click="saveFieldSettings" :loading="loading">{{ t('common.save') }}</v-btn>
+          <v-btn variant="tonal" color="primary" @click="saveFieldSettings" :loading="loading">{{ t('common.save') }}</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Analyze for Facets Dialog -->
+    <v-dialog v-model="showAnalyzeForFacetsDialog" max-width="500">
+      <v-card>
+        <v-card-title>
+          <v-icon start color="info">mdi-brain</v-icon>
+          {{ t('pysis.facets.analyzeForFacetsTitle') }}
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            {{ t('pysis.facets.analyzeForFacetsDescription') }}
+          </v-alert>
+          <v-checkbox
+            v-model="analyzeIncludeEmpty"
+            :label="t('pysis.facets.includeEmptyFields')"
+            density="compact"
+            hide-details
+            class="mb-2"
+          ></v-checkbox>
+          <v-slider
+            v-model="analyzeMinConfidence"
+            :label="t('pysis.facets.minConfidence')"
+            :min="0"
+            :max="1"
+            :step="0.1"
+            thumb-label
+            density="compact"
+            class="mt-4"
+          >
+            <template v-slot:thumb-label="{ modelValue }">
+              {{ Math.round(modelValue * 100) }}%
+            </template>
+          </v-slider>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="tonal" @click="showAnalyzeForFacetsDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="info" @click="analyzeForFacets" :loading="analyzingForFacets">
+            <v-icon start>mdi-brain</v-icon>
+            {{ t('pysis.facets.startAnalysis') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Enrich Facets Dialog -->
+    <v-dialog v-model="showEnrichFacetsDialog" max-width="500">
+      <v-card>
+        <v-card-title>
+          <v-icon start color="secondary">mdi-database-arrow-up</v-icon>
+          {{ t('pysis.facets.enrichFacetsTitle') }}
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            {{ t('pysis.facets.enrichFacetsDescription') }}
+          </v-alert>
+          <v-checkbox
+            v-model="enrichOverwrite"
+            :label="t('pysis.facets.overwriteExisting')"
+            density="compact"
+            hide-details
+            color="warning"
+          ></v-checkbox>
+          <v-alert v-if="enrichOverwrite" type="warning" variant="tonal" density="compact" class="mt-3">
+            {{ t('pysis.facets.overwriteWarning') }}
+          </v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="tonal" @click="showEnrichFacetsDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="secondary" @click="enrichFacetsFromPysis" :loading="enrichingFacets">
+            <v-icon start>mdi-database-arrow-up</v-icon>
+            {{ t('pysis.facets.startEnrichment') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Task Started Info Dialog -->
+    <v-dialog v-model="showTaskStartedDialog" max-width="400">
+      <v-card>
+        <v-card-title>
+          <v-icon start color="success">mdi-check-circle</v-icon>
+          {{ t('pysis.facets.taskStarted') }}
+        </v-card-title>
+        <v-card-text>
+          <p>{{ taskStartedMessage }}</p>
+          <p class="text-caption text-medium-emphasis mt-2">
+            {{ t('pysis.facets.taskId') }}: <code>{{ startedTaskId }}</code>
+          </p>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="tonal" color="primary" @click="showTaskStartedDialog = false">{{ t('common.ok') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -536,6 +659,20 @@ const showFieldEditorDialog = ref(false)
 const showManualInput = ref(false)
 const showHistoryDialog = ref(false)
 const showFieldSettingsDialog = ref(false)
+
+// PySis-Facets Dialogs
+const showAnalyzeForFacetsDialog = ref(false)
+const showEnrichFacetsDialog = ref(false)
+const showTaskStartedDialog = ref(false)
+
+// PySis-Facets State
+const analyzingForFacets = ref(false)
+const enrichingFacets = ref(false)
+const analyzeIncludeEmpty = ref(false)
+const analyzeMinConfidence = ref(0)
+const enrichOverwrite = ref(false)
+const startedTaskId = ref('')
+const taskStartedMessage = ref('')
 
 // Field Settings
 const editingFieldSettings = ref<any>(null)
@@ -1163,6 +1300,65 @@ const getHistoryItemClass = (action: string) => {
   return ''
 }
 
+// PySis-Facets Functions
+const analyzeForFacets = async () => {
+  if (!selectedProcess.value?.entity_id) {
+    showMessage(t('pysis.facets.needsEntity'), 'error')
+    return
+  }
+
+  analyzingForFacets.value = true
+  try {
+    const response = await pysisApi.analyzeForFacets({
+      entity_id: selectedProcess.value.entity_id,
+      process_id: selectedProcess.value.id,
+      include_empty: analyzeIncludeEmpty.value,
+      min_confidence: analyzeMinConfidence.value,
+    })
+
+    if (response.data.success) {
+      startedTaskId.value = response.data.task_id
+      taskStartedMessage.value = t('pysis.facets.analyzeTaskStartedMessage')
+      showAnalyzeForFacetsDialog.value = false
+      showTaskStartedDialog.value = true
+    } else {
+      showMessage(response.data.message || t('pysis.error'), 'error')
+    }
+  } catch (error: any) {
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
+  } finally {
+    analyzingForFacets.value = false
+  }
+}
+
+const enrichFacetsFromPysis = async () => {
+  if (!selectedProcess.value?.entity_id) {
+    showMessage(t('pysis.facets.needsEntity'), 'error')
+    return
+  }
+
+  enrichingFacets.value = true
+  try {
+    const response = await pysisApi.enrichFacetsFromPysis({
+      entity_id: selectedProcess.value.entity_id,
+      overwrite: enrichOverwrite.value,
+    })
+
+    if (response.data.success) {
+      startedTaskId.value = response.data.task_id
+      taskStartedMessage.value = t('pysis.facets.enrichTaskStartedMessage')
+      showEnrichFacetsDialog.value = false
+      showTaskStartedDialog.value = true
+    } else {
+      showMessage(response.data.message || t('pysis.error'), 'error')
+    }
+  } catch (error: any) {
+    showMessage(error.response?.data?.error || t('pysis.error'), 'error')
+  } finally {
+    enrichingFacets.value = false
+  }
+}
+
 // Watch for municipality changes
 watch(() => props.municipality, () => {
   selectedProcess.value = null
@@ -1203,7 +1399,7 @@ onUnmounted(() => {
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 4px;
-  background-color: rgba(0, 0, 0, 0.03);
+  background-color: rgba(var(--v-theme-on-surface), 0.03);
   font-size: 0.85rem;
   line-height: 1.4;
   white-space: pre-wrap;
@@ -1213,19 +1409,24 @@ onUnmounted(() => {
 }
 
 .field-value-preview:hover {
-  background-color: rgba(0, 0, 0, 0.08);
+  background-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.field-value-preview:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
 }
 
 .ai-suggestion {
   padding: 8px;
   border-radius: 4px;
-  background-color: rgba(33, 150, 243, 0.08);
-  border-left: 3px solid rgb(33, 150, 243);
+  background-color: rgba(var(--v-theme-info), 0.08);
+  border-left: 3px solid rgb(var(--v-theme-info));
 }
 
 .ai-suggestion-text {
   padding: 4px;
-  background-color: rgba(255, 255, 255, 0.5);
+  background-color: rgba(var(--v-theme-surface), 0.8);
   border-radius: 2px;
   white-space: pre-wrap;
   word-break: break-word;
@@ -1240,7 +1441,7 @@ onUnmounted(() => {
 
 .history-value {
   padding: 4px 8px;
-  background-color: rgba(0, 0, 0, 0.03);
+  background-color: rgba(var(--v-theme-on-surface), 0.03);
   border-radius: 4px;
   font-size: 0.8rem;
   white-space: pre-wrap;
@@ -1251,7 +1452,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   padding: 4px 8px;
-  background-color: rgba(33, 150, 243, 0.1);
+  background-color: rgba(var(--v-theme-info), 0.1);
   border-radius: 4px;
   animation: pulse 1.5s ease-in-out infinite;
 }

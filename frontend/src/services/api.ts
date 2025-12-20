@@ -28,6 +28,7 @@ export const adminApi = {
   getSourceCountries: () => api.get('/admin/sources/meta/countries'),
   getSourceLocations: (params?: { country?: string; search?: string; limit?: number }) =>
     api.get('/admin/sources/meta/locations', { params }),
+  getSourceCounts: () => api.get('/admin/sources/meta/counts'),
 
   // Crawler
   getCrawlerJobs: (params?: any) => api.get('/admin/crawler/jobs', { params }),
@@ -88,6 +89,23 @@ export const exportApi = {
   exportCsv: (params?: any) => api.get('/v1/export/csv', { params, responseType: 'blob' }),
   getChangesFeed: (params?: any) => api.get('/v1/export/changes', { params }),
   testWebhook: (url: string) => api.post('/v1/export/webhook/test', null, { params: { url } }),
+
+  // Async Export
+  startAsyncExport: (data: {
+    entity_type?: string
+    format?: string
+    location_filter?: string
+    facet_types?: string[]
+    position_keywords?: string[]
+    country?: string
+    include_facets?: boolean
+    filename?: string
+  }) => api.post('/v1/export/async', data),
+  getExportJobStatus: (jobId: string) => api.get(`/v1/export/async/${jobId}`),
+  downloadExport: (jobId: string) => api.get(`/v1/export/async/${jobId}/download`, { responseType: 'blob' }),
+  cancelExportJob: (jobId: string) => api.delete(`/v1/export/async/${jobId}`),
+  listExportJobs: (params?: { status_filter?: string; limit?: number }) =>
+    api.get('/v1/export/async', { params }),
 }
 
 // Location Admin API (International)
@@ -159,6 +177,7 @@ export const entityApi = {
   updateEntity: (id: string, data: any) => api.put(`/v1/entities/${id}`, data),
   deleteEntity: (id: string, force?: boolean) =>
     api.delete(`/v1/entities/${id}`, { params: { force } }),
+  getEntityExternalData: (id: string) => api.get(`/v1/entities/${id}/external-data`),
 
   // Filter Options
   getLocationFilterOptions: (params?: { country?: string; admin_level_1?: string }) =>
@@ -191,6 +210,10 @@ export const facetApi = {
   // AI Schema Generation
   generateFacetTypeSchema: (data: { name: string; name_plural?: string; description?: string; applicable_entity_types?: string[] }) =>
     api.post('/v1/facets/types/generate-schema', data),
+
+  // Full-Text Search
+  searchFacetValues: (params: { q: string; entity_id?: string; facet_type_slug?: string; limit?: number }) =>
+    api.get('/v1/facets/search', { params }),
 }
 
 export const relationApi = {
@@ -229,6 +252,17 @@ export const analysisApi = {
   getEntityReport: (entityId: string, params?: any) =>
     api.get(`/v1/analysis/report/${entityId}`, { params }),
   getStats: (params?: any) => api.get('/v1/analysis/stats', { params }),
+
+  // Smart Query - Natural Language Queries
+  smartQuery: (data: { question: string; allow_write?: boolean }) =>
+    api.post('/v1/analysis/smart-query', data),
+
+  // Smart Write - Natural Language Commands with Preview
+  smartWrite: (data: { question: string; preview_only?: boolean; confirmed?: boolean }) =>
+    api.post('/v1/analysis/smart-write', data),
+
+  // Get Smart Query Examples
+  getSmartQueryExamples: () => api.get('/v1/analysis/smart-query/examples'),
 }
 
 // PySis API
@@ -277,6 +311,70 @@ export const pysisApi = {
 
   // Available Processes from PySis
   getAvailableProcesses: () => api.get('/admin/pysis/available-processes'),
+
+  // PySis-Facets Integration
+  analyzeForFacets: (data: {
+    entity_id: string
+    process_id?: string
+    include_empty?: boolean
+    min_confidence?: number
+  }) => api.post('/v1/pysis-facets/analyze', data),
+
+  enrichFacetsFromPysis: (data: {
+    entity_id: string
+    facet_type_id?: string
+    overwrite?: boolean
+  }) => api.post('/v1/pysis-facets/enrich', data),
+
+  getPysisFacetsPreview: (params: {
+    entity_id: string
+    operation: 'analyze' | 'enrich'
+  }) => api.get('/v1/pysis-facets/preview', { params }),
+
+  getPysisFacetsStatus: (entityId: string) =>
+    api.get('/v1/pysis-facets/status', { params: { entity_id: entityId } }),
+
+  getPysisFacetsSummary: (entityId: string) =>
+    api.get('/v1/pysis-facets/summary', { params: { entity_id: entityId } }),
+}
+
+// AI Tasks API - Task status polling
+export const aiTasksApi = {
+  // Get task status for polling
+  getStatus: (taskId: string) =>
+    api.get('/v1/ai-tasks/status', { params: { task_id: taskId } }),
+
+  // Get task result (preview data)
+  getResult: (taskId: string) =>
+    api.get('/v1/ai-tasks/result', { params: { task_id: taskId } }),
+
+  // Get tasks for an entity
+  getByEntity: (entityId: string, params?: { task_type?: string; status?: string; limit?: number }) =>
+    api.get('/v1/ai-tasks/by-entity', { params: { entity_id: entityId, ...params } }),
+}
+
+// Entity Data Enrichment API - Analyze entity data for facets
+export const entityDataApi = {
+  // Get available enrichment sources with timestamps
+  getEnrichmentSources: (entityId: string) =>
+    api.get('/v1/entity-data/enrichment-sources', { params: { entity_id: entityId } }),
+
+  // Start entity data analysis for facets
+  analyzeForFacets: (data: {
+    entity_id: string
+    source_types: string[]  // ["pysis", "relations", "documents", "extractions"]
+  }) => api.post('/v1/entity-data/analyze-for-facets', data),
+
+  // Get analysis preview (after task completed)
+  getAnalysisPreview: (taskId: string) =>
+    api.get('/v1/entity-data/analysis-preview', { params: { task_id: taskId } }),
+
+  // Apply selected changes from preview
+  applyChanges: (data: {
+    task_id: string
+    accepted_new_facets: number[]     // Indices of accepted new facets
+    accepted_updates: string[]        // IDs of accepted updates
+  }) => api.post('/v1/entity-data/apply-changes', data),
 }
 
 // Assistant API
@@ -287,6 +385,7 @@ export const assistantApi = {
     conversation_history?: any[]
     mode?: 'read' | 'write'
     language?: 'de' | 'en'
+    attachment_ids?: string[]
   }) => api.post('/v1/assistant/chat', data),
   chatStream: (data: {
     message: string
@@ -294,6 +393,7 @@ export const assistantApi = {
     conversation_history?: any[]
     mode?: 'read' | 'write'
     language?: 'de' | 'en'
+    attachment_ids?: string[]
   }) => {
     // Return a fetch request for SSE
     const baseUrl = api.defaults.baseURL || '/api'
@@ -313,6 +413,20 @@ export const assistantApi = {
   },
   executeAction: (data: { action: any; context: any }) =>
     api.post('/v1/assistant/execute-action', data),
+
+  // Create facet type via assistant
+  createFacetType: (data: {
+    name: string
+    slug?: string
+    name_plural?: string
+    description?: string
+    value_type?: string
+    value_schema?: Record<string, any>
+    applicable_entity_type_slugs?: string[]
+    icon?: string
+    color?: string
+  }) => api.post('/v1/assistant/create-facet-type', data),
+
   getCommands: () => api.get('/v1/assistant/commands'),
   getSuggestions: (params: {
     route: string
@@ -325,6 +439,7 @@ export const assistantApi = {
     view_mode?: string
     entity_type?: string
     entity_id?: string
+    language?: 'de' | 'en'
   }) => api.get('/v1/assistant/insights', { params }),
   uploadAttachment: (file: File) => {
     const formData = new FormData()
@@ -335,6 +450,19 @@ export const assistantApi = {
   },
   deleteAttachment: (attachmentId: string) =>
     api.delete(`/v1/assistant/upload/${attachmentId}`),
+
+  // Save temp attachments to entity
+  saveToEntityAttachments: (entityId: string, attachmentIds: string[]) =>
+    api.post<{
+      success: boolean
+      saved_count: number
+      attachment_ids: string[]
+      errors?: string[]
+      message: string
+    }>('/v1/assistant/save-to-entity-attachments', {
+      entity_id: entityId,
+      attachment_ids: attachmentIds,
+    }),
 
   // Batch operations
   batchAction: (data: {
@@ -354,9 +482,8 @@ export const assistantApi = {
   getWizards: () => api.get('/v1/assistant/wizards'),
 
   startWizard: (wizardType: string, context?: Record<string, any>) =>
-    api.post('/v1/assistant/wizards/start', null, {
+    api.post('/v1/assistant/wizards/start', context || null, {
       params: { wizard_type: wizardType },
-      ...(context && { data: context }),
     }),
 
   wizardRespond: (wizardId: string, value: any) =>
@@ -408,6 +535,44 @@ export const authApi = {
       suggestions: string[]
       requirements: string
     }>('/auth/check-password-strength', { password }),
+
+  // Language preference
+  updateLanguage: (language: 'de' | 'en') =>
+    api.put('/auth/language', { language }),
+
+  // Token refresh
+  refresh: (refreshToken: string) =>
+    api.post<{
+      access_token: string
+      refresh_token: string
+      token_type: string
+      expires_in: number
+      refresh_expires_in: number
+      user: any
+    }>('/auth/refresh', { refresh_token: refreshToken }),
+
+  // Session management
+  listSessions: () =>
+    api.get<{
+      sessions: Array<{
+        id: string
+        device_type: string
+        device_name: string | null
+        ip_address: string | null
+        location: string | null
+        created_at: string
+        last_used_at: string
+        is_current: boolean
+      }>
+      total: number
+      max_sessions: number
+    }>('/auth/sessions'),
+
+  revokeSession: (sessionId: string) =>
+    api.delete(`/auth/sessions/${sessionId}`),
+
+  revokeAllSessions: () =>
+    api.delete('/auth/sessions'),
 }
 
 // Users API
@@ -418,6 +583,47 @@ export const userApi = {
   updateUser: (id: string, data: any) => api.put(`/admin/users/${id}`, data),
   deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
   resetPassword: (id: string, data: any) => api.post(`/admin/users/${id}/reset-password`, data),
+}
+
+// Audit Log API
+export const auditApi = {
+  // List audit logs with filtering
+  getAuditLogs: (params?: {
+    page?: number
+    per_page?: number
+    action?: string
+    entity_type?: string
+    entity_id?: string
+    user_id?: string
+    start_date?: string
+    end_date?: string
+  }) => api.get('/admin/audit', { params }),
+
+  // Get audit history for a specific entity
+  getEntityAuditHistory: (entityType: string, entityId: string, params?: { page?: number; per_page?: number }) =>
+    api.get(`/admin/audit/entity/${entityType}/${entityId}`, { params }),
+
+  // Get audit history for a specific user
+  getUserAuditHistory: (userId: string, params?: { page?: number; per_page?: number }) =>
+    api.get(`/admin/audit/user/${userId}`, { params }),
+
+  // Get audit statistics
+  getAuditStats: () => api.get('/admin/audit/stats'),
+}
+
+// Version History API
+export const versionApi = {
+  // List versions for an entity
+  getVersions: (entityType: string, entityId: string, params?: { limit?: number; offset?: number }) =>
+    api.get(`/admin/versions/${entityType}/${entityId}`, { params }),
+
+  // Get specific version details
+  getVersion: (entityType: string, entityId: string, versionNumber: number) =>
+    api.get(`/admin/versions/${entityType}/${entityId}/${versionNumber}`),
+
+  // Get reconstructed entity state at a specific version
+  getEntityState: (entityType: string, entityId: string, versionNumber: number) =>
+    api.get(`/admin/versions/${entityType}/${entityId}/${versionNumber}/state`),
 }
 
 // Notification API
@@ -463,6 +669,96 @@ export const notificationApi = {
   // Testing
   testWebhook: (data: { url: string; auth?: any }) =>
     api.post('/admin/notifications/test-webhook', data),
+}
+
+// Dashboard API
+export const dashboardApi = {
+  // Preferences
+  getPreferences: () => api.get('/v1/dashboard/preferences'),
+  updatePreferences: (data: { widgets: any[] }) =>
+    api.put('/v1/dashboard/preferences', data),
+
+  // Statistics
+  getStats: () => api.get('/v1/dashboard/stats'),
+
+  // Activity Feed
+  getActivityFeed: (params?: { limit?: number; offset?: number }) =>
+    api.get('/v1/dashboard/activity', { params }),
+
+  // Insights
+  getInsights: (params?: { period_days?: number }) =>
+    api.get('/v1/dashboard/insights', { params }),
+
+  // Charts
+  getChartData: (chartType: string) =>
+    api.get(`/v1/dashboard/charts/${chartType}`),
+}
+
+// Entity Attachments API
+export const attachmentApi = {
+  // Upload attachment to entity
+  upload: (entityId: string, file: File, options?: { description?: string; autoAnalyze?: boolean }) => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const params = new URLSearchParams()
+    if (options?.description) params.append('description', options.description)
+    if (options?.autoAnalyze) params.append('auto_analyze', 'true')
+
+    const queryString = params.toString()
+    const url = `/v1/entities/${entityId}/attachments${queryString ? `?${queryString}` : ''}`
+
+    return api.post(url, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+
+  // List attachments for entity
+  list: (entityId: string) =>
+    api.get(`/v1/entities/${entityId}/attachments`),
+
+  // Get single attachment metadata
+  get: (entityId: string, attachmentId: string) =>
+    api.get(`/v1/entities/${entityId}/attachments/${attachmentId}`),
+
+  // Download attachment file
+  download: (entityId: string, attachmentId: string) =>
+    api.get(`/v1/entities/${entityId}/attachments/${attachmentId}/download`, {
+      responseType: 'blob',
+    }),
+
+  // Get thumbnail URL (for img src)
+  getThumbnailUrl: (entityId: string, attachmentId: string) =>
+    `/api/v1/entities/${entityId}/attachments/${attachmentId}/thumbnail`,
+
+  // Delete attachment
+  delete: (entityId: string, attachmentId: string) =>
+    api.delete(`/v1/entities/${entityId}/attachments/${attachmentId}`),
+
+  // Start AI analysis
+  analyze: (entityId: string, attachmentId: string, extractFacets = true) =>
+    api.post(`/v1/entities/${entityId}/attachments/${attachmentId}/analyze`, null, {
+      params: { extract_facets: extractFacets },
+    }),
+
+  // Update attachment description
+  update: (entityId: string, attachmentId: string, description: string) =>
+    api.patch(`/v1/entities/${entityId}/attachments/${attachmentId}`, null, {
+      params: { description },
+    }),
+
+  // Apply selected facet suggestions from analysis
+  applyFacets: (entityId: string, attachmentId: string, facetIndices: number[]) =>
+    api.post(`/v1/entities/${entityId}/attachments/${attachmentId}/apply-facets`, null, {
+      params: { facet_indices: facetIndices },
+      paramsSerializer: (params) => {
+        const searchParams = new URLSearchParams()
+        if (params.facet_indices) {
+          params.facet_indices.forEach((idx: number) => searchParams.append('facet_indices', idx.toString()))
+        }
+        return searchParams.toString()
+      },
+    }),
 }
 
 export default api

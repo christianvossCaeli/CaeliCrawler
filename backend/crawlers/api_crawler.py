@@ -5,7 +5,7 @@ Routes CUSTOM_API sources to the appropriate API client based on the
 api_type configuration.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional, List
 from uuid import UUID
 
@@ -79,7 +79,7 @@ class APICrawler(BaseCrawler):
             result.errors.append({
                 "type": type(e).__name__,
                 "message": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
         return result

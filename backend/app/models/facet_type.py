@@ -22,6 +22,8 @@ class ValueType(str, enum.Enum):
     STRUCTURED = "structured"  # Complex JSON structure
     LIST = "list"  # List of values
     REFERENCE = "reference"  # Reference to another entity
+    NUMBER = "number"  # Numeric value (integer or float)
+    BOOLEAN = "boolean"  # Boolean value (true/false)
 
 
 class AggregationMethod(str, enum.Enum):
@@ -32,6 +34,9 @@ class AggregationMethod(str, enum.Enum):
     AVG = "avg"  # Average numeric values
     LIST = "list"  # List all values
     DEDUPE = "dedupe"  # Deduplicate by specified fields
+    LATEST = "latest"  # Keep only the latest value
+    MIN = "min"  # Minimum numeric value
+    MAX = "max"  # Maximum numeric value
 
 
 class TimeFilter(str, enum.Enum):

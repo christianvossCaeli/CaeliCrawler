@@ -51,11 +51,30 @@ async def list_jobs(
     result = await session.execute(query)
     jobs = result.scalars().all()
 
+    # Batch fetch sources and categories to avoid N+1 queries
+    source_ids = list({job.source_id for job in jobs if job.source_id})
+    category_ids = list({job.category_id for job in jobs if job.category_id})
+
+    sources_dict = {}
+    categories_dict = {}
+
+    if source_ids:
+        sources_result = await session.execute(
+            select(DataSource).where(DataSource.id.in_(source_ids))
+        )
+        sources_dict = {s.id: s for s in sources_result.scalars().all()}
+
+    if category_ids:
+        categories_result = await session.execute(
+            select(Category).where(Category.id.in_(category_ids))
+        )
+        categories_dict = {c.id: c for c in categories_result.scalars().all()}
+
     # Enrich with names
     items = []
     for job in jobs:
-        source = await session.get(DataSource, job.source_id)
-        category = await session.get(Category, job.category_id)
+        source = sources_dict.get(job.source_id)
+        category = categories_dict.get(job.category_id)
 
         item = CrawlJobResponse.model_validate(job)
         item.source_name = source.name if source else None
@@ -319,9 +338,10 @@ async def reanalyze_documents(
     document_ids = [str(row[0]) for row in result.fetchall()]
 
     # Delete existing extractions
+    from sqlalchemy import delete
     for doc_id in document_ids:
         await session.execute(
-            select(ExtractedData).where(ExtractedData.document_id == doc_id)
+            delete(ExtractedData).where(ExtractedData.document_id == UUID(doc_id))
         )
 
     # Queue for re-analysis
@@ -414,10 +434,29 @@ async def get_running_jobs(
     )
     running_jobs = result.scalars().all()
 
+    # Batch fetch sources and categories to avoid N+1 queries
+    source_ids = list({job.source_id for job in running_jobs if job.source_id})
+    category_ids = list({job.category_id for job in running_jobs if job.category_id})
+
+    sources_dict = {}
+    categories_dict = {}
+
+    if source_ids:
+        sources_result = await session.execute(
+            select(DataSource).where(DataSource.id.in_(source_ids))
+        )
+        sources_dict = {s.id: s for s in sources_result.scalars().all()}
+
+    if category_ids:
+        categories_result = await session.execute(
+            select(Category).where(Category.id.in_(category_ids))
+        )
+        categories_dict = {c.id: c for c in categories_result.scalars().all()}
+
     jobs = []
     for job in running_jobs:
-        source = await session.get(DataSource, job.source_id)
-        category = await session.get(Category, job.category_id)
+        source = sources_dict.get(job.source_id)
+        category = categories_dict.get(job.category_id)
         current_url = await crawler_progress.get_current_url(job.id)
         recent_log = await crawler_progress.get_log(job.id, limit=5)
         live_stats = await crawler_progress.get_stats(job.id)
@@ -472,13 +511,22 @@ async def list_ai_tasks(
     result = await session.execute(query)
     tasks = result.scalars().all()
 
+    # Batch fetch processes to avoid N+1 queries
+    process_ids = list({task.process_id for task in tasks if task.process_id})
+    processes_dict = {}
+    if process_ids:
+        processes_result = await session.execute(
+            select(PySisProcess).where(PySisProcess.id.in_(process_ids))
+        )
+        processes_dict = {p.id: p for p in processes_result.scalars().all()}
+
     # Enrich with process info
     items = []
     for task in tasks:
         process_name = None
         location_name = None
         if task.process_id:
-            process = await session.get(PySisProcess, task.process_id)
+            process = processes_dict.get(task.process_id)
             if process:
                 process_name = process.name
                 location_name = process.location_name
@@ -526,12 +574,21 @@ async def get_running_ai_tasks(
     )
     running_tasks = result.scalars().all()
 
+    # Batch fetch processes to avoid N+1 queries
+    process_ids = list({task.process_id for task in running_tasks if task.process_id})
+    processes_dict = {}
+    if process_ids:
+        processes_result = await session.execute(
+            select(PySisProcess).where(PySisProcess.id.in_(process_ids))
+        )
+        processes_dict = {p.id: p for p in processes_result.scalars().all()}
+
     tasks = []
     for task in running_tasks:
         process_name = None
         location_name = None
         if task.process_id:
-            process = await session.get(PySisProcess, task.process_id)
+            process = processes_dict.get(task.process_id)
             if process:
                 process_name = process.name
                 location_name = process.location_name

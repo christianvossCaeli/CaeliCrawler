@@ -1,14 +1,25 @@
 """API endpoints for Entity management."""
 
+import json
+import unicodedata
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select, and_, or_
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import delete, func, select, text, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.models import Entity, EntityType, FacetValue, EntityRelation
+from app.models.document import Document
+
+# Import for external API data
+try:
+    from external_apis.models.sync_record import SyncRecord
+    from external_apis.models.external_api_config import ExternalAPIConfig
+    EXTERNAL_API_AVAILABLE = True
+except ImportError:
+    EXTERNAL_API_AVAILABLE = False
 from app.schemas.entity import (
     EntityCreate,
     EntityUpdate,
@@ -16,10 +27,10 @@ from app.schemas.entity import (
     EntityListResponse,
     EntityBrief,
     EntityHierarchy,
-    generate_slug,
 )
 from app.schemas.common import MessageResponse
 from app.core.exceptions import NotFoundError, ConflictError
+from app.utils.text import create_slug as generate_slug
 
 router = APIRouter()
 
@@ -55,7 +66,7 @@ async def list_entities(
     if hierarchy_level is not None:
         query = query.where(Entity.hierarchy_level == hierarchy_level)
     if is_active is not None:
-        query = query.where(Entity.is_active == is_active)
+        query = query.where(Entity.is_active.is_(is_active))
     if country:
         # Filter by indexed country column (with fallback to core_attributes for backwards compat)
         query = query.where(
@@ -81,16 +92,20 @@ async def list_entities(
 
     # Filter by core_attributes (dynamic schema-based filtering)
     if core_attr_filters:
-        import json
         try:
             attr_filters = json.loads(core_attr_filters)
+            if not isinstance(attr_filters, dict):
+                raise ValueError("core_attr_filters must be a JSON object")
             for key, value in attr_filters.items():
                 if value is not None and value != "":
                     query = query.where(
                         Entity.core_attributes[key].astext == str(value)
                     )
-        except json.JSONDecodeError:
-            pass  # Ignore invalid JSON
+        except (json.JSONDecodeError, ValueError) as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid core_attr_filters parameter: {str(e)}"
+            )
 
     if search:
         query = query.where(
@@ -110,37 +125,74 @@ async def list_entities(
     result = await session.execute(query)
     entities = result.scalars().all()
 
-    # Enrich with entity type info and counts
+    if not entities:
+        return EntityListResponse(
+            items=[],
+            total=total,
+            page=page,
+            per_page=per_page,
+            pages=(total + per_page - 1) // per_page if per_page > 0 else 0,
+        )
+
+    # Collect entity IDs for batch queries
+    entity_ids = [e.id for e in entities]
+    entity_type_ids = list(set(e.entity_type_id for e in entities))
+
+    # Batch load EntityTypes (1 query instead of N)
+    entity_types_result = await session.execute(
+        select(EntityType).where(EntityType.id.in_(entity_type_ids))
+    )
+    entity_types_map = {et.id: et for et in entity_types_result.scalars().all()}
+
+    # Batch count facet values (1 query instead of N)
+    facet_counts_result = await session.execute(
+        select(FacetValue.entity_id, func.count(FacetValue.id))
+        .where(FacetValue.entity_id.in_(entity_ids))
+        .group_by(FacetValue.entity_id)
+    )
+    facet_counts_map = dict(facet_counts_result.fetchall())
+
+    # Batch count relations (1 query instead of N)
+    # Count as source
+    source_counts_result = await session.execute(
+        select(EntityRelation.source_entity_id, func.count(EntityRelation.id))
+        .where(EntityRelation.source_entity_id.in_(entity_ids))
+        .group_by(EntityRelation.source_entity_id)
+    )
+    source_counts = dict(source_counts_result.fetchall())
+
+    # Count as target
+    target_counts_result = await session.execute(
+        select(EntityRelation.target_entity_id, func.count(EntityRelation.id))
+        .where(EntityRelation.target_entity_id.in_(entity_ids))
+        .group_by(EntityRelation.target_entity_id)
+    )
+    target_counts = dict(target_counts_result.fetchall())
+
+    # Merge relation counts
+    relation_counts_map = {}
+    for entity_id in entity_ids:
+        relation_counts_map[entity_id] = source_counts.get(entity_id, 0) + target_counts.get(entity_id, 0)
+
+    # Batch count children (1 query instead of N)
+    children_counts_result = await session.execute(
+        select(Entity.parent_id, func.count(Entity.id))
+        .where(Entity.parent_id.in_(entity_ids))
+        .group_by(Entity.parent_id)
+    )
+    children_counts_map = dict(children_counts_result.fetchall())
+
+    # Build response items using pre-fetched data
     items = []
     for entity in entities:
-        entity_type = await session.get(EntityType, entity.entity_type_id)
-
-        # Count facet values
-        facet_count = (await session.execute(
-            select(func.count()).where(FacetValue.entity_id == entity.id)
-        )).scalar()
-
-        # Count relations (as source or target)
-        relation_count = (await session.execute(
-            select(func.count()).where(
-                or_(
-                    EntityRelation.source_entity_id == entity.id,
-                    EntityRelation.target_entity_id == entity.id
-                )
-            )
-        )).scalar()
-
-        # Count children
-        children_count = (await session.execute(
-            select(func.count()).where(Entity.parent_id == entity.id)
-        )).scalar()
+        entity_type = entity_types_map.get(entity.entity_type_id)
 
         item = EntityResponse.model_validate(entity)
         item.entity_type_name = entity_type.name if entity_type else None
         item.entity_type_slug = entity_type.slug if entity_type else None
-        item.facet_count = facet_count
-        item.relation_count = relation_count
-        item.children_count = children_count
+        item.facet_count = facet_counts_map.get(entity.id, 0)
+        item.relation_count = relation_counts_map.get(entity.id, 0)
+        item.children_count = children_counts_map.get(entity.id, 0)
         items.append(item)
 
     return EntityListResponse(
@@ -198,7 +250,6 @@ async def create_entity(
         hierarchy_path = f"/{slug}"
 
     # Normalize name for search
-    import unicodedata
     name_normalized = unicodedata.normalize("NFKD", data.name.lower())
 
     entity = Entity(
@@ -254,7 +305,7 @@ async def get_entity_hierarchy(
             and_(
                 Entity.entity_type_id == entity_type.id,
                 Entity.parent_id == parent_id if parent_id else Entity.parent_id.is_(None),
-                Entity.is_active == True
+                Entity.is_active.is_(True)
             )
         ).order_by(Entity.name)
 
@@ -292,6 +343,126 @@ def _count_nodes(tree: List[Dict]) -> int:
     for node in tree:
         yield 1
         yield from _count_nodes(node.get("children", []))
+
+
+# ============================================================================
+# Filter Options Endpoints (MUST be defined BEFORE dynamic /{entity_id} routes)
+# ============================================================================
+
+
+@router.get("/filter-options/location")
+async def get_location_filter_options(
+    country: Optional[str] = Query(default=None, description="Filter admin_level_1 options by country"),
+    admin_level_1: Optional[str] = Query(default=None, description="Filter admin_level_2 options by admin_level_1"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get available filter options for location fields (country, admin_level_1, admin_level_2)."""
+    # Get distinct countries
+    countries_query = select(Entity.country).where(
+        Entity.country.isnot(None)
+    ).distinct().order_by(Entity.country)
+    countries_result = await session.execute(countries_query)
+    countries = [row[0] for row in countries_result.fetchall()]
+
+    # Get distinct admin_level_1 values
+    admin_level_1_query = select(Entity.admin_level_1).where(
+        Entity.admin_level_1.isnot(None),
+        Entity.admin_level_1 != ""
+    )
+    if country:
+        admin_level_1_query = admin_level_1_query.where(Entity.country == country.upper())
+    admin_level_1_query = admin_level_1_query.distinct().order_by(Entity.admin_level_1)
+    admin_level_1_result = await session.execute(admin_level_1_query)
+    admin_level_1_values = [row[0] for row in admin_level_1_result.fetchall()]
+
+    # Get distinct admin_level_2 values
+    admin_level_2_query = select(Entity.admin_level_2).where(
+        Entity.admin_level_2.isnot(None),
+        Entity.admin_level_2 != ""
+    )
+    if country:
+        admin_level_2_query = admin_level_2_query.where(Entity.country == country.upper())
+    if admin_level_1:
+        admin_level_2_query = admin_level_2_query.where(Entity.admin_level_1 == admin_level_1)
+    admin_level_2_query = admin_level_2_query.distinct().order_by(Entity.admin_level_2)
+    admin_level_2_result = await session.execute(admin_level_2_query)
+    admin_level_2_values = [row[0] for row in admin_level_2_result.fetchall()]
+
+    return {
+        "countries": countries,
+        "admin_level_1": admin_level_1_values,
+        "admin_level_2": admin_level_2_values,
+    }
+
+
+@router.get("/filter-options/attributes")
+async def get_attribute_filter_options(
+    entity_type_slug: str = Query(..., description="Entity type slug to get attribute options for"),
+    attribute_key: Optional[str] = Query(default=None, description="Specific attribute key to get values for"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get available filter options for core_attributes based on entity type schema.
+
+    Returns the attribute schema properties and optionally distinct values for a specific attribute.
+    """
+    # Get entity type with schema
+    et_result = await session.execute(
+        select(EntityType).where(EntityType.slug == entity_type_slug)
+    )
+    entity_type = et_result.scalar()
+    if not entity_type:
+        raise NotFoundError("EntityType", entity_type_slug)
+
+    # Get schema properties
+    schema = entity_type.attribute_schema or {}
+    properties = schema.get("properties", {})
+
+    # Build response with filterable attributes
+    filterable_attributes = []
+    for key, prop in properties.items():
+        attr_type = prop.get("type", "string")
+        # Only include filterable types (strings, enums)
+        if attr_type in ["string", "integer", "number"]:
+            filterable_attributes.append({
+                "key": key,
+                "title": prop.get("title", key),
+                "description": prop.get("description"),
+                "type": attr_type,
+                "format": prop.get("format"),
+            })
+
+    result = {
+        "entity_type_slug": entity_type_slug,
+        "entity_type_name": entity_type.name,
+        "attributes": filterable_attributes,
+    }
+
+    # If specific attribute requested, get distinct values
+    if attribute_key and attribute_key in properties:
+        # Query distinct values from core_attributes JSONB
+        values_query = (
+            select(Entity.core_attributes[attribute_key].astext)
+            .where(
+                Entity.entity_type_id == entity_type.id,
+                Entity.core_attributes[attribute_key].astext.isnot(None),
+                Entity.core_attributes[attribute_key].astext != "",
+            )
+            .distinct()
+            .order_by(Entity.core_attributes[attribute_key].astext)
+            .limit(100)  # Limit to prevent huge lists
+        )
+        values_result = await session.execute(values_query)
+        distinct_values = [row[0] for row in values_result.fetchall() if row[0]]
+        result["attribute_values"] = {
+            attribute_key: distinct_values
+        }
+
+    return result
+
+
+# ============================================================================
+# Dynamic Entity Routes (MUST be AFTER static routes like /filter-options/*)
+# ============================================================================
 
 
 @router.get("/{entity_id}", response_model=EntityResponse)
@@ -454,9 +625,39 @@ async def update_entity(
     # Update fields
     update_data = data.model_dump(exclude_unset=True)
 
+    # Validate parent_id if being changed
+    if "parent_id" in update_data and update_data["parent_id"] is not None:
+        new_parent_id = update_data["parent_id"]
+
+        # Check parent exists
+        parent = await session.get(Entity, new_parent_id)
+        if not parent:
+            raise NotFoundError("Parent Entity", str(new_parent_id))
+
+        # Check for circular reference: entity cannot be its own ancestor
+        # Walk up the hierarchy from the new parent to check if we encounter ourselves
+        current = parent
+        while current is not None:
+            if current.id == entity_id:
+                raise ConflictError(
+                    "Circular hierarchy detected",
+                    detail="Cannot set parent that would create a circular reference"
+                )
+            if current.parent_id:
+                current = await session.get(Entity, current.parent_id)
+            else:
+                break
+
+        # Update hierarchy path and level based on new parent
+        update_data["hierarchy_path"] = f"{parent.hierarchy_path}/{entity.slug}"
+        update_data["hierarchy_level"] = parent.hierarchy_level + 1
+    elif "parent_id" in update_data and update_data["parent_id"] is None:
+        # Moving to root level
+        update_data["hierarchy_path"] = f"/{entity.slug}"
+        update_data["hierarchy_level"] = 0
+
     # If name changes, update normalized name
     if "name" in update_data:
-        import unicodedata
         update_data["name_normalized"] = unicodedata.normalize("NFKD", update_data["name"].lower())
 
     for field, value in update_data.items():
@@ -480,10 +681,16 @@ async def delete_entity(
     force: bool = Query(default=False, description="Force delete with all facets and relations"),
     session: AsyncSession = Depends(get_session),
 ):
-    """Delete an entity."""
+    """Delete an entity.
+
+    If force=True, deletes the entity along with all its children (recursively),
+    facet values, and relations using efficient batch queries.
+    """
     entity = await session.get(Entity, entity_id)
     if not entity:
         raise NotFoundError("Entity", str(entity_id))
+
+    entity_name = entity.name
 
     # Check for children
     children_count = (await session.execute(
@@ -493,7 +700,7 @@ async def delete_entity(
     if children_count > 0 and not force:
         raise ConflictError(
             "Cannot delete entity with children",
-            detail=f"Entity '{entity.name}' has {children_count} child entities. Use force=true to delete anyway.",
+            detail=f"Entity '{entity_name}' has {children_count} child entities. Use force=true to delete anyway.",
         )
 
     # Check for facets
@@ -504,50 +711,73 @@ async def delete_entity(
     if facet_count > 0 and not force:
         raise ConflictError(
             "Cannot delete entity with facets",
-            detail=f"Entity '{entity.name}' has {facet_count} facet values. Use force=true to delete anyway.",
+            detail=f"Entity '{entity_name}' has {facet_count} facet values. Use force=true to delete anyway.",
         )
 
-    # If force, delete related data first
     if force:
-        # Delete children recursively
-        async def delete_children(parent_id: UUID):
-            children_result = await session.execute(
-                select(Entity).where(Entity.parent_id == parent_id)
+        # Use CTE to get all descendant entity IDs (including the root entity)
+        # This is much more efficient than recursive Python calls
+        hierarchy_cte = text("""
+            WITH RECURSIVE entity_tree AS (
+                -- Base case: the entity we want to delete
+                SELECT id FROM entities WHERE id = :entity_id
+                UNION ALL
+                -- Recursive case: all children
+                SELECT e.id FROM entities e
+                INNER JOIN entity_tree et ON e.parent_id = et.id
             )
-            children = children_result.scalars().all()
-            for child in children:
-                await delete_children(child.id)
-                # Delete child's facets
-                await session.execute(
-                    select(FacetValue).where(FacetValue.entity_id == child.id)
-                )
-                await session.delete(child)
+            SELECT id FROM entity_tree
+        """)
 
-        await delete_children(entity.id)
+        result = await session.execute(hierarchy_cte, {"entity_id": str(entity_id)})
+        all_entity_ids = [row[0] for row in result.fetchall()]
 
-        # Delete facets
-        facets_result = await session.execute(
-            select(FacetValue).where(FacetValue.entity_id == entity.id)
-        )
-        for facet in facets_result.scalars().all():
-            await session.delete(facet)
+        if all_entity_ids:
+            # Batch delete all facet values for all entities in the hierarchy (1 query)
+            await session.execute(
+                delete(FacetValue).where(FacetValue.entity_id.in_(all_entity_ids))
+            )
 
-        # Delete relations
-        relations_result = await session.execute(
-            select(EntityRelation).where(
-                or_(
-                    EntityRelation.source_entity_id == entity.id,
-                    EntityRelation.target_entity_id == entity.id
+            # Batch delete all relations where any entity in hierarchy is source or target (1 query)
+            await session.execute(
+                delete(EntityRelation).where(
+                    or_(
+                        EntityRelation.source_entity_id.in_(all_entity_ids),
+                        EntityRelation.target_entity_id.in_(all_entity_ids)
+                    )
                 )
             )
-        )
-        for relation in relations_result.scalars().all():
-            await session.delete(relation)
 
-    await session.delete(entity)
+            # Delete entities from bottom up (children first) to respect FK constraints
+            # We do this by deleting in reverse hierarchy order
+            # First, set parent_id to NULL for all children to break the FK chain
+            await session.execute(
+                text("""
+                    UPDATE entities SET parent_id = NULL
+                    WHERE parent_id IN (
+                        WITH RECURSIVE entity_tree AS (
+                            SELECT id FROM entities WHERE id = :entity_id
+                            UNION ALL
+                            SELECT e.id FROM entities e
+                            INNER JOIN entity_tree et ON e.parent_id = et.id
+                        )
+                        SELECT id FROM entity_tree
+                    )
+                """),
+                {"entity_id": str(entity_id)}
+            )
+
+            # Now delete all entities in the hierarchy (1 query)
+            await session.execute(
+                delete(Entity).where(Entity.id.in_(all_entity_ids))
+            )
+    else:
+        # Simple delete without cascade
+        await session.delete(entity)
+
     await session.commit()
 
-    return MessageResponse(message=f"Entity '{entity.name}' deleted successfully")
+    return MessageResponse(message=f"Entity '{entity_name}' deleted successfully")
 
 
 @router.get("/{entity_id}/brief", response_model=EntityBrief)
@@ -572,116 +802,147 @@ async def get_entity_brief(
     )
 
 
-@router.get("/filter-options/location")
-async def get_location_filter_options(
-    country: Optional[str] = Query(default=None, description="Filter admin_level_1 options by country"),
-    admin_level_1: Optional[str] = Query(default=None, description="Filter admin_level_2 options by admin_level_1"),
+@router.get("/{entity_id}/documents")
+async def get_entity_documents(
+    entity_id: UUID,
     session: AsyncSession = Depends(get_session),
 ):
-    """Get available filter options for location fields (country, admin_level_1, admin_level_2).
+    """Get documents linked to an entity via facet values.
 
-    NOTE: This endpoint must be defined BEFORE the dynamic /{entity_id} routes."""
-
-    # Get distinct countries
-    countries_query = select(Entity.country).where(
-        Entity.country.isnot(None)
-    ).distinct().order_by(Entity.country)
-    countries_result = await session.execute(countries_query)
-    countries = [row[0] for row in countries_result.fetchall()]
-
-    # Get distinct admin_level_1 values
-    admin_level_1_query = select(Entity.admin_level_1).where(
-        Entity.admin_level_1.isnot(None),
-        Entity.admin_level_1 != ""
-    )
-    if country:
-        admin_level_1_query = admin_level_1_query.where(Entity.country == country.upper())
-    admin_level_1_query = admin_level_1_query.distinct().order_by(Entity.admin_level_1)
-    admin_level_1_result = await session.execute(admin_level_1_query)
-    admin_level_1_values = [row[0] for row in admin_level_1_result.fetchall()]
-
-    # Get distinct admin_level_2 values
-    admin_level_2_query = select(Entity.admin_level_2).where(
-        Entity.admin_level_2.isnot(None),
-        Entity.admin_level_2 != ""
-    )
-    if country:
-        admin_level_2_query = admin_level_2_query.where(Entity.country == country.upper())
-    if admin_level_1:
-        admin_level_2_query = admin_level_2_query.where(Entity.admin_level_1 == admin_level_1)
-    admin_level_2_query = admin_level_2_query.distinct().order_by(Entity.admin_level_2)
-    admin_level_2_result = await session.execute(admin_level_2_query)
-    admin_level_2_values = [row[0] for row in admin_level_2_result.fetchall()]
-
-    return {
-        "countries": countries,
-        "admin_level_1": admin_level_1_values,
-        "admin_level_2": admin_level_2_values,
-    }
-
-
-@router.get("/filter-options/attributes")
-async def get_attribute_filter_options(
-    entity_type_slug: str = Query(..., description="Entity type slug to get attribute options for"),
-    attribute_key: Optional[str] = Query(default=None, description="Specific attribute key to get values for"),
-    session: AsyncSession = Depends(get_session),
-):
-    """Get available filter options for core_attributes based on entity type schema.
-
-    Returns the attribute schema properties and optionally distinct values for a specific attribute.
-
-    NOTE: This endpoint must be defined BEFORE the dynamic /{entity_id} routes.
+    Returns all documents that are sources for facet values of this entity.
     """
-    # Get entity type with schema
-    et_result = await session.execute(
-        select(EntityType).where(EntityType.slug == entity_type_slug)
-    )
-    entity_type = et_result.scalar()
-    if not entity_type:
-        raise NotFoundError("EntityType", entity_type_slug)
+    # Verify entity exists
+    entity = await session.get(Entity, entity_id)
+    if not entity:
+        raise NotFoundError("Entity", str(entity_id))
 
-    # Get schema properties
-    schema = entity_type.attribute_schema or {}
-    properties = schema.get("properties", {})
-
-    # Build response with filterable attributes
-    filterable_attributes = []
-    for key, prop in properties.items():
-        attr_type = prop.get("type", "string")
-        # Only include filterable types (strings, enums)
-        if attr_type in ["string", "integer", "number"]:
-            filterable_attributes.append({
-                "key": key,
-                "title": prop.get("title", key),
-                "description": prop.get("description"),
-                "type": attr_type,
-                "format": prop.get("format"),
-            })
-
-    result = {
-        "entity_type_slug": entity_type_slug,
-        "entity_type_name": entity_type.name,
-        "attributes": filterable_attributes,
-    }
-
-    # If specific attribute requested, get distinct values
-    if attribute_key and attribute_key in properties:
-        # Query distinct values from core_attributes JSONB
-        values_query = (
-            select(Entity.core_attributes[attribute_key].astext)
-            .where(
-                Entity.entity_type_id == entity_type.id,
-                Entity.core_attributes[attribute_key].astext.isnot(None),
-                Entity.core_attributes[attribute_key].astext != "",
-            )
-            .distinct()
-            .order_by(Entity.core_attributes[attribute_key].astext)
-            .limit(100)  # Limit to prevent huge lists
+    # Get distinct source_document_ids from all FacetValues for this entity
+    source_doc_query = (
+        select(FacetValue.source_document_id)
+        .where(
+            FacetValue.entity_id == entity_id,
+            FacetValue.source_document_id.isnot(None)
         )
-        values_result = await session.execute(values_query)
-        distinct_values = [row[0] for row in values_result.fetchall() if row[0]]
-        result["attribute_values"] = {
-            attribute_key: distinct_values
+        .distinct()
+    )
+    result = await session.execute(source_doc_query)
+    document_ids = [row[0] for row in result.fetchall()]
+
+    if not document_ids:
+        return {
+            "entity_id": str(entity_id),
+            "entity_name": entity.name,
+            "documents": [],
+            "total": 0,
         }
 
-    return result
+    # Load documents
+    docs_query = select(Document).where(Document.id.in_(document_ids))
+    docs_result = await session.execute(docs_query)
+    documents = docs_result.scalars().all()
+
+    # Count facet values per document
+    facet_counts_query = (
+        select(FacetValue.source_document_id, func.count(FacetValue.id))
+        .where(
+            FacetValue.entity_id == entity_id,
+            FacetValue.source_document_id.in_(document_ids)
+        )
+        .group_by(FacetValue.source_document_id)
+    )
+    facet_counts_result = await session.execute(facet_counts_query)
+    facet_counts_map = dict(facet_counts_result.fetchall())
+
+    # Build response
+    document_list = []
+    for doc in documents:
+        document_list.append({
+            "id": str(doc.id),
+            "title": doc.title,
+            "url": doc.source_url,
+            "source_type": doc.source_type,
+            "processing_status": doc.processing_status,
+            "created_at": doc.created_at.isoformat() if doc.created_at else None,
+            "facet_count": facet_counts_map.get(doc.id, 0),
+        })
+
+    return {
+        "entity_id": str(entity_id),
+        "entity_name": entity.name,
+        "documents": document_list,
+        "total": len(document_list),
+    }
+
+
+@router.get("/{entity_id}/external-data")
+async def get_entity_external_data(
+    entity_id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    """Get raw external API data for an entity.
+
+    Returns the raw API response data from the external API that created this entity,
+    along with information about the sync source.
+    """
+    if not EXTERNAL_API_AVAILABLE:
+        return {
+            "entity_id": str(entity_id),
+            "has_external_data": False,
+            "message": "External API module not available",
+        }
+
+    # Verify entity exists
+    entity = await session.get(Entity, entity_id)
+    if not entity:
+        raise NotFoundError("Entity", str(entity_id))
+
+    # Check if entity has an external source
+    if not entity.external_source_id:
+        return {
+            "entity_id": str(entity_id),
+            "entity_name": entity.name,
+            "has_external_data": False,
+            "message": "Entity was not created from an external API",
+        }
+
+    # Get the ExternalAPIConfig
+    config = await session.get(ExternalAPIConfig, entity.external_source_id)
+
+    # Find the sync record for this entity
+    sync_record_query = select(SyncRecord).where(SyncRecord.entity_id == entity_id)
+    result = await session.execute(sync_record_query)
+    sync_record = result.scalar()
+
+    if not sync_record:
+        return {
+            "entity_id": str(entity_id),
+            "entity_name": entity.name,
+            "has_external_data": False,
+            "external_source": {
+                "id": str(config.id) if config else None,
+                "name": config.name if config else None,
+                "api_type": config.api_type if config else None,
+            },
+            "message": "No sync record found for this entity",
+        }
+
+    return {
+        "entity_id": str(entity_id),
+        "entity_name": entity.name,
+        "has_external_data": True,
+        "external_source": {
+            "id": str(config.id) if config else None,
+            "name": config.name if config else None,
+            "api_type": config.api_type if config else None,
+            "api_base_url": config.api_base_url if config else None,
+        },
+        "sync_record": {
+            "id": str(sync_record.id),
+            "external_id": sync_record.external_id,
+            "sync_status": sync_record.sync_status,
+            "first_seen_at": sync_record.first_seen_at.isoformat() if sync_record.first_seen_at else None,
+            "last_seen_at": sync_record.last_seen_at.isoformat() if sync_record.last_seen_at else None,
+            "last_modified_at": sync_record.last_modified_at.isoformat() if sync_record.last_modified_at else None,
+        },
+        "raw_data": sync_record.raw_data,
+    }

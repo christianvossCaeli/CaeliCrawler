@@ -2,6 +2,83 @@
   "dashboard": {
     "title": "Dashboard",
     "welcome": "Welcome back",
+    "customize": "Customize",
+    "finishEditing": "Done",
+    "resetToDefaults": "Reset",
+    "lastUpdated": "Last updated",
+    "noWidgets": "No widgets active",
+    "noWidgetsHint": "Click 'Customize' to add widgets",
+    "unknownWidget": "Unknown widget: {type}",
+    "noActivity": "No activities",
+    "noRecentJobs": "No recent jobs",
+    "noNewInsights": "Everything up to date",
+    "widgetsActive": "widgets active",
+    "dragToReorder": "Drag & drop or use arrows to reorder widgets",
+    "preview": "Preview",
+    "workers": "Workers",
+    "running": "Running",
+    "pending": "Pending",
+    "activeJobs": "Active Jobs",
+    "recentJobs": "Recent Jobs",
+    "aiTasks": "AI Tasks",
+    "crawler": "Crawler",
+    "avgConfidence": "Avg. Confidence",
+    "health": {
+      "healthy": "System OK",
+      "active": "System active",
+      "warning": "Warnings present",
+      "unknown": "Status unknown"
+    },
+    "size": {
+      "small": "Small (1 column)",
+      "medium": "Medium (2 columns)",
+      "large": "Large (3 columns)",
+      "full": "Full (4 columns)"
+    },
+    "widgets": {
+      "statsEntities": {
+        "name": "Entities",
+        "description": "Number of entities in the system",
+        "total": "Total entities"
+      },
+      "statsFacets": {
+        "name": "Facets",
+        "description": "Facet values and verification rate",
+        "total": "Total facets",
+        "verified": "verified"
+      },
+      "statsDocuments": {
+        "name": "Documents",
+        "description": "Documents and processing status",
+        "total": "Total documents",
+        "processed": "processed"
+      },
+      "statsCrawler": {
+        "name": "Crawler",
+        "description": "Active and completed crawl jobs",
+        "running": "Running jobs"
+      },
+      "activityFeed": {
+        "name": "Activity",
+        "description": "Recent changes and events"
+      },
+      "crawlerStatus": {
+        "name": "Crawler Status",
+        "description": "Active and scheduled crawl jobs"
+      },
+      "insights": {
+        "name": "Insights",
+        "description": "New since your last login"
+      },
+      "chartDistribution": {
+        "name": "Entity Distribution",
+        "description": "Distribution by entity type"
+      },
+      "systemHealth": {
+        "name": "System Status",
+        "description": "AI tasks and system health"
+      }
+    },
     "stats": {
       "categories": "Categories",
       "dataSources": "Data Sources",
@@ -17,10 +94,12 @@
       "pendingJobs": "Pending Jobs",
       "autoUpdateActive": "Auto-update active"
     },
-    "recentJobs": {
-      "title": "Recent Crawl Jobs",
-      "noJobs": "No current jobs",
-      "documentsFound": "Documents found"
+    "activeCrawlers": {
+      "started": "Started",
+      "runtime": "Runtime",
+      "documents": "Documents",
+      "new": "new",
+      "errors": "Errors"
     },
     "quickActions": {
       "title": "Quick Actions",
@@ -28,13 +107,6 @@
       "newDataSource": "New Data Source",
       "startCrawler": "Start Crawler",
       "exportData": "Export Data"
-    },
-    "activeCrawlers": {
-      "started": "Started",
-      "runtime": "Runtime",
-      "documents": "Documents",
-      "new": "new",
-      "errors": "Errors"
     },
     "startCrawlerDialog": {
       "title": "Start Crawler",

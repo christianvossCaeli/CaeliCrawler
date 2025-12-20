@@ -3,7 +3,7 @@
 import asyncio
 import hashlib
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 from urllib.parse import urljoin, urlparse
@@ -288,8 +288,8 @@ class WebsiteCrawler(BaseCrawler):
                         file_size=len(html_doc["html_content"]),
                         raw_text=html_doc["text_content"].replace('\x00', ''),  # Pre-extracted text
                         processing_status=ProcessingStatus.COMPLETED,  # Skip download, go to analysis
-                        downloaded_at=datetime.utcnow(),
-                        processed_at=datetime.utcnow(),
+                        downloaded_at=datetime.now(timezone.utc),
+                        processed_at=datetime.now(timezone.utc),
                     )
                     session.add(doc)
                     await session.flush()  # Get the doc.id

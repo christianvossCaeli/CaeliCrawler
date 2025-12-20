@@ -7,18 +7,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.models.relation_type import Cardinality
+from app.utils.text import create_slug as generate_slug
 
-def generate_slug(name: str) -> str:
-    """Generate URL-friendly slug from name."""
-    slug = name.lower()
-    slug = re.sub(
-        r"[äöüß]",
-        lambda m: {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}[m.group()],
-        slug,
-    )
-    slug = re.sub(r"[^a-z0-9]+", "-", slug)
-    slug = slug.strip("-")
-    return slug
+# Regex pattern for valid slugs: lowercase letters, numbers, and hyphens only
+SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+SLUG_MAX_LENGTH = 100
 
 
 # ============================================================================
@@ -37,8 +31,11 @@ class RelationTypeBase(BaseModel):
     source_entity_type_id: UUID = Field(..., description="Source entity type ID")
     target_entity_type_id: UUID = Field(..., description="Target entity type ID")
 
-    # Cardinality
-    cardinality: str = Field(default="n:m", description="Cardinality: 1:1, 1:n, n:1, n:m")
+    # Cardinality with enum validation
+    cardinality: Cardinality = Field(
+        default=Cardinality.MANY_TO_MANY,
+        description="Cardinality: 1:1, 1:n, n:1, n:m"
+    )
 
     # Attribute schema
     attribute_schema: Optional[Dict[str, Any]] = Field(
@@ -57,13 +54,27 @@ class RelationTypeBase(BaseModel):
 class RelationTypeCreate(RelationTypeBase):
     """Schema for creating a new relation type."""
 
-    slug: Optional[str] = Field(None, description="URL-friendly slug (auto-generated if not provided)")
+    slug: Optional[str] = Field(
+        None,
+        max_length=SLUG_MAX_LENGTH,
+        description="URL-friendly slug (auto-generated if not provided)"
+    )
 
     @field_validator("slug", mode="before")
     @classmethod
     def generate_slug_if_empty(cls, v, info):
         if not v and "name" in info.data:
             return generate_slug(info.data["name"])
+        return v
+
+    @field_validator("slug", mode="after")
+    @classmethod
+    def validate_slug_format(cls, v):
+        if v is not None:
+            if len(v) > SLUG_MAX_LENGTH:
+                raise ValueError(f"Slug must be at most {SLUG_MAX_LENGTH} characters")
+            if not SLUG_PATTERN.match(v):
+                raise ValueError("Slug must contain only lowercase letters, numbers, and hyphens")
         return v
 
 
@@ -107,6 +118,9 @@ class RelationTypeListResponse(BaseModel):
 
     items: List[RelationTypeResponse]
     total: int
+    page: int = Field(default=1, description="Current page number")
+    per_page: int = Field(default=50, description="Items per page")
+    pages: int = Field(default=1, description="Total number of pages")
 
 
 # ============================================================================
@@ -177,8 +191,10 @@ class EntityRelationResponse(EntityRelationBase):
     relation_type_slug: Optional[str] = Field(None, description="Relation type slug")
     relation_type_name: Optional[str] = Field(None, description="Relation type name")
     source_entity_name: Optional[str] = Field(None, description="Source entity name")
+    source_entity_slug: Optional[str] = Field(None, description="Source entity slug")
     source_entity_type_slug: Optional[str] = Field(None, description="Source entity type slug")
     target_entity_name: Optional[str] = Field(None, description="Target entity name")
+    target_entity_slug: Optional[str] = Field(None, description="Target entity slug")
     target_entity_type_slug: Optional[str] = Field(None, description="Target entity type slug")
 
     model_config = {"from_attributes": True}

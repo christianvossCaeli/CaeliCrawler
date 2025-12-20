@@ -97,6 +97,25 @@
       "date": "Datum",
       "boolean": "Ja/Nein",
       "list": "Liste"
+    },
+    "facets": {
+      "analyzeForFacets": "Facets erstellen",
+      "enrichFacets": "Facets anreichern",
+      "analyzeForFacetsTitle": "PySis-Felder zu Facets konvertieren",
+      "analyzeForFacetsDescription": "Analysiert die PySis-Felder dieser Entity mit KI und erstellt daraus passende Facet-Werte (Pain Points, Positive Signale, Kontakte, etc.).",
+      "enrichFacetsTitle": "Facets mit PySis-Daten anreichern",
+      "enrichFacetsDescription": "Reichert bestehende Facet-Werte mit zusätzlichen Informationen aus den PySis-Feldern an.",
+      "includeEmptyFields": "Auch leere Felder analysieren",
+      "minConfidence": "Mindest-Konfidenz",
+      "overwriteExisting": "Bestehende Werte überschreiben",
+      "overwriteWarning": "Achtung: Bereits ausgefüllte Facet-Werte werden überschrieben!",
+      "startAnalysis": "Analyse starten",
+      "startEnrichment": "Anreicherung starten",
+      "taskStarted": "Task gestartet",
+      "taskId": "Task-ID",
+      "analyzeTaskStartedMessage": "Die PySis-Analyse wurde gestartet. Die Ergebnisse werden als neue Facet-Werte erstellt.",
+      "enrichTaskStartedMessage": "Die Facet-Anreicherung wurde gestartet. Bestehende Facets werden mit PySis-Daten ergänzt.",
+      "needsEntity": "Entity muss mit PySis verknüpft sein"
     }
   },
   "password": {

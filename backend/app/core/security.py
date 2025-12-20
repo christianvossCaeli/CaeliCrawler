@@ -39,6 +39,7 @@ def get_password_hash(password: str) -> str:
 def create_access_token(
     user_id: UUID,
     role: str,
+    session_id: Optional[UUID] = None,
     expires_delta: Optional[timedelta] = None,
 ) -> str:
     """
@@ -47,6 +48,7 @@ def create_access_token(
     Args:
         user_id: The user's UUID
         role: The user's role
+        session_id: Optional session UUID for tracking current session
         expires_delta: Optional custom expiration time
 
     Returns:
@@ -61,6 +63,8 @@ def create_access_token(
         "exp": expire,
         "type": "access",
     }
+    if session_id:
+        to_encode["sid"] = str(session_id)
     return jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)
 
 
@@ -165,7 +169,7 @@ def create_tokens_for_session(
         Dict with access_token, refresh_token, and expiry info
     """
     # Create access token with session reference
-    access_token = create_access_token(user_id, role)
+    access_token = create_access_token(user_id, role, session_id)
 
     # Create refresh token
     refresh_token, token_hash, refresh_expires_at = create_refresh_token_response(

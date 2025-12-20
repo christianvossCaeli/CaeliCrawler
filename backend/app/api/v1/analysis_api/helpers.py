@@ -9,11 +9,17 @@ def operation_to_german(op: str) -> str:
         "create_entity": "Entity erstellen",
         "create_entity_type": "Entity-Typ erstellen",
         "create_facet": "Facet hinzufügen",
+        "create_facet_type": "Facet-Typ erstellen",
         "create_relation": "Verknüpfung erstellen",
         "update_entity": "Entity aktualisieren",
         "create_category_setup": "Category-Setup erstellen",
         "start_crawl": "Crawl starten",
+        "analyze_pysis_for_facets": "PySis-Daten analysieren",
+        "enrich_facets_from_pysis": "Facets mit PySis anreichern",
+        "assign_facet_type": "Facet-Typ zuweisen",
+        "batch_operation": "Massenoperation",
         "combined": "Kombinierte Operationen",
+        "none": "Keine Operation",
     }.get(op, op)
 
 
@@ -133,6 +139,69 @@ def build_preview(command: dict) -> dict:
         if crawl_data.get("entity_name"):
             preview["details"].append(f"Entity: {crawl_data.get('entity_name')}")
         preview["details"].append("→ Startet Crawl-Jobs für passende Datenquellen")
+
+    elif operation == "update_entity":
+        update_data = command.get("update_data", {})
+        preview["details"] = [
+            f"Entity: {update_data.get('entity_name', update_data.get('entity_id', 'N/A'))}",
+        ]
+        updates = update_data.get("updates", {})
+        if updates.get("name"):
+            preview["details"].append(f"Neuer Name: {updates.get('name')}")
+        core_attrs = updates.get("core_attributes", {})
+        for key, value in list(core_attrs.items())[:3]:
+            preview["details"].append(f"{key}: {value}")
+        preview["details"].append("→ Aktualisiert die Entity mit den neuen Werten")
+
+    elif operation == "create_facet_type":
+        ft_data = command.get("facet_type_data", {})
+        preview["details"] = [
+            f"Name: {ft_data.get('name', 'N/A')}",
+            f"Plural: {ft_data.get('name_plural', 'N/A')}",
+            f"Typ: {ft_data.get('value_type', 'structured')}",
+        ]
+        if ft_data.get("description"):
+            preview["details"].append(f"Beschreibung: {ft_data.get('description')}")
+        applicable = ft_data.get("applicable_entity_type_slugs", [])
+        if applicable:
+            preview["details"].append(f"Für Entity-Typen: {', '.join(applicable)}")
+
+    elif operation == "assign_facet_type":
+        assign_data = command.get("assign_facet_type_data", {})
+        preview["details"] = [
+            f"Facet-Typ: {assign_data.get('facet_type_slug', 'N/A')}",
+            f"Zuweisen an: {', '.join(assign_data.get('target_entity_type_slugs', []))}",
+        ]
+
+    elif operation == "batch_operation":
+        batch_data = command.get("batch_operation_data", {})
+        action_type = batch_data.get("action_type", "unknown")
+        target_filter = batch_data.get("target_filter", {})
+        preview["details"] = [
+            f"Aktion: {action_type}",
+            f"Entity-Typ: {target_filter.get('entity_type', 'alle')}",
+        ]
+        if target_filter.get("location_filter"):
+            preview["details"].append(f"Region: {target_filter.get('location_filter')}")
+        if batch_data.get("dry_run", True):
+            preview["details"].append("→ Vorschau-Modus (keine Änderungen)")
+        else:
+            preview["details"].append("→ Änderungen werden ausgeführt")
+
+    elif operation == "analyze_pysis_for_facets":
+        pysis_data = command.get("pysis_data", {})
+        preview["details"] = [
+            f"Entity: {pysis_data.get('entity_name', pysis_data.get('entity_id', 'N/A'))}",
+            "→ Analysiert PySis-Felder und erstellt passende Facets",
+        ]
+
+    elif operation == "enrich_facets_from_pysis":
+        pysis_data = command.get("pysis_data", {})
+        preview["details"] = [
+            f"Entity: {pysis_data.get('entity_name', pysis_data.get('entity_id', 'N/A'))}",
+            f"Überschreiben: {'Ja' if pysis_data.get('overwrite') else 'Nein'}",
+            "→ Reichert bestehende Facets mit PySis-Daten an",
+        ]
 
     elif operation == "combined":
         # Support both "operations" and "combined_operations" keys

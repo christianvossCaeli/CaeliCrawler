@@ -26,6 +26,8 @@
     "view": "Anzeigen",
     "download": "Herunterladen",
     "open": "Öffnen",
+    "openDocument": "Dokument öffnen",
+    "createdBy": "Erstellt von",
     "upload": "Hochladen",
     "export": "Exportieren",
     "import": "Importieren",
@@ -48,6 +50,7 @@
     "description": "Beschreibung",
     "type": "Typ",
     "status": "Status",
+    "confidence": "Konfidenz",
     "field": "Feld",
     "example": "Beispiel",
     "icon": "Symbol",
@@ -69,6 +72,15 @@
     "optional": "Optional",
     "unknown": "Unbekannt",
     "notAvailable": "Nicht verfügbar",
+    "completed": "Abgeschlossen",
+    "failed": "Fehlgeschlagen",
+    "running": "Laufend",
+    "done": "Fertig",
+    "documents": "Dokumente",
+    "retry": "Erneut versuchen",
+    "justNow": "Gerade eben",
+    "minutesAgo": "vor {n} Min.",
+    "hoursAgo": "vor {n} Std.",
     "pleaseWait": "Bitte warten...",
     "processing": "Verarbeite...",
     "itemsPerPage": "Einträge pro Seite",
@@ -86,7 +98,7 @@
     "entities": "Entities",
     "entityTypes": "Entity-Typen",
     "facetTypes": "Facet-Typen",
-    "categories": "Kategorien",
+    "categories": "Analysethemen",
     "dataSources": "Datenquellen",
     "crawlerStatus": "Crawler Status",
     "documents": "Dokumente",
@@ -138,7 +150,8 @@
     "themeLight": "Hell",
     "themeDark": "Dunkel",
     "themeToggle": "Theme wechseln",
-    "reloadPage": "Seite neu laden"
+    "reloadPage": "Seite neu laden",
+    "userMenu": "Benutzermenü"
   },
   "roles": {
     "ADMIN": "Administrator",
@@ -190,5 +203,10 @@
     "unique": "Dieser Wert existiert bereits",
     "integer": "Bitte geben Sie eine ganze Zahl ein",
     "number": "Bitte geben Sie eine Zahl ein"
+  },
+  "dynamicForm": {
+    "noSchema": "Kein Schema für diesen Facet-Typ definiert. Bitte einen Textwert eingeben.",
+    "arrayHint": "Mehrere Werte eingeben, mit Enter bestätigen",
+    "unknownType": "Unbekannter Feldtyp: {type}"
   }
 }

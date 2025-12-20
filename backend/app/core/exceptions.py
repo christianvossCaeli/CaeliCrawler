@@ -90,3 +90,96 @@ class FeatureDisabledError(AppException):
             detail=f"The feature '{feature}' is disabled. Enable it via the corresponding feature flag.",
             code="FEATURE_DISABLED",
         )
+
+
+# =============================================================================
+# Category-specific Exceptions
+# =============================================================================
+
+
+class CategoryValidationError(ValidationError):
+    """Category-specific validation error with field context."""
+
+    def __init__(self, field: str, message: str, value: Optional[str] = None):
+        detail = f"Field '{field}': {message}"
+        if value:
+            detail += f" (received: '{value}')"
+        super().__init__(
+            message=f"Invalid {field}",
+            detail=detail,
+        )
+        self.field = field
+        self.code = "CATEGORY_VALIDATION_ERROR"
+
+
+class InvalidRegexPatternError(CategoryValidationError):
+    """Invalid regex pattern in URL filters."""
+
+    def __init__(self, pattern: str, error: str):
+        super().__init__(
+            field="url_pattern",
+            message=f"Invalid regex: {error}",
+            value=pattern,
+        )
+        self.code = "INVALID_REGEX_PATTERN"
+
+
+class InvalidCronExpressionError(CategoryValidationError):
+    """Invalid cron expression for scheduling."""
+
+    def __init__(self, expression: str, error: Optional[str] = None):
+        message = "Invalid cron expression format"
+        if error:
+            message += f": {error}"
+        super().__init__(
+            field="schedule_cron",
+            message=message,
+            value=expression,
+        )
+        self.code = "INVALID_CRON_EXPRESSION"
+
+
+class InvalidLanguageCodeError(CategoryValidationError):
+    """Invalid ISO 639-1 language code."""
+
+    def __init__(self, code: str):
+        super().__init__(
+            field="languages",
+            message="Must be a 2-letter ISO 639-1 code (e.g., 'de', 'en')",
+            value=code,
+        )
+        self.code = "INVALID_LANGUAGE_CODE"
+
+
+class InvalidExtractionHandlerError(CategoryValidationError):
+    """Invalid extraction handler type."""
+
+    def __init__(self, handler: str, valid_handlers: tuple = ("default", "event")):
+        super().__init__(
+            field="extraction_handler",
+            message=f"Must be one of: {', '.join(valid_handlers)}",
+            value=handler,
+        )
+        self.code = "INVALID_EXTRACTION_HANDLER"
+
+
+class CategoryNotFoundError(NotFoundError):
+    """Category not found error with helpful suggestions."""
+
+    def __init__(self, identifier: str, suggestion: Optional[str] = None):
+        super().__init__("Category", identifier)
+        if suggestion:
+            self.detail += f". Did you mean: '{suggestion}'?"
+        self.code = "CATEGORY_NOT_FOUND"
+
+
+class CategoryDuplicateError(ConflictError):
+    """Category already exists with same name or slug."""
+
+    def __init__(self, field: str, value: str):
+        super().__init__(
+            message=f"Category with this {field} already exists",
+            detail=f"A category with {field}='{value}' already exists. Please choose a different {field}.",
+        )
+        self.field = field
+        self.code = "CATEGORY_DUPLICATE"

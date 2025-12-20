@@ -1,5 +1,5 @@
 <template>
-  <HelpCard section-id="categories" :title="t('help.categories.title')" icon="mdi-folder-multiple" color="purple">
+  <HelpCard section-id="categories" :title="t('help.categories.title')" icon="mdi-folder-multiple" color="primary">
     <p class="mb-4">{{ t('help.categories.description') }}</p>
 
     <v-expansion-panels variant="accordion">
@@ -64,7 +64,7 @@
       <v-expansion-panel :title="t('help.categories.aiPrompt.title')">
         <v-expansion-panel-text>
           <p class="mb-2">{{ t('help.categories.aiPrompt.description') }}</p>
-          <v-code class="pa-3 d-block text-caption" style="white-space: pre-wrap;">Analysiere das Dokument und extrahiere:
+          <v-code class="pa-3 d-block text-caption text-pre-wrap">Analysiere das Dokument und extrahiere:
 {
   "topic": "Hauptthema",
   "summary": "Zusammenfassung",

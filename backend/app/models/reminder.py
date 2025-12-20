@@ -2,7 +2,7 @@
 
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, func
@@ -147,18 +147,18 @@ class Reminder(Base):
         """Check if the reminder is due."""
         return (
             self.status == ReminderStatus.PENDING
-            and self.remind_at <= datetime.utcnow()
+            and self.remind_at <= datetime.now(timezone.utc)
         )
 
     def mark_sent(self) -> None:
         """Mark the reminder as sent."""
         self.status = ReminderStatus.SENT
-        self.sent_at = datetime.utcnow()
+        self.sent_at = datetime.now(timezone.utc)
 
     def dismiss(self) -> None:
         """Dismiss the reminder."""
         self.status = ReminderStatus.DISMISSED
-        self.dismissed_at = datetime.utcnow()
+        self.dismissed_at = datetime.now(timezone.utc)
 
     def cancel(self) -> None:
         """Cancel the reminder."""

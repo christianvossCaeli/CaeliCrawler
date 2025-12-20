@@ -561,6 +561,66 @@ body {
   color: #ffffff !important;
 }
 
+/* Dark Mode Secondary Buttons - Besserer Kontrast */
+
+/* Tonal Variant */
+.v-theme--caeliDark .v-btn--variant-tonal.text-secondary {
+  background-color: rgba(222, 238, 198, 0.15) !important;
+  color: #deeec6 !important;
+}
+
+.v-theme--caeliDark .v-btn--variant-tonal.text-secondary:hover {
+  background-color: rgba(222, 238, 198, 0.25) !important;
+}
+
+.v-theme--caeliDark .v-btn--variant-tonal.text-secondary .v-icon {
+  color: #deeec6 !important;
+}
+
+/* Elevated/Default Variant - Secondary Background mit gutem Kontrast */
+.v-theme--caeliDark .v-btn--variant-elevated.bg-secondary,
+.v-theme--caeliDark .v-btn--variant-flat.bg-secondary,
+.v-theme--caeliDark .v-btn.bg-secondary:not([class*="variant-"]) {
+  background-color: #deeec6 !important;
+  color: #0d1f1e !important;
+}
+
+.v-theme--caeliDark .v-btn--variant-elevated.bg-secondary .v-icon,
+.v-theme--caeliDark .v-btn--variant-flat.bg-secondary .v-icon,
+.v-theme--caeliDark .v-btn.bg-secondary:not([class*="variant-"]) .v-icon {
+  color: #0d1f1e !important;
+}
+
+/* Dark Mode Secondary Outlined Buttons */
+.v-theme--caeliDark .v-btn--variant-outlined.text-secondary {
+  border-color: #deeec6 !important;
+  color: #deeec6 !important;
+}
+
+.v-theme--caeliDark .v-btn--variant-outlined.text-secondary:hover {
+  background-color: rgba(222, 238, 198, 0.1) !important;
+}
+
+/* Dark Mode Secondary Cards (tonal variant) */
+.v-theme--caeliDark .v-card--variant-tonal.bg-secondary,
+.v-theme--caeliDark .v-card--variant-tonal.text-secondary {
+  background-color: rgba(222, 238, 198, 0.15) !important;
+  color: #deeec6 !important;
+}
+
+/* Dark Mode Secondary Chips (tonal variant) */
+.v-theme--caeliDark .v-chip--variant-tonal.text-secondary,
+.v-theme--caeliDark .v-chip--variant-tonal.bg-secondary {
+  background-color: rgba(222, 238, 198, 0.15) !important;
+  color: #deeec6 !important;
+}
+
+/* Dark Mode Secondary Chips (outlined variant) */
+.v-theme--caeliDark .v-chip--variant-outlined.text-secondary {
+  border-color: #deeec6 !important;
+  color: #deeec6 !important;
+}
+
 /* ===========================================
    Stats Cards mit Caeli Wind Farben
    =========================================== */
@@ -656,4 +716,158 @@ body {
 .v-theme--caeliDark .source-running,
 .v-theme--caeliDark .card-running {
   background-color: rgba(126, 200, 227, 0.15) !important;
+}
+
+/* ===========================================
+   UTILITY CLASSES
+   ===========================================
+
+   Diese Klassen ersetzen Inline-Styles für bessere
+   Wartbarkeit und Konsistenz.
+
+   Dokumentation der !important Verwendung:
+   Die !important Regeln in dieser Datei sind notwendig,
+   um Vuetify's component styles zu überschreiben.
+   In component-scoped styles sollte !important
+   vermieden werden - stattdessen spezifischere
+   Selektoren oder :deep() verwenden.
+   =========================================== */
+
+/* -------------------------------------------
+   Text Truncation Utilities
+   Für einzeilige Texte mit Ellipsis
+   ------------------------------------------- */
+.truncate-xs {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.truncate-sm {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.truncate-md {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.truncate-lg {
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* -------------------------------------------
+   Dialog/Container Min-Heights
+   Für konsistente Dialog-Inhalte
+   ------------------------------------------- */
+.dialog-content-sm {
+  min-height: 350px;
+}
+
+.dialog-content-md {
+  min-height: 400px;
+}
+
+.dialog-content-lg {
+  min-height: 420px;
+}
+
+/* -------------------------------------------
+   Scrollable Containers
+   ------------------------------------------- */
+.scrollable-container {
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.scrollable-code {
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.scrollable-list {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* -------------------------------------------
+   JSON/Code Viewer
+   Theme-aware code display
+   ------------------------------------------- */
+.json-viewer {
+  font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  max-height: 500px;
+  overflow-y: auto;
+  background-color: #f5f5f5;
+  color: #333;
+  border: 1px solid #e0e0e0;
+}
+
+.v-theme--caeliDark .json-viewer {
+  background-color: #1a2f2e;
+  color: #e8f5e2;
+  border-color: #2a4544;
+}
+
+/* Monospace Utility */
+.font-mono {
+  font-family: 'Fira Code', 'Consolas', 'Monaco', monospace !important;
+}
+
+/* Pre-wrap Utility */
+.text-pre-wrap {
+  white-space: pre-wrap !important;
+}
+
+/* Cursor Pointer Utility */
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* -------------------------------------------
+   Table Column Width Utilities
+   Für PySis und andere Tabellen
+   ------------------------------------------- */
+.col-width-xs {
+  width: 40px;
+}
+
+.col-width-sm {
+  width: 70px;
+}
+
+.col-width-md {
+  width: 100px;
+}
+
+.col-width-lg {
+  width: 150px;
+}
+
+.col-width-actions {
+  width: 90px;
+}
+
+.col-min-width-lg {
+  min-width: 300px;
+}
+
+/* -------------------------------------------
+   Progress Width Utilities
+   ------------------------------------------- */
+.progress-width-sm {
+  width: 100px;
 }

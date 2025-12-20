@@ -38,7 +38,7 @@ async def list_countries(
     # Get counts per country from database
     count_query = (
         select(Location.country, func.count(Location.id).label("count"))
-        .where(Location.is_active == True)
+        .where(Location.is_active.is_(True))
         .group_by(Location.country)
     )
     result = await session.execute(count_query)
@@ -80,7 +80,7 @@ async def get_admin_levels(
         query = (
             select(Location.admin_level_1, func.count(Location.id).label("count"))
             .where(
-                Location.is_active == True,
+                Location.is_active.is_(True),
                 Location.country == country,
                 Location.admin_level_1.isnot(None),
             )
@@ -91,7 +91,7 @@ async def get_admin_levels(
         query = (
             select(Location.admin_level_2, func.count(Location.id).label("count"))
             .where(
-                Location.is_active == True,
+                Location.is_active.is_(True),
                 Location.country == country,
                 Location.admin_level_2.isnot(None),
             )
@@ -126,7 +126,7 @@ async def link_all_sources(
     """
     # Get all locations
     locations_result = await session.execute(
-        select(Location).where(Location.is_active == True)
+        select(Location).where(Location.is_active.is_(True))
     )
     locations = {
         loc.name.lower(): loc.id
@@ -221,7 +221,7 @@ async def list_locations_with_sources(
         )
         .join(source_count_subq, Location.id == source_count_subq.c.location_id)
         .outerjoin(doc_count_subq, Location.id == doc_count_subq.c.location_id)
-        .where(Location.is_active == True)
+        .where(Location.is_active.is_(True))
     )
 
     # Apply filters
@@ -384,7 +384,7 @@ async def search_locations(
 
     # Build query
     query = select(Location).where(
-        Location.is_active == True,
+        Location.is_active.is_(True),
         or_(
             Location.name.ilike(f"%{q}%"),
             Location.name_normalized.ilike(f"%{search_normalized}%"),
@@ -411,7 +411,7 @@ async def search_locations(
 
     # Count total
     count_query = select(func.count(Location.id)).where(
-        Location.is_active == True,
+        Location.is_active.is_(True),
         or_(
             Location.name.ilike(f"%{q}%"),
             Location.name_normalized.ilike(f"%{search_normalized}%"),
@@ -446,8 +446,8 @@ async def list_locations(
         country = country.upper()
 
     # Base query
-    query = select(Location).where(Location.is_active == True)
-    count_query = select(func.count(Location.id)).where(Location.is_active == True)
+    query = select(Location).where(Location.is_active.is_(True))
+    count_query = select(func.count(Location.id)).where(Location.is_active.is_(True))
 
     # Country filter
     if country:
@@ -518,7 +518,7 @@ async def list_states(
     query = (
         select(Location.admin_level_1)
         .where(
-            Location.is_active == True,
+            Location.is_active.is_(True),
             Location.country == country,
             Location.admin_level_1.isnot(None),
         )
@@ -744,7 +744,7 @@ async def enrich_admin_levels(
     query = (
         select(Location)
         .where(
-            Location.is_active == True,
+            Location.is_active.is_(True),
             Location.country == country,
             Location.admin_level_2.is_(None),
         )

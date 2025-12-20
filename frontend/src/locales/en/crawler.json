@@ -50,6 +50,8 @@
     "jobCancelling": "Cancelling job...",
     "cancelJobError": "Error cancelling job",
     "aiTaskCancelling": "Cancelling AI task...",
-    "cancelAiTaskError": "Error cancelling AI task"
+    "cancelAiTaskError": "Error cancelling AI task",
+    "noCategory": "No Category",
+    "jobsStopped": "{count} jobs stopped"
   }
 }

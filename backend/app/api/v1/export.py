@@ -4,23 +4,63 @@ import csv
 import io
 import ipaddress
 import json
+import os
 import socket
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from fastapi.responses import StreamingResponse, FileResponse
+from pydantic import BaseModel
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_session
 from app.models import ExtractedData, Document, DataSource, DataSourceCategory, Category
+from app.models.export_job import ExportJob
 from app.models.user import User
 from app.core.deps import get_current_user
 
 router = APIRouter()
+
+# Export directory (should match workers/export_tasks.py)
+EXPORT_DIR = os.environ.get("EXPORT_DIR", "/tmp/exports")
+
+
+# =============================================================================
+# Pydantic Models for Async Export
+# =============================================================================
+
+class AsyncExportRequest(BaseModel):
+    """Request body for starting an async export."""
+    entity_type: str = "municipality"
+    format: str = "json"  # json, csv, excel
+    location_filter: Optional[str] = None
+    facet_types: Optional[List[str]] = None
+    position_keywords: Optional[List[str]] = None
+    country: Optional[str] = None
+    include_facets: bool = True
+    filename: Optional[str] = None
+
+
+class ExportJobResponse(BaseModel):
+    """Response for export job status."""
+    id: str
+    status: str
+    export_format: str
+    total_records: Optional[int]
+    processed_records: Optional[int]
+    progress_percent: Optional[int]
+    progress_message: Optional[str]
+    file_size: Optional[int]
+    error_message: Optional[str]
+    created_at: Optional[str]
+    started_at: Optional[str]
+    completed_at: Optional[str]
+    is_downloadable: bool
 
 
 # =============================================================================
@@ -147,7 +187,7 @@ async def export_json(
     if min_confidence is not None:
         query = query.where(ExtractedData.confidence_score >= min_confidence)
     if human_verified_only:
-        query = query.where(ExtractedData.human_verified == True)
+        query = query.where(ExtractedData.human_verified.is_(True))
 
     result = await session.execute(query)
     extractions = result.scalars().all()
@@ -204,7 +244,7 @@ async def export_csv(
     if min_confidence is not None:
         query = query.where(ExtractedData.confidence_score >= min_confidence)
     if human_verified_only:
-        query = query.where(ExtractedData.human_verified == True)
+        query = query.where(ExtractedData.human_verified.is_(True))
 
     result = await session.execute(query)
     extractions = result.scalars().all()
@@ -269,7 +309,7 @@ async def get_changes_feed(
     session: AsyncSession = Depends(get_session),
 ):
     """Get a feed of recent changes (for polling)."""
-    from datetime import datetime
+    from datetime import datetime, timezone
     from app.models import ChangeLog
 
     query = select(ChangeLog)
@@ -308,7 +348,7 @@ async def get_changes_feed(
             for c in changes
         ],
         "count": len(changes),
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -358,3 +398,246 @@ async def test_webhook(
             "success": False,
             "error": str(e),
         }
+
+
+# =============================================================================
+# Async Export Endpoints
+# =============================================================================
+
+@router.post("/async", response_model=ExportJobResponse)
+async def start_async_export(
+    request: AsyncExportRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Start an asynchronous export job.
+
+    This endpoint creates an export job that runs in the background,
+    suitable for large datasets (>5000 records).
+
+    Use GET /export/async/{job_id} to check status.
+    Use GET /export/async/{job_id}/download to download when complete.
+    """
+    from uuid import uuid4
+    from workers.export_tasks import async_entity_export
+
+    # Create export job record
+    job_id = uuid4()
+    export_config = {
+        "format": request.format,
+        "query_filter": {
+            "entity_type": request.entity_type,
+            "location_filter": request.location_filter,
+            "facet_types": request.facet_types or [],
+            "position_keywords": request.position_keywords or [],
+            "country": request.country,
+        },
+        "include_facets": request.include_facets,
+        "filename": request.filename or f"export_{job_id}",
+    }
+
+    export_job = ExportJob(
+        id=job_id,
+        user_id=current_user.id,
+        export_config=export_config,
+        export_format=request.format,
+        status="pending",
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+    )
+    session.add(export_job)
+    await session.commit()
+
+    # Start Celery task
+    task = async_entity_export.delay(
+        str(job_id),
+        export_config,
+        str(current_user.id),
+    )
+
+    # Update job with task ID
+    await session.execute(
+        update(ExportJob)
+        .where(ExportJob.id == job_id)
+        .values(celery_task_id=task.id)
+    )
+    await session.commit()
+
+    await session.refresh(export_job)
+
+    return ExportJobResponse(**export_job.to_dict())
+
+
+@router.get("/async/{job_id}", response_model=ExportJobResponse)
+async def get_export_job_status(
+    job_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get the status of an export job.
+
+    Returns progress information while running, or download info when complete.
+    """
+    result = await session.execute(
+        select(ExportJob).where(ExportJob.id == job_id)
+    )
+    export_job = result.scalar_one_or_none()
+
+    if not export_job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Export job not found",
+        )
+
+    # Check ownership
+    if export_job.user_id and export_job.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this export job",
+        )
+
+    # If job is processing, try to get progress from Celery
+    if export_job.status == "processing" and export_job.celery_task_id:
+        try:
+            from workers.celery_app import celery_app
+            task_result = celery_app.AsyncResult(export_job.celery_task_id)
+            if task_result.state == "PROGRESS":
+                meta = task_result.info or {}
+                export_job.progress_percent = meta.get("progress", 0)
+                export_job.progress_message = meta.get("message", "")
+        except Exception:
+            pass
+
+    return ExportJobResponse(**export_job.to_dict())
+
+
+@router.get("/async/{job_id}/download")
+async def download_export(
+    job_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Download a completed export file.
+
+    Returns the exported file if the job is complete.
+    """
+    result = await session.execute(
+        select(ExportJob).where(ExportJob.id == job_id)
+    )
+    export_job = result.scalar_one_or_none()
+
+    if not export_job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Export job not found",
+        )
+
+    # Check ownership
+    if export_job.user_id and export_job.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this export job",
+        )
+
+    if export_job.status != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Export is not ready. Status: {export_job.status}",
+        )
+
+    if not export_job.file_path or not os.path.exists(export_job.file_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Export file not found. It may have expired.",
+        )
+
+    # Determine content type
+    content_types = {
+        "json": "application/json",
+        "csv": "text/csv",
+        "excel": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }
+    content_type = content_types.get(export_job.export_format, "application/octet-stream")
+
+    # Get filename from config
+    filename = os.path.basename(export_job.file_path)
+
+    return FileResponse(
+        path=export_job.file_path,
+        media_type=content_type,
+        filename=filename,
+    )
+
+
+@router.delete("/async/{job_id}")
+async def cancel_export_job(
+    job_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Cancel a running export job.
+    """
+    result = await session.execute(
+        select(ExportJob).where(ExportJob.id == job_id)
+    )
+    export_job = result.scalar_one_or_none()
+
+    if not export_job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Export job not found",
+        )
+
+    # Check ownership
+    if export_job.user_id and export_job.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to cancel this export job",
+        )
+
+    if export_job.is_finished:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot cancel a finished job. Status: {export_job.status}",
+        )
+
+    # Revoke Celery task if running
+    if export_job.celery_task_id:
+        try:
+            from workers.celery_app import celery_app
+            celery_app.control.revoke(export_job.celery_task_id, terminate=True)
+        except Exception:
+            pass
+
+    # Update status
+    export_job.status = "cancelled"
+    export_job.completed_at = datetime.now(timezone.utc)
+    await session.commit()
+
+    return {"message": "Export job cancelled", "job_id": str(job_id)}
+
+
+@router.get("/async", response_model=List[ExportJobResponse])
+async def list_export_jobs(
+    status_filter: Optional[str] = Query(default=None, description="Filter by status"),
+    limit: int = Query(default=20, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List export jobs for the current user.
+    """
+    query = select(ExportJob).where(ExportJob.user_id == current_user.id)
+
+    if status_filter:
+        query = query.where(ExportJob.status == status_filter)
+
+    query = query.order_by(ExportJob.created_at.desc()).limit(limit)
+
+    result = await session.execute(query)
+    jobs = result.scalars().all()
+
+    return [ExportJobResponse(**job.to_dict()) for job in jobs]

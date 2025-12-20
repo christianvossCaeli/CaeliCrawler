@@ -1,5 +1,5 @@
 <template>
-  <HelpCard section-id="security" :title="t('help.security.title')" icon="mdi-shield-lock" color="purple">
+  <HelpCard section-id="security" :title="t('help.security.title')" icon="mdi-shield-lock" color="primary">
     <h3 class="text-h6 mb-3">{{ t('help.security.login.heading') }}</h3>
     <p class="mb-4">
       {{ t('help.security.login.description') }}

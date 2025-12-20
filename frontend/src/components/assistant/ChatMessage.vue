@@ -49,6 +49,31 @@
         </v-chip>
       </div>
 
+      <!-- Query Correction Suggestions (when no results found) -->
+      <div
+        v-if="message.response_type === 'query_result' && !message.response_data?.data?.items?.length && message.response_data?.data?.suggestions?.length"
+        class="mt-3"
+      >
+        <div class="text-caption text-medium-emphasis mb-2">
+          <v-icon size="small" class="mr-1">mdi-lightbulb-outline</v-icon>
+          {{ t('assistant.didYouMean') }}
+        </div>
+        <v-chip
+          v-for="(suggestion, idx) in message.response_data.data.suggestions"
+          :key="idx"
+          size="small"
+          variant="tonal"
+          color="primary"
+          class="mr-1 mb-1 suggestion-chip"
+          @click="$emit('suggestion-click', suggestion.corrected_query)"
+        >
+          <v-icon start size="small">
+            {{ suggestion.type === 'geographic' ? 'mdi-map-marker' : suggestion.type === 'entity_type' ? 'mdi-folder-outline' : 'mdi-tag-outline' }}
+          </v-icon>
+          {{ suggestion.suggestion }}
+        </v-chip>
+      </div>
+
       <!-- Navigation Target -->
       <v-btn
         v-if="message.response_type === 'navigation' && message.response_data?.target"
@@ -69,7 +94,7 @@
         variant="tonal"
         color="warning"
         class="mt-2"
-        @click="$emit('navigate', '/smart-query')"
+        @click="$emit('smart-query-redirect', message.response_data)"
       >
         <v-icon start size="small">mdi-magnify</v-icon>
         {{ t('assistant.openSmartQuery') }}
@@ -96,7 +121,7 @@
         <v-btn
           v-if="message.role === 'assistant'"
           :icon="copied ? 'mdi-check' : 'mdi-content-copy'"
-          variant="text"
+          variant="tonal"
           size="x-small"
           :color="copied ? 'success' : 'default'"
           class="chat-message__copy-btn"
@@ -127,6 +152,8 @@ const emit = defineEmits<{
   'navigate': [route: string]
   'command': [command: string]
   'entity-click': [entityType: string, entitySlug: string]
+  'suggestion-click': [correctedQuery: string]
+  'smart-query-redirect': [responseData: any]
 }>()
 
 // Copy functionality

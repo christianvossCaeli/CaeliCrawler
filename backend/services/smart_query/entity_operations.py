@@ -69,7 +69,7 @@ async def find_entity_by_name(
     """Find an entity by name (case-insensitive)."""
     query = select(Entity).where(
         Entity.name.ilike(f"%{name}%"),
-        Entity.is_active == True,
+        Entity.is_active.is_(True),
     )
     if entity_type_slug:
         entity_type_result = await session.execute(
@@ -158,13 +158,15 @@ async def create_facet_from_command(
         return None, f"Entity '{target_name}' nicht gefunden"
 
     # Create facet value
+    from app.models.facet_value import FacetValueSourceType
     facet_value = FacetValue(
         id=uuid_module.uuid4(),
         entity_id=target_entity.id,
         facet_type_id=facet_type.id,
         value=facet_data.get("value", {}),
         text_representation=facet_data.get("text_representation", ""),
-        confidence_score=0.9,  # Manual entry = high confidence
+        source_type=FacetValueSourceType.SMART_QUERY,
+        confidence_score=0.9,  # Smart Query entry = high confidence
         is_active=True,
     )
     session.add(facet_value)

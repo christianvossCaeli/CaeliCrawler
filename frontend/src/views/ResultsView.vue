@@ -1,11 +1,11 @@
 <template>
   <div>
     <!-- Loading Overlay -->
-    <v-overlay :model-value="loading && initialLoad" class="align-center justify-center" persistent scrim="rgba(0,0,0,0.7)">
+    <v-overlay :model-value="loading && initialLoad" class="align-center justify-center" persistent >
       <v-card class="pa-8 text-center" min-width="320" elevation="24">
         <v-progress-circular indeterminate size="80" width="6" color="primary" class="mb-4"></v-progress-circular>
         <div class="text-h6 mb-2">{{ $t('results.loading.title') }}</div>
-        <div class="text-body-2 text-grey">{{ $t('results.loading.subtitle') }}</div>
+        <div class="text-body-2 text-medium-emphasis">{{ $t('results.loading.subtitle') }}</div>
       </v-card>
     </v-overlay>
 
@@ -60,7 +60,7 @@
           :variant="verifiedFilter === true ? 'elevated' : 'outlined'"
           :color="verifiedFilter === true ? 'success' : undefined"
           @click="toggleVerifiedFilter(true)"
-          style="cursor: pointer"
+          class="cursor-pointer"
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5 text-success">{{ stats.verified }}</div>
@@ -182,7 +182,7 @@
             />
           </v-col>
           <v-col cols="12" md="8" class="d-flex align-center">
-            <v-btn v-if="hasActiveFilters" variant="text" color="primary" size="small" @click="clearFilters">
+            <v-btn v-if="hasActiveFilters" variant="tonal" color="primary" size="small" @click="clearFilters">
               <v-icon size="small" class="mr-1">mdi-filter-off</v-icon>
               {{ $t('results.filters.resetFilters') }}
             </v-btn>
@@ -211,7 +211,7 @@
             <div class="font-weight-medium text-truncate" style="max-width: 220px;" :title="item.document_title || item.document_url">
               {{ item.document_title || t('results.detail.noTitle') }}
             </div>
-            <div class="text-caption text-grey">
+            <div class="text-caption text-medium-emphasis">
               <router-link :to="`/documents?search=${encodeURIComponent(item.document_title || '')}`" class="text-decoration-none">
                 <v-icon size="x-small" class="mr-1">mdi-file-document</v-icon>{{ $t('results.columns.document') }}
               </router-link>
@@ -230,11 +230,11 @@
             color="info"
             variant="tonal"
             @click="filterByMunicipality(getMunicipality(item))"
-            style="cursor: pointer"
+            class="cursor-pointer"
           >
             {{ getMunicipality(item) }}
           </v-chip>
-          <span v-else class="text-grey">-</span>
+          <span v-else class="text-medium-emphasis">-</span>
         </template>
 
         <template v-slot:item.confidence_score="{ item }">
@@ -254,10 +254,10 @@
 
         <template v-slot:item.actions="{ item }">
           <div class="table-actions d-flex justify-end ga-1">
-            <v-btn icon="mdi-eye" size="small" variant="tonal" :title="$t('common.details')" @click="showDetails(item)"></v-btn>
-            <v-btn :icon="item.human_verified ? 'mdi-check-circle' : 'mdi-check'" size="small" variant="tonal" :color="item.human_verified ? 'success' : 'grey'" :title="item.human_verified ? $t('results.actions.verified') : $t('results.actions.verify')" @click="verifyResult(item)"></v-btn>
-            <v-btn icon="mdi-file-document" size="small" variant="tonal" color="info" :title="$t('results.actions.goToDocument')" :to="`/documents?search=${encodeURIComponent(item.document_title || '')}`"></v-btn>
-            <v-btn icon="mdi-code-json" size="small" variant="tonal" :title="$t('results.actions.exportJson')" @click="exportJson(item)"></v-btn>
+            <v-btn icon="mdi-eye" size="small" variant="tonal" :title="$t('common.details')" :aria-label="$t('common.details')" @click="showDetails(item)"></v-btn>
+            <v-btn :icon="item.human_verified ? 'mdi-check-circle' : 'mdi-check'" size="small" variant="tonal" :color="item.human_verified ? 'success' : 'grey'" :title="item.human_verified ? $t('results.actions.verified') : $t('results.actions.verify')" :aria-label="item.human_verified ? $t('results.actions.verified') : $t('results.actions.verify')" @click="verifyResult(item)"></v-btn>
+            <v-btn icon="mdi-file-document" size="small" variant="tonal" color="info" :title="$t('results.actions.goToDocument')" :aria-label="$t('results.actions.goToDocument')" :to="`/documents?search=${encodeURIComponent(item.document_title || '')}`"></v-btn>
+            <v-btn icon="mdi-code-json" size="small" variant="tonal" :title="$t('results.actions.exportJson')" :aria-label="$t('results.actions.exportJson')" @click="exportJson(item)"></v-btn>
           </div>
         </template>
       </v-data-table-server>
@@ -285,7 +285,7 @@
               <v-icon size="small" class="mr-2">mdi-file-document</v-icon>
               {{ $t('results.detail.sourceDocument') }}
               <v-spacer />
-              <v-btn size="small" variant="text" color="primary" :to="`/documents?search=${encodeURIComponent(selectedResult.document_title || '')}`">
+              <v-btn size="small" variant="tonal" color="primary" :to="`/documents?search=${encodeURIComponent(selectedResult.document_title || '')}`">
                 <v-icon size="small" class="mr-1">mdi-open-in-new</v-icon>{{ $t('results.detail.goToDocument') }}
               </v-btn>
             </v-card-title>
@@ -304,7 +304,7 @@
                   <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-map-marker</v-icon>{{ $t('results.detail.municipality') }}</v-card-title>
                   <v-card-text>
                     <v-chip v-if="getMunicipality(selectedResult)" color="primary" size="large">{{ getMunicipality(selectedResult) }}</v-chip>
-                    <span v-else class="text-grey">{{ $t('results.detail.notRecognized') }}</span>
+                    <span v-else class="text-medium-emphasis">{{ $t('results.detail.notRecognized') }}</span>
                   </v-card-text>
                 </v-card>
               </v-col>
@@ -446,7 +446,7 @@
                     <template v-if="typeof dm === 'string'">
                       <div class="d-flex align-start ga-2">
                         <v-avatar color="info" size="36">
-                          <v-icon color="white" size="small">mdi-account</v-icon>
+                          <v-icon color="on-info" size="small">mdi-account</v-icon>
                         </v-avatar>
                         <div class="text-body-1 font-weight-medium align-self-center">{{ dm }}</div>
                       </div>
@@ -454,11 +454,11 @@
                     <template v-else>
                       <div class="d-flex align-start ga-2">
                         <v-avatar color="info" size="36">
-                          <v-icon color="white" size="small">mdi-account</v-icon>
+                          <v-icon color="on-info" size="small">mdi-account</v-icon>
                         </v-avatar>
                         <div class="flex-grow-1">
                           <div class="text-body-1 font-weight-medium">{{ dm.name || dm.person }}</div>
-                          <div v-if="dm.role || dm.position" class="text-body-2 text-grey">{{ dm.role || dm.position }}</div>
+                          <div v-if="dm.role || dm.position" class="text-body-2 text-medium-emphasis">{{ dm.role || dm.position }}</div>
                           <div class="d-flex flex-wrap ga-2 mt-2">
                             <v-chip v-if="dm.email || dm.contact" size="small" variant="outlined" @click.stop="copyToClipboard(dm.email || dm.contact)">
                               <v-icon start size="small">mdi-email</v-icon>
@@ -497,7 +497,7 @@
             </v-card>
 
             <!-- Outreach Recommendation -->
-            <v-card v-if="getContent(selectedResult).outreach_recommendation" variant="outlined" class="mb-4" color="purple">
+            <v-card v-if="getContent(selectedResult).outreach_recommendation" variant="outlined" class="mb-4" color="info">
               <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-bullhorn</v-icon>{{ $t('results.detail.outreachRecommendation') }}</v-card-title>
               <v-card-text>
                 <div v-if="getContent(selectedResult).outreach_recommendation.priority">
@@ -518,7 +518,7 @@
             <v-expansion-panel>
               <v-expansion-panel-title><v-icon size="small" class="mr-2">mdi-code-json</v-icon>{{ $t('results.detail.rawData') }}</v-expansion-panel-title>
               <v-expansion-panel-text>
-                <pre class="text-caption" style="overflow-x: auto; white-space: pre-wrap;">{{ JSON.stringify(getContent(selectedResult), null, 2) }}</pre>
+                <pre class="json-viewer pa-3 rounded">{{ JSON.stringify(getContent(selectedResult), null, 2) }}</pre>
               </v-expansion-panel-text>
             </v-expansion-panel>
           </v-expansion-panels>
@@ -540,8 +540,8 @@
         <v-card-actions>
           <v-btn color="primary" variant="outlined" prepend-icon="mdi-code-json" @click="exportJson(selectedResult)">{{ $t('results.actions.exportJson') }}</v-btn>
           <v-spacer />
-          <v-btn v-if="!selectedResult.human_verified" color="success" prepend-icon="mdi-check" @click="verifyResult(selectedResult); detailsDialog = false">{{ $t('results.actions.verify') }}</v-btn>
-          <v-btn variant="text" @click="detailsDialog = false">{{ $t('common.close') }}</v-btn>
+          <v-btn v-if="!selectedResult.human_verified" variant="tonal" color="success" prepend-icon="mdi-check" @click="verifyResult(selectedResult); detailsDialog = false">{{ $t('results.actions.verify') }}</v-btn>
+          <v-btn variant="tonal" @click="detailsDialog = false">{{ $t('common.close') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

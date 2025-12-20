@@ -9,7 +9,8 @@
       "general": "General",
       "attributes": "Attributes",
       "location": "Location",
-      "assignment": "Assignment"
+      "assignment": "Assignment",
+      "attachments": "Attachments"
     },
     "properties": "Properties",
     "relations": "Relations",
@@ -69,6 +70,11 @@
     "noAttributesConfigured": "No attributes configured for this entity type.",
     "path": "Path",
     "summary": "Summary",
+    "viewModes": {
+      "table": "Table view",
+      "cards": "Card view",
+      "map": "Map view"
+    },
     "filters": {
       "search": "Search in properties...",
       "type": "Entity Type",
@@ -129,6 +135,13 @@
   "entityTypes": {
     "title": "Entity Types",
     "entityType": "Entity Type",
+    "types": {
+      "municipality": "Municipalities",
+      "person": "Persons",
+      "organization": "Organizations",
+      "event": "Events"
+    },
+    "includeFacets": "Include Facets",
     "form": {
       "name": "Name",
       "description": "Description",
@@ -161,12 +174,23 @@
       "verified": "Verified",
       "dataSources": "Data Sources"
     },
+    "sourceTypes": {
+      "document": "Document",
+      "manual": "Manual",
+      "pysis": "PySis",
+      "smartQuery": "Smart Query",
+      "aiAssistant": "AI Assistant",
+      "import": "Import"
+    },
+    "verifiedLabel": "Verified",
+    "verifyAction": "Verify",
     "tabs": {
       "properties": "Properties",
       "relations": "Relations",
       "dataSources": "Data Sources",
       "documents": "Documents",
-      "pysis": "PySis"
+      "pysis": "PySis",
+      "attachments": "Attachments"
     },
     "searchProperties": "Search in properties...",
     "verified": "verified",
@@ -200,8 +224,10 @@
     "clearSearch": "Clear search",
     "dialog": {
       "addFacet": "Add Facet",
+      "editFacet": "Edit Facet",
       "facetType": "Facet Type *",
       "facetTypeRequired": "Facet type is required",
+      "facetDetails": "Facet Details",
       "facetValue": "Value / Description *",
       "facetValueRequired": "Value is required",
       "sourceUrl": "Source URL",
@@ -239,14 +265,27 @@
       "noteDeleted": "Note deleted",
       "noteDeleteError": "Error deleting note",
       "facetAdded": "Facet value added",
+      "facetValueRequired": "Please fill in at least one field",
       "facetSaveError": "Error saving",
       "facetVerified": "Facet verified",
+      "facetUpdated": "Facet updated",
+      "facetDeleted": "Facet deleted",
       "entityUpdated": "Entity updated",
       "entitySaveError": "Error saving",
       "crawlStarted": "Crawl started for \"{name}\"",
       "crawlStartError": "Error starting crawl",
-      "copiedToClipboard": "Copied to clipboard"
+      "copiedToClipboard": "Copied to clipboard",
+      "enrichError": "Error starting enrichment"
     },
+    "enrichFromPysis": "Enrich from PySis",
+    "enrichFromPysisTitle": "Enrich Facets with PySis Data",
+    "enrichFromPysisDescription": "Enriches existing facet values with additional information from linked PySis fields. AI analyzes PySis data and supplements missing information in facets.",
+    "enrichOverwrite": "Overwrite existing values",
+    "enrichOverwriteWarning": "Warning: Existing facet values will be overwritten with new data!",
+    "startEnrichment": "Start Enrichment",
+    "taskStarted": "Task Started",
+    "taskId": "Task ID",
+    "enrichTaskStartedMessage": "Facet enrichment has been started as a background task. Results will be updated in this entity's facets.",
     "document": "Document",
     "systemAuthor": "System",
     "currentUser": "Current User",
@@ -296,6 +335,85 @@
       "organizer": "Organizer",
       "eventType": "Event Type",
       "description": "Description"
+    },
+    "enrichment": {
+      "buttonLabel": "Enrich",
+      "dropdownTitle": "Select Data Sources",
+      "sourcePysis": "PySIS Data",
+      "sourceRelations": "Relations",
+      "sourceDocuments": "Documents",
+      "sourceExtractions": "AI Extractions",
+      "lastUpdated": "Last Updated",
+      "itemCount": "{count} items",
+      "existingFacets": "{count} facets existing",
+      "startAnalysis": "Start Analysis",
+      "noSourcesSelected": "Please select at least one data source",
+      "noSourcesAvailable": "No data sources available",
+      "sourceAttachments": "Attachments"
+    },
+    "attachments": {
+      "title": "Attachments",
+      "upload": "Upload",
+      "uploadTitle": "Upload File",
+      "selectFile": "Select file",
+      "description": "Description",
+      "autoAnalyze": "Automatically analyze with AI",
+      "dropHint": "Drop files here or click to select",
+      "empty": "No attachments available",
+      "uploadError": "Upload failed",
+      "uploadSuccess": "File uploaded successfully",
+      "deleteConfirm": "Delete Attachment?",
+      "deleteMessage": "Do you really want to delete \"{filename}\"?",
+      "deleteSuccess": "Attachment deleted",
+      "analyze": "Analyze with AI",
+      "viewAnalysis": "View Analysis",
+      "analysisTitle": "Analysis Result",
+      "analysisDescription": "Description",
+      "analysisStarted": "Analysis started",
+      "analysisError": "Failed to start analysis",
+      "detectedText": "Detected Text",
+      "extractedEntities": "Extracted Entities",
+      "facetSuggestions": "Facet Suggestions",
+      "facetSuggestionsHint": "Select the facets you want to apply to this entity.",
+      "applyFacets": "Apply Facets",
+      "noFacetSuggestions": "No facet suggestions found",
+      "facetsApplied": "{count} facet(s) applied",
+      "facetsApplyError": "Failed to apply facets",
+      "status": {
+        "pending": "Pending",
+        "analyzing": "Analyzing",
+        "completed": "Analyzed",
+        "failed": "Failed"
+      },
+      "entityTypes": {
+        "persons": "Persons",
+        "organizations": "Organizations",
+        "locations": "Locations",
+        "dates": "Dates"
+      }
     }
+  },
+  "facetEnrichment": {
+    "title": "Facet Enrichment",
+    "analyzing": "Analyzing data...",
+    "failed": "Analysis failed",
+    "unknownError": "Unknown error",
+    "reviewChanges": "Review Changes",
+    "analysisSummary": "{sources} sources analyzed: {new} new facets, {updates} updates",
+    "noResults": "No new information found",
+    "noResultsHint": "The AI could not extract additional facets from the selected data sources.",
+    "newFacets": "New Facets",
+    "updates": "Updates",
+    "selectAll": "Select All",
+    "selectNone": "Select None",
+    "selected": "selected",
+    "current": "Current",
+    "proposed": "Proposed",
+    "minimize": "Minimize",
+    "applyChanges": "Apply {count} change(s)",
+    "applied": "{created} facets created, {updated} updated",
+    "applyError": "Error applying changes",
+    "taskMinimized": "Analysis running in background",
+    "clickToReturn": "Click to return to preview"
   }
 }

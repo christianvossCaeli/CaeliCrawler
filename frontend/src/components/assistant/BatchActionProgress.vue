@@ -84,7 +84,7 @@
           </v-list>
           <v-btn
             v-if="status.errors.length > 0"
-            variant="text"
+            variant="tonal"
             size="small"
             @click="showErrors = !showErrors"
           >
@@ -116,7 +116,7 @@
       <!-- Close button for completed operations -->
       <v-btn
         v-if="isCompleted"
-        variant="text"
+        variant="tonal"
         size="small"
         @click="$emit('close')"
       >

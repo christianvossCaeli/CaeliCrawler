@@ -6,28 +6,28 @@
     <v-row class="mb-4">
       <v-col cols="6" md="3">
         <v-card variant="outlined" class="text-center pa-3">
-          <v-icon color="primary" size="32">mdi-folder-multiple</v-icon>
+          <v-icon color="primary" size="x-large">mdi-folder-multiple</v-icon>
           <div class="text-h6">{{ t('help.dashboard.cards.categories.title') }}</div>
           <div class="text-caption">{{ t('help.dashboard.cards.categories.description') }}</div>
         </v-card>
       </v-col>
       <v-col cols="6" md="3">
         <v-card variant="outlined" class="text-center pa-3">
-          <v-icon color="success" size="32">mdi-web</v-icon>
+          <v-icon color="success" size="x-large">mdi-web</v-icon>
           <div class="text-h6">{{ t('help.dashboard.cards.sources.title') }}</div>
           <div class="text-caption">{{ t('help.dashboard.cards.sources.description') }}</div>
         </v-card>
       </v-col>
       <v-col cols="6" md="3">
         <v-card variant="outlined" class="text-center pa-3">
-          <v-icon color="info" size="32">mdi-file-document-multiple</v-icon>
+          <v-icon color="info" size="x-large">mdi-file-document-multiple</v-icon>
           <div class="text-h6">{{ t('help.dashboard.cards.documents.title') }}</div>
           <div class="text-caption">{{ t('help.dashboard.cards.documents.description') }}</div>
         </v-card>
       </v-col>
       <v-col cols="6" md="3">
         <v-card variant="outlined" class="text-center pa-3">
-          <v-icon color="warning" size="32">mdi-robot</v-icon>
+          <v-icon color="warning" size="x-large">mdi-robot</v-icon>
           <div class="text-h6">{{ t('help.dashboard.cards.active_crawlers.title') }}</div>
           <div class="text-caption">{{ t('help.dashboard.cards.active_crawlers.description') }}</div>
         </v-card>

@@ -1,6 +1,6 @@
 """Schemas for the AI Assistant Chat functionality."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -19,6 +19,7 @@ class IntentType(str, Enum):
     HELP = "help"  # App help
     BATCH_ACTION = "batch_action"  # Bulk operation on multiple entities
     FACET_MANAGEMENT = "facet_management"  # Create, modify, or assign facet types
+    CONTEXT_ACTION = "context_action"  # Action on current entity (PySis, crawl, etc.)
 
 
 class ViewMode(str, Enum):
@@ -47,7 +48,7 @@ class ConversationMessage(BaseModel):
 
     role: Literal["user", "assistant"] = Field(..., description="Who sent this message")
     content: str = Field(..., description="Message content")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
 
 
@@ -84,6 +85,16 @@ class AssistantChatRequest(BaseModel):
 
 # Response Types
 
+class QuerySuggestion(BaseModel):
+    """Suggestion for correcting a query."""
+
+    type: str = Field(..., description="Type of suggestion: geographic, entity_type, facet_type")
+    original: str = Field(..., description="Original term that might be misspelled")
+    suggestion: str = Field(..., description="Suggested correction")
+    corrected_query: str = Field(..., description="Full corrected query")
+    message: str = Field(..., description="Human-readable suggestion message")
+
+
 class QueryResultData(BaseModel):
     """Data returned from a query."""
 
@@ -91,6 +102,10 @@ class QueryResultData(BaseModel):
     total: int = Field(default=0)
     grouping: Optional[str] = None
     query_interpretation: Optional[Dict[str, Any]] = None
+    suggestions: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Correction suggestions when no results found"
+    )
 
 
 class QueryResponse(BaseModel):
@@ -185,8 +200,8 @@ class SuggestedAction(BaseModel):
 
 
 # Union type for all possible responses
-# Note: FacetManagementResponse and BatchActionChatResponse are defined later in file
-# but referenced here via forward reference pattern
+# Note: FacetManagementResponse, BatchActionChatResponse, ContextActionResponse, WizardResponse
+# are defined later but referenced here via forward reference pattern
 AssistantResponseData = Union[
     QueryResponse,
     ActionPreviewResponse,
@@ -196,6 +211,8 @@ AssistantResponseData = Union[
     ErrorResponseData,
     "BatchActionChatResponse",
     "FacetManagementResponse",
+    "ContextActionResponse",
+    "WizardResponse",
 ]
 
 
@@ -350,6 +367,38 @@ class BatchActionChatResponse(BaseModel):
     action_data: Dict[str, Any]
     target_filter: Dict[str, Any]
     requires_confirmation: bool = True
+
+
+# ============================================================================
+# Context Actions (operations on current entity)
+# ============================================================================
+
+
+class ContextActionType(str, Enum):
+    """Types of context-aware actions on current entity."""
+
+    ANALYZE_PYSIS = "analyze_pysis"
+    ENRICH_FACETS = "enrich_facets"
+    SHOW_PYSIS_STATUS = "show_pysis_status"
+    START_CRAWL = "start_crawl"
+    UPDATE_ENTITY = "update_entity"
+    CREATE_FACET = "create_facet"
+
+
+class ContextActionResponse(BaseModel):
+    """Response for context-aware action on current entity."""
+
+    type: Literal["context_action"] = "context_action"
+    message: str
+    action: str  # The action that was/will be executed
+    entity_id: Optional[str] = None
+    entity_name: Optional[str] = None
+    task_id: Optional[str] = None  # For async operations
+    facet_value_id: Optional[str] = None  # ID of created facet value
+    preview: Optional[Dict[str, Any]] = None  # Preview data
+    status: Optional[Dict[str, Any]] = None  # Status data (for show_pysis_status)
+    requires_confirmation: bool = False
+    success: bool = True
 
 
 # ============================================================================

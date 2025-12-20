@@ -1,7 +1,7 @@
 """EntityRelation model for storing relationships between entities."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from sqlalchemy import (
@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     String,
     Text,
     UniqueConstraint,
@@ -158,7 +159,7 @@ class EntityRelation(Base):
     )
     source_document: Mapped[Optional["Document"]] = relationship("Document")
 
-    # Unique constraint to prevent duplicate relations
+    # Unique constraint and composite indexes
     __table_args__ = (
         UniqueConstraint(
             "relation_type_id",
@@ -166,12 +167,16 @@ class EntityRelation(Base):
             "target_entity_id",
             name="uq_entity_relation_type_source_target",
         ),
+        # Composite indexes for frequently queried column combinations
+        Index("ix_entity_relations_source_active", "source_entity_id", "is_active"),
+        Index("ix_entity_relations_target_active", "target_entity_id", "is_active"),
+        Index("ix_entity_relations_type_active", "relation_type_id", "is_active"),
     )
 
     @property
     def is_valid(self) -> bool:
-        """Check if this relationship is currently valid."""
-        now = datetime.now()
+        """Check if this relationship is currently valid based on validity period."""
+        now = datetime.now(timezone.utc)
         if self.valid_from and now < self.valid_from:
             return False
         if self.valid_until and now > self.valid_until:

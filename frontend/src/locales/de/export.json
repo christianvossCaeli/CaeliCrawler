@@ -23,6 +23,23 @@
       "exporting": "Export wird erstellt...",
       "success": "Export erfolgreich erstellt",
       "error": "Fehler beim Export"
+    },
+    "asyncExport": "Async Export",
+    "activeJobs": "Laufende Exports",
+    "completedJobs": "Abgeschlossene Exports",
+    "noJobs": "Keine Export-Jobs vorhanden",
+    "waiting": "Wartet auf Verarbeitung...",
+    "records": "Datensätze",
+    "download": "Herunterladen",
+    "cancel": "Abbrechen",
+    "startAsync": "Async Export starten",
+    "largeExportHint": "Für große Datenmengen (>5000 Datensätze) nutzen Sie den Async Export.",
+    "status": {
+      "pending": "Wartend",
+      "processing": "Verarbeitet",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen"
     }
   },
   "exportView": {

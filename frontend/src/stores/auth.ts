@@ -25,20 +25,30 @@ export interface User {
 
 interface LoginResponse {
   access_token: string
+  refresh_token: string
   token_type: string
+  expires_in: number
+  refresh_expires_in: number
   user: User
 }
 
-// Token storage key
+// Token storage keys
 const TOKEN_KEY = 'caeli_auth_token'
+const REFRESH_TOKEN_KEY = 'caeli_refresh_token'
+const TOKEN_EXPIRY_KEY = 'caeli_token_expiry'
 
 export const useAuthStore = defineStore('auth', () => {
   // State
   const user = ref<User | null>(null)
   const token = ref<string | null>(localStorage.getItem(TOKEN_KEY))
+  const refreshToken = ref<string | null>(localStorage.getItem(REFRESH_TOKEN_KEY))
+  const tokenExpiry = ref<number | null>(
+    localStorage.getItem(TOKEN_EXPIRY_KEY) ? parseInt(localStorage.getItem(TOKEN_EXPIRY_KEY)!) : null
+  )
   const isLoading = ref(false)
   const error = ref<string | null>(null)
   const initialized = ref(false)
+  const isRefreshing = ref(false)
 
   // Computed
   const isAuthenticated = computed(() => !!token.value && !!user.value)
@@ -78,10 +88,17 @@ export const useAuthStore = defineStore('auth', () => {
       })
 
       token.value = response.data.access_token
+      refreshToken.value = response.data.refresh_token
       user.value = response.data.user
 
-      // Persist token
+      // Calculate token expiry timestamp
+      const expiryTime = Date.now() + (response.data.expires_in * 1000)
+      tokenExpiry.value = expiryTime
+
+      // Persist tokens
       localStorage.setItem(TOKEN_KEY, response.data.access_token)
+      localStorage.setItem(REFRESH_TOKEN_KEY, response.data.refresh_token)
+      localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString())
 
       // Set auth header for future requests
       setAuthHeader(response.data.access_token)
@@ -95,6 +112,48 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function refreshAccessToken(): Promise<boolean> {
+    if (!refreshToken.value || isRefreshing.value) {
+      return false
+    }
+
+    isRefreshing.value = true
+
+    try {
+      const response = await api.post<LoginResponse>('/auth/refresh', {
+        refresh_token: refreshToken.value,
+      })
+
+      token.value = response.data.access_token
+      user.value = response.data.user
+
+      // Calculate new token expiry timestamp
+      const expiryTime = Date.now() + (response.data.expires_in * 1000)
+      tokenExpiry.value = expiryTime
+
+      // Persist new access token
+      localStorage.setItem(TOKEN_KEY, response.data.access_token)
+      localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString())
+
+      // Set auth header for future requests
+      setAuthHeader(response.data.access_token)
+
+      return true
+    } catch (err: any) {
+      // Refresh token is invalid, log out
+      await logout()
+      return false
+    } finally {
+      isRefreshing.value = false
+    }
+  }
+
+  function isTokenExpired(): boolean {
+    if (!tokenExpiry.value) return true
+    // Consider token expired 30 seconds before actual expiry
+    return Date.now() > (tokenExpiry.value - 30000)
+  }
+
   async function logout(): Promise<void> {
     try {
       // Optionally notify server
@@ -106,11 +165,15 @@ export const useAuthStore = defineStore('auth', () => {
     } finally {
       // Clear state
       token.value = null
+      refreshToken.value = null
+      tokenExpiry.value = null
       user.value = null
       error.value = null
 
       // Clear storage
       localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(REFRESH_TOKEN_KEY)
+      localStorage.removeItem(TOKEN_EXPIRY_KEY)
 
       // Clear auth header
       setAuthHeader(null)
@@ -198,9 +261,12 @@ export const useAuthStore = defineStore('auth', () => {
     // State
     user,
     token,
+    refreshToken,
+    tokenExpiry,
     isLoading,
     error,
     initialized,
+    isRefreshing,
 
     // Computed
     isAuthenticated,
@@ -218,5 +284,7 @@ export const useAuthStore = defineStore('auth', () => {
     changePassword,
     hasRole,
     updateLanguage,
+    refreshAccessToken,
+    isTokenExpired,
   }
 })

@@ -19,22 +19,37 @@
           divided
           class="mr-2 header-toggle"
         >
-          <v-btn value="read" size="small">
+          <v-btn value="read" size="small" :aria-label="t('assistant.modeRead')">
             <v-icon size="small">mdi-magnify</v-icon>
             <v-tooltip activator="parent" location="bottom">{{ t('assistant.modeRead') }}</v-tooltip>
           </v-btn>
-          <v-btn value="write" size="small">
+          <v-btn value="write" size="small" :aria-label="t('assistant.modeWrite')">
             <v-icon size="small">mdi-pencil</v-icon>
             <v-tooltip activator="parent" location="bottom">{{ t('assistant.modeWrite') }}</v-tooltip>
           </v-btn>
         </v-btn-toggle>
 
+        <!-- History Button -->
+        <v-btn
+          icon="mdi-history"
+          variant="tonal"
+          size="small"
+          class="header-btn"
+          :class="{ 'header-btn--active': showHistoryPanel }"
+          :aria-label="t('assistant.queryHistory.title')"
+          @click="showHistoryPanel = !showHistoryPanel"
+        >
+          <v-icon>mdi-history</v-icon>
+          <v-tooltip activator="parent" location="bottom">{{ t('assistant.queryHistory.title') }}</v-tooltip>
+        </v-btn>
+
         <!-- Clear Button -->
         <v-btn
           icon="mdi-refresh"
-          variant="text"
+          variant="tonal"
           size="small"
           class="header-btn"
+          :aria-label="t('assistant.clear')"
           @click="$emit('clear')"
         >
           <v-icon>mdi-refresh</v-icon>
@@ -44,9 +59,10 @@
         <!-- Close Button -->
         <v-btn
           icon="mdi-close"
-          variant="text"
+          variant="tonal"
           size="small"
           class="header-btn"
+          :aria-label="t('assistant.close')"
           @click="$emit('close')"
         >
           <v-icon>mdi-close</v-icon>
@@ -71,6 +87,20 @@
       @action="handleQuickAction"
       @start-wizard="$emit('start-wizard', $event)"
     />
+
+    <!-- Query History Panel (Slide-in) -->
+    <transition name="slide-left">
+      <QueryHistoryPanel
+        v-if="showHistoryPanel && queryHistory"
+        :query-history="queryHistory"
+        class="chat-window__history-panel"
+        @close="showHistoryPanel = false"
+        @rerun="handleHistoryRerun"
+        @toggle-favorite="$emit('history-toggle-favorite', $event)"
+        @remove="$emit('history-remove', $event)"
+        @clear="$emit('history-clear')"
+      />
+    </transition>
 
     <!-- Due Reminders Notification -->
     <ReminderNotification
@@ -127,6 +157,8 @@
         @item-click="handleItemClick"
         @command="handleCommand"
         @entity-click="handleEntityClick"
+        @suggestion-click="handleSuggestionClick"
+        @smart-query-redirect="handleSmartQueryRedirect"
       />
 
       <!-- Pending Action Preview -->
@@ -206,6 +238,13 @@
       </v-chip>
     </div>
 
+    <!-- Input Hints -->
+    <InputHints
+      :input-text="inputText"
+      :is-write-mode="localMode === 'write'"
+      @hint-click="handleHintClick"
+    />
+
     <!-- Input Area -->
     <div class="chat-window__input">
       <!-- Hidden file input -->
@@ -220,7 +259,7 @@
       <!-- Attachment button -->
       <v-btn
         icon
-        variant="text"
+        variant="tonal"
         size="small"
         :loading="isUploading"
         @click="triggerFileInput"
@@ -247,7 +286,7 @@
             v-if="hasMicrophone"
             :icon="isListening ? 'mdi-microphone-off' : 'mdi-microphone'"
             :color="isListening ? 'error' : 'default'"
-            variant="text"
+            variant="tonal"
             size="small"
             :class="{ 'voice-listening': isListening }"
             @click="toggleVoice"
@@ -275,6 +314,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
+import { useQueryContextStore } from '@/stores/queryContext'
 import ChatMessage from './ChatMessage.vue'
 import ActionPreview from './ActionPreview.vue'
 import TypingIndicator from './TypingIndicator.vue'
@@ -282,13 +323,17 @@ import QuickActionsPanel from './QuickActionsPanel.vue'
 import BatchActionProgress from './BatchActionProgress.vue'
 import WizardStep from './WizardStep.vue'
 import ReminderNotification from './ReminderNotification.vue'
+import InputHints from './InputHints.vue'
+import QueryHistoryPanel from './QueryHistoryPanel.vue'
 import type { QuickAction } from './QuickActionsPanel.vue'
 import type { BatchStatus, BatchPreviewEntity } from './BatchActionProgress.vue'
 // WizardStepDef and WizardState available from './WizardStep.vue' if needed
 import { useSpeechRecognition } from '@/composables/useSpeechRecognition'
-import type { ConversationMessage, SuggestedAction, AssistantContext, AttachmentInfo, Insight, ActiveWizard, Reminder } from '@/composables/useAssistant'
+import type { ConversationMessage, SuggestedAction, AssistantContext, AttachmentInfo, Insight, ActiveWizard, Reminder, QueryHistoryItem } from '@/composables/useAssistant'
 
 const { t } = useI18n()
+const router = useRouter()
+const queryContextStore = useQueryContextStore()
 
 const props = defineProps<{
   messages: ConversationMessage[]
@@ -312,6 +357,8 @@ const props = defineProps<{
   isWizardLoading?: boolean
   // Reminder props
   dueReminders?: Reminder[]
+  // Query history props
+  queryHistory?: QueryHistoryItem[]
 }>()
 
 const emit = defineEmits<{
@@ -339,9 +386,15 @@ const emit = defineEmits<{
   // Reminder emits
   'reminder-dismiss': [reminderId: string]
   'reminder-snooze': [reminderId: string, minutes: number]
+  // Query history emits
+  'history-rerun': [query: string]
+  'history-toggle-favorite': [id: string]
+  'history-remove': [id: string]
+  'history-clear': []
 }>()
 
 // Local state
+const showHistoryPanel = ref(false)
 const inputText = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 const localMode = ref(props.mode)
@@ -395,6 +448,24 @@ function handleCommand(command: string) {
   sendMessage()
 }
 
+function handleSuggestionClick(correctedQuery: string) {
+  // When user clicks a suggestion, use the corrected query
+  inputText.value = correctedQuery
+  sendMessage()
+}
+
+function handleHintClick(example: string) {
+  // When user clicks a hint, put the example in the input field
+  inputText.value = example
+}
+
+function handleHistoryRerun(query: string) {
+  // Close the history panel and run the query
+  showHistoryPanel.value = false
+  inputText.value = query
+  sendMessage()
+}
+
 function handleItemClick(item: any) {
   // Navigate to entity detail page if possible
   if (item.entity_type && (item.entity_slug || item.slug)) {
@@ -410,6 +481,23 @@ function handleItemClick(item: any) {
 function handleEntityClick(entityType: string, entitySlug: string) {
   // Navigate to the entity detail page
   emit('navigate', `/entities/${entityType}/${entitySlug}`)
+}
+
+function handleSmartQueryRedirect(responseData: any) {
+  // Set context in store so Smart Query can consume it with the prefilled query
+  const query = responseData?.prefilled_query || responseData?.message || ''
+  const writeMode = responseData?.write_mode === true
+  queryContextStore.setFromAssistant(
+    query,
+    writeMode ? 'write' : 'read',
+    {
+      entityId: props.context.current_entity_id,
+      entityType: props.context.current_entity_type,
+      entityName: props.context.current_entity_name
+    }
+  )
+  router.push('/smart-query')
+  emit('close')
 }
 
 function toggleVoice() {
@@ -658,5 +746,32 @@ watch(
 
 .header-toggle :deep(.v-btn--active) {
   background: rgba(var(--v-theme-on-primary), 0.2) !important;
+}
+
+.header-btn--active {
+  background: rgba(var(--v-theme-on-primary), 0.2) !important;
+}
+
+/* Query History Panel */
+.chat-window__history-panel {
+  position: absolute;
+  top: 56px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  background: rgb(var(--v-theme-surface));
+}
+
+/* Slide transition */
+.slide-left-enter-active,
+.slide-left-leave-active {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.slide-left-enter-from,
+.slide-left-leave-to {
+  transform: translateX(-100%);
+  opacity: 0;
 }
 </style>

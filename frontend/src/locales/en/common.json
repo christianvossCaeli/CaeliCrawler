@@ -26,6 +26,8 @@
     "view": "View",
     "download": "Download",
     "open": "Open",
+    "openDocument": "Open Document",
+    "createdBy": "Created by",
     "upload": "Upload",
     "export": "Export",
     "import": "Import",
@@ -48,6 +50,7 @@
     "description": "Description",
     "type": "Type",
     "status": "Status",
+    "confidence": "Confidence",
     "field": "Field",
     "example": "Example",
     "icon": "Icon",
@@ -69,6 +72,15 @@
     "optional": "Optional",
     "unknown": "Unknown",
     "notAvailable": "Not available",
+    "completed": "Completed",
+    "failed": "Failed",
+    "running": "Running",
+    "done": "Done",
+    "documents": "Documents",
+    "retry": "Retry",
+    "justNow": "Just now",
+    "minutesAgo": "{n} min ago",
+    "hoursAgo": "{n} hrs ago",
     "pleaseWait": "Please wait...",
     "processing": "Processing...",
     "itemsPerPage": "Items per page",
@@ -86,7 +98,7 @@
     "entities": "Entities",
     "entityTypes": "Entity Types",
     "facetTypes": "Facet Types",
-    "categories": "Categories",
+    "categories": "Analysis Topics",
     "dataSources": "Data Sources",
     "crawlerStatus": "Crawler Status",
     "documents": "Documents",
@@ -138,7 +150,8 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "themeToggle": "Toggle theme",
-    "reloadPage": "Reload page"
+    "reloadPage": "Reload page",
+    "userMenu": "User menu"
   },
   "roles": {
     "ADMIN": "Administrator",
@@ -190,5 +203,10 @@
     "unique": "This value already exists",
     "integer": "Please enter an integer",
     "number": "Please enter a number"
+  },
+  "dynamicForm": {
+    "noSchema": "No schema defined for this facet type. Please enter a text value.",
+    "arrayHint": "Enter multiple values, press Enter to confirm",
+    "unknownType": "Unknown field type: {type}"
   }
 }

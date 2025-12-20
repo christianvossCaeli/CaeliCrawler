@@ -161,7 +161,7 @@
         <template #item.changes="{ item }">
           <v-btn
             v-if="Object.keys(item.changes).length > 0"
-            variant="text"
+            variant="tonal"
             size="small"
             @click="showChanges(item)"
           >
@@ -209,7 +209,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="changesDialogOpen = false">
+          <v-btn variant="tonal" @click="changesDialogOpen = false">
             {{ t('common.close') }}
           </v-btn>
         </v-card-actions>

@@ -31,21 +31,21 @@
     <v-row class="mb-4">
       <v-col cols="12" md="4">
         <v-card variant="outlined" class="pa-3 text-center h-100">
-          <v-icon color="success" size="32">mdi-source-branch</v-icon>
+          <v-icon color="success" size="x-large">mdi-source-branch</v-icon>
           <div class="text-subtitle-1 mt-2">{{ t('help.facetTypeAdmin.concept.inheritance') }}</div>
           <div class="text-caption">{{ t('help.facetTypeAdmin.concept.inheritanceDesc') }}</div>
         </v-card>
       </v-col>
       <v-col cols="12" md="4">
         <v-card variant="outlined" class="pa-3 text-center h-100">
-          <v-icon color="primary" size="32">mdi-checkbox-multiple-marked</v-icon>
+          <v-icon color="primary" size="x-large">mdi-checkbox-multiple-marked</v-icon>
           <div class="text-subtitle-1 mt-2">{{ t('help.facetTypeAdmin.concept.consistency') }}</div>
           <div class="text-caption">{{ t('help.facetTypeAdmin.concept.consistencyDesc') }}</div>
         </v-card>
       </v-col>
       <v-col cols="12" md="4">
         <v-card variant="outlined" class="pa-3 text-center h-100">
-          <v-icon color="warning" size="32">mdi-lightning-bolt</v-icon>
+          <v-icon color="warning" size="x-large">mdi-lightning-bolt</v-icon>
           <div class="text-subtitle-1 mt-2">{{ t('help.facetTypeAdmin.concept.efficiency') }}</div>
           <div class="text-caption">{{ t('help.facetTypeAdmin.concept.efficiencyDesc') }}</div>
         </v-card>
@@ -128,7 +128,7 @@
     <p class="mb-2">{{ t('help.facetTypeAdmin.schema.description') }}</p>
     <v-card variant="outlined" class="mb-4 pa-3">
       <div class="text-caption mb-1">{{ t('help.facetTypeAdmin.schema.example') }}</div>
-      <code class="text-body-2" style="white-space: pre-wrap;">{{ t('help.facetTypeAdmin.schema.exampleSchema') }}</code>
+      <code class="text-body-2 text-pre-wrap">{{ t('help.facetTypeAdmin.schema.exampleSchema') }}</code>
     </v-card>
     <v-alert type="info" variant="tonal" density="compact" class="mb-4">
       {{ t('help.facetTypeAdmin.schema.tip') }}

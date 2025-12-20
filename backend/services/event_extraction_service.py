@@ -1,20 +1,19 @@
-"""Service for processing Event extraction results into Entity-Facet system."""
+"""Service for processing Event extraction results into Entity-Facet system.
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+This service handles the specialized extraction of event-related data,
+creating Event entities, Person entities for attendees, and the relationships
+between them. It uses the extraction_handler="event" category setting.
+"""
+
+from datetime import datetime
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
-    Entity,
     EntityType,
-    FacetType,
-    FacetValue,
-    RelationType,
-    EntityRelation,
     ExtractedData,
     DataSource,
     Category,
@@ -24,55 +23,16 @@ from services.entity_facet_service import (
     get_facet_type_by_slug,
     create_facet_value,
     check_duplicate_facet,
+    get_relation_type_by_slug,
+    create_relation,
 )
 
 logger = structlog.get_logger()
 
 
-async def get_relation_type_by_slug(
-    session: AsyncSession, slug: str
-) -> Optional[RelationType]:
-    """Get relation type by slug."""
-    result = await session.execute(
-        select(RelationType).where(
-            RelationType.slug == slug, RelationType.is_active == True
-        )
-    )
-    return result.scalar_one_or_none()
-
-
-async def create_relation(
-    session: AsyncSession,
-    source_entity_id: UUID,
-    target_entity_id: UUID,
-    relation_type_id: UUID,
-    attributes: Optional[Dict[str, Any]] = None,
-    source_document_id: Optional[UUID] = None,
-    confidence_score: float = 0.5,
-) -> Optional[EntityRelation]:
-    """Create a relation between two entities if it doesn't exist."""
-    # Check for existing relation
-    result = await session.execute(
-        select(EntityRelation).where(
-            EntityRelation.source_entity_id == source_entity_id,
-            EntityRelation.target_entity_id == target_entity_id,
-            EntityRelation.relation_type_id == relation_type_id,
-        )
-    )
-    existing = result.scalar_one_or_none()
-    if existing:
-        return existing
-
-    relation = EntityRelation(
-        source_entity_id=source_entity_id,
-        target_entity_id=target_entity_id,
-        relation_type_id=relation_type_id,
-        attributes=attributes or {},
-        source_document_id=source_document_id,
-        confidence_score=confidence_score,
-    )
-    session.add(relation)
-    return relation
+class EventExtractionError(Exception):
+    """Raised when event extraction encounters a configuration error."""
+    pass
 
 
 async def process_event_extraction(
@@ -90,10 +50,31 @@ async def process_event_extraction(
     - event_attendance FacetValues for persons
     - Relations (attends, works_for, located_in)
 
-    Returns dict with counts of created items.
+    Args:
+        session: Database session
+        extracted_data: ExtractedData with event content
+        source: Optional DataSource for metadata
+        category: Optional Category for entity type configuration
+
+    Returns:
+        Dict with counts of created items:
+        - events: Number of event entities created
+        - persons: Number of person entities created
+        - event_attendances: Number of attendance facet values created
+        - relations: Number of relations created
+
+    Note:
+        Returns empty counts dict if:
+        - extracted_data has no content
+        - No event data in extraction
+        - Required relation/facet types not configured in database
     """
     content = extracted_data.final_content
     if not content:
+        logger.debug(
+            "Empty content in extraction",
+            extraction_id=str(extracted_data.id),
+        )
         return {}
 
     counts = {
@@ -110,7 +91,18 @@ async def process_event_extraction(
     event_attendance_facet = await get_facet_type_by_slug(session, "event_attendance")
 
     if not attends_type or not event_attendance_facet:
-        logger.warning("Required relation/facet types not found for event processing")
+        missing = []
+        if not attends_type:
+            missing.append("RelationType 'attends'")
+        if not event_attendance_facet:
+            missing.append("FacetType 'event_attendance'")
+
+        logger.error(
+            "Required types not found for event processing - run seed script",
+            missing_types=missing,
+            extraction_id=str(extracted_data.id),
+            hint="Run: python scripts/seed_entity_facet_system.py",
+        )
         return counts
 
     # Extract event data

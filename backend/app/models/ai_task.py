@@ -29,6 +29,8 @@ class AITaskType(str, enum.Enum):
     PYSIS_EXTRACTION = "PYSIS_EXTRACTION"
     PYSIS_TO_FACETS = "PYSIS_TO_FACETS"
     BATCH_ANALYSIS = "BATCH_ANALYSIS"
+    ENTITY_DATA_ANALYSIS = "ENTITY_DATA_ANALYSIS"  # Analyse von Entity-Daten für Facet-Anreicherung
+    ATTACHMENT_ANALYSIS = "ATTACHMENT_ANALYSIS"  # Analyse von User-Attachments (Bilder, PDFs)
 
 
 class AITask(Base):
@@ -126,6 +128,23 @@ class AITask(Base):
         JSONB,
         default=dict,
         nullable=False,
+    )
+
+    # Result data for preview/staging (e.g., proposed facet changes before approval)
+    result_data: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB,
+        default=dict,
+        nullable=False,
+        comment="Structured result data (e.g., preview of proposed changes)",
+    )
+
+    # Entity reference (for entity-based tasks)
+    entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+        comment="Entity ID for entity-based tasks",
     )
 
     # Celery task ID for tracking

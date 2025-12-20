@@ -21,3 +21,4 @@ export {
 } from './useEntitiesFilters'
 export { usePySisHelpers } from './usePySisHelpers'
 export { useAssistant } from './useAssistant'
+export { useColorHelpers, isLightColor, getContrastColor } from './useColorHelpers'

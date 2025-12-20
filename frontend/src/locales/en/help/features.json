@@ -222,6 +222,36 @@
           "startCrawl": "Start Crawl - Update data sources"
         }
       },
+      "manualCreation": {
+        "title": "Create Facets Manually",
+        "description": "In addition to automatic AI extraction, facets can also be created manually. There are three ways:",
+        "dialog": {
+          "title": "Via the Dialog in the Entity Detail View",
+          "description": "The easiest way to add a single facet:",
+          "step1": "Open the entity detail view",
+          "step2": "Click 'Add Facet'",
+          "step3": "Select the facet type (only applicable ones are shown)",
+          "step4": "Fill in the dynamic fields and save",
+          "note": "The form automatically adapts to the schema of the selected facet type. For 'Pain Point' for example, fields for description, type, severity and quote appear."
+        },
+        "smartQuery": {
+          "title": "Via Smart Query (Write Mode)",
+          "description": "For power users: Create facets using natural language:",
+          "exampleLabel": "Examples:",
+          "example1": "Add Pain Point 'Citizen protests against wind farm' to Musterstadt",
+          "example2": "New positive signal for Gummersbach: Wind energy funding approved",
+          "example3": "Create contact Hans Mueller (Mayor) for municipality Waldorf",
+          "writeMode": "Important: Activate write mode to create facets via Smart Query."
+        },
+        "assistant": {
+          "title": "Via the AI Assistant",
+          "description": "The AI assistant can also create facets when write mode is active:",
+          "exampleLabel": "Examples:",
+          "example1": "Add a pain point to this municipality: Noise pollution from planned facility",
+          "example2": "Create a new contact for Musterstadt with name Max Mustermann, role Mayor",
+          "note": "The assistant uses the context of the current view - on an entity detail page it automatically refers to that entity."
+        }
+      },
       "aiIntegration": {
         "title": "AI Integration",
         "description": "The Entity-Facet System is tightly integrated with AI analysis:",
@@ -287,6 +317,80 @@
           "entityLinked": "PySis process must be linked to an Entity",
           "fieldsWithValues": "At least one field must have a value",
           "facetTypesActive": "FacetTypes must be active and AI extraction enabled"
+        }
+      },
+      "enrichFacetsFromPysis": {
+        "title": "Enrich Existing Facets with PySis Data",
+        "description": "This feature allows you to enrich existing FacetValues with additional information from PySis fields.",
+        "differenceToAnalyze": {
+          "title": "Difference to 'Analyze for Facets'",
+          "analyze": "Analyze: Creates NEW FacetValues from PySis data",
+          "enrich": "Enrich: Supplements EXISTING FacetValues with additional information from PySis"
+        },
+        "workflow": {
+          "title": "Workflow",
+          "step1": "PySis fields must already be imported into the Entity",
+          "step2": "Entity must already have FacetValues (e.g. from crawling)",
+          "step3": "Click 'Enrich Facets' button in PySis tab or Entity detail",
+          "step4": "Optional: Enable 'Overwrite existing values'",
+          "step5": "AI analyzes PySis fields and supplements missing information"
+        },
+        "useCase": {
+          "title": "Use Case",
+          "example": "Example: A Pain Point was extracted via crawling, but the PySis data contains additional details like contact persons or time frames. The enrichment automatically adds this information."
+        },
+        "access": {
+          "title": "Access",
+          "pysisTab": "PySis Tab: 'Enrich Facets' button next to 'Create Facets'",
+          "entityDetail": "Entity Detail: 'Enrich from PySis' button in Facets tab (only for municipalities with PySis processes)",
+          "aiAssistant": "AI Assistant: 'Enrich facets' or 'Supplement facets with PySis data'"
+        }
+      },
+      "multiSourceEnrichment": {
+        "title": "AI Enrichment from Multiple Data Sources",
+        "description": "This feature allows you to create or enrich facets from multiple data sources simultaneously - with a preview before saving.",
+        "dataSources": {
+          "title": "Available Data Sources",
+          "pysis": "PySIS Data - Field values from linked PySIS processes",
+          "relations": "Relations - Information from linked entities (persons, organizations, events)",
+          "documents": "Documents - Texts and content from crawled documents",
+          "extractions": "AI Extractions - Previously extracted data from AI analysis"
+        },
+        "workflow": {
+          "title": "Workflow",
+          "step1": "Open the entity detail view",
+          "step2": "Click 'Enrich' to open the dropdown",
+          "step3": "Select the desired data sources (with timestamps)",
+          "step4": "Start the analysis - a modal shows the progress",
+          "step5": "Review the suggestions in the review view",
+          "step6": "Select which facets to accept",
+          "step7": "Confirm the changes"
+        },
+        "reviewModal": {
+          "title": "Review View",
+          "description": "After analysis, a modal opens with two tabs:",
+          "newFacets": "New Facets - Completely new information that could be created as facets",
+          "updates": "Updates - Supplements to existing facets (e.g. missing email addresses)",
+          "confidenceInfo": "Suggestions with high confidence (>70%) are automatically pre-selected",
+          "diffView": "For updates, a before/after comparison is shown"
+        },
+        "minimizeFeature": {
+          "title": "Minimize Feature",
+          "description": "While the analysis is running, you can minimize the modal:",
+          "toast": "A clickable toast appears at the bottom of the screen",
+          "return": "Click on it to return to the preview",
+          "background": "The analysis continues running in the background"
+        },
+        "access": {
+          "title": "Access",
+          "entityDetail": "Entity Detail: 'Enrich' button with dropdown for data source selection",
+          "aiAssistant": "AI Assistant: 'Analyze all data for facets' or 'Enrich facets from relations'"
+        },
+        "tips": {
+          "title": "Tips",
+          "selectSources": "Select only relevant data sources for faster analysis",
+          "checkTimestamps": "Pay attention to timestamps - newer data may be more relevant",
+          "reviewCarefully": "Review suggestions with lower confidence especially carefully"
         }
       }
     },
@@ -367,7 +471,9 @@
         "json": "JSON",
         "jsonDesc": "Structured with all details",
         "csv": "CSV",
-        "csvDesc": "Table format for Excel"
+        "csvDesc": "Table format for Excel",
+        "excel": "Excel",
+        "excelDesc": "XLSX format with formatting"
       },
       "exportFilters": "Export Filters",
       "filters": [
@@ -377,6 +483,37 @@
         "Minimum Confidence (Slider)",
         "Verified data only"
       ],
+      "asyncExport": {
+        "title": "Async Export for Large Datasets",
+        "description": "For exports with more than 5000 records, an asynchronous export is available that runs in the background.",
+        "workflow": {
+          "title": "Workflow",
+          "step1": "Select entity type and format",
+          "step2": "Optional: Filter by location or enable facets",
+          "step3": "Click 'Start Async Export'",
+          "step4": "The export starts as a background job",
+          "step5": "Track progress in the export panel",
+          "step6": "Download the completed file"
+        },
+        "features": {
+          "title": "Features",
+          "progress": "Real-time progress display with percentage bar",
+          "entityTypes": "Export for different entity types (municipalities, persons, organizations, events)",
+          "formats": "Supported formats: JSON, CSV, Excel (XLSX)",
+          "facets": "Optional: Include facet data in export",
+          "download": "Automatic download link after completion",
+          "cancel": "Running exports can be cancelled"
+        },
+        "statusTypes": {
+          "title": "Status Types",
+          "pending": "Pending - Export waiting for processing",
+          "running": "Running - Export is being processed",
+          "completed": "Completed - Download available",
+          "failed": "Failed - Error occurred",
+          "cancelled": "Cancelled - Export was stopped"
+        },
+        "retention": "Note: Export files are retained for 24 hours."
+      },
       "webhookTest": {
         "title": "Webhook Test",
         "description": "Test webhook integrations with external systems:",
@@ -516,7 +653,37 @@
         "contextAware": "Context-Aware",
         "contextAwareDesc": "The assistant knows your current view and can respond accordingly",
         "slashCommands": "Slash Commands",
-        "slashCommandsDesc": "Quick commands for common actions"
+        "slashCommandsDesc": "Quick commands for common actions",
+        "imageAnalysis": "Image Analysis",
+        "imageAnalysisDesc": "Upload images and have them analyzed by AI"
+      },
+      "imageUpload": {
+        "title": "Image Upload and Analysis",
+        "description": "The AI assistant can analyze images and extract relevant information:",
+        "uploadMethods": {
+          "title": "Uploading images",
+          "button": "Click the paperclip icon next to the input field",
+          "paste": "Paste an image from clipboard (Ctrl+V / Cmd+V)",
+          "drag": "Drag and drop an image file into the chat window"
+        },
+        "supportedFormats": {
+          "title": "Supported Formats",
+          "formats": "PNG, JPEG, GIF, WebP, PDF (max. 10MB)"
+        },
+        "examples": {
+          "title": "Use Cases",
+          "protocol": "Analyze scanned protocols and extract pain points",
+          "screenshot": "Analyze website screenshots",
+          "document": "Read business cards or documents",
+          "chart": "Interpret charts or graphics"
+        },
+        "workflow": {
+          "title": "Workflow",
+          "step1": "Upload image (button or paste)",
+          "step2": "Optional: Enter a question about the image",
+          "step3": "Send - AI analyzes the image",
+          "step4": "Result can be saved as a facet"
+        }
       },
       "modes": {
         "title": "Modes",
@@ -566,9 +733,80 @@
         "slashShortcuts": "Use slash commands for quick actions",
         "confirmWrite": "In write mode, changes are always shown for confirmation first"
       },
+      "contextActions": {
+        "title": "Context-Aware Actions",
+        "description": "When you are on an entity detail page, the assistant can perform actions directly on that entity:",
+        "capabilities": {
+          "analyzePysis": "Analyze PySis",
+          "analyzePysisDesc": "'Analyze PySis' - Creates facets from PySis fields of the current entity",
+          "enrichFacets": "Enrich Facets",
+          "enrichFacetsDesc": "'Enrich facets' - Supplements existing facets with PySis data",
+          "showStatus": "Show PySis Status",
+          "showStatusDesc": "'Show PySis status' - Displays information about linked PySis processes",
+          "startCrawl": "Start Crawl",
+          "startCrawlDesc": "'Start crawl' - Starts a crawl for the data sources of the current entity"
+        },
+        "examples": {
+          "title": "Examples",
+          "example1": "On the detail page of 'Gummersbach': 'Analyze PySis for facets'",
+          "example2": "On a municipality detail page: 'What is the PySis status?'",
+          "example3": "On a detail page: 'Enrich the facets with PySis data'"
+        },
+        "note": "Note: These actions only work on entity detail pages. On other pages, you can specify the entity name explicitly (e.g. 'Analyze PySis for Gummersbach')."
+      },
+      "batchOperations": {
+        "title": "Batch Operations via AI",
+        "description": "The AI assistant can execute mass operations on multiple entities:",
+        "capabilities": {
+          "addFacet": "Add Facets",
+          "addFacetDesc": "Add a facet value to all filtered entities",
+          "updateField": "Update Fields",
+          "updateFieldDesc": "Change a field for all filtered entities",
+          "removeFacet": "Remove Facets",
+          "removeFacetDesc": "Remove facets from multiple entities at once"
+        },
+        "examples": {
+          "title": "Examples",
+          "addPainPoint": "Add a pain point 'Staff shortage' to all municipalities in NRW",
+          "updateField": "Set the 'priority' field to 'high' for all municipalities with more than 50,000 inhabitants",
+          "removeFacet": "Remove all outdated event attendance facets from people in Bavaria"
+        },
+        "workflow": {
+          "title": "Workflow",
+          "step1": "Describe the desired operation in natural language",
+          "step2": "The assistant shows a preview with affected entities",
+          "step3": "Confirm the operation or adjust the filters",
+          "step4": "The operation is applied to all filtered entities"
+        },
+        "safetyNote": "Note: Batch operations require write mode and always show a preview before execution."
+      },
+      "queryHistory": {
+        "title": "Query History",
+        "description": "The query history stores your recent queries and provides quick access to frequently used queries.",
+        "features": {
+          "title": "Features",
+          "history": "Recent queries are automatically saved",
+          "favorites": "Mark frequently used queries as favorites",
+          "rerun": "Re-execute saved queries with one click",
+          "filter": "Filter by all queries or favorites only",
+          "clear": "Clear the entire history or individual entries"
+        },
+        "access": {
+          "title": "Access",
+          "description": "The query history is accessible via the clock icon in the chat window.",
+          "toggle": "Click the icon to show/hide the history panel"
+        },
+        "storage": {
+          "title": "Storage",
+          "description": "The history is stored locally in the browser (LocalStorage):",
+          "limit": "The last 50 queries are saved",
+          "persistent": "Data persists even after browser restart",
+          "perUser": "Each user has their own history"
+        }
+      },
       "facetManagement": {
         "title": "Facet Management via AI",
-        "description": "The AI assistant can also manage facet types:",
+        "description": "The AI assistant can also manage facet types (uses the same architecture as Smart Query):",
         "capabilities": {
           "createFacetType": "Create Facet Types",
           "createFacetTypeDesc": "Describe what kind of data you want to capture",
@@ -768,6 +1006,106 @@
           "colorCoded": "Facet types are displayed with their configured colors",
           "quickAssign": "Quick assignment via the Facet Type management"
         }
+      }
+    },
+    "smartQuery": {
+      "title": "Smart Query - Advanced Queries",
+      "description": "Smart Query enables intelligent, natural language queries with advanced features for complex data analysis.",
+      "querySyntax": {
+        "title": "Query Syntax",
+        "booleanOperators": {
+          "title": "Boolean Operators (AND/OR)",
+          "description": "Combine multiple conditions with logical operators:",
+          "orExample": "Show mayors in NRW or Bavaria",
+          "orExplanation": "Finds mayors in North Rhine-Westphalia OR Bavaria",
+          "andExample": "Municipalities with pain points AND positive signals",
+          "andExplanation": "Finds only municipalities that have BOTH facet types",
+          "keywords": "Keywords: and, or / und, oder, sowie"
+        },
+        "negation": {
+          "title": "Negation (WITHOUT/NOT)",
+          "description": "Exclude certain results:",
+          "example1": "Municipalities WITHOUT pain points",
+          "example2": "People NOT in Bavaria",
+          "keywords": "Keywords: without, not, no / ohne, nicht, keine"
+        },
+        "dateRange": {
+          "title": "Date Range Filter",
+          "description": "Filter by precise time periods:",
+          "example1": "Events between January 1 and March 31, 2025",
+          "example2": "Appointments from the last 3 months",
+          "example3": "Events starting next week",
+          "tip": "Tip: Relative time references like 'next week' or 'last month' are automatically recognized."
+        },
+        "multiHop": {
+          "title": "Multi-Hop Relations",
+          "description": "Queries across multiple relationship levels:",
+          "example1": "Show people whose municipalities have pain points",
+          "example2": "Find organizations whose members speak at events",
+          "example3": "List municipalities whose mayors have positive signals",
+          "note": "Maximum depth: 3 relation hops (for performance reasons)"
+        }
+      },
+      "aggregations": {
+        "title": "Aggregation Queries",
+        "description": "Statistical evaluations and summaries:",
+        "functions": {
+          "count": "How many... - Counts results",
+          "avg": "Average... - Calculates means",
+          "sum": "Sum/Total... - Sums values",
+          "min": "Minimum... - Finds smallest value",
+          "max": "Maximum... - Finds largest value"
+        },
+        "examples": {
+          "count": "How many municipalities have pain points?",
+          "avg": "Average number of pain points per municipality",
+          "grouped": "Number of mayors per state"
+        }
+      },
+      "writeOperations": {
+        "title": "Write Operations",
+        "delete": {
+          "title": "Delete",
+          "description": "Delete entities and facets via voice command:",
+          "example1": "Delete the entity Max Mueller",
+          "example2": "Remove all pain points from municipality Gummersbach",
+          "note": "Note: All deletions are soft-deletes and require confirmation."
+        },
+        "export": {
+          "title": "Export",
+          "description": "Export search results directly:",
+          "example1": "Export all mayors in NRW as Excel",
+          "example2": "Export municipalities with pain points as CSV",
+          "formats": "Supported formats: CSV, JSON, Excel (XLSX)"
+        },
+        "undo": {
+          "title": "Undo",
+          "description": "Revert changes:",
+          "example1": "Undo the last change",
+          "example2": "Show the last changes to Gummersbach",
+          "note": "Note: Only changes from the current session can be undone."
+        }
+      },
+      "errorHandling": {
+        "title": "Intelligent Error Handling",
+        "description": "The system detects typos and suggests corrections:",
+        "example": "For 'Municipalities in NWR' appears: 'Did you mean NRW?'",
+        "suggestionTypes": {
+          "geographic": "Geographic correction (states, cities)",
+          "entityType": "Entity type correction",
+          "facetType": "Facet type correction"
+        },
+        "tip": "Tip: Click on a suggestion to immediately execute the corrected query."
+      },
+      "tips": {
+        "title": "Tips & Tricks",
+        "items": [
+          "Use 'or' for alternative filters instead of multiple queries",
+          "Use 'without' to exclude irrelevant results",
+          "Combine time filters with geographic filters",
+          "For complex analyses, use aggregation queries",
+          "Multi-hop relations help with interconnected data"
+        ]
       }
     },
     "auditLog": {

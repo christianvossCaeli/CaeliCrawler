@@ -222,6 +222,36 @@
           "startCrawl": "Crawl starten - Datenquellen aktualisieren"
         }
       },
+      "manualCreation": {
+        "title": "Facets manuell erstellen",
+        "description": "Neben der automatischen KI-Extraktion koennen Facets auch manuell erstellt werden. Es gibt drei Moeglichkeiten:",
+        "dialog": {
+          "title": "Ueber den Dialog in der Entity-Detailansicht",
+          "description": "Der einfachste Weg, um ein einzelnes Facet hinzuzufuegen:",
+          "step1": "Oeffnen Sie die Entity-Detailansicht",
+          "step2": "Klicken Sie auf 'Facet hinzufuegen'",
+          "step3": "Waehlen Sie den Facet-Typ (nur passende werden angezeigt)",
+          "step4": "Fuellen Sie die dynamischen Felder aus und speichern Sie",
+          "note": "Das Formular passt sich automatisch an das Schema des gewaehlten Facet-Typs an. Bei 'Pain Point' z.B. erscheinen Felder fuer Beschreibung, Typ, Schweregrad und Zitat."
+        },
+        "smartQuery": {
+          "title": "Ueber Smart Query (Schreibmodus)",
+          "description": "Fuer Power-User: Facets per natuerlicher Sprache erstellen:",
+          "exampleLabel": "Beispiele:",
+          "example1": "Fuege Pain Point 'Buergerproteste gegen Windpark' zu Musterstadt hinzu",
+          "example2": "Neues positives Signal fuer Gummersbach: Foerderung fuer Windenergie bewilligt",
+          "example3": "Erstelle Kontakt Hans Mueller (Buergermeister) fuer Gemeinde Waldorf",
+          "writeMode": "Wichtig: Aktivieren Sie den Schreibmodus, um Facets per Smart Query zu erstellen."
+        },
+        "assistant": {
+          "title": "Ueber den KI-Assistenten",
+          "description": "Der KI-Assistent kann ebenfalls Facets erstellen, wenn der Schreibmodus aktiv ist:",
+          "exampleLabel": "Beispiele:",
+          "example1": "Fuege dieser Gemeinde einen Pain Point hinzu: Laermbelastung durch geplante Anlage",
+          "example2": "Erstelle einen neuen Kontakt fuer Musterstadt mit Name Max Mustermann, Rolle Buergermeister",
+          "note": "Der Assistent nutzt den Kontext der aktuellen Ansicht - auf einer Entity-Detailseite bezieht er sich automatisch auf diese Entity."
+        }
+      },
       "aiIntegration": {
         "title": "KI-Integration",
         "description": "Das Entity-Facet System ist eng mit der KI-Analyse integriert:",
@@ -287,6 +317,80 @@
           "entityLinked": "PySis-Prozess muss mit einer Entity verknuepft sein",
           "fieldsWithValues": "Mindestens ein Feld muss einen Wert haben",
           "facetTypesActive": "FacetTypes muessen aktiv und KI-Extraktion aktiviert sein"
+        }
+      },
+      "enrichFacetsFromPysis": {
+        "title": "Bestehende Facets mit PySis-Daten anreichern",
+        "description": "Diese Funktion ermoeglicht es, bereits vorhandene FacetValues mit zusaetzlichen Informationen aus PySis-Feldern anzureichern.",
+        "differenceToAnalyze": {
+          "title": "Unterschied zu 'Fuer Facets analysieren'",
+          "analyze": "Analysieren: Erstellt NEUE FacetValues aus PySis-Daten",
+          "enrich": "Anreichern: Ergaenzt BESTEHENDE FacetValues mit zusaetzlichen Informationen aus PySis"
+        },
+        "workflow": {
+          "title": "Workflow",
+          "step1": "PySis-Felder muessen bereits in die Entity importiert sein",
+          "step2": "Entity muss bereits FacetValues haben (z.B. aus Crawling)",
+          "step3": "Button 'Facets anreichern' im PySis-Tab oder Entity-Detail klicken",
+          "step4": "Optional: 'Bestehende Werte ueberschreiben' aktivieren",
+          "step5": "KI analysiert PySis-Felder und ergaenzt fehlende Informationen"
+        },
+        "useCase": {
+          "title": "Anwendungsfall",
+          "example": "Beispiel: Ein Pain Point wurde per Crawling extrahiert, aber die PySis-Daten enthalten zusaetzliche Details wie Kontaktpersonen oder Zeitraeume. Die Anreicherung fuegt diese Informationen automatisch hinzu."
+        },
+        "access": {
+          "title": "Zugriff",
+          "pysisTab": "PySis-Tab: Button 'Facets anreichern' neben 'Facets erstellen'",
+          "entityDetail": "Entity-Detail: Button 'Aus PySis anreichern' im Facets-Tab (nur bei Gemeinden mit PySis-Prozessen)",
+          "aiAssistant": "KI-Assistent: 'Reichere Facets an' oder 'Ergaenze Facets mit PySis-Daten'"
+        }
+      },
+      "multiSourceEnrichment": {
+        "title": "KI-Anreicherung aus mehreren Datenquellen",
+        "description": "Diese Funktion ermoeglicht es, Facets aus verschiedenen Datenquellen gleichzeitig zu erstellen oder anzureichern - mit einer Vorschau vor dem Speichern.",
+        "dataSources": {
+          "title": "Verfuegbare Datenquellen",
+          "pysis": "PySIS-Daten - Feldwerte aus verknuepften PySIS-Prozessen",
+          "relations": "Relationen - Informationen aus verknuepften Entities (Personen, Organisationen, Events)",
+          "documents": "Dokumente - Texte und Inhalte aus gecrawlten Dokumenten",
+          "extractions": "KI-Extraktionen - Bereits extrahierte Daten aus der KI-Analyse"
+        },
+        "workflow": {
+          "title": "Workflow",
+          "step1": "Oeffnen Sie die Entity-Detailansicht",
+          "step2": "Klicken Sie auf 'Anreichern' um das Dropdown zu oeffnen",
+          "step3": "Waehlen Sie die gewuenschten Datenquellen aus (mit Zeitstempeln)",
+          "step4": "Starten Sie die Analyse - ein Modal zeigt den Fortschritt",
+          "step5": "Pruefen Sie die Vorschlaege in der Review-Ansicht",
+          "step6": "Waehlen Sie aus, welche Facets uebernommen werden sollen",
+          "step7": "Bestaetigen Sie die Aenderungen"
+        },
+        "reviewModal": {
+          "title": "Review-Ansicht",
+          "description": "Nach der Analyse oeffnet sich ein Modal mit zwei Tabs:",
+          "newFacets": "Neue Facets - Voellig neue Informationen, die als Facets erstellt werden koennten",
+          "updates": "Updates - Ergaenzungen zu bestehenden Facets (z.B. fehlende E-Mail-Adressen)",
+          "confidenceInfo": "Vorschlaege mit hoher Konfidenz (>70%) werden automatisch vorausgewaehlt",
+          "diffView": "Bei Updates wird ein Vorher/Nachher-Vergleich angezeigt"
+        },
+        "minimizeFeature": {
+          "title": "Minimieren-Funktion",
+          "description": "Waehrend die Analyse laeuft, koennen Sie das Modal minimieren:",
+          "toast": "Ein klickbarer Toast erscheint am unteren Bildschirmrand",
+          "return": "Klicken Sie darauf, um zur Vorschau zurueckzukehren",
+          "background": "Die Analyse laeuft im Hintergrund weiter"
+        },
+        "access": {
+          "title": "Zugriff",
+          "entityDetail": "Entity-Detail: 'Anreichern'-Button mit Dropdown fuer Datenquellen-Auswahl",
+          "aiAssistant": "KI-Assistent: 'Analysiere alle Daten fuer Facets' oder 'Reichere Facets aus Relationen an'"
+        },
+        "tips": {
+          "title": "Tipps",
+          "selectSources": "Waehlen Sie nur relevante Datenquellen fuer schnellere Analyse",
+          "checkTimestamps": "Achten Sie auf die Zeitstempel - neuere Daten koennen relevanter sein",
+          "reviewCarefully": "Pruefen Sie besonders Vorschlaege mit niedrigerer Konfidenz sorgfaeltig"
         }
       }
     },
@@ -367,7 +471,9 @@
         "json": "JSON",
         "jsonDesc": "Strukturiert mit allen Details",
         "csv": "CSV",
-        "csvDesc": "Tabellenformat für Excel"
+        "csvDesc": "Tabellenformat für Excel",
+        "excel": "Excel",
+        "excelDesc": "XLSX-Format mit Formatierung"
       },
       "exportFilters": "Export-Filter",
       "filters": [
@@ -377,6 +483,37 @@
         "Mindest-Konfidenz (Slider)",
         "Nur verifizierte Daten"
       ],
+      "asyncExport": {
+        "title": "Async Export fuer grosse Datensaetze",
+        "description": "Fuer Exports mit mehr als 5000 Datensaetzen steht ein asynchroner Export zur Verfuegung, der im Hintergrund ausgefuehrt wird.",
+        "workflow": {
+          "title": "Workflow",
+          "step1": "Waehlen Sie Entity-Typ und Format aus",
+          "step2": "Optional: Filtern Sie nach Standort oder aktivieren Sie Facets",
+          "step3": "Klicken Sie auf 'Async Export starten'",
+          "step4": "Der Export wird als Hintergrund-Job gestartet",
+          "step5": "Verfolgen Sie den Fortschritt im Export-Panel",
+          "step6": "Laden Sie die fertige Datei herunter"
+        },
+        "features": {
+          "title": "Features",
+          "progress": "Echtzeit-Fortschrittsanzeige mit Prozentbalken",
+          "entityTypes": "Export fuer verschiedene Entity-Typen (Gemeinden, Personen, Organisationen, Events)",
+          "formats": "Unterstuetzte Formate: JSON, CSV, Excel (XLSX)",
+          "facets": "Optional: Facet-Daten mit exportieren",
+          "download": "Automatischer Download-Link nach Fertigstellung",
+          "cancel": "Laufende Exports koennen abgebrochen werden"
+        },
+        "statusTypes": {
+          "title": "Status-Typen",
+          "pending": "Ausstehend - Export wartet auf Verarbeitung",
+          "running": "Laufend - Export wird verarbeitet",
+          "completed": "Abgeschlossen - Download verfuegbar",
+          "failed": "Fehlgeschlagen - Fehler ist aufgetreten",
+          "cancelled": "Abgebrochen - Export wurde gestoppt"
+        },
+        "retention": "Hinweis: Export-Dateien werden 24 Stunden lang aufbewahrt."
+      },
       "webhookTest": {
         "title": "Webhook Test",
         "description": "Testen Sie Webhook-Integrationen mit externen Systemen:",
@@ -516,7 +653,37 @@
         "contextAware": "Kontextbewusst",
         "contextAwareDesc": "Der Assistent kennt Ihre aktuelle Ansicht und kann darauf reagieren",
         "slashCommands": "Slash-Kommandos",
-        "slashCommandsDesc": "Schnellbefehle fuer haeufige Aktionen"
+        "slashCommandsDesc": "Schnellbefehle fuer haeufige Aktionen",
+        "imageAnalysis": "Bild-Analyse",
+        "imageAnalysisDesc": "Laden Sie Bilder hoch und lassen Sie diese von der KI analysieren"
+      },
+      "imageUpload": {
+        "title": "Bild-Upload und Analyse",
+        "description": "Der KI-Assistent kann Bilder analysieren und relevante Informationen extrahieren:",
+        "uploadMethods": {
+          "title": "Bilder hochladen",
+          "button": "Klicken Sie auf das Bueroklammer-Symbol neben dem Eingabefeld",
+          "paste": "Fuegen Sie ein Bild aus der Zwischenablage ein (Strg+V / Cmd+V)",
+          "drag": "Ziehen Sie eine Bilddatei in das Chat-Fenster"
+        },
+        "supportedFormats": {
+          "title": "Unterstuetzte Formate",
+          "formats": "PNG, JPEG, GIF, WebP, PDF (max. 10MB)"
+        },
+        "examples": {
+          "title": "Anwendungsbeispiele",
+          "protocol": "Protokoll-Scan analysieren und Pain Points extrahieren",
+          "screenshot": "Screenshot einer Website analysieren",
+          "document": "Visitenkarte oder Dokument auslesen",
+          "chart": "Diagramm oder Grafik interpretieren"
+        },
+        "workflow": {
+          "title": "Workflow",
+          "step1": "Bild hochladen (Button oder Einfuegen)",
+          "step2": "Optional: Frage zum Bild eingeben",
+          "step3": "Senden - die KI analysiert das Bild",
+          "step4": "Ergebnis kann als Facet gespeichert werden"
+        }
       },
       "modes": {
         "title": "Modi",
@@ -566,9 +733,80 @@
         "slashShortcuts": "Verwenden Sie Slash-Kommandos fuer schnelle Aktionen",
         "confirmWrite": "Im Schreib-Modus werden Aenderungen immer erst zur Bestaetigung angezeigt"
       },
+      "contextActions": {
+        "title": "Kontextbezogene Aktionen",
+        "description": "Wenn Sie sich auf einer Entity-Detailseite befinden, kann der Assistent Aktionen direkt auf dieser Entity ausfuehren:",
+        "capabilities": {
+          "analyzePysis": "PySis analysieren",
+          "analyzePysisDesc": "'Analysiere PySis' - Erstellt Facets aus PySis-Feldern der aktuellen Entity",
+          "enrichFacets": "Facets anreichern",
+          "enrichFacetsDesc": "'Reichere Facets an' - Ergaenzt bestehende Facets mit PySis-Daten",
+          "showStatus": "PySis-Status anzeigen",
+          "showStatusDesc": "'Zeig PySis-Status' - Zeigt Informationen ueber verknuepfte PySis-Prozesse",
+          "startCrawl": "Crawl starten",
+          "startCrawlDesc": "'Starte Crawl' - Startet einen Crawl fuer die Datenquellen der aktuellen Entity"
+        },
+        "examples": {
+          "title": "Beispiele",
+          "example1": "Auf der Detailseite von 'Gummersbach': 'Analysiere PySis fuer Facets'",
+          "example2": "Auf der Detailseite einer Gemeinde: 'Wie ist der PySis-Status?'",
+          "example3": "Auf der Detailseite: 'Reichere die Facets mit PySis-Daten an'"
+        },
+        "note": "Hinweis: Diese Aktionen funktionieren nur auf Entity-Detailseiten. Auf anderen Seiten koennen Sie den Entity-Namen explizit angeben (z.B. 'Analysiere PySis fuer Gummersbach')."
+      },
+      "batchOperations": {
+        "title": "Batch-Operationen per KI",
+        "description": "Der KI-Assistent kann Massenoperationen auf mehreren Entities ausfuehren:",
+        "capabilities": {
+          "addFacet": "Facets hinzufuegen",
+          "addFacetDesc": "Fuegen Sie allen gefilterten Entities einen Facet-Wert hinzu",
+          "updateField": "Felder aktualisieren",
+          "updateFieldDesc": "Aendern Sie ein Feld bei allen gefilterten Entities",
+          "removeFacet": "Facets entfernen",
+          "removeFacetDesc": "Entfernen Sie Facets von mehreren Entities gleichzeitig"
+        },
+        "examples": {
+          "title": "Beispiele",
+          "addPainPoint": "Fuege allen Gemeinden in NRW einen Pain Point 'Fachkraeftemangel' hinzu",
+          "updateField": "Setze das Feld 'prioritaet' auf 'hoch' fuer alle Gemeinden mit mehr als 50.000 Einwohnern",
+          "removeFacet": "Entferne alle veralteten Event-Teilnahme Facets von Personen in Bayern"
+        },
+        "workflow": {
+          "title": "Workflow",
+          "step1": "Beschreiben Sie die gewuenschte Operation in natuerlicher Sprache",
+          "step2": "Der Assistent zeigt eine Vorschau mit betroffenen Entities",
+          "step3": "Bestaetigen Sie die Operation oder passen Sie die Filter an",
+          "step4": "Die Operation wird auf alle gefilterten Entities angewendet"
+        },
+        "safetyNote": "Hinweis: Batch-Operationen erfordern den Schreib-Modus und zeigen immer eine Vorschau vor der Ausfuehrung."
+      },
+      "queryHistory": {
+        "title": "Query-History",
+        "description": "Die Query-History speichert Ihre letzten Abfragen und ermoeglicht schnellen Zugriff auf haeufig verwendete Queries.",
+        "features": {
+          "title": "Funktionen",
+          "history": "Letzte Abfragen werden automatisch gespeichert",
+          "favorites": "Markieren Sie haeufig verwendete Queries als Favoriten",
+          "rerun": "Fuehren Sie gespeicherte Queries mit einem Klick erneut aus",
+          "filter": "Filtern Sie nach allen Queries oder nur Favoriten",
+          "clear": "Loeschen Sie die gesamte Historie oder einzelne Eintraege"
+        },
+        "access": {
+          "title": "Zugriff",
+          "description": "Die Query-History ist ueber das Uhr-Symbol im Chat-Fenster erreichbar.",
+          "toggle": "Klicken Sie auf das Symbol, um das History-Panel ein-/auszublenden"
+        },
+        "storage": {
+          "title": "Speicherung",
+          "description": "Die History wird lokal im Browser gespeichert (LocalStorage):",
+          "limit": "Die letzten 50 Queries werden gespeichert",
+          "persistent": "Daten bleiben auch nach Browser-Neustart erhalten",
+          "perUser": "Jeder Benutzer hat seine eigene History"
+        }
+      },
       "facetManagement": {
         "title": "Facet-Verwaltung per KI",
-        "description": "Der KI-Assistent kann auch Facet-Typen verwalten:",
+        "description": "Der KI-Assistent kann auch Facet-Typen verwalten (nutzt dieselbe Architektur wie Smart Query):",
         "capabilities": {
           "createFacetType": "Facet-Typen erstellen",
           "createFacetTypeDesc": "Beschreiben Sie, welche Art von Daten Sie erfassen moechten",
@@ -768,6 +1006,106 @@
           "colorCoded": "Facet-Typen werden mit ihren konfigurierten Farben angezeigt",
           "quickAssign": "Schnellzuordnung ueber die Facet-Typ Verwaltung"
         }
+      }
+    },
+    "smartQuery": {
+      "title": "Smart Query - Erweiterte Abfragen",
+      "description": "Smart Query ermoeglicht intelligente, natuerlichsprachliche Abfragen mit erweiterten Funktionen fuer komplexe Datenanalysen.",
+      "querySyntax": {
+        "title": "Query-Syntax",
+        "booleanOperators": {
+          "title": "Boolean-Operatoren (AND/OR)",
+          "description": "Kombinieren Sie mehrere Bedingungen mit logischen Operatoren:",
+          "orExample": "Zeige Buergermeister in NRW oder Bayern",
+          "orExplanation": "Findet Buergermeister in Nordrhein-Westfalen ODER Bayern",
+          "andExample": "Gemeinden mit Pain Points UND Positive Signals",
+          "andExplanation": "Findet nur Gemeinden, die BEIDE Facet-Typen haben",
+          "keywords": "Schluesselwoerter: und, oder, sowie / and, or"
+        },
+        "negation": {
+          "title": "Negation (OHNE/NICHT)",
+          "description": "Schliessen Sie bestimmte Ergebnisse aus:",
+          "example1": "Gemeinden OHNE Pain Points",
+          "example2": "Personen NICHT in Bayern",
+          "keywords": "Schluesselwoerter: ohne, nicht, keine / without, not, no"
+        },
+        "dateRange": {
+          "title": "Datumsbereich-Filter",
+          "description": "Filtern Sie nach praezisen Zeitraeumen:",
+          "example1": "Events zwischen 1. Januar und 31. Maerz 2025",
+          "example2": "Termine der letzten 3 Monate",
+          "example3": "Veranstaltungen ab naechster Woche",
+          "tip": "Tipp: Relative Zeitangaben wie 'naechste Woche' oder 'letzten Monat' werden automatisch erkannt."
+        },
+        "multiHop": {
+          "title": "Multi-Hop Relationen",
+          "description": "Abfragen ueber mehrere Beziehungsebenen hinweg:",
+          "example1": "Zeige Personen, deren Gemeinden Pain Points haben",
+          "example2": "Finde Organisationen, deren Mitglieder auf Events sprechen",
+          "example3": "Liste Gemeinden, deren Buergermeister Positive Signals haben",
+          "note": "Maximale Tiefe: 3 Relation-Hops (aus Performance-Gruenden)"
+        }
+      },
+      "aggregations": {
+        "title": "Aggregations-Abfragen",
+        "description": "Statistische Auswertungen und Zusammenfassungen:",
+        "functions": {
+          "count": "Wie viele... - Zaehlt Ergebnisse",
+          "avg": "Durchschnittlich... - Berechnet Mittelwerte",
+          "sum": "Summe/Gesamt... - Summiert Werte",
+          "min": "Minimum... - Findet kleinsten Wert",
+          "max": "Maximum... - Findet groessten Wert"
+        },
+        "examples": {
+          "count": "Wie viele Gemeinden haben Pain Points?",
+          "avg": "Durchschnittliche Anzahl Pain Points pro Gemeinde",
+          "grouped": "Anzahl Buergermeister pro Bundesland"
+        }
+      },
+      "writeOperations": {
+        "title": "Schreib-Operationen",
+        "delete": {
+          "title": "Loeschen",
+          "description": "Entities und Facets per Sprachbefehl loeschen:",
+          "example1": "Loesche die Entity Max Mueller",
+          "example2": "Entferne alle Pain Points von Gemeinde Gummersbach",
+          "note": "Hinweis: Alle Loeschungen sind Soft-Deletes und erfordern Bestaetigung."
+        },
+        "export": {
+          "title": "Export",
+          "description": "Suchergebnisse direkt exportieren:",
+          "example1": "Exportiere alle Buergermeister in NRW als Excel",
+          "example2": "Exportiere Gemeinden mit Pain Points als CSV",
+          "formats": "Unterstuetzte Formate: CSV, JSON, Excel (XLSX)"
+        },
+        "undo": {
+          "title": "Rueckgaengig machen",
+          "description": "Aenderungen widerrufen:",
+          "example1": "Mache die letzte Aenderung rueckgaengig",
+          "example2": "Zeige die letzten Aenderungen an Gummersbach",
+          "note": "Hinweis: Nur Aenderungen der aktuellen Session koennen rueckgaengig gemacht werden."
+        }
+      },
+      "errorHandling": {
+        "title": "Intelligente Fehlerbehandlung",
+        "description": "Das System erkennt Tippfehler und schlaegt Korrekturen vor:",
+        "example": "Bei 'Gemeinden in NWR' erscheint: 'Meinten Sie NRW?'",
+        "suggestionTypes": {
+          "geographic": "Geografische Korrektur (Bundeslaender, Staedte)",
+          "entityType": "Entity-Typ Korrektur",
+          "facetType": "Facet-Typ Korrektur"
+        },
+        "tip": "Tipp: Klicken Sie auf einen Vorschlag, um die korrigierte Abfrage direkt auszufuehren."
+      },
+      "tips": {
+        "title": "Tipps & Tricks",
+        "items": [
+          "Verwenden Sie 'oder' fuer alternative Filter statt mehrerer Abfragen",
+          "Nutzen Sie 'ohne' um irrelevante Ergebnisse auszuschliessen",
+          "Kombinieren Sie Zeitfilter mit geografischen Filtern",
+          "Fuer komplexe Analysen nutzen Sie Aggregations-Abfragen",
+          "Multi-Hop Relationen helfen bei vernetzten Daten"
+        ]
       }
     },
     "auditLog": {

@@ -140,6 +140,21 @@
         "aiNote": "Die KI interpretiert Ihre Frage und zeigt passende Ergebnisse.",
         "note": "Die KI interpretiert Ihre Frage und zeigt passende Ergebnisse."
       },
+      "imageAnalysis": {
+        "title": "Bild-Analyse",
+        "description": "Laden Sie Bilder hoch und lassen Sie diese von der KI analysieren:",
+        "uploadMethods": {
+          "button": "Bueroklammer-Symbol neben dem Eingabefeld",
+          "paste": "Bild aus Zwischenablage einfuegen (Strg+V)",
+          "formats": "PNG, JPEG, GIF, WebP, PDF (max. 10MB)"
+        },
+        "examples": {
+          "1": "Protokoll-Scans analysieren und Pain Points extrahieren",
+          "2": "Screenshots von Webseiten auswerten",
+          "3": "Visitenkarten oder Dokumente auslesen"
+        },
+        "note": "Bei hochgeladenen Bildern aendert sich der Button zu 'Bild analysieren'."
+      },
       "read_mode": {
         "title": "Lese-Modus (Standard)",
         "description": "Stellen Sie Fragen in natuerlicher Sprache:",
@@ -352,6 +367,15 @@
     "sources": {
       "title": "Datenquellen",
       "description": "Datenquellen sind die konkreten Websites oder APIs, die gecrawlt werden.",
+      "sidebarNavigation": {
+        "title": "Sidebar-Navigation",
+        "info": "Die Datenquellen-Seite bietet eine Sidebar zur schnellen Filterung:",
+        "categories": "Kategorien - Alle konfigurierten Kategorien mit Anzahl der zugeordneten Quellen",
+        "types": "Quellentyp - Website, OParl API, RSS, Custom API",
+        "status": "Status - Aktiv, Ausstehend, Pausiert, Fehler",
+        "collapse": "Die Sidebar kann über den Pfeil-Button ein-/ausgeklappt werden",
+        "combined": "Filter können kombiniert werden (z.B. Kategorie + Status)"
+      },
       "categoryAssignment": {
         "title": "Kategorie-Zuordnung (N:M)",
         "info": "Eine Datenquelle kann mehreren Kategorien zugeordnet werden (N:M-Beziehung). Beim Crawlen wird die Kategorie des Jobs verwendet, nicht die der Quelle.",

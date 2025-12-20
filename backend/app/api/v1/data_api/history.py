@@ -23,9 +23,9 @@ async def get_municipality_history(
     session: AsyncSession = Depends(get_session),
 ):
     """Get historical development of results per municipality over time."""
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
 
-    start_date = datetime.utcnow() - timedelta(days=days)
+    start_date = datetime.now(timezone.utc) - timedelta(days=days)
     municipality_expr = ExtractedData.extracted_content["municipality"].astext
 
     if municipality_name:

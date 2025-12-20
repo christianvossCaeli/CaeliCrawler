@@ -1,199 +1,42 @@
 <template>
   <div>
-    <h1 class="text-h4 mb-6">{{ $t('dashboard.title') }}</h1>
+    <!-- Header with Customize Button -->
+    <div class="d-flex align-center mb-6">
+      <h1 class="text-h4">{{ $t('dashboard.title') }}</h1>
+      <v-spacer />
+      <v-btn
+        variant="tonal"
+        :color="dashboardStore.isEditing ? 'warning' : 'default'"
+        class="mr-2"
+        @click="toggleEditMode"
+      >
+        <v-icon :icon="dashboardStore.isEditing ? 'mdi-check' : 'mdi-pencil'" class="mr-2" />
+        {{ dashboardStore.isEditing ? $t('dashboard.finishEditing') : $t('dashboard.customize') }}
+      </v-btn>
+      <v-btn
+        variant="tonal"
+        color="warning"
+        @click="showStartCrawlerDialog = true"
+      >
+        <v-icon icon="mdi-play" class="mr-2" />
+        {{ $t('dashboard.quickActions.startCrawler') }}
+      </v-btn>
+    </div>
 
-    <!-- Stats Cards -->
-    <v-row>
-      <v-col cols="12" md="3">
-        <v-card>
-          <v-card-text class="text-center">
-            <v-icon size="48" color="primary" class="mb-2">mdi-folder-multiple</v-icon>
-            <div class="text-h4">{{ stats.categories }}</div>
-            <div class="text-subtitle-1">{{ $t('dashboard.stats.categories') }}</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+    <!-- Loading State -->
+    <div v-if="dashboardStore.isLoading" class="d-flex justify-center py-12">
+      <v-progress-circular indeterminate size="48" color="primary" />
+    </div>
 
-      <v-col cols="12" md="3">
-        <v-card>
-          <v-card-text class="text-center">
-            <v-icon size="48" color="success" class="mb-2">mdi-web</v-icon>
-            <div class="text-h4">{{ stats.sources }}</div>
-            <div class="text-subtitle-1">{{ $t('dashboard.stats.dataSources') }}</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+    <!-- Widget Grid -->
+    <DashboardGrid
+      v-else
+      :widgets="dashboardStore.enabledWidgets"
+      :is-editing="dashboardStore.isEditing"
+    />
 
-      <v-col cols="12" md="3">
-        <v-card>
-          <v-card-text class="text-center">
-            <v-icon size="48" color="info" class="mb-2">mdi-file-document-multiple</v-icon>
-            <div class="text-h4">{{ stats.documents }}</div>
-            <div class="text-subtitle-1">{{ $t('dashboard.stats.documents') }}</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-
-      <v-col cols="12" md="3">
-        <v-card>
-          <v-card-text class="text-center">
-            <v-icon size="48" color="warning" class="mb-2">mdi-robot</v-icon>
-            <div class="text-h4">{{ crawlerStatus.running_jobs }}</div>
-            <div class="text-subtitle-1">{{ $t('dashboard.stats.activeCrawlers') }}</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
-
-    <!-- Active Crawlers (Live) -->
-    <v-row class="mt-4" v-if="runningJobs.length > 0">
-      <v-col cols="12">
-        <v-card class="active-crawler-card" variant="outlined">
-          <v-progress-linear indeterminate color="info" height="3"></v-progress-linear>
-          <v-card-title class="d-flex align-center">
-            <v-icon left color="info" class="mdi-spin">mdi-loading</v-icon>
-            <span class="ml-2">{{ $t('dashboard.stats.activeCrawlers') }}</span>
-            <v-spacer></v-spacer>
-            <v-chip size="small" color="info" variant="tonal">{{ $t('dashboard.crawlerStatus.autoUpdateActive') }}</v-chip>
-          </v-card-title>
-          <v-card-text>
-            <v-list>
-              <v-list-item
-                v-for="job in runningJobs"
-                :key="job.id"
-                class="mb-2 rounded active-crawler-item"
-              >
-                <template v-slot:prepend>
-                  <v-icon color="info" class="mdi-spin">mdi-web-sync</v-icon>
-                </template>
-                <v-list-item-title class="font-weight-bold">{{ job.source_name }}</v-list-item-title>
-                <v-list-item-subtitle>
-                  <div class="d-flex align-center flex-wrap mt-1 ga-1">
-                    <v-chip size="x-small" color="primary" variant="tonal">
-                      <v-icon size="small" start>mdi-file-document</v-icon>
-                      {{ job.documents_found }} {{ $t('dashboard.activeCrawlers.documents') }}
-                    </v-chip>
-                    <v-chip size="x-small" color="success" variant="tonal">
-                      <v-icon size="small" start>mdi-new-box</v-icon>
-                      {{ job.documents_new }} {{ $t('dashboard.activeCrawlers.new') }}
-                    </v-chip>
-                    <v-chip size="x-small" color="warning" variant="tonal" v-if="job.error_count > 0">
-                      <v-icon size="small" start>mdi-alert</v-icon>
-                      {{ job.error_count }} {{ $t('dashboard.activeCrawlers.errors') }}
-                    </v-chip>
-                  </div>
-                  <div class="text-caption text-medium-emphasis mt-1">
-                    {{ $t('dashboard.activeCrawlers.started') }}: {{ formatTime(job.started_at) }} |
-                    {{ $t('dashboard.activeCrawlers.runtime') }}: {{ getRuntime(job.started_at) }}
-                  </div>
-                </v-list-item-subtitle>
-              </v-list-item>
-            </v-list>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
-
-    <!-- Crawler Status & Recent Activity -->
-    <v-row class="mt-4">
-      <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title>
-            <v-icon left>mdi-robot</v-icon>
-            {{ $t('dashboard.crawlerStatus.title') }}
-          </v-card-title>
-          <v-card-text>
-            <v-list>
-              <v-list-item>
-                <template v-slot:prepend>
-                  <v-icon color="success">mdi-circle</v-icon>
-                </template>
-                <v-list-item-title>{{ $t('dashboard.crawlerStatus.activeWorkers') }}</v-list-item-title>
-                <template v-slot:append>
-                  <span class="text-h6">{{ crawlerStatus.worker_count }}</span>
-                </template>
-              </v-list-item>
-              <v-list-item>
-                <template v-slot:prepend>
-                  <v-icon color="info">mdi-run</v-icon>
-                </template>
-                <v-list-item-title>{{ $t('dashboard.crawlerStatus.runningJobs') }}</v-list-item-title>
-                <template v-slot:append>
-                  <span class="text-h6">{{ crawlerStatus.running_jobs }}</span>
-                </template>
-              </v-list-item>
-              <v-list-item>
-                <template v-slot:prepend>
-                  <v-icon color="warning">mdi-clock-outline</v-icon>
-                </template>
-                <v-list-item-title>{{ $t('dashboard.crawlerStatus.pendingJobs') }}</v-list-item-title>
-                <template v-slot:append>
-                  <span class="text-h6">{{ crawlerStatus.pending_jobs }}</span>
-                </template>
-              </v-list-item>
-            </v-list>
-          </v-card-text>
-        </v-card>
-      </v-col>
-
-      <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title>
-            <v-icon left>mdi-history</v-icon>
-            {{ $t('dashboard.recentJobs.title') }}
-          </v-card-title>
-          <v-card-text>
-            <v-list v-if="recentJobs.length > 0">
-              <v-list-item
-                v-for="job in recentJobs"
-                :key="job.id"
-              >
-                <template v-slot:prepend>
-                  <v-icon :color="getStatusColor(job.status)">
-                    {{ getStatusIcon(job.status) }}
-                  </v-icon>
-                </template>
-                <v-list-item-title>{{ job.source_name }}</v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ job.documents_found }} {{ $t('dashboard.recentJobs.documentsFound') }}
-                </v-list-item-subtitle>
-              </v-list-item>
-            </v-list>
-            <div v-else class="text-center py-4">
-              <v-icon size="48" color="grey">mdi-information-outline</v-icon>
-              <p class="text-subtitle-1 mt-2">{{ $t('dashboard.recentJobs.noJobs') }}</p>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
-
-    <!-- Quick Actions -->
-    <v-row class="mt-4">
-      <v-col cols="12">
-        <v-card>
-          <v-card-title>{{ $t('dashboard.quickActions.title') }}</v-card-title>
-          <v-card-text>
-            <v-btn color="primary" class="mr-2" to="/categories">
-              <v-icon left>mdi-plus</v-icon>
-              {{ $t('dashboard.quickActions.newCategory') }}
-            </v-btn>
-            <v-btn color="success" class="mr-2" to="/sources">
-              <v-icon left>mdi-web-plus</v-icon>
-              {{ $t('dashboard.quickActions.newDataSource') }}
-            </v-btn>
-            <v-btn color="warning" class="mr-2" @click="showStartCrawlerDialog = true">
-              <v-icon left>mdi-play</v-icon>
-              {{ $t('dashboard.quickActions.startCrawler') }}
-            </v-btn>
-            <v-btn color="info" to="/export">
-              <v-icon left>mdi-export</v-icon>
-              {{ $t('dashboard.quickActions.exportData') }}
-            </v-btn>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+    <!-- Widget Configurator Dialog -->
+    <WidgetConfigurator v-model="showConfigurator" />
 
     <!-- Start Crawler Dialog -->
     <v-dialog v-model="showStartCrawlerDialog" max-width="650">
@@ -212,7 +55,7 @@
               <v-btn
                 v-if="hasAnyFilter"
                 size="small"
-                variant="text"
+                variant="tonal"
                 @click="resetCrawlerFilters"
               >
                 {{ $t('dashboard.startCrawlerDialog.resetFilters') }}
@@ -322,7 +165,7 @@
             {{ filteredSourceCount.toLocaleString() }} {{ $t('dashboard.startCrawlerDialog.sources') }}
           </v-chip>
           <v-spacer></v-spacer>
-          <v-btn @click="showStartCrawlerDialog = false">{{ $t('dashboard.startCrawlerDialog.cancel') }}</v-btn>
+          <v-btn variant="tonal" @click="showStartCrawlerDialog = false">{{ $t('dashboard.startCrawlerDialog.cancel') }}</v-btn>
           <v-btn
             color="warning"
             :loading="startingCrawlers"
@@ -342,32 +185,35 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
+import { useDashboardStore } from '@/stores/dashboard'
+import DashboardGrid from '@/widgets/DashboardGrid.vue'
+import WidgetConfigurator from '@/components/dashboard/WidgetConfigurator.vue'
 
 const { t } = useI18n()
+const dashboardStore = useDashboardStore()
 
-const stats = ref({
-  categories: 0,
-  sources: 0,
-  documents: 0,
-  extractions: 0,
-})
-
-const crawlerStatus = ref({
-  running_jobs: 0,
-  pending_jobs: 0,
-  worker_count: 0,
-  active_tasks: 0,
-})
-
-const recentJobs = ref<any[]>([])
-const runningJobs = ref<any[]>([])
-let refreshInterval: number | null = null
-
-// Crawler start dialog
+// UI State
+const showConfigurator = ref(false)
 const showStartCrawlerDialog = ref(false)
+
+// Toggle edit mode
+const toggleEditMode = () => {
+  if (dashboardStore.isEditing) {
+    // Save changes when exiting edit mode
+    if (dashboardStore.hasChanges) {
+      dashboardStore.savePreferences()
+    }
+    dashboardStore.setEditMode(false)
+  } else {
+    showConfigurator.value = true
+  }
+}
+
+// Crawler dialog state (kept from original)
 const startingCrawlers = ref(false)
 const crawlerCategories = ref<any[]>([])
 const filteredSourceCount = ref(0)
+const totalSourceCount = ref(0)
 const countryOptions = ref([
   { value: 'DE', label: t('dashboard.countries.germany') },
   { value: 'GB', label: t('dashboard.countries.unitedKingdom') },
@@ -409,7 +255,7 @@ const debouncedUpdateFilteredCount = () => {
 
 const updateFilteredCount = async () => {
   try {
-    const params: any = { per_page: 1 }  // We only need the count
+    const params: any = { per_page: 1 }
     if (crawlerFilter.value.category_id) params.category_id = crawlerFilter.value.category_id
     if (crawlerFilter.value.country) params.country = crawlerFilter.value.country
     if (crawlerFilter.value.search) params.search = crawlerFilter.value.search
@@ -419,7 +265,6 @@ const updateFilteredCount = async () => {
     const response = await adminApi.getSources(params)
     let count = response.data.total || 0
 
-    // Apply limit if set
     if (crawlerFilter.value.limit && crawlerFilter.value.limit > 0) {
       count = Math.min(count, crawlerFilter.value.limit)
     }
@@ -427,45 +272,8 @@ const updateFilteredCount = async () => {
     filteredSourceCount.value = count
   } catch (error) {
     console.error('Failed to get filtered count:', error)
-    filteredSourceCount.value = stats.value.sources
+    filteredSourceCount.value = totalSourceCount.value
   }
-}
-
-const getStatusColor = (status: string) => {
-  const colors: Record<string, string> = {
-    COMPLETED: 'success',
-    RUNNING: 'info',
-    PENDING: 'warning',
-    FAILED: 'error',
-  }
-  return colors[status] || 'grey'
-}
-
-const getStatusIcon = (status: string) => {
-  const icons: Record<string, string> = {
-    COMPLETED: 'mdi-check-circle',
-    RUNNING: 'mdi-loading mdi-spin',
-    PENDING: 'mdi-clock-outline',
-    FAILED: 'mdi-alert-circle',
-  }
-  return icons[status] || 'mdi-help-circle'
-}
-
-const formatTime = (dateStr: string) => {
-  if (!dateStr) return '-'
-  const date = new Date(dateStr)
-  return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-}
-
-const getRuntime = (startedAt: string) => {
-  if (!startedAt) return '-'
-  const start = new Date(startedAt)
-  const now = new Date()
-  const diffMs = now.getTime() - start.getTime()
-  const diffSec = Math.floor(diffMs / 1000)
-  const mins = Math.floor(diffSec / 60)
-  const secs = diffSec % 60
-  return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
 const startFilteredCrawlers = async () => {
@@ -479,15 +287,12 @@ const startFilteredCrawlers = async () => {
     if (crawlerFilter.value.source_type) params.source_type = crawlerFilter.value.source_type
     if (crawlerFilter.value.limit) params.limit = crawlerFilter.value.limit
 
-    // Start crawler with filters
     await adminApi.startCrawl(params)
     showStartCrawlerDialog.value = false
-
-    // Reset filters for next time
     resetCrawlerFilters()
 
-    // Refresh data
-    await loadData()
+    // Refresh stats
+    await dashboardStore.loadStats()
   } catch (error) {
     console.error('Failed to start crawlers:', error)
   } finally {
@@ -495,10 +300,9 @@ const startFilteredCrawlers = async () => {
   }
 }
 
-// Watch for dialog open to initialize count
 watch(showStartCrawlerDialog, (isOpen) => {
   if (isOpen) {
-    filteredSourceCount.value = stats.value.sources
+    filteredSourceCount.value = totalSourceCount.value
     updateFilteredCount()
   }
 })
@@ -512,73 +316,29 @@ const loadCategories = async () => {
   }
 }
 
-const loadData = async () => {
+const loadTotalSources = async () => {
   try {
-    // Load categories count
-    const catResponse = await adminApi.getCategories({ per_page: 1 })
-    stats.value.categories = catResponse.data.total
-
-    // Load sources count
-    const srcResponse = await adminApi.getSources({ per_page: 1 })
-    stats.value.sources = srcResponse.data.total
-
-    // Load crawler status
-    const statusResponse = await adminApi.getCrawlerStatus()
-    crawlerStatus.value = statusResponse.data
-
-    // Load recent jobs
-    const jobsResponse = await adminApi.getCrawlerJobs({ per_page: 10 })
-    recentJobs.value = jobsResponse.data.items.filter((j: any) => j.status !== 'RUNNING').slice(0, 5)
-    runningJobs.value = jobsResponse.data.items.filter((j: any) => j.status === 'RUNNING')
-
-    // Load crawler stats for documents
-    const statsResponse = await adminApi.getCrawlerStats()
-    stats.value.documents = statsResponse.data.total_documents
-
-    // Start/stop auto-refresh based on running jobs
-    // Performance: Use 15 second interval instead of 5 to reduce API load (720 -> 240 calls/hour)
-    if (runningJobs.value.length > 0 && !refreshInterval) {
-      refreshInterval = window.setInterval(loadData, 15000) // Refresh every 15 seconds
-    } else if (runningJobs.value.length === 0 && refreshInterval) {
-      clearInterval(refreshInterval)
-      refreshInterval = null
-    }
+    const response = await adminApi.getSources({ per_page: 1 })
+    totalSourceCount.value = response.data.total
+    filteredSourceCount.value = response.data.total
   } catch (error) {
-    console.error('Failed to load dashboard data:', error)
+    console.error('Failed to load sources count:', error)
   }
 }
 
-onMounted(() => {
-  loadData()
+onMounted(async () => {
+  // Initialize dashboard store (loads preferences and stats)
+  await dashboardStore.initialize()
+
+  // Load categories for crawler dialog
   loadCategories()
+  loadTotalSources()
 })
 
 onUnmounted(() => {
-  // Clean up all timers to prevent memory leaks
-  if (refreshInterval) {
-    clearInterval(refreshInterval)
-    refreshInterval = null
-  }
   if (filterTimeout) {
     clearTimeout(filterTimeout)
     filterTimeout = null
   }
 })
 </script>
-
-<style scoped>
-/* Active Crawler Card - Theme-aware styling */
-.active-crawler-card {
-  border-color: rgb(var(--v-theme-info)) !important;
-  border-width: 2px !important;
-}
-
-.active-crawler-item {
-  background-color: rgba(var(--v-theme-info), 0.08);
-  border: 1px solid rgba(var(--v-theme-info), 0.2);
-}
-
-.active-crawler-item:hover {
-  background-color: rgba(var(--v-theme-info), 0.12);
-}
-</style>

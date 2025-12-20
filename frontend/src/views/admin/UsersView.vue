@@ -12,7 +12,7 @@
         </p>
       </v-col>
       <v-col cols="auto">
-        <v-btn color="primary" @click="openCreateDialog">
+        <v-btn variant="tonal" color="primary" @click="openCreateDialog">
           <v-icon start>mdi-plus</v-icon>
           {{ t('admin.users.actions.create') }}
         </v-btn>
@@ -97,9 +97,9 @@
         <!-- Actions Column -->
         <template #item.actions="{ item }">
           <div class="d-flex justify-end ga-1">
-            <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="t('common.edit')" @click="openEditDialog(item)"></v-btn>
-            <v-btn icon="mdi-lock-reset" size="small" variant="tonal" :title="t('admin.users.actions.resetPassword')" @click="openPasswordDialog(item)"></v-btn>
-            <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="t('common.delete')" :disabled="item.id === currentUser?.id" @click="confirmDelete(item)"></v-btn>
+            <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="t('common.edit')" :aria-label="t('common.edit')" @click="openEditDialog(item)"></v-btn>
+            <v-btn icon="mdi-lock-reset" size="small" variant="tonal" :title="t('admin.users.actions.resetPassword')" :aria-label="t('admin.users.actions.resetPassword')" @click="openPasswordDialog(item)"></v-btn>
+            <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="t('common.delete')" :aria-label="t('common.delete')" :disabled="item.id === currentUser?.id" @click="confirmDelete(item)"></v-btn>
           </div>
         </template>
       </v-data-table-server>
@@ -109,8 +109,8 @@
     <v-dialog v-model="dialogOpen" max-width="550">
       <v-card>
         <v-card-title class="d-flex align-center pa-4 bg-primary">
-          <v-avatar :color="editingUser ? 'white' : 'rgba(255,255,255,0.2)'" size="40" class="mr-3">
-            <v-icon :color="editingUser ? 'primary' : 'white'">{{ editingUser ? 'mdi-account-edit' : 'mdi-account-plus' }}</v-icon>
+          <v-avatar :color="editingUser ? 'surface' : 'primary-darken-1'" size="40" class="mr-3">
+            <v-icon :color="editingUser ? 'primary' : 'on-primary'">{{ editingUser ? 'mdi-account-edit' : 'mdi-account-plus' }}</v-icon>
           </v-avatar>
           <div>
             <div class="text-h6">{{ editingUser ? t('admin.users.dialog.editTitle') : t('admin.users.dialog.createTitle') }}</div>
@@ -182,9 +182,9 @@
         </v-card-text>
         <v-divider />
         <v-card-actions class="pa-4">
-          <v-btn variant="text" @click="dialogOpen = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" @click="dialogOpen = false">{{ t('common.cancel') }}</v-btn>
           <v-spacer />
-          <v-btn color="primary" :loading="saving" @click="saveUser">
+          <v-btn variant="tonal" color="primary" :loading="saving" @click="saveUser">
             <v-icon start>mdi-check</v-icon>
             {{ t('common.save') }}
           </v-btn>
@@ -196,8 +196,8 @@
     <v-dialog v-model="passwordDialogOpen" max-width="450">
       <v-card>
         <v-card-title class="d-flex align-center pa-4 bg-warning">
-          <v-avatar color="rgba(255,255,255,0.2)" size="40" class="mr-3">
-            <v-icon color="white">mdi-lock-reset</v-icon>
+          <v-avatar color="warning-darken-1" size="40" class="mr-3">
+            <v-icon color="on-warning">mdi-lock-reset</v-icon>
           </v-avatar>
           <div>
             <div class="text-h6">{{ t('admin.users.dialog.resetPasswordTitle') }}</div>
@@ -226,11 +226,12 @@
         </v-card-text>
         <v-divider />
         <v-card-actions class="pa-4">
-          <v-btn variant="text" @click="passwordDialogOpen = false">
+          <v-btn variant="tonal" @click="passwordDialogOpen = false">
             {{ t('common.cancel') }}
           </v-btn>
           <v-spacer />
           <v-btn
+            variant="tonal"
             color="warning"
             :loading="saving"
             :disabled="!newPasswordValid"
@@ -247,8 +248,8 @@
     <v-dialog v-model="deleteDialogOpen" max-width="450">
       <v-card>
         <v-card-title class="d-flex align-center pa-4 bg-error">
-          <v-avatar color="rgba(255,255,255,0.2)" size="40" class="mr-3">
-            <v-icon color="white">mdi-account-remove</v-icon>
+          <v-avatar color="error-darken-1" size="40" class="mr-3">
+            <v-icon color="on-error">mdi-account-remove</v-icon>
           </v-avatar>
           <div class="text-h6">{{ t('admin.users.dialog.deleteTitle') }}</div>
         </v-card-title>
@@ -259,11 +260,11 @@
         </v-card-text>
         <v-divider />
         <v-card-actions class="pa-4">
-          <v-btn variant="text" @click="deleteDialogOpen = false">
+          <v-btn variant="tonal" @click="deleteDialogOpen = false">
             {{ t('common.cancel') }}
           </v-btn>
           <v-spacer />
-          <v-btn color="error" :loading="saving" @click="deleteUser">
+          <v-btn variant="tonal" color="error" :loading="saving" @click="deleteUser">
             <v-icon start>mdi-delete</v-icon>
             {{ t('common.delete') }}
           </v-btn>

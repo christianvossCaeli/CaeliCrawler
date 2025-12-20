@@ -127,3 +127,28 @@ def require_role(required_roles: list[UserRole]):
 require_admin = require_role([UserRole.ADMIN])
 require_editor = require_role([UserRole.ADMIN, UserRole.EDITOR])
 require_viewer = require_role([UserRole.ADMIN, UserRole.EDITOR, UserRole.VIEWER])
+
+
+async def get_current_session_id(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> Optional[UUID]:
+    """
+    Get the current session ID from the JWT token.
+
+    Returns:
+        Session UUID if present in token, None otherwise
+    """
+    token = credentials.credentials
+    payload = decode_access_token(token)
+
+    if not payload:
+        return None
+
+    # Extract session ID from token payload
+    sid = payload.get("sid")
+    if sid:
+        try:
+            return UUID(sid)
+        except ValueError:
+            return None
+    return None

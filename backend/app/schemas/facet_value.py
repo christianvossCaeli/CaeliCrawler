@@ -6,12 +6,15 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+# Import enum from model to avoid duplication
+from app.models.facet_value import FacetValueSourceType
+
 
 class FacetValueBase(BaseModel):
     """Base facet value schema with common fields."""
 
     value: Dict[str, Any] = Field(..., description="Structured value")
-    text_representation: str = Field(..., min_length=1, description="Text for search/display")
+    text_representation: Optional[str] = Field(None, description="Text for search/display (auto-generated if not provided)")
 
     # Time-based fields
     event_date: Optional[datetime] = Field(None, description="Date of the event/action")
@@ -19,6 +22,10 @@ class FacetValueBase(BaseModel):
     valid_until: Optional[datetime] = Field(None, description="When this value expires")
 
     # Source tracking
+    source_type: FacetValueSourceType = Field(
+        default=FacetValueSourceType.DOCUMENT,
+        description="How this value was created"
+    )
     source_url: Optional[str] = Field(None, description="Original URL where this was found")
 
     # AI metadata
@@ -126,3 +133,31 @@ class EntityFacetsSummary(BaseModel):
         default_factory=list,
         description="Facets aggregated by type",
     )
+
+
+class FacetValueSearchResult(BaseModel):
+    """Search result for a facet value with relevance ranking."""
+
+    id: UUID
+    entity_id: UUID
+    entity_name: str
+    facet_type_id: UUID
+    facet_type_slug: str
+    facet_type_name: str
+    value: Dict[str, Any]
+    text_representation: str
+    headline: Optional[str] = Field(None, description="Highlighted search match")
+    rank: float = Field(default=0.0, description="Search relevance score")
+    confidence_score: float
+    human_verified: bool
+    source_type: str
+    created_at: datetime
+
+
+class FacetValueSearchResponse(BaseModel):
+    """Response for facet value search."""
+
+    items: List[FacetValueSearchResult]
+    total: int
+    query: str
+    search_time_ms: float = Field(default=0.0, description="Search execution time")

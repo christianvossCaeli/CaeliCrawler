@@ -86,6 +86,7 @@ class Settings(BaseSettings):
     azure_openai_deployment_pdf: str = ""  # PDF document analysis
     azure_openai_deployment_web: str = ""  # Website content extraction
     azure_openai_deployment_classification: str = ""  # Document classification
+    azure_openai_deployment_vision: str = ""  # Vision-capable model for image analysis (e.g. gpt-4o)
 
     def get_deployment_for_task(self, task: str) -> str:
         """Get the appropriate deployment for a task type."""
@@ -96,6 +97,7 @@ class Settings(BaseSettings):
             "web": self.azure_openai_deployment_web,
             "classification": self.azure_openai_deployment_classification,
             "embeddings": self.azure_openai_embeddings_deployment,
+            "vision": self.azure_openai_deployment_vision,
         }
         # Return task-specific deployment or fall back to default
         return task_map.get(task) or self.azure_openai_deployment_name
@@ -112,6 +114,9 @@ class Settings(BaseSettings):
 
     # Storage
     document_storage_path: str = "./storage/documents"
+    attachment_storage_path: str = "./storage/attachments"
+    attachment_max_size_mb: int = 20
+    attachment_allowed_types: str = "image/png,image/jpeg,image/gif,image/webp,application/pdf"
 
     # PySis Integration
     pysis_api_base_url: str = "https://pisys.caeli-wind.de/api/pisys/v1"
@@ -119,6 +124,16 @@ class Settings(BaseSettings):
     pysis_client_id: str = ""
     pysis_client_secret: str = ""
     pysis_scope: str = "api://7e32391f-a384-44b1-9850-d565b4a59ed0/.default"
+
+    # Caeli Auction API Integration
+    caeli_auction_marketplace_api_url: str = (
+        "https://auction.caeli-wind.de/api/auction-platform/v4/public-marketplace"
+    )
+    caeli_auction_marketplace_api_auth: str = ""  # Base64-encoded Basic Auth credentials
+
+    # External API Settings
+    external_api_default_sync_interval: int = 4  # hours
+    external_api_max_retries: int = 3
 
     # API Settings
     api_v1_prefix: str = "/api/v1"
@@ -146,7 +161,7 @@ class Settings(BaseSettings):
     log_format: str = "json"
 
     # Feature Flags
-    feature_entity_level_facets: bool = False  # Allow assigning facets to individual entities (vs. only at type level)
+    feature_entity_level_facets: bool = True  # Allow assigning facets to individual entities (enabled by default)
     feature_pysis_field_templates: bool = False  # Enable PySis field templates functionality
 
     @field_validator("cors_origins", mode="before")

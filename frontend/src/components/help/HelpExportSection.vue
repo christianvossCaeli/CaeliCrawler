@@ -1,5 +1,5 @@
 <template>
-  <HelpCard section-id="export" :title="t('help.export.title')" icon="mdi-export" color="deep-purple">
+  <HelpCard section-id="export" :title="t('help.export.title')" icon="mdi-export" color="secondary">
     <h3 class="text-h6 mb-3">{{ t('help.export.exportFormats') }}</h3>
     <v-row class="mb-4">
       <v-col cols="6">

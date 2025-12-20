@@ -1,8 +1,6 @@
 """Query interpretation for Smart Query Service - AI-powered NLP query parsing."""
 
 import json
-import os
-import re
 from typing import Any, Dict, List, Optional
 
 import structlog
@@ -10,6 +8,7 @@ from openai import AzureOpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from .prompts import WRITE_INTERPRETATION_PROMPT
 from .utils import clean_json_response
 
@@ -19,20 +18,29 @@ logger = structlog.get_logger()
 _client = None
 
 
-def get_openai_client() -> Optional[AzureOpenAI]:
-    """Get or create the Azure OpenAI client."""
+def get_openai_client() -> AzureOpenAI:
+    """Get or create the Azure OpenAI client.
+
+    Raises:
+        ValueError: If Azure OpenAI is not configured
+    """
     global _client
-    if _client is None and os.getenv("AZURE_OPENAI_API_KEY"):
+    if _client is None:
+        if not settings.azure_openai_api_key:
+            raise ValueError("KI-Service nicht erreichbar: Azure OpenAI ist nicht konfiguriert")
         _client = AzureOpenAI(
-            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-            api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"),
-            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            api_key=settings.azure_openai_api_key,
+            api_version=settings.azure_openai_api_version,
+            azure_endpoint=settings.azure_openai_endpoint,
         )
     return _client
 
 
 def build_dynamic_query_prompt(facet_types: List[Dict[str, Any]], entity_types: List[Dict[str, Any]], query: str = "") -> str:
     """Build the query interpretation prompt dynamically with current facet and entity types."""
+    from datetime import date
+
+    today = date.today().isoformat()
 
     # Build facet types section
     facet_lines = []
@@ -63,10 +71,93 @@ def build_dynamic_query_prompt(facet_types: List[Dict[str, Any]], entity_types: 
 - located_in: Event findet statt in Municipality
 - member_of: Person ist Mitglied von Organization
 
+## Multi-Hop Relationen (WICHTIG für komplexe Abfragen!):
+Verwende `relation_chain` für Abfragen über mehrere Beziehungsebenen:
+
+### Beispiele:
+1. "Personen, deren Gemeinden Pain Points haben"
+   → primary_entity_type: "person"
+   → relation_chain: [{{"type": "works_for", "direction": "source"}}]
+   → target_facets_at_chain_end: ["pain_point"]
+
+2. "Events bei denen Bürgermeister teilnehmen"
+   → primary_entity_type: "event"
+   → relation_chain: [{{"type": "attends", "direction": "target", "position_filter": ["Bürgermeister"]}}]
+
+3. "Gemeinden mit Mitarbeitern die Events besucht haben"
+   → primary_entity_type: "municipality"
+   → relation_chain: [
+       {{"type": "works_for", "direction": "target"}},
+       {{"type": "attends", "direction": "source"}}
+     ]
+   → target_facets_at_chain_end: ["event_attendance"]
+
+4. "Personen deren Gemeinden in NRW Pain Points aber keine positive Signale haben"
+   → primary_entity_type: "person"
+   → relation_chain: [{{"type": "works_for", "direction": "source", "location_filter": "Nordrhein-Westfalen"}}]
+   → target_facets_at_chain_end: ["pain_point"]
+   → negative_facets_at_chain_end: ["positive_signal"]
+
+### direction-Werte:
+- "source": Folge Relation von source_entity → target_entity
+- "target": Folge Relation von target_entity → source_entity
+
+### Optional pro Hop:
+- facet_filter: Nur Entities mit diesem Facet einbeziehen
+- negative_facet_filter: Entities mit diesem Facet ausschließen
+- position_filter: Nach Position filtern (bei Personen)
+- location_filter: Nach Region filtern
+
+Trigger-Phrasen für Multi-Hop:
+- "deren Gemeinden", "dessen Organisation", "bei denen"
+- "Personen von Gemeinden die..."
+- "Mitarbeiter deren Arbeitgeber..."
+- "Events an denen ... teilnehmen"
+
 ## Time Filter Optionen:
 - future_only: Nur zukünftige Einträge
 - past_only: Nur vergangene Einträge
 - all: Alle Einträge
+
+## Datumsbereich (date_range):
+Wenn der Benutzer einen spezifischen Zeitraum angibt, verwende date_range statt time_filter:
+- "Events zwischen 1. Januar und 31. März 2025" → date_range: {{ "start": "2025-01-01", "end": "2025-03-31" }}
+- "Events im Januar 2025" → date_range: {{ "start": "2025-01-01", "end": "2025-01-31" }}
+- "Events letzte Woche" → date_range mit entsprechenden Daten
+- "Events der letzten 30 Tage" → date_range mit start = heute - 30 Tage, end = heute
+- Heute ist: {today}
+Wenn kein spezifischer Zeitraum angegeben wird, verwende time_filter.
+
+## Boolean-Operatoren (AND/OR):
+Verwende `filters.logical_operator` für kombinierte Bedingungen:
+
+### OR für Locations (admin_level_1):
+- "Gemeinden in NRW oder Bayern" → admin_level_1: ["Nordrhein-Westfalen", "Bayern"], logical_operator: "OR"
+- "Personen aus Berlin, Hamburg oder Bremen" → admin_level_1: ["Berlin", "Hamburg", "Bremen"], logical_operator: "OR"
+
+### AND für Facets (facet_operator):
+- "Personen MIT Pain Points UND Events" → facet_types: ["pain_point", "event_attendance"], facet_operator: "AND"
+- "Gemeinden mit Pain Points UND Kontakten" → facet_types: ["pain_point", "contact"], facet_operator: "AND"
+
+### Standard (wenn nicht explizit angegeben):
+- Mehrere Locations = OR (zeige Ergebnisse aus ALLEN genannten Regionen)
+- Mehrere Facets = OR (zeige Ergebnisse mit MINDESTENS EINEM der Facets)
+- "UND"/"AND" im Text = AND (ALLE Bedingungen müssen erfüllt sein)
+- "ODER"/"OR" im Text = OR (MINDESTENS EINE Bedingung muss erfüllt sein)
+
+## Negation (NOT/OHNE/NICHT):
+Verwende `negative_facet_types` und `negative_locations` für Ausschlüsse:
+
+### Facets ausschließen:
+- "Gemeinden OHNE Pain Points" → negative_facet_types: ["pain_point"]
+- "Personen die KEINE Events besucht haben" → negative_facet_types: ["event_attendance"]
+- "Entities OHNE Kontakte" → negative_facet_types: ["contact"]
+
+### Locations ausschließen:
+- "Gemeinden NICHT in NRW" → negative_locations: ["Nordrhein-Westfalen"]
+- "Personen außerhalb von Bayern" → negative_locations: ["Bayern"]
+
+Trigger-Wörter: "ohne", "nicht", "keine", "kein", "außer", "außerhalb", "excluding", "not"
 
 ## Wichtige Positionen (für "Entscheider"):
 - Bürgermeister, Oberbürgermeister
@@ -76,18 +167,70 @@ def build_dynamic_query_prompt(facet_types: List[Dict[str, Any]], entity_types: 
 - Gemeinderat, Stadtrat
 - Kämmerer
 
+## Query Type (WICHTIG!):
+- count: Nur die Gesamtanzahl zurückgeben (bei Fragen wie "wie viele", "Anzahl", "count", "zähle", "how many")
+- list: Eine Liste von Ergebnissen zurückgeben (bei Fragen wie "zeige", "liste", "welche", "wer")
+- aggregate: Statistische Berechnungen durchführen (bei Fragen mit "durchschnitt", "average", "summe", "minimum", "maximum")
+
+## Aggregations-Queries (query_type: aggregate):
+Verwende für statistische Abfragen:
+- "Durchschnittliche Anzahl Pain Points pro Gemeinde" → query_type: "aggregate", aggregate_function: "AVG", aggregate_target: "facet_count", aggregate_facet_type: "pain_point", group_by: "entity_type"
+- "Wieviele Pain Points haben Gemeinden insgesamt?" → query_type: "aggregate", aggregate_function: "SUM", aggregate_target: "facet_count", aggregate_facet_type: "pain_point"
+- "Maximale Anzahl Events pro Person" → query_type: "aggregate", aggregate_function: "MAX", aggregate_target: "facet_count", aggregate_facet_type: "event_attendance"
+- "Anzahl Entities pro Bundesland" → query_type: "aggregate", aggregate_function: "COUNT", group_by: "admin_level_1"
+
+Aggregate Functions: COUNT, SUM, AVG, MIN, MAX
+Group By Options: entity_type, admin_level_1, country, facet_type
+
+## Regionale Filter:
+### country (ISO 3166-1 alpha-2 Code):
+- Deutschland, Germany -> "DE"
+- Österreich, Austria -> "AT"
+- Schweiz -> "CH"
+- Großbritannien, UK, United Kingdom -> "GB"
+
+### admin_level_1 (Bundesländer, Regionen, States):
+- Beispiele Deutschland: "Nordrhein-Westfalen" (auch NRW), "Bayern" (auch BY), "Baden-Württemberg", etc.
+- Beispiele Österreich: "Wien", "Tirol", "Steiermark", etc.
+- Verwende immer den vollen Namen (nicht Abkürzungen)
+
 Analysiere die Benutzeranfrage und gib ein JSON zurück mit:
 {{
+  "query_type": "count|list|aggregate",
   "primary_entity_type": "<entity_type_slug>",
   "facet_types": ["facet_slug_1", "facet_slug_2"],
+  "facet_operator": "AND|OR (Standard: OR, AND wenn alle Facets gleichzeitig vorhanden sein müssen)",
+  "negative_facet_types": ["facet_slug_auszuschließen (Entities die diese NICHT haben)"],
   "time_filter": "future_only|past_only|all",
+  "date_range": {{
+    "start": "YYYY-MM-DD (optional, wenn spezifischer Zeitraum angegeben)",
+    "end": "YYYY-MM-DD (optional, wenn spezifischer Zeitraum angegeben)"
+  }},
+  "aggregate": {{
+    "function": "COUNT|SUM|AVG|MIN|MAX (nur für query_type: aggregate)",
+    "target": "entity_count|facet_count",
+    "facet_type": "facet_slug (wenn target=facet_count)",
+    "group_by": "entity_type|admin_level_1|country|facet_type (optional)"
+  }},
   "relation_chain": [
-    {{"type": "works_for", "direction": "source|target"}}
+    {{
+      "type": "works_for|attends|located_in|member_of",
+      "direction": "source|target",
+      "facet_filter": "optional: facet_slug (nur Entities mit diesem Facet)",
+      "negative_facet_filter": "optional: facet_slug (Entities ohne dieses Facet)",
+      "position_filter": ["optional: Position-Filter für Personen"],
+      "location_filter": "optional: admin_level_1 für diesen Hop"
+    }}
   ],
+  "target_facets_at_chain_end": ["facet_slugs die die Ziel-Entities am Ende der Chain haben müssen"],
+  "negative_facets_at_chain_end": ["facet_slugs die die Ziel-Entities am Ende der Chain NICHT haben dürfen"],
   "filters": {{
     "position_keywords": ["Bürgermeister", "Landrat"],
     "location_keywords": ["NRW", "Bayern"],
-    "date_range_days": 90
+    "country": "DE",
+    "admin_level_1": "Nordrhein-Westfalen (oder Array für OR: ['Nordrhein-Westfalen', 'Bayern'])",
+    "negative_locations": ["Regionen auszuschließen"],
+    "logical_operator": "AND|OR (Standard: OR für Locations)"
   }},
   "result_grouping": "by_event|by_person|by_municipality|flat",
   "explanation": "Kurze Erklärung was abgefragt wird"
@@ -104,7 +247,7 @@ async def load_facet_and_entity_types(session: AsyncSession) -> tuple[List[Dict]
 
     # Load facet types
     facet_result = await session.execute(
-        select(FacetType).where(FacetType.is_active == True).order_by(FacetType.display_order)
+        select(FacetType).where(FacetType.is_active.is_(True)).order_by(FacetType.display_order)
     )
     facet_types = [
         {
@@ -118,7 +261,7 @@ async def load_facet_and_entity_types(session: AsyncSession) -> tuple[List[Dict]
 
     # Load entity types
     entity_result = await session.execute(
-        select(EntityType).where(EntityType.is_active == True).order_by(EntityType.display_order)
+        select(EntityType).where(EntityType.is_active.is_(True)).order_by(EntityType.display_order)
     )
     entity_types = [
         {
@@ -132,32 +275,30 @@ async def load_facet_and_entity_types(session: AsyncSession) -> tuple[List[Dict]
     return facet_types, entity_types
 
 
-async def interpret_query(question: str, session: Optional[AsyncSession] = None) -> Optional[Dict[str, Any]]:
+async def interpret_query(question: str, session: Optional[AsyncSession] = None) -> Dict[str, Any]:
     """Use AI to interpret natural language query into structured query parameters.
 
     Args:
         question: The natural language query
-        session: Optional database session for dynamic prompt generation
+        session: Database session for dynamic prompt generation
+
+    Raises:
+        ValueError: If Azure OpenAI is not configured
+        RuntimeError: If query interpretation fails
     """
     client = get_openai_client()
-    if not client:
-        logger.warning("Azure OpenAI client not configured")
-        return None
 
     try:
-        # Build prompt dynamically if session is available
+        # Build prompt dynamically with session
         if session:
             facet_types, entity_types = await load_facet_and_entity_types(session)
             prompt = build_dynamic_query_prompt(facet_types, entity_types, query=question)
             logger.debug("Using dynamic prompt with facet_types", facet_count=len(facet_types))
         else:
-            # Fallback to static prompt if no session (backwards compatibility)
-            from .prompts import QUERY_INTERPRETATION_PROMPT
-            prompt = QUERY_INTERPRETATION_PROMPT.format(query=question)
-            logger.debug("Using static prompt (no session)")
+            raise ValueError("Database session is required for query interpretation")
 
         response = client.chat.completions.create(
-            model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1-mini"),
+            model=settings.azure_openai_deployment_name,
             messages=[
                 {
                     "role": "system",
@@ -182,20 +323,25 @@ async def interpret_query(question: str, session: Optional[AsyncSession] = None)
         logger.info("Query interpreted successfully", interpretation=parsed)
         return parsed
 
+    except ValueError:
+        raise
     except Exception as e:
         logger.error("Failed to interpret query", error=str(e), exc_info=True)
-        return None
+        raise RuntimeError(f"KI-Service Fehler: Query-Interpretation fehlgeschlagen - {str(e)}")
 
 
-async def interpret_write_command(question: str) -> Optional[Dict[str, Any]]:
-    """Use AI to interpret if the question is a write command."""
+async def interpret_write_command(question: str) -> Dict[str, Any]:
+    """Use AI to interpret if the question is a write command.
+
+    Raises:
+        ValueError: If Azure OpenAI is not configured
+        RuntimeError: If command interpretation fails
+    """
     client = get_openai_client()
-    if not client:
-        return None
 
     try:
         response = client.chat.completions.create(
-            model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1-mini"),
+            model=settings.azure_openai_deployment_name,
             messages=[
                 {
                     "role": "system",
@@ -217,48 +363,8 @@ async def interpret_write_command(question: str) -> Optional[Dict[str, Any]]:
         logger.info("Write command interpreted", interpretation=parsed)
         return parsed
 
+    except ValueError:
+        raise
     except Exception as e:
         logger.error("Failed to interpret write command", error=str(e))
-        return None
-
-
-def fallback_interpret(question: str) -> Dict[str, Any]:
-    """Simple keyword-based fallback interpretation."""
-    question_lower = question.lower()
-
-    params = {
-        "primary_entity_type": "person",
-        "facet_types": [],
-        "time_filter": "all",
-        "filters": {},
-        "result_grouping": "flat",
-        "explanation": "Fallback interpretation based on keywords",
-    }
-
-    # Detect entity type
-    if "event" in question_lower or "veranstaltung" in question_lower or "konferenz" in question_lower:
-        params["facet_types"].append("event_attendance")
-        params["result_grouping"] = "by_event"
-
-    # Detect time filter
-    if "künftig" in question_lower or "zukunft" in question_lower or "future" in question_lower:
-        params["time_filter"] = "future_only"
-    elif "vergangen" in question_lower or "past" in question_lower:
-        params["time_filter"] = "past_only"
-
-    # Detect position filters
-    position_keywords = []
-    if "bürgermeister" in question_lower:
-        position_keywords.append("Bürgermeister")
-    if "landrat" in question_lower:
-        position_keywords.append("Landrat")
-    if "entscheider" in question_lower:
-        position_keywords.extend(["Bürgermeister", "Landrat", "Dezernent", "Amtsleiter"])
-
-    if position_keywords:
-        params["filters"]["position_keywords"] = position_keywords
-
-    # Default time range
-    params["filters"]["date_range_days"] = 90
-
-    return params
+        raise RuntimeError(f"KI-Service Fehler: Command-Interpretation fehlgeschlagen - {str(e)}")

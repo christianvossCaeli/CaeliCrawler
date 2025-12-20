@@ -97,10 +97,10 @@ class NotificationEventDispatcher:
             .options(selectinload(NotificationRule.user))
             .where(
                 NotificationRule.event_type == event_type,
-                NotificationRule.is_active == True,
+                NotificationRule.is_active.is_(True),
             )
             .join(User)
-            .where(User.notifications_enabled == True, User.is_active == True)
+            .where(User.notifications_enabled.is_(True), User.is_active.is_(True))
         )
 
         result = await session.execute(query)

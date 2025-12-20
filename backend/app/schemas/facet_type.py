@@ -1,24 +1,13 @@
 """FacetType schemas for API validation."""
 
-import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-
-def generate_slug(name: str) -> str:
-    """Generate URL-friendly slug from name."""
-    slug = name.lower()
-    slug = re.sub(
-        r"[äöüß]",
-        lambda m: {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}[m.group()],
-        slug,
-    )
-    slug = re.sub(r"[^a-z0-9]+", "-", slug)
-    slug = slug.strip("-")
-    return slug
+from app.utils.text import create_slug as generate_slug
+from app.models.facet_type import ValueType, AggregationMethod, TimeFilter
 
 
 class FacetTypeBase(BaseModel):
@@ -28,8 +17,11 @@ class FacetTypeBase(BaseModel):
     name_plural: str = Field(..., min_length=1, max_length=255, description="Plural form")
     description: Optional[str] = Field(None, description="Description")
 
-    # Value configuration
-    value_type: str = Field(default="structured", description="Type: text, structured, list, reference")
+    # Value configuration with enum validation
+    value_type: ValueType = Field(
+        default=ValueType.STRUCTURED,
+        description="Type: text, structured, list, reference, number, boolean"
+    )
     value_schema: Optional[Dict[str, Any]] = Field(None, description="JSON Schema for value structure")
 
     # Applicable entity types
@@ -43,14 +35,20 @@ class FacetTypeBase(BaseModel):
     color: str = Field(default="#607D8B", description="Hex color for UI")
     display_order: int = Field(default=0, description="Order in UI lists")
 
-    # Aggregation configuration
-    aggregation_method: str = Field(default="dedupe", description="Method: count, sum, avg, list, dedupe")
+    # Aggregation configuration with enum validation
+    aggregation_method: AggregationMethod = Field(
+        default=AggregationMethod.DEDUPE,
+        description="Method: count, sum, avg, list, dedupe, latest, min, max"
+    )
     deduplication_fields: List[str] = Field(default_factory=list, description="Fields for deduplication")
 
-    # Time-based configuration
+    # Time-based configuration with enum validation
     is_time_based: bool = Field(default=False, description="Has date/time component")
     time_field_path: Optional[str] = Field(None, description="JSON path to date field")
-    default_time_filter: str = Field(default="all", description="Default filter: all, future_only, past_only")
+    default_time_filter: TimeFilter = Field(
+        default=TimeFilter.ALL,
+        description="Default filter: all, future_only, past_only"
+    )
 
     # AI extraction
     ai_extraction_enabled: bool = Field(default=True, description="Enable AI extraction")
@@ -78,17 +76,17 @@ class FacetTypeUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     name_plural: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
-    value_type: Optional[str] = None
+    value_type: Optional[ValueType] = None
     value_schema: Optional[Dict[str, Any]] = None
     applicable_entity_type_slugs: Optional[List[str]] = None
     icon: Optional[str] = None
     color: Optional[str] = None
     display_order: Optional[int] = None
-    aggregation_method: Optional[str] = None
+    aggregation_method: Optional[AggregationMethod] = None
     deduplication_fields: Optional[List[str]] = None
     is_time_based: Optional[bool] = None
     time_field_path: Optional[str] = None
-    default_time_filter: Optional[str] = None
+    default_time_filter: Optional[TimeFilter] = None
     ai_extraction_enabled: Optional[bool] = None
     ai_extraction_prompt: Optional[str] = None
     is_active: Optional[bool] = None

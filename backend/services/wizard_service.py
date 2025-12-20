@@ -24,7 +24,8 @@ response advances to the next step until completion.
 """
 
 import structlog
-from datetime import datetime
+import time
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -32,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models import Entity, EntityType, FacetType, FacetValue
+from app.models.facet_value import FacetValueSourceType
 from app.schemas.assistant import (
     WizardDefinition,
     WizardStep,
@@ -186,6 +188,12 @@ class WizardService:
 
     # In-memory storage for active wizard sessions (in production, use Redis)
     _active_wizards: Dict[str, Dict[str, Any]] = {}
+    _last_cleanup_time: float = 0.0
+
+    # Wizard session expiry time (30 minutes)
+    WIZARD_EXPIRY_SECONDS = 30 * 60
+    # Cleanup check interval (5 minutes)
+    CLEANUP_INTERVAL_SECONDS = 5 * 60
 
     def __init__(self, db: AsyncSession):
         """Initialize the wizard service.
@@ -194,6 +202,33 @@ class WizardService:
             db: SQLAlchemy async database session
         """
         self.db = db
+        self._cleanup_expired_wizards()
+
+    @classmethod
+    def _cleanup_expired_wizards(cls) -> None:
+        """Clean up expired wizard sessions to prevent memory leaks.
+
+        Called periodically during service initialization.
+        Removes wizard sessions older than WIZARD_EXPIRY_SECONDS.
+        """
+        current_time = time.time()
+
+        # Only run cleanup every CLEANUP_INTERVAL_SECONDS
+        if current_time - cls._last_cleanup_time < cls.CLEANUP_INTERVAL_SECONDS:
+            return
+
+        cls._last_cleanup_time = current_time
+        expiry_threshold = current_time - cls.WIZARD_EXPIRY_SECONDS
+
+        # Find and remove expired wizards
+        expired_wizards = [
+            wizard_id for wizard_id, data in cls._active_wizards.items()
+            if data.get("created_at", datetime.min).timestamp() < expiry_threshold
+        ]
+
+        for wizard_id in expired_wizards:
+            del cls._active_wizards[wizard_id]
+            logger.info("wizard_expired_cleanup", wizard_id=wizard_id)
 
     async def get_available_wizards(self) -> List[Dict[str, Any]]:
         """Get list of available wizard types.
@@ -255,7 +290,7 @@ class WizardService:
             "steps": steps,
             "definition": definition,
             "context": context or {},
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(timezone.utc),
         }
 
         return WizardResponse(
@@ -633,7 +668,9 @@ class WizardService:
                 "severity": severity,
                 "description": description,
             },
-            source="wizard",
+            text_representation=description[:500] if description else "",
+            confidence_score=1.0,
+            source_type=FacetValueSourceType.MANUAL,
         )
         self.db.add(facet_value)
         await self.db.commit()

@@ -94,7 +94,7 @@
       <v-spacer></v-spacer>
 
       <!-- Notifications Button -->
-      <v-btn icon @click="router.push('/notifications')" :title="$t('nav.notifications')">
+      <v-btn icon variant="tonal" @click="router.push('/notifications')" :title="$t('nav.notifications')" :aria-label="$t('nav.notifications')">
         <v-badge
           v-if="unreadCount > 0"
           :content="unreadCount > 99 ? '99+' : unreadCount"
@@ -112,17 +112,19 @@
       <!-- Theme Toggle -->
       <v-btn
         :icon="isDark ? 'mdi-weather-sunny' : 'mdi-weather-night'"
+        variant="tonal"
         @click="toggleTheme"
         :title="$t('user.themeToggle')"
+        :aria-label="$t('user.themeToggle')"
       ></v-btn>
 
       <!-- Refresh -->
-      <v-btn icon="mdi-refresh" @click="refresh" :title="$t('user.reloadPage')"></v-btn>
+      <v-btn icon="mdi-refresh" variant="tonal" @click="refresh" :title="$t('user.reloadPage')" :aria-label="$t('user.reloadPage')"></v-btn>
 
       <!-- User Menu -->
       <v-menu>
         <template v-slot:activator="{ props }">
-          <v-btn icon v-bind="props">
+          <v-btn icon v-bind="props" :title="$t('user.userMenu')" :aria-label="$t('user.userMenu')">
             <v-avatar color="secondary" size="32">
               <span class="text-body-2">{{ userInitials }}</span>
             </v-avatar>
@@ -163,7 +165,7 @@
     <v-dialog v-model="passwordDialogOpen" max-width="400">
       <v-card>
         <v-card-title>{{ $t('auth.changePassword') }}</v-card-title>
-        <v-card-text>
+        <v-card-text class="pt-4">
           <v-form @submit.prevent="changePassword">
             <v-text-field
               v-model="currentPassword"
@@ -191,7 +193,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="passwordDialogOpen = false">
+          <v-btn variant="tonal" @click="passwordDialogOpen = false">
             {{ $t('common.cancel') }}
           </v-btn>
           <v-btn
@@ -215,7 +217,7 @@
     >
       {{ snackbarText }}
       <template v-slot:actions>
-        <v-btn variant="text" @click="snackbar = false">
+        <v-btn variant="tonal" @click="snackbar = false">
           <v-icon>mdi-close</v-icon>
         </v-btn>
       </template>

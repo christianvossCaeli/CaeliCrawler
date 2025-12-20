@@ -177,7 +177,7 @@ class NotificationService:
             result = await self.session.execute(
                 select(UserEmailAddress).where(
                     UserEmailAddress.id.in_([UUID(id) for id in email_address_ids]),
-                    UserEmailAddress.is_verified == True,
+                    UserEmailAddress.is_verified.is_(True),
                 )
             )
             recipients.extend([ea.email for ea in result.scalars().all()])

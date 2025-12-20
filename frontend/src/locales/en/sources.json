@@ -22,7 +22,22 @@
       "noResults": "No results for",
       "typeToSearch": "Type to search...",
       "noLocations": "No locations found",
-      "minChars": "Enter at least 2 characters..."
+      "minChars": "Enter at least 2 characters...",
+      "clearAll": "Clear all filters"
+    },
+    "sidebar": {
+      "categories": "Categories",
+      "types": "Source Type",
+      "status": "Status",
+      "all": "All",
+      "expand": "Expand sidebar",
+      "collapse": "Collapse sidebar"
+    },
+    "status": {
+      "active": "Active",
+      "pending": "Pending",
+      "paused": "Paused",
+      "error": "Error"
     },
     "form": {
       "name": "Name",

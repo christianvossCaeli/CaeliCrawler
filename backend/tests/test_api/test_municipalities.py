@@ -48,9 +48,10 @@ async def create_test_municipality(client: AsyncClient, name: str = None) -> dic
     return response.json()
 
 
-async def delete_municipality(client: AsyncClient, entity_id: str):
+async def delete_municipality(client: AsyncClient, entity_id: str, force: bool = True):
     """Delete a municipality."""
-    response = await client.delete(f"/api/v1/entities/{entity_id}")
+    # Use force=true to delete entities with facets/relations
+    response = await client.delete(f"/api/v1/entities/{entity_id}", params={"force": force})
     # Accept 200 or 204 for successful deletion
     assert response.status_code in [200, 204], f"Failed to delete: {response.text}"
 

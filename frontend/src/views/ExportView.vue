@@ -60,20 +60,99 @@
 
             <v-divider class="my-4"></v-divider>
 
-            <div class="d-flex gap-2">
-              <v-btn color="primary" @click="exportJson" :loading="exporting">
+            <div class="d-flex gap-2 flex-wrap">
+              <v-btn variant="tonal" color="primary" @click="exportJson" :loading="exporting">
                 <v-icon left>mdi-code-json</v-icon>
                 {{ t('exportView.jsonExport') }}
               </v-btn>
-              <v-btn color="success" @click="exportCsv" :loading="exporting">
+              <v-btn variant="tonal" color="success" @click="exportCsv" :loading="exporting">
                 <v-icon left>mdi-file-delimited</v-icon>
                 {{ t('exportView.csvExport') }}
               </v-btn>
             </div>
+
+            <v-alert
+              type="info"
+              variant="tonal"
+              density="compact"
+              class="mt-4"
+            >
+              <v-icon start size="small">mdi-information</v-icon>
+              {{ t('export.largeExportHint') }}
+            </v-alert>
           </v-card-text>
         </v-card>
       </v-col>
 
+      <!-- Async Export Panel -->
+      <v-col cols="12" md="6">
+        <ExportProgressPanel ref="exportProgressRef" />
+      </v-col>
+    </v-row>
+
+    <!-- Entity Export Section -->
+    <v-row class="mt-4">
+      <v-col cols="12">
+        <v-card>
+          <v-card-title>
+            <v-icon left>mdi-database-export</v-icon>
+            {{ t('export.startAsync') }}
+          </v-card-title>
+          <v-card-text>
+            <v-row>
+              <v-col cols="12" md="4">
+                <v-select
+                  v-model="asyncExportOptions.entity_type"
+                  :items="entityTypeItems"
+                  :label="t('entities.entityType')"
+                  density="comfortable"
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-select
+                  v-model="asyncExportOptions.format"
+                  :items="formatItems"
+                  :label="t('export.format')"
+                  density="comfortable"
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-autocomplete
+                  v-model="asyncExportOptions.location_filter"
+                  :items="locations"
+                  :label="t('exportView.locationOptional')"
+                  clearable
+                  density="comfortable"
+                />
+              </v-col>
+            </v-row>
+            <v-row>
+              <v-col cols="12" md="6">
+                <v-switch
+                  v-model="asyncExportOptions.include_facets"
+                  :label="t('entityTypes.includeFacets')"
+                  color="primary"
+                  density="comfortable"
+                  hide-details
+                />
+              </v-col>
+              <v-col cols="12" md="6" class="d-flex align-center justify-end">
+                <v-btn
+                  color="primary"
+                  @click="startAsyncExport"
+                  :loading="startingAsyncExport"
+                >
+                  <v-icon left>mdi-export</v-icon>
+                  {{ t('export.startAsync') }}
+                </v-btn>
+              </v-col>
+            </v-row>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+
+    <v-row class="mt-4">
       <!-- API Info -->
       <v-col cols="12" md="6">
         <v-card>
@@ -127,7 +206,7 @@
               :label="t('exportView.webhookUrl')"
               placeholder="https://your-endpoint.com/webhook"
             ></v-text-field>
-            <v-btn color="primary" @click="testWebhook" :loading="testingWebhook">
+            <v-btn variant="tonal" color="primary" @click="testWebhook" :loading="testingWebhook">
               <v-icon left>mdi-send</v-icon>
               {{ t('exportView.testWebhook') }}
             </v-btn>
@@ -184,6 +263,7 @@ import { adminApi, exportApi, dataApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de, enUS } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
+import ExportProgressPanel from '@/components/export/ExportProgressPanel.vue'
 
 const { t, locale } = useI18n()
 const { showSuccess, showError } = useSnackbar()
@@ -199,6 +279,8 @@ const loadingChanges = ref(false)
 const webhookUrl = ref('')
 const webhookResult = ref<any>(null)
 const changes = ref<any[]>([])
+const startingAsyncExport = ref(false)
+const exportProgressRef = ref<InstanceType<typeof ExportProgressPanel> | null>(null)
 
 const exportOptions = ref({
   category_id: null as string | null,
@@ -207,6 +289,26 @@ const exportOptions = ref({
   country: null as string | null,
   location_name: null as string | null,
 })
+
+const asyncExportOptions = ref({
+  entity_type: 'municipality',
+  format: 'json',
+  location_filter: null as string | null,
+  include_facets: true,
+})
+
+const entityTypeItems = computed(() => [
+  { title: t('entityTypes.types.municipality'), value: 'municipality' },
+  { title: t('entityTypes.types.person'), value: 'person' },
+  { title: t('entityTypes.types.organization'), value: 'organization' },
+  { title: t('entityTypes.types.event'), value: 'event' },
+])
+
+const formatItems = [
+  { title: 'JSON', value: 'json' },
+  { title: 'CSV', value: 'csv' },
+  { title: 'Excel', value: 'excel' },
+]
 
 const changeHeaders = computed(() => [
   { title: t('common.type'), key: 'change_type' },
@@ -316,6 +418,25 @@ const testWebhook = async () => {
     showError(t('exportView.messages.webhookError') + ': ' + error.message)
   } finally {
     testingWebhook.value = false
+  }
+}
+
+const startAsyncExport = async () => {
+  startingAsyncExport.value = true
+  try {
+    await exportApi.startAsyncExport({
+      entity_type: asyncExportOptions.value.entity_type,
+      format: asyncExportOptions.value.format,
+      location_filter: asyncExportOptions.value.location_filter || undefined,
+      include_facets: asyncExportOptions.value.include_facets,
+    })
+    showSuccess(t('export.messages.success'))
+    // Refresh the export jobs panel
+    exportProgressRef.value?.refreshJobs()
+  } catch (error: any) {
+    showError(error.response?.data?.detail || t('export.messages.error'))
+  } finally {
+    startingAsyncExport.value = false
   }
 }
 

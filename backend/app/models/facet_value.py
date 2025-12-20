@@ -1,29 +1,45 @@
 """FacetValue model for storing facet instances."""
 
+import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from sqlalchemy import (
     Boolean,
     DateTime,
+    Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
+
+class FacetValueSourceType(str, enum.Enum):
+    """Source type for facet values - indicates how the value was created."""
+
+    DOCUMENT = "DOCUMENT"  # Extracted from a crawled document via AI
+    MANUAL = "MANUAL"  # Manually created by user via UI dialog
+    PYSIS = "PYSIS"  # Generated from PySis analysis
+    SMART_QUERY = "SMART_QUERY"  # Created via Smart Query write mode
+    AI_ASSISTANT = "AI_ASSISTANT"  # Created via AI assistant chat
+    IMPORT = "IMPORT"  # Imported from external data (CSV, API, etc.)
+    ATTACHMENT = "ATTACHMENT"  # Extracted from user-uploaded attachment via AI
+
 if TYPE_CHECKING:
-    from app.models.entity import Entity
-    from app.models.facet_type import FacetType
     from app.models.category import Category
     from app.models.document import Document
+    from app.models.entity import Entity
+    from app.models.entity_attachment import EntityAttachment
+    from app.models.facet_type import FacetType
 
 
 class FacetValue(Base):
@@ -35,6 +51,16 @@ class FacetValue(Base):
     """
 
     __tablename__ = "facet_values"
+
+    # Composite indexes for frequently queried column combinations
+    __table_args__ = (
+        # For facet queries by entity and type
+        Index("ix_facet_values_entity_type", "entity_id", "facet_type_id"),
+        # For facet queries by entity and active status
+        Index("ix_facet_values_entity_active", "entity_id", "is_active"),
+        # For time-based facet queries
+        Index("ix_facet_values_entity_event_date", "entity_id", "event_date"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -72,6 +98,11 @@ class FacetValue(Base):
         nullable=False,
         comment="Text representation for search and display",
     )
+    search_vector: Mapped[Optional[str]] = mapped_column(
+        TSVECTOR,
+        nullable=True,
+        comment="Full-text search vector (auto-generated from text_representation)",
+    )
 
     # Time-based fields
     event_date: Mapped[Optional[datetime]] = mapped_column(
@@ -92,11 +123,25 @@ class FacetValue(Base):
     )
 
     # Source tracking
+    source_type: Mapped[FacetValueSourceType] = mapped_column(
+        Enum(FacetValueSourceType),
+        default=FacetValueSourceType.DOCUMENT,
+        nullable=False,
+        index=True,
+        comment="How this value was created (document, manual, pysis, etc.)",
+    )
     source_document_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("documents.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
+    )
+    source_attachment_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("entity_attachments.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Source attachment for ATTACHMENT source type",
     )
     source_url: Mapped[Optional[str]] = mapped_column(
         Text,
@@ -187,6 +232,7 @@ class FacetValue(Base):
     )
     category: Mapped[Optional["Category"]] = relationship("Category")
     source_document: Mapped[Optional["Document"]] = relationship("Document")
+    source_attachment: Mapped[Optional["EntityAttachment"]] = relationship("EntityAttachment")
 
     @property
     def final_value(self) -> Dict[str, Any]:
@@ -207,7 +253,7 @@ class FacetValue(Base):
     @property
     def is_valid(self) -> bool:
         """Check if this value is currently valid (within valid_from/valid_until)."""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         if self.valid_from and now < self.valid_from:
             return False
         if self.valid_until and now > self.valid_until:

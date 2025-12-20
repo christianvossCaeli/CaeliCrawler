@@ -17,7 +17,10 @@ from app.models import (
     FacetValue,
     ExtractedData,
     DataSource,
+    RelationType,
+    EntityRelation,
 )
+from app.models.facet_value import FacetValueSourceType
 
 logger = structlog.get_logger()
 
@@ -105,7 +108,7 @@ async def get_or_create_entity(
 async def get_facet_type_by_slug(session: AsyncSession, slug: str) -> Optional[FacetType]:
     """Get facet type by slug."""
     result = await session.execute(
-        select(FacetType).where(FacetType.slug == slug, FacetType.is_active == True)
+        select(FacetType).where(FacetType.slug == slug, FacetType.is_active.is_(True))
     )
     return result.scalar_one_or_none()
 
@@ -120,8 +123,27 @@ async def create_facet_value(
     source_document_id: Optional[UUID] = None,
     source_url: Optional[str] = None,
     event_date: Optional[datetime] = None,
-) -> FacetValue:
-    """Create a new facet value."""
+    source_type: FacetValueSourceType = FacetValueSourceType.DOCUMENT,
+) -> Optional[FacetValue]:
+    """Create a new facet value.
+
+    Args:
+        session: Database session
+        entity_id: UUID of the entity
+        facet_type_id: UUID of the facet type
+        value: Structured value dict
+        text_representation: Human-readable text representation
+        confidence_score: Confidence score (0-1)
+        source_document_id: Optional source document UUID
+        source_url: Optional source URL
+        event_date: Optional event date
+        source_type: How this value was created (default: DOCUMENT for AI extraction)
+
+    Returns:
+        Created FacetValue, or None if duplicate was detected by database constraint
+    """
+    from sqlalchemy.exc import IntegrityError
+
     facet_value = FacetValue(
         entity_id=entity_id,
         facet_type_id=facet_type_id,
@@ -131,9 +153,25 @@ async def create_facet_value(
         source_document_id=source_document_id,
         source_url=source_url,
         event_date=event_date,
+        source_type=source_type,
     )
     session.add(facet_value)
-    return facet_value
+
+    try:
+        await session.flush()
+        return facet_value
+    except IntegrityError as e:
+        # Duplicate detected by database unique index - rollback and return None
+        if "ix_facet_values_dedup" in str(e):
+            await session.rollback()
+            logger.debug(
+                "Duplicate facet value prevented by database",
+                entity_id=str(entity_id),
+                facet_type_id=str(facet_type_id),
+                text_preview=text_representation[:50] if text_representation else "",
+            )
+            return None
+        raise  # Re-raise if it's a different IntegrityError
 
 
 async def check_duplicate_facet(
@@ -411,3 +449,75 @@ async def link_source_to_entity(
         )
 
     return entity
+
+
+# =============================================================================
+# Relation Functions (shared between services)
+# =============================================================================
+
+
+async def get_relation_type_by_slug(
+    session: AsyncSession, slug: str
+) -> Optional[RelationType]:
+    """Get relation type by slug.
+
+    Args:
+        session: Database session
+        slug: Relation type slug (e.g., 'attends', 'works_for', 'located_in')
+
+    Returns:
+        RelationType if found and active, None otherwise
+    """
+    result = await session.execute(
+        select(RelationType).where(
+            RelationType.slug == slug, RelationType.is_active.is_(True)
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def create_relation(
+    session: AsyncSession,
+    source_entity_id: UUID,
+    target_entity_id: UUID,
+    relation_type_id: UUID,
+    attributes: Optional[Dict[str, Any]] = None,
+    source_document_id: Optional[UUID] = None,
+    confidence_score: float = 0.5,
+) -> Optional[EntityRelation]:
+    """Create a relation between two entities if it doesn't exist.
+
+    Args:
+        session: Database session
+        source_entity_id: UUID of the source entity
+        target_entity_id: UUID of the target entity
+        relation_type_id: UUID of the relation type
+        attributes: Optional dict of additional attributes
+        source_document_id: Optional source document UUID
+        confidence_score: Confidence score (0-1)
+
+    Returns:
+        EntityRelation (existing or newly created)
+    """
+    # Check for existing relation
+    result = await session.execute(
+        select(EntityRelation).where(
+            EntityRelation.source_entity_id == source_entity_id,
+            EntityRelation.target_entity_id == target_entity_id,
+            EntityRelation.relation_type_id == relation_type_id,
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        return existing
+
+    relation = EntityRelation(
+        source_entity_id=source_entity_id,
+        target_entity_id=target_entity_id,
+        relation_type_id=relation_type_id,
+        attributes=attributes or {},
+        source_document_id=source_document_id,
+        confidence_score=confidence_score,
+    )
+    session.add(relation)
+    return relation

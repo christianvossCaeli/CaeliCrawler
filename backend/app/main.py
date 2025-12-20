@@ -12,8 +12,8 @@ from redis.asyncio import Redis
 from app import __version__
 from app.config import settings
 from app.database import close_db, init_db
-from app.api.admin import categories, sources, crawler, pysis, locations, users, versions, audit, notifications
-from app.api.v1 import export, entity_types, entities, facets, relations, assistant
+from app.api.admin import categories, sources, crawler, pysis, locations, users, versions, audit, notifications, external_apis
+from app.api.v1 import export, entity_types, entities, facets, relations, assistant, pysis_facets, dashboard, ai_tasks, entity_data, attachments
 from app.api.v1.data_api import router as data_router
 from app.api.v1.analysis_api import router as analysis_router
 from app.api import auth
@@ -23,6 +23,7 @@ from app.core.token_blacklist import TokenBlacklist, set_token_blacklist
 from app.core.security_headers import SecurityHeadersMiddleware, TrustedHostMiddleware
 from app.core.i18n_middleware import I18nMiddleware
 from app.i18n import load_translations
+from app.monitoring.metrics import get_metrics_router, set_app_info
 
 # Configure structured logging
 structlog.configure(
@@ -189,6 +190,12 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
             "environment": settings.app_env,
         }
 
+    # Prometheus metrics endpoint
+    app.include_router(get_metrics_router())
+
+    # Set application info for metrics
+    set_app_info(version=__version__, environment=settings.app_env)
+
     # Feature flags endpoint
     @app.get("/api/config/features", tags=["Config"])
     async def get_feature_flags():
@@ -261,6 +268,11 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         prefix=f"{settings.admin_api_prefix}/notifications",
         tags=["Admin - Notifications"],
     )
+    app.include_router(
+        external_apis.router,
+        prefix=f"{settings.admin_api_prefix}/external-apis",
+        tags=["Admin - External APIs"],
+    )
 
     # Public API v1 (Legacy)
     app.include_router(
@@ -291,6 +303,11 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         tags=["API v1 - Facets"],
     )
     app.include_router(
+        pysis_facets.router,
+        prefix=f"{settings.api_v1_prefix}/pysis-facets",
+        tags=["API v1 - PySis Facets"],
+    )
+    app.include_router(
         relations.router,
         prefix=f"{settings.api_v1_prefix}/relations",
         tags=["API v1 - Relations"],
@@ -304,6 +321,26 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         assistant.router,
         prefix=f"{settings.api_v1_prefix}/assistant",
         tags=["API v1 - AI Assistant"],
+    )
+    app.include_router(
+        dashboard.router,
+        prefix=f"{settings.api_v1_prefix}/dashboard",
+        tags=["API v1 - Dashboard"],
+    )
+    app.include_router(
+        ai_tasks.router,
+        prefix=f"{settings.api_v1_prefix}/ai-tasks",
+        tags=["API v1 - AI Tasks"],
+    )
+    app.include_router(
+        entity_data.router,
+        prefix=f"{settings.api_v1_prefix}/entity-data",
+        tags=["API v1 - Entity Data Enrichment"],
+    )
+    app.include_router(
+        attachments.router,
+        prefix=settings.api_v1_prefix,
+        tags=["API v1 - Entity Attachments"],
     )
 
     return app

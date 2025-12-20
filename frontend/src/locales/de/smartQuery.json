@@ -39,7 +39,8 @@
     },
     "actions": {
       "preview": "Vorschau",
-      "query": "Abfragen"
+      "query": "Abfragen",
+      "analyzeImage": "Bild analysieren"
     },
     "examples": {
       "questionsTitle": "Beispiel-Fragen",

@@ -182,7 +182,7 @@
     <v-card-actions v-if="currentStep.input_type !== 'confirm'" class="wizard-step__actions">
       <v-btn
         v-if="canGoBack"
-        variant="text"
+        variant="tonal"
         @click="$emit('back')"
       >
         <v-icon start>mdi-chevron-left</v-icon>
@@ -190,7 +190,7 @@
       </v-btn>
 
       <v-btn
-        variant="text"
+        variant="tonal"
         color="error"
         @click="$emit('cancel')"
       >

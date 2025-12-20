@@ -49,7 +49,6 @@ from .entity_operations import (
 from .query_interpreter import (
     interpret_query,
     interpret_write_command,
-    fallback_interpret,
     get_openai_client,
 )
 from .query_executor import execute_smart_query
@@ -90,14 +89,12 @@ class SmartQueryService:
     async def execute_query(
         self,
         query: str,
-        context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Execute a natural language query.
+        Execute a natural language query (read-only).
 
         Args:
             query: Natural language query string
-            context: Optional context for the query
 
         Returns:
             Query results as dictionary
@@ -159,8 +156,16 @@ async def smart_query(
     query_params = await interpret_query(question, session=session)
 
     if not query_params:
-        # Fallback: try a simple keyword-based interpretation
-        query_params = fallback_interpret(question)
+        # Return error when AI interpretation fails
+        logger.error("AI interpretation failed", question=question)
+        return {
+            "error": True,
+            "message": "KI-Interpretation fehlgeschlagen. Bitte versuchen Sie es erneut oder formulieren Sie die Anfrage anders.",
+            "original_question": question,
+            "mode": "read",
+            "items": [],
+            "total": 0,
+        }
 
     logger.info(
         "Smart query interpreted",
@@ -215,7 +220,6 @@ __all__ = [
     # Query interpretation
     "interpret_query",
     "interpret_write_command",
-    "fallback_interpret",
     "get_openai_client",
     # Query execution
     "execute_smart_query",

@@ -48,24 +48,24 @@ async def list_entity_types(
     # Visibility filtering
     if is_public is not None:
         # Explicit filter requested
-        query = query.where(EntityType.is_public == is_public)
+        query = query.where(EntityType.is_public.is_(is_public))
     elif include_private and current_user:
         # Show public + user's own private types
         query = query.where(
             or_(
-                EntityType.is_public == True,
+                EntityType.is_public.is_(True),
                 EntityType.owner_id == current_user.id,
                 EntityType.created_by_id == current_user.id,
             )
         )
     else:
         # Only public entity types
-        query = query.where(EntityType.is_public == True)
+        query = query.where(EntityType.is_public.is_(True))
 
     if is_active is not None:
-        query = query.where(EntityType.is_active == is_active)
+        query = query.where(EntityType.is_active.is_(is_active))
     if is_primary is not None:
-        query = query.where(EntityType.is_primary == is_primary)
+        query = query.where(EntityType.is_primary.is_(is_primary))
     if search:
         query = query.where(
             EntityType.name.ilike(f"%{search}%") |
@@ -81,18 +81,38 @@ async def list_entity_types(
     result = await session.execute(query)
     entity_types = result.scalars().all()
 
-    # Get entity counts
+    if not entity_types:
+        return EntityTypeListResponse(
+            items=[],
+            total=total,
+            page=page,
+            per_page=per_page,
+            pages=(total + per_page - 1) // per_page if per_page > 0 else 0,
+        )
+
+    # Batch count entities (1 query instead of N)
+    entity_type_ids = [et.id for et in entity_types]
+    entity_counts_result = await session.execute(
+        select(Entity.entity_type_id, func.count(Entity.id))
+        .where(Entity.entity_type_id.in_(entity_type_ids))
+        .group_by(Entity.entity_type_id)
+    )
+    entity_counts_map = dict(entity_counts_result.fetchall())
+
+    # Build response items using pre-fetched data
     items = []
     for et in entity_types:
-        entity_count = (await session.execute(
-            select(func.count()).where(Entity.entity_type_id == et.id)
-        )).scalar()
-
         item = EntityTypeResponse.model_validate(et)
-        item.entity_count = entity_count
+        item.entity_count = entity_counts_map.get(et.id, 0)
         items.append(item)
 
-    return EntityTypeListResponse(items=items, total=total)
+    return EntityTypeListResponse(
+        items=items,
+        total=total,
+        page=page,
+        per_page=per_page,
+        pages=(total + per_page - 1) // per_page if per_page > 0 else 0,
+    )
 
 
 @router.post("", response_model=EntityTypeResponse, status_code=201)

@@ -2,9 +2,18 @@
 
 from celery import Celery
 from celery.schedules import crontab
-from celery.signals import worker_process_init
+from celery.signals import (
+    task_failure,
+    task_retry,
+    task_success,
+    worker_process_init,
+)
+
+import structlog
 
 from app.config import settings
+
+logger = structlog.get_logger(__name__)
 
 # Note: nest_asyncio is ONLY applied in worker processes (see worker_process_init signal)
 # NOT at module import time, because the backend uses uvloop which is incompatible
@@ -19,6 +28,8 @@ celery_app = Celery(
         "workers.processing_tasks",
         "workers.ai_tasks",
         "workers.notification_tasks",
+        "workers.external_api_tasks",
+        "workers.export_tasks",
     ],
 )
 
@@ -50,6 +61,7 @@ celery_app.conf.update(
         "workers.processing_tasks.*": {"queue": "processing"},
         "workers.ai_tasks.*": {"queue": "ai"},
         "workers.notification_tasks.*": {"queue": "notification"},
+        "workers.export_tasks.*": {"queue": "processing"},
     },
 
     # Default queue
@@ -86,6 +98,20 @@ celery_app.conf.update(
             "task": "workers.notification_tasks.send_pending",
             "schedule": crontab(minute="*/2"),  # Every 2 minutes
         },
+        # External API sync tasks
+        "sync-external-apis": {
+            "task": "workers.external_api_tasks.sync_all_external_apis",
+            "schedule": crontab(minute=0, hour="*/4"),  # Every 4 hours
+        },
+        "cleanup-archived-sync-records": {
+            "task": "workers.external_api_tasks.cleanup_archived_records",
+            "schedule": crontab(hour=5, minute=0),  # Daily at 5 AM
+        },
+        # Export cleanup
+        "cleanup-old-exports": {
+            "task": "workers.export_tasks.cleanup_old_exports",
+            "schedule": crontab(hour=6, minute=0),  # Daily at 6 AM
+        },
     },
 )
 
@@ -107,3 +133,65 @@ def configure_worker(**kwargs):
     # This ensures each worker has its own connection pool
     from app.database import reset_celery_engine
     reset_celery_engine()
+
+
+# =============================================================================
+# Task Signal Handlers for Monitoring
+# =============================================================================
+
+
+@task_success.connect
+def handle_task_success(sender=None, result=None, **kwargs):
+    """Log successful task completion for monitoring."""
+    logger.info(
+        "task_completed",
+        task_name=sender.name if sender else "unknown",
+        task_id=kwargs.get("task_id"),
+        result_type=type(result).__name__ if result else None,
+    )
+
+
+@task_failure.connect
+def handle_task_failure(sender=None, task_id=None, exception=None, traceback=None, **kwargs):
+    """Log task failures for monitoring and alerting."""
+    logger.error(
+        "task_failed",
+        task_name=sender.name if sender else "unknown",
+        task_id=task_id,
+        exception_type=type(exception).__name__ if exception else None,
+        exception_message=str(exception) if exception else None,
+    )
+
+    # Emit notification for critical task failures
+    try:
+        from workers.notification_tasks import emit_event
+        if sender and sender.name in (
+            "workers.crawl_tasks.crawl_source",
+            "workers.ai_tasks.analyze_document",
+            "workers.ai_tasks.extract_pysis_fields",
+        ):
+            emit_event.delay(
+                "SYSTEM_ERROR",
+                {
+                    "entity_type": "celery_task",
+                    "entity_id": task_id,
+                    "task_name": sender.name,
+                    "error": str(exception) if exception else "Unknown error",
+                }
+            )
+    except Exception:
+        # Don't fail if notification can't be sent
+        pass
+
+
+@task_retry.connect
+def handle_task_retry(sender=None, reason=None, **kwargs):
+    """Log task retries for monitoring."""
+    request = kwargs.get("request")
+    logger.warning(
+        "task_retry",
+        task_name=sender.name if sender else "unknown",
+        task_id=request.id if request else None,
+        retry_count=request.retries if request else None,
+        reason=str(reason) if reason else None,
+    )

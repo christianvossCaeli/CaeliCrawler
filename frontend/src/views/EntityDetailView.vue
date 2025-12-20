@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Loading State -->
-    <v-overlay :model-value="loading" class="align-center justify-center" persistent scrim="rgba(0,0,0,0.7)">
+    <v-overlay :model-value="loading" class="align-center justify-center" persistent >
       <v-card class="pa-8 text-center" min-width="320" elevation="24">
         <v-progress-circular indeterminate size="80" width="6" color="primary" class="mb-4"></v-progress-circular>
         <div class="text-h6 mb-2">{{ t('entityDetail.loading') }}</div>
@@ -27,26 +27,53 @@
                 {{ entity.external_id }}
               </v-chip>
             </div>
-            <div v-if="entity.hierarchy_path" class="text-body-2 text-grey">
+            <div v-if="entity.hierarchy_path" class="text-body-2 text-medium-emphasis">
               {{ entity.hierarchy_path }}
             </div>
           </div>
           <div class="d-flex ga-2">
-            <v-btn variant="text" @click="notesDialog = true" :title="t('entityDetail.notes')">
+            <v-btn variant="tonal" @click="notesDialog = true" :title="t('entityDetail.notes')">
               <v-icon>mdi-note-text</v-icon>
               <v-badge v-if="notes.length" :content="notes.length" color="primary" floating></v-badge>
             </v-btn>
-            <v-btn variant="text" @click="exportDialog = true" :title="t('entityDetail.export')">
+            <v-btn variant="tonal" @click="exportDialog = true" :title="t('entityDetail.export')">
               <v-icon>mdi-export</v-icon>
             </v-btn>
             <v-btn variant="outlined" @click="editDialog = true">
               <v-icon start>mdi-pencil</v-icon>
               {{ t('entityDetail.edit') }}
             </v-btn>
-            <v-btn v-if="featureFlags.entityLevelFacets" color="primary" @click="addFacetDialog = true">
-              <v-icon start>mdi-plus</v-icon>
-              {{ t('entityDetail.addFacet') }}
-            </v-btn>
+            <v-menu>
+              <template v-slot:activator="{ props }">
+                <v-btn variant="tonal" color="primary" v-bind="props">
+                  <v-icon start>mdi-plus</v-icon>
+                  {{ t('entityDetail.addFacet') }}
+                  <v-icon end>mdi-chevron-down</v-icon>
+                </v-btn>
+              </template>
+              <v-list>
+                <v-list-item
+                  v-for="facetGroup in facetsSummary?.facets_by_type || []"
+                  :key="facetGroup.facet_type_id"
+                  @click="openAddFacetValueDialog(facetGroup)"
+                >
+                  <template v-slot:prepend>
+                    <v-icon :icon="facetGroup.facet_type_icon" :color="facetGroup.facet_type_color" size="small"></v-icon>
+                  </template>
+                  <v-list-item-title>{{ facetGroup.facet_type_name }}</v-list-item-title>
+                  <template v-slot:append>
+                    <v-chip size="x-small" variant="text">{{ facetGroup.value_count }}</v-chip>
+                  </template>
+                </v-list-item>
+                <v-divider v-if="facetsSummary?.facets_by_type?.length" class="my-1"></v-divider>
+                <v-list-item @click="addFacetDialog = true">
+                  <template v-slot:prepend>
+                    <v-icon icon="mdi-tag-plus" color="grey" size="small"></v-icon>
+                  </template>
+                  <v-list-item-title class="text-medium-emphasis">{{ t('entities.facet.title') }}</v-list-item-title>
+                </v-list-item>
+              </v-list>
+            </v-menu>
           </div>
         </div>
 
@@ -55,25 +82,25 @@
           <v-col cols="6" sm="3" md="2">
             <div class="text-center">
               <div class="text-h5">{{ entity.facet_count || 0 }}</div>
-              <div class="text-caption text-grey">{{ t('entityDetail.stats.facetValues') }}</div>
+              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.stats.facetValues') }}</div>
             </div>
           </v-col>
           <v-col cols="6" sm="3" md="2">
             <div class="text-center">
               <div class="text-h5">{{ entity.relation_count || 0 }}</div>
-              <div class="text-caption text-grey">{{ t('entityDetail.stats.relations') }}</div>
+              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.stats.relations') }}</div>
             </div>
           </v-col>
           <v-col cols="6" sm="3" md="2">
             <div class="text-center">
               <div class="text-h5">{{ facetsSummary?.verified_count || 0 }}</div>
-              <div class="text-caption text-grey">{{ t('entityDetail.stats.verified') }}</div>
+              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.stats.verified') }}</div>
             </div>
           </v-col>
           <v-col cols="6" sm="3" md="2">
             <div class="text-center">
               <div class="text-h5">{{ dataSources.length }}</div>
-              <div class="text-caption text-grey">{{ t('entityDetail.stats.dataSources') }}</div>
+              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.stats.dataSources') }}</div>
             </div>
           </v-col>
           <v-col v-if="entity.latitude && entity.longitude" cols="12" sm="6" md="4">
@@ -123,23 +150,213 @@
         <v-icon start>mdi-database-sync</v-icon>
         {{ t('entityDetail.tabs.pysis') }}
       </v-tab>
+      <v-tab v-if="externalData?.has_external_data" value="api-data">
+        <v-icon start>mdi-code-json</v-icon>
+        {{ t('entityDetail.tabs.apiData', 'API-Daten') }}
+      </v-tab>
+      <v-tab value="attachments">
+        <v-icon start>mdi-paperclip</v-icon>
+        {{ t('entityDetail.tabs.attachments') }}
+        <v-chip v-if="attachmentCount" size="x-small" class="ml-2">{{ attachmentCount }}</v-chip>
+      </v-tab>
     </v-tabs>
 
     <v-window v-model="activeTab">
       <!-- Facets Tab -->
       <v-window-item value="facets">
-        <!-- Search Bar for Facets -->
+        <!-- Search Bar for Facets + PySis Enrich Button -->
         <v-card v-if="facetsSummary?.facets_by_type?.length" class="mb-4" variant="outlined">
           <v-card-text class="py-2">
-            <v-text-field
-              v-model="facetSearchQuery"
-              prepend-inner-icon="mdi-magnify"
-              :label="t('entityDetail.searchProperties')"
-              clearable
-              hide-details
-              density="compact"
-              variant="plain"
-            ></v-text-field>
+            <div class="d-flex align-center ga-3">
+              <v-text-field
+                v-model="facetSearchQuery"
+                prepend-inner-icon="mdi-magnify"
+                :label="t('entityDetail.searchProperties')"
+                clearable
+                hide-details
+                density="compact"
+                variant="plain"
+                class="flex-grow-1"
+              ></v-text-field>
+              <!-- Enrichment Dropdown Menu -->
+              <v-menu
+                v-if="entityType?.slug === 'municipality'"
+                v-model="enrichmentMenuOpen"
+                :close-on-content-click="false"
+                location="bottom end"
+                @update:model-value="onEnrichmentMenuOpen"
+              >
+                <template v-slot:activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    color="secondary"
+                    size="small"
+                    variant="tonal"
+                    :loading="loadingEnrichmentSources"
+                  >
+                    <v-icon start>mdi-auto-fix</v-icon>
+                    {{ t('entityDetail.enrichment.buttonLabel') }}
+                    <v-icon end>mdi-chevron-down</v-icon>
+                  </v-btn>
+                </template>
+
+                <v-card min-width="380" max-width="450">
+                  <v-card-title class="text-subtitle-1 pb-0">
+                    {{ t('entityDetail.enrichment.dropdownTitle') }}
+                  </v-card-title>
+
+                  <v-card-text v-if="enrichmentSources" class="pb-2">
+                    <!-- PySIS Source -->
+                    <v-checkbox
+                      v-if="enrichmentSources.pysis?.available"
+                      v-model="selectedEnrichmentSources"
+                      value="pysis"
+                      hide-details
+                      density="compact"
+                      class="mb-1"
+                    >
+                      <template v-slot:label>
+                        <div class="d-flex align-center justify-space-between w-100">
+                          <span class="d-flex align-center">
+                            <v-icon start size="small" color="deep-purple">mdi-database</v-icon>
+                            {{ t('entityDetail.enrichment.sourcePysis') }}
+                            <v-chip size="x-small" class="ml-2">{{ enrichmentSources.pysis.count }}</v-chip>
+                          </span>
+                          <span v-if="enrichmentSources.pysis.last_updated" class="text-caption text-medium-emphasis ml-2">
+                            {{ formatEnrichmentDate(enrichmentSources.pysis.last_updated) }}
+                          </span>
+                        </div>
+                      </template>
+                    </v-checkbox>
+
+                    <!-- Relations Source -->
+                    <v-checkbox
+                      v-if="enrichmentSources.relations?.available"
+                      v-model="selectedEnrichmentSources"
+                      value="relations"
+                      hide-details
+                      density="compact"
+                      class="mb-1"
+                    >
+                      <template v-slot:label>
+                        <div class="d-flex align-center justify-space-between w-100">
+                          <span class="d-flex align-center">
+                            <v-icon start size="small" color="blue">mdi-link-variant</v-icon>
+                            {{ t('entityDetail.enrichment.sourceRelations') }}
+                            <v-chip size="x-small" class="ml-2">{{ enrichmentSources.relations.count }}</v-chip>
+                          </span>
+                          <span v-if="enrichmentSources.relations.last_updated" class="text-caption text-medium-emphasis ml-2">
+                            {{ formatEnrichmentDate(enrichmentSources.relations.last_updated) }}
+                          </span>
+                        </div>
+                      </template>
+                    </v-checkbox>
+
+                    <!-- Documents Source -->
+                    <v-checkbox
+                      v-if="enrichmentSources.documents?.available"
+                      v-model="selectedEnrichmentSources"
+                      value="documents"
+                      hide-details
+                      density="compact"
+                      class="mb-1"
+                    >
+                      <template v-slot:label>
+                        <div class="d-flex align-center justify-space-between w-100">
+                          <span class="d-flex align-center">
+                            <v-icon start size="small" color="orange">mdi-file-document-multiple</v-icon>
+                            {{ t('entityDetail.enrichment.sourceDocuments') }}
+                            <v-chip size="x-small" class="ml-2">{{ enrichmentSources.documents.count }}</v-chip>
+                          </span>
+                          <span v-if="enrichmentSources.documents.last_updated" class="text-caption text-medium-emphasis ml-2">
+                            {{ formatEnrichmentDate(enrichmentSources.documents.last_updated) }}
+                          </span>
+                        </div>
+                      </template>
+                    </v-checkbox>
+
+                    <!-- Extractions Source -->
+                    <v-checkbox
+                      v-if="enrichmentSources.extractions?.available"
+                      v-model="selectedEnrichmentSources"
+                      value="extractions"
+                      hide-details
+                      density="compact"
+                      class="mb-1"
+                    >
+                      <template v-slot:label>
+                        <div class="d-flex align-center justify-space-between w-100">
+                          <span class="d-flex align-center">
+                            <v-icon start size="small" color="teal">mdi-brain</v-icon>
+                            {{ t('entityDetail.enrichment.sourceExtractions') }}
+                            <v-chip size="x-small" class="ml-2">{{ enrichmentSources.extractions.count }}</v-chip>
+                          </span>
+                          <span v-if="enrichmentSources.extractions.last_updated" class="text-caption text-medium-emphasis ml-2">
+                            {{ formatEnrichmentDate(enrichmentSources.extractions.last_updated) }}
+                          </span>
+                        </div>
+                      </template>
+                    </v-checkbox>
+
+                    <!-- Attachments Source -->
+                    <v-checkbox
+                      v-if="enrichmentSources.attachments?.available"
+                      v-model="selectedEnrichmentSources"
+                      value="attachments"
+                      hide-details
+                      density="compact"
+                      class="mb-1"
+                    >
+                      <template v-slot:label>
+                        <div class="d-flex align-center justify-space-between w-100">
+                          <span class="d-flex align-center">
+                            <v-icon start size="small" color="deep-purple">mdi-paperclip</v-icon>
+                            {{ t('entityDetail.enrichment.sourceAttachments') }}
+                            <v-chip size="x-small" class="ml-2">{{ enrichmentSources.attachments.count }}</v-chip>
+                          </span>
+                          <span v-if="enrichmentSources.attachments.last_updated" class="text-caption text-medium-emphasis ml-2">
+                            {{ formatEnrichmentDate(enrichmentSources.attachments.last_updated) }}
+                          </span>
+                        </div>
+                      </template>
+                    </v-checkbox>
+
+                    <!-- No sources available message -->
+                    <v-alert
+                      v-if="!hasAnyEnrichmentSource"
+                      type="info"
+                      variant="tonal"
+                      density="compact"
+                    >
+                      {{ t('entityDetail.enrichment.noSourcesAvailable') }}
+                    </v-alert>
+                  </v-card-text>
+
+                  <v-card-text v-else class="text-center py-4">
+                    <v-progress-circular indeterminate size="24"></v-progress-circular>
+                  </v-card-text>
+
+                  <v-divider></v-divider>
+
+                  <v-card-actions class="px-4 py-2">
+                    <v-chip size="small" variant="tonal">
+                      {{ t('entityDetail.enrichment.existingFacets', { count: enrichmentSources?.existing_facets || 0 }) }}
+                    </v-chip>
+                    <v-spacer></v-spacer>
+                    <v-btn
+                      variant="tonal"
+                      color="primary"
+                      :disabled="selectedEnrichmentSources.length === 0"
+                      :loading="startingEnrichment"
+                      @click="startEnrichmentAnalysis"
+                    >
+                      <v-icon start>mdi-play</v-icon>
+                      {{ t('entityDetail.enrichment.startAnalysis') }}
+                    </v-btn>
+                  </v-card-actions>
+                </v-card>
+              </v-menu>
+            </div>
           </v-card-text>
         </v-card>
 
@@ -158,7 +375,18 @@
                   {{ facetGroup.verified_count }} {{ t('entityDetail.verified') }}
                 </v-chip>
                 <v-spacer></v-spacer>
-                <v-btn size="small" variant="text" @click="toggleFacetExpand(facetGroup.facet_type_slug)">
+                <!-- Add Value Button -->
+                <v-btn
+                  size="small"
+                  color="primary"
+                  variant="tonal"
+                  class="mr-2"
+                  @click.stop="openAddFacetValueDialog(facetGroup)"
+                >
+                  <v-icon start size="small">mdi-plus</v-icon>
+                  {{ t('common.add') }}
+                </v-btn>
+                <v-btn size="small" variant="tonal" @click="toggleFacetExpand(facetGroup.facet_type_slug)">
                   <v-icon>{{ expandedFacets.includes(facetGroup.facet_type_slug) ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
                 </v-btn>
               </v-card-title>
@@ -170,9 +398,12 @@
                     <div
                       v-for="(sample, idx) in getDisplayedFacets(facetGroup)"
                       :key="sample.id || idx"
-                      class="mb-3 pa-3 rounded facet-item"
-                      :class="{ 'selected': selectedFacetIds.includes(sample.id) }"
-                      :style="{ backgroundColor: 'rgba(var(--v-theme-surface-variant), 0.3)' }"
+                      class="mb-3 pa-3 rounded-lg facet-item border"
+                      :class="{
+                        'selected': selectedFacetIds.includes(sample.id),
+                        'bg-surface-light': !$vuetify.theme.current.dark,
+                        'bg-grey-darken-4': $vuetify.theme.current.dark
+                      }"
                     >
                       <!-- Checkbox for bulk selection -->
                       <div class="d-flex align-start">
@@ -207,12 +438,6 @@
                               <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
                               <span class="text-body-2 font-italic">{{ getStructuredQuote(sample) }}</span>
                             </div>
-                            <div v-if="sample.source_url" class="mt-2">
-                              <v-chip size="x-small" variant="outlined" :href="sample.source_url" target="_blank" tag="a">
-                                <v-icon start size="x-small">mdi-link</v-icon>
-                                {{ t('entityDetail.source') }}
-                              </v-chip>
-                            </div>
                           </div>
                         </div>
                       </template>
@@ -232,12 +457,6 @@
                               <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
                               <span class="text-body-2 font-italic">{{ getStructuredQuote(sample) }}</span>
                             </div>
-                            <div v-if="sample.source_url" class="mt-2">
-                              <v-chip size="x-small" variant="outlined" :href="sample.source_url" target="_blank" tag="a">
-                                <v-icon start size="x-small">mdi-link</v-icon>
-                                {{ t('entityDetail.source') }}
-                              </v-chip>
-                            </div>
                           </div>
                         </div>
                       </template>
@@ -248,7 +467,7 @@
                           <v-icon size="small" color="primary">mdi-account-tie</v-icon>
                           <div class="flex-grow-1">
                             <div class="text-body-1 font-weight-medium">{{ getContactName(sample) }}</div>
-                            <div v-if="getContactRole(sample)" class="text-body-2 text-grey">{{ getContactRole(sample) }}</div>
+                            <div v-if="getContactRole(sample)" class="text-body-2 text-medium-emphasis">{{ getContactRole(sample) }}</div>
                             <div class="d-flex flex-wrap ga-2 mt-2">
                               <v-chip v-if="getContactEmail(sample)" size="small" variant="outlined" @click.stop="copyToClipboard(getContactEmail(sample)!)">
                                 <v-icon start size="small">mdi-email</v-icon>
@@ -270,12 +489,6 @@
                               <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
                               <span class="text-body-2 font-italic">{{ getContactStatement(sample) }}</span>
                             </div>
-                            <div v-if="sample.source_url" class="mt-2">
-                              <v-chip size="x-small" variant="outlined" :href="sample.source_url" target="_blank" tag="a">
-                                <v-icon start size="x-small">mdi-link</v-icon>
-                                {{ t('entityDetail.source') }}
-                              </v-chip>
-                            </div>
                           </div>
                         </div>
                       </template>
@@ -283,38 +496,84 @@
                       <!-- Default/Text Display -->
                       <template v-else>
                         <div class="text-body-1">{{ formatFacetValue(sample) }}</div>
-                        <div v-if="sample.source_url" class="mt-2">
-                          <v-chip size="x-small" variant="outlined" :href="sample.source_url" target="_blank" tag="a">
-                            <v-icon start size="x-small">mdi-link</v-icon>
-                            {{ t('entityDetail.source') }}
-                          </v-chip>
-                        </div>
                       </template>
 
-                      <!-- Confidence Score (shown for all types) -->
-                      <div v-if="sample.confidence_score" class="d-flex align-center mt-2">
-                        <v-progress-linear
-                          :model-value="sample.confidence_score * 100"
-                          :color="getConfidenceColor(sample.confidence_score)"
-                          height="4"
-                          class="mr-2"
-                          style="max-width: 100px;"
-                        ></v-progress-linear>
-                        <span class="text-caption text-grey">{{ Math.round(sample.confidence_score * 100) }}%</span>
-                        <v-chip v-if="sample.human_verified" size="x-small" color="success" class="ml-2">
-                          <v-icon size="x-small">mdi-check</v-icon>
-                        </v-chip>
-                        <v-spacer></v-spacer>
-                        <!-- Inline verify button -->
-                        <v-btn
-                          v-if="!sample.human_verified && sample.id"
+                      <!-- Source & Confidence Info (shown for all types) -->
+                      <div class="d-flex align-center flex-wrap ga-2 mt-2">
+                        <!-- Source Badge (Clickable - opens details modal) -->
+                        <v-chip
                           size="x-small"
-                          color="success"
-                          variant="text"
-                          @click.stop="verifyFacet(sample.id)"
+                          variant="tonal"
+                          :color="getSourceTypeColor(sample.source_type)"
+                          class="cursor-pointer"
+                          @click.stop="openSourceDetails(sample)"
                         >
-                          <v-icon size="small">mdi-check</v-icon>
-                        </v-btn>
+                          <v-icon start size="x-small">{{ getSourceTypeIcon(sample.source_type) }}</v-icon>
+                          {{ t('entityDetail.source') }}
+                        </v-chip>
+
+                        <!-- Confidence Score -->
+                        <div v-if="sample.confidence_score" class="d-flex align-center">
+                          <v-progress-linear
+                            :model-value="sample.confidence_score * 100"
+                            :color="getConfidenceColor(sample.confidence_score)"
+                            height="4"
+                            class="mr-2"
+                            style="max-width: 80px;"
+                          ></v-progress-linear>
+                          <span class="text-caption text-medium-emphasis">{{ Math.round(sample.confidence_score * 100) }}%</span>
+                        </div>
+
+                        <!-- Created Date -->
+                        <span v-if="sample.created_at" class="text-caption text-medium-emphasis">
+                          <v-icon size="x-small" class="mr-1">mdi-clock-outline</v-icon>
+                          {{ formatDate(sample.created_at) }}
+                        </span>
+
+                        <!-- Verified Badge -->
+                        <v-chip v-if="sample.human_verified" size="x-small" color="success" variant="flat">
+                          <v-icon start size="x-small">mdi-check-circle</v-icon>
+                          {{ t('entityDetail.verifiedLabel') }}
+                        </v-chip>
+
+                        <v-spacer></v-spacer>
+
+                        <!-- Action buttons -->
+                        <div class="d-flex ga-1">
+                          <!-- Verify button -->
+                          <v-btn
+                            v-if="!sample.human_verified && sample.id"
+                            size="x-small"
+                            color="success"
+                            variant="tonal"
+                            @click.stop="verifyFacet(sample.id)"
+                            :title="t('entityDetail.verifyAction')"
+                          >
+                            <v-icon size="small">mdi-check</v-icon>
+                          </v-btn>
+                          <!-- Edit button -->
+                          <v-btn
+                            v-if="sample.id"
+                            size="x-small"
+                            color="primary"
+                            variant="tonal"
+                            @click.stop="openEditFacetDialog(sample, facetGroup)"
+                            :title="t('common.edit')"
+                          >
+                            <v-icon size="small">mdi-pencil</v-icon>
+                          </v-btn>
+                          <!-- Delete button -->
+                          <v-btn
+                            v-if="sample.id"
+                            size="x-small"
+                            color="error"
+                            variant="tonal"
+                            @click.stop="confirmDeleteFacet(sample)"
+                            :title="t('common.delete')"
+                          >
+                            <v-icon size="small">mdi-delete</v-icon>
+                          </v-btn>
+                        </div>
                       </div>
                         </div>
                       </div>
@@ -335,7 +594,7 @@
                     </v-btn>
                     <v-btn
                       v-if="isExpanded(facetGroup)"
-                      variant="text"
+                      variant="tonal"
                       size="small"
                       @click="collapseFacets(facetGroup)"
                     >
@@ -346,7 +605,7 @@
                     <!-- Bulk Mode Toggle -->
                     <v-btn
                       v-if="getDisplayedFacets(facetGroup).length > 1"
-                      variant="text"
+                      variant="tonal"
                       size="small"
                       @click="bulkMode = !bulkMode"
                     >
@@ -394,11 +653,11 @@
         <v-card v-if="!facetsSummary?.facets_by_type?.length" class="mt-4 text-center pa-8" variant="outlined">
           <v-icon size="80" color="grey-lighten-1" class="mb-4">mdi-tag-off-outline</v-icon>
           <h3 class="text-h6 mb-2">{{ t('entityDetail.emptyState.noProperties') }}</h3>
-          <p class="text-body-2 text-grey mb-4">
+          <p class="text-body-2 text-medium-emphasis mb-4">
             {{ t('entityDetail.emptyState.noPropertiesDesc') }}
           </p>
           <div class="d-flex justify-center ga-2">
-            <v-btn v-if="featureFlags.entityLevelFacets" color="primary" @click="addFacetDialog = true">
+            <v-btn variant="tonal" color="primary" @click="addFacetDialog = true">
               <v-icon start>mdi-plus</v-icon>
               {{ t('entityDetail.emptyState.addManually') }}
             </v-btn>
@@ -413,10 +672,10 @@
         <v-card v-else-if="facetSearchQuery && !hasSearchResults" class="mt-4 text-center pa-6" variant="outlined">
           <v-icon size="60" color="grey-lighten-1" class="mb-3">mdi-magnify-close</v-icon>
           <h3 class="text-h6 mb-2">{{ t('entityDetail.noSearchResults', { query: facetSearchQuery }) }}</h3>
-          <p class="text-body-2 text-grey mb-3">
+          <p class="text-body-2 text-medium-emphasis mb-3">
             {{ t('entityDetail.noSearchResultsDesc') }}
           </p>
-          <v-btn variant="text" @click="facetSearchQuery = ''">
+          <v-btn variant="tonal" @click="facetSearchQuery = ''">
             <v-icon start>mdi-close</v-icon>
             {{ t('entityDetail.clearSearch') }}
           </v-btn>
@@ -430,7 +689,7 @@
             <!-- Loading State -->
             <div v-if="loadingRelations" class="text-center pa-8">
               <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
-              <p class="mt-4 text-grey">{{ t('entityDetail.loadingRelations') }}</p>
+              <p class="mt-4 text-medium-emphasis">{{ t('entityDetail.loadingRelations') }}</p>
             </div>
             <div v-else-if="relations.length">
               <v-list>
@@ -471,10 +730,10 @@
             <div v-else class="text-center pa-8">
               <v-icon size="80" color="grey-lighten-1" class="mb-4">mdi-link-off</v-icon>
               <h3 class="text-h6 mb-2">{{ t('entityDetail.emptyState.noRelations') }}</h3>
-              <p class="text-body-2 text-grey mb-4">
+              <p class="text-body-2 text-medium-emphasis mb-4">
                 {{ t('entityDetail.emptyState.noRelationsDesc') }}
               </p>
-              <v-btn color="primary" @click="addRelationDialog = true">
+              <v-btn variant="tonal" color="primary" @click="addRelationDialog = true">
                 <v-icon start>mdi-link-plus</v-icon>
                 {{ t('entityDetail.addRelation') }}
               </v-btn>
@@ -532,10 +791,10 @@
             <div v-else class="text-center pa-8">
               <v-icon size="80" color="grey-lighten-1" class="mb-4">mdi-web-off</v-icon>
               <h3 class="text-h6 mb-2">{{ t('entityDetail.emptyState.noDataSources') }}</h3>
-              <p class="text-body-2 text-grey mb-4">
+              <p class="text-body-2 text-medium-emphasis mb-4">
                 {{ t('entityDetail.emptyState.noDataSourcesDesc') }}
               </p>
-              <v-btn color="primary" @click="goToSources">
+              <v-btn variant="tonal" color="primary" @click="goToSources">
                 <v-icon start>mdi-plus</v-icon>
                 {{ t('entityDetail.addDataSource') }}
               </v-btn>
@@ -577,55 +836,196 @@
           :municipality="entity.name"
         />
       </v-window-item>
+
+      <!-- External API Data Tab -->
+      <v-window-item v-if="externalData?.has_external_data" value="api-data">
+        <v-card>
+          <v-card-title class="d-flex align-center">
+            <v-icon start color="primary">mdi-api</v-icon>
+            {{ t('entityDetail.apiData.title', 'Externe API-Daten') }}
+          </v-card-title>
+          <v-card-text>
+            <!-- Source Info -->
+            <v-alert type="info" variant="tonal" class="mb-4">
+              <div class="d-flex align-center">
+                <v-icon start>mdi-cloud-sync</v-icon>
+                <div>
+                  <strong>{{ externalData.external_source?.name }}</strong>
+                  <div class="text-caption">
+                    {{ t('entityDetail.apiData.externalId', 'Externe ID') }}: {{ externalData.sync_record?.external_id }}
+                    <span v-if="externalData.sync_record?.last_seen_at" class="ml-2">
+                      | {{ t('entityDetail.apiData.lastSync', 'Letzter Sync') }}: {{ formatDate(externalData.sync_record.last_seen_at) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </v-alert>
+
+            <!-- Raw JSON Data -->
+            <v-expansion-panels>
+              <v-expansion-panel>
+                <v-expansion-panel-title>
+                  <v-icon start>mdi-code-json</v-icon>
+                  {{ t('entityDetail.apiData.rawResponse', 'Rohe API-Antwort') }}
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
+                  <pre class="json-viewer pa-3 rounded">{{ JSON.stringify(externalData.raw_data, null, 2) }}</pre>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
+
+            <!-- Field Overview -->
+            <v-card variant="outlined" class="mt-4">
+              <v-card-title class="text-subtitle-1">
+                <v-icon start size="small">mdi-format-list-bulleted</v-icon>
+                {{ t('entityDetail.apiData.fields', 'Verfügbare Felder') }}
+              </v-card-title>
+              <v-card-text>
+                <v-table density="compact">
+                  <thead>
+                    <tr>
+                      <th>{{ t('entityDetail.apiData.fieldName', 'Feldname') }}</th>
+                      <th>{{ t('entityDetail.apiData.fieldType', 'Typ') }}</th>
+                      <th>{{ t('entityDetail.apiData.fieldValue', 'Wert') }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(value, key) in externalData.raw_data" :key="key">
+                      <td class="font-weight-medium">{{ key }}</td>
+                      <td>
+                        <v-chip size="x-small" :color="getFieldTypeColor(value)">
+                          {{ getFieldType(value) }}
+                        </v-chip>
+                      </td>
+                      <td class="text-truncate" style="max-width: 400px;">
+                        <template v-if="typeof value === 'object'">
+                          <v-chip size="x-small" variant="outlined">
+                            {{ Array.isArray(value) ? `Array[${value.length}]` : 'Object' }}
+                          </v-chip>
+                        </template>
+                        <template v-else>{{ formatFieldValue(value) }}</template>
+                      </td>
+                    </tr>
+                  </tbody>
+                </v-table>
+              </v-card-text>
+            </v-card>
+          </v-card-text>
+        </v-card>
+      </v-window-item>
+
+      <!-- Attachments Tab -->
+      <v-window-item value="attachments">
+        <EntityAttachmentsTab
+          v-if="entity"
+          :entity-id="entity.id"
+          @attachments-changed="loadAttachmentCount"
+        />
+      </v-window-item>
     </v-window>
 
     <!-- Add Facet Dialog -->
-    <v-dialog v-model="addFacetDialog" max-width="600">
+    <v-dialog v-model="addFacetDialog" max-width="700" scrollable>
       <v-card>
-        <v-card-title>{{ t('entityDetail.dialog.addFacet') }}</v-card-title>
+        <v-card-title class="d-flex align-center">
+          <v-icon start>mdi-plus-circle</v-icon>
+          {{ t('entityDetail.dialog.addFacet') }}
+        </v-card-title>
         <v-card-text>
-          <v-form @submit.prevent="saveFacetValue">
+          <v-form ref="addFacetForm" @submit.prevent="saveFacetValue">
+            <!-- Facet Type Selection -->
             <v-select
               v-model="newFacet.facet_type_id"
-              :items="store.activeFacetTypes"
+              :items="applicableFacetTypes"
               item-title="name"
               item-value="id"
               :label="t('entityDetail.dialog.facetType')"
               :rules="[v => !!v || t('entityDetail.dialog.facetTypeRequired')]"
-            ></v-select>
+              variant="outlined"
+              density="comfortable"
+              class="mb-4"
+              @update:model-value="onFacetTypeChange"
+            >
+              <template v-slot:item="{ item, props }">
+                <v-list-item v-bind="props">
+                  <template v-slot:prepend>
+                    <v-icon :icon="item.raw.icon" :color="item.raw.color" size="small"></v-icon>
+                  </template>
+                </v-list-item>
+              </template>
+              <template v-slot:selection="{ item }">
+                <v-icon :icon="item.raw.icon" :color="item.raw.color" size="small" class="mr-2"></v-icon>
+                {{ item.raw.name }}
+              </template>
+            </v-select>
 
-            <v-textarea
-              v-model="newFacet.text_representation"
-              :label="t('entityDetail.dialog.facetValue')"
-              :rules="[v => !!v || t('entityDetail.dialog.facetValueRequired')]"
-              rows="3"
-            ></v-textarea>
+            <!-- Dynamic Schema Form (when facet type has a schema) -->
+            <template v-if="selectedFacetTypeForForm?.value_schema">
+              <v-divider class="mb-4"></v-divider>
+              <div class="text-subtitle-2 mb-3 text-medium-emphasis-darken-1">
+                {{ t('entityDetail.dialog.facetDetails') }}
+              </div>
+              <DynamicSchemaForm
+                v-model="newFacet.value"
+                :schema="selectedFacetTypeForForm.value_schema"
+              />
+            </template>
 
+            <!-- Simple text input (when no schema) -->
+            <template v-else-if="newFacet.facet_type_id">
+              <v-textarea
+                v-model="newFacet.text_representation"
+                :label="t('entityDetail.dialog.facetValue')"
+                :rules="[v => !!v || t('entityDetail.dialog.facetValueRequired')]"
+                rows="3"
+                variant="outlined"
+                density="comfortable"
+                class="mb-3"
+              ></v-textarea>
+            </template>
+
+            <v-divider class="my-4"></v-divider>
+
+            <!-- Source URL -->
             <v-text-field
               v-model="newFacet.source_url"
               :label="t('entityDetail.dialog.sourceUrl')"
               placeholder="https://..."
+              variant="outlined"
+              density="comfortable"
+              class="mb-3"
+              prepend-inner-icon="mdi-link"
             ></v-text-field>
 
-            <v-slider
-              v-model="newFacet.confidence_score"
-              :label="t('entityDetail.dialog.confidence')"
-              :min="0"
-              :max="1"
-              :step="0.1"
-              thumb-label
-              :color="getConfidenceColor(newFacet.confidence_score)"
-            ></v-slider>
+            <!-- Confidence Score -->
+            <div class="d-flex align-center ga-4">
+              <span class="text-body-2">{{ t('entityDetail.dialog.confidence') }}:</span>
+              <v-slider
+                v-model="newFacet.confidence_score"
+                :min="0"
+                :max="1"
+                :step="0.1"
+                thumb-label
+                :color="getConfidenceColor(newFacet.confidence_score)"
+                hide-details
+                class="flex-grow-1"
+              ></v-slider>
+              <v-chip size="small" :color="getConfidenceColor(newFacet.confidence_score)">
+                {{ Math.round(newFacet.confidence_score * 100) }}%
+              </v-chip>
+            </div>
           </v-form>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="addFacetDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" @click="closeAddFacetDialog">{{ t('common.cancel') }}</v-btn>
           <v-btn
             color="primary"
             :loading="savingFacet"
+            :disabled="!canSaveFacet"
             @click="saveFacetValue"
           >
+            <v-icon start>mdi-check</v-icon>
             {{ t('common.save') }}
           </v-btn>
         </v-card-actions>
@@ -639,7 +1039,7 @@
           <v-icon :icon="selectedFacetGroup.facet_type_icon" :color="selectedFacetGroup.facet_type_color" class="mr-2"></v-icon>
           {{ selectedFacetGroup.facet_type_name }}
           <v-spacer></v-spacer>
-          <v-btn icon="mdi-close" variant="text" @click="facetDetailsDialog = false"></v-btn>
+          <v-btn icon="mdi-close" variant="tonal" @click="facetDetailsDialog = false" :aria-label="t('common.close')"></v-btn>
         </v-card-title>
         <v-card-text>
           <div class="d-flex flex-column ga-3">
@@ -699,11 +1099,11 @@
               <template v-else-if="selectedFacetGroup.facet_type_slug === 'contact'">
                 <div class="d-flex align-start ga-2">
                   <v-avatar color="primary" size="40">
-                    <v-icon color="white">mdi-account</v-icon>
+                    <v-icon color="on-primary">mdi-account</v-icon>
                   </v-avatar>
                   <div class="flex-grow-1">
                     <div class="text-body-1 font-weight-medium">{{ getContactName(fv) }}</div>
-                    <div v-if="getContactRole(fv)" class="text-body-2 text-grey">{{ getContactRole(fv) }}</div>
+                    <div v-if="getContactRole(fv)" class="text-body-2 text-medium-emphasis">{{ getContactRole(fv) }}</div>
                     <div class="d-flex flex-wrap ga-2 mt-2">
                       <v-chip v-if="getContactEmail(fv)" size="small" variant="outlined" @click.stop="copyToClipboard(getContactEmail(fv)!)">
                         <v-icon start size="small">mdi-email</v-icon>
@@ -766,7 +1166,7 @@
               </div>
 
               <!-- Timestamps / History -->
-              <div v-if="fv.created_at || fv.updated_at" class="mt-2 d-flex align-center ga-3 text-caption text-grey">
+              <div v-if="fv.created_at || fv.updated_at" class="mt-2 d-flex align-center ga-3 text-caption text-medium-emphasis">
                 <span v-if="fv.created_at">
                   <v-icon size="x-small" class="mr-1">mdi-clock-plus-outline</v-icon>
                   {{ t('entityDetail.created') }}: {{ formatDate(fv.created_at) }}
@@ -785,7 +1185,10 @@
     <!-- Edit Entity Dialog -->
     <v-dialog v-model="editDialog" max-width="500">
       <v-card>
-        <v-card-title>{{ t('entityDetail.dialog.editEntity', { type: entityType?.name }) }}</v-card-title>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2">mdi-pencil</v-icon>
+          {{ t('entityDetail.dialog.editEntity', { type: entityType?.name }) }}
+        </v-card-title>
         <v-card-text>
           <v-form @submit.prevent="saveEntity">
             <v-text-field
@@ -801,8 +1204,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="editDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn color="primary" :loading="savingEntity" @click="saveEntity">
+          <v-btn variant="tonal" @click="editDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="primary" :loading="savingEntity" @click="saveEntity">
             {{ t('common.save') }}
           </v-btn>
         </v-card-actions>
@@ -818,14 +1221,68 @@
         </v-card-title>
         <v-card-text>
           <p>{{ t('entityDetail.dialog.deleteFacetsConfirm', { count: selectedFacetIds.length }) }}</p>
-          <p class="text-caption text-grey mt-2">{{ t('entityDetail.dialog.cannotUndo') }}</p>
+          <p class="text-caption text-medium-emphasis mt-2">{{ t('entityDetail.dialog.cannotUndo') }}</p>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="bulkDeleteConfirm = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn color="error" :loading="bulkActionLoading" @click="bulkDelete">
+          <v-btn variant="tonal" @click="bulkDeleteConfirm = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="error" :loading="bulkActionLoading" @click="bulkDelete">
             <v-icon start>mdi-delete</v-icon>
             {{ t('common.delete') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Single Facet Delete Confirmation Dialog -->
+    <v-dialog v-model="singleDeleteConfirm" max-width="400">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="error" class="mr-2">mdi-alert</v-icon>
+          {{ t('entityDetail.dialog.deleteFacets') }}
+        </v-card-title>
+        <v-card-text>
+          <p>{{ t('entityDetail.dialog.deleteFacetsConfirm', { count: 1 }) }}</p>
+          <p class="text-caption text-medium-emphasis mt-2">{{ t('entityDetail.dialog.cannotUndo') }}</p>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="tonal" @click="singleDeleteConfirm = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="error" :loading="deletingFacet" @click="deleteSingleFacet">
+            <v-icon start>mdi-delete</v-icon>
+            {{ t('common.delete') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Edit Facet Dialog -->
+    <v-dialog v-model="editFacetDialog" max-width="800">
+      <v-card>
+        <v-card-title>
+          <v-icon start>mdi-pencil</v-icon>
+          {{ t('entityDetail.dialog.editFacet') }}
+        </v-card-title>
+        <v-card-text v-if="editingFacet">
+          <DynamicSchemaForm
+            v-if="editingFacetSchema"
+            v-model="editingFacetValue"
+            :schema="editingFacetSchema"
+          />
+          <v-textarea
+            v-else
+            v-model="editingFacetTextValue"
+            :label="t('entities.facet.value')"
+            rows="3"
+            variant="outlined"
+            class="mt-2"
+          ></v-textarea>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="tonal" @click="editFacetDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="primary" :loading="savingFacet" @click="saveEditedFacet">
+            {{ t('common.save') }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -874,11 +1331,282 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="exportDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn color="primary" :loading="exporting" @click="exportData">
+          <v-btn variant="tonal" @click="exportDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="primary" :loading="exporting" @click="exportData">
             <v-icon start>mdi-download</v-icon>
             {{ t('common.export') }}
           </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Enrich from PySis Dialog -->
+    <v-dialog v-model="showEnrichFromPysisDialog" max-width="500">
+      <v-card>
+        <v-card-title>
+          <v-icon start color="secondary">mdi-database-arrow-up</v-icon>
+          {{ t('entityDetail.enrichFromPysisTitle') }}
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            {{ t('entityDetail.enrichFromPysisDescription') }}
+          </v-alert>
+          <v-checkbox
+            v-model="enrichPysisOverwrite"
+            :label="t('entityDetail.enrichOverwrite')"
+            density="compact"
+            hide-details
+            color="warning"
+          ></v-checkbox>
+          <v-alert v-if="enrichPysisOverwrite" type="warning" variant="tonal" density="compact" class="mt-3">
+            {{ t('entityDetail.enrichOverwriteWarning') }}
+          </v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="tonal" @click="showEnrichFromPysisDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="secondary" @click="enrichFromPysis" :loading="enrichingFromPysis">
+            <v-icon start>mdi-database-arrow-up</v-icon>
+            {{ t('entityDetail.startEnrichment') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Enrich Task Started Dialog -->
+    <v-dialog v-model="showEnrichTaskStartedDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title>
+          <v-icon
+            start
+            :color="enrichTaskStatus?.status === 'COMPLETED' ? 'success' : enrichTaskStatus?.status === 'FAILED' ? 'error' : 'primary'"
+          >
+            {{
+              enrichTaskStatus?.status === 'COMPLETED' ? 'mdi-check-circle' :
+              enrichTaskStatus?.status === 'FAILED' ? 'mdi-alert-circle' :
+              'mdi-cog-sync'
+            }}
+          </v-icon>
+          {{
+            enrichTaskStatus?.status === 'COMPLETED' ? t('entityDetail.enrichCompleted') :
+            enrichTaskStatus?.status === 'FAILED' ? t('entityDetail.enrichFailed') :
+            enrichTaskStatus?.status === 'RUNNING' ? t('entityDetail.enrichRunning') :
+            t('entityDetail.taskStarted')
+          }}
+        </v-card-title>
+        <v-card-text>
+          <!-- Running state with progress -->
+          <template v-if="enrichTaskStatus?.status === 'RUNNING'">
+            <v-progress-linear
+              :model-value="enrichTaskStatus.progress_percent"
+              :indeterminate="enrichTaskStatus.progress_total === 0"
+              color="primary"
+              class="mb-3"
+              rounded
+            ></v-progress-linear>
+            <p v-if="enrichTaskStatus.current_item" class="text-body-2 mb-1">
+              {{ t('entityDetail.processing') }}: {{ enrichTaskStatus.current_item }}
+            </p>
+            <p v-if="enrichTaskStatus.progress_total > 0" class="text-caption text-medium-emphasis">
+              {{ enrichTaskStatus.progress_current }} / {{ enrichTaskStatus.progress_total }}
+            </p>
+          </template>
+
+          <!-- Completed state -->
+          <template v-else-if="enrichTaskStatus?.status === 'COMPLETED'">
+            <p class="text-success">
+              {{ t('entityDetail.enrichSuccessMessage', { count: enrichTaskStatus.fields_extracted || 0 }) }}
+            </p>
+          </template>
+
+          <!-- Failed state -->
+          <template v-else-if="enrichTaskStatus?.status === 'FAILED'">
+            <p class="text-error">
+              {{ enrichTaskStatus.error_message || t('entityDetail.messages.enrichError') }}
+            </p>
+          </template>
+
+          <!-- Initial state (waiting for first poll) -->
+          <template v-else>
+            <p>{{ t('entityDetail.enrichTaskStartedMessage') }}</p>
+            <v-progress-linear indeterminate color="primary" class="mt-3"></v-progress-linear>
+          </template>
+
+          <p class="text-caption text-medium-emphasis mt-3">
+            {{ t('entityDetail.taskId') }}: <code>{{ enrichTaskId }}</code>
+          </p>
+        </v-card-text>
+        <v-card-actions v-if="!enrichTaskStatus || ['COMPLETED', 'FAILED', 'CANCELLED'].includes(enrichTaskStatus.status)">
+          <v-spacer></v-spacer>
+          <v-btn variant="tonal" color="primary" @click="showEnrichTaskStartedDialog = false; enrichTaskStatus = null">
+            {{ t('common.close') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Source Details Dialog -->
+    <v-dialog v-model="sourceDetailsDialog" max-width="600" scrollable>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon start :color="getSourceTypeColor(selectedSourceFacet?.source_type)">
+            {{ getSourceTypeIcon(selectedSourceFacet?.source_type) }}
+          </v-icon>
+          {{ t('entityDetail.source') }}
+          <v-spacer></v-spacer>
+          <v-btn icon="mdi-close" variant="tonal" @click="sourceDetailsDialog = false" :aria-label="t('common.close')"></v-btn>
+        </v-card-title>
+        <v-card-text v-if="selectedSourceFacet">
+          <!-- Source Type Info -->
+          <v-chip
+            size="small"
+            :color="getSourceTypeColor(selectedSourceFacet.source_type)"
+            class="mb-4"
+          >
+            <v-icon start size="small">{{ getSourceTypeIcon(selectedSourceFacet.source_type) }}</v-icon>
+            {{ getSourceTypeLabel(selectedSourceFacet.source_type) }}
+          </v-chip>
+
+          <!-- Document Source -->
+          <template v-if="selectedSourceFacet.source_type === 'DOCUMENT'">
+            <div v-if="selectedSourceFacet.document_title" class="mb-3">
+              <div class="text-caption text-medium-emphasis mb-1">{{ t('entityDetail.document') }}</div>
+              <div class="text-body-1">{{ selectedSourceFacet.document_title }}</div>
+            </div>
+            <div v-if="selectedSourceFacet.document_url" class="mb-3">
+              <v-btn
+                :href="selectedSourceFacet.document_url"
+                target="_blank"
+                color="primary"
+                variant="tonal"
+                size="small"
+              >
+                <v-icon start>mdi-file-document</v-icon>
+                {{ t('common.openDocument') }}
+              </v-btn>
+            </div>
+          </template>
+
+          <!-- PySis Source -->
+          <template v-else-if="selectedSourceFacet.source_type === 'PYSIS'">
+            <v-alert type="info" variant="tonal" density="compact" class="mb-3">
+              {{ t('entityDetail.sourceTypes.pysis') }}
+            </v-alert>
+
+            <!-- PySis Process Info -->
+            <div v-if="getPysisSourceInfo(selectedSourceFacet)" class="mb-3">
+              <div v-if="getPysisSourceInfo(selectedSourceFacet).processTitle" class="mb-2">
+                <div class="text-caption text-medium-emphasis">Prozess</div>
+                <div class="text-body-1">{{ getPysisSourceInfo(selectedSourceFacet).processTitle }}</div>
+              </div>
+              <div v-if="getPysisSourceInfo(selectedSourceFacet).processId" class="mb-2">
+                <div class="text-caption text-medium-emphasis">Prozess-ID</div>
+                <code class="text-body-2">{{ getPysisSourceInfo(selectedSourceFacet).processId }}</code>
+              </div>
+              <div v-if="getPysisSourceInfo(selectedSourceFacet).fieldNames?.length" class="mb-2">
+                <div class="text-caption text-medium-emphasis mb-1">Feldname(n)</div>
+                <div class="d-flex flex-wrap ga-1">
+                  <v-chip
+                    v-for="fieldName in getPysisSourceInfo(selectedSourceFacet).fieldNames"
+                    :key="fieldName"
+                    size="small"
+                    variant="outlined"
+                    color="secondary"
+                  >
+                    {{ fieldName }}
+                  </v-chip>
+                </div>
+              </div>
+            </div>
+
+            <!-- PySis Field Values -->
+            <div v-if="selectedSourceFacet.value?.pysis_fields" class="mb-3">
+              <div class="text-caption text-medium-emphasis mb-2">Feldwerte</div>
+              <v-list density="compact" class="bg-surface-variant rounded">
+                <v-list-item
+                  v-for="(fieldValue, fieldName) in selectedSourceFacet.value.pysis_fields"
+                  :key="fieldName"
+                >
+                  <v-list-item-title class="text-caption font-weight-medium">{{ fieldName }}</v-list-item-title>
+                  <v-list-item-subtitle>{{ fieldValue }}</v-list-item-subtitle>
+                </v-list-item>
+              </v-list>
+            </div>
+          </template>
+
+          <!-- Manual Source -->
+          <template v-else-if="selectedSourceFacet.source_type === 'MANUAL'">
+            <v-alert type="success" variant="tonal" density="compact" class="mb-3">
+              {{ t('entityDetail.sourceTypes.manual') }}
+            </v-alert>
+            <div v-if="selectedSourceFacet.verified_by" class="text-body-2">
+              {{ t('common.createdBy') }}: {{ selectedSourceFacet.verified_by }}
+            </div>
+          </template>
+
+          <!-- Smart Query Source -->
+          <template v-else-if="selectedSourceFacet.source_type === 'SMART_QUERY'">
+            <v-alert type="info" variant="tonal" density="compact" class="mb-3">
+              {{ t('entityDetail.sourceTypes.smartQuery') }}
+            </v-alert>
+          </template>
+
+          <!-- AI Assistant Source -->
+          <template v-else-if="selectedSourceFacet.source_type === 'AI_ASSISTANT'">
+            <v-alert color="info" variant="tonal" density="compact" class="mb-3">
+              {{ t('entityDetail.sourceTypes.aiAssistant') }}
+            </v-alert>
+            <div v-if="selectedSourceFacet.ai_model_used" class="text-body-2 mb-2">
+              Model: {{ selectedSourceFacet.ai_model_used }}
+            </div>
+          </template>
+
+          <!-- Import Source -->
+          <template v-else-if="selectedSourceFacet.source_type === 'IMPORT'">
+            <v-alert type="warning" variant="tonal" density="compact" class="mb-3">
+              {{ t('entityDetail.sourceTypes.import') }}
+            </v-alert>
+          </template>
+
+          <!-- Source URL (shown for web URLs, excluding PySis which shows structured info above) -->
+          <div v-if="selectedSourceFacet.source_url && isValidWebUrl(selectedSourceFacet.source_url) && selectedSourceFacet.source_type !== 'PYSIS'" class="mt-4">
+            <div class="text-caption text-medium-emphasis mb-1">{{ t('entities.facet.sourceUrl') }}</div>
+            <v-btn
+              :href="selectedSourceFacet.source_url"
+              target="_blank"
+              color="primary"
+              variant="tonal"
+              size="small"
+              class="text-none"
+            >
+              <v-icon start size="small">mdi-open-in-new</v-icon>
+              {{ selectedSourceFacet.source_url }}
+            </v-btn>
+          </div>
+
+          <!-- Confidence & Dates -->
+          <v-divider class="my-4"></v-divider>
+          <div class="d-flex flex-wrap ga-4">
+            <div v-if="selectedSourceFacet.confidence_score != null">
+              <div class="text-caption text-medium-emphasis">{{ t('entities.facet.confidence') }}</div>
+              <div class="text-body-2">{{ Math.round(selectedSourceFacet.confidence_score * 100) }}%</div>
+            </div>
+            <div v-if="selectedSourceFacet.created_at">
+              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.created') }}</div>
+              <div class="text-body-2">{{ formatDate(selectedSourceFacet.created_at) }}</div>
+            </div>
+            <div v-if="selectedSourceFacet.human_verified">
+              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.verifiedLabel') }}</div>
+              <div class="text-body-2">
+                <v-icon color="success" size="small">mdi-check-circle</v-icon>
+                {{ selectedSourceFacet.verified_at ? formatDate(selectedSourceFacet.verified_at) : 'Yes' }}
+              </div>
+            </div>
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="tonal" @click="sourceDetailsDialog = false">{{ t('common.close') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -890,7 +1618,7 @@
           <v-icon start>mdi-note-text</v-icon>
           {{ t('entityDetail.notes') }}
           <v-spacer></v-spacer>
-          <v-btn icon="mdi-close" variant="text" @click="notesDialog = false"></v-btn>
+          <v-btn icon="mdi-close" variant="tonal" @click="notesDialog = false" :aria-label="t('common.close')"></v-btn>
         </v-card-title>
         <v-card-text>
           <!-- Add Note Form -->
@@ -925,47 +1653,77 @@
             >
               <div class="d-flex align-start">
                 <v-avatar size="32" color="primary" class="mr-3">
-                  <v-icon size="small" color="white">mdi-account</v-icon>
+                  <v-icon size="small" color="on-primary">mdi-account</v-icon>
                 </v-avatar>
                 <div class="flex-grow-1">
                   <div class="d-flex align-center mb-1">
                     <span class="text-body-2 font-weight-medium">{{ note.author || t('entityDetail.systemAuthor') }}</span>
-                    <span class="text-caption text-grey ml-2">{{ formatDate(note.created_at) }}</span>
+                    <span class="text-caption text-medium-emphasis ml-2">{{ formatDate(note.created_at) }}</span>
                     <v-spacer></v-spacer>
                     <v-btn
                       icon="mdi-delete"
                       size="x-small"
-                      variant="text"
+                      variant="tonal"
                       color="error"
                       @click="deleteNote(note.id)"
                     ></v-btn>
                   </div>
-                  <p class="text-body-2 mb-0" style="white-space: pre-wrap;">{{ note.content }}</p>
+                  <p class="text-body-2 mb-0 text-pre-wrap">{{ note.content }}</p>
                 </div>
               </div>
             </v-card>
           </div>
-          <div v-else class="text-center pa-4 text-grey">
+          <div v-else class="text-center pa-4 text-medium-emphasis">
             <v-icon size="48" color="grey-lighten-2" class="mb-2">mdi-note-off-outline</v-icon>
             <p>{{ t('entityDetail.emptyState.noNotes') }}</p>
           </div>
         </v-card-text>
       </v-card>
     </v-dialog>
+
+    <!-- Facet Enrichment Review Modal -->
+    <FacetEnrichmentReview
+      v-model="showEnrichmentReviewDialog"
+      :task-id="enrichmentTaskId"
+      :task-status="enrichmentTaskStatus"
+      :preview-data="enrichmentPreviewData"
+      @close="onEnrichmentReviewClose"
+      @minimize="onEnrichmentReviewMinimize"
+      @applied="onEnrichmentApplied"
+    />
+
+    <!-- Minimized Task Toast/Snackbar -->
+    <v-snackbar
+      v-model="showMinimizedTaskSnackbar"
+      :timeout="-1"
+      color="info"
+      location="bottom end"
+    >
+      <div class="d-flex align-center" @click="reopenEnrichmentReview" style="cursor: pointer">
+        <v-icon class="mr-2">mdi-cog-sync</v-icon>
+        {{ t('facetEnrichment.taskMinimized') }}
+        <v-btn variant="text" size="small" class="ml-2">
+          {{ t('facetEnrichment.clickToReturn') }}
+        </v-btn>
+      </div>
+    </v-snackbar>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useEntityStore, type FacetValue, type Entity, type EntityType } from '@/stores/entity'
-import { adminApi, facetApi } from '@/services/api'
-import { format } from 'date-fns'
+import { adminApi, entityApi, facetApi, pysisApi, aiTasksApi, entityDataApi, attachmentApi } from '@/services/api'
+import { format, formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useFeatureFlags } from '@/composables/useFeatureFlags'
 import PySisTab from '@/components/PySisTab.vue'
+import FacetEnrichmentReview from '@/components/FacetEnrichmentReview.vue'
+import DynamicSchemaForm from '@/components/DynamicSchemaForm.vue'
+import EntityAttachmentsTab from '@/components/entity/EntityAttachmentsTab.vue'
 
 const { t } = useI18n()
 const { flags: featureFlags } = useFeatureFlags()
@@ -1062,6 +1820,8 @@ const facetsSummary = ref<FacetsSummary | null>(null)
 const relations = ref<Relation[]>([])
 const dataSources = ref<DataSource[]>([])
 const documents = ref<any[]>([])
+const externalData = ref<any>(null)
+const attachmentCount = ref(0)
 
 // Loading states
 const loadingDataSources = ref(false)
@@ -1082,7 +1842,11 @@ const newFacet = ref({
   text_representation: '',
   source_url: '',
   confidence_score: 0.8,
+  value: {} as Record<string, any>,
 })
+
+// Form ref
+const addFacetForm = ref<any>(null)
 
 const editForm = ref({
   name: '',
@@ -1102,6 +1866,21 @@ const bulkMode = ref(false)
 const selectedFacetIds = ref<string[]>([])
 const bulkDeleteConfirm = ref(false)
 const bulkActionLoading = ref(false)
+
+// Single Facet Edit/Delete
+const singleDeleteConfirm = ref(false)
+const deletingFacet = ref(false)
+const facetToDelete = ref<any>(null)
+const editFacetDialog = ref(false)
+const editingFacet = ref<any>(null)
+const editingFacetGroup = ref<any>(null)
+const editingFacetValue = ref<Record<string, any>>({})
+const editingFacetTextValue = ref('')
+const editingFacetSchema = ref<any>(null)
+
+// Source Details
+const sourceDetailsDialog = ref(false)
+const selectedSourceFacet = ref<any>(null)
 
 // Export
 const exportDialog = ref(false)
@@ -1129,6 +1908,70 @@ const savingNote = ref(false)
 const loadingRelations = ref(false)
 const relationsLoaded = ref(false)
 
+// PySis-Facets Enrichment
+const hasPysisProcesses = ref(false)
+const showEnrichFromPysisDialog = ref(false)
+const showEnrichTaskStartedDialog = ref(false)
+const enrichPysisOverwrite = ref(false)
+const enrichingFromPysis = ref(false)
+const enrichTaskId = ref('')
+
+// Task Polling (legacy PySIS)
+const enrichTaskPolling = ref<ReturnType<typeof setInterval> | null>(null)
+const enrichTaskStatus = ref<{
+  status: string
+  progress_current: number
+  progress_total: number
+  progress_percent: number
+  current_item: string | null
+  error_message: string | null
+  fields_extracted: number
+} | null>(null)
+
+// New Enrichment System
+const enrichmentMenuOpen = ref(false)
+const loadingEnrichmentSources = ref(false)
+const startingEnrichment = ref(false)
+const selectedEnrichmentSources = ref<string[]>([])
+const enrichmentSources = ref<{
+  pysis: { available: boolean; count: number; last_updated: string | null }
+  relations: { available: boolean; count: number; last_updated: string | null }
+  documents: { available: boolean; count: number; last_updated: string | null }
+  extractions: { available: boolean; count: number; last_updated: string | null }
+  attachments: { available: boolean; count: number; last_updated: string | null }
+  existing_facets: number
+} | null>(null)
+
+// Enrichment Review Modal
+const showEnrichmentReviewDialog = ref(false)
+const enrichmentTaskId = ref<string | null>(null)
+const enrichmentTaskPolling = ref<ReturnType<typeof setInterval> | null>(null)
+const enrichmentTaskStatus = ref<{
+  status: string
+  progress_current?: number
+  progress_total?: number
+  current_item?: string
+  error_message?: string
+} | null>(null)
+const enrichmentPreviewData = ref<{
+  new_facets?: any[]
+  updates?: any[]
+  analysis_summary?: any
+} | null>(null)
+const showMinimizedTaskSnackbar = ref(false)
+
+// Computed: Check if any enrichment source is available
+const hasAnyEnrichmentSource = computed(() => {
+  if (!enrichmentSources.value) return false
+  return (
+    enrichmentSources.value.pysis?.available ||
+    enrichmentSources.value.relations?.available ||
+    enrichmentSources.value.documents?.available ||
+    enrichmentSources.value.extractions?.available ||
+    enrichmentSources.value.attachments?.available
+  )
+})
+
 // Computed
 const breadcrumbs = computed(() => [
   { title: t('nav.dashboard'), to: '/' },
@@ -1139,6 +1982,53 @@ const breadcrumbs = computed(() => [
 const hasAttributes = computed(() =>
   entity.value?.core_attributes && Object.keys(entity.value.core_attributes).length > 0
 )
+
+// Filter facet types applicable to current entity type
+const applicableFacetTypes = computed(() => {
+  const entityTypeSlug = entityType.value?.slug
+  if (!entityTypeSlug) return store.activeFacetTypes
+
+  return store.activeFacetTypes.filter(ft => {
+    // If no applicable types specified, facet applies to all entity types
+    if (!ft.applicable_entity_type_slugs || ft.applicable_entity_type_slugs.length === 0) {
+      return true
+    }
+    // Otherwise check if current entity type is in the list
+    return ft.applicable_entity_type_slugs.includes(entityTypeSlug)
+  })
+})
+
+// Get the selected facet type for the form
+const selectedFacetTypeForForm = computed(() => {
+  if (!newFacet.value.facet_type_id) return null
+  return store.facetTypes.find(ft => ft.id === newFacet.value.facet_type_id)
+})
+
+// Check if the form can be saved
+const canSaveFacet = computed(() => {
+  if (!newFacet.value.facet_type_id) return false
+
+  const facetType = selectedFacetTypeForForm.value
+  if (!facetType) return false
+
+  // If facet type has a schema, check if required fields are filled
+  if (facetType.value_schema?.properties) {
+    const requiredFields = facetType.value_schema.required || []
+    for (const field of requiredFields) {
+      const value = newFacet.value.value[field]
+      if (value === undefined || value === null || value === '') {
+        return false
+      }
+    }
+    // At least one field should be filled
+    return Object.values(newFacet.value.value).some(v =>
+      v !== undefined && v !== null && v !== ''
+    )
+  }
+
+  // For simple text facets, check text_representation
+  return !!newFacet.value.text_representation
+})
 
 // Check if search has results
 const hasSearchResults = computed(() => {
@@ -1200,12 +2090,64 @@ async function loadEntityData() {
       name: entity.value.name,
       external_id: entity.value.external_id || '',
     }
+
+    // Check if entity has PySis processes (for municipalities)
+    await checkPysisProcesses()
+
+    // Load external API data (non-blocking)
+    loadExternalData()
+
+    // Load attachment count (non-blocking)
+    loadAttachmentCount()
   } catch (e) {
     console.error('Failed to load entity', e)
     showError(t('entityDetail.messages.loadError'))
   } finally {
     loading.value = false
   }
+}
+
+async function loadExternalData() {
+  if (!entity.value) return
+  try {
+    const response = await entityApi.getEntityExternalData(entity.value.id)
+    externalData.value = response.data
+  } catch (e) {
+    console.error('Failed to load external data', e)
+    externalData.value = null
+  }
+}
+
+// Helper functions for external data display
+function getFieldType(value: any): string {
+  if (value === null) return 'null'
+  if (Array.isArray(value)) return 'array'
+  if (typeof value === 'boolean') return 'boolean'
+  if (typeof value === 'number') return Number.isInteger(value) ? 'integer' : 'float'
+  if (typeof value === 'string') return 'string'
+  if (typeof value === 'object') return 'object'
+  return typeof value
+}
+
+function getFieldTypeColor(value: any): string {
+  const type = getFieldType(value)
+  switch (type) {
+    case 'string': return 'green'
+    case 'integer': return 'blue'
+    case 'float': return 'indigo'
+    case 'boolean': return 'orange'
+    case 'array': return 'purple'
+    case 'object': return 'teal'
+    case 'null': return 'grey'
+    default: return 'grey'
+  }
+}
+
+function formatFieldValue(value: any): string {
+  if (value === null) return 'null'
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (typeof value === 'string' && value.length > 100) return value.substring(0, 100) + '...'
+  return String(value)
 }
 
 async function loadRelations() {
@@ -1244,6 +2186,7 @@ async function loadRelations() {
 function getDisplayedFacets(facetGroup: any): any[] {
   const slug = facetGroup.facet_type_slug
   // If we have loaded more, use those; otherwise use sample_values
+  // API already returns sorted: verified first, then by confidence desc, then by created_at desc
   const allFacets = expandedFacetValues.value[slug] || facetGroup.sample_values || []
 
   // Apply search filter
@@ -1256,8 +2199,9 @@ function getDisplayedFacets(facetGroup: any): any[] {
 }
 
 function matchesFacetSearch(facet: any, query: string): boolean {
-  // Search in text_representation
-  if (facet.text_representation?.toLowerCase().includes(query)) return true
+  // Search in text_representation (handle both old 'text' and new 'text_representation' formats)
+  const textRepr = facet.text_representation || facet.text || ''
+  if (textRepr.toLowerCase().includes(query)) return true
   // Search in value object
   const val = facet.value
   if (typeof val === 'string' && val.toLowerCase().includes(query)) return true
@@ -1661,6 +2605,17 @@ async function loadDocuments() {
   }
 }
 
+async function loadAttachmentCount() {
+  if (!entity.value) return
+  try {
+    const response = await attachmentApi.list(entity.value.id)
+    attachmentCount.value = response.data.total || 0
+  } catch (e) {
+    console.error('Failed to load attachment count', e)
+    attachmentCount.value = 0
+  }
+}
+
 function toggleFacetExpand(slug: string) {
   const idx = expandedFacets.value.indexOf(slug)
   if (idx >= 0) {
@@ -1687,34 +2642,105 @@ async function openFacetDetails(facetGroup: any) {
   }
 }
 
+// Handle facet type change in the add dialog
+function onFacetTypeChange() {
+  // Reset the value when facet type changes
+  newFacet.value.value = {}
+  newFacet.value.text_representation = ''
+}
+
+// Close the add facet dialog and reset form
+function closeAddFacetDialog() {
+  addFacetDialog.value = false
+  resetAddFacetForm()
+}
+
+// Open add facet value dialog with pre-selected facet type
+function openAddFacetValueDialog(facetGroup: any) {
+  resetAddFacetForm()
+  // Pre-select the facet type from the group
+  newFacet.value.facet_type_id = facetGroup.facet_type_id
+  addFacetDialog.value = true
+}
+
+// Reset the add facet form
+function resetAddFacetForm() {
+  newFacet.value = {
+    facet_type_id: '',
+    text_representation: '',
+    source_url: '',
+    confidence_score: 0.8,
+    value: {},
+  }
+}
+
+// Build text representation from structured value
+function buildTextRepresentation(value: Record<string, any>, facetType: any): string {
+  if (!value || Object.keys(value).length === 0) return ''
+
+  // If there's a description field, use it as primary text
+  if (value.description) return value.description
+  if (value.text) return value.text
+  if (value.name) return value.name
+
+  // Otherwise concatenate all string values
+  const parts: string[] = []
+  for (const [key, val] of Object.entries(value)) {
+    if (typeof val === 'string' && val.trim()) {
+      parts.push(val)
+    } else if (Array.isArray(val)) {
+      parts.push(val.join(', '))
+    }
+  }
+  return parts.join(' - ')
+}
+
 async function saveFacetValue() {
-  if (!newFacet.value.facet_type_id || !newFacet.value.text_representation) return
+  if (!newFacet.value.facet_type_id) return
   if (!entity.value) return
+
+  const facetType = selectedFacetTypeForForm.value
+  if (!facetType) return
+
+  // Determine value and text representation based on facet type
+  let valueToSave: Record<string, any>
+  let textRepresentation: string
+
+  if (facetType.value_schema?.properties) {
+    // Structured facet - use the dynamic form value
+    valueToSave = { ...newFacet.value.value }
+    textRepresentation = buildTextRepresentation(valueToSave, facetType)
+  } else {
+    // Simple text facet
+    if (!newFacet.value.text_representation) return
+    valueToSave = { text: newFacet.value.text_representation }
+    textRepresentation = newFacet.value.text_representation
+  }
+
+  if (!textRepresentation) {
+    showError(t('entityDetail.messages.facetValueRequired'))
+    return
+  }
 
   savingFacet.value = true
   try {
     await facetApi.createFacetValue({
       entity_id: entity.value.id,
       facet_type_id: newFacet.value.facet_type_id,
-      value: { text: newFacet.value.text_representation },
-      text_representation: newFacet.value.text_representation,
+      value: valueToSave,
+      text_representation: textRepresentation,
       source_url: newFacet.value.source_url || null,
       confidence_score: newFacet.value.confidence_score,
     })
 
     showSuccess(t('entityDetail.messages.facetAdded'))
-    addFacetDialog.value = false
-
-    // Reset form
-    newFacet.value = {
-      facet_type_id: '',
-      text_representation: '',
-      source_url: '',
-      confidence_score: 0.8,
-    }
+    closeAddFacetDialog()
 
     // Reload facets summary
     facetsSummary.value = await store.fetchEntityFacetsSummary(entity.value.id)
+
+    // Clear expanded facet values to force reload
+    expandedFacetValues.value = {}
   } catch (e: any) {
     showError(e.response?.data?.detail || t('entityDetail.messages.facetSaveError'))
   } finally {
@@ -1736,6 +2762,81 @@ async function verifyFacet(facetValueId: string) {
     }
   } catch (e) {
     showError(t('entityDetail.messages.verifyError'))
+  }
+}
+
+// Open source details dialog
+function openSourceDetails(facet: any) {
+  selectedSourceFacet.value = facet
+  sourceDetailsDialog.value = true
+}
+
+// Open edit dialog for a single facet
+function openEditFacetDialog(facet: any, facetGroup: any) {
+  editingFacet.value = facet
+  editingFacetGroup.value = facetGroup
+  editingFacetValue.value = { ...facet.value }
+  // Handle both old format (text) and new format (text_representation)
+  editingFacetTextValue.value = facet.text_representation || facet.text || ''
+  // Get schema from facet type if available
+  editingFacetSchema.value = facetGroup.value_schema || null
+  editFacetDialog.value = true
+}
+
+// Save edited facet
+async function saveEditedFacet() {
+  if (!editingFacet.value) return
+
+  savingFacet.value = true
+  try {
+    const updateData = {
+      value: editingFacetSchema.value ? editingFacetValue.value : { text: editingFacetTextValue.value },
+      text_representation: editingFacetSchema.value
+        ? Object.values(editingFacetValue.value).filter(v => v).join(' - ').substring(0, 500)
+        : editingFacetTextValue.value,
+    }
+    await facetApi.updateFacetValue(editingFacet.value.id, updateData)
+    showSuccess(t('entityDetail.messages.facetUpdated'))
+    editFacetDialog.value = false
+    // Reload facet details
+    if (selectedFacetGroup.value) {
+      await openFacetDetails(selectedFacetGroup.value)
+    }
+  } catch (e: any) {
+    showError(e.response?.data?.detail || t('entityDetail.messages.facetSaveError'))
+  } finally {
+    savingFacet.value = false
+  }
+}
+
+// Confirm delete single facet
+function confirmDeleteFacet(facet: any) {
+  facetToDelete.value = facet
+  singleDeleteConfirm.value = true
+}
+
+// Delete single facet
+async function deleteSingleFacet() {
+  if (!facetToDelete.value) return
+
+  deletingFacet.value = true
+  try {
+    await facetApi.deleteFacetValue(facetToDelete.value.id)
+    showSuccess(t('entityDetail.messages.facetDeleted'))
+    singleDeleteConfirm.value = false
+    facetToDelete.value = null
+    // Reload facet details
+    if (selectedFacetGroup.value) {
+      await openFacetDetails(selectedFacetGroup.value)
+    }
+    // Reload summary
+    if (entity.value) {
+      facetsSummary.value = await store.fetchEntityFacetsSummary(entity.value.id)
+    }
+  } catch (e: any) {
+    showError(e.response?.data?.detail || t('entityDetail.messages.deleteError'))
+  } finally {
+    deletingFacet.value = false
   }
 }
 
@@ -1847,11 +2948,89 @@ function formatDate(dateStr: string): string {
   return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: de })
 }
 
+function isValidWebUrl(url: string): boolean {
+  if (!url) return false
+  return url.startsWith('http://') || url.startsWith('https://')
+}
+
+function getPysisSourceInfo(facet: any): { processId?: string; processTitle?: string; fieldNames?: string[] } | null {
+  if (!facet) return null
+
+  const info: { processId?: string; processTitle?: string; fieldNames?: string[] } = {}
+
+  // Extract process ID from source_url (pysis://process/{id}) if available
+  if (facet.source_url?.startsWith('pysis://process/')) {
+    info.processId = facet.source_url.replace('pysis://process/', '')
+  }
+
+  // Get process title and field names from value object if stored
+  if (facet.value?.pysis_process_title) {
+    info.processTitle = facet.value.pysis_process_title
+  }
+  if (facet.value?.pysis_process_id) {
+    info.processId = facet.value.pysis_process_id
+  }
+  if (facet.value?.pysis_field_names) {
+    info.fieldNames = Array.isArray(facet.value.pysis_field_names)
+      ? facet.value.pysis_field_names
+      : [facet.value.pysis_field_names]
+  }
+
+  // Extract field names from pysis_fields keys if available
+  if (!info.fieldNames && facet.value?.pysis_fields) {
+    info.fieldNames = Object.keys(facet.value.pysis_fields)
+  }
+
+  return Object.keys(info).length > 0 ? info : null
+}
+
 function getConfidenceColor(score: number | null): string {
   if (!score) return 'grey'
   if (score >= 0.8) return 'success'
   if (score >= 0.5) return 'warning'
   return 'error'
+}
+
+// Source Type Helpers for Facet Values
+function normalizeSourceType(sourceType: string | null | undefined): string {
+  // Convert to lowercase for consistent lookup (DB stores uppercase, display uses lowercase keys)
+  return (sourceType || 'DOCUMENT').toLowerCase().replace('_', '_')
+}
+
+function getSourceTypeColor(sourceType: string | null | undefined): string {
+  const colors: Record<string, string> = {
+    document: 'blue',
+    manual: 'purple',
+    pysis: 'deep-purple',
+    smart_query: 'green',
+    ai_assistant: 'indigo',
+    import: 'teal',
+  }
+  return colors[normalizeSourceType(sourceType)] || 'grey'
+}
+
+function getSourceTypeIcon(sourceType: string | null | undefined): string {
+  const icons: Record<string, string> = {
+    document: 'mdi-file-document',
+    manual: 'mdi-hand-pointing-right',
+    pysis: 'mdi-database-cog',
+    smart_query: 'mdi-code-tags',
+    ai_assistant: 'mdi-robot',
+    import: 'mdi-import',
+  }
+  return icons[normalizeSourceType(sourceType)] || 'mdi-file-document'
+}
+
+function getSourceTypeLabel(sourceType: string | null | undefined): string {
+  const labels: Record<string, string> = {
+    document: t('entityDetail.sourceTypes.document'),
+    manual: t('entityDetail.sourceTypes.manual'),
+    pysis: t('entityDetail.sourceTypes.pysis'),
+    smart_query: t('entityDetail.sourceTypes.smartQuery'),
+    ai_assistant: t('entityDetail.sourceTypes.aiAssistant'),
+    import: t('entityDetail.sourceTypes.import'),
+  }
+  return labels[normalizeSourceType(sourceType)] || t('entityDetail.sourceTypes.document')
 }
 
 function getSourceStatusColor(status: string): string {
@@ -1972,6 +3151,231 @@ function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text)
   showSuccess(t('entityDetail.messages.copiedToClipboard'))
 }
+
+// =============================================================================
+// PYSIS-FACETS ENRICHMENT
+// =============================================================================
+
+async function checkPysisProcesses() {
+  if (!entity.value || entityType.value?.slug !== 'municipality') {
+    hasPysisProcesses.value = false
+    return
+  }
+
+  try {
+    const response = await pysisApi.getProcesses(entity.value.name)
+    hasPysisProcesses.value = (response.data.items?.length || 0) > 0
+  } catch (e) {
+    console.error('Failed to check PySis processes', e)
+    hasPysisProcesses.value = false
+  }
+}
+
+async function enrichFromPysis() {
+  if (!entity.value) return
+
+  enrichingFromPysis.value = true
+  try {
+    const response = await pysisApi.enrichFacetsFromPysis({
+      entity_id: entity.value.id,
+      overwrite: enrichPysisOverwrite.value,
+    })
+
+    if (response.data.success) {
+      enrichTaskId.value = response.data.task_id
+      showEnrichFromPysisDialog.value = false
+      showEnrichTaskStartedDialog.value = true
+      // Start polling for task status
+      startEnrichTaskPolling(response.data.task_id)
+    } else {
+      showError(response.data.message || t('entityDetail.messages.enrichError'))
+    }
+  } catch (e: any) {
+    showError(e.response?.data?.error || t('entityDetail.messages.enrichError'))
+  } finally {
+    enrichingFromPysis.value = false
+  }
+}
+
+// Task polling functions
+function startEnrichTaskPolling(taskId: string) {
+  // Clear existing polling
+  stopEnrichTaskPolling()
+
+  enrichTaskPolling.value = setInterval(async () => {
+    try {
+      const response = await aiTasksApi.getStatus(taskId)
+      enrichTaskStatus.value = response.data
+
+      // Check if task is completed or failed
+      if (['COMPLETED', 'FAILED', 'CANCELLED'].includes(response.data.status)) {
+        stopEnrichTaskPolling()
+
+        if (response.data.status === 'COMPLETED') {
+          showSuccess(t('entityDetail.messages.enrichSuccess', {
+            count: response.data.fields_extracted || 0
+          }))
+          // Refresh facets data
+          await loadEntityData()
+        } else if (response.data.status === 'FAILED') {
+          showError(response.data.error_message || t('entityDetail.messages.enrichError'))
+        }
+
+        // Close dialog after a short delay
+        setTimeout(() => {
+          showEnrichTaskStartedDialog.value = false
+          enrichTaskStatus.value = null
+        }, 2000)
+      }
+    } catch (e) {
+      console.error('Failed to poll task status', e)
+    }
+  }, 2000) // Poll every 2 seconds
+}
+
+function stopEnrichTaskPolling() {
+  if (enrichTaskPolling.value) {
+    clearInterval(enrichTaskPolling.value)
+    enrichTaskPolling.value = null
+  }
+}
+
+// ========================================
+// New Enrichment System Functions
+// ========================================
+
+async function onEnrichmentMenuOpen(isOpen: boolean) {
+  if (isOpen && !enrichmentSources.value) {
+    await loadEnrichmentSources()
+  }
+}
+
+async function loadEnrichmentSources() {
+  if (!entity.value) return
+
+  loadingEnrichmentSources.value = true
+  try {
+    const response = await entityDataApi.getEnrichmentSources(entity.value.id)
+    enrichmentSources.value = response.data
+
+    // Pre-select available sources
+    selectedEnrichmentSources.value = []
+    if (response.data.pysis?.available) selectedEnrichmentSources.value.push('pysis')
+    if (response.data.relations?.available) selectedEnrichmentSources.value.push('relations')
+    if (response.data.documents?.available) selectedEnrichmentSources.value.push('documents')
+    if (response.data.extractions?.available) selectedEnrichmentSources.value.push('extractions')
+  } catch (e) {
+    console.error('Failed to load enrichment sources', e)
+    showError(t('entityDetail.enrichment.noSourcesAvailable'))
+  } finally {
+    loadingEnrichmentSources.value = false
+  }
+}
+
+function formatEnrichmentDate(dateStr: string | null): string {
+  if (!dateStr) return '-'
+  try {
+    return formatDistanceToNow(new Date(dateStr), { addSuffix: true, locale: de })
+  } catch {
+    return dateStr
+  }
+}
+
+async function startEnrichmentAnalysis() {
+  if (!entity.value || selectedEnrichmentSources.value.length === 0) return
+
+  startingEnrichment.value = true
+  try {
+    const response = await entityDataApi.analyzeForFacets({
+      entity_id: entity.value.id,
+      source_types: selectedEnrichmentSources.value,
+    })
+
+    enrichmentTaskId.value = response.data.task_id
+    enrichmentTaskStatus.value = { status: 'PENDING' }
+    enrichmentPreviewData.value = null
+
+    // Close dropdown, open review modal
+    enrichmentMenuOpen.value = false
+    showEnrichmentReviewDialog.value = true
+    showMinimizedTaskSnackbar.value = false
+
+    // Start polling for task status
+    startEnrichmentTaskPolling(response.data.task_id)
+  } catch (e: any) {
+    showError(e.response?.data?.detail || t('entityDetail.messages.enrichError'))
+  } finally {
+    startingEnrichment.value = false
+  }
+}
+
+function startEnrichmentTaskPolling(taskId: string) {
+  stopEnrichmentTaskPolling()
+
+  enrichmentTaskPolling.value = setInterval(async () => {
+    try {
+      const response = await aiTasksApi.getStatus(taskId)
+      enrichmentTaskStatus.value = response.data
+
+      // Check if task is completed
+      if (response.data.status === 'COMPLETED') {
+        stopEnrichmentTaskPolling()
+
+        // Fetch the preview data
+        try {
+          const previewResponse = await entityDataApi.getAnalysisPreview(taskId)
+          enrichmentPreviewData.value = previewResponse.data
+        } catch (e) {
+          console.error('Failed to fetch preview', e)
+        }
+      } else if (response.data.status === 'FAILED' || response.data.status === 'CANCELLED') {
+        stopEnrichmentTaskPolling()
+      }
+    } catch (e) {
+      console.error('Failed to poll task status', e)
+    }
+  }, 2000)
+}
+
+function stopEnrichmentTaskPolling() {
+  if (enrichmentTaskPolling.value) {
+    clearInterval(enrichmentTaskPolling.value)
+    enrichmentTaskPolling.value = null
+  }
+}
+
+function onEnrichmentReviewClose() {
+  stopEnrichmentTaskPolling()
+  showMinimizedTaskSnackbar.value = false
+  enrichmentTaskId.value = null
+  enrichmentTaskStatus.value = null
+  enrichmentPreviewData.value = null
+}
+
+function onEnrichmentReviewMinimize() {
+  showEnrichmentReviewDialog.value = false
+  // Show minimized snackbar only if task is still running
+  if (enrichmentTaskStatus.value?.status === 'RUNNING' || enrichmentTaskStatus.value?.status === 'PENDING') {
+    showMinimizedTaskSnackbar.value = true
+  }
+}
+
+function reopenEnrichmentReview() {
+  showMinimizedTaskSnackbar.value = false
+  showEnrichmentReviewDialog.value = true
+}
+
+async function onEnrichmentApplied(result: { created: number; updated: number }) {
+  showSuccess(t('facetEnrichment.applied', result))
+  // Refresh entity data
+  await loadEntityData()
+}
+
+// Cleanup on unmount
+onUnmounted(() => {
+  stopEnrichTaskPolling()
+  stopEnrichmentTaskPolling()
+})
 
 // Watch for tab changes to load data lazily
 watch(activeTab, (tab) => {

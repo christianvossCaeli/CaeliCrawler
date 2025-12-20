@@ -11,7 +11,15 @@ from workers.celery_app import celery_app
 logger = structlog.get_logger()
 
 
-@celery_app.task(bind=True, name="workers.notification_tasks.send_notification")
+@celery_app.task(
+    bind=True,
+    name="workers.notification_tasks.send_notification",
+    max_retries=5,
+    default_retry_delay=30,
+    retry_backoff=True,
+    retry_backoff_max=300,
+    retry_jitter=True,
+)
 def send_notification(self, notification_id: str):
     """Send a single notification.
 
@@ -103,8 +111,8 @@ def process_digests():
             # Find rules with digest enabled
             result = await session.execute(
                 select(NotificationRule).where(
-                    NotificationRule.digest_enabled == True,
-                    NotificationRule.is_active == True,
+                    NotificationRule.digest_enabled.is_(True),
+                    NotificationRule.is_active.is_(True),
                 )
             )
             rules = result.scalars().all()

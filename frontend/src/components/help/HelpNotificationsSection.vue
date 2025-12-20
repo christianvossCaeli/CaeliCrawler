@@ -47,7 +47,7 @@
           <td>{{ t('help.notifications.eventTypes.documentRemovedDesc') }}</td>
         </tr>
         <tr>
-          <td><v-chip size="small" color="purple">{{ t('help.notifications.eventTypes.crawlStarted') }}</v-chip></td>
+          <td><v-chip size="small" color="info">{{ t('help.notifications.eventTypes.crawlStarted') }}</v-chip></td>
           <td>{{ t('help.notifications.eventTypes.crawlStartedDesc') }}</td>
         </tr>
         <tr>
@@ -96,7 +96,7 @@
       <v-col cols="12" md="4">
         <v-card variant="outlined" class="pa-3">
           <div class="d-flex align-center mb-2">
-            <v-icon color="purple" class="mr-2">mdi-webhook</v-icon>
+            <v-icon color="info" class="mr-2">mdi-webhook</v-icon>
             <strong>{{ t('help.notifications.channels.webhook') }}</strong>
           </div>
           <p class="text-body-2">

@@ -138,6 +138,46 @@ def normalize_for_search(text: str) -> str:
     return result
 
 
+def build_text_representation(value: any) -> str:
+    """
+    Build searchable text representation from a facet value.
+
+    Converts various value types (dict, list, string) into a flat text
+    representation suitable for full-text search and display.
+
+    Args:
+        value: The facet value (can be str, dict, list, or other)
+
+    Returns:
+        Searchable text representation
+
+    Examples:
+        >>> build_text_representation("Simple text")
+        'Simple text'
+        >>> build_text_representation({"name": "John", "role": "Manager"})
+        'John Manager'
+        >>> build_text_representation(["Tag1", "Tag2"])
+        'Tag1 Tag2'
+    """
+    if isinstance(value, str):
+        return value
+    elif isinstance(value, dict):
+        parts = []
+        for v in value.values():
+            if isinstance(v, str):
+                parts.append(v)
+            elif isinstance(v, list):
+                parts.extend(str(item) for item in v if item)
+            elif v is not None:
+                parts.append(str(v))
+        return " ".join(parts)
+    elif isinstance(value, list):
+        return " ".join(str(item) for item in value if item)
+    elif value is not None:
+        return str(value)
+    return ""
+
+
 # Backwards compatibility aliases
 def normalize_name(name: str, country: str = "DE") -> str:
     """Alias for normalize_entity_name for backwards compatibility."""

@@ -198,7 +198,7 @@ watch(
 
 .strength-bar-container {
   height: 4px;
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: rgba(var(--v-theme-on-surface), 0.1);
   border-radius: 2px;
   overflow: hidden;
 }

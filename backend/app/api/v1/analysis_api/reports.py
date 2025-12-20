@@ -1,6 +1,6 @@
 """Analysis report endpoints - overview and entity reports."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -124,20 +124,20 @@ async def get_analysis_overview(
     # Get all entities of this type
     entities_query = select(Entity).where(
         Entity.entity_type_id == entity_type.id,
-        Entity.is_active == True,
+        Entity.is_active.is_(True),
     )
     entities_result = await session.execute(entities_query)
     entities = entities_result.scalars().all()
 
     # Build overview data
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     overview_items = []
 
     for entity in entities:
         # Base query for facet values
         fv_query = select(FacetValue).where(
             FacetValue.entity_id == entity.id,
-            FacetValue.is_active == True,
+            FacetValue.is_active.is_(True),
             FacetValue.confidence_score >= min_confidence,
         )
 
@@ -291,10 +291,10 @@ async def get_entity_report(
                 }
 
     # Base query for facet values
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     fv_query = select(FacetValue).where(
         FacetValue.entity_id == entity_id,
-        FacetValue.is_active == True,
+        FacetValue.is_active.is_(True),
         FacetValue.confidence_score >= min_confidence,
     )
 
@@ -408,7 +408,7 @@ async def get_entity_report(
             EntityRelation.source_entity_id == entity_id,
             EntityRelation.target_entity_id == entity_id
         ),
-        EntityRelation.is_active == True,
+        EntityRelation.is_active.is_(True),
     )
     rel_result = await session.execute(rel_query)
 

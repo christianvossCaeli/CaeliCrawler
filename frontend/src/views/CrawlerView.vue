@@ -1,11 +1,11 @@
 <template>
   <div>
     <!-- Loading Overlay (only on initial load) -->
-    <v-overlay :model-value="loading && initialLoad" class="align-center justify-center" persistent scrim="rgba(0,0,0,0.7)">
+    <v-overlay :model-value="loading && initialLoad" class="align-center justify-center" persistent >
       <v-card class="pa-8 text-center" min-width="320" elevation="24">
         <v-progress-circular indeterminate size="80" width="6" color="primary" class="mb-4"></v-progress-circular>
         <div class="text-h6 mb-2">{{ $t('crawler.dataLoading') }}</div>
-        <div class="text-body-2 text-grey">{{ $t('crawler.loadingStatus') }}</div>
+        <div class="text-body-2 text-medium-emphasis">{{ $t('crawler.loadingStatus') }}</div>
       </v-card>
     </v-overlay>
 
@@ -61,12 +61,12 @@
     </v-row>
 
     <!-- Running AI Tasks -->
-    <v-card v-if="runningAiTasks.length > 0" class="mb-4" color="purple-lighten-5">
+    <v-card v-if="runningAiTasks.length > 0" class="mb-4" color="info-lighten-5">
       <v-card-title class="d-flex align-center">
-        <v-icon color="purple" class="mr-2 mdi-spin">mdi-loading</v-icon>
+        <v-icon color="info" class="mr-2 mdi-spin">mdi-loading</v-icon>
         {{ $t('crawler.aiTasks') }} ({{ runningAiTasks.length }})
         <v-spacer></v-spacer>
-        <v-chip size="small" color="purple">{{ $t('crawler.liveUpdates') }}</v-chip>
+        <v-chip size="small" color="info">{{ $t('crawler.liveUpdates') }}</v-chip>
       </v-card-title>
       <v-card-text>
         <v-list dense>
@@ -75,7 +75,7 @@
             :key="task.id"
           >
             <template v-slot:prepend>
-              <v-icon color="purple" class="mdi-spin" size="small">mdi-brain</v-icon>
+              <v-icon color="info" class="mdi-spin" size="small">mdi-brain</v-icon>
             </template>
             <v-list-item-title>{{ task.name }}</v-list-item-title>
             <v-list-item-subtitle>
@@ -89,7 +89,7 @@
                   :model-value="task.progress_percent"
                   height="8"
                   rounded
-                  color="purple"
+                  color="info"
                   style="width: 100px"
                   class="mr-2"
                 ></v-progress-linear>
@@ -98,7 +98,7 @@
                   icon="mdi-stop"
                   size="small"
                   color="error"
-                  variant="text"
+                  variant="tonal"
                   @click.stop="cancelAiTask(task)"
                   :title="$t('crawler.cancel')"
                 ></v-btn>
@@ -131,7 +131,7 @@
                   <div class="font-weight-bold">{{ rj.source_name }}</div>
                   <div class="text-caption text-primary">
                     <v-icon size="x-small" class="mr-1">mdi-tag</v-icon>
-                    {{ rj.category_name || 'Keine Kategorie' }}
+                    {{ rj.category_name || $t('crawler.noCategory') }}
                   </div>
                   <div class="text-caption text-truncate" style="max-width: 400px;">
                     {{ rj.current_url || rj.base_url }}
@@ -152,7 +152,7 @@
                   icon="mdi-stop"
                   size="small"
                   color="error"
-                  variant="text"
+                  variant="tonal"
                   @click.stop="cancelJob(rj)"
                   :title="$t('crawler.cancel')"
                 ></v-btn>
@@ -181,7 +181,7 @@
                         {{ item.status === 'document' ? 'mdi-file-document' : (item.status === 'error' ? 'mdi-alert' : 'mdi-web') }}
                       </v-icon>
                       <span class="text-truncate flex-grow-1">{{ item.url }}</span>
-                      <span class="text-caption text-grey ml-2">{{ formatLogTime(item.timestamp) }}</span>
+                      <span class="text-caption text-medium-emphasis ml-2">{{ formatLogTime(item.timestamp) }}</span>
                     </div>
                   </template>
                 </v-virtual-scroll>
@@ -252,7 +252,7 @@
               v-if="item.status === 'RUNNING'"
               icon="mdi-stop"
               size="small"
-              variant="text"
+              variant="tonal"
               color="error"
               :title="$t('common.cancel')"
               @click="cancelJob(item)"
@@ -260,7 +260,7 @@
             <v-btn
               icon="mdi-information"
               size="small"
-              variant="text"
+              variant="tonal"
               :title="$t('common.details')"
               @click="showJobDetails(item)"
             ></v-btn>
@@ -336,7 +336,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="detailsDialog = false">{{ $t('crawler.close') }}</v-btn>
+          <v-btn variant="tonal" @click="detailsDialog = false">{{ $t('crawler.close') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -543,7 +543,7 @@ const stopAllCrawlers = async () => {
         // Continue
       }
     }
-    showSuccess(`${cancelledCount} Jobs gestoppt`)
+    showSuccess(t('crawler.jobsStopped', { count: cancelledCount }))
     await loadData()
   } catch (error: any) {
     showError(t('crawler.stopError'))

@@ -7,18 +7,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.utils.text import create_slug as generate_slug
 
-def generate_slug(name: str) -> str:
-    """Generate URL-friendly slug from name."""
-    slug = name.lower()
-    slug = re.sub(
-        r"[äöüß]",
-        lambda m: {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}[m.group()],
-        slug,
-    )
-    slug = re.sub(r"[^a-z0-9]+", "-", slug)
-    slug = slug.strip("-")
-    return slug
+# Regex pattern for valid slugs: lowercase letters, numbers, and hyphens only
+SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+SLUG_MAX_LENGTH = 100
 
 
 class EntityTypeBase(BaseModel):
@@ -59,13 +52,27 @@ class EntityTypeBase(BaseModel):
 class EntityTypeCreate(EntityTypeBase):
     """Schema for creating a new entity type."""
 
-    slug: Optional[str] = Field(None, description="URL-friendly slug (auto-generated if not provided)")
+    slug: Optional[str] = Field(
+        None,
+        max_length=SLUG_MAX_LENGTH,
+        description="URL-friendly slug (auto-generated if not provided)"
+    )
 
     @field_validator("slug", mode="before")
     @classmethod
     def generate_slug_if_empty(cls, v, info):
         if not v and "name" in info.data:
             return generate_slug(info.data["name"])
+        return v
+
+    @field_validator("slug", mode="after")
+    @classmethod
+    def validate_slug_format(cls, v):
+        if v is not None:
+            if len(v) > SLUG_MAX_LENGTH:
+                raise ValueError(f"Slug must be at most {SLUG_MAX_LENGTH} characters")
+            if not SLUG_PATTERN.match(v):
+                raise ValueError("Slug must contain only lowercase letters, numbers, and hyphens")
         return v
 
 
@@ -110,3 +117,6 @@ class EntityTypeListResponse(BaseModel):
 
     items: List[EntityTypeResponse]
     total: int
+    page: int = Field(default=1, description="Current page number")
+    per_page: int = Field(default=50, description="Items per page")
+    pages: int = Field(default=1, description="Total number of pages")

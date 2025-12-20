@@ -5,7 +5,7 @@
         icon
         v-bind="props"
         :title="$t('user.language')"
-        variant="text"
+        variant="tonal"
       >
         <v-icon>mdi-translate</v-icon>
       </v-btn>

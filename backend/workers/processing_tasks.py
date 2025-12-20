@@ -2,13 +2,13 @@
 
 import hashlib
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
-from celery import shared_task
 import structlog
+from celery.exceptions import SoftTimeLimitExceeded
 
 from workers.celery_app import celery_app
 from app.config import settings
@@ -16,7 +16,15 @@ from app.config import settings
 logger = structlog.get_logger()
 
 
-@celery_app.task(bind=True, name="workers.processing_tasks.process_document")
+@celery_app.task(
+    bind=True,
+    name="workers.processing_tasks.process_document",
+    max_retries=3,
+    default_retry_delay=30,
+    retry_backoff=True,
+    retry_backoff_max=300,
+    retry_jitter=True,
+)
 def process_document(self, document_id: str):
     """
     Process a single document (download, extract text).
@@ -42,7 +50,7 @@ def process_document(self, document_id: str):
                 # Download if not already downloaded
                 if not document.file_path or not os.path.exists(document.file_path):
                     await _download_document(document)
-                    document.downloaded_at = datetime.utcnow()
+                    document.downloaded_at = datetime.now(timezone.utc)
 
                 # Extract text and title based on document type
                 text, title = await _extract_text_and_title(document)
@@ -57,7 +65,7 @@ def process_document(self, document_id: str):
 
                 # Update status
                 document.processing_status = ProcessingStatus.COMPLETED
-                document.processed_at = datetime.utcnow()
+                document.processed_at = datetime.now(timezone.utc)
 
                 logger.info(
                     "Document processed",
@@ -65,6 +73,15 @@ def process_document(self, document_id: str):
                     type=document.document_type,
                     text_length=len(text) if text else 0,
                 )
+
+            except SoftTimeLimitExceeded:
+                # Handle soft time limit - graceful shutdown
+                logger.warning(
+                    "Document processing soft time limit exceeded",
+                    document_id=document_id,
+                )
+                document.processing_status = ProcessingStatus.FAILED
+                document.processing_error = "Processing exceeded time limit"
 
             except Exception as e:
                 logger.exception("Document processing failed", document_id=document_id)

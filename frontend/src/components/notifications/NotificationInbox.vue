@@ -3,7 +3,7 @@
     <v-card-title class="d-flex justify-space-between align-center">
       <span>{{ t('notificationsView.inbox') }}</span>
       <v-btn
-        variant="text"
+        variant="tonal"
         color="primary"
         :disabled="unreadCount === 0"
         @click="handleMarkAllRead"
@@ -117,7 +117,7 @@
         {{ selectedNotification.title }}
       </v-card-title>
       <v-card-text>
-        <p class="mb-4 text-body-1" style="white-space: pre-wrap;">{{ selectedNotification.body }}</p>
+        <p class="mb-4 text-body-1 text-pre-wrap">{{ selectedNotification.body }}</p>
 
         <v-divider class="mb-4" />
 
@@ -146,7 +146,7 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn @click="detailDialog = false">{{ t('common.close') }}</v-btn>
+        <v-btn variant="tonal" @click="detailDialog = false">{{ t('common.close') }}</v-btn>
         <v-btn
           v-if="selectedNotification.related_entity_type"
           color="primary"

@@ -133,9 +133,25 @@ export interface Reminder {
   created_at: string
 }
 
-// Local storage key
+export interface QueryHistoryItem {
+  id: string
+  query: string
+  timestamp: Date
+  resultCount: number
+  queryType: 'read' | 'write'
+  isFavorite: boolean
+  entityType?: string
+  facetTypes?: string[]
+}
+
+// Local storage keys
 const STORAGE_KEY = 'assistant_conversation_history'
+const QUERY_HISTORY_KEY = 'assistant_query_history'
 const MAX_HISTORY_LENGTH = 50
+const MAX_QUERY_HISTORY_LENGTH = 100
+
+// Module-level interval reference for cleanup
+let reminderPollInterval: ReturnType<typeof setInterval> | null = null
 
 export function useAssistant() {
   const route = useRoute()
@@ -183,6 +199,9 @@ export function useAssistant() {
   // Reminder state
   const reminders = ref<Reminder[]>([])
   const dueReminders = ref<Reminder[]>([])
+
+  // Query history state
+  const queryHistory = ref<QueryHistoryItem[]>([])
 
   // Detect view mode from route
   function detectViewMode(): AssistantContext['view_mode'] {
@@ -250,6 +269,136 @@ export function useAssistant() {
     }
   }
 
+  // Load query history from local storage
+  function loadQueryHistory() {
+    try {
+      const stored = localStorage.getItem(QUERY_HISTORY_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        queryHistory.value = parsed.map((item: any) => ({
+          ...item,
+          timestamp: new Date(item.timestamp)
+        }))
+      }
+    } catch (e) {
+      console.error('Failed to load query history:', e)
+    }
+  }
+
+  // Save query history to local storage
+  function saveQueryHistory() {
+    try {
+      const toSave = queryHistory.value.slice(-MAX_QUERY_HISTORY_LENGTH)
+      localStorage.setItem(QUERY_HISTORY_KEY, JSON.stringify(toSave))
+    } catch (e) {
+      console.error('Failed to save query history:', e)
+    }
+  }
+
+  // Add a query to history
+  function addQueryToHistory(
+    query: string,
+    resultCount: number,
+    queryType: 'read' | 'write',
+    metadata?: { entityType?: string; facetTypes?: string[] }
+  ) {
+    // Don't add duplicate consecutive queries
+    const lastQuery = queryHistory.value[queryHistory.value.length - 1]
+    if (lastQuery && lastQuery.query === query) {
+      // Update the timestamp and result count instead
+      lastQuery.timestamp = new Date()
+      lastQuery.resultCount = resultCount
+      saveQueryHistory()
+      return
+    }
+
+    const historyItem: QueryHistoryItem = {
+      id: `qh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      query,
+      timestamp: new Date(),
+      resultCount,
+      queryType,
+      isFavorite: false,
+      entityType: metadata?.entityType,
+      facetTypes: metadata?.facetTypes
+    }
+
+    queryHistory.value.push(historyItem)
+
+    // Trim to max length (but keep favorites)
+    if (queryHistory.value.length > MAX_QUERY_HISTORY_LENGTH) {
+      const favorites = queryHistory.value.filter(item => item.isFavorite)
+      const nonFavorites = queryHistory.value.filter(item => !item.isFavorite)
+      const trimmedNonFavorites = nonFavorites.slice(-MAX_QUERY_HISTORY_LENGTH + favorites.length)
+      queryHistory.value = [...favorites, ...trimmedNonFavorites].sort(
+        (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+      )
+    }
+
+    saveQueryHistory()
+  }
+
+  // Toggle favorite status of a query history item
+  function toggleQueryFavorite(itemId: string) {
+    const item = queryHistory.value.find(q => q.id === itemId)
+    if (item) {
+      item.isFavorite = !item.isFavorite
+      saveQueryHistory()
+    }
+  }
+
+  // Remove a query from history
+  function removeQueryFromHistory(itemId: string) {
+    queryHistory.value = queryHistory.value.filter(q => q.id !== itemId)
+    saveQueryHistory()
+  }
+
+  // Clear all query history (optionally keep favorites)
+  function clearQueryHistory(keepFavorites: boolean = true) {
+    if (keepFavorites) {
+      queryHistory.value = queryHistory.value.filter(item => item.isFavorite)
+    } else {
+      queryHistory.value = []
+    }
+    saveQueryHistory()
+  }
+
+  // Get query history, optionally filtered
+  function getQueryHistory(options?: {
+    favoritesOnly?: boolean
+    queryType?: 'read' | 'write'
+    limit?: number
+  }): QueryHistoryItem[] {
+    let result = [...queryHistory.value]
+
+    if (options?.favoritesOnly) {
+      result = result.filter(item => item.isFavorite)
+    }
+
+    if (options?.queryType) {
+      result = result.filter(item => item.queryType === options.queryType)
+    }
+
+    // Sort by timestamp descending (newest first)
+    result.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+
+    if (options?.limit) {
+      result = result.slice(0, options.limit)
+    }
+
+    return result
+  }
+
+  // Re-run a query from history
+  async function rerunQuery(itemId: string) {
+    const item = queryHistory.value.find(q => q.id === itemId)
+    if (item) {
+      // Set mode based on query type
+      mode.value = item.queryType
+      await send(item.query)
+    }
+  }
+
   // Clear conversation
   function clearConversation() {
     messages.value = []
@@ -305,13 +454,22 @@ export function useAssistant() {
       // Ensure language is valid (de or en)
       const lang = (locale.value === 'de' || locale.value === 'en') ? locale.value : 'de'
 
+      // Collect attachment IDs
+      const attachmentIds = pendingAttachments.value.map(a => a.id)
+
       const response = await assistantApi.chat({
         message: text.trim(),
         context: currentContext.value,
         conversation_history: buildConversationHistory(),
         mode: mode.value,
-        language: lang
+        language: lang,
+        attachment_ids: attachmentIds.length > 0 ? attachmentIds : undefined
       })
+
+      // Clear attachments after successful send
+      if (attachmentIds.length > 0) {
+        await clearAttachments()
+      }
 
       const data = response.data
 
@@ -406,13 +564,23 @@ export function useAssistant() {
       // Ensure language is valid (de or en)
       const lang = (locale.value === 'de' || locale.value === 'en') ? locale.value : 'de'
 
+      // Collect attachment IDs
+      const attachmentIds = pendingAttachments.value.map(a => a.id)
+
       const response = await assistantApi.chatStream({
         message: text.trim(),
         context: currentContext.value,
         conversation_history: buildConversationHistory(),
         mode: mode.value,
-        language: lang
+        language: lang,
+        attachment_ids: attachmentIds.length > 0 ? attachmentIds : undefined
       })
+
+      // Clear attachments after starting request
+      if (attachmentIds.length > 0) {
+        // Don't await, clear in background
+        clearAttachments()
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -466,8 +634,14 @@ export function useAssistant() {
                   break
 
                 case 'complete':
-                  // Final response data
-                  finalResponseData = data.data
+                  // Final response data - data.data contains {success, response, suggested_actions}
+                  // We need to extract the response part for message/type, but keep the full wrapper for suggested_actions
+                  const completeWrapper = data.data
+                  const responseData = completeWrapper?.response || completeWrapper
+                  finalResponseData = {
+                    ...responseData,
+                    suggested_actions: completeWrapper?.suggested_actions || responseData?.suggested_actions || []
+                  }
                   if (finalResponseData?.message) {
                     messages.value[assistantMessageIndex].content = finalResponseData.message
                   }
@@ -610,6 +784,59 @@ export function useAssistant() {
     } else if (action.action === 'edit') {
       mode.value = 'write'
       await sendMessage(action.value)
+    } else if (action.action === 'save_attachment') {
+      // Save temporary chat attachments as permanent entity attachments
+      await saveAttachmentsToEntity(action.value)
+    }
+  }
+
+  // Save temporary attachments to entity
+  async function saveAttachmentsToEntity(actionValue: string): Promise<boolean> {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      // Parse the action value (JSON with entity_id and attachment_ids)
+      const { entity_id, attachment_ids } = JSON.parse(actionValue)
+
+      if (!entity_id || !attachment_ids || attachment_ids.length === 0) {
+        throw new Error('Keine Attachments zum Speichern')
+      }
+
+      const response = await assistantApi.saveToEntityAttachments(entity_id, attachment_ids)
+      const result = response.data
+
+      // Add result message to chat
+      const resultMessage: ConversationMessage = {
+        role: 'assistant',
+        content: result.message,
+        timestamp: new Date(),
+        response_type: result.success ? 'success' : 'error',
+      }
+      messages.value.push(resultMessage)
+      saveHistory()
+
+      // Clear suggested actions after successful save
+      if (result.success) {
+        suggestedActions.value = suggestedActions.value.filter(
+          a => a.action !== 'save_attachment'
+        )
+      }
+
+      return result.success
+    } catch (e: any) {
+      error.value = e.response?.data?.detail || e.message || 'Fehler beim Speichern'
+      const errorMessage: ConversationMessage = {
+        role: 'assistant',
+        content: `Fehler: ${error.value}`,
+        timestamp: new Date(),
+        response_type: 'error',
+      }
+      messages.value.push(errorMessage)
+      saveHistory()
+      return false
+    } finally {
+      isLoading.value = false
     }
   }
 
@@ -900,11 +1127,13 @@ export function useAssistant() {
   // Load proactive insights from API
   async function loadInsights() {
     try {
+      const lang = (locale.value === 'de' || locale.value === 'en') ? locale.value : 'de'
       const response = await assistantApi.getInsights({
         route: currentContext.value.current_route,
         view_mode: currentContext.value.view_mode,
         entity_type: currentContext.value.current_entity_type || undefined,
-        entity_id: currentContext.value.current_entity_id || undefined
+        entity_id: currentContext.value.current_entity_id || undefined,
+        language: lang
       })
       insights.value = response.data.insights || []
     } catch (e) {
@@ -1316,6 +1545,7 @@ export function useAssistant() {
   // Lifecycle
   onMounted(() => {
     loadHistory()
+    loadQueryHistory()
     loadSlashCommands()
     loadSuggestions()
     loadInsights()
@@ -1326,10 +1556,11 @@ export function useAssistant() {
     window.addEventListener('keydown', handleKeydown)
 
     // Set up interval to check for due reminders every minute
-    const reminderInterval = setInterval(loadDueReminders, 60000)
-
-    // Clean up interval on unmount is handled in onUnmounted
-    ;(window as any).__reminderInterval = reminderInterval
+    // Clear any existing interval first to prevent duplicates
+    if (reminderPollInterval) {
+      clearInterval(reminderPollInterval)
+    }
+    reminderPollInterval = setInterval(loadDueReminders, 60000)
   })
 
   onUnmounted(() => {
@@ -1337,9 +1568,9 @@ export function useAssistant() {
     stopBatchPolling() // Clean up batch polling
 
     // Clean up reminder polling
-    const reminderInterval = (window as any).__reminderInterval
-    if (reminderInterval) {
-      clearInterval(reminderInterval)
+    if (reminderPollInterval) {
+      clearInterval(reminderPollInterval)
+      reminderPollInterval = null
     }
   })
 
@@ -1392,6 +1623,7 @@ export function useAssistant() {
     clearAttachments,
     getAttachmentIcon,
     formatFileSize,
+    saveAttachmentsToEntity,
 
     // Batch methods
     executeBatchAction,
@@ -1430,5 +1662,16 @@ export function useAssistant() {
     dismissReminder,
     deleteReminder,
     snoozeReminder,
+
+    // Query history state
+    queryHistory,
+
+    // Query history methods
+    addQueryToHistory,
+    toggleQueryFavorite,
+    removeQueryFromHistory,
+    clearQueryHistory,
+    getQueryHistory,
+    rerunQuery,
   }
 }

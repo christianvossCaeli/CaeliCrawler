@@ -97,6 +97,25 @@
       "date": "Date",
       "boolean": "Boolean",
       "list": "List"
+    },
+    "facets": {
+      "analyzeForFacets": "Create Facets",
+      "enrichFacets": "Enrich Facets",
+      "analyzeForFacetsTitle": "Convert PySis Fields to Facets",
+      "analyzeForFacetsDescription": "Analyzes the PySis fields of this entity with AI and creates matching facet values (Pain Points, Positive Signals, Contacts, etc.).",
+      "enrichFacetsTitle": "Enrich Facets with PySis Data",
+      "enrichFacetsDescription": "Enriches existing facet values with additional information from the PySis fields.",
+      "includeEmptyFields": "Include empty fields",
+      "minConfidence": "Minimum confidence",
+      "overwriteExisting": "Overwrite existing values",
+      "overwriteWarning": "Warning: Existing facet values will be overwritten!",
+      "startAnalysis": "Start Analysis",
+      "startEnrichment": "Start Enrichment",
+      "taskStarted": "Task Started",
+      "taskId": "Task ID",
+      "analyzeTaskStartedMessage": "The PySis analysis has been started. Results will be created as new facet values.",
+      "enrichTaskStartedMessage": "Facet enrichment has been started. Existing facets will be supplemented with PySis data.",
+      "needsEntity": "Entity must be linked to PySis"
     }
   },
   "password": {

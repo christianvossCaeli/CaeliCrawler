@@ -9,7 +9,7 @@
         <v-spacer />
         <v-btn
           v-if="dueReminders.length > 1"
-          variant="text"
+          variant="tonal"
           size="x-small"
           @click="expanded = !expanded"
         >
@@ -48,7 +48,7 @@
               <v-btn
                 v-if="reminder.entity_id && reminder.entity_type"
                 icon
-                variant="text"
+                variant="tonal"
                 size="x-small"
                 @click="$emit('navigate', `/entities/${reminder.entity_type}/${reminder.entity_slug || reminder.entity_id}`)"
               >
@@ -64,7 +64,7 @@
                   <v-btn
                     v-bind="props"
                     icon
-                    variant="text"
+                    variant="tonal"
                     size="x-small"
                   >
                     <v-icon size="small">mdi-clock-outline</v-icon>
@@ -89,7 +89,7 @@
               <!-- Dismiss -->
               <v-btn
                 icon
-                variant="text"
+                variant="tonal"
                 size="x-small"
                 @click="$emit('dismiss', reminder.id)"
               >

@@ -23,7 +23,7 @@ from app.core.security import (
     MAX_SESSIONS_PER_USER,
     REFRESH_TOKEN_EXPIRE_DAYS,
 )
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_current_session_id
 from app.core.rate_limit import check_rate_limit, get_rate_limiter
 from app.core.token_blacklist import blacklist_token
 from app.core.password_policy import validate_password, check_password_strength
@@ -208,7 +208,7 @@ async def login(
         select(UserSession)
         .where(and_(
             UserSession.user_id == user.id,
-            UserSession.is_active == True,
+            UserSession.is_active.is_(True),
             UserSession.expires_at > datetime.now(timezone.utc)
         ))
         .order_by(UserSession.last_used_at.asc())
@@ -471,8 +471,8 @@ async def refresh_tokens(
     # Update session last used
     user_session.update_last_used(client_ip)
 
-    # Create new access token
-    access_token = create_access_token(user.id, user.role.value)
+    # Create new access token with session reference
+    access_token = create_access_token(user.id, user.role.value, user_session.id)
 
     await session.commit()
 
@@ -493,6 +493,7 @@ async def refresh_tokens(
 @router.get("/sessions", response_model=SessionListResponse)
 async def list_sessions(
     current_user: User = Depends(get_current_user),
+    current_session_id: Optional[UUID] = Depends(get_current_session_id),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -505,7 +506,7 @@ async def list_sessions(
         select(UserSession)
         .where(and_(
             UserSession.user_id == current_user.id,
-            UserSession.is_active == True,
+            UserSession.is_active.is_(True),
             UserSession.expires_at > datetime.now(timezone.utc)
         ))
         .order_by(UserSession.last_used_at.desc())
@@ -522,7 +523,7 @@ async def list_sessions(
                 location=s.location,
                 created_at=s.created_at,
                 last_used_at=s.last_used_at,
-                is_current=False,  # TODO: Mark current session
+                is_current=(current_session_id is not None and s.id == current_session_id),
             )
             for s in sessions_list
         ],
@@ -597,7 +598,7 @@ async def revoke_all_sessions(
         select(UserSession)
         .where(and_(
             UserSession.user_id == current_user.id,
-            UserSession.is_active == True,
+            UserSession.is_active.is_(True),
         ))
     )
     all_sessions = list(result.scalars().all())

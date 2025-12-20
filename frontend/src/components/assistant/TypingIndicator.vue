@@ -2,7 +2,7 @@
   <div class="typing-indicator">
     <div class="typing-indicator__content">
       <v-avatar size="28" color="primary" class="mr-2">
-        <v-icon size="16" color="on-primary">mdi-robot-happy</v-icon>
+        <v-icon size="x-small" color="on-primary">mdi-robot-happy</v-icon>
       </v-avatar>
       <div class="typing-indicator__dots">
         <span></span>

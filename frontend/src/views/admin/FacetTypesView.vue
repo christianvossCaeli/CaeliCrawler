@@ -11,7 +11,7 @@
                 {{ t('admin.facetTypes.subtitle') }}
               </p>
             </div>
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
+            <v-btn variant="tonal" color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
               {{ t('admin.facetTypes.actions.create') }}
             </v-btn>
           </div>
@@ -144,8 +144,8 @@
 
           <template v-slot:item.actions="{ item }">
             <div class="d-flex justify-end ga-1">
-              <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="t('common.edit')" @click="openEditDialog(item)"></v-btn>
-              <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="t('common.delete')" :disabled="item.is_system || (item.value_count || 0) > 0" @click="confirmDelete(item)"></v-btn>
+              <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="t('common.edit')" :aria-label="t('common.edit')" @click="openEditDialog(item)"></v-btn>
+              <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="t('common.delete')" :aria-label="t('common.delete')" :disabled="item.is_system || (item.value_count || 0) > 0" @click="confirmDelete(item)"></v-btn>
             </div>
           </template>
         </v-data-table>
@@ -155,8 +155,8 @@
       <v-dialog v-model="dialog" max-width="900" persistent scrollable>
         <v-card>
           <v-card-title class="d-flex align-center pa-4 bg-primary">
-            <v-avatar :color="form.color || '#607D8B'" size="40" class="mr-3">
-              <v-icon :icon="form.icon || 'mdi-tag'" color="white"></v-icon>
+            <v-avatar :color="form.color || 'secondary'" size="40" class="mr-3">
+              <v-icon :icon="form.icon || 'mdi-tag'" :color="getContrastColor(form.color || 'secondary')"></v-icon>
             </v-avatar>
             <div>
               <div class="text-h6">{{ editingItem ? t('admin.facetTypes.dialog.editTitle') : t('admin.facetTypes.dialog.createTitle') }}</div>
@@ -184,7 +184,7 @@
             </v-tab>
           </v-tabs>
 
-          <v-card-text class="pa-6" style="min-height: 420px;">
+          <v-card-text class="pa-6 dialog-content-lg">
             <v-form ref="formRef" @submit.prevent="save">
               <v-window v-model="activeTab">
                 <!-- Basic Tab -->
@@ -238,8 +238,8 @@
                     </v-card-title>
                     <v-card-text>
                       <div class="d-flex align-center ga-3">
-                        <v-avatar :color="form.color || '#607D8B'" size="40">
-                          <v-icon :icon="form.icon || 'mdi-tag'" color="white"></v-icon>
+                        <v-avatar :color="form.color || 'secondary'" size="40">
+                          <v-icon :icon="form.icon || 'mdi-tag'" :color="getContrastColor(form.color || 'secondary')"></v-icon>
                         </v-avatar>
                         <div>
                           <div class="text-body-1 font-weight-medium">{{ form.name || t('admin.facetTypes.form.namePlaceholder') }}</div>
@@ -308,17 +308,17 @@
                 <!-- Schema Tab -->
                 <v-window-item value="schema">
                   <!-- AI Schema Generator -->
-                  <v-card variant="tonal" color="purple" class="mb-4">
+                  <v-card variant="tonal" color="info" class="mb-4">
                     <v-card-text class="d-flex align-center">
-                      <v-avatar color="purple-darken-1" size="40" class="mr-3">
-                        <v-icon color="white">mdi-auto-fix</v-icon>
+                      <v-avatar color="info-darken-1" size="40" class="mr-3">
+                        <v-icon color="on-info">mdi-auto-fix</v-icon>
                       </v-avatar>
                       <div class="flex-grow-1">
                         <div class="text-body-1 font-weight-medium">{{ t('admin.facetTypes.form.aiSchemaGenerator') }}</div>
                         <div class="text-caption">{{ t('admin.facetTypes.form.aiSchemaGeneratorHint') }}</div>
                       </div>
                       <v-btn
-                        color="purple-darken-1"
+                        color="info-darken-1"
                         :loading="generatingSchema"
                         :disabled="!form.name"
                         @click="generateSchemaWithAI"
@@ -429,8 +429,8 @@
                 <v-window-item value="ai">
                   <v-card variant="outlined" class="mb-4">
                     <v-card-text class="d-flex align-center">
-                      <v-avatar color="purple" size="48" class="mr-4">
-                        <v-icon color="white">mdi-robot</v-icon>
+                      <v-avatar color="info" size="48" class="mr-4">
+                        <v-icon color="on-info">mdi-robot</v-icon>
                       </v-avatar>
                       <div class="flex-grow-1">
                         <div class="text-body-1 font-weight-medium">{{ t('admin.facetTypes.form.aiExtractionEnabled') }}</div>
@@ -438,7 +438,7 @@
                       </div>
                       <v-switch
                         v-model="form.ai_extraction_enabled"
-                        color="purple"
+                        color="info"
                         hide-details
                       ></v-switch>
                     </v-card-text>
@@ -471,9 +471,9 @@
           <v-divider></v-divider>
 
           <v-card-actions class="pa-4">
-            <v-btn variant="text" @click="closeDialog">{{ t('common.cancel') }}</v-btn>
+            <v-btn variant="tonal" @click="closeDialog">{{ t('common.cancel') }}</v-btn>
             <v-spacer></v-spacer>
-            <v-btn color="primary" :loading="saving" @click="save">
+            <v-btn variant="tonal" color="primary" :loading="saving" @click="save">
               <v-icon start>mdi-check</v-icon>
               {{ editingItem ? t('common.save') : t('common.create') }}
             </v-btn>
@@ -484,7 +484,7 @@
       <!-- Delete Confirmation Dialog -->
       <v-dialog v-model="deleteDialog" max-width="400">
         <v-card>
-          <v-card-title class="text-h6">
+          <v-card-title class="d-flex align-center">
             <v-icon color="error" class="mr-2">mdi-alert</v-icon>
             {{ t('admin.facetTypes.dialog.deleteTitle') }}
           </v-card-title>
@@ -493,8 +493,8 @@
           </v-card-text>
           <v-card-actions>
             <v-spacer></v-spacer>
-            <v-btn @click="deleteDialog = false">{{ t('common.cancel') }}</v-btn>
-            <v-btn color="error" :loading="deleting" @click="deleteItem">{{ t('common.delete') }}</v-btn>
+            <v-btn variant="tonal" @click="deleteDialog = false">{{ t('common.cancel') }}</v-btn>
+            <v-btn variant="tonal" color="error" :loading="deleting" @click="deleteItem">{{ t('common.delete') }}</v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
@@ -507,6 +507,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { facetApi, entityApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { getContrastColor } from '@/composables/useColorHelpers'
 
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
@@ -571,7 +572,7 @@ const form = ref({
   name_plural: '',
   description: '',
   icon: 'mdi-tag',
-  color: '#607D8B',
+  color: 'secondary',
   value_type: 'structured',
   value_schema: null as any,
   applicable_entity_type_slugs: [] as string[],
@@ -681,7 +682,7 @@ function openCreateDialog() {
     name_plural: '',
     description: '',
     icon: 'mdi-tag',
-    color: '#607D8B',
+    color: 'secondary',
     value_type: 'structured',
     value_schema: null,
     applicable_entity_type_slugs: [],
@@ -707,7 +708,7 @@ function openEditDialog(item: any) {
     name_plural: item.name_plural || '',
     description: item.description || '',
     icon: item.icon || 'mdi-tag',
-    color: item.color || '#607D8B',
+    color: item.color || 'secondary',
     value_type: item.value_type || 'structured',
     value_schema: item.value_schema,
     applicable_entity_type_slugs: item.applicable_entity_type_slugs || [],

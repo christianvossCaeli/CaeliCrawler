@@ -6,28 +6,28 @@
     <v-row class="mb-4">
       <v-col cols="6" md="3">
         <v-card variant="outlined" class="text-center pa-3">
-          <v-icon color="success" size="32">mdi-account-hard-hat</v-icon>
+          <v-icon color="success" size="x-large">mdi-account-hard-hat</v-icon>
           <div class="text-subtitle-1">{{ t('help.crawler.cards.activeWorkers') }}</div>
           <div class="text-caption">{{ t('help.crawler.cards.activeWorkersDesc') }}</div>
         </v-card>
       </v-col>
       <v-col cols="6" md="3">
         <v-card variant="outlined" class="text-center pa-3">
-          <v-icon color="info" size="32">mdi-run</v-icon>
+          <v-icon color="info" size="x-large">mdi-run</v-icon>
           <div class="text-subtitle-1">{{ t('help.crawler.cards.runningJobs') }}</div>
           <div class="text-caption">{{ t('help.crawler.cards.runningJobsDesc') }}</div>
         </v-card>
       </v-col>
       <v-col cols="6" md="3">
         <v-card variant="outlined" class="text-center pa-3">
-          <v-icon color="warning" size="32">mdi-clock-outline</v-icon>
+          <v-icon color="warning" size="x-large">mdi-clock-outline</v-icon>
           <div class="text-subtitle-1">{{ t('help.crawler.cards.pendingJobs') }}</div>
           <div class="text-caption">{{ t('help.crawler.cards.pendingJobsDesc') }}</div>
         </v-card>
       </v-col>
       <v-col cols="6" md="3">
         <v-card variant="outlined" class="text-center pa-3">
-          <v-icon color="primary" size="32">mdi-file-document-multiple</v-icon>
+          <v-icon color="primary" size="x-large">mdi-file-document-multiple</v-icon>
           <div class="text-subtitle-1">{{ t('help.crawler.cards.documents') }}</div>
           <div class="text-caption">{{ t('help.crawler.cards.documentsDesc') }}</div>
         </v-card>

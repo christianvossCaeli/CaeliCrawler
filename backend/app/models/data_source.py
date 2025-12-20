@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from app.models.entity import Entity
     from app.models.data_source_category import DataSourceCategory
     from app.models.location import Location
+    from external_apis.models.external_api_config import ExternalAPIConfig
 
 
 class SourceType(str, enum.Enum):
@@ -235,6 +236,12 @@ class DataSource(Base):
         "ChangeLog",
         back_populates="source",
         cascade="all, delete-orphan",
+    )
+    # External API configuration (if this source is managed by an external API)
+    external_api_config: Mapped[Optional["ExternalAPIConfig"]] = relationship(
+        "ExternalAPIConfig",
+        back_populates="data_source",
+        uselist=False,
     )
 
     def __repr__(self) -> str:

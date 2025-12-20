@@ -1,11 +1,11 @@
 <template>
   <div>
     <!-- Loading Overlay -->
-    <v-overlay :model-value="loading" class="align-center justify-center" persistent scrim="rgba(0,0,0,0.7)">
+    <v-overlay :model-value="loading" class="align-center justify-center" persistent >
       <v-card class="pa-8 text-center" min-width="320" elevation="24">
         <v-progress-circular indeterminate size="80" width="6" color="primary" class="mb-4"></v-progress-circular>
         <div class="text-h6 mb-2">{{ t('entities.loadingData') }}</div>
-        <div class="text-body-2 text-grey">
+        <div class="text-body-2 text-medium-emphasis">
           {{ totalEntities > 0 ? `${totalEntities.toLocaleString()} ${currentEntityType?.name_plural || t('entities.entries')}` : t('common.pleaseWait') }}
         </div>
       </v-card>
@@ -17,7 +17,7 @@
         <v-icon v-if="currentEntityType" :icon="currentEntityType.icon" :color="currentEntityType.color" size="32" class="mr-3"></v-icon>
         <div>
           <h1 class="text-h4">{{ currentEntityType?.name_plural || 'Entities' }}</h1>
-          <div v-if="currentEntityType?.description" class="text-body-2 text-grey">
+          <div v-if="currentEntityType?.description" class="text-body-2 text-medium-emphasis">
             {{ currentEntityType.description }}
           </div>
         </div>
@@ -27,7 +27,7 @@
           <v-icon start>mdi-view-dashboard</v-icon>
           {{ store.selectedTemplate.name }}
         </v-btn>
-        <v-btn color="primary" @click="createDialog = true">
+        <v-btn variant="tonal" color="primary" @click="createDialog = true">
           <v-icon start>mdi-plus</v-icon>
           {{ t('entities.createNew') }}
         </v-btn>
@@ -193,13 +193,13 @@
           <v-icon class="ml-4">mdi-tune</v-icon>
           <v-toolbar-title>{{ $t('entities.extendedFilters') }}</v-toolbar-title>
           <v-spacer></v-spacer>
-          <v-btn icon @click="extendedFilterDialog = false">
+          <v-btn icon variant="tonal" @click="extendedFilterDialog = false" :title="t('common.close')" :aria-label="t('common.close')">
             <v-icon>mdi-close</v-icon>
           </v-btn>
         </v-toolbar>
 
         <v-card-text class="pa-0">
-          <div v-if="schemaAttributes.length === 0" class="text-grey text-center py-8">
+          <div v-if="schemaAttributes.length === 0" class="text-medium-emphasis text-center py-8">
             <v-icon size="48" color="grey-lighten-1" class="mb-2">mdi-filter-off</v-icon>
             <div>{{ $t('entities.noFilterableAttributes') }}</div>
           </div>
@@ -300,7 +300,7 @@
           <v-spacer></v-spacer>
           <v-btn
             v-if="hasExtendedFilters"
-            variant="text"
+            variant="tonal"
             color="error"
             size="small"
             @click="clearExtendedFilters"
@@ -323,11 +323,11 @@
         {{ currentEntityType?.name_plural || t('entities.title') }} - {{ t('entities.overview') }}
         <v-spacer></v-spacer>
         <v-btn-toggle v-model="viewMode" density="compact" mandatory>
-          <v-btn value="table" icon="mdi-table"></v-btn>
-          <v-btn value="cards" icon="mdi-view-grid"></v-btn>
-          <v-btn v-if="hasGeoData" value="map" icon="mdi-map"></v-btn>
+          <v-btn value="table" icon="mdi-table" :aria-label="t('entities.viewModes.table')"></v-btn>
+          <v-btn value="cards" icon="mdi-view-grid" :aria-label="t('entities.viewModes.cards')"></v-btn>
+          <v-btn v-if="hasGeoData" value="map" icon="mdi-map" :aria-label="t('entities.viewModes.map')"></v-btn>
         </v-btn-toggle>
-        <v-btn color="primary" variant="text" class="ml-2" @click="loadEntities">
+        <v-btn color="primary" variant="tonal" class="ml-2" @click="loadEntities">
           <v-icon start>mdi-refresh</v-icon>
           {{ t('common.refresh') }}
         </v-btn>
@@ -351,7 +351,7 @@
             <v-icon class="mr-2" :color="currentEntityType?.color || 'primary'" :icon="currentEntityType?.icon || 'mdi-folder'"></v-icon>
             <div>
               <strong>{{ item.name }}</strong>
-              <div v-if="item.external_id" class="text-caption text-grey">
+              <div v-if="item.external_id" class="text-caption text-medium-emphasis">
                 {{ item.external_id }}
               </div>
             </div>
@@ -359,7 +359,7 @@
         </template>
 
         <template v-slot:item.hierarchy_path="{ item }">
-          <span class="text-grey-darken-1 text-caption">{{ item.hierarchy_path || '-' }}</span>
+          <span class="text-medium-emphasis-darken-1 text-caption">{{ item.hierarchy_path || '-' }}</span>
         </template>
 
         <template v-slot:item.facet_count="{ item }">
@@ -401,9 +401,9 @@
 
         <template v-slot:item.actions="{ item }">
           <div class="table-actions d-flex justify-end ga-1">
-            <v-btn icon="mdi-eye" size="small" variant="tonal" color="primary" :title="t('common.details')" @click.stop="openEntityDetail(item)"></v-btn>
-            <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="t('common.edit')" @click.stop="openEditDialog(item)"></v-btn>
-            <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="t('common.delete')" @click.stop="confirmDelete(item)"></v-btn>
+            <v-btn icon="mdi-eye" size="small" variant="tonal" color="primary" :title="t('common.details')" :aria-label="t('common.details')" @click.stop="openEntityDetail(item)"></v-btn>
+            <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="t('common.edit')" :aria-label="t('common.edit')" @click.stop="openEditDialog(item)"></v-btn>
+            <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="t('common.delete')" :aria-label="t('common.delete')" @click.stop="confirmDelete(item)"></v-btn>
           </div>
         </template>
       </v-data-table-server>
@@ -445,7 +445,7 @@
               </v-card-text>
               <v-card-actions>
                 <v-spacer></v-spacer>
-                <v-btn size="small" color="primary" variant="text" @click.stop="openEntityDetail(entity)">
+                <v-btn size="small" color="primary" variant="tonal" @click.stop="openEntityDetail(entity)">
                   {{ t('common.details') }}
                 </v-btn>
               </v-card-actions>
@@ -466,8 +466,8 @@
     <v-dialog v-model="createDialog" max-width="800" persistent scrollable>
       <v-card>
         <v-card-title class="d-flex align-center pa-4 bg-primary">
-          <v-avatar :color="currentEntityType?.color || 'rgba(255,255,255,0.2)'" size="40" class="mr-3">
-            <v-icon :color="isLightColor(currentEntityType?.color) ? 'black' : 'white'" :icon="currentEntityType?.icon || (editingEntity ? 'mdi-pencil' : 'mdi-plus')"></v-icon>
+          <v-avatar :color="currentEntityType?.color || 'primary-darken-1'" size="40" class="mr-3">
+            <v-icon :color="currentEntityType?.color ? (isLightColor(currentEntityType.color) ? 'black' : 'white') : 'on-primary'" :icon="currentEntityType?.icon || (editingEntity ? 'mdi-pencil' : 'mdi-plus')"></v-icon>
           </v-avatar>
           <div>
             <div class="text-h6">
@@ -496,7 +496,7 @@
           </v-tab>
         </v-tabs>
 
-        <v-card-text class="pa-6" style="min-height: 350px;">
+        <v-card-text class="pa-6 dialog-content-sm">
           <v-form ref="formRef" @submit.prevent="saveEntity">
             <v-window v-model="entityTab">
               <!-- General Tab -->
@@ -680,7 +680,7 @@
                 <v-card v-if="entityForm.owner_id" variant="tonal" color="primary" class="mt-4">
                   <v-card-text class="d-flex align-center">
                     <v-avatar color="primary" size="40" class="mr-3">
-                      <v-icon color="white">mdi-account-check</v-icon>
+                      <v-icon color="on-primary">mdi-account-check</v-icon>
                     </v-avatar>
                     <div>
                       <div class="font-weight-medium">{{ t('entities.assignedTo') }}</div>
@@ -696,7 +696,7 @@
         <v-divider></v-divider>
 
         <v-card-actions class="pa-4">
-          <v-btn variant="text" @click="closeDialog">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" @click="closeDialog">{{ t('common.cancel') }}</v-btn>
           <v-spacer></v-spacer>
           <v-btn
             color="primary"
@@ -736,7 +736,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="templateDialog = false">{{ t('common.close') }}</v-btn>
+          <v-btn variant="tonal" @click="templateDialog = false">{{ t('common.close') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -744,7 +744,7 @@
     <!-- Delete Confirmation Dialog -->
     <v-dialog v-model="deleteDialog" max-width="450">
       <v-card>
-        <v-card-title class="text-h6">
+        <v-card-title class="d-flex align-center">
           <v-icon color="error" class="mr-2">mdi-alert</v-icon>
           {{ t('entities.deleteConfirmTitle') }}
         </v-card-title>
@@ -760,8 +760,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="deleteDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn color="error" :loading="deleting" @click="deleteEntity">
+          <v-btn variant="tonal" @click="deleteDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="error" :loading="deleting" @click="deleteEntity">
             <v-icon start>mdi-delete</v-icon>
             {{ t('common.delete') }}
           </v-btn>
@@ -1388,7 +1388,7 @@ onMounted(async () => {
 }
 .entity-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(var(--v-theme-on-surface), 0.15);
 }
 
 .stats-card {

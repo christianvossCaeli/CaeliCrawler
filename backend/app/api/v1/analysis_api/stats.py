@@ -61,7 +61,7 @@ async def get_analysis_stats(
     total_facets = (await session.execute(select(func.count(FacetValue.id)))).scalar()
     total_relations = (await session.execute(select(func.count(EntityRelation.id)))).scalar()
     verified_facets = (await session.execute(
-        select(func.count(FacetValue.id)).where(FacetValue.human_verified == True)
+        select(func.count(FacetValue.id)).where(FacetValue.human_verified.is_(True))
     )).scalar()
 
     return {

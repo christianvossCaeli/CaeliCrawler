@@ -12,7 +12,7 @@ import asyncio
 import hashlib
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 from urllib.parse import urljoin, urlparse
 from xml.etree import ElementTree
@@ -134,7 +134,7 @@ class NewsCrawler(BaseCrawler):
             result.errors.append({
                 "error": str(e),
                 "type": type(e).__name__,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
         return result

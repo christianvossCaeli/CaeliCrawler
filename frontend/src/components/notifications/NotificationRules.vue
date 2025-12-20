@@ -2,7 +2,7 @@
   <v-card>
     <v-card-title class="d-flex justify-space-between align-center">
       <span>{{ t('notifications.rules.title') }}</span>
-      <v-btn color="primary" @click="openCreateDialog">
+      <v-btn variant="tonal" color="primary" @click="openCreateDialog">
         <v-icon start>mdi-plus</v-icon>
         {{ t('notifications.rules.create') }}
       </v-btn>
@@ -53,14 +53,14 @@
             <v-btn
               icon="mdi-pencil"
               size="small"
-              variant="text"
+              variant="tonal"
               :title="t('common.edit')"
               @click="openEditDialog(item)"
             />
             <v-btn
               icon="mdi-delete"
               size="small"
-              variant="text"
+              variant="tonal"
               color="error"
               :title="t('common.delete')"
               @click="confirmDelete(item)"
@@ -266,8 +266,8 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn @click="closeDialog">{{ t('common.cancel') }}</v-btn>
-        <v-btn color="primary" :disabled="!formValid" :loading="loading" @click="saveRule">
+        <v-btn variant="tonal" @click="closeDialog">{{ t('common.cancel') }}</v-btn>
+        <v-btn variant="tonal" color="primary" :disabled="!formValid" :loading="loading" @click="saveRule">
           {{ t('common.save') }}
         </v-btn>
       </v-card-actions>
@@ -283,8 +283,8 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn @click="deleteDialog = false">{{ t('common.cancel') }}</v-btn>
-        <v-btn color="error" @click="handleDelete">{{ t('common.delete') }}</v-btn>
+        <v-btn variant="tonal" @click="deleteDialog = false">{{ t('common.cancel') }}</v-btn>
+        <v-btn variant="tonal" color="error" @click="handleDelete">{{ t('common.delete') }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

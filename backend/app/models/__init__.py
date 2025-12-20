@@ -21,8 +21,9 @@ from app.models.location import Location  # Legacy - will be replaced by Entity
 # New Entity-Facet System
 from app.models.entity_type import EntityType
 from app.models.entity import Entity
+from app.models.entity_attachment import EntityAttachment, AttachmentAnalysisStatus
 from app.models.facet_type import FacetType, ValueType, AggregationMethod, TimeFilter
-from app.models.facet_value import FacetValue
+from app.models.facet_value import FacetValue, FacetValueSourceType
 from app.models.relation_type import RelationType, Cardinality
 from app.models.entity_relation import EntityRelation
 from app.models.analysis_template import AnalysisTemplate
@@ -48,6 +49,16 @@ from app.models.mixins import VersionedMixin, TimestampMixin
 
 # Assistant
 from app.models.reminder import Reminder, ReminderRepeat, ReminderStatus
+
+# Dashboard
+from app.models.user_dashboard import UserDashboardPreference
+
+# Export Jobs
+from app.models.export_job import ExportJob
+
+# External API Integration
+from external_apis.models.external_api_config import ExternalAPIConfig, AuthType, SyncStatus
+from external_apis.models.sync_record import SyncRecord, RecordStatus
 
 __all__ = [
     # Core models
@@ -80,11 +91,14 @@ __all__ = [
     # Entity-Facet System
     "EntityType",
     "Entity",
+    "EntityAttachment",
+    "AttachmentAnalysisStatus",
     "FacetType",
     "ValueType",
     "AggregationMethod",
     "TimeFilter",
     "FacetValue",
+    "FacetValueSourceType",
     "RelationType",
     "Cardinality",
     "EntityRelation",
@@ -112,4 +126,14 @@ __all__ = [
     "Reminder",
     "ReminderRepeat",
     "ReminderStatus",
+    # Dashboard
+    "UserDashboardPreference",
+    # Export Jobs
+    "ExportJob",
+    # External API Integration
+    "ExternalAPIConfig",
+    "AuthType",
+    "SyncStatus",
+    "SyncRecord",
+    "RecordStatus",
 ]

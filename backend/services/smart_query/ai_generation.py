@@ -1,13 +1,14 @@
 """AI-powered generation functions for Smart Query Service."""
 
 import json
-import os
 from typing import Any, Dict, List
 
 import structlog
 
+from app.config import settings
 from .prompts import AI_ENTITY_TYPE_PROMPT, AI_CATEGORY_PROMPT, AI_CRAWL_CONFIG_PROMPT
 from .query_interpreter import get_openai_client
+from .utils import clean_json_response
 
 logger = structlog.get_logger()
 
@@ -20,19 +21,12 @@ async def ai_generate_entity_type_config(
     Step 1/3: Generate EntityType configuration using LLM.
 
     Returns dict with: name, name_plural, description, icon, color, attribute_schema, search_focus
+
+    Raises:
+        ValueError: If Azure OpenAI is not configured
+        RuntimeError: If AI generation fails
     """
-    client = get_openai_client()
-    if not client:
-        logger.warning("Azure OpenAI client not configured, using fallback")
-        return {
-            "name": "Neue Kategorie",
-            "name_plural": "Neue Kategorien",
-            "description": user_intent,
-            "icon": "mdi-folder",
-            "color": "#2196F3",
-            "attribute_schema": {"type": "object", "properties": {}},
-            "search_focus": "general",
-        }
+    client = get_openai_client()  # Raises ValueError if not configured
 
     prompt = AI_ENTITY_TYPE_PROMPT.format(
         user_intent=user_intent,
@@ -41,35 +35,24 @@ async def ai_generate_entity_type_config(
 
     try:
         response = client.chat.completions.create(
-            model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o"),
+            model=settings.azure_openai_deployment_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=1000,
         )
 
         content = response.choices[0].message.content.strip()
-        # Clean up markdown code blocks if present
-        if content.startswith("```"):
-            content = content.split("```")[1]
-            if content.startswith("json"):
-                content = content[4:]
-        content = content.strip()
+        content = clean_json_response(content)
 
         result = json.loads(content)
         logger.info("AI generated EntityType config", name=result.get("name"))
         return result
 
+    except ValueError:
+        raise
     except Exception as e:
         logger.error("Failed to generate EntityType config via AI", error=str(e))
-        return {
-            "name": "Neue Kategorie",
-            "name_plural": "Neue Kategorien",
-            "description": user_intent,
-            "icon": "mdi-folder",
-            "color": "#2196F3",
-            "attribute_schema": {"type": "object", "properties": {}},
-            "search_focus": "general",
-        }
+        raise RuntimeError(f"KI-Service nicht erreichbar: EntityType-Generierung fehlgeschlagen - {str(e)}")
 
 
 async def ai_generate_category_config(
@@ -81,16 +64,12 @@ async def ai_generate_category_config(
     Step 2/3: Generate Category configuration with AI extraction prompt.
 
     Returns dict with: purpose, search_terms, extraction_handler, ai_extraction_prompt
+
+    Raises:
+        ValueError: If Azure OpenAI is not configured
+        RuntimeError: If AI generation fails
     """
-    client = get_openai_client()
-    if not client:
-        logger.warning("Azure OpenAI client not configured, using fallback")
-        return {
-            "purpose": user_intent,
-            "search_terms": ["Event", "Veranstaltung", "Konferenz"],
-            "extraction_handler": "default",
-            "ai_extraction_prompt": f"Extrahiere relevante Informationen zu: {user_intent}",
-        }
+    client = get_openai_client()  # Raises ValueError if not configured
 
     prompt = AI_CATEGORY_PROMPT.format(
         user_intent=user_intent,
@@ -100,18 +79,14 @@ async def ai_generate_category_config(
 
     try:
         response = client.chat.completions.create(
-            model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o"),
+            model=settings.azure_openai_deployment_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=2000,
         )
 
         content = response.choices[0].message.content.strip()
-        if content.startswith("```"):
-            content = content.split("```")[1]
-            if content.startswith("json"):
-                content = content[4:]
-        content = content.strip()
+        content = clean_json_response(content)
 
         result = json.loads(content)
         logger.info(
@@ -120,14 +95,11 @@ async def ai_generate_category_config(
         )
         return result
 
+    except ValueError:
+        raise
     except Exception as e:
         logger.error("Failed to generate Category config via AI", error=str(e))
-        return {
-            "purpose": user_intent,
-            "search_terms": ["Event", "Veranstaltung", "Konferenz"],
-            "extraction_handler": "default",
-            "ai_extraction_prompt": f"Extrahiere relevante Informationen zu: {user_intent}",
-        }
+        raise RuntimeError(f"KI-Service nicht erreichbar: Category-Generierung fehlgeschlagen - {str(e)}")
 
 
 async def ai_generate_crawl_config(
@@ -144,9 +116,7 @@ async def ai_generate_crawl_config(
         ValueError: If Azure OpenAI is not configured
         RuntimeError: If AI generation fails
     """
-    client = get_openai_client()
-    if not client:
-        raise ValueError("Azure OpenAI client not configured - AI is required for Smart Query")
+    client = get_openai_client()  # Raises ValueError if not configured
 
     prompt = AI_CRAWL_CONFIG_PROMPT.format(
         user_intent=user_intent,
@@ -156,18 +126,14 @@ async def ai_generate_crawl_config(
 
     try:
         response = client.chat.completions.create(
-            model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o"),
+            model=settings.azure_openai_deployment_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
             max_tokens=1000,
         )
 
         content = response.choices[0].message.content.strip()
-        if content.startswith("```"):
-            content = content.split("```")[1]
-            if content.startswith("json"):
-                content = content[4:]
-        content = content.strip()
+        content = clean_json_response(content)
 
         result = json.loads(content)
         logger.info(
@@ -177,6 +143,8 @@ async def ai_generate_crawl_config(
         )
         return result
 
+    except ValueError:
+        raise
     except Exception as e:
         logger.error("Failed to generate Crawl config via AI", error=str(e))
-        raise RuntimeError(f"AI Crawl-Config generation failed: {str(e)}")
+        raise RuntimeError(f"KI-Service nicht erreichbar: Crawl-Config-Generierung fehlgeschlagen - {str(e)}")

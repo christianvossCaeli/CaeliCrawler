@@ -50,6 +50,8 @@
     "jobCancelling": "Job wird abgebrochen...",
     "cancelJobError": "Fehler beim Abbrechen des Jobs",
     "aiTaskCancelling": "KI-Aufgabe wird abgebrochen...",
-    "cancelAiTaskError": "Fehler beim Abbrechen der KI-Aufgabe"
+    "cancelAiTaskError": "Fehler beim Abbrechen der KI-Aufgabe",
+    "noCategory": "Keine Kategorie",
+    "jobsStopped": "{count} Jobs gestoppt"
   }
 }

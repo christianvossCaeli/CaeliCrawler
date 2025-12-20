@@ -1,52 +1,57 @@
 """Admin API endpoints for PySis integration."""
 
-from datetime import datetime
+import json
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.exceptions import FeatureDisabledError, NotFoundError, ValidationError
 from app.database import get_session
+from app.models import Entity
 from app.models.pysis import (
+    PySisFieldHistory,
     PySisFieldTemplate,
     PySisProcess,
     PySisProcessField,
-    PySisFieldHistory,
     SyncStatus,
     ValueSource,
 )
+from app.schemas.common import MessageResponse
 from app.schemas.pysis import (
-    PySisFieldTemplateCreate,
-    PySisFieldTemplateUpdate,
-    PySisFieldTemplateResponse,
-    PySisFieldTemplateListResponse,
-    PySisProcessCreate,
-    PySisProcessUpdate,
-    PySisProcessResponse,
-    PySisProcessListResponse,
-    PySisProcessDetailResponse,
-    PySisFieldCreate,
-    PySisFieldUpdate,
-    PySisFieldValueUpdate,
-    PySisFieldResponse,
-    PySisSyncResult,
-    PySisPullResult,
-    PySisGenerateRequest,
-    PySisGenerateResult,
-    ApplyTemplateRequest,
-    PySisTestConnectionResult,
-    PySisFieldHistoryResponse,
-    PySisFieldHistoryListResponse,
     AcceptAISuggestionRequest,
     AcceptAISuggestionResult,
+    ApplyTemplateRequest,
     PySisAnalyzeForFacetsRequest,
     PySisAnalyzeForFacetsResult,
+    PySisFieldCreate,
+    PySisFieldHistoryListResponse,
+    PySisFieldHistoryResponse,
+    PySisFieldResponse,
+    PySisFieldTemplateCreate,
+    PySisFieldTemplateListResponse,
+    PySisFieldTemplateResponse,
+    PySisFieldTemplateUpdate,
+    PySisFieldUpdate,
+    PySisFieldValueUpdate,
+    PySisGenerateRequest,
+    PySisGenerateResult,
+    PySisProcessCreate,
+    PySisProcessDetailResponse,
+    PySisProcessListResponse,
+    PySisProcessResponse,
+    PySisProcessUpdate,
+    PySisPullResult,
+    PySisSyncResult,
+    PySisTestConnectionResult,
 )
-from app.schemas.common import MessageResponse
-from app.core.exceptions import NotFoundError, ValidationError, FeatureDisabledError
+from services.pysis_facet_service import PySisFacetService
+from services.pysis_service import get_pysis_service
+from workers.ai_tasks import extract_pysis_fields
 
 router = APIRouter()
 
@@ -190,8 +195,21 @@ async def create_process(
     if data.template_id and not settings.feature_pysis_field_templates:
         raise FeatureDisabledError("pysis_field_templates")
 
+    # Find matching Entity by name - entity_id is required
+    entity_result = await session.execute(
+        select(Entity).where(Entity.name == location_name).limit(1)
+    )
+    entity = entity_result.scalar_one_or_none()
+
+    if not entity:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Entity '{location_name}' nicht gefunden. PySis-Prozess kann nur mit existierender Entity verknüpft werden."
+        )
+
     process = PySisProcess(
-        entity_name=location_name,
+        entity_id=entity.id,
+        entity_name=location_name,  # For display purposes
         pysis_process_id=data.pysis_process_id,
         name=data.name,
         description=data.description,
@@ -460,9 +478,6 @@ async def pull_from_pysis(
     2. Create local PySisProcessField records for any new fields (ai_extraction_enabled=False)
     3. Update existing fields with the current PySis values
     """
-    import json
-    from services.pysis_service import get_pysis_service
-
     process = await session.get(PySisProcess, process_id)
     if not process:
         raise NotFoundError("Process", str(process_id))
@@ -498,7 +513,7 @@ async def pull_from_pysis(
                 # Update existing field
                 field = existing_fields[field_name]
                 field.pysis_value = str_value
-                field.last_pulled_at = datetime.utcnow()
+                field.last_pulled_at = datetime.now(timezone.utc)
 
                 # Update current value if empty or source is PYSIS
                 if field.current_value is None or field.current_value == "" or field.value_source == ValueSource.PYSIS:
@@ -517,12 +532,12 @@ async def pull_from_pysis(
                     pysis_value=str_value,
                     current_value=str_value,
                     value_source=ValueSource.PYSIS,
-                    last_pulled_at=datetime.utcnow(),
+                    last_pulled_at=datetime.now(timezone.utc),
                 )
                 session.add(new_field)
                 fields_created += 1
 
-        process.last_synced_at = datetime.utcnow()
+        process.last_synced_at = datetime.now(timezone.utc)
         process.sync_status = SyncStatus.SYNCED
         process.sync_error = None
 
@@ -573,12 +588,10 @@ def _infer_field_type(value) -> str:
 @router.post("/processes/{process_id}/sync/push", response_model=PySisSyncResult)
 async def push_to_pysis(
     process_id: UUID,
-    field_ids: Optional[List[UUID]] = None,
+    field_ids: Optional[List[UUID]] = Body(None, embed=True),
     session: AsyncSession = Depends(get_session),
 ):
     """Push field values to PySis API."""
-    from services.pysis_service import get_pysis_service
-
     process = await session.get(PySisProcess, process_id)
     if not process:
         raise NotFoundError("Process", str(process_id))
@@ -613,10 +626,10 @@ async def push_to_pysis(
             for field in process.fields:
                 if field.pysis_field_name in fields_to_push:
                     field.needs_push = False
-                    field.last_pushed_at = datetime.utcnow()
+                    field.last_pushed_at = datetime.now(timezone.utc)
                     fields_synced += 1
 
-        process.last_synced_at = datetime.utcnow()
+        process.last_synced_at = datetime.now(timezone.utc)
         process.sync_status = SyncStatus.SYNCED
         process.sync_error = None
 
@@ -625,7 +638,7 @@ async def push_to_pysis(
         return PySisSyncResult(
             success=True,
             fields_synced=fields_synced,
-            synced_at=datetime.utcnow(),
+            synced_at=datetime.now(timezone.utc),
             errors=[],
         )
 
@@ -637,7 +650,7 @@ async def push_to_pysis(
         return PySisSyncResult(
             success=False,
             fields_synced=0,
-            synced_at=datetime.utcnow(),
+            synced_at=datetime.now(timezone.utc),
             errors=[str(e)],
         )
 
@@ -648,8 +661,6 @@ async def push_field_to_pysis(
     session: AsyncSession = Depends(get_session),
 ):
     """Push a single field value to PySis API."""
-    from services.pysis_service import get_pysis_service
-
     field = await session.get(PySisProcessField, field_id)
     if not field:
         raise NotFoundError("Field", str(field_id))
@@ -671,9 +682,9 @@ async def push_field_to_pysis(
             )
 
             field.needs_push = False
-            field.last_pushed_at = datetime.utcnow()
+            field.last_pushed_at = datetime.now(timezone.utc)
 
-            process.last_synced_at = datetime.utcnow()
+            process.last_synced_at = datetime.now(timezone.utc)
             process.sync_status = SyncStatus.SYNCED
             process.sync_error = None
 
@@ -682,7 +693,7 @@ async def push_field_to_pysis(
         return PySisSyncResult(
             success=True,
             fields_synced=1,
-            synced_at=datetime.utcnow(),
+            synced_at=datetime.now(timezone.utc),
             errors=[],
         )
 
@@ -694,7 +705,7 @@ async def push_field_to_pysis(
         return PySisSyncResult(
             success=False,
             fields_synced=0,
-            synced_at=datetime.utcnow(),
+            synced_at=datetime.now(timezone.utc),
             errors=[str(e)],
         )
 
@@ -708,8 +719,6 @@ async def generate_fields(
     session: AsyncSession = Depends(get_session),
 ):
     """Generate field values using AI."""
-    from workers.ai_tasks import extract_pysis_fields
-
     process = await session.get(PySisProcess, process_id)
     if not process:
         raise NotFoundError("Process", str(process_id))
@@ -739,8 +748,6 @@ async def generate_single_field(
     session: AsyncSession = Depends(get_session),
 ):
     """Generate a single field value using AI."""
-    from workers.ai_tasks import extract_pysis_fields
-
     field = await session.get(PySisProcessField, field_id)
     if not field:
         raise NotFoundError("Field", str(field_id))
@@ -813,8 +820,8 @@ async def accept_ai_suggestion(
     await session.commit()
 
     # Optionally push to PySis
+    push_error = None
     if data and data.push_to_pysis:
-        from services.pysis_service import get_pysis_service
         process = await session.get(PySisProcess, field.process_id)
         if process:
             pysis = get_pysis_service()
@@ -826,16 +833,23 @@ async def accept_ai_suggestion(
                         field.current_value,
                     )
                     field.needs_push = False
-                    field.last_pushed_at = datetime.utcnow()
+                    field.last_pushed_at = datetime.now(timezone.utc)
                     await session.commit()
-                except Exception:
-                    pass  # Silently fail push, value was still accepted
+                except Exception as e:
+                    # Log error but don't fail - the AI suggestion was still accepted
+                    push_error = str(e)
+            else:
+                push_error = "PySis API nicht konfiguriert"
+
+    message = "KI-Vorschlag übernommen"
+    if push_error:
+        message += f" (Push fehlgeschlagen: {push_error})"
 
     return AcceptAISuggestionResult(
         success=True,
         field_id=field_id,
         accepted_value=field.current_value,
-        message="KI-Vorschlag übernommen",
+        message=message,
     )
 
 
@@ -973,8 +987,6 @@ async def test_pysis_connection(
     process_id: Optional[str] = Query(default=None, description="Optional process ID to test"),
 ):
     """Test the PySis API connection."""
-    from services.pysis_service import get_pysis_service
-
     pysis = get_pysis_service()
     result = await pysis.test_connection(process_id)
 
@@ -990,8 +1002,6 @@ async def list_available_processes():
 
     Returns a list of processes that can be linked to locations.
     """
-    from services.pysis_service import get_pysis_service
-
     pysis = get_pysis_service()
     if not pysis.is_configured:
         raise ValidationError("PySis API credentials not configured")
@@ -1007,7 +1017,7 @@ async def list_available_processes():
 # === Analyze for Facets ===
 
 @router.post("/processes/{process_id}/analyze-for-facets", response_model=PySisAnalyzeForFacetsResult)
-async def analyze_pysis_for_facets(
+async def analyze_pysis_for_facets_admin(
     process_id: UUID,
     data: Optional[PySisAnalyzeForFacetsRequest] = None,
     session: AsyncSession = Depends(get_session),
@@ -1018,13 +1028,10 @@ async def analyze_pysis_for_facets(
     This endpoint:
     1. Loads all field values from the PySis process
     2. Starts an AI task for analysis
-    3. Creates FacetValues (pain_point, positive_signal, contact, summary)
+    3. Creates FacetValues based on active FacetTypes with AI extraction enabled
 
     The process must have an entity_id linked.
     """
-    import uuid as uuid_module
-    from workers.ai_tasks import analyze_pysis_fields_for_facets
-
     process = await session.get(PySisProcess, process_id)
     if not process:
         raise NotFoundError("Process", str(process_id))
@@ -1032,7 +1039,7 @@ async def analyze_pysis_for_facets(
     if not process.entity_id:
         raise ValidationError("Prozess hat keine verknüpfte Entity. Bitte zuerst Entity verknüpfen.")
 
-    # Count fields with values
+    # Count fields with values for response
     fields_with_values = [
         f for f in process.fields
         if f.current_value or f.pysis_value or f.ai_extracted_value
@@ -1041,19 +1048,21 @@ async def analyze_pysis_for_facets(
     if not fields_with_values and not (data and data.include_empty_fields):
         raise ValidationError("Keine Felder mit Werten gefunden.")
 
-    # Queue Celery task
-    result = analyze_pysis_fields_for_facets.delay(
-        str(process_id),
-        include_empty=data.include_empty_fields if data else False,
-        min_confidence=data.min_field_confidence if data else 0.0,
-    )
-
-    # Generate a placeholder task_id (the actual AITask is created in the Celery task)
-    task_id = uuid_module.uuid4()
+    # Use unified service for consistent behavior
+    service = PySisFacetService(session)
+    try:
+        ai_task = await service.analyze_for_facets(
+            entity_id=process.entity_id,
+            process_id=process_id,
+            include_empty=data.include_empty_fields if data else False,
+            min_confidence=data.min_field_confidence if data else 0.0,
+        )
+    except ValueError as e:
+        raise ValidationError(str(e))
 
     return PySisAnalyzeForFacetsResult(
         success=True,
-        task_id=task_id,
+        task_id=ai_task.id,
         message=f"Analyse gestartet für {len(fields_with_values)} Felder",
         fields_analyzed=len(fields_with_values),
     )

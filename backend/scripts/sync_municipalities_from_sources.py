@@ -119,7 +119,7 @@ async def enrich_municipalities_with_district():
     async with async_session_factory() as session:
         # Get municipalities without district
         query = select(Municipality).where(
-            Municipality.is_active == True,
+            Municipality.is_active.is_(True),
             Municipality.district.is_(None),
         )
         result = await session.execute(query)
@@ -149,7 +149,7 @@ async def link_sources_to_municipalities():
     async with async_session_factory() as session:
         # Get all municipalities
         munis_result = await session.execute(
-            select(Municipality).where(Municipality.is_active == True)
+            select(Municipality).where(Municipality.is_active.is_(True))
         )
         municipalities = {
             m.name_normalized: m.id

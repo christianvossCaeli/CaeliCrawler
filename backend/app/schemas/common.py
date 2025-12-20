@@ -54,11 +54,36 @@ class MessageResponse(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """Error response."""
+    """Standard error response for API errors.
 
-    error: str
-    detail: Optional[str] = None
-    code: Optional[str] = None
+    Used for 4xx and 5xx responses across all endpoints.
+
+    Attributes:
+        error: Human-readable error message
+        detail: Additional context or troubleshooting information
+        code: Machine-readable error code for programmatic handling
+    """
+
+    error: str = Field(..., description="Human-readable error message")
+    detail: Optional[str] = Field(None, description="Additional error details")
+    code: Optional[str] = Field(None, description="Machine-readable error code")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "error": "Category not found",
+                    "detail": "Category with identifier 'abc123' does not exist",
+                    "code": "NOT_FOUND",
+                },
+                {
+                    "error": "Invalid regex pattern",
+                    "detail": "Field 'url_pattern': Invalid regex: unbalanced parenthesis",
+                    "code": "VALIDATION_ERROR",
+                },
+            ]
+        }
+    }
 
 
 class HealthResponse(BaseModel):

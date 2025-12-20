@@ -6,7 +6,7 @@ methods for pulling/pushing process data to PySis.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -67,7 +67,7 @@ class PySisService:
         """
         # Check cache first (with 5 min buffer before expiry)
         if self._token_cache:
-            if self._token_cache.expires_at > datetime.utcnow() + timedelta(minutes=5):
+            if self._token_cache.expires_at > datetime.now(timezone.utc) + timedelta(minutes=5):
                 return self._token_cache.access_token
 
         if not self.is_configured:
@@ -95,7 +95,7 @@ class PySisService:
             expires_in = data.get("expires_in", 3600)
             self._token_cache = PySisTokenCache(
                 access_token=data["access_token"],
-                expires_at=datetime.utcnow() + timedelta(seconds=expires_in - 300),
+                expires_at=datetime.now(timezone.utc) + timedelta(seconds=expires_in - 300),
             )
 
             self.logger.info("OAuth token obtained", expires_in=expires_in)
@@ -287,7 +287,3 @@ def get_pysis_service() -> PySisService:
     if _pysis_service is None:
         _pysis_service = PySisService()
     return _pysis_service
-
-
-# For convenience, expose a pre-configured instance
-pysis_service = PySisService()

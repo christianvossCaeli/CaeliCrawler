@@ -26,17 +26,41 @@
             hide-details
             class="mb-4 flex-grow-1"
             :disabled="previewData !== null"
+            @paste="handlePaste"
           >
             <template v-slot:append-inner v-if="interimTranscript">
               <span class="text-caption text-medium-emphasis font-italic">{{ interimTranscript }}</span>
             </template>
           </v-textarea>
+          <!-- Attachment Button -->
+          <v-btn
+            icon="mdi-paperclip"
+            variant="tonal"
+            size="large"
+            class="ml-2 mt-1"
+            :disabled="previewData !== null || loading || isUploading"
+            :loading="isUploading"
+            @click="triggerFileInput"
+          >
+            <v-icon>{{ isUploading ? 'mdi-loading' : 'mdi-paperclip' }}</v-icon>
+            <v-tooltip activator="parent" location="top">
+              {{ t('assistant.attachFile') }}
+            </v-tooltip>
+          </v-btn>
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"
+            style="display: none"
+            @change="handleFileSelect"
+            multiple
+          />
           <v-btn
             v-if="hasMicrophone"
             :icon="isListening ? 'mdi-microphone-off' : 'mdi-microphone'"
             :color="isListening ? 'error' : 'default'"
             :class="{ 'voice-btn-listening': isListening }"
-            variant="text"
+            variant="tonal"
             size="large"
             class="ml-2 mt-1"
             :disabled="previewData !== null || loading"
@@ -46,6 +70,24 @@
               {{ isListening ? t('smartQueryView.voice.stopRecording') : t('smartQueryView.voice.startRecording') }}
             </v-tooltip>
           </v-btn>
+        </div>
+
+        <!-- Attachment Preview -->
+        <div v-if="pendingAttachments.length > 0" class="d-flex flex-wrap ga-2 mb-4">
+          <v-chip
+            v-for="attachment in pendingAttachments"
+            :key="attachment.id"
+            closable
+            @click:close="removeAttachment(attachment.id)"
+            color="primary"
+            variant="tonal"
+          >
+            <v-avatar start v-if="attachment.preview">
+              <v-img :src="attachment.preview" />
+            </v-avatar>
+            <v-icon v-else start>{{ getAttachmentIcon(attachment.contentType) }}</v-icon>
+            {{ attachment.filename }}
+          </v-chip>
         </div>
         <div class="d-flex justify-space-between align-center">
           <div class="d-flex align-center">
@@ -71,14 +113,14 @@
           </div>
           <v-btn
             v-if="!previewData"
-            :color="writeMode ? 'warning' : 'primary'"
+            :color="pendingAttachments.length > 0 ? 'info' : (writeMode ? 'warning' : 'primary')"
             size="large"
             :loading="loading"
-            :disabled="!question.trim()"
+            :disabled="!question.trim() && pendingAttachments.length === 0"
             @click="executeQuery"
           >
-            <v-icon left>{{ writeMode ? 'mdi-eye' : 'mdi-magnify' }}</v-icon>
-            {{ writeMode ? t('smartQueryView.actions.preview') : t('smartQueryView.actions.query') }}
+            <v-icon left>{{ pendingAttachments.length > 0 ? 'mdi-image-search' : (writeMode ? 'mdi-eye' : 'mdi-magnify') }}</v-icon>
+            {{ pendingAttachments.length > 0 ? t('smartQueryView.actions.analyzeImage') : (writeMode ? t('smartQueryView.actions.preview') : t('smartQueryView.actions.query')) }}
           </v-btn>
         </div>
       </v-card-text>
@@ -195,7 +237,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="cancelPreview">
+          <v-btn variant="tonal" @click="cancelPreview">
             <v-icon start>mdi-close</v-icon>
             {{ t('common.cancel') }}
           </v-btn>
@@ -358,7 +400,7 @@
                   {{ t('smartQueryView.results.aiExtractionPrompt') }}
                 </v-expansion-panel-title>
                 <v-expansion-panel-text>
-                  <pre class="text-caption" style="white-space: pre-wrap;">{{ results.ai_extraction_prompt }}</pre>
+                  <pre class="text-caption text-pre-wrap">{{ results.ai_extraction_prompt }}</pre>
                 </v-expansion-panel-text>
               </v-expansion-panel>
             </v-expansion-panels>
@@ -397,7 +439,7 @@
           </v-expansion-panels>
         </v-card-text>
         <v-card-actions>
-          <v-btn variant="text" @click="resetAll">{{ t('smartQueryView.results.newCommand') }}</v-btn>
+          <v-btn variant="tonal" @click="resetAll">{{ t('smartQueryView.results.newCommand') }}</v-btn>
           <v-spacer />
           <v-btn
             v-if="fromAssistant"
@@ -542,7 +584,7 @@
       <!-- Back to Assistant Button -->
       <v-card v-if="fromAssistant" class="mt-4">
         <v-card-actions class="justify-center">
-          <v-btn variant="text" @click="resetAll">{{ t('smartQueryView.results.newQuery') }}</v-btn>
+          <v-btn variant="tonal" @click="resetAll">{{ t('smartQueryView.results.newQuery') }}</v-btn>
           <v-btn
             color="primary"
             variant="elevated"
@@ -561,11 +603,20 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { api } from '@/services/api'
+import { api, assistantApi } from '@/services/api'
 import { useSpeechRecognition } from '@/composables/useSpeechRecognition'
 import { useQueryContextStore } from '@/stores/queryContext'
 
-const { t } = useI18n()
+// Types for attachments
+interface AttachmentInfo {
+  id: string
+  filename: string
+  contentType: string
+  size: number
+  preview?: string
+}
+
+const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const queryContextStore = useQueryContextStore()
@@ -577,6 +628,11 @@ const results = ref<any>(null)
 const previewData = ref<any>(null)
 const writeMode = ref(false)
 const fromAssistant = ref(false)
+
+// Attachment state
+const pendingAttachments = ref<AttachmentInfo[]>([])
+const isUploading = ref(false)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 
 // Speech Recognition
 const {
@@ -615,6 +671,116 @@ function handleVoiceInput() {
   }
 }
 
+// ============================================================================
+// Attachment Functions
+// ============================================================================
+
+function triggerFileInput() {
+  fileInputRef.value?.click()
+}
+
+async function handleFileSelect(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = input.files
+  if (!files) return
+
+  for (const file of Array.from(files)) {
+    await uploadAttachment(file)
+  }
+
+  // Clear the input so the same file can be selected again
+  input.value = ''
+}
+
+async function handlePaste(event: ClipboardEvent) {
+  const items = event.clipboardData?.items
+  if (!items) return
+
+  for (const item of Array.from(items)) {
+    if (item.type.startsWith('image/')) {
+      event.preventDefault()
+      const file = item.getAsFile()
+      if (file) {
+        await uploadAttachment(file)
+      }
+    }
+  }
+}
+
+async function uploadAttachment(file: File): Promise<boolean> {
+  // Validate file type
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf']
+  if (!allowedTypes.includes(file.type)) {
+    error.value = t('assistant.attachmentTypeError')
+    return false
+  }
+
+  // Validate file size (10MB max)
+  const maxSize = 10 * 1024 * 1024
+  if (file.size > maxSize) {
+    error.value = t('assistant.attachmentTooLarge')
+    return false
+  }
+
+  isUploading.value = true
+  error.value = null
+
+  try {
+    const response = await assistantApi.uploadAttachment(file)
+    const data = response.data
+
+    // Create preview for images
+    let preview: string | undefined
+    if (file.type.startsWith('image/')) {
+      preview = await createImagePreview(file)
+    }
+
+    pendingAttachments.value.push({
+      id: data.attachment.attachment_id,
+      filename: data.attachment.filename,
+      contentType: data.attachment.content_type,
+      size: data.attachment.size,
+      preview,
+    })
+
+    return true
+  } catch (e: any) {
+    error.value = e.response?.data?.detail || e.message || t('assistant.attachmentError')
+    return false
+  } finally {
+    isUploading.value = false
+  }
+}
+
+function createImagePreview(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => resolve(e.target?.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+async function removeAttachment(attachmentId: string) {
+  try {
+    await assistantApi.deleteAttachment(attachmentId)
+  } catch (e) {
+    // Ignore delete errors
+  }
+  pendingAttachments.value = pendingAttachments.value.filter(a => a.id !== attachmentId)
+}
+
+function getAttachmentIcon(contentType: string): string {
+  if (contentType.startsWith('image/')) {
+    return 'mdi-image'
+  }
+  if (contentType === 'application/pdf') {
+    return 'mdi-file-pdf-box'
+  }
+  return 'mdi-file'
+}
+
+// ============================================================================
 // AI Generation Progress
 const currentStep = ref(1)
 const stepMessages: Record<number, string> = {
@@ -656,7 +822,8 @@ async function loadExamples() {
 }
 
 async function executeQuery() {
-  if (!question.value.trim()) return
+  // Allow query with just attachments (empty question)
+  if (!question.value.trim() && pendingAttachments.value.length === 0) return
 
   loading.value = true
   error.value = null
@@ -664,7 +831,53 @@ async function executeQuery() {
   previewData.value = null
 
   try {
-    if (writeMode.value) {
+    // Check if we have image attachments - use assistant API for image analysis
+    if (pendingAttachments.value.length > 0) {
+      const attachmentIds = pendingAttachments.value.map(a => a.id)
+      const lang = (locale.value === 'de' || locale.value === 'en') ? locale.value : 'de'
+
+      const response = await assistantApi.chat({
+        message: question.value.trim() || 'Analysiere das Bild',
+        context: {
+          current_route: '/smart-query',
+          current_entity_id: null,
+          current_entity_type: null,
+          current_entity_name: null,
+          view_mode: 'unknown',
+          available_actions: []
+        },
+        conversation_history: [],
+        mode: 'read',
+        language: lang,
+        attachment_ids: attachmentIds
+      })
+
+      // Clear attachments after successful analysis
+      for (const attachment of pendingAttachments.value) {
+        try {
+          await assistantApi.deleteAttachment(attachment.id)
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }
+      pendingAttachments.value = []
+
+      // Format response as results
+      const data = response.data
+      results.value = {
+        mode: 'read',
+        success: data.success,
+        message: data.response?.message || 'Bildanalyse abgeschlossen',
+        response_type: data.response?.type || 'image_analysis',
+        items: data.response?.data?.items || [],
+        total: data.response?.data?.total || pendingAttachments.value.length,
+        interpretation: {
+          operation: 'image_analysis',
+          query: question.value || 'Bildanalyse'
+        },
+        suggested_actions: data.suggested_actions || []
+      }
+    } else if (writeMode.value) {
       // Write mode - get preview first
       const response = await api.post('/v1/analysis/smart-write', {
         question: question.value,

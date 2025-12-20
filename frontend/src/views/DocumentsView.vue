@@ -1,11 +1,11 @@
 <template>
   <div>
     <!-- Loading Overlay -->
-    <v-overlay :model-value="loading && initialLoad" class="align-center justify-center" persistent scrim="rgba(0,0,0,0.7)">
+    <v-overlay :model-value="loading && initialLoad" class="align-center justify-center" persistent >
       <v-card class="pa-8 text-center" min-width="320" elevation="24">
         <v-progress-circular indeterminate size="80" width="6" color="primary" class="mb-4"></v-progress-circular>
         <div class="text-h6 mb-2">{{ $t('documents.messages.loadingDocuments') }}</div>
-        <div class="text-body-2 text-grey">{{ $t('documents.messages.loadingDocuments') }}</div>
+        <div class="text-body-2 text-medium-emphasis">{{ $t('documents.messages.loadingDocuments') }}</div>
       </v-card>
     </v-overlay>
 
@@ -26,7 +26,7 @@
       </v-btn>
       <v-btn
         v-if="selectedDocuments.length > 0"
-        color="purple"
+        color="info"
         variant="outlined"
         prepend-icon="mdi-brain"
         class="mr-2"
@@ -73,7 +73,7 @@
           :color="statusFilter === 'PENDING' ? 'warning' : undefined"
           :variant="statusFilter === 'PENDING' ? 'elevated' : 'outlined'"
           @click="toggleStatusFilter('PENDING')"
-          style="cursor: pointer"
+          class="cursor-pointer"
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">{{ stats.pending }}</div>
@@ -86,7 +86,7 @@
           :color="statusFilter === 'PROCESSING' ? 'info' : undefined"
           :variant="statusFilter === 'PROCESSING' ? 'elevated' : 'outlined'"
           @click="toggleStatusFilter('PROCESSING')"
-          style="cursor: pointer"
+          class="cursor-pointer"
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">
@@ -102,7 +102,7 @@
           :color="statusFilter === 'ANALYZING' ? 'purple' : undefined"
           :variant="statusFilter === 'ANALYZING' ? 'elevated' : 'outlined'"
           @click="toggleStatusFilter('ANALYZING')"
-          style="cursor: pointer"
+          class="cursor-pointer"
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">
@@ -118,7 +118,7 @@
           :color="statusFilter === 'COMPLETED' ? 'success' : undefined"
           :variant="statusFilter === 'COMPLETED' ? 'elevated' : 'outlined'"
           @click="toggleStatusFilter('COMPLETED')"
-          style="cursor: pointer"
+          class="cursor-pointer"
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">{{ stats.completed }}</div>
@@ -131,7 +131,7 @@
           :color="statusFilter === 'FILTERED' ? 'grey' : undefined"
           :variant="statusFilter === 'FILTERED' ? 'elevated' : 'outlined'"
           @click="toggleStatusFilter('FILTERED')"
-          style="cursor: pointer"
+          class="cursor-pointer"
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">{{ stats.filtered }}</div>
@@ -144,7 +144,7 @@
           :color="statusFilter === 'FAILED' ? 'error' : undefined"
           :variant="statusFilter === 'FAILED' ? 'elevated' : 'outlined'"
           @click="toggleStatusFilter('FAILED')"
-          style="cursor: pointer"
+          class="cursor-pointer"
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">{{ stats.failed }}</div>
@@ -235,7 +235,7 @@
         </v-row>
         <v-row v-if="hasActiveFilters" class="mt-0">
           <v-col cols="12">
-            <v-btn variant="text" color="primary" size="small" @click="clearFilters">
+            <v-btn variant="tonal" color="primary" size="small" @click="clearFilters">
               <v-icon size="small" class="mr-1">mdi-filter-off</v-icon>
               {{ $t('documents.filters.resetFilters') }}
             </v-btn>
@@ -261,10 +261,10 @@
       >
         <template v-slot:item.title="{ item }">
           <div class="py-2">
-            <div class="font-weight-medium text-truncate" style="max-width: 280px;" :title="item.title || item.original_url">
+            <div class="font-weight-medium truncate-md" :title="item.title || item.original_url">
               {{ item.title || $t('documents.detail.noTitle') }}
             </div>
-            <div class="text-caption text-grey text-truncate" style="max-width: 280px;">
+            <div class="text-caption text-medium-emphasis truncate-md">
               <a :href="item.original_url" target="_blank" class="text-decoration-none">{{ item.original_url }}</a>
             </div>
           </div>
@@ -284,13 +284,13 @@
             </v-icon>
             {{ getStatusLabel(item.processing_status) }}
           </v-chip>
-          <div v-if="(item.processing_status === 'FILTERED' || item.processing_status === 'FAILED') && item.processing_error" class="text-caption text-grey mt-1 text-truncate" style="max-width: 120px;" :title="item.processing_error">
+          <div v-if="(item.processing_status === 'FILTERED' || item.processing_status === 'FAILED') && item.processing_error" class="text-caption text-medium-emphasis mt-1 truncate-xs" :title="item.processing_error">
             {{ item.processing_error }}
           </div>
         </template>
 
         <template v-slot:item.source_name="{ item }">
-          <div class="text-truncate" style="max-width: 130px;" :title="item.source_name">{{ item.source_name }}</div>
+          <div class="truncate-xs" :title="item.source_name">{{ item.source_name }}</div>
         </template>
 
         <template v-slot:item.discovered_at="{ item }">
@@ -299,16 +299,16 @@
 
         <template v-slot:item.file_size="{ item }">
           <span v-if="item.file_size">{{ formatFileSize(item.file_size) }}</span>
-          <span v-else class="text-grey">-</span>
+          <span v-else class="text-medium-emphasis">-</span>
         </template>
 
         <template v-slot:item.actions="{ item }">
           <div class="table-actions d-flex justify-end ga-1">
-            <v-btn v-if="item.processing_status === 'PENDING'" icon="mdi-play" size="small" variant="tonal" color="primary" :title="$t('documents.actions.process')" :loading="processingIds.has(item.id)" @click="processDocument(item)"></v-btn>
-            <v-btn v-if="item.processing_status === 'COMPLETED' || item.processing_status === 'FILTERED'" icon="mdi-brain" size="small" variant="tonal" color="purple" :title="$t('documents.actions.analyze')" :loading="analyzingIds.has(item.id)" @click="analyzeDocument(item)"></v-btn>
-            <v-btn v-if="item.file_path" icon="mdi-download" size="small" variant="tonal" color="success" :title="$t('common.download')" @click="downloadDocument(item)"></v-btn>
-            <v-btn icon="mdi-open-in-new" size="small" variant="tonal" :title="$t('common.open')" :href="item.original_url" target="_blank"></v-btn>
-            <v-btn icon="mdi-information" size="small" variant="tonal" :title="$t('common.details')" @click="showDetails(item)"></v-btn>
+            <v-btn v-if="item.processing_status === 'PENDING'" icon="mdi-play" size="small" variant="tonal" color="primary" :title="$t('documents.actions.process')" :aria-label="$t('documents.actions.process')" :loading="processingIds.has(item.id)" @click="processDocument(item)"></v-btn>
+            <v-btn v-if="item.processing_status === 'COMPLETED' || item.processing_status === 'FILTERED'" icon="mdi-brain" size="small" variant="tonal" color="info" :title="$t('documents.actions.analyze')" :aria-label="$t('documents.actions.analyze')" :loading="analyzingIds.has(item.id)" @click="analyzeDocument(item)"></v-btn>
+            <v-btn v-if="item.file_path" icon="mdi-download" size="small" variant="tonal" color="success" :title="$t('common.download')" :aria-label="$t('common.download')" @click="downloadDocument(item)"></v-btn>
+            <v-btn icon="mdi-open-in-new" size="small" variant="tonal" :title="$t('common.open')" :aria-label="$t('common.open')" :href="item.original_url" target="_blank"></v-btn>
+            <v-btn icon="mdi-information" size="small" variant="tonal" :title="$t('common.details')" :aria-label="$t('common.details')" @click="showDetails(item)"></v-btn>
           </div>
         </template>
       </v-data-table-server>
@@ -380,7 +380,7 @@
             <div class="d-flex align-center mb-2">
               <strong>Extrahierte Daten ({{ selectedDocument.extracted_data.length }})</strong>
               <v-spacer />
-              <v-btn size="small" variant="text" color="primary" :to="`/results?document_id=${selectedDocument.id}`">
+              <v-btn size="small" variant="tonal" color="primary" :to="`/results?document_id=${selectedDocument.id}`">
                 <v-icon size="small" class="mr-1">mdi-open-in-new</v-icon>
                 In Ergebnissen anzeigen
               </v-btn>
@@ -393,7 +393,7 @@
                   <v-icon v-if="ed.verified" color="success" size="small" class="ml-2">mdi-check-circle</v-icon>
                 </v-expansion-panel-title>
                 <v-expansion-panel-text>
-                  <pre style="font-size: 11px; overflow-x: auto; white-space: pre-wrap;">{{ JSON.stringify(ed.content, null, 2) }}</pre>
+                  <pre class="json-viewer pa-2 rounded text-caption">{{ JSON.stringify(ed.content, null, 2) }}</pre>
                 </v-expansion-panel-text>
               </v-expansion-panel>
             </v-expansion-panels>
@@ -403,9 +403,9 @@
         <v-card-actions>
           <v-btn v-if="selectedDocument.file_path" color="success" variant="outlined" prepend-icon="mdi-download" @click="downloadDocument(selectedDocument)">Herunterladen</v-btn>
           <v-spacer />
-          <v-btn v-if="selectedDocument.processing_status === 'PENDING'" color="primary" prepend-icon="mdi-play" @click="processDocument(selectedDocument); detailsDialog = false">Verarbeiten</v-btn>
-          <v-btn v-if="selectedDocument.processing_status === 'COMPLETED' || selectedDocument.processing_status === 'FILTERED'" color="purple" prepend-icon="mdi-brain" @click="analyzeDocument(selectedDocument); detailsDialog = false">KI-Analyse</v-btn>
-          <v-btn variant="text" @click="detailsDialog = false">Schließen</v-btn>
+          <v-btn v-if="selectedDocument.processing_status === 'PENDING'" variant="tonal" color="primary" prepend-icon="mdi-play" @click="processDocument(selectedDocument); detailsDialog = false">Verarbeiten</v-btn>
+          <v-btn v-if="selectedDocument.processing_status === 'COMPLETED' || selectedDocument.processing_status === 'FILTERED'" variant="tonal" color="info" prepend-icon="mdi-brain" @click="analyzeDocument(selectedDocument); detailsDialog = false">KI-Analyse</v-btn>
+          <v-btn variant="tonal" @click="detailsDialog = false">Schließen</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

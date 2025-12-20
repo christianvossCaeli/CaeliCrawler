@@ -70,9 +70,11 @@ export interface FacetType {
   id: string
   slug: string
   name: string
+  name_plural?: string
   description: string | null
   value_type: string
   value_schema: Record<string, any> | null
+  applicable_entity_type_slugs: string[]
   icon: string
   color: string
   display_order: number
@@ -491,6 +493,78 @@ export const useEntityStore = defineStore('entity', () => {
     }
   }
 
+  async function fetchFacetType(id: string) {
+    try {
+      const response = await facetApi.getFacetType(id)
+      return response.data
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Failed to fetch facet type'
+      throw err
+    }
+  }
+
+  async function fetchFacetTypeBySlug(slug: string) {
+    try {
+      const response = await facetApi.getFacetTypeBySlug(slug)
+      return response.data
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Failed to fetch facet type'
+      throw err
+    }
+  }
+
+  async function createFacetType(data: any) {
+    try {
+      const response = await facetApi.createFacetType(data)
+      // Refresh the list to include the new facet type
+      await fetchFacetTypes()
+      return response.data
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Failed to create facet type'
+      throw err
+    }
+  }
+
+  async function updateFacetType(id: string, data: any) {
+    try {
+      const response = await facetApi.updateFacetType(id, data)
+      // Update local state
+      const index = facetTypes.value.findIndex(ft => ft.id === id)
+      if (index >= 0) {
+        facetTypes.value[index] = response.data
+      }
+      return response.data
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Failed to update facet type'
+      throw err
+    }
+  }
+
+  async function deleteFacetType(id: string) {
+    try {
+      await facetApi.deleteFacetType(id)
+      facetTypes.value = facetTypes.value.filter(ft => ft.id !== id)
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Failed to delete facet type'
+      throw err
+    }
+  }
+
+  async function generateFacetTypeSchema(data: {
+    name: string
+    name_plural?: string
+    description?: string
+    applicable_entity_types?: string[]
+  }) {
+    try {
+      const response = await facetApi.generateFacetTypeSchema(data)
+      return response.data
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Failed to generate facet type schema'
+      throw err
+    }
+  }
+
   // ========================================
   // Facet Value Actions
   // ========================================
@@ -511,6 +585,40 @@ export const useEntityStore = defineStore('entity', () => {
     }
   }
 
+  async function fetchFacetValue(id: string) {
+    try {
+      const response = await facetApi.getFacetValue(id)
+      return response.data
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Failed to fetch facet value'
+      throw err
+    }
+  }
+
+  async function createFacetValue(data: any) {
+    try {
+      const response = await facetApi.createFacetValue(data)
+      return response.data
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Failed to create facet value'
+      throw err
+    }
+  }
+
+  async function updateFacetValue(id: string, data: any) {
+    try {
+      const response = await facetApi.updateFacetValue(id, data)
+      const index = facetValues.value.findIndex(fv => fv.id === id)
+      if (index >= 0) {
+        facetValues.value[index] = response.data
+      }
+      return response.data
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Failed to update facet value'
+      throw err
+    }
+  }
+
   async function verifyFacetValue(id: string, verified: boolean, verifiedBy?: string) {
     try {
       const response = await facetApi.verifyFacetValue(id, { verified, verified_by: verifiedBy })
@@ -525,12 +633,37 @@ export const useEntityStore = defineStore('entity', () => {
     }
   }
 
+  async function deleteFacetValue(id: string) {
+    try {
+      await facetApi.deleteFacetValue(id)
+      facetValues.value = facetValues.value.filter(fv => fv.id !== id)
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Failed to delete facet value'
+      throw err
+    }
+  }
+
   async function fetchEntityFacetsSummary(entityId: string, params?: any) {
     try {
       const response = await facetApi.getEntityFacetsSummary(entityId, params)
       return response.data
     } catch (err: any) {
       error.value = err.response?.data?.error || 'Failed to fetch entity facets summary'
+      throw err
+    }
+  }
+
+  async function searchFacetValues(params: {
+    q: string
+    entity_id?: string
+    facet_type_slug?: string
+    limit?: number
+  }) {
+    try {
+      const response = await facetApi.searchFacetValues(params)
+      return response.data
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Failed to search facet values'
       throw err
     }
   }
@@ -780,11 +913,22 @@ export const useEntityStore = defineStore('entity', () => {
 
     // Facet Type Actions
     fetchFacetTypes,
+    fetchFacetType,
+    fetchFacetTypeBySlug,
+    createFacetType,
+    updateFacetType,
+    deleteFacetType,
+    generateFacetTypeSchema,
 
     // Facet Value Actions
     fetchFacetValues,
+    fetchFacetValue,
+    createFacetValue,
+    updateFacetValue,
     verifyFacetValue,
+    deleteFacetValue,
     fetchEntityFacetsSummary,
+    searchFacetValues,
 
     // Relation Type Actions
     fetchRelationTypes,

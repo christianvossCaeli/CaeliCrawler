@@ -1,6 +1,6 @@
 <template>
   <v-card id="smart-query" class="mb-4">
-    <v-card-title class="text-h5" style="background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%); color: white;">
+    <v-card-title class="text-h5 bg-primary">
       <v-icon class="mr-2">mdi-brain</v-icon>
       {{ t('help.smart_query.title') }}
     </v-card-title>
@@ -63,7 +63,7 @@
 
       <v-stepper :model-value="1" alt-labels class="elevation-0 bg-transparent mb-4">
         <v-stepper-header>
-          <v-stepper-item :title="t('help.smart_query.setup_steps.step1.title')" :subtitle="t('help.smart_query.setup_steps.step1.subtitle')" value="1" complete color="purple"></v-stepper-item>
+          <v-stepper-item :title="t('help.smart_query.setup_steps.step1.title')" :subtitle="t('help.smart_query.setup_steps.step1.subtitle')" value="1" complete color="primary"></v-stepper-item>
           <v-divider></v-divider>
           <v-stepper-item :title="t('help.smart_query.setup_steps.step2.title')" :subtitle="t('help.smart_query.setup_steps.step2.subtitle')" value="2" complete color="blue"></v-stepper-item>
           <v-divider></v-divider>
@@ -74,7 +74,7 @@
       <v-expansion-panels variant="accordion" class="mb-4">
         <v-expansion-panel>
           <v-expansion-panel-title>
-            <v-icon class="mr-2" color="purple">mdi-cube</v-icon>
+            <v-icon class="mr-2" color="primary">mdi-cube</v-icon>
             {{ t('help.smart_query.categorySetup.step1.heading') }}
           </v-expansion-panel-title>
           <v-expansion-panel-text>
@@ -143,7 +143,7 @@
             {{ t('help.smart_query.write_mode_workflow.step4.description') }}
           </div>
         </v-timeline-item>
-        <v-timeline-item dot-color="purple" size="small">
+        <v-timeline-item dot-color="primary" size="small">
           <template v-slot:opposite><strong>5</strong></template>
           <div>
             <strong>{{ t('help.smart_query.write_mode_workflow.step5.title') }}</strong><br>

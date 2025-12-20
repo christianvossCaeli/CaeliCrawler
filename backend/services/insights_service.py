@@ -1,7 +1,7 @@
 """Insights Service - Proactive insights for the AI Assistant."""
 
 import structlog
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -215,7 +215,7 @@ class InsightsService:
                 .where(
                     and_(
                         FacetValue.entity_id == entity.id,
-                        FacetValue.is_verified == False
+                        FacetValue.is_verified.is_(False)
                     )
                 )
             )
@@ -269,7 +269,7 @@ class InsightsService:
             ))
 
             # Recent activity (last 7 days)
-            week_ago = datetime.utcnow() - timedelta(days=7)
+            week_ago = datetime.now(timezone.utc) - timedelta(days=7)
             result = await self.db.execute(
                 select(func.count(FacetValue.id))
                 .where(FacetValue.created_at >= week_ago)

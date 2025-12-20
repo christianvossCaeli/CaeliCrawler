@@ -8,6 +8,8 @@
       class="chat-fab"
       elevation="8"
       @click="isOpen = !isOpen"
+      :aria-label="isOpen ? t('assistant.close') : t('assistant.open')"
+      :aria-expanded="isOpen"
     >
       <v-badge v-if="hasUnread && !isOpen" color="error" dot floating>
         <v-icon>mdi-robot-happy</v-icon>
@@ -32,11 +34,13 @@
 
           <div class="chat-header__right">
             <!-- Mode Toggle -->
-            <div class="mode-toggle">
+            <div class="mode-toggle" role="group" :aria-label="t('assistant.modeToggle')">
               <button
                 :class="{ active: localMode === 'read' }"
                 @click="localMode = 'read'"
                 :title="t('assistant.modeRead')"
+                :aria-label="t('assistant.modeRead')"
+                :aria-pressed="localMode === 'read'"
               >
                 <v-icon size="18">mdi-magnify</v-icon>
               </button>
@@ -44,17 +48,19 @@
                 :class="{ active: localMode === 'write' }"
                 @click="localMode = 'write'"
                 :title="t('assistant.modeWrite')"
+                :aria-label="t('assistant.modeWrite')"
+                :aria-pressed="localMode === 'write'"
               >
                 <v-icon size="18">mdi-pencil</v-icon>
               </button>
             </div>
 
-            <button class="header-btn" @click="clearConversation" :title="t('assistant.clear')">
-              <v-icon size="20">mdi-refresh</v-icon>
+            <button class="header-btn" @click="clearConversation" :title="t('assistant.clear')" :aria-label="t('assistant.clear')">
+              <v-icon size="small">mdi-refresh</v-icon>
             </button>
 
-            <button class="header-btn" @click="isOpen = false" :title="t('assistant.close')">
-              <v-icon size="20">mdi-close</v-icon>
+            <button class="header-btn" @click="isOpen = false" :title="t('assistant.close')" :aria-label="t('assistant.close')">
+              <v-icon size="small">mdi-close</v-icon>
             </button>
           </div>
         </div>
@@ -68,18 +74,19 @@
 
         <!-- Quick Actions -->
         <div class="quick-actions">
-          <div class="quick-actions__header" @click="quickActionsExpanded = !quickActionsExpanded">
+          <div class="quick-actions__header" role="button" tabindex="0" :aria-expanded="quickActionsExpanded" :aria-label="t('assistant.toggleQuickActions')" @click="quickActionsExpanded = !quickActionsExpanded" @keydown.enter.prevent="quickActionsExpanded = !quickActionsExpanded" @keydown.space.prevent="quickActionsExpanded = !quickActionsExpanded">
             <span>
-              <v-icon size="16" class="mr-1">mdi-lightning-bolt</v-icon>
+              <v-icon size="x-small" class="mr-1">mdi-lightning-bolt</v-icon>
               {{ t('assistant.quickActions') }}
             </span>
-            <v-icon size="16">{{ quickActionsExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+            <v-icon size="x-small">{{ quickActionsExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
           </div>
           <div v-if="quickActionsExpanded" class="quick-actions__content">
             <button
               v-for="action in quickActions"
               :key="action.id"
               class="quick-action-btn"
+              :aria-label="action.label"
               @click="handleQuickAction(action)"
             >
               <v-icon size="14">{{ action.icon }}</v-icon>
@@ -105,7 +112,7 @@
             :class="{ 'message--user': msg.role === 'user' }"
           >
             <div class="message__avatar" :class="{ 'message__avatar--user': msg.role === 'user' }">
-              <v-icon size="16">
+              <v-icon size="x-small">
                 {{ msg.role === 'user' ? 'mdi-account' : 'mdi-robot' }}
               </v-icon>
             </div>
@@ -141,6 +148,16 @@
                 {{ t('assistant.goTo', { name: msg.response_data.target.entity_name || 'Seite' }) }}
               </button>
 
+              <!-- Redirect to Smart Query -->
+              <button
+                v-if="msg.response_type === 'redirect_to_smart_query'"
+                class="nav-btn nav-btn--smart-query"
+                @click="handleSmartQueryRedirect(msg.response_data)"
+              >
+                <v-icon size="14">mdi-magnify</v-icon>
+                {{ t('assistant.openSmartQuery') }}
+              </button>
+
               <div class="message__time">{{ formatTime(msg.timestamp) }}</div>
             </div>
           </div>
@@ -169,19 +186,63 @@
           </button>
         </div>
 
+        <!-- Attachment Preview -->
+        <div v-if="pendingAttachments.length > 0" class="attachments-preview">
+          <div
+            v-for="attachment in pendingAttachments"
+            :key="attachment.id"
+            class="attachment-item"
+          >
+            <img
+              v-if="attachment.preview"
+              :src="attachment.preview"
+              :alt="attachment.filename"
+              class="attachment-thumbnail"
+            />
+            <v-icon v-else size="24" color="primary">{{ getAttachmentIcon(attachment.contentType) }}</v-icon>
+            <span class="attachment-name">{{ attachment.filename }}</span>
+            <button
+              class="attachment-remove"
+              @click="removeAttachment(attachment.id)"
+              :title="t('assistant.removeAttachment')"
+            >
+              <v-icon size="14">mdi-close</v-icon>
+            </button>
+          </div>
+        </div>
+
         <!-- Input -->
         <div class="input-area" :class="{ 'input-area--write': localMode === 'write' }">
+          <!-- Attachment Button -->
+          <button
+            class="attachment-btn"
+            @click="triggerFileInput"
+            :title="t('assistant.attachFile')"
+            :disabled="isUploading"
+          >
+            <v-icon size="20">{{ isUploading ? 'mdi-loading mdi-spin' : 'mdi-paperclip' }}</v-icon>
+          </button>
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"
+            style="display: none"
+            @change="handleFileSelect"
+            multiple
+          />
+
           <textarea
             v-model="inputText"
             :placeholder="localMode === 'write' ? t('assistant.placeholderWrite') : t('assistant.placeholderRead')"
             :rows="localMode === 'write' ? 4 : 1"
             @keydown.enter.exact.prevent="sendMessage"
             @input="autoResize"
+            @paste="handlePaste"
             ref="textareaRef"
           ></textarea>
           <button
             class="send-btn"
-            :disabled="!inputText.trim() || isLoading"
+            :disabled="(!inputText.trim() && pendingAttachments.length === 0) || isLoading"
             @click="sendMessage"
           >
             <v-icon size="20">mdi-send</v-icon>
@@ -198,28 +259,36 @@ import { useRouter } from 'vue-router'
 // Display and theme utilities available via Vuetify's useDisplay/useTheme if needed
 import { useI18n } from 'vue-i18n'
 import { useAssistant } from '@/composables/useAssistant'
+import { useQueryContextStore } from '@/stores/queryContext'
 
 const { t, locale } = useI18n()
 const router = useRouter()
+const queryContextStore = useQueryContextStore()
 
 const {
   isOpen,
   isLoading,
+  isUploading,
   streamingStatus,
   messages,
   mode,
   suggestedActions,
   hasUnread,
   currentContext,
+  pendingAttachments,
   send,
   clearConversation,
   handleSuggestedAction,
+  uploadAttachment,
+  removeAttachment,
+  getAttachmentIcon,
 } = useAssistant()
 
 const inputText = ref('')
 const localMode = ref(mode.value)
 const messagesContainer = ref<HTMLElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 const quickActionsExpanded = ref(true)
 
 const quickActions = computed(() => {
@@ -254,16 +323,66 @@ function handleQuickAction(action: { query: string }) {
 }
 
 function sendMessage() {
-  if (!inputText.value.trim() || isLoading.value) return
-  send(inputText.value.trim())
+  // Allow sending with attachments even if no text
+  if ((!inputText.value.trim() && pendingAttachments.value.length === 0) || isLoading.value) return
+  send(inputText.value.trim() || 'Analysiere das Bild')
   inputText.value = ''
   if (textareaRef.value) {
     textareaRef.value.style.height = 'auto'
   }
 }
 
+function triggerFileInput() {
+  fileInputRef.value?.click()
+}
+
+async function handleFileSelect(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = input.files
+  if (!files) return
+
+  for (const file of Array.from(files)) {
+    await uploadAttachment(file)
+  }
+
+  // Clear the input so the same file can be selected again
+  input.value = ''
+}
+
+async function handlePaste(event: ClipboardEvent) {
+  const items = event.clipboardData?.items
+  if (!items) return
+
+  for (const item of Array.from(items)) {
+    if (item.type.startsWith('image/')) {
+      event.preventDefault()
+      const file = item.getAsFile()
+      if (file) {
+        await uploadAttachment(file)
+      }
+    }
+  }
+}
+
 function handleNavigate(route: string) {
   router.push(route)
+  isOpen.value = false
+}
+
+function handleSmartQueryRedirect(responseData: any) {
+  // Set context in store so Smart Query can consume it
+  const query = responseData?.prefilled_query || responseData?.message || ''
+  const writeMode = responseData?.write_mode === true
+  queryContextStore.setFromAssistant(
+    query,
+    writeMode ? 'write' : 'read',
+    {
+      entityId: currentContext.value.current_entity_id,
+      entityType: currentContext.value.current_entity_type,
+      entityName: currentContext.value.current_entity_name
+    }
+  )
+  router.push('/smart-query')
   isOpen.value = false
 }
 
@@ -321,7 +440,7 @@ watch(() => messages.value.length, async () => {
 .chat-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(var(--v-theme-on-surface), 0.5);
   z-index: 2000;
 }
 
@@ -330,14 +449,14 @@ watch(() => messages.value.length, async () => {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 400px;
+  width: min(400px, 100vw - 16px);
   max-width: 100vw;
   background: rgb(var(--v-theme-surface));
   color: rgb(var(--v-theme-on-surface));
   display: flex;
   flex-direction: column;
   z-index: 2001;
-  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+  box-shadow: -4px 0 20px rgba(var(--v-theme-on-surface), 0.15);
 }
 
 @media (max-width: 500px) {
@@ -383,12 +502,22 @@ watch(() => messages.value.length, async () => {
 .mode-toggle button {
   background: transparent;
   border: none;
-  color: rgba(var(--v-theme-on-primary), 0.7);
+  color: rgba(var(--v-theme-on-primary), 0.85);
   padding: 4px 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.mode-toggle button:hover {
+  background: rgba(var(--v-theme-on-primary), 0.1);
+}
+
+.mode-toggle button:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-on-primary));
+  outline-offset: -2px;
 }
 
 .mode-toggle button.active {
@@ -430,7 +559,7 @@ watch(() => messages.value.length, async () => {
 
 .context-type {
   margin-left: 8px;
-  opacity: 0.7;
+  opacity: 0.8;
   font-size: 0.7rem;
 }
 
@@ -450,6 +579,16 @@ watch(() => messages.value.length, async () => {
   font-size: 0.8rem;
   font-weight: 500;
   color: rgba(var(--v-theme-on-surface), 0.7);
+  border-radius: 4px;
+}
+
+.quick-actions__header:hover {
+  background: rgba(var(--v-theme-on-surface), 0.05);
+}
+
+.quick-actions__header:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
 }
 
 .quick-actions__content {
@@ -503,7 +642,7 @@ watch(() => messages.value.length, async () => {
 
 .welcome__text {
   font-size: 0.85rem;
-  opacity: 0.7;
+  opacity: 0.8;
 }
 
 /* Messages */
@@ -578,7 +717,7 @@ watch(() => messages.value.length, async () => {
 
 .message__time {
   font-size: 0.65rem;
-  opacity: 0.6;
+  opacity: 0.75;
   margin-top: 4px;
 }
 
@@ -723,6 +862,7 @@ watch(() => messages.value.length, async () => {
 
 .input-area textarea:focus {
   border-color: rgb(var(--v-theme-primary));
+  box-shadow: 0 0 0 1px rgb(var(--v-theme-primary));
 }
 
 .input-area textarea::placeholder {
@@ -750,6 +890,98 @@ watch(() => messages.value.length, async () => {
 
 .send-btn:not(:disabled):hover {
   opacity: 0.9;
+}
+
+.send-btn:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+/* Attachment Button */
+.attachment-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.attachment-btn:hover:not(:disabled) {
+  background: rgba(var(--v-theme-primary), 0.1);
+  border-color: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-primary));
+}
+
+.attachment-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Attachment Preview */
+.attachments-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 16px;
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  background: rgba(var(--v-theme-on-surface), 0.02);
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.15);
+  border-radius: 8px;
+  max-width: 180px;
+}
+
+.attachment-thumbnail {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.attachment-name {
+  font-size: 0.75rem;
+  color: rgb(var(--v-theme-on-surface));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.attachment-remove {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(var(--v-theme-error), 0.1);
+  color: rgb(var(--v-theme-error));
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+.attachment-remove:hover {
+  opacity: 1;
+  background: rgba(var(--v-theme-error), 0.2);
 }
 
 /* Transitions */

@@ -1,6 +1,6 @@
 """API endpoints for Relation Type and Entity Relation management."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -49,7 +49,7 @@ async def list_relation_types(
     query = select(RelationType)
 
     if is_active is not None:
-        query = query.where(RelationType.is_active == is_active)
+        query = query.where(RelationType.is_active.is_(is_active))
     if source_entity_type_id:
         query = query.where(RelationType.source_entity_type_id == source_entity_type_id)
     if target_entity_type_id:
@@ -69,25 +69,57 @@ async def list_relation_types(
     result = await session.execute(query)
     relation_types = result.scalars().all()
 
-    # Enrich with entity type names and counts
+    if not relation_types:
+        return RelationTypeListResponse(
+            items=[],
+            total=total,
+            page=page,
+            per_page=per_page,
+            pages=(total + per_page - 1) // per_page if per_page > 0 else 0,
+        )
+
+    # Collect IDs for batch queries
+    relation_type_ids = [rt.id for rt in relation_types]
+    entity_type_ids = list(set(
+        [rt.source_entity_type_id for rt in relation_types] +
+        [rt.target_entity_type_id for rt in relation_types]
+    ))
+
+    # Batch load EntityTypes (1 query instead of 2N)
+    entity_types_result = await session.execute(
+        select(EntityType).where(EntityType.id.in_(entity_type_ids))
+    )
+    entity_types_map = {et.id: et for et in entity_types_result.scalars().all()}
+
+    # Batch count relations (1 query instead of N)
+    relation_counts_result = await session.execute(
+        select(EntityRelation.relation_type_id, func.count(EntityRelation.id))
+        .where(EntityRelation.relation_type_id.in_(relation_type_ids))
+        .group_by(EntityRelation.relation_type_id)
+    )
+    relation_counts_map = dict(relation_counts_result.fetchall())
+
+    # Build response items using pre-fetched data
     items = []
     for rt in relation_types:
-        source_et = await session.get(EntityType, rt.source_entity_type_id)
-        target_et = await session.get(EntityType, rt.target_entity_type_id)
-
-        relation_count = (await session.execute(
-            select(func.count()).where(EntityRelation.relation_type_id == rt.id)
-        )).scalar()
+        source_et = entity_types_map.get(rt.source_entity_type_id)
+        target_et = entity_types_map.get(rt.target_entity_type_id)
 
         item = RelationTypeResponse.model_validate(rt)
         item.source_entity_type_name = source_et.name if source_et else None
         item.source_entity_type_slug = source_et.slug if source_et else None
         item.target_entity_type_name = target_et.name if target_et else None
         item.target_entity_type_slug = target_et.slug if target_et else None
-        item.relation_count = relation_count
+        item.relation_count = relation_counts_map.get(rt.id, 0)
         items.append(item)
 
-    return RelationTypeListResponse(items=items, total=total)
+    return RelationTypeListResponse(
+        items=items,
+        total=total,
+        page=page,
+        per_page=per_page,
+        pages=(total + per_page - 1) // per_page if per_page > 0 else 0,
+    )
 
 
 @router.post("/types", response_model=RelationTypeResponse, status_code=201)
@@ -303,9 +335,9 @@ async def list_entity_relations(
     if min_confidence > 0:
         query = query.where(EntityRelation.confidence_score >= min_confidence)
     if human_verified is not None:
-        query = query.where(EntityRelation.human_verified == human_verified)
+        query = query.where(EntityRelation.human_verified.is_(human_verified))
     if is_active is not None:
-        query = query.where(EntityRelation.is_active == is_active)
+        query = query.where(EntityRelation.is_active.is_(is_active))
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
@@ -316,22 +348,64 @@ async def list_entity_relations(
     result = await session.execute(query)
     relations = result.scalars().all()
 
-    # Enrich with related info
+    # Batch load related data to avoid N+1 queries
+    if not relations:
+        return EntityRelationListResponse(
+            items=[],
+            total=total,
+            page=page,
+            per_page=per_page,
+            pages=(total + per_page - 1) // per_page if per_page > 0 else 0,
+        )
+
+    # Collect all IDs for batch loading
+    relation_type_ids = list(set(rel.relation_type_id for rel in relations))
+    entity_ids = list(set(
+        [rel.source_entity_id for rel in relations] +
+        [rel.target_entity_id for rel in relations]
+    ))
+
+    # Batch load RelationTypes (1 query instead of N)
+    rt_result = await session.execute(
+        select(RelationType).where(RelationType.id.in_(relation_type_ids))
+    )
+    relation_types_map = {rt.id: rt for rt in rt_result.scalars().all()}
+
+    # Batch load Entities (1 query instead of 2N)
+    entities_result = await session.execute(
+        select(Entity).where(Entity.id.in_(entity_ids))
+    )
+    entities_map = {e.id: e for e in entities_result.scalars().all()}
+
+    # Collect EntityType IDs from loaded entities
+    entity_type_ids = list(set(
+        e.entity_type_id for e in entities_map.values() if e.entity_type_id
+    ))
+
+    # Batch load EntityTypes (1 query instead of 2N)
+    et_result = await session.execute(
+        select(EntityType).where(EntityType.id.in_(entity_type_ids))
+    )
+    entity_types_map = {et.id: et for et in et_result.scalars().all()}
+
+    # Build response items using pre-fetched data
     items = []
     for rel in relations:
-        rt = await session.get(RelationType, rel.relation_type_id)
-        source = await session.get(Entity, rel.source_entity_id)
-        target = await session.get(Entity, rel.target_entity_id)
+        rt = relation_types_map.get(rel.relation_type_id)
+        source = entities_map.get(rel.source_entity_id)
+        target = entities_map.get(rel.target_entity_id)
 
-        source_et = await session.get(EntityType, source.entity_type_id) if source else None
-        target_et = await session.get(EntityType, target.entity_type_id) if target else None
+        source_et = entity_types_map.get(source.entity_type_id) if source else None
+        target_et = entity_types_map.get(target.entity_type_id) if target else None
 
         item = EntityRelationResponse.model_validate(rel)
         item.relation_type_slug = rt.slug if rt else None
         item.relation_type_name = rt.name if rt else None
         item.source_entity_name = source.name if source else None
+        item.source_entity_slug = source.slug if source else None
         item.source_entity_type_slug = source_et.slug if source_et else None
         item.target_entity_name = target.name if target else None
+        item.target_entity_slug = target.slug if target else None
         item.target_entity_type_slug = target_et.slug if target_et else None
         items.append(item)
 
@@ -412,11 +486,18 @@ async def create_entity_relation(
     await session.commit()
     await session.refresh(relation)
 
+    source_et = await session.get(EntityType, source.entity_type_id)
+    target_et = await session.get(EntityType, target.entity_type_id)
+
     item = EntityRelationResponse.model_validate(relation)
     item.relation_type_slug = rt.slug
     item.relation_type_name = rt.name
     item.source_entity_name = source.name
+    item.source_entity_slug = source.slug
+    item.source_entity_type_slug = source_et.slug if source_et else None
     item.target_entity_name = target.name
+    item.target_entity_slug = target.slug
+    item.target_entity_type_slug = target_et.slug if target_et else None
 
     return item
 
@@ -442,8 +523,10 @@ async def get_entity_relation(
     response.relation_type_slug = rt.slug if rt else None
     response.relation_type_name = rt.name if rt else None
     response.source_entity_name = source.name if source else None
+    response.source_entity_slug = source.slug if source else None
     response.source_entity_type_slug = source_et.slug if source_et else None
     response.target_entity_name = target.name if target else None
+    response.target_entity_slug = target.slug if target else None
     response.target_entity_type_slug = target_et.slug if target_et else None
 
     return response
@@ -485,7 +568,7 @@ async def verify_entity_relation(
 
     rel.human_verified = verified
     rel.verified_by = verified_by
-    rel.verified_at = datetime.utcnow()
+    rel.verified_at = datetime.now(timezone.utc)
 
     await session.commit()
     await session.refresh(rel)
@@ -555,7 +638,7 @@ async def get_entity_relations_graph(
         # Find outgoing relations
         outgoing_query = select(EntityRelation).where(
             EntityRelation.source_entity_id == ent_id,
-            EntityRelation.is_active == True,
+            EntityRelation.is_active.is_(True),
         )
         if relation_type_slugs:
             subq = select(RelationType.id).where(RelationType.slug.in_(relation_type_slugs))
@@ -578,7 +661,7 @@ async def get_entity_relations_graph(
         # Find incoming relations
         incoming_query = select(EntityRelation).where(
             EntityRelation.target_entity_id == ent_id,
-            EntityRelation.is_active == True,
+            EntityRelation.is_active.is_(True),
         )
         if relation_type_slugs:
             subq = select(RelationType.id).where(RelationType.slug.in_(relation_type_slugs))

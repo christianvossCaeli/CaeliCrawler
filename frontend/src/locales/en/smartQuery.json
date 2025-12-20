@@ -39,7 +39,8 @@
     },
     "actions": {
       "preview": "Preview",
-      "query": "Query"
+      "query": "Query",
+      "analyzeImage": "Analyze Image"
     },
     "examples": {
       "questionsTitle": "Example Questions",

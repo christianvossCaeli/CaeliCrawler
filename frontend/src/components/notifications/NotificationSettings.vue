@@ -82,7 +82,7 @@
                 <v-btn
                   v-if="!email.is_verified"
                   icon="mdi-email-send"
-                  variant="text"
+                  variant="tonal"
                   size="small"
                   color="primary"
                   :title="t('notifications.settings.resendVerification')"
@@ -91,7 +91,7 @@
                 <v-btn
                   v-if="!email.is_primary"
                   icon="mdi-delete"
-                  variant="text"
+                  variant="tonal"
                   size="small"
                   color="error"
                   @click="confirmDeleteEmail(email)"
@@ -128,8 +128,8 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn @click="addEmailDialog = false">{{ t('common.cancel') }}</v-btn>
-        <v-btn color="primary" :loading="saving" @click="handleAddEmail">
+        <v-btn variant="tonal" @click="addEmailDialog = false">{{ t('common.cancel') }}</v-btn>
+        <v-btn variant="tonal" color="primary" :loading="saving" @click="handleAddEmail">
           {{ t('common.add') }}
         </v-btn>
       </v-card-actions>
@@ -145,8 +145,8 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn @click="deleteEmailDialog = false">{{ t('common.cancel') }}</v-btn>
-        <v-btn color="error" :loading="saving" @click="handleDeleteEmail">
+        <v-btn variant="tonal" @click="deleteEmailDialog = false">{{ t('common.cancel') }}</v-btn>
+        <v-btn variant="tonal" color="error" :loading="saving" @click="handleDeleteEmail">
           {{ t('common.delete') }}
         </v-btn>
       </v-card-actions>

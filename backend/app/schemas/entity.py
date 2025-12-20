@@ -7,30 +7,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.utils.text import create_slug as generate_slug, normalize_entity_name as normalize_name
 
-def generate_slug(name: str) -> str:
-    """Generate URL-friendly slug from name."""
-    slug = name.lower()
-    slug = re.sub(
-        r"[äöüß]",
-        lambda m: {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}[m.group()],
-        slug,
-    )
-    slug = re.sub(r"[^a-z0-9]+", "-", slug)
-    slug = slug.strip("-")
-    return slug
-
-
-def normalize_name(name: str) -> str:
-    """Normalize name for search (lowercase, no special chars)."""
-    normalized = name.lower()
-    normalized = re.sub(
-        r"[äöüß]",
-        lambda m: {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}[m.group()],
-        normalized,
-    )
-    normalized = re.sub(r"[^a-z0-9\s]", "", normalized)
-    return normalized.strip()
+# Regex pattern for valid slugs: lowercase letters, numbers, and hyphens only
+SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+SLUG_MAX_LENGTH = 100
 
 
 class EntityBase(BaseModel):
@@ -61,7 +42,11 @@ class EntityCreate(EntityBase):
     """Schema for creating a new entity."""
 
     entity_type_id: UUID = Field(..., description="Entity type ID")
-    slug: Optional[str] = Field(None, description="URL-friendly slug (auto-generated if not provided)")
+    slug: Optional[str] = Field(
+        None,
+        max_length=SLUG_MAX_LENGTH,
+        description="URL-friendly slug (auto-generated if not provided)"
+    )
 
     # Ownership (optional)
     owner_id: Optional[UUID] = Field(None, description="Owner user ID (optional)")
@@ -71,6 +56,16 @@ class EntityCreate(EntityBase):
     def generate_slug_if_empty(cls, v, info):
         if not v and "name" in info.data:
             return generate_slug(info.data["name"])
+        return v
+
+    @field_validator("slug", mode="after")
+    @classmethod
+    def validate_slug_format(cls, v):
+        if v is not None:
+            if len(v) > SLUG_MAX_LENGTH:
+                raise ValueError(f"Slug must be at most {SLUG_MAX_LENGTH} characters")
+            if not SLUG_PATTERN.match(v):
+                raise ValueError("Slug must contain only lowercase letters, numbers, and hyphens")
         return v
 
 
@@ -101,7 +96,9 @@ class EntityBrief(BaseModel):
     id: UUID
     name: str
     slug: str
-    entity_type_slug: str
+    entity_type_slug: Optional[str] = None
+    entity_type_name: Optional[str] = None
+    hierarchy_path: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -142,7 +139,6 @@ class EntityResponse(EntityBase):
     # Computed fields
     facet_count: int = Field(default=0, description="Number of facet values")
     relation_count: int = Field(default=0, description="Number of relations")
-    source_count: int = Field(default=0, description="Number of data sources")
     children_count: int = Field(default=0, description="Number of child entities")
 
     model_config = {"from_attributes": True}
@@ -158,17 +154,32 @@ class EntityListResponse(BaseModel):
     pages: int
 
 
-class EntityHierarchy(BaseModel):
-    """Entity with hierarchy info."""
+class EntityHierarchyNode(BaseModel):
+    """Single node in entity hierarchy tree."""
 
-    id: UUID
+    id: str
     name: str
     slug: str
+    external_id: Optional[str] = None
     hierarchy_level: int
-    children: List["EntityHierarchy"] = Field(default_factory=list)
+    children: List["EntityHierarchyNode"] = Field(default_factory=list)
+    children_count: int = 0
 
     model_config = {"from_attributes": True}
 
 
 # For recursive model
-EntityHierarchy.model_rebuild()
+EntityHierarchyNode.model_rebuild()
+
+
+class EntityHierarchy(BaseModel):
+    """Entity hierarchy response with tree structure."""
+
+    entity_type_id: UUID
+    entity_type_slug: str
+    entity_type_name: str
+    root_id: Optional[UUID] = None
+    tree: List[Dict[str, Any]] = Field(default_factory=list)
+    total_nodes: int = 0
+
+    model_config = {"from_attributes": True}

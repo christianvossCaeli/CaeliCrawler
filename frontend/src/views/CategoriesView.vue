@@ -2,7 +2,7 @@
   <div>
     <div class="d-flex justify-space-between align-center mb-6">
       <h1 class="text-h4">{{ $t('categories.title') }} ({{ filteredCategories.length }})</h1>
-      <v-btn color="primary" @click="openCreateDialog">
+      <v-btn variant="tonal" color="primary" @click="openCreateDialog">
         <v-icon left>mdi-plus</v-icon>{{ $t('categories.actions.create') }}
       </v-btn>
     </div>
@@ -95,11 +95,11 @@
 
         <template v-slot:item.actions="{ item }">
           <div class="table-actions d-flex justify-end ga-1">
-            <v-btn icon="mdi-database-outline" size="small" variant="tonal" color="primary" :title="$t('categories.actions.viewSources')" @click="showSourcesForCategory(item)"></v-btn>
-            <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="$t('common.edit')" @click="openEditDialog(item)"></v-btn>
-            <v-btn icon="mdi-play" size="small" variant="tonal" color="success" :title="$t('categories.actions.startCrawl')" @click="openCrawlerDialog(item)"></v-btn>
-            <v-btn icon="mdi-refresh" size="small" variant="tonal" color="warning" :title="$t('categories.actions.reanalyze')" @click="confirmReanalyze(item)"></v-btn>
-            <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="$t('common.delete')" @click="confirmDelete(item)"></v-btn>
+            <v-btn icon="mdi-database-outline" size="small" variant="tonal" color="primary" :title="$t('categories.actions.viewSources')" :aria-label="$t('categories.actions.viewSources')" @click="showSourcesForCategory(item)"></v-btn>
+            <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="$t('common.edit')" :aria-label="$t('common.edit')" @click="openEditDialog(item)"></v-btn>
+            <v-btn icon="mdi-play" size="small" variant="tonal" color="success" :title="$t('categories.actions.startCrawl')" :aria-label="$t('categories.actions.startCrawl')" @click="openCrawlerDialog(item)"></v-btn>
+            <v-btn icon="mdi-refresh" size="small" variant="tonal" color="warning" :title="$t('categories.actions.reanalyze')" :aria-label="$t('categories.actions.reanalyze')" @click="confirmReanalyze(item)"></v-btn>
+            <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="$t('common.delete')" :aria-label="$t('common.delete')" @click="confirmDelete(item)"></v-btn>
           </div>
         </template>
       </v-data-table>
@@ -109,8 +109,8 @@
     <v-dialog v-model="dialog" max-width="900" persistent scrollable>
       <v-card>
         <v-card-title class="d-flex align-center pa-4 bg-primary">
-          <v-avatar color="rgba(255,255,255,0.2)" size="40" class="mr-3">
-            <v-icon color="white">{{ editMode ? 'mdi-folder-edit' : 'mdi-folder-plus' }}</v-icon>
+          <v-avatar color="primary-darken-1" size="40" class="mr-3">
+            <v-icon color="on-primary">{{ editMode ? 'mdi-folder-edit' : 'mdi-folder-plus' }}</v-icon>
           </v-avatar>
           <div>
             <div class="text-h6">{{ editMode ? $t('categories.dialog.edit') : $t('categories.dialog.create') }}</div>
@@ -138,7 +138,7 @@
           </v-tab>
         </v-tabs>
 
-        <v-card-text class="pa-6" style="min-height: 420px;">
+        <v-card-text class="pa-6 dialog-content-lg">
           <v-form ref="form">
             <v-window v-model="categoryTab">
               <!-- General Tab -->
@@ -274,7 +274,7 @@
                     <v-icon start size="small">mdi-clock</v-icon>
                     {{ $t('categories.form.scheduleTitle') }}
                   </v-card-title>
-                  <v-card-text>
+                  <v-card-text class="pt-4">
                     <v-text-field
                       v-model="formData.schedule_cron"
                       :label="$t('categories.form.scheduleCron')"
@@ -298,7 +298,7 @@
                     <v-icon start size="small" color="success">mdi-check-circle</v-icon>
                     {{ $t('categories.form.includePatterns') }}
                   </v-card-title>
-                  <v-card-text>
+                  <v-card-text class="pt-4">
                     <v-combobox
                       v-model="formData.url_include_patterns"
                       chips
@@ -324,7 +324,7 @@
                     <v-icon start size="small" color="error">mdi-close-circle</v-icon>
                     {{ $t('categories.form.excludePatterns') }}
                   </v-card-title>
-                  <v-card-text>
+                  <v-card-text class="pt-4">
                     <v-combobox
                       v-model="formData.url_exclude_patterns"
                       chips
@@ -355,8 +355,8 @@
               <v-window-item value="ai">
                 <v-card variant="outlined" class="mb-4">
                   <v-card-text class="d-flex align-center">
-                    <v-avatar color="purple" size="48" class="mr-4">
-                      <v-icon color="white">mdi-robot</v-icon>
+                    <v-avatar color="info" size="48" class="mr-4">
+                      <v-icon color="on-info">mdi-robot</v-icon>
                     </v-avatar>
                     <div>
                       <div class="text-body-1 font-weight-medium">{{ $t('categories.form.aiPromptTitle') }}</div>
@@ -381,9 +381,9 @@
         <v-divider></v-divider>
 
         <v-card-actions class="pa-4">
-          <v-btn variant="text" @click="dialog = false">{{ $t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" @click="dialog = false">{{ $t('common.cancel') }}</v-btn>
           <v-spacer></v-spacer>
-          <v-btn color="primary" @click="saveCategory">
+          <v-btn variant="tonal" color="primary" @click="saveCategory">
             <v-icon start>mdi-check</v-icon>
             {{ $t('common.save') }}
           </v-btn>
@@ -394,14 +394,17 @@
     <!-- Delete Confirmation -->
     <v-dialog v-model="deleteDialog" max-width="400">
       <v-card>
-        <v-card-title>{{ $t('categories.dialog.delete') }}</v-card-title>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="error" class="mr-2">mdi-alert</v-icon>
+          {{ $t('categories.dialog.delete') }}
+        </v-card-title>
         <v-card-text>
           {{ $t('categories.dialog.deleteConfirm', { name: selectedCategory?.name }) }}
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="deleteDialog = false">{{ $t('common.cancel') }}</v-btn>
-          <v-btn color="error" @click="deleteCategory">{{ $t('common.delete') }}</v-btn>
+          <v-btn variant="tonal" @click="deleteDialog = false">{{ $t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="error" @click="deleteCategory">{{ $t('common.delete') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -425,8 +428,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn @click="reanalyzeDialog = false">{{ $t('common.cancel') }}</v-btn>
-          <v-btn color="warning" @click="reanalyzeDocuments">{{ $t('categories.actions.reanalyze') }}</v-btn>
+          <v-btn variant="tonal" @click="reanalyzeDialog = false">{{ $t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="warning" @click="reanalyzeDocuments">{{ $t('categories.actions.reanalyze') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -468,7 +471,7 @@
             >
               <template v-slot:prepend>
                 <v-avatar :color="getStatusColor(source.status)" size="36">
-                  <v-icon size="small" color="white">{{ getSourceTypeIcon(source.source_type) }}</v-icon>
+                  <v-icon size="small" :color="getContrastColor(getStatusColor(source.status))">{{ getSourceTypeIcon(source.source_type) }}</v-icon>
                 </v-avatar>
               </template>
               <template v-slot:append>
@@ -482,7 +485,7 @@
                   <v-btn
                     icon="mdi-open-in-new"
                     size="x-small"
-                    variant="text"
+                    variant="tonal"
                     :href="source.base_url"
                     target="_blank"
                     :title="$t('categories.dialog.openUrl')"
@@ -529,13 +532,13 @@
         <v-card-actions>
           <v-btn
             color="primary"
-            variant="text"
+            variant="tonal"
             @click="navigateToSourcesFiltered"
           >
             <v-icon left>mdi-filter</v-icon>{{ $t('categories.dialog.showAllInSourcesView') }}
           </v-btn>
           <v-spacer></v-spacer>
-          <v-btn @click="sourcesDialog = false">{{ $t('common.close') }}</v-btn>
+          <v-btn variant="tonal" @click="sourcesDialog = false">{{ $t('common.close') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -557,7 +560,7 @@
               <v-btn
                 v-if="hasCrawlerFilter"
                 size="small"
-                variant="text"
+                variant="tonal"
                 @click="resetCrawlerFilters"
               >
                 {{ $t('categories.crawler.resetFilters') }}
@@ -663,7 +666,7 @@
             {{ crawlerFilteredCount.toLocaleString() }} {{ $t('categories.crawler.sourcesCount') }}
           </v-chip>
           <v-spacer></v-spacer>
-          <v-btn @click="crawlerDialog = false">{{ $t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" @click="crawlerDialog = false">{{ $t('common.cancel') }}</v-btn>
           <v-btn
             color="warning"
             :loading="startingCrawler"
@@ -688,6 +691,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
+import { getContrastColor } from '@/composables/useColorHelpers'
 
 const { t } = useI18n()
 const router = useRouter()

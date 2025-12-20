@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -21,11 +22,13 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.models.data_source import DataSource
+    from app.models.entity_attachment import EntityAttachment
     from app.models.entity_relation import EntityRelation
     from app.models.entity_type import EntityType
     from app.models.facet_value import FacetValue
     from app.models.reminder import Reminder
     from app.models.user import User
+    from external_apis.models.external_api_config import ExternalAPIConfig
 
 
 class Entity(Base):
@@ -37,6 +40,21 @@ class Entity(Base):
     """
 
     __tablename__ = "entities"
+
+    # Composite indexes for frequently queried column combinations
+    __table_args__ = (
+        # For list queries filtering by type and active status
+        Index("ix_entities_type_active", "entity_type_id", "is_active"),
+        # For entity lookup by normalized name within a type
+        Index("ix_entities_type_name_normalized", "entity_type_id", "name_normalized"),
+        # For hierarchy queries
+        Index("ix_entities_hierarchy_path", "hierarchy_path"),
+        # For user's entities queries
+        Index("ix_entities_owner_active", "owner_id", "is_active"),
+        # For location-based filtering
+        Index("ix_entities_country_admin1", "country", "admin_level_1"),
+        Index("ix_entities_admin1_admin2", "admin_level_1", "admin_level_2"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -159,6 +177,20 @@ class Entity(Base):
         comment="User who owns/is responsible for this entity",
     )
 
+    # External API sync tracking
+    last_seen_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="When this entity was last seen in external API sync",
+    )
+    external_source_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("external_api_configs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="ExternalAPIConfig that created/manages this entity",
+    )
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -228,6 +260,19 @@ class Entity(Base):
         "Reminder",
         back_populates="entity",
         cascade="all, delete-orphan",
+    )
+    # File attachments linked to this entity
+    attachments: Mapped[List["EntityAttachment"]] = relationship(
+        "EntityAttachment",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        order_by="EntityAttachment.created_at.desc()",
+    )
+    # External API source that manages this entity
+    external_source: Mapped[Optional["ExternalAPIConfig"]] = relationship(
+        "ExternalAPIConfig",
+        back_populates="managed_entities",
+        foreign_keys=[external_source_id],
     )
 
     @property

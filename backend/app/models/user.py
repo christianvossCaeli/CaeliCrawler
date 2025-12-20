@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from app.models.notification import Notification
     from app.models.notification_rule import NotificationRule
     from app.models.reminder import Reminder
+    from app.models.user_dashboard import UserDashboardPreference
     from app.models.user_email import UserEmailAddress
     from app.models.user_session import UserSession
 
@@ -136,6 +137,17 @@ class User(Base):
     )
     reminders: Mapped[List["Reminder"]] = relationship(
         "Reminder",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    dashboard_preferences: Mapped[Optional["UserDashboardPreference"]] = relationship(
+        "UserDashboardPreference",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    export_jobs: Mapped[List["ExportJob"]] = relationship(
+        "ExportJob",
         back_populates="user",
         cascade="all, delete-orphan",
     )

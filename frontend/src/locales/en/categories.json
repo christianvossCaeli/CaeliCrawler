@@ -1,8 +1,8 @@
 {
   "categories": {
-    "title": "Categories",
-    "category": "Category",
-    "categories": "Categories",
+    "title": "Analysis Topics",
+    "category": "Analysis Topic",
+    "categories": "Analysis Topics",
     "tabs": {
       "general": "General",
       "search": "Search",
@@ -28,10 +28,10 @@
       "documentTypes": "Document types",
       "documentTypesHint": "e.g. Resolution, Protocol, Statute",
       "languages": "Languages",
-      "languagesHint": "Select languages for this category",
-      "languagesDescription": "Which languages are used in this category? The AI will adapt its analysis accordingly.",
+      "languagesHint": "Select languages for this analysis topic",
+      "languagesDescription": "Which languages are used in this analysis topic? The AI will adapt its analysis accordingly.",
       "urlFiltersTitle": "URL Filters (Regex)",
-      "urlFiltersDescription": "These filters apply to all data sources in this category, unless the source has its own filters. Without filters, the complete sitemap will be searched.",
+      "urlFiltersDescription": "These filters apply to all data sources in this analysis topic, unless the source has its own filters. Without filters, the complete sitemap will be searched.",
       "includePatterns": "Include Patterns (Whitelist)",
       "includeHint": "URLs must match at least one pattern. e.g. /documents/, /resolutions/, /council-info/",
       "excludePatterns": "Exclude Patterns (Blacklist)",
@@ -45,8 +45,8 @@
       "aiPromptHint": "Define the JSON format and extraction rules",
       "keywords": "Keywords",
       "enabled": "Active",
-      "enabledHint": "Inactive categories are not crawled",
-      "purposeHint": "Describe what the AI should analyze in this category",
+      "enabledHint": "Inactive analysis topics are not crawled",
+      "purposeHint": "Describe what the AI should analyze in this analysis topic",
       "searchInfo": "Search terms and document types help the crawler find relevant documents",
       "scheduleTitle": "Scheduling",
       "includePlaceholder": "e.g. /documents/",
@@ -62,7 +62,7 @@
       "actions": "Actions"
     },
     "actions": {
-      "create": "New Category",
+      "create": "New Analysis Topic",
       "edit": "Edit",
       "delete": "Delete",
       "viewSources": "View data sources",
@@ -70,12 +70,12 @@
       "reanalyze": "Reanalyze documents"
     },
     "dialog": {
-      "create": "New Category",
-      "edit": "Edit Category",
-      "delete": "Delete category?",
-      "deleteConfirm": "Do you really want to delete category \"{name}\"? All associated data sources and documents will also be deleted.",
+      "create": "New Analysis Topic",
+      "edit": "Edit Analysis Topic",
+      "delete": "Delete analysis topic?",
+      "deleteConfirm": "Do you really want to delete analysis topic \"{name}\"? All associated data sources and documents will also be deleted.",
       "reanalyze": "Reanalyze documents?",
-      "reanalyzeConfirm": "All documents in category \"{name}\" will be reanalyzed with the current AI prompt.",
+      "reanalyzeConfirm": "All documents in analysis topic \"{name}\" will be reanalyzed with the current AI prompt.",
       "reanalyzeAll": "Reanalyze all documents (not just low confidence)",
       "reanalyzeInfo": "will be reanalyzed.",
       "reanalyzeOnlyLow": "Only documents with confidence < 70%",
@@ -83,7 +83,7 @@
       "sources": "Data sources:",
       "sourcesFor": "Data sources:",
       "searchSources": "Search...",
-      "noSources": "No data sources in this category",
+      "noSources": "No data sources in this analysis topic",
       "noSourcesSearch": "No data sources found for",
       "statistics": "Statistics",
       "openUrl": "Open URL",
@@ -134,9 +134,9 @@
       "error": "Error"
     },
     "messages": {
-      "created": "Category created successfully",
-      "updated": "Category updated successfully",
-      "deleted": "Category deleted successfully",
+      "created": "Analysis topic created successfully",
+      "updated": "Analysis topic updated successfully",
+      "deleted": "Analysis topic deleted successfully",
       "reanalyzeStarted": "Reanalysis started",
       "reanalyzeError": "Error starting reanalysis",
       "sourcesLoadError": "Error loading data sources"

@@ -1,20 +1,53 @@
 """Celery tasks for AI analysis."""
 
 import json
-from datetime import datetime
-from typing import Any, Dict, Optional
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID
 
-from celery import shared_task
 import structlog
+from celery.exceptions import SoftTimeLimitExceeded
 
 from workers.celery_app import celery_app
 from app.config import settings
 
+if TYPE_CHECKING:
+    from openai import AsyncAzureOpenAI
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from app.models.entity import Entity
+    from app.models.facet_type import FacetType
+    from app.models.pysis import PySisProcess
+
 logger = structlog.get_logger()
 
+# Constants for PySis facet extraction
+PYSIS_MAX_CONTEXT_LENGTH = 50000
+PYSIS_TEXT_REPR_MAX_LENGTH = 2000
+PYSIS_SUMMARY_MAX_LENGTH = 500
+PYSIS_MIN_TEXT_LENGTH = 10
+PYSIS_MIN_DEDUP_TEXT_LENGTH = 5
+PYSIS_BASE_CONFIDENCE = 0.7
+PYSIS_CONFIDENCE_BOOST = 0.05
+PYSIS_MAX_CONFIDENCE = 0.95
+PYSIS_DUPLICATE_SIMILARITY_THRESHOLD = 0.85
 
-@celery_app.task(bind=True, name="workers.ai_tasks.analyze_document")
+# Constants for AI API calls
+AI_EXTRACTION_TEMPERATURE = 0.2
+AI_EXTRACTION_MAX_TOKENS = 4000
+
+
+@celery_app.task(
+    bind=True,
+    name="workers.ai_tasks.analyze_document",
+    max_retries=3,
+    default_retry_delay=60,
+    retry_backoff=True,
+    retry_backoff_max=600,
+    retry_jitter=True,
+    rate_limit="10/m",  # 10 requests per minute to respect Azure rate limits
+    soft_time_limit=300,  # 5 minutes soft limit for AI analysis
+    time_limit=360,  # 6 minutes hard limit
+)
 def analyze_document(self, document_id: str, skip_relevance_check: bool = False):
     """
     Analyze a document using Azure OpenAI.
@@ -124,7 +157,7 @@ def analyze_document(self, document_id: str, skip_relevance_check: bool = False)
                     # Convert extraction to Entity-Facet system
                     try:
                         # Use extraction_handler from category config
-                        handler = getattr(category, 'extraction_handler', 'default') or 'default'
+                        handler = category.extraction_handler or "default"
                         if handler == "event":
                             from services.event_extraction_service import convert_event_extraction_to_facets
                             facet_counts = await convert_event_extraction_to_facets(
@@ -315,19 +348,16 @@ async def _call_azure_openai(
     text: str,
     prompt: str,
     purpose: str,
-) -> Optional[Dict[str, Any]]:
-    """Call Azure OpenAI API for document analysis."""
-    from openai import AsyncAzureOpenAI
+) -> Dict[str, Any]:
+    """Call Azure OpenAI API for document analysis.
 
-    if not settings.azure_openai_api_key:
-        logger.warning("Azure OpenAI not configured")
-        return None
+    Raises:
+        ValueError: If Azure OpenAI is not configured
+        RuntimeError: If AI call fails
+    """
+    from services.ai_client import AzureOpenAIClientFactory
 
-    client = AsyncAzureOpenAI(
-        azure_endpoint=settings.azure_openai_endpoint,
-        api_key=settings.azure_openai_api_key,
-        api_version=settings.azure_openai_api_version,
-    )
+    client = AzureOpenAIClientFactory.create_client()
 
     # Truncate text if too long (keep first ~100k chars)
     max_chars = 100000
@@ -368,10 +398,10 @@ async def _call_azure_openai(
 
     except json.JSONDecodeError as e:
         logger.error("Failed to parse AI response as JSON", error=str(e))
-        return None
+        raise RuntimeError(f"KI-Service Fehler: AI-Antwort konnte nicht verarbeitet werden - {str(e)}")
     except Exception as e:
         logger.exception("Azure OpenAI API call failed")
-        raise
+        raise RuntimeError(f"KI-Service nicht erreichbar: {str(e)}")
 
 
 @celery_app.task(name="workers.ai_tasks.batch_analyze")
@@ -397,7 +427,7 @@ def reanalyze_low_confidence(threshold: float = 0.5):
             result = await session.execute(
                 select(ExtractedData)
                 .where(ExtractedData.confidence_score < threshold)
-                .where(ExtractedData.human_verified == False)
+                .where(ExtractedData.human_verified.is_(False))
             )
             extractions = result.scalars().all()
 
@@ -418,7 +448,18 @@ def reanalyze_low_confidence(threshold: float = 0.5):
     asyncio.run(_reanalyze())
 
 
-@celery_app.task(bind=True, name="workers.ai_tasks.extract_pysis_fields")
+@celery_app.task(
+    bind=True,
+    name="workers.ai_tasks.extract_pysis_fields",
+    max_retries=3,
+    default_retry_delay=60,
+    retry_backoff=True,
+    retry_backoff_max=600,
+    retry_jitter=True,
+    rate_limit="10/m",  # 10 requests per minute to respect Azure rate limits
+    soft_time_limit=600,  # 10 minutes soft limit
+    time_limit=660,  # 11 minutes hard limit
+)
 def extract_pysis_fields(self, process_id: str, field_ids: Optional[list[str]] = None):
     """
     Extract PySis field values from municipality documents using AI.
@@ -454,7 +495,7 @@ async def _extract_pysis_fields_async(process_id: str, field_ids: Optional[list[
         # Get fields to extract
         query = select(PySisProcessField).where(
             PySisProcessField.process_id == process.id,
-            PySisProcessField.ai_extraction_enabled == True
+            PySisProcessField.ai_extraction_enabled.is_(True)
         )
         if field_ids:
             query = query.where(PySisProcessField.id.in_([UUID(f) for f in field_ids]))
@@ -552,9 +593,9 @@ async def _extract_pysis_fields_async(process_id: str, field_ids: Optional[list[
                 context_parts.append(f"Timeline: {content.get('timeline')}")
 
             if content.get("outreach_recommendation"):
-                or_ = content.get("outreach_recommendation")
-                if isinstance(or_, dict):
-                    context_parts.append(f"Outreach: {json.dumps(or_, ensure_ascii=False)}")
+                outreach_rec = content.get("outreach_recommendation")
+                if isinstance(outreach_rec, dict):
+                    context_parts.append(f"Outreach: {json.dumps(outreach_rec, ensure_ascii=False)}")
 
             context_parts.append("")
 
@@ -628,24 +669,20 @@ async def _extract_single_pysis_field(
     field: "PySisProcessField",
     context: str,
     location_name: str
-) -> tuple[Optional[str], float]:
+) -> tuple[str, float]:
     """
     Extract a single PySis field value using AI.
 
     Returns:
         Tuple of (extracted_value, confidence_score)
+
+    Raises:
+        ValueError: If Azure OpenAI is not configured
+        RuntimeError: If AI extraction fails
     """
-    from openai import AsyncAzureOpenAI
+    from services.ai_client import AzureOpenAIClientFactory
 
-    if not settings.azure_openai_api_key:
-        logger.warning("Azure OpenAI not configured")
-        return None, 0.0
-
-    client = AsyncAzureOpenAI(
-        azure_endpoint=settings.azure_openai_endpoint,
-        api_key=settings.azure_openai_api_key,
-        api_version=settings.azure_openai_api_version,
-    )
+    client = AzureOpenAIClientFactory.create_client()
 
     # Build extraction prompt
     custom_prompt = field.ai_extraction_prompt or ""
@@ -704,10 +741,10 @@ Regeln:
 
     except json.JSONDecodeError as e:
         logger.error("Failed to parse AI response as JSON", error=str(e))
-        return None, 0.0
+        raise RuntimeError(f"KI-Service Fehler: AI-Antwort konnte nicht verarbeitet werden - {str(e)}")
     except Exception as e:
         logger.exception("Azure OpenAI API call failed for PySis field extraction")
-        raise
+        raise RuntimeError(f"KI-Service nicht erreichbar: {str(e)}")
 
 
 @celery_app.task(name="workers.ai_tasks.convert_extractions_to_facets")
@@ -932,12 +969,24 @@ async def _batch_sync_entities_async():
         )
 
 
-@celery_app.task(bind=True, name="workers.ai_tasks.analyze_pysis_fields_for_facets")
+@celery_app.task(
+    bind=True,
+    name="workers.ai_tasks.analyze_pysis_fields_for_facets",
+    max_retries=3,
+    default_retry_delay=60,
+    retry_backoff=True,
+    retry_backoff_max=600,
+    retry_jitter=True,
+    rate_limit="10/m",  # 10 requests per minute to respect Azure rate limits
+    soft_time_limit=600,  # 10 minutes soft limit
+    time_limit=660,  # 11 minutes hard limit
+)
 def analyze_pysis_fields_for_facets(
     self,
     process_id: str,
     include_empty: bool = False,
     min_confidence: float = 0.0,
+    existing_task_id: Optional[str] = None,
 ):
     """
     Analyze PySis fields and create FacetValues.
@@ -946,13 +995,15 @@ def analyze_pysis_fields_for_facets(
         process_id: UUID of the PySis process
         include_empty: Include empty fields in analysis
         min_confidence: Minimum field confidence
+        existing_task_id: Existing AITask ID (to avoid duplicate creation)
     """
     import asyncio
     asyncio.run(_analyze_pysis_for_facets_async(
         process_id,
         include_empty,
         min_confidence,
-        self.request.id
+        self.request.id,
+        existing_task_id,
     ))
 
 
@@ -961,6 +1012,7 @@ async def _analyze_pysis_for_facets_async(
     include_empty: bool,
     min_confidence: float,
     celery_task_id: Optional[str] = None,
+    existing_task_id: Optional[str] = None,
 ):
     """Async implementation of PySis-to-Facets analysis."""
     from app.database import get_celery_session_context
@@ -970,49 +1022,79 @@ async def _analyze_pysis_for_facets_async(
     from datetime import datetime, timezone
 
     async with get_celery_session_context() as session:
+        # Helper to mark task as failed if it exists
+        async def fail_task_if_exists(error_msg: str):
+            if existing_task_id:
+                task = await session.get(AITask, UUID(existing_task_id))
+                if task:
+                    task.status = AITaskStatus.FAILED
+                    task.error_message = error_msg
+                    task.completed_at = datetime.now(timezone.utc)
+                    await session.commit()
+
         # 1. Load process
         process = await session.get(PySisProcess, UUID(process_id))
         if not process:
             logger.error("PySis process not found", process_id=process_id)
+            await fail_task_if_exists(f"PySis-Prozess nicht gefunden: {process_id}")
             return
 
         if not process.entity_id:
             logger.error("Process has no entity", process_id=process_id)
+            await fail_task_if_exists("PySis-Prozess hat keine verknüpfte Entity")
             return
 
         # Load entity
         entity = await session.get(Entity, process.entity_id)
         if not entity:
             logger.error("Entity not found", entity_id=str(process.entity_id))
+            await fail_task_if_exists(f"Entity nicht gefunden: {process.entity_id}")
             return
 
         # 2. Load all active FacetTypes with AI extraction enabled
         facet_types_result = await session.execute(
             select(FacetType)
-            .where(FacetType.is_active == True)
-            .where(FacetType.ai_extraction_enabled == True)
+            .where(FacetType.is_active.is_(True))
+            .where(FacetType.ai_extraction_enabled.is_(True))
             .order_by(FacetType.display_order)
         )
         facet_types = facet_types_result.scalars().all()
 
         if not facet_types:
             logger.warning("No active FacetTypes with AI extraction enabled")
+            await fail_task_if_exists("Keine aktiven FacetTypes mit AI-Extraktion gefunden")
             return
 
-        # 3. Create AI task for tracking
-        ai_task = AITask(
-            task_type=AITaskType.PYSIS_TO_FACETS,
-            status=AITaskStatus.RUNNING,
-            name=f"PySis-Facet-Analyse: {entity.name}",
-            description=f"Extrahiere {len(facet_types)} Facet-Typen aus {len(process.fields)} PySis-Feldern",
-            process_id=process.id,
-            started_at=datetime.now(timezone.utc),
-            progress_total=len(facet_types),
-            celery_task_id=celery_task_id,
-        )
-        session.add(ai_task)
-        await session.commit()
-        await session.refresh(ai_task)
+        # 3. Get or create AI task for tracking
+        if existing_task_id:
+            # Use existing task from service layer
+            ai_task = await session.get(AITask, UUID(existing_task_id))
+            if ai_task:
+                ai_task.status = AITaskStatus.RUNNING
+                ai_task.description = f"Extrahiere {len(facet_types)} Facet-Typen aus {len(process.fields)} PySis-Feldern"
+                ai_task.progress_total = len(facet_types)
+                ai_task.celery_task_id = celery_task_id
+                await session.commit()
+            else:
+                logger.warning("Existing task not found, creating new", existing_task_id=existing_task_id)
+                existing_task_id = None
+
+        if not existing_task_id:
+            # Create new task (fallback or direct call)
+            ai_task = AITask(
+                task_type=AITaskType.PYSIS_TO_FACETS,
+                status=AITaskStatus.RUNNING,
+                name=f"PySis-Facet-Analyse: {entity.name}",
+                description=f"Extrahiere {len(facet_types)} Facet-Typen aus {len(process.fields)} PySis-Feldern",
+                process_id=process.id,
+                started_at=datetime.now(timezone.utc),
+                progress_total=len(facet_types),
+                celery_task_id=celery_task_id,
+            )
+            session.add(ai_task)
+            await session.commit()
+            await session.refresh(ai_task)
+
         task_id = ai_task.id
 
         # 4. Collect field values
@@ -1071,6 +1153,8 @@ async def _analyze_pysis_for_facets_async(
             facet_extractions,
             facet_types,
             task_id,
+            process=process,
+            field_data=field_data,
         )
 
         # 7. Complete task
@@ -1089,9 +1173,9 @@ async def _analyze_pysis_for_facets_async(
 
 
 async def _extract_facets_from_pysis_fields_dynamic(
-    fields: list[Dict[str, Any]],
+    fields: List[Dict[str, Any]],
     entity_name: str,
-    facet_types: list,
+    facet_types: List["FacetType"],
 ) -> Dict[str, Any]:
     """
     Extract facets from PySis field values using AI with dynamic FacetTypes.
@@ -1104,30 +1188,26 @@ async def _extract_facets_from_pysis_fields_dynamic(
     Returns:
         Dict with slug as key and list of extracted items as value
     """
-    from openai import AsyncAzureOpenAI
+    from services.ai_client import AzureOpenAIClientFactory
 
-    if not settings.azure_openai_api_key:
-        raise ValueError("Azure OpenAI not configured")
-
-    client = AsyncAzureOpenAI(
-        azure_endpoint=settings.azure_openai_endpoint,
-        api_key=settings.azure_openai_api_key,
-        api_version=settings.azure_openai_api_version,
-    )
+    client = AzureOpenAIClientFactory.create_client()
 
     # Prepare field values as structured text
     fields_text = "PYSIS-FELDER:\n\n"
     for f in fields:
-        fields_text += f"--- {f['name']} ({f['pysis_name']}) ---\n"
-        fields_text += f"Wert: {f['value']}\n"
-        if f['confidence']:
+        field_name = f.get("name", "Unbekannt")
+        pysis_name = f.get("pysis_name", "unknown")
+        field_value = f.get("value", "")
+
+        fields_text += f"--- {field_name} ({pysis_name}) ---\n"
+        fields_text += f"Wert: {field_value}\n"
+        if f.get("confidence") is not None:
             fields_text += f"Konfidenz: {f['confidence']:.0%}\n"
         fields_text += "\n"
 
     # Limit context size
-    max_context = 50000
-    if len(fields_text) > max_context:
-        fields_text = fields_text[:max_context] + "\n\n[... Text gekürzt ...]"
+    if len(fields_text) > PYSIS_MAX_CONTEXT_LENGTH:
+        fields_text = fields_text[:PYSIS_MAX_CONTEXT_LENGTH] + "\n\n[... Text gekürzt ...]"
 
     # Build dynamic facet type descriptions
     facet_descriptions = []
@@ -1148,13 +1228,13 @@ async def _extract_facets_from_pysis_fields_dynamic(
             props = ft.value_schema.get("properties", {})
             if props:
                 schema_fields = []
-                for field_name, field_def in props.items():
-                    field_type = field_def.get("type", "string")
-                    field_desc = field_def.get("description", "")
-                    if field_desc:
-                        schema_fields.append(f"  - {field_name}: {field_desc}")
+                for prop_name, prop_def in props.items():
+                    prop_type = prop_def.get("type", "string")
+                    prop_desc = prop_def.get("description", "")
+                    if prop_desc:
+                        schema_fields.append(f"  - {prop_name}: {prop_desc}")
                     else:
-                        schema_fields.append(f"  - {field_name} ({field_type})")
+                        schema_fields.append(f"  - {prop_name} ({prop_type})")
                 if schema_fields:
                     schema_desc = "\n   Felder:\n" + "\n".join(schema_fields)
 
@@ -1186,12 +1266,20 @@ WICHTIGE REGELN:
 - Erfinde KEINE Informationen
 - Wenn keine Informationen für eine Kategorie vorhanden sind, gib ein leeres Array [] oder null zurück
 - Jeder extrahierte Eintrag sollte eine aussagekräftige Beschreibung oder einen Wert haben
+- WICHTIG: Für jeden extrahierten Eintrag MUSS ein "source_fields" Array angegeben werden, das die pysis_name(n) der Felder enthält, aus denen die Information stammt
 
 ANTWORTFORMAT (JSON):
 {{
 {response_format_hint},
   "extraction_confidence": 0.8,
   "extraction_notes": "Kurze Notiz zur Qualität der Extraktion"
+}}
+
+BEISPIEL für einen extrahierten Kontakt:
+{{
+  "name": "Max Mustermann",
+  "role": "Projektleiter",
+  "source_fields": ["zustndigkeitpm", "chat.participants"]
 }}
 """
 
@@ -1202,28 +1290,71 @@ ANTWORTFORMAT (JSON):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": fields_text},
             ],
-            temperature=0.2,
-            max_tokens=4000,
+            temperature=AI_EXTRACTION_TEMPERATURE,
+            max_tokens=AI_EXTRACTION_MAX_TOKENS,
             response_format={"type": "json_object"},
         )
 
-        result = json.loads(response.choices[0].message.content)
+        # Validate response structure
+        if not response.choices:
+            raise RuntimeError("KI-Service Fehler: Leere Antwort vom AI-Service")
+
+        content = response.choices[0].message.content
+        if not content:
+            raise RuntimeError("KI-Service Fehler: Keine Inhalte in der AI-Antwort")
+
+        result = json.loads(content)
         return result
 
     except json.JSONDecodeError as e:
         logger.error("Failed to parse AI response", error=str(e))
-        raise
+        raise RuntimeError(f"KI-Service Fehler: AI-Antwort konnte nicht verarbeitet werden - {str(e)}")
+    except RuntimeError:
+        raise  # Re-raise our own RuntimeErrors
     except Exception as e:
         logger.exception("Azure OpenAI API call failed for PySis facet extraction")
-        raise
+        raise RuntimeError(f"KI-Service nicht erreichbar: {str(e)}")
+
+
+def _build_pysis_source_metadata(
+    item_source_fields: List[str],
+    pysis_fields_dict: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Build metadata dict with source field names and their values.
+
+    Args:
+        item_source_fields: List of PySis field names that contributed to this item
+        pysis_fields_dict: Dict mapping field names to their values
+
+    Returns:
+        Dict with pysis_field_names and pysis_fields (if values exist)
+    """
+    if not item_source_fields:
+        return {}
+
+    metadata = {"pysis_field_names": item_source_fields}
+
+    # Include actual values from those fields (use walrus operator to avoid double .get())
+    source_field_values = {
+        field: value
+        for field in item_source_fields
+        if (value := pysis_fields_dict.get(field))
+    }
+    if source_field_values:
+        metadata["pysis_fields"] = source_field_values
+
+    return metadata
 
 
 async def _create_facets_from_pysis_extraction_dynamic(
-    session,
-    entity,
+    session: "AsyncSession",
+    entity: "Entity",
     extractions: Dict[str, Any],
-    facet_types: list,
+    facet_types: List["FacetType"],
     task_id: UUID,
+    process: Optional["PySisProcess"] = None,
+    field_data: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, int]:
     """
     Create FacetValues from AI extraction dynamically based on FacetTypes.
@@ -1234,26 +1365,40 @@ async def _create_facets_from_pysis_extraction_dynamic(
         extractions: Dict with slug as key and extracted data as value
         facet_types: List of FacetType objects
         task_id: AI task ID for progress tracking
+        process: PySisProcess object for metadata
+        field_data: List of field dicts with name, pysis_name, value, etc.
 
     Returns:
         Dict with facet type slug as key and count of created facets as value
     """
     from app.models import AITask
+    from app.models.facet_value import FacetValueSourceType
     from services.entity_facet_service import (
         check_duplicate_facet,
         create_facet_value,
     )
 
     counts = {}
-    base_confidence = extractions.get("extraction_confidence", 0.7)
+    base_confidence = extractions.get("extraction_confidence", PYSIS_BASE_CONFIDENCE)
+
+    # Build base PySis metadata (process info only)
+    pysis_base_metadata = {}
+    if process:
+        pysis_base_metadata["pysis_process_id"] = str(process.id)
+        pysis_base_metadata["pysis_process_title"] = process.name or "PySis Prozess"
+
+    # Build a dict of field values for looking up source field values
+    # Use walrus operator to avoid double .get() calls
+    pysis_fields_dict = {}
+    if field_data:
+        pysis_fields_dict = {
+            key: value
+            for f in field_data
+            if (key := (f.get("pysis_name") or f.get("name")))
+            and (value := f.get("value"))
+        }
 
     for idx, ft in enumerate(facet_types):
-        # Update progress
-        ai_task = await session.get(AITask, task_id)
-        ai_task.progress_current = idx + 1
-        ai_task.current_item = ft.name
-        await session.commit()
-
         counts[ft.slug] = 0
 
         # Get extracted data for this facet type
@@ -1263,16 +1408,32 @@ async def _create_facets_from_pysis_extraction_dynamic(
 
         # Handle different value types
         if ft.value_type == "text":
-            # Single text value (like summary)
-            if isinstance(extracted_data, str) and len(extracted_data) > 10:
+            # Single text value (like summary) - can be string or dict with text+source_fields
+            text_content = None
+            item_source_fields = []
+
+            if isinstance(extracted_data, str) and len(extracted_data) > PYSIS_MIN_TEXT_LENGTH:
+                text_content = extracted_data
+            elif isinstance(extracted_data, dict):
+                text_content = extracted_data.get("text") or extracted_data.get("description")
+                item_source_fields = extracted_data.get("source_fields", [])
+
+            if text_content and len(text_content) > PYSIS_MIN_TEXT_LENGTH:
+                # Build metadata with specific source fields
+                value_with_metadata = {
+                    "text": text_content,
+                    **pysis_base_metadata,
+                    **_build_pysis_source_metadata(item_source_fields, pysis_fields_dict),
+                }
+
                 await create_facet_value(
                     session,
                     entity_id=entity.id,
                     facet_type_id=ft.id,
-                    value={"text": extracted_data},
-                    text_representation=extracted_data[:500],
+                    value=value_with_metadata,
+                    text_representation=text_content[:PYSIS_SUMMARY_MAX_LENGTH],
                     confidence_score=base_confidence,
-                    source_url=f"pysis://process/{task_id}",
+                    source_type=FacetValueSourceType.PYSIS,
                 )
                 counts[ft.slug] = 1
         else:
@@ -1284,6 +1445,9 @@ async def _create_facets_from_pysis_extraction_dynamic(
                 if not isinstance(item, dict):
                     continue
 
+                # Extract source_fields from item (added by AI) - use get() to avoid mutating input
+                item_source_fields = item.get("source_fields", [])
+
                 # Get text representation for deduplication
                 # Try common field names
                 text_repr = (
@@ -1294,7 +1458,7 @@ async def _create_facets_from_pysis_extraction_dynamic(
                     or str(item)
                 )
 
-                if not text_repr or len(str(text_repr)) < 5:
+                if not text_repr or len(str(text_repr)) < PYSIS_MIN_DEDUP_TEXT_LENGTH:
                     continue
 
                 text_repr = str(text_repr)
@@ -1302,7 +1466,11 @@ async def _create_facets_from_pysis_extraction_dynamic(
                 # Check for duplicates using deduplication_fields if configured
                 dedup_text = text_repr
                 if ft.deduplication_fields:
-                    dedup_parts = [str(item.get(f, "")) for f in ft.deduplication_fields if item.get(f)]
+                    # Use walrus operator to avoid double .get() calls
+                    dedup_parts = [
+                        str(val) for f in ft.deduplication_fields
+                        if (val := item.get(f))
+                    ]
                     if dedup_parts:
                         dedup_text = " ".join(dedup_parts)
 
@@ -1311,21 +1479,986 @@ async def _create_facets_from_pysis_extraction_dynamic(
                     entity.id,
                     ft.id,
                     dedup_text,
-                    similarity_threshold=0.85,
+                    similarity_threshold=PYSIS_DUPLICATE_SIMILARITY_THRESHOLD,
                 )
                 if is_dupe:
-                    logger.debug(f"Skipping duplicate {ft.slug}", text=dedup_text[:50])
+                    logger.debug(
+                        "Skipping duplicate facet",
+                        facet_type=ft.slug,
+                        text_preview=dedup_text[:50],
+                    )
                     continue
+
+                # Build metadata with specific source fields for this item
+                # Filter out source_fields from item since we store it separately as pysis_field_names
+                value_with_metadata = {
+                    k: v for k, v in item.items() if k != "source_fields"
+                }
+                value_with_metadata.update(pysis_base_metadata)
+                value_with_metadata.update(
+                    _build_pysis_source_metadata(item_source_fields, pysis_fields_dict)
+                )
 
                 await create_facet_value(
                     session,
                     entity_id=entity.id,
                     facet_type_id=ft.id,
-                    value=item,
-                    text_representation=text_repr[:2000],
-                    confidence_score=min(0.95, base_confidence + 0.05),
-                    source_url=f"pysis://process/{task_id}",
+                    value=value_with_metadata,
+                    text_representation=text_repr[:PYSIS_TEXT_REPR_MAX_LENGTH],
+                    confidence_score=min(
+                        PYSIS_MAX_CONFIDENCE,
+                        base_confidence + PYSIS_CONFIDENCE_BOOST
+                    ),
+                    source_type=FacetValueSourceType.PYSIS,
                 )
                 counts[ft.slug] += 1
 
+        # Update progress after processing each facet type (batch commit)
+        if counts[ft.slug] > 0:
+            ai_task = await session.get(AITask, task_id)
+            if ai_task:
+                ai_task.progress_current = idx + 1
+                ai_task.current_item = ft.name
+                await session.commit()
+
     return counts
+
+
+@celery_app.task(
+    bind=True,
+    name="workers.ai_tasks.enrich_facet_values_from_pysis",
+    max_retries=3,
+    default_retry_delay=60,
+    retry_backoff=True,
+    retry_backoff_max=600,
+    retry_jitter=True,
+    rate_limit="10/m",  # 10 requests per minute to respect Azure rate limits
+    soft_time_limit=600,  # 10 minutes soft limit
+    time_limit=660,  # 11 minutes hard limit
+)
+def enrich_facet_values_from_pysis(
+    self,
+    entity_id: str,
+    facet_type_id: Optional[str] = None,
+    overwrite_existing: bool = False,
+    existing_task_id: Optional[str] = None,
+):
+    """
+    Enrich existing FacetValues with data from PySis fields.
+
+    Args:
+        entity_id: UUID of the entity
+        facet_type_id: Optional - only enrich this FacetType
+        overwrite_existing: Replace existing field values
+        existing_task_id: Existing AITask ID (to avoid duplicate creation)
+    """
+    import asyncio
+    asyncio.run(_enrich_facet_values_from_pysis_async(
+        entity_id,
+        facet_type_id,
+        overwrite_existing,
+        self.request.id,
+        existing_task_id,
+    ))
+
+
+async def _enrich_facet_values_from_pysis_async(
+    entity_id: str,
+    facet_type_id: Optional[str],
+    overwrite_existing: bool,
+    celery_task_id: Optional[str] = None,
+    existing_task_id: Optional[str] = None,
+):
+    """Async implementation of FacetValue enrichment from PySis."""
+    from app.database import get_celery_session_context
+    from app.models.pysis import PySisProcess
+    from app.models import AITask, AITaskStatus, AITaskType, Entity, FacetType, FacetValue
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    from datetime import datetime, timezone
+
+    async with get_celery_session_context() as session:
+        # Helper to mark task as failed if it exists
+        async def fail_task_if_exists(error_msg: str):
+            if existing_task_id:
+                task = await session.get(AITask, UUID(existing_task_id))
+                if task:
+                    task.status = AITaskStatus.FAILED
+                    task.error_message = error_msg
+                    task.completed_at = datetime.now(timezone.utc)
+                    await session.commit()
+
+        entity = await session.get(Entity, UUID(entity_id))
+        if not entity:
+            logger.error("Entity not found", entity_id=entity_id)
+            await fail_task_if_exists(f"Entity nicht gefunden: {entity_id}")
+            return
+
+        # 1. Load PySis processes for this entity
+        pysis_result = await session.execute(
+            select(PySisProcess)
+            .options(selectinload(PySisProcess.fields))
+            .where(PySisProcess.entity_id == UUID(entity_id))
+        )
+        processes = pysis_result.scalars().all()
+
+        if not processes:
+            logger.warning("No PySis processes found for entity", entity_id=entity_id)
+            await fail_task_if_exists(f"Keine PySis-Prozesse für Entity gefunden: {entity.name}")
+            return
+
+        # 2. Collect all PySis field data
+        pysis_fields = []
+        for process in processes:
+            for field in process.fields:
+                value = field.current_value or field.pysis_value or field.ai_extracted_value
+                if value:
+                    pysis_fields.append({
+                        "name": field.internal_name,
+                        "pysis_name": field.pysis_field_name,
+                        "value": value,
+                        "confidence": field.confidence_score,
+                    })
+
+        if not pysis_fields:
+            logger.info("No PySis field values found", entity_id=entity_id)
+            await fail_task_if_exists("Keine PySis-Feldwerte zum Anreichern gefunden")
+            return
+
+        # 3. Load FacetValues to enrich
+        query = (
+            select(FacetValue)
+            .options(selectinload(FacetValue.facet_type))
+            .where(FacetValue.entity_id == UUID(entity_id))
+            .where(FacetValue.is_active.is_(True))
+        )
+        if facet_type_id:
+            query = query.where(FacetValue.facet_type_id == UUID(facet_type_id))
+
+        result = await session.execute(query)
+        facet_values = result.scalars().all()
+
+        if not facet_values:
+            logger.info("No FacetValues to enrich")
+            await fail_task_if_exists("Keine FacetValues zum Anreichern gefunden")
+            return
+
+        # 4. Get or create AI task for tracking
+        if existing_task_id:
+            # Use existing task from service layer
+            ai_task = await session.get(AITask, UUID(existing_task_id))
+            if ai_task:
+                ai_task.status = AITaskStatus.RUNNING
+                ai_task.description = f"Reichere {len(facet_values)} FacetValues mit PySis-Daten an"
+                ai_task.progress_total = len(facet_values)
+                ai_task.celery_task_id = celery_task_id
+                await session.commit()
+            else:
+                logger.warning("Existing task not found, creating new", existing_task_id=existing_task_id)
+                existing_task_id = None
+
+        if not existing_task_id:
+            # Create new task (fallback or direct call)
+            ai_task = AITask(
+                task_type=AITaskType.PYSIS_TO_FACETS,
+                status=AITaskStatus.RUNNING,
+                name=f"FacetValue-Anreicherung: {entity.name}",
+                description=f"Reichere {len(facet_values)} FacetValues mit PySis-Daten an",
+                started_at=datetime.now(timezone.utc),
+                progress_total=len(facet_values),
+                celery_task_id=celery_task_id,
+            )
+            session.add(ai_task)
+            await session.commit()
+            await session.refresh(ai_task)
+
+        task_id = ai_task.id
+
+        # 5. Initialize Azure OpenAI client
+        from services.ai_client import AzureOpenAIClientFactory
+        try:
+            client = AzureOpenAIClientFactory.create_client()
+        except ValueError as e:
+            ai_task.status = AITaskStatus.FAILED
+            ai_task.error_message = str(e)
+            ai_task.completed_at = datetime.now(timezone.utc)
+            await session.commit()
+            return
+
+        # 6. Process each FacetValue
+        enriched_count = 0
+        for idx, fv in enumerate(facet_values):
+            # Update progress
+            ai_task = await session.get(AITask, task_id)
+            ai_task.progress_current = idx + 1
+            ai_task.current_item = fv.text_representation[:100] if fv.text_representation else None
+            await session.commit()
+
+            # Load FacetType for schema
+            facet_type = fv.facet_type
+            if not facet_type or not facet_type.value_schema:
+                continue
+
+            # Analyze and enrich
+            try:
+                enriched_value = await _enrich_single_facet_value(
+                    client,
+                    fv.value or {},
+                    facet_type.value_schema,
+                    pysis_fields,
+                    entity.name,
+                    overwrite_existing,
+                )
+
+                if enriched_value and enriched_value != fv.value:
+                    fv.value = enriched_value
+                    fv.updated_at = datetime.now(timezone.utc)
+                    fv.ai_model_used = settings.azure_openai_deployment_name
+
+                    # Update text representation
+                    text_repr = (
+                        enriched_value.get("description")
+                        or enriched_value.get("text")
+                        or enriched_value.get("name")
+                        or str(enriched_value)
+                    )
+                    if text_repr:
+                        fv.text_representation = str(text_repr)[:2000]
+
+                    enriched_count += 1
+                    await session.commit()
+
+            except Exception as e:
+                logger.error(
+                    "Failed to enrich FacetValue",
+                    facet_value_id=str(fv.id),
+                    error=str(e)
+                )
+
+        # 7. Complete task
+        ai_task = await session.get(AITask, task_id)
+        ai_task.status = AITaskStatus.COMPLETED
+        ai_task.completed_at = datetime.now(timezone.utc)
+        ai_task.fields_extracted = enriched_count
+        await session.commit()
+
+        logger.info(
+            "FacetValue enrichment completed",
+            entity_id=entity_id,
+            enriched=enriched_count,
+            total=len(facet_values),
+        )
+
+
+async def _enrich_single_facet_value(
+    client: "AsyncAzureOpenAI",
+    current_value: Dict[str, Any],
+    value_schema: Dict[str, Any],
+    pysis_fields: List[Dict[str, Any]],
+    entity_name: str,
+    overwrite_existing: bool,
+) -> Optional[Dict[str, Any]]:
+    """
+    Enrich a single FacetValue using AI.
+
+    Args:
+        client: Azure OpenAI client
+        current_value: Current value dict
+        value_schema: JSON Schema defining expected structure
+        pysis_fields: Available PySis field data
+        entity_name: Name of the entity
+        overwrite_existing: Whether to overwrite existing values
+
+    Returns:
+        Enriched value dict or None if no changes
+    """
+    # Identify missing or empty fields
+    schema_properties = value_schema.get("properties", {})
+    missing_fields = []
+
+    for field_name, field_def in schema_properties.items():
+        current_field_value = current_value.get(field_name)
+        # Skip fields that have values unless overwrite is enabled
+        if current_field_value and not overwrite_existing:
+            continue
+        # Skip internal fields
+        if field_name in ["id", "created_at", "updated_at"]:
+            continue
+
+        missing_fields.append({
+            "name": field_name,
+            "type": field_def.get("type", "string"),
+            "description": field_def.get("description", ""),
+        })
+
+    if not missing_fields:
+        return None
+
+    # Build prompt
+    pysis_text = "\n".join([
+        f"- {f['name']}: {f['value']}"
+        for f in pysis_fields[:30]  # Limit context
+    ])
+
+    missing_fields_text = "\n".join([
+        f"- {f['name']} ({f['type']}): {f['description']}"
+        for f in missing_fields
+    ])
+
+    prompt = f"""Analysiere die PySis-Daten für "{entity_name}" und extrahiere fehlende Informationen.
+
+AKTUELLE WERTE:
+{json.dumps(current_value, ensure_ascii=False, indent=2)}
+
+FEHLENDE FELDER (zu befüllen):
+{missing_fields_text}
+
+VERFÜGBARE PYSIS-DATEN:
+{pysis_text}
+
+Ergänze die fehlenden Felder basierend auf den verfügbaren Daten.
+Antworte im JSON-Format mit NUR den neuen/aktualisierten Feldern.
+Wenn keine passenden Daten gefunden werden, gib ein leeres Objekt {{}} zurück.
+Erfinde KEINE Informationen."""
+
+    try:
+        response = await client.chat.completions.create(
+            model=settings.azure_openai_deployment_name,
+            messages=[
+                {"role": "system", "content": "Du extrahierst strukturierte Daten aus Textfeldern. Antworte nur mit JSON."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.1,
+            max_tokens=1000,
+            response_format={"type": "json_object"},
+        )
+
+        enriched = json.loads(response.choices[0].message.content)
+
+        if enriched:
+            # Merge with current value
+            result = current_value.copy()
+            for key, value in enriched.items():
+                if key in schema_properties and value:
+                    result[key] = value
+            return result
+
+        return None
+
+    except Exception as e:
+        logger.error("AI enrichment failed", error=str(e))
+        return None
+
+
+# =============================================================================
+# Entity Data Analysis for Facet Enrichment
+# =============================================================================
+
+
+@celery_app.task(
+    bind=True,
+    name="workers.ai_tasks.analyze_entity_data_for_facets",
+    max_retries=3,
+    default_retry_delay=60,
+    retry_backoff=True,
+    retry_backoff_max=600,
+    retry_jitter=True,
+    rate_limit="10/m",
+    soft_time_limit=600,
+    time_limit=660,
+)
+def analyze_entity_data_for_facets(
+    self,
+    entity_id: str,
+    source_types: List[str],
+    target_facet_types: List[str],
+    task_id: str,
+):
+    """
+    Analyze entity data from multiple sources and create facet suggestions.
+
+    This task:
+    1. Collects data from specified sources (relations, documents, extractions, pysis)
+    2. Analyzes with AI to extract facet suggestions
+    3. Stores preview in AITask.result_data (no direct writes)
+
+    Args:
+        entity_id: UUID of the entity
+        source_types: List of source types to analyze
+        target_facet_types: List of facet type slugs to generate
+        task_id: AITask ID for progress tracking
+    """
+    import asyncio
+    asyncio.run(_analyze_entity_data_for_facets_async(
+        entity_id,
+        source_types,
+        target_facet_types,
+        task_id,
+    ))
+
+
+async def _analyze_entity_data_for_facets_async(
+    entity_id: str,
+    source_types: List[str],
+    target_facet_types: List[str],
+    task_id: str,
+):
+    """Async implementation of entity data analysis."""
+    from app.database import get_celery_session_context
+    from app.models import AITask, AITaskStatus, Entity, FacetType
+    from sqlalchemy import select
+    from services.entity_data_facet_service import (
+        collect_entity_data,
+        get_existing_facets,
+        compute_value_hash,
+    )
+
+    async with get_celery_session_context() as session:
+        # Helper to mark task as failed
+        async def fail_task(error_msg: str):
+            task = await session.get(AITask, UUID(task_id))
+            if task:
+                task.status = AITaskStatus.FAILED
+                task.error_message = error_msg
+                task.completed_at = datetime.now(timezone.utc)
+                await session.commit()
+
+        try:
+            # 1. Load and validate task
+            ai_task = await session.get(AITask, UUID(task_id))
+            if not ai_task:
+                logger.error("AI task not found", task_id=task_id)
+                return
+
+            ai_task.status = AITaskStatus.RUNNING
+            await session.commit()
+
+            # 2. Load entity
+            entity = await session.get(Entity, UUID(entity_id))
+            if not entity:
+                await fail_task(f"Entity nicht gefunden: {entity_id}")
+                return
+
+            # 3. Load facet types
+            ft_result = await session.execute(
+                select(FacetType)
+                .where(FacetType.slug.in_(target_facet_types))
+                .where(FacetType.is_active.is_(True))
+            )
+            facet_types = ft_result.scalars().all()
+            facet_type_map = {ft.slug: ft for ft in facet_types}
+
+            if not facet_types:
+                await fail_task("Keine gültigen Facet-Typen gefunden")
+                return
+
+            # 4. Collect data from sources
+            ai_task.current_item = "Sammle Daten..."
+            ai_task.progress_total = len(source_types) + 2  # +2 for AI analysis + existing facets
+            ai_task.progress_current = 0
+            await session.commit()
+
+            collected_data = await collect_entity_data(
+                session, UUID(entity_id), source_types
+            )
+
+            ai_task.progress_current = len(source_types)
+            ai_task.current_item = "Lade bestehende Facets..."
+            await session.commit()
+
+            # 5. Get existing facets for deduplication
+            existing_facets = await get_existing_facets(session, UUID(entity_id))
+            existing_hashes = {
+                compute_value_hash(f["value"]) for f in existing_facets
+            }
+
+            ai_task.progress_current = len(source_types) + 1
+            ai_task.current_item = "Analysiere mit KI..."
+            await session.commit()
+
+            # 6. Run AI analysis
+            ai_result = await _run_entity_data_ai_analysis(
+                collected_data,
+                existing_facets,
+                facet_types,
+                entity.name,
+            )
+
+            # 7. Process AI result into preview format
+            new_facets = []
+            updates = []
+
+            for ft_slug, items in ai_result.get("facets", {}).items():
+                if ft_slug not in facet_type_map:
+                    continue
+
+                ft = facet_type_map[ft_slug]
+
+                if not isinstance(items, list):
+                    items = [items] if items else []
+
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+
+                    # Get text representation
+                    text_repr = (
+                        item.get("description")
+                        or item.get("text")
+                        or item.get("name")
+                        or str(item)
+                    )
+
+                    if not text_repr or len(str(text_repr)) < 5:
+                        continue
+
+                    # Check if this matches an existing facet
+                    item_hash = compute_value_hash(item)
+                    matching_existing = None
+
+                    for existing in existing_facets:
+                        if existing["facet_type"] == ft_slug:
+                            # Check for potential update
+                            existing_text = existing.get("text", "")
+                            if _texts_similar(str(text_repr), existing_text):
+                                matching_existing = existing
+                                break
+
+                    if matching_existing:
+                        # This is an update to existing facet
+                        # Compare values to find changes
+                        current_val = matching_existing.get("value", {})
+                        changes = []
+                        for key, new_val in item.items():
+                            if key in ["source_fields", "confidence"]:
+                                continue
+                            old_val = current_val.get(key)
+                            if new_val != old_val and new_val:
+                                changes.append(key)
+
+                        if changes:
+                            updates.append({
+                                "facet_value_id": matching_existing["id"],
+                                "facet_type": ft_slug,
+                                "facet_type_name": ft.name,
+                                "current_value": current_val,
+                                "proposed_value": item,
+                                "changes": changes,
+                                "text": str(text_repr)[:500],
+                                "confidence": item.get("confidence", 0.7),
+                            })
+                    elif item_hash not in existing_hashes:
+                        # This is a new facet
+                        new_facets.append({
+                            "facet_type": ft_slug,
+                            "facet_type_name": ft.name,
+                            "value": item,
+                            "text": str(text_repr)[:500],
+                            "confidence": item.get("confidence", 0.7),
+                            "ai_model": settings.azure_openai_deployment_name,
+                        })
+
+            # 8. Store preview in result_data
+            ai_task.result_data = {
+                **ai_task.result_data,
+                "new_facets": new_facets,
+                "updates": updates,
+                "analysis_summary": {
+                    "sources_analyzed": source_types,
+                    "facet_types_checked": target_facet_types,
+                    "existing_facets_count": len(existing_facets),
+                    "new_suggestions": len(new_facets),
+                    "update_suggestions": len(updates),
+                },
+            }
+            ai_task.status = AITaskStatus.COMPLETED
+            ai_task.completed_at = datetime.now(timezone.utc)
+            ai_task.progress_current = ai_task.progress_total
+            ai_task.current_item = None
+            await session.commit()
+
+            logger.info(
+                "Entity data analysis completed",
+                entity_id=entity_id,
+                task_id=task_id,
+                new_facets=len(new_facets),
+                updates=len(updates),
+            )
+
+        except Exception as e:
+            logger.exception("Entity data analysis failed", entity_id=entity_id)
+            await fail_task(f"Analyse fehlgeschlagen: {str(e)}")
+
+
+async def _run_entity_data_ai_analysis(
+    collected_data: Dict[str, Any],
+    existing_facets: List[Dict[str, Any]],
+    facet_types: List["FacetType"],
+    entity_name: str,
+) -> Dict[str, Any]:
+    """
+    Run AI analysis on collected entity data.
+
+    Args:
+        collected_data: Data collected from various sources
+        existing_facets: Existing facet values for deduplication context
+        facet_types: Target facet types to generate
+        entity_name: Name of the entity
+
+    Returns:
+        Dict with "facets" key containing extracted data per facet type
+    """
+    from services.ai_client import AzureOpenAIClientFactory
+
+    client = AzureOpenAIClientFactory.create_client()
+
+    # Build context from collected data
+    context_parts = [f"DATEN FÜR ENTITY: {entity_name}\n"]
+
+    sources = collected_data.get("sources", {})
+
+    # Add relations
+    if "relations" in sources and sources["relations"]:
+        context_parts.append("\n=== VERKNÜPFUNGEN ===")
+        for rel in sources["relations"][:30]:  # Limit
+            direction = "→" if rel["direction"] == "outgoing" else "←"
+            rel_name = rel.get("relation_name", rel.get("relation_type", "verknüpft"))
+            target = rel.get("related_entity", {})
+            context_parts.append(
+                f"{direction} {rel_name}: {target.get('name', 'Unbekannt')}"
+            )
+            if rel.get("attributes"):
+                context_parts.append(f"   Attribute: {json.dumps(rel['attributes'], ensure_ascii=False)}")
+            # Include related entity's facets
+            for facet in target.get("facets", [])[:5]:
+                context_parts.append(f"   - {facet.get('text', '')[:100]}")
+
+    # Add documents
+    if "documents" in sources and sources["documents"]:
+        context_parts.append("\n=== DOKUMENTE ===")
+        for doc in sources["documents"][:20]:
+            context_parts.append(f"- {doc.get('title', 'Unbekannt')} ({doc.get('type', '')})")
+            if doc.get("text_preview"):
+                context_parts.append(f"  {doc['text_preview'][:500]}")
+
+    # Add extractions
+    if "extractions" in sources and sources["extractions"]:
+        context_parts.append("\n=== KI-EXTRAKTIONEN ===")
+        for ext in sources["extractions"][:20]:
+            content = ext.get("content", {})
+            context_parts.append(f"- Typ: {ext.get('type', 'unbekannt')}")
+            # Add relevant content fields
+            for key in ["summary", "pain_points", "positive_signals", "decision_makers"]:
+                if key in content and content[key]:
+                    context_parts.append(f"  {key}: {json.dumps(content[key], ensure_ascii=False)[:500]}")
+
+    # Add PySIS data
+    if "pysis" in sources and sources["pysis"]:
+        context_parts.append("\n=== PYSIS-DATEN ===")
+        for process in sources["pysis"]:
+            context_parts.append(f"Prozess: {process.get('name', 'Unbekannt')}")
+            for field in process.get("fields", [])[:30]:
+                context_parts.append(f"  - {field['name']}: {field['value']}")
+
+    context_text = "\n".join(context_parts)
+
+    # Limit context
+    if len(context_text) > 60000:
+        context_text = context_text[:60000] + "\n\n[... Text gekürzt ...]"
+
+    # Build facet type descriptions
+    facet_descriptions = []
+    for ft in facet_types:
+        desc = f"- {ft.name} (slug: {ft.slug})"
+        if ft.ai_extraction_prompt:
+            desc += f": {ft.ai_extraction_prompt}"
+        elif ft.description:
+            desc += f": {ft.description}"
+        facet_descriptions.append(desc)
+
+    # Add existing facets context
+    existing_context = ""
+    if existing_facets:
+        existing_context = "\n\nBEREITS VORHANDENE FACETS (nicht duplizieren, aber erweitern wenn neue Infos):\n"
+        for ef in existing_facets[:30]:
+            existing_context += f"- {ef.get('facet_type_name', ef.get('facet_type', ''))}: {ef.get('text', '')[:100]}\n"
+
+    system_prompt = f"""Du bist ein Experte für die Extraktion strukturierter Informationen aus Projektdaten.
+
+AUFGABE:
+Analysiere die folgenden Daten für "{entity_name}" und extrahiere relevante Informationen für die angegebenen Facet-Typen.
+
+ZU EXTRAHIERENDE FACET-TYPEN:
+{chr(10).join(facet_descriptions)}
+{existing_context}
+
+WICHTIGE REGELN:
+1. Extrahiere NUR Informationen, die tatsächlich in den Daten enthalten sind
+2. Erfinde KEINE Informationen
+3. Dupliziere KEINE bereits vorhandenen Facets - ergänze nur wenn neue Informationen verfügbar sind
+4. Für jeden extrahierten Eintrag gib eine "confidence" (0.0-1.0) an
+5. Bei Kontakten: Versuche Name, Rolle, E-Mail, Telefon zu extrahieren
+6. Bei Pain Points: Beschreibe das Problem und den Typ (z.B. "Genehmigung", "Widerstand", etc.)
+
+ANTWORTFORMAT (JSON):
+{{
+  "facets": {{
+    "<facet_slug>": [
+      {{"description": "...", "type": "...", "confidence": 0.8}},
+      ...
+    ],
+    ...
+  }},
+  "analysis_notes": "Kurze Notiz zur Analyse"
+}}"""
+
+    try:
+        response = await client.chat.completions.create(
+            model=settings.azure_openai_deployment_name,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context_text},
+            ],
+            temperature=0.2,
+            max_tokens=4000,
+            response_format={"type": "json_object"},
+        )
+
+        result = json.loads(response.choices[0].message.content)
+        return result
+
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse AI response", error=str(e))
+        raise RuntimeError(f"KI-Service Fehler: AI-Antwort konnte nicht verarbeitet werden")
+    except Exception as e:
+        logger.exception("AI analysis failed")
+        raise RuntimeError(f"KI-Service nicht erreichbar: {str(e)}")
+
+
+def _texts_similar(text1: str, text2: str, threshold: float = 0.7) -> bool:
+    """Check if two texts are similar using simple word overlap."""
+    if not text1 or not text2:
+        return False
+
+    # Normalize
+    words1 = set(text1.lower().split())
+    words2 = set(text2.lower().split())
+
+    if not words1 or not words2:
+        return False
+
+    # Jaccard similarity
+    intersection = len(words1 & words2)
+    union = len(words1 | words2)
+
+    return (intersection / union) >= threshold if union > 0 else False
+
+
+# =============================================================================
+# Entity Attachment Analysis
+# =============================================================================
+
+
+@celery_app.task(
+    bind=True,
+    name="workers.ai_tasks.analyze_attachment_task",
+    max_retries=3,
+    default_retry_delay=60,
+    retry_backoff=True,
+    retry_backoff_max=600,
+    retry_jitter=True,
+    rate_limit="5/m",  # 5 requests per minute for vision API
+    soft_time_limit=300,  # 5 minutes soft limit
+    time_limit=360,  # 6 minutes hard limit
+)
+def analyze_attachment_task(
+    self,
+    attachment_id: str,
+    task_id: str,
+    extract_facets: bool = True,
+):
+    """
+    Analyze an entity attachment with AI.
+
+    For images: Uses Vision API to analyze content
+    For PDFs: Extracts text and analyzes with standard AI
+
+    Args:
+        attachment_id: UUID of the attachment
+        task_id: AITask ID for progress tracking
+        extract_facets: Whether to extract facet suggestions
+    """
+    import asyncio
+    asyncio.run(_analyze_attachment_async(attachment_id, task_id, extract_facets))
+
+
+async def _analyze_attachment_async(
+    attachment_id: str,
+    task_id: str,
+    extract_facets: bool,
+):
+    """Async implementation of attachment analysis."""
+    from pathlib import Path
+    from app.database import get_celery_session_context
+    from app.models import AITask, AITaskStatus, Entity, FacetType
+    from app.models.entity_attachment import AttachmentAnalysisStatus, EntityAttachment
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
+    async with get_celery_session_context() as session:
+        # Helper to mark task as failed
+        async def fail_task(error_msg: str):
+            ai_task = await session.get(AITask, UUID(task_id))
+            if ai_task:
+                ai_task.status = AITaskStatus.FAILED
+                ai_task.error_message = error_msg
+                ai_task.completed_at = datetime.now(timezone.utc)
+            attachment = await session.get(EntityAttachment, UUID(attachment_id))
+            if attachment:
+                attachment.analysis_status = AttachmentAnalysisStatus.FAILED
+                attachment.analysis_error = error_msg
+            await session.commit()
+
+        try:
+            # 1. Load attachment
+            attachment = await session.get(EntityAttachment, UUID(attachment_id))
+            if not attachment:
+                await fail_task(f"Attachment nicht gefunden: {attachment_id}")
+                return
+
+            # Update task progress
+            ai_task = await session.get(AITask, UUID(task_id))
+            if ai_task:
+                ai_task.status = AITaskStatus.RUNNING
+                ai_task.progress_current = 1
+                ai_task.current_item = "Lade Datei..."
+                ai_task.celery_task_id = analyze_attachment_task.request.id
+                await session.commit()
+
+            # 2. Load entity and facet types
+            entity = await session.get(Entity, attachment.entity_id)
+            if not entity:
+                await fail_task(f"Entity nicht gefunden: {attachment.entity_id}")
+                return
+
+            # Get entity type to find applicable facet types
+            facet_types = []
+            if extract_facets:
+                ft_result = await session.execute(
+                    select(FacetType)
+                    .where(FacetType.is_active.is_(True))
+                    .where(FacetType.ai_extraction_enabled.is_(True))
+                )
+                facet_types = ft_result.scalars().all()
+
+            # 3. Get file path
+            storage_path = Path(settings.attachment_storage_path)
+            file_path = storage_path / attachment.file_path
+
+            if not file_path.exists():
+                await fail_task(f"Datei nicht gefunden: {attachment.file_path}")
+                return
+
+            # Update progress
+            if ai_task:
+                ai_task.progress_current = 2
+                ai_task.current_item = "Analysiere mit KI..."
+                await session.commit()
+
+            # 4. Analyze based on type
+            from services.attachment_analysis_service import (
+                analyze_image_with_vision,
+                analyze_pdf_with_ai,
+                extract_facet_suggestions,
+            )
+
+            if attachment.is_image:
+                logger.info(
+                    "Analyzing image attachment",
+                    attachment_id=attachment_id,
+                    filename=attachment.filename,
+                )
+                analysis_result = await analyze_image_with_vision(
+                    file_path,
+                    entity.name,
+                    facet_types,
+                )
+            elif attachment.is_pdf:
+                logger.info(
+                    "Analyzing PDF attachment",
+                    attachment_id=attachment_id,
+                    filename=attachment.filename,
+                )
+                analysis_result = await analyze_pdf_with_ai(
+                    file_path,
+                    entity.name,
+                    facet_types,
+                )
+            else:
+                await fail_task(f"Nicht unterstuetzter Dateityp: {attachment.content_type}")
+                return
+
+            # 5. Extract facet suggestions
+            if extract_facets and facet_types:
+                if ai_task:
+                    ai_task.progress_current = 3
+                    ai_task.current_item = "Extrahiere Facet-Vorschlaege..."
+                    await session.commit()
+
+                facet_suggestions = await extract_facet_suggestions(
+                    analysis_result,
+                    attachment.entity_id,
+                    facet_types,
+                    session,
+                )
+                analysis_result["facet_suggestions"] = facet_suggestions
+
+            # 6. Update attachment with result
+            attachment.analysis_status = AttachmentAnalysisStatus.COMPLETED
+            attachment.analysis_result = analysis_result
+            attachment.analyzed_at = datetime.now(timezone.utc)
+            attachment.ai_model_used = analysis_result.get("ai_model_used")
+
+            # 7. Update task as completed
+            if ai_task:
+                ai_task.status = AITaskStatus.COMPLETED
+                ai_task.completed_at = datetime.now(timezone.utc)
+                ai_task.progress_current = ai_task.progress_total
+                ai_task.current_item = None
+                ai_task.result_data = {
+                    **ai_task.result_data,
+                    "analysis_result": {
+                        "description": analysis_result.get("description", "")[:500],
+                        "facet_suggestions_count": len(analysis_result.get("facet_suggestions", [])),
+                        "entities_found": bool(analysis_result.get("entities")),
+                    },
+                }
+
+            await session.commit()
+
+            logger.info(
+                "Attachment analysis completed",
+                attachment_id=attachment_id,
+                filename=attachment.filename,
+                facet_suggestions=len(analysis_result.get("facet_suggestions", [])),
+            )
+
+            # Emit notification event
+            from workers.notification_tasks import emit_event
+            emit_event.delay(
+                "AI_ANALYSIS_COMPLETED",
+                {
+                    "entity_type": "attachment",
+                    "entity_id": attachment_id,
+                    "title": f"Attachment analysiert: {attachment.filename}",
+                    "entity_name": entity.name,
+                }
+            )
+
+        except SoftTimeLimitExceeded:
+            logger.warning("Attachment analysis timed out", attachment_id=attachment_id)
+            await fail_task("Analyse-Timeout ueberschritten")
+
+        except Exception as e:
+            logger.exception("Attachment analysis failed", attachment_id=attachment_id)
+            await fail_task(f"Analyse fehlgeschlagen: {str(e)}")

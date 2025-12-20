@@ -140,6 +140,21 @@
         "aiNote": "The AI interprets your question and shows matching results.",
         "note": "The AI interprets your question and shows matching results."
       },
+      "imageAnalysis": {
+        "title": "Image Analysis",
+        "description": "Upload images and have them analyzed by AI:",
+        "uploadMethods": {
+          "button": "Paperclip icon next to the input field",
+          "paste": "Paste image from clipboard (Ctrl+V)",
+          "formats": "PNG, JPEG, GIF, WebP, PDF (max. 10MB)"
+        },
+        "examples": {
+          "1": "Analyze scanned protocols and extract pain points",
+          "2": "Evaluate website screenshots",
+          "3": "Read business cards or documents"
+        },
+        "note": "When images are uploaded, the button changes to 'Analyze Image'."
+      },
       "read_mode": {
         "title": "Read Mode (Default)",
         "description": "Ask questions in natural language:",
@@ -352,6 +367,15 @@
     "sources": {
       "title": "Data Sources",
       "description": "Data sources are the concrete websites or APIs that are crawled.",
+      "sidebarNavigation": {
+        "title": "Sidebar Navigation",
+        "info": "The data sources page provides a sidebar for quick filtering:",
+        "categories": "Categories - All configured categories with count of assigned sources",
+        "types": "Source Type - Website, OParl API, RSS, Custom API",
+        "status": "Status - Active, Pending, Paused, Error",
+        "collapse": "The sidebar can be collapsed/expanded via the arrow button",
+        "combined": "Filters can be combined (e.g., Category + Status)"
+      },
       "categoryAssignment": {
         "title": "Category Assignment (N:M)",
         "info": "A data source can be assigned to multiple categories (N:M relationship). When crawling, the job's category is used, not the source's.",

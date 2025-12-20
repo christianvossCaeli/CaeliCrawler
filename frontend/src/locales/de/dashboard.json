@@ -2,6 +2,83 @@
   "dashboard": {
     "title": "Dashboard",
     "welcome": "Willkommen zurück",
+    "customize": "Anpassen",
+    "finishEditing": "Fertig",
+    "resetToDefaults": "Zurücksetzen",
+    "lastUpdated": "Zuletzt aktualisiert",
+    "noWidgets": "Keine Widgets aktiv",
+    "noWidgetsHint": "Klicken Sie auf 'Anpassen' um Widgets hinzuzufügen",
+    "unknownWidget": "Unbekanntes Widget: {type}",
+    "noActivity": "Keine Aktivitäten",
+    "noRecentJobs": "Keine aktuellen Jobs",
+    "noNewInsights": "Alles auf dem neuesten Stand",
+    "widgetsActive": "Widgets aktiv",
+    "dragToReorder": "Widgets per Drag & Drop oder mit den Pfeilen neu anordnen",
+    "preview": "Vorschau",
+    "workers": "Workers",
+    "running": "Laufend",
+    "pending": "Wartend",
+    "activeJobs": "Aktive Jobs",
+    "recentJobs": "Letzte Jobs",
+    "aiTasks": "KI-Tasks",
+    "crawler": "Crawler",
+    "avgConfidence": "Durchschn. Konfidenz",
+    "health": {
+      "healthy": "System OK",
+      "active": "System aktiv",
+      "warning": "Warnungen vorhanden",
+      "unknown": "Status unbekannt"
+    },
+    "size": {
+      "small": "Klein (1 Spalte)",
+      "medium": "Mittel (2 Spalten)",
+      "large": "Groß (3 Spalten)",
+      "full": "Voll (4 Spalten)"
+    },
+    "widgets": {
+      "statsEntities": {
+        "name": "Entities",
+        "description": "Anzahl der Entities im System",
+        "total": "Entities gesamt"
+      },
+      "statsFacets": {
+        "name": "Facetten",
+        "description": "Facetten-Werte und Verifizierungsrate",
+        "total": "Facetten gesamt",
+        "verified": "verifiziert"
+      },
+      "statsDocuments": {
+        "name": "Dokumente",
+        "description": "Dokumente und Verarbeitungsstatus",
+        "total": "Dokumente gesamt",
+        "processed": "verarbeitet"
+      },
+      "statsCrawler": {
+        "name": "Crawler",
+        "description": "Aktive und abgeschlossene Crawl-Jobs",
+        "running": "Laufende Jobs"
+      },
+      "activityFeed": {
+        "name": "Aktivitäten",
+        "description": "Letzte Änderungen und Events"
+      },
+      "crawlerStatus": {
+        "name": "Crawler Status",
+        "description": "Aktive und geplante Crawl-Jobs"
+      },
+      "insights": {
+        "name": "Insights",
+        "description": "Neu seit Ihrem letzten Login"
+      },
+      "chartDistribution": {
+        "name": "Entity-Verteilung",
+        "description": "Verteilung nach Entity-Typ"
+      },
+      "systemHealth": {
+        "name": "System-Status",
+        "description": "KI-Tasks und System-Gesundheit"
+      }
+    },
     "stats": {
       "categories": "Kategorien",
       "dataSources": "Datenquellen",
@@ -26,11 +103,6 @@
       "documents": "Dokumente",
       "new": "neu",
       "errors": "Fehler"
-    },
-    "recentJobs": {
-      "title": "Letzte Crawl-Jobs",
-      "noJobs": "Noch keine Crawl-Jobs vorhanden",
-      "documentsFound": "Dokumente gefunden"
     },
     "quickActions": {
       "title": "Schnellaktionen",

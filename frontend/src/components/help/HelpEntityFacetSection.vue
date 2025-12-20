@@ -1,5 +1,5 @@
 <template>
-  <HelpCard section-id="entity-facet" :title="t('help.entityFacet.title')" icon="mdi-database" color="deep-purple">
+  <HelpCard section-id="entity-facet" :title="t('help.entityFacet.title')" icon="mdi-database" color="secondary">
     <v-alert type="info" variant="tonal" class="mb-4">
       {{ t('help.entityFacet.newInfo') }}
     </v-alert>
@@ -203,6 +203,80 @@
       </v-col>
     </v-row>
 
+    <h3 class="text-h6 mb-3">{{ t('help.entityFacet.manualCreation.title') }}</h3>
+    <p class="mb-3">{{ t('help.entityFacet.manualCreation.description') }}</p>
+
+    <v-expansion-panels variant="accordion" class="mb-4">
+      <v-expansion-panel>
+        <v-expansion-panel-title>
+          <v-icon class="mr-2" color="primary">mdi-form-select</v-icon>
+          {{ t('help.entityFacet.manualCreation.dialog.title') }}
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <p class="mb-2">{{ t('help.entityFacet.manualCreation.dialog.description') }}</p>
+          <v-list density="compact">
+            <v-list-item prepend-icon="mdi-numeric-1-circle">
+              <v-list-item-title>{{ t('help.entityFacet.manualCreation.dialog.step1') }}</v-list-item-title>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-numeric-2-circle">
+              <v-list-item-title>{{ t('help.entityFacet.manualCreation.dialog.step2') }}</v-list-item-title>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-numeric-3-circle">
+              <v-list-item-title>{{ t('help.entityFacet.manualCreation.dialog.step3') }}</v-list-item-title>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-numeric-4-circle">
+              <v-list-item-title>{{ t('help.entityFacet.manualCreation.dialog.step4') }}</v-list-item-title>
+            </v-list-item>
+          </v-list>
+          <v-alert type="info" variant="tonal" density="compact" class="mt-2">
+            {{ t('help.entityFacet.manualCreation.dialog.note') }}
+          </v-alert>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+
+      <v-expansion-panel>
+        <v-expansion-panel-title>
+          <v-icon class="mr-2" color="success">mdi-code-tags</v-icon>
+          {{ t('help.entityFacet.manualCreation.smartQuery.title') }}
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <p class="mb-2">{{ t('help.entityFacet.manualCreation.smartQuery.description') }}</p>
+          <v-card variant="outlined" class="mb-3">
+            <v-card-text class="font-weight-medium">
+              <div class="text-caption text-medium-emphasis mb-1">{{ t('help.entityFacet.manualCreation.smartQuery.exampleLabel') }}</div>
+              <code class="text-body-2">"{{ t('help.entityFacet.manualCreation.smartQuery.example1') }}"</code>
+              <br><br>
+              <code class="text-body-2">"{{ t('help.entityFacet.manualCreation.smartQuery.example2') }}"</code>
+              <br><br>
+              <code class="text-body-2">"{{ t('help.entityFacet.manualCreation.smartQuery.example3') }}"</code>
+            </v-card-text>
+          </v-card>
+          <v-alert type="warning" variant="tonal" density="compact">
+            {{ t('help.entityFacet.manualCreation.smartQuery.writeMode') }}
+          </v-alert>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+
+      <v-expansion-panel>
+        <v-expansion-panel-title>
+          <v-icon class="mr-2" color="info">mdi-robot</v-icon>
+          {{ t('help.entityFacet.manualCreation.assistant.title') }}
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <p class="mb-2">{{ t('help.entityFacet.manualCreation.assistant.description') }}</p>
+          <v-card variant="outlined" class="mb-3">
+            <v-card-text class="font-weight-medium">
+              <div class="text-caption text-medium-emphasis mb-1">{{ t('help.entityFacet.manualCreation.assistant.exampleLabel') }}</div>
+              <code class="text-body-2">"{{ t('help.entityFacet.manualCreation.assistant.example1') }}"</code>
+              <br><br>
+              <code class="text-body-2">"{{ t('help.entityFacet.manualCreation.assistant.example2') }}"</code>
+            </v-card-text>
+          </v-card>
+          <p class="text-caption">{{ t('help.entityFacet.manualCreation.assistant.note') }}</p>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+    </v-expansion-panels>
+
     <h3 class="text-h6 mb-3">{{ t('help.entityFacet.aiIntegration.title') }}</h3>
     <p class="mb-3">
       {{ t('help.entityFacet.aiIntegration.description') }}
@@ -227,7 +301,7 @@
     </v-list>
 
     <h3 class="text-h6 mb-3">{{ t('help.entityFacet.bestPractices.title') }}</h3>
-    <v-alert type="success" variant="tonal">
+    <v-alert type="success" variant="tonal" class="mb-4">
       <v-list density="compact" class="bg-transparent">
         <v-list-item prepend-icon="mdi-lightbulb">
           <v-list-item-title>{{ t('help.entityFacet.bestPractices.items.predefinedTypes') }}</v-list-item-title>
@@ -243,6 +317,112 @@
         </v-list-item>
       </v-list>
     </v-alert>
+
+    <h3 class="text-h6 mb-3">{{ t('help.entityFacet.multiSourceEnrichment.title') }}</h3>
+    <v-alert type="info" variant="tonal" class="mb-3">
+      {{ t('help.entityFacet.multiSourceEnrichment.description') }}
+    </v-alert>
+
+    <v-row class="mb-4">
+      <v-col cols="12" md="6">
+        <v-card variant="outlined" class="h-100">
+          <v-card-title class="text-subtitle-1">
+            <v-icon class="mr-2" color="primary">mdi-database-search</v-icon>
+            {{ t('help.entityFacet.multiSourceEnrichment.dataSources.title') }}
+          </v-card-title>
+          <v-card-text>
+            <v-list density="compact">
+              <v-list-item prepend-icon="mdi-database">
+                <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.dataSources.pysis') }}</v-list-item-title>
+              </v-list-item>
+              <v-list-item prepend-icon="mdi-link-variant">
+                <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.dataSources.relations') }}</v-list-item-title>
+              </v-list-item>
+              <v-list-item prepend-icon="mdi-file-document-multiple">
+                <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.dataSources.documents') }}</v-list-item-title>
+              </v-list-item>
+              <v-list-item prepend-icon="mdi-robot">
+                <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.dataSources.extractions') }}</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-card-text>
+        </v-card>
+      </v-col>
+      <v-col cols="12" md="6">
+        <v-card variant="outlined" class="h-100">
+          <v-card-title class="text-subtitle-1">
+            <v-icon class="mr-2" color="success">mdi-eye-check</v-icon>
+            {{ t('help.entityFacet.multiSourceEnrichment.reviewModal.title') }}
+          </v-card-title>
+          <v-card-text>
+            <p class="mb-2">{{ t('help.entityFacet.multiSourceEnrichment.reviewModal.description') }}</p>
+            <v-list density="compact">
+              <v-list-item prepend-icon="mdi-plus-circle">
+                <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.reviewModal.newFacets') }}</v-list-item-title>
+              </v-list-item>
+              <v-list-item prepend-icon="mdi-pencil-circle">
+                <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.reviewModal.updates') }}</v-list-item-title>
+              </v-list-item>
+            </v-list>
+            <p class="text-caption mt-2">{{ t('help.entityFacet.multiSourceEnrichment.reviewModal.confidenceInfo') }}</p>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+
+    <v-expansion-panels variant="accordion" class="mb-4">
+      <v-expansion-panel>
+        <v-expansion-panel-title>
+          <v-icon class="mr-2" color="primary">mdi-format-list-numbered</v-icon>
+          {{ t('help.entityFacet.multiSourceEnrichment.workflow.title') }}
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <v-list density="compact">
+            <v-list-item prepend-icon="mdi-numeric-1-circle">
+              <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.workflow.step1') }}</v-list-item-title>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-numeric-2-circle">
+              <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.workflow.step2') }}</v-list-item-title>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-numeric-3-circle">
+              <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.workflow.step3') }}</v-list-item-title>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-numeric-4-circle">
+              <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.workflow.step4') }}</v-list-item-title>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-numeric-5-circle">
+              <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.workflow.step5') }}</v-list-item-title>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-numeric-6-circle">
+              <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.workflow.step6') }}</v-list-item-title>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-numeric-7-circle">
+              <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.workflow.step7') }}</v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+
+      <v-expansion-panel>
+        <v-expansion-panel-title>
+          <v-icon class="mr-2" color="info">mdi-lightbulb-on</v-icon>
+          {{ t('help.entityFacet.multiSourceEnrichment.tips.title') }}
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <v-list density="compact">
+            <v-list-item prepend-icon="mdi-checkbox-marked-circle">
+              <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.tips.selectSources') }}</v-list-item-title>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-clock-outline">
+              <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.tips.checkTimestamps') }}</v-list-item-title>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-eye">
+              <v-list-item-title>{{ t('help.entityFacet.multiSourceEnrichment.tips.reviewCarefully') }}</v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+    </v-expansion-panels>
   </HelpCard>
 </template>
 

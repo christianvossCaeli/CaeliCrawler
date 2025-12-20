@@ -22,7 +22,22 @@
       "noResults": "Keine Ergebnisse für",
       "typeToSearch": "Tippen zum Suchen...",
       "noLocations": "Keine Orte gefunden",
-      "minChars": "Min. 2 Zeichen eingeben..."
+      "minChars": "Min. 2 Zeichen eingeben...",
+      "clearAll": "Alle Filter zurücksetzen"
+    },
+    "sidebar": {
+      "categories": "Kategorien",
+      "types": "Quellentyp",
+      "status": "Status",
+      "all": "Alle",
+      "expand": "Sidebar einblenden",
+      "collapse": "Sidebar ausblenden"
+    },
+    "status": {
+      "active": "Aktiv",
+      "pending": "Ausstehend",
+      "paused": "Pausiert",
+      "error": "Fehler"
     },
     "form": {
       "name": "Name",

@@ -1,7 +1,7 @@
 """Category setup operations for Smart Query Service."""
 
 import uuid as uuid_module
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 from uuid import UUID
 
 import structlog
@@ -229,7 +229,7 @@ async def create_category_setup_with_ai(
                 session.add(link)
                 linked_count += 1
 
-        await session.commit()
+        await session.flush()  # Let caller handle commit for transaction control
 
         result["linked_data_source_count"] = linked_count
         result["success"] = True
@@ -278,7 +278,6 @@ async def create_category_setup(
         search_focus = setup_data.get("search_focus", "general")
         search_terms = setup_data.get("search_terms", [])
         geographic_filter = setup_data.get("geographic_filter", {})
-        time_focus = setup_data.get("time_focus", "all")
         extraction_handler = setup_data.get("extraction_handler", "default")
 
         if not name:

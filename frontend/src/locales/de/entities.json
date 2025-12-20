@@ -69,6 +69,11 @@
     "noAttributesConfigured": "Keine Eigenschaften für diesen Entity-Typ konfiguriert.",
     "path": "Pfad",
     "summary": "Übersicht",
+    "viewModes": {
+      "table": "Tabellenansicht",
+      "cards": "Kartenansicht",
+      "map": "Kartenansicht (Geo)"
+    },
     "filters": {
       "search": "In Eigenschaften suchen...",
       "type": "Entity-Typ",
@@ -129,6 +134,13 @@
   "entityTypes": {
     "title": "Entity-Typen",
     "entityType": "Entity-Typ",
+    "types": {
+      "municipality": "Gemeinden",
+      "person": "Personen",
+      "organization": "Organisationen",
+      "event": "Events"
+    },
+    "includeFacets": "Facetten einschließen",
     "form": {
       "name": "Name",
       "description": "Beschreibung",
@@ -161,12 +173,23 @@
       "verified": "Verifiziert",
       "dataSources": "Datenquellen"
     },
+    "sourceTypes": {
+      "document": "Dokument",
+      "manual": "Manuell",
+      "pysis": "PySis",
+      "smartQuery": "Smart Query",
+      "aiAssistant": "KI-Assistent",
+      "import": "Import"
+    },
+    "verifiedLabel": "Verifiziert",
+    "verifyAction": "Verifizieren",
     "tabs": {
       "properties": "Eigenschaften",
       "relations": "Verknüpfungen",
       "dataSources": "Datenquellen",
       "documents": "Dokumente",
-      "pysis": "PySis"
+      "pysis": "PySis",
+      "attachments": "Anhänge"
     },
     "searchProperties": "In Eigenschaften suchen...",
     "verified": "verifiziert",
@@ -200,8 +223,10 @@
     "clearSearch": "Suche löschen",
     "dialog": {
       "addFacet": "Facet hinzufügen",
+      "editFacet": "Facet bearbeiten",
       "facetType": "Facet-Typ *",
       "facetTypeRequired": "Facet-Typ ist erforderlich",
+      "facetDetails": "Facet-Details",
       "facetValue": "Wert / Beschreibung *",
       "facetValueRequired": "Wert ist erforderlich",
       "sourceUrl": "Quell-URL",
@@ -239,14 +264,27 @@
       "noteDeleted": "Notiz gelöscht",
       "noteDeleteError": "Fehler beim Löschen der Notiz",
       "facetAdded": "Facet-Wert hinzugefügt",
+      "facetValueRequired": "Bitte füllen Sie mindestens ein Feld aus",
       "facetSaveError": "Fehler beim Speichern",
       "facetVerified": "Facet verifiziert",
+      "facetUpdated": "Facet aktualisiert",
+      "facetDeleted": "Facet gelöscht",
       "entityUpdated": "Entity aktualisiert",
       "entitySaveError": "Fehler beim Speichern",
       "crawlStarted": "Crawl für \"{name}\" gestartet",
       "crawlStartError": "Fehler beim Starten",
-      "copiedToClipboard": "In Zwischenablage kopiert"
+      "copiedToClipboard": "In Zwischenablage kopiert",
+      "enrichError": "Fehler beim Starten der Anreicherung"
     },
+    "enrichFromPysis": "Aus PySis anreichern",
+    "enrichFromPysisTitle": "Facets mit PySis-Daten anreichern",
+    "enrichFromPysisDescription": "Reichert bestehende Facet-Werte mit zusätzlichen Informationen aus den verknüpften PySis-Feldern an. Die KI analysiert die PySis-Daten und ergänzt fehlende Informationen in den Facets.",
+    "enrichOverwrite": "Bestehende Werte überschreiben",
+    "enrichOverwriteWarning": "Achtung: Bereits ausgefüllte Facet-Werte werden mit den neuen Daten überschrieben!",
+    "startEnrichment": "Anreicherung starten",
+    "taskStarted": "Task gestartet",
+    "taskId": "Task-ID",
+    "enrichTaskStartedMessage": "Die Facet-Anreicherung wurde als Hintergrund-Task gestartet. Die Ergebnisse werden in den Facets dieser Entity aktualisiert.",
     "document": "Dokument",
     "systemAuthor": "System",
     "currentUser": "Aktueller Benutzer",
@@ -296,6 +334,84 @@
       "organizer": "Veranstalter",
       "eventType": "Veranstaltungstyp",
       "description": "Beschreibung"
+    },
+    "enrichment": {
+      "buttonLabel": "Anreichern",
+      "dropdownTitle": "Datenquellen auswählen",
+      "sourcePysis": "PySIS-Daten",
+      "sourceRelations": "Verknüpfungen",
+      "sourceDocuments": "Dokumente",
+      "sourceExtractions": "KI-Extraktionen",
+      "lastUpdated": "Letzte Aktualisierung",
+      "itemCount": "{count} Einträge",
+      "existingFacets": "{count} Facets vorhanden",
+      "startAnalysis": "Analyse starten",
+      "noSourcesSelected": "Bitte wählen Sie mindestens eine Datenquelle aus",
+      "noSourcesAvailable": "Keine Datenquellen verfügbar"
+    }
+  },
+  "facetEnrichment": {
+    "title": "Facet-Anreicherung",
+    "analyzing": "Analysiere Daten...",
+    "failed": "Analyse fehlgeschlagen",
+    "unknownError": "Unbekannter Fehler",
+    "reviewChanges": "Änderungen prüfen",
+    "analysisSummary": "{sources} Quellen analysiert: {new} neue Facets, {updates} Aktualisierungen",
+    "noResults": "Keine neuen Informationen gefunden",
+    "noResultsHint": "Die KI konnte keine zusätzlichen Facets aus den ausgewählten Datenquellen extrahieren.",
+    "newFacets": "Neue Facets",
+    "updates": "Aktualisierungen",
+    "selectAll": "Alle auswählen",
+    "selectNone": "Keine auswählen",
+    "selected": "ausgewählt",
+    "current": "Aktuell",
+    "proposed": "Vorgeschlagen",
+    "minimize": "Minimieren",
+    "applyChanges": "{count} Änderung(en) übernehmen",
+    "applied": "{created} Facets erstellt, {updated} aktualisiert",
+    "applyError": "Fehler beim Anwenden der Änderungen",
+    "taskMinimized": "Analyse läuft im Hintergrund",
+    "clickToReturn": "Klicken um zur Vorschau zurückzukehren"
+  },
+  "attachments": {
+    "title": "Anhänge",
+    "upload": "Hochladen",
+    "uploadTitle": "Datei hochladen",
+    "selectFile": "Datei auswählen",
+    "description": "Beschreibung",
+    "autoAnalyze": "Automatisch mit KI analysieren",
+    "dropHint": "Dateien hier ablegen oder klicken zum Auswählen",
+    "empty": "Keine Anhänge vorhanden",
+    "analyze": "Mit KI analysieren",
+    "viewAnalysis": "Analyse anzeigen",
+    "analysisTitle": "Analyse-Ergebnis",
+    "analysisDescription": "Beschreibung",
+    "detectedText": "Erkannter Text",
+    "extractedEntities": "Extrahierte Entitäten",
+    "facetSuggestions": "Vorgeschlagene Eigenschaften",
+    "facetSuggestionsHint": "Wähle die Eigenschaften aus, die du für diese Entity übernehmen möchtest.",
+    "applyFacets": "Eigenschaften übernehmen",
+    "noFacetSuggestions": "Keine Eigenschafts-Vorschläge gefunden",
+    "uploadError": "Fehler beim Hochladen",
+    "uploadSuccess": "Datei erfolgreich hochgeladen",
+    "deleteConfirm": "Anhang löschen?",
+    "deleteMessage": "Möchten Sie \"{filename}\" wirklich löschen?",
+    "deleteSuccess": "Anhang gelöscht",
+    "analysisStarted": "Analyse wurde gestartet",
+    "analysisError": "Fehler beim Starten der Analyse",
+    "facetsApplied": "{count} Eigenschaft(en) übernommen",
+    "facetsApplyError": "Fehler beim Übernehmen der Eigenschaften",
+    "status": {
+      "pending": "Ausstehend",
+      "analyzing": "Wird analysiert",
+      "completed": "Analysiert",
+      "failed": "Fehler"
+    },
+    "entityTypes": {
+      "persons": "Personen",
+      "organizations": "Organisationen",
+      "locations": "Orte",
+      "dates": "Daten"
     }
   }
 }

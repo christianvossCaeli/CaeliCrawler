@@ -119,7 +119,7 @@ async def get_or_create_location(
         select(Location).where(
             Location.country == country,
             Location.name_normalized == name_normalized,
-            Location.is_active == True,
+            Location.is_active.is_(True),
         )
     )
     existing = result.scalar_one_or_none()
@@ -571,7 +571,11 @@ async def bulk_import_sources(
     data: DataSourceBulkImport,
     session: AsyncSession = Depends(get_session),
 ):
-    """Bulk import data sources from a list."""
+    """
+    Bulk import data sources from a list.
+
+    **Security**: All URLs are validated against SSRF attacks (internal networks blocked).
+    """
     # Verify category exists
     category = await session.get(Category, data.category_id)
     if not category:
@@ -583,6 +587,15 @@ async def bulk_import_sources(
 
     for item in data.sources:
         try:
+            # SSRF Protection: Validate URL before importing
+            is_safe, error_msg = validate_crawler_url(item.base_url)
+            if not is_safe:
+                errors.append({
+                    "url": item.base_url,
+                    "error": f"SSRF Protection: {error_msg}",
+                })
+                continue
+
             # Check for duplicate
             if data.skip_duplicates:
                 existing = await session.execute(
@@ -716,3 +729,76 @@ async def reset_source(
     await session.commit()
 
     return MessageResponse(message=f"Source '{source.name}' reset to pending")
+
+
+@router.get("/meta/counts")
+async def get_source_counts(
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Get aggregated counts for sidebar navigation.
+
+    Returns counts grouped by:
+    - categories (with category details)
+    - source types
+    - status
+    """
+    # Total count
+    total_result = await session.execute(
+        select(func.count(DataSource.id))
+    )
+    total = total_result.scalar() or 0
+
+    # Counts by category (via N:M junction table)
+    category_counts_query = (
+        select(
+            Category.id,
+            Category.name,
+            Category.slug,
+            func.count(DataSourceCategory.data_source_id).label("count")
+        )
+        .join(DataSourceCategory, Category.id == DataSourceCategory.category_id)
+        .group_by(Category.id, Category.name, Category.slug)
+        .order_by(func.count(DataSourceCategory.data_source_id).desc())
+    )
+    category_result = await session.execute(category_counts_query)
+    categories = [
+        {
+            "id": str(row.id),
+            "name": row.name,
+            "slug": row.slug,
+            "count": row.count,
+        }
+        for row in category_result.all()
+    ]
+
+    # Counts by source type
+    type_counts_query = (
+        select(DataSource.source_type, func.count(DataSource.id).label("count"))
+        .group_by(DataSource.source_type)
+        .order_by(func.count(DataSource.id).desc())
+    )
+    type_result = await session.execute(type_counts_query)
+    types = [
+        {"type": row.source_type.value if row.source_type else None, "count": row.count}
+        for row in type_result.all()
+    ]
+
+    # Counts by status
+    status_counts_query = (
+        select(DataSource.status, func.count(DataSource.id).label("count"))
+        .group_by(DataSource.status)
+        .order_by(func.count(DataSource.id).desc())
+    )
+    status_result = await session.execute(status_counts_query)
+    statuses = [
+        {"status": row.status.value if row.status else None, "count": row.count}
+        for row in status_result.all()
+    ]
+
+    return {
+        "total": total,
+        "categories": categories,
+        "types": types,
+        "statuses": statuses,
+    }

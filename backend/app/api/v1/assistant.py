@@ -1,12 +1,11 @@
 """API endpoints for the AI Chat Assistant."""
 
 import json
-import os
-import tempfile
+import time
 from typing import AsyncGenerator, Dict, List, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,14 +26,54 @@ from app.schemas.assistant import (
     SLASH_COMMANDS,
 )
 from app.core.deps import get_current_user_optional, get_current_user
+from app.utils.validation import AssistantConstants
 from services.assistant_service import AssistantService
 
-# Simple in-memory storage for attachments (in production, use Redis or file storage)
-# Keys expire after 1 hour (would need a cleanup task)
+# In-memory storage for attachments with timestamps for cleanup
+# Structure: {attachment_id: {"data": {...}, "created_at": timestamp}}
 _attachment_store: Dict[str, Dict] = {}
 
-# In-memory storage for batch job status (in production, use Redis or database)
+# In-memory storage for batch job status with timestamps
+# Structure: {batch_id: {"data": {...}, "created_at": timestamp}}
 _batch_store: Dict[str, Dict] = {}
+
+# Cleanup interval in seconds (1 hour)
+_CLEANUP_INTERVAL_SECONDS = AssistantConstants.ATTACHMENT_EXPIRY_HOURS * 3600
+_last_cleanup_time = time.time()
+
+
+def _cleanup_expired_stores() -> None:
+    """Clean up expired entries from in-memory stores.
+
+    Called periodically during request handling to prevent memory leaks.
+    Removes entries older than ATTACHMENT_EXPIRY_HOURS.
+    """
+    global _last_cleanup_time
+    current_time = time.time()
+
+    # Only run cleanup every 5 minutes to avoid performance impact
+    if current_time - _last_cleanup_time < 300:
+        return
+
+    _last_cleanup_time = current_time
+    expiry_threshold = current_time - _CLEANUP_INTERVAL_SECONDS
+
+    # Clean up attachments
+    expired_attachments = [
+        key for key, value in _attachment_store.items()
+        if value.get("created_at", 0) < expiry_threshold
+    ]
+    for key in expired_attachments:
+        del _attachment_store[key]
+
+    # Clean up completed/failed batch jobs (keep running ones)
+    expired_batches = [
+        key for key, value in _batch_store.items()
+        if value.get("created_at", 0) < expiry_threshold
+        and value.get("status") in ("completed", "failed", "cancelled")
+    ]
+    for key in expired_batches:
+        del _batch_store[key]
 
 router = APIRouter()
 
@@ -87,13 +126,27 @@ async def chat(
     - `help`: Help information
     - `error`: Error message
     """
+    # Load attachments if provided
+    attachments = []
+    for attachment_id in request.attachment_ids:
+        attachment_data = get_attachment(attachment_id)
+        if attachment_data:
+            attachments.append({
+                "id": attachment_id,
+                "content": attachment_data["content"],
+                "filename": attachment_data["filename"],
+                "content_type": attachment_data["content_type"],
+                "size": attachment_data["size"],
+            })
+
     assistant = AssistantService(session)
     return await assistant.process_message(
         message=request.message,
         context=request.context,
         conversation_history=request.conversation_history,
         mode=request.mode,
-        language=request.language
+        language=request.language,
+        attachments=attachments
     )
 
 
@@ -134,6 +187,19 @@ async def chat_stream(
     data: [DONE]
     ```
     """
+    # Load attachments if provided
+    attachments = []
+    for attachment_id in request.attachment_ids:
+        attachment_data = get_attachment(attachment_id)
+        if attachment_data:
+            attachments.append({
+                "id": attachment_id,
+                "content": attachment_data["content"],
+                "filename": attachment_data["filename"],
+                "content_type": attachment_data["content_type"],
+                "size": attachment_data["size"],
+            })
+
     assistant = AssistantService(session)
 
     async def generate() -> AsyncGenerator[str, None]:
@@ -143,7 +209,8 @@ async def chat_stream(
                 context=request.context,
                 conversation_history=request.conversation_history,
                 mode=request.mode,
-                language=request.language
+                language=request.language,
+                attachments=attachments
             ):
                 yield f"data: {json.dumps(chunk)}\n\n"
             yield "data: [DONE]\n\n"
@@ -176,8 +243,8 @@ ALLOWED_ATTACHMENT_TYPES = {
     "application/pdf",
 }
 
-# Maximum file size (10MB)
-MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024
+# Maximum file size from constants
+MAX_ATTACHMENT_SIZE = AssistantConstants.ATTACHMENT_MAX_SIZE_MB * 1024 * 1024
 
 
 @router.post("/upload", response_model=AttachmentUploadResponse)
@@ -214,15 +281,19 @@ async def upload_attachment(
             detail=f"Datei zu groß. Maximum: {MAX_ATTACHMENT_SIZE // (1024 * 1024)}MB"
         )
 
+    # Run periodic cleanup
+    _cleanup_expired_stores()
+
     # Generate unique ID
     attachment_id = str(uuid4())
 
-    # Store attachment (in production, use proper storage)
+    # Store attachment with timestamp for cleanup
     _attachment_store[attachment_id] = {
         "content": content,
         "filename": file.filename or "unnamed",
         "content_type": file.content_type,
         "size": len(content),
+        "created_at": time.time(),
     }
 
     return AttachmentUploadResponse(
@@ -258,6 +329,87 @@ def get_attachment(attachment_id: str) -> Optional[Dict]:
 
 
 # ============================================================================
+# Save Temp Attachments to Entity
+# ============================================================================
+
+
+@router.post("/save-to-entity-attachments")
+async def save_temp_attachments_to_entity(
+    entity_id: str = Body(...),
+    attachment_ids: List[str] = Body(...),
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """
+    Save temporary chat attachments as permanent entity attachments.
+
+    This endpoint converts temporary attachments (uploaded for image analysis)
+    into permanent EntityAttachments linked to a specific entity.
+
+    Args:
+        entity_id: UUID of the target entity
+        attachment_ids: List of temporary attachment IDs to save
+
+    Returns:
+        success: bool
+        saved_count: Number of attachments saved
+        attachment_ids: List of new permanent attachment IDs
+    """
+    from uuid import UUID
+    from services.attachment_service import AttachmentService
+
+    # Validate entity_id
+    try:
+        entity_uuid = UUID(entity_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ungueltige Entity-ID")
+
+    attachment_service = AttachmentService(session)
+    saved_ids = []
+    errors = []
+
+    for temp_id in attachment_ids:
+        # Get temp attachment data
+        temp_data = get_attachment(temp_id)
+        if not temp_data:
+            errors.append(f"Attachment {temp_id} nicht gefunden oder abgelaufen")
+            continue
+
+        try:
+            # Save as permanent entity attachment
+            attachment = await attachment_service.upload_attachment(
+                entity_id=entity_uuid,
+                filename=temp_data["filename"],
+                content=temp_data["content"],
+                content_type=temp_data["content_type"],
+                user_id=current_user.id if current_user else None,
+                description="Aus Chat-Bildanalyse gespeichert",
+            )
+            saved_ids.append(str(attachment.id))
+
+            # Remove from temp store after successful save
+            if temp_id in _attachment_store:
+                del _attachment_store[temp_id]
+
+        except ValueError as e:
+            errors.append(f"Fehler bei {temp_data['filename']}: {str(e)}")
+        except Exception as e:
+            errors.append(f"Unerwarteter Fehler bei {temp_data['filename']}: {str(e)}")
+
+    await session.commit()
+
+    return {
+        "success": len(saved_ids) > 0,
+        "saved_count": len(saved_ids),
+        "attachment_ids": saved_ids,
+        "errors": errors if errors else None,
+        "message": f"{len(saved_ids)} Attachment(s) gespeichert" + (
+            f", {len(errors)} Fehler" if errors else ""
+        ),
+    }
+
+
+# ============================================================================
 # Action Execution Endpoint
 # ============================================================================
 
@@ -273,9 +425,9 @@ async def create_facet_type_via_assistant(
 
     This endpoint is called after the user confirms facet type creation.
     Requires EDITOR or ADMIN role.
+    Uses the unified Smart Query write executor.
     """
-    from app.models import FacetType
-    import re
+    from services.smart_query.write_executor import execute_facet_type_create
 
     # Check permissions
     allowed_roles = [UserRole.ADMIN, UserRole.EDITOR]
@@ -289,51 +441,21 @@ async def create_facet_type_via_assistant(
     if not name:
         raise HTTPException(status_code=400, detail="Name ist erforderlich")
 
-    # Generate slug
-    slug = data.get("slug")
-    if not slug:
-        slug = re.sub(r'[^a-z0-9_]', '_', name.lower())
-        slug = re.sub(r'_+', '_', slug).strip('_')
+    # Use unified Smart Query executor
+    result = await execute_facet_type_create(session, data)
 
-    # Check for existing
-    from sqlalchemy import select
-    existing = await session.execute(
-        select(FacetType).where(FacetType.slug == slug)
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail=f"Facet-Typ mit Slug '{slug}' existiert bereits")
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("message", "Fehler beim Erstellen"))
 
-    # Create facet type
-    facet_type = FacetType(
-        name=name,
-        name_plural=data.get("name_plural", f"{name}s" if not name.endswith("s") else name),
-        slug=slug,
-        description=data.get("description", f"Automatisch erstellter Facet-Typ: {name}"),
-        value_type=data.get("value_type", "structured"),
-        value_schema=data.get("value_schema"),
-        applicable_entity_type_slugs=data.get("applicable_entity_type_slugs", []),
-        aggregation_method=data.get("aggregation_method", "dedupe"),
-        ai_extraction_enabled=data.get("ai_extraction_enabled", True),
-        ai_extraction_prompt=data.get("ai_extraction_prompt", f"Extrahiere Informationen zum Thema '{name}' aus dem Dokument."),
-        icon=data.get("icon", "mdi-tag"),
-        color=data.get("color", "#607D8B"),
-        display_order=data.get("display_order", 10),
-        is_active=True,
-        is_system=False,
-    )
-
-    session.add(facet_type)
     await session.commit()
-    await session.refresh(facet_type)
 
     return {
         "success": True,
-        "message": f"Facet-Typ '{name}' wurde erstellt",
+        "message": result.get("message", f"Facet-Typ '{name}' wurde erstellt"),
         "facet_type": {
-            "id": str(facet_type.id),
-            "name": facet_type.name,
-            "slug": facet_type.slug,
-            "description": facet_type.description,
+            "id": result.get("facet_type_id"),
+            "name": result.get("facet_type_name"),
+            "slug": result.get("facet_type_slug"),
         }
     }
 
@@ -418,7 +540,7 @@ async def get_suggestions(
     # Load active facet types for dynamic suggestions
     facet_result = await session.execute(
         select(FacetType)
-        .where(FacetType.is_active == True)
+        .where(FacetType.is_active.is_(True))
         .order_by(FacetType.display_order)
         .limit(5)
     )
@@ -490,6 +612,7 @@ async def get_insights(
     view_mode: str = "unknown",
     entity_type: Optional[str] = None,
     entity_id: Optional[str] = None,
+    language: str = Query("de", description="Language for insights: de or en"),
     session: AsyncSession = Depends(get_session),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> dict:
@@ -522,13 +645,16 @@ async def get_insights(
     if current_user:
         last_login = current_user.last_login
 
+    # Validate language
+    valid_language = language if language in ("de", "en") else "de"
+
     # Get insights
     insights_service = InsightsService(session)
     insights = await insights_service.get_user_insights(
         context=context,
         user_id=current_user.id if current_user else None,
         last_login=last_login,
-        language="de"  # TODO: Get from request headers
+        language=valid_language
     )
 
     return {"insights": insights}
@@ -582,13 +708,17 @@ async def batch_action(
         dry_run=request.dry_run
     )
 
+    # Run periodic cleanup
+    _cleanup_expired_stores()
+
     # Store batch status if not dry run
     if not request.dry_run and result.get("batch_id"):
         _batch_store[result["batch_id"]] = {
             "status": "running",
             "processed": 0,
             "total": result.get("affected_count", 0),
-            "errors": []
+            "errors": [],
+            "created_at": time.time(),
         }
 
     return BatchActionResponse(
@@ -674,8 +804,8 @@ async def get_available_wizards(
 
 @router.post("/wizards/start")
 async def start_wizard(
-    wizard_type: str,
-    context: Optional[dict] = None,
+    wizard_type: str = Query(..., description="Type of wizard to start"),
+    context: Optional[dict] = Body(None, description="Optional context to pre-fill wizard values"),
     session: AsyncSession = Depends(get_session),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> dict:
@@ -792,7 +922,7 @@ async def list_reminders(
 
     Returns upcoming and recent reminders.
     """
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     from sqlalchemy import select, or_
     from app.models.reminder import Reminder, ReminderStatus
 
@@ -810,7 +940,7 @@ async def list_reminders(
     # Filter out past reminders unless requested
     if not include_past:
         # Show pending reminders or recently sent/dismissed (within 24h)
-        cutoff = datetime.utcnow() - timedelta(hours=24)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
         query = query.where(
             or_(
                 Reminder.status == ReminderStatus.PENDING,
@@ -1076,7 +1206,7 @@ async def get_due_reminders(
 
     Used for displaying reminder notifications in the UI.
     """
-    from datetime import datetime
+    from datetime import datetime, timezone
     from sqlalchemy import select, and_
     from app.models.reminder import Reminder, ReminderStatus
 
@@ -1085,7 +1215,7 @@ async def get_due_reminders(
             and_(
                 Reminder.user_id == current_user.id,
                 Reminder.status == ReminderStatus.PENDING,
-                Reminder.remind_at <= datetime.utcnow(),
+                Reminder.remind_at <= datetime.now(timezone.utc),
             )
         ).order_by(Reminder.remind_at.asc())
     )

@@ -61,6 +61,8 @@ services:
       - PYSIS_CLIENT_ID=4d5e8963-35d7-4a7e-a989-81adb1fe5d9c
       - PYSIS_CLIENT_SECRET=${PYSIS_CLIENT_SECRET}
       - PYSIS_SCOPE=api://7e32391f-a384-44b1-9850-d565b4a59ed0/.default
+      # Caeli Auction API
+      - CAELI_AUCTION_MARKETPLACE_API_AUTH=${CAELI_AUCTION_MARKETPLACE_API_AUTH}
     volumes:
       - ./backend:/app
       - document_storage:/app/storage/documents
@@ -99,6 +101,8 @@ services:
       - PYSIS_CLIENT_ID=4d5e8963-35d7-4a7e-a989-81adb1fe5d9c
       - PYSIS_CLIENT_SECRET=${PYSIS_CLIENT_SECRET}
       - PYSIS_SCOPE=api://7e32391f-a384-44b1-9850-d565b4a59ed0/.default
+      # Caeli Auction API
+      - CAELI_AUCTION_MARKETPLACE_API_AUTH=${CAELI_AUCTION_MARKETPLACE_API_AUTH}
     volumes: &worker-volumes
       - ./backend:/app
       - document_storage:/app/storage/documents

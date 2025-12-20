@@ -1,8 +1,8 @@
 {
   "categories": {
-    "title": "Kategorien",
-    "category": "Kategorie",
-    "categories": "Kategorien",
+    "title": "Analysethemen",
+    "category": "Analysethema",
+    "categories": "Analysethemen",
     "tabs": {
       "general": "Allgemein",
       "search": "Suche",
@@ -28,10 +28,10 @@
       "documentTypes": "Dokumenttypen",
       "documentTypesHint": "z.B. Beschluss, Protokoll, Satzung",
       "languages": "Sprachen",
-      "languagesHint": "Wählen Sie die Sprachen für diese Kategorie",
-      "languagesDescription": "Welche Sprachen werden in dieser Kategorie verwendet? Die KI passt ihre Analyse entsprechend an.",
+      "languagesHint": "Wählen Sie die Sprachen für dieses Analysethema",
+      "languagesDescription": "Welche Sprachen werden in diesem Analysethema verwendet? Die KI passt ihre Analyse entsprechend an.",
       "urlFiltersTitle": "URL-Filter (Regex)",
-      "urlFiltersDescription": "Diese Filter gelten für alle Datenquellen in dieser Kategorie, sofern die Quelle keine eigenen Filter definiert hat. Ohne Filter wird die komplette Sitemap durchsucht.",
+      "urlFiltersDescription": "Diese Filter gelten für alle Datenquellen in diesem Analysethema, sofern die Quelle keine eigenen Filter definiert hat. Ohne Filter wird die komplette Sitemap durchsucht.",
       "includePatterns": "Include-Patterns (Whitelist)",
       "includeHint": "URLs müssen mindestens ein Pattern matchen. z.B. /dokumente/, /beschluesse/, /ratsinformation/",
       "excludePatterns": "Exclude-Patterns (Blacklist)",
@@ -45,8 +45,8 @@
       "aiPromptHint": "Definieren Sie das JSON-Format und die Extraktionsregeln",
       "keywords": "Schlüsselwörter",
       "enabled": "Aktiv",
-      "enabledHint": "Inaktive Kategorien werden nicht gecrawlt",
-      "purposeHint": "Beschreiben Sie, was die KI in dieser Kategorie analysieren soll",
+      "enabledHint": "Inaktive Analysethemen werden nicht gecrawlt",
+      "purposeHint": "Beschreiben Sie, was die KI in diesem Analysethema analysieren soll",
       "searchInfo": "Suchbegriffe und Dokumenttypen helfen dem Crawler, relevante Dokumente zu finden",
       "scheduleTitle": "Zeitplanung",
       "includePlaceholder": "z.B. /dokumente/",
@@ -62,7 +62,7 @@
       "actions": "Aktionen"
     },
     "actions": {
-      "create": "Neue Kategorie",
+      "create": "Neues Analysethema",
       "edit": "Bearbeiten",
       "delete": "Löschen",
       "viewSources": "Datenquellen anzeigen",
@@ -70,12 +70,12 @@
       "reanalyze": "Dokumente neu analysieren"
     },
     "dialog": {
-      "create": "Neue Kategorie",
-      "edit": "Kategorie bearbeiten",
-      "delete": "Kategorie löschen?",
-      "deleteConfirm": "Möchten Sie die Kategorie \"{name}\" wirklich löschen? Alle zugehörigen Datenquellen und Dokumente werden ebenfalls gelöscht.",
+      "create": "Neues Analysethema",
+      "edit": "Analysethema bearbeiten",
+      "delete": "Analysethema löschen?",
+      "deleteConfirm": "Möchten Sie das Analysethema \"{name}\" wirklich löschen? Alle zugehörigen Datenquellen und Dokumente werden ebenfalls gelöscht.",
       "reanalyze": "Dokumente neu analysieren?",
-      "reanalyzeConfirm": "Alle Dokumente der Kategorie \"{name}\" werden mit dem aktuellen KI-Prompt neu analysiert.",
+      "reanalyzeConfirm": "Alle Dokumente des Analysethemas \"{name}\" werden mit dem aktuellen KI-Prompt neu analysiert.",
       "reanalyzeAll": "Alle Dokumente neu analysieren (nicht nur niedrige Konfidenz)",
       "reanalyzeInfo": "werden neu analysiert.",
       "reanalyzeOnlyLow": "Nur Dokumente mit Konfidenz < 70%",
@@ -83,7 +83,7 @@
       "sources": "Datenquellen:",
       "sourcesFor": "Datenquellen:",
       "searchSources": "Suchen...",
-      "noSources": "Keine Datenquellen in dieser Kategorie",
+      "noSources": "Keine Datenquellen in diesem Analysethema",
       "noSourcesSearch": "Keine Datenquellen gefunden für",
       "statistics": "Statistik",
       "openUrl": "URL öffnen",
@@ -134,9 +134,9 @@
       "error": "Fehler"
     },
     "messages": {
-      "created": "Kategorie erfolgreich erstellt",
-      "updated": "Kategorie erfolgreich aktualisiert",
-      "deleted": "Kategorie erfolgreich gelöscht",
+      "created": "Analysethema erfolgreich erstellt",
+      "updated": "Analysethema erfolgreich aktualisiert",
+      "deleted": "Analysethema erfolgreich gelöscht",
       "reanalyzeStarted": "Neu-Analyse gestartet",
       "reanalyzeError": "Fehler beim Starten der Neu-Analyse",
       "sourcesLoadError": "Fehler beim Laden der Datenquellen"

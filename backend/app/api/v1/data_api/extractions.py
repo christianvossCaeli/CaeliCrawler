@@ -112,7 +112,7 @@ async def get_extraction_stats(
 
     verified = (await session.execute(
         select(func.count()).where(
-            ExtractedData.human_verified == True,
+            ExtractedData.human_verified.is_(True),
             *([ExtractedData.category_id == category_id] if category_id else [])
         )
     )).scalar()
@@ -172,7 +172,7 @@ async def verify_extraction(
     session: AsyncSession = Depends(get_session),
 ):
     """Verify extracted data and optionally apply corrections."""
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     extraction = await session.get(ExtractedData, extraction_id)
     if not extraction:
@@ -180,7 +180,7 @@ async def verify_extraction(
 
     extraction.human_verified = data.verified
     extraction.verified_by = data.verified_by
-    extraction.verified_at = datetime.utcnow()
+    extraction.verified_at = datetime.now(timezone.utc)
 
     if data.corrections:
         extraction.human_corrections = data.corrections

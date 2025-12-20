@@ -1,6 +1,6 @@
 <template>
   <div class="quick-actions-panel">
-    <div class="quick-actions-header" @click="isExpanded = !isExpanded">
+    <div class="quick-actions-header" role="button" tabindex="0" :aria-expanded="isExpanded" @click="isExpanded = !isExpanded" @keydown.enter.prevent="isExpanded = !isExpanded" @keydown.space.prevent="isExpanded = !isExpanded">
       <div class="d-flex align-center">
         <v-icon size="small" class="mr-2">mdi-lightning-bolt</v-icon>
         <span class="text-caption font-weight-medium">{{ t('assistant.quickActions') }}</span>
@@ -206,6 +206,11 @@ const contextActions = computed<QuickAction[]>(() => {
 
 .quick-actions-header:hover {
   background: rgba(var(--v-theme-on-surface-variant), 0.08);
+}
+
+.quick-actions-header:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
 }
 
 .quick-actions-content {
