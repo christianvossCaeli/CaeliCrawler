@@ -1,14 +1,14 @@
 """Category setup operations for Smart Query Service."""
 
 import uuid as uuid_module
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 from uuid import UUID
 
 import structlog
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import EntityType, Category, DataSourceCategory
+from app.models import EntityType, Category, DataSource, DataSourceCategory
 
 from .geographic_utils import resolve_geographic_alias, expand_search_terms
 from .schema_generator import (
@@ -25,6 +25,13 @@ from .crawl_operations import find_matching_data_sources
 from .utils import generate_slug
 
 logger = structlog.get_logger()
+
+# Configuration for AI Source Discovery integration
+# No hard limit on sources - the number depends on the use case:
+# - "Bundesliga" → few fixed sources
+# - "PlayStation games" → ~10 sources
+# - "Gemeinden in NRW" → potentially thousands
+AI_DISCOVERY_MIN_CONFIDENCE = 0.5  # Minimum confidence for auto-import
 
 
 async def create_category_setup_with_ai(
@@ -58,16 +65,21 @@ async def create_category_setup_with_ai(
         "category_name": None,
         "category_slug": None,
         "linked_data_source_count": 0,
+        "discovered_data_source_count": 0,  # NEW: Sources found via AI Discovery
+        "ai_discovered_sources": [],  # NEW: Details of discovered sources
         "ai_extraction_prompt": "",
         "url_patterns": {},
         "search_terms": [],
         "warnings": [],
     }
 
+    # Total steps: 1=EntityType, 2=Category, 3=CrawlConfig, 4=AI Source Discovery
+    total_steps = 4
+
     def report_progress(step: int, message: str, success: bool = True):
         result["steps"].append({
             "step": step,
-            "total": 3,
+            "total": total_steps,
             "message": message,
             "success": success,
         })
@@ -209,9 +221,140 @@ async def create_category_setup_with_ai(
         }
 
         # =========================================================================
-        # LINK DATA SOURCES
+        # STEP 4/4: AI SOURCE DISCOVERY - Find and create new data sources
+        # Only run if no existing sources match the search terms
         # =========================================================================
-        matching_sources = await find_matching_data_sources(session, geographic_filter)
+        report_progress(4, "Prüfe existierende Datenquellen...")
+
+        discovered_sources = []
+        discovered_count = 0
+
+        # First check if we already have matching sources
+        existing_matching_sources = await find_matching_data_sources(session, geographic_filter)
+
+        # Also check sources matching search terms
+        if search_terms:
+            search_term_conditions = [
+                DataSource.name.ilike(f"%{term}%")
+                for term in search_terms[:5]
+            ]
+            if search_term_conditions:
+                term_sources_result = await session.execute(
+                    select(DataSource).where(
+                        or_(*search_term_conditions),
+                        DataSource.is_active.is_(True),
+                    )
+                )
+                for source in term_sources_result.scalars().all():
+                    if source not in existing_matching_sources:
+                        existing_matching_sources.append(source)
+
+        # Only run AI Discovery if we have few or no existing sources
+        should_discover = len(existing_matching_sources) < 3
+
+        if should_discover:
+            report_progress(4, "Suche automatisch nach relevanten Datenquellen...")
+            try:
+                # Build discovery prompt from search terms and user intent
+                discovery_prompt = f"{user_intent}. Suchbegriffe: {', '.join(search_terms)}"
+
+                # Import here to avoid circular imports
+                from services.ai_source_discovery.discovery_service import AISourceDiscoveryService
+
+                discovery_service = AISourceDiscoveryService()
+                discovery_result = await discovery_service.discover_sources(
+                    prompt=discovery_prompt,
+                    max_results=100,  # Get many results, filter by confidence
+                    search_depth="standard",
+                )
+
+                # Process discovered sources - no hard limit, confidence-based filtering
+                for source_data in discovery_result.sources:
+                    # Skip low-confidence sources
+                    if source_data.confidence < AI_DISCOVERY_MIN_CONFIDENCE:
+                        continue
+
+                    # Check if URL already exists in database
+                    existing_source = await session.execute(
+                        select(DataSource).where(
+                            DataSource.base_url == source_data.base_url
+                        )
+                    )
+                    if existing_source.scalar():
+                        # Source exists, will be linked below
+                        continue
+
+                    # Create new DataSource from discovered source
+                    new_source = DataSource(
+                        id=uuid_module.uuid4(),
+                        name=source_data.name[:200] if source_data.name else f"AI-Discovered: {source_data.base_url[:50]}",
+                        base_url=source_data.base_url,
+                        source_type=source_data.source_type or "WEBSITE",
+                        tags=source_data.tags or [],
+                        crawl_enabled=True,
+                        is_active=True,
+                        created_by_id=current_user_id,
+                        owner_id=current_user_id,
+                        metadata={
+                            "ai_discovered": True,
+                            "discovery_confidence": source_data.confidence,
+                            "discovery_prompt": discovery_prompt[:500],
+                        },
+                    )
+                    session.add(new_source)
+                    discovered_sources.append({
+                        "name": new_source.name,
+                        "url": new_source.base_url,
+                        "confidence": source_data.confidence,
+                        "tags": source_data.tags,
+                    })
+                    discovered_count += 1
+
+                await session.flush()
+
+                result["ai_discovered_sources"] = discovered_sources
+                result["discovered_data_source_count"] = discovered_count
+                result["steps"][-1]["result"] = f"{discovered_count} neue Quellen entdeckt"
+
+                if discovery_result.warnings:
+                    result["warnings"].extend(discovery_result.warnings)
+
+            except Exception as e:
+                logger.warning("AI Source Discovery failed, continuing without", error=str(e))
+                result["warnings"].append(f"AI Source Discovery übersprungen: {str(e)}")
+                result["steps"][-1]["success"] = False
+                result["steps"][-1]["result"] = f"Übersprungen: {str(e)}"
+        else:
+            # Already have enough matching sources, skip AI Discovery
+            result["steps"][-1]["result"] = (
+                f"Übersprungen: {len(existing_matching_sources)} passende Quellen bereits vorhanden"
+            )
+            logger.info(
+                "AI Source Discovery skipped - sufficient existing sources",
+                existing_count=len(existing_matching_sources),
+                search_terms=search_terms,
+            )
+
+        # =========================================================================
+        # LINK ALL DATA SOURCES (existing + newly discovered)
+        # =========================================================================
+        # Use the existing_matching_sources we already found above
+        # Re-query to include any newly created sources from AI Discovery
+        all_sources_to_link = list(existing_matching_sources)
+
+        # Also fetch any newly created AI-discovered sources
+        if discovered_count > 0:
+            new_sources_result = await session.execute(
+                select(DataSource).where(
+                    DataSource.metadata["ai_discovered"].astext == "true",
+                    DataSource.is_active.is_(True),
+                )
+            )
+            for source in new_sources_result.scalars().all():
+                if source not in all_sources_to_link:
+                    all_sources_to_link.append(source)
+
+        matching_sources = all_sources_to_link
 
         linked_count = 0
         for source in matching_sources:
@@ -234,13 +377,21 @@ async def create_category_setup_with_ai(
 
         result["linked_data_source_count"] = linked_count
         result["success"] = True
-        result["message"] = f"Erfolgreich erstellt: EntityType '{entity_type.name}', Category '{category.name}', {linked_count} Datenquellen verknüpft"
+
+        total_sources = linked_count + discovered_count
+        result["message"] = (
+            f"Erfolgreich erstellt: EntityType '{entity_type.name}', "
+            f"Category '{category.name}', "
+            f"{discovered_count} neue Quellen entdeckt, "
+            f"{linked_count} Datenquellen verknüpft"
+        )
 
         logger.info(
             "AI-powered category setup completed",
             entity_type=entity_type.name,
             category=category.name,
-            sources=linked_count,
+            discovered_sources=discovered_count,
+            linked_sources=linked_count,
         )
 
         return result
