@@ -21,29 +21,9 @@ from app.models import (
     EntityRelation,
 )
 from app.models.facet_value import FacetValueSourceType
+from app.utils.text import normalize_name, create_slug
 
 logger = structlog.get_logger()
-
-
-def normalize_name(name: str) -> str:
-    """
-    Normalize entity name for matching.
-
-    Uses centralized normalization to ensure consistency across all imports.
-    This prevents duplicate entities caused by different normalization methods.
-    """
-    from app.utils.text import normalize_entity_name
-    return normalize_entity_name(name, country="DE")
-
-
-def create_slug(name: str) -> str:
-    """
-    Create URL-safe slug from name.
-
-    Uses centralized slug creation for consistency.
-    """
-    from app.utils.text import create_slug as _create_slug
-    return _create_slug(name, country="DE")
 
 
 async def get_or_create_entity(

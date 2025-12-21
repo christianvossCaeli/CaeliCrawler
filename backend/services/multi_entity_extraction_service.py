@@ -18,7 +18,8 @@ from app.models import (
     FacetValue,
     RelationType,
 )
-from app.utils.text import normalize_entity_name
+from app.utils.text import normalize_entity_name, create_slug
+from services.entity_matching_service import EntityMatchingService
 
 logger = structlog.get_logger()
 
@@ -199,16 +200,21 @@ class MultiEntityExtractionService:
                     entity_map[(type_slug, name)] = existing
                     found_count += 1
                 else:
-                    # Create new entity
-                    new_entity = Entity(
-                        entity_type_id=entity_type.id,
+                    # Create new entity using EntityMatchingService for consistency
+                    # This ensures proper name_normalized, slug, and race-condition safety
+                    entity_service = EntityMatchingService(self.session)
+                    new_entity = await entity_service.get_or_create_entity(
+                        entity_type_slug=type_slug,
                         name=name,
                         core_attributes=entity_data.get("attributes", {}),
                     )
-                    self.session.add(new_entity)
-                    await self.session.flush()
-                    entity_map[(type_slug, name)] = new_entity
-                    created_count += 1
+                    if new_entity:
+                        entity_map[(type_slug, name)] = new_entity
+                        # Check if entity was just created or found by EntityMatchingService
+                        if new_entity.name not in existing_entities:
+                            created_count += 1
+                        else:
+                            found_count += 1
 
             result["entities_created"][type_slug] = created_count
             result["entities_found"][type_slug] = found_count
@@ -285,11 +291,15 @@ class MultiEntityExtractionService:
     async def _find_entity(
         self, entity_type_id: uuid.UUID, name: str
     ) -> Optional[Entity]:
-        """Find an existing entity by type and name."""
+        """Find an existing entity by type and normalized name.
+
+        Uses normalized name for consistent matching.
+        """
+        name_normalized = normalize_entity_name(name, country="DE")
         result = await self.session.execute(
             select(Entity).where(
                 Entity.entity_type_id == entity_type_id,
-                Entity.name == name,
+                Entity.name_normalized == name_normalized,
                 Entity.is_active.is_(True),
             )
         )

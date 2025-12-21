@@ -1,7 +1,6 @@
 """Entity, Facet, and Relation operations for Smart Query Service."""
 
 import uuid as uuid_module
-from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy import select, or_
@@ -15,8 +14,13 @@ from app.models import (
     RelationType,
     EntityRelation,
 )
+from app.utils.similarity import DEFAULT_SIMILARITY_THRESHOLD
 from services.entity_matching_service import EntityMatchingService
 from .utils import generate_slug
+
+# Constants for Smart Query operations
+SMART_QUERY_CONFIDENCE_SCORE = 0.9  # High confidence for user-initiated entries
+DEFAULT_ENTITY_TYPE_ORDER = 10  # Default display order for new entity types
 
 
 async def create_entity_type_from_command(
@@ -52,7 +56,7 @@ async def create_entity_type_from_command(
         supports_hierarchy=entity_type_data.get("supports_hierarchy", False),
         hierarchy_config=entity_type_data.get("hierarchy_config"),
         attribute_schema=entity_type_data.get("attribute_schema"),
-        display_order=10,  # Default order
+        display_order=DEFAULT_ENTITY_TYPE_ORDER,
         is_active=True,
         is_system=False,
     )
@@ -62,14 +66,27 @@ async def create_entity_type_from_command(
     return entity_type, f"Entity-Typ '{name}' erstellt"
 
 
+def _escape_like_pattern(pattern: str) -> str:
+    """Escape special characters for SQL LIKE patterns."""
+    # Escape backslash first, then %, then _
+    return pattern.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 async def find_entity_by_name(
     session: AsyncSession,
     name: str,
     entity_type_slug: Optional[str] = None,
 ) -> Optional[Entity]:
-    """Find an entity by name (case-insensitive)."""
+    """Find an entity by name (case-insensitive).
+
+    Note: Uses ILIKE for case-insensitive search.
+    Special LIKE characters (%, _) in the name are escaped to prevent SQL injection.
+    """
+    # Escape LIKE special characters to prevent injection
+    escaped_name = _escape_like_pattern(name)
+
     query = select(Entity).where(
-        Entity.name.ilike(f"%{name}%"),
+        Entity.name.ilike(f"%{escaped_name}%", escape="\\"),
         Entity.is_active.is_(True),
     )
     if entity_type_slug:
@@ -104,6 +121,25 @@ async def create_entity_from_command(
     # Use centralized EntityMatchingService for consistent entity creation
     service = EntityMatchingService(session)
 
+    # Get entity type first for better error messages
+    entity_type = await service.get_entity_type(entity_type_slug)
+    if not entity_type:
+        return None, f"Entity-Typ '{entity_type_slug}' nicht gefunden"
+
+    # Check if entity already exists before attempting creation
+    # This allows us to reliably detect if the entity was newly created
+    from app.utils.text import normalize_entity_name
+    name_normalized = normalize_entity_name(name, entity_data.get("country", "DE"))
+
+    existing_entity = await session.execute(
+        select(Entity).where(
+            Entity.entity_type_id == entity_type.id,
+            Entity.name_normalized == name_normalized,
+            Entity.is_active.is_(True),
+        )
+    )
+    entity_existed = existing_entity.scalar_one_or_none() is not None
+
     entity = await service.get_or_create_entity(
         entity_type_slug=entity_type_slug,
         name=name,
@@ -114,22 +150,15 @@ async def create_entity_from_command(
         longitude=entity_data.get("longitude"),
         admin_level_1=entity_data.get("admin_level_1"),
         admin_level_2=entity_data.get("admin_level_2"),
-        similarity_threshold=entity_data.get("similarity_threshold", 0.85),
+        similarity_threshold=entity_data.get("similarity_threshold", DEFAULT_SIMILARITY_THRESHOLD),
     )
 
     if not entity:
-        return None, f"Entity-Typ '{entity_type_slug}' nicht gefunden"
+        return None, f"Entity konnte nicht erstellt werden"
 
-    # Determine if entity was just created (within last 5 seconds)
-    was_created = entity.created_at and entity.created_at > (
-        datetime.utcnow() - timedelta(seconds=5)
-    )
+    type_name = entity_type.name
 
-    # Get entity type name for message
-    entity_type = await service._get_entity_type(entity_type_slug)
-    type_name = entity_type.name if entity_type else entity_type_slug
-
-    if was_created:
+    if not entity_existed:
         return entity, f"Entity '{name}' ({type_name}) erstellt"
     else:
         return entity, f"Entity '{entity.name}' ({type_name}) gefunden"
@@ -168,7 +197,7 @@ async def create_facet_from_command(
         value=facet_data.get("value", {}),
         text_representation=facet_data.get("text_representation", ""),
         source_type=FacetValueSourceType.SMART_QUERY,
-        confidence_score=0.9,  # Smart Query entry = high confidence
+        confidence_score=SMART_QUERY_CONFIDENCE_SCORE,
         is_active=True,
     )
     session.add(facet_value)

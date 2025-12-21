@@ -239,8 +239,18 @@ class EntityMatchingService:
 
         return result
 
-    async def _get_entity_type(self, slug: str) -> Optional[EntityType]:
-        """Get entity type by slug with caching."""
+    async def get_entity_type(self, slug: str) -> Optional[EntityType]:
+        """
+        Get entity type by slug with caching.
+
+        Public method for external access to entity types.
+
+        Args:
+            slug: The entity type slug
+
+        Returns:
+            EntityType if found, None otherwise
+        """
         if slug in self._entity_type_cache:
             return self._entity_type_cache[slug]
 
@@ -253,6 +263,11 @@ class EntityMatchingService:
             self._entity_type_cache[slug] = entity_type
 
         return entity_type
+
+    # Alias for backwards compatibility
+    async def _get_entity_type(self, slug: str) -> Optional[EntityType]:
+        """Deprecated: Use get_entity_type instead."""
+        return await self.get_entity_type(slug)
 
     async def _find_by_external_id(
         self, entity_type_id: uuid.UUID, external_id: str

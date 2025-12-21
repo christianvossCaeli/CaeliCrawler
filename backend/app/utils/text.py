@@ -10,7 +10,13 @@ duplicate entries caused by inconsistent normalization (e.g., "Köln" vs "Koln")
 
 import re
 import unicodedata
-from typing import Optional
+from typing import Any, Optional
+
+# German-speaking countries that use the same umlaut replacements
+GERMAN_SPEAKING_COUNTRIES = ("DE", "AT", "CH")
+
+# Umlaut replacements for German-speaking countries
+GERMAN_UMLAUT_REPLACEMENTS = {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}
 
 
 def normalize_entity_name(name: str, country: str = "DE") -> str:
@@ -46,20 +52,9 @@ def normalize_entity_name(name: str, country: str = "DE") -> str:
     result = name.lower()
 
     # Country-specific character replacements
-    if country == "DE":
-        # German umlauts and ß
-        replacements = {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}
-        for old, new in replacements.items():
-            result = result.replace(old, new)
-    elif country == "AT":
-        # Austrian - same umlauts as German
-        replacements = {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}
-        for old, new in replacements.items():
-            result = result.replace(old, new)
-    elif country == "CH":
-        # Swiss - same umlauts as German
-        replacements = {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}
-        for old, new in replacements.items():
+    if country in GERMAN_SPEAKING_COUNTRIES:
+        # German, Austrian, Swiss - same umlaut replacements
+        for old, new in GERMAN_UMLAUT_REPLACEMENTS.items():
             result = result.replace(old, new)
     elif country == "GB":
         # UK-specific normalizations
@@ -138,7 +133,7 @@ def normalize_for_search(text: str) -> str:
     return result
 
 
-def build_text_representation(value: any) -> str:
+def build_text_representation(value: Any) -> str:
     """
     Build searchable text representation from a facet value.
 
