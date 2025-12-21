@@ -133,6 +133,21 @@ async def execute_write_command(
             if setup_result.get("linked_data_source_count"):
                 result["linked_sources_count"] = setup_result["linked_data_source_count"]
 
+            # AI Discovery results
+            result["discovered_data_source_count"] = setup_result.get("discovered_data_source_count", 0)
+            result["ai_discovered_sources"] = setup_result.get("ai_discovered_sources", [])
+            result["entity_type_name"] = setup_result.get("entity_type_name")
+            result["category_name"] = setup_result.get("category_name")
+
+            # Seed entity results
+            result["seed_entities_count"] = setup_result.get("seed_entities_count", 0)
+            result["seed_entities_created"] = setup_result.get("seed_entities_created", [])
+            result["seed_relations_count"] = setup_result.get("seed_relations_count", 0)
+            result["hierarchy_parent_id"] = setup_result.get("hierarchy_parent_id")
+
+            if setup_result.get("warnings"):
+                result["warnings"] = setup_result["warnings"]
+
         elif operation == "start_crawl":
             crawl_data = command.get("crawl_command_data", {})
             crawl_result = await execute_crawl_command(session, crawl_data)

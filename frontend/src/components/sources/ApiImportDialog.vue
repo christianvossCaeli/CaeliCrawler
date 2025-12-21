@@ -12,6 +12,18 @@
       </v-card-title>
 
       <v-card-text class="pa-6">
+        <!-- Error Alert -->
+        <v-alert
+          v-if="errorMessage"
+          type="error"
+          variant="tonal"
+          closable
+          class="mb-4"
+          @click:close="errorMessage = ''"
+        >
+          {{ errorMessage }}
+        </v-alert>
+
         <!-- API Type Selection -->
         <v-row>
           <v-col cols="12" md="6">
@@ -68,15 +80,15 @@
         <v-card v-if="apiType === 'wikidata'" variant="outlined" class="mb-4">
           <v-card-title class="text-subtitle-2 pb-2">
             <v-icon start size="small">mdi-database-search</v-icon>
-            SPARQL Query
+            {{ $t('sources.apiImport.sparqlQuery') }}
           </v-card-title>
           <v-card-text>
             <v-textarea
               v-model="sparqlQuery"
-              label="SPARQL Query"
+              :placeholder="$t('sources.apiImport.sparqlPlaceholder')"
               rows="8"
               variant="outlined"
-              font-family="monospace"
+              class="sparql-textarea"
               :hint="$t('sources.apiImport.sparqlHint')"
               persistent-hint
             ></v-textarea>
@@ -184,7 +196,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, idx) in preview.slice(0, 20)" :key="idx" :class="{ 'bg-error-lighten-5': item.error }">
+                <tr v-for="(item, idx) in preview.slice(0, 20)" :key="item.base_url || idx" :class="{ 'bg-error-lighten-5': item.error }">
                   <td>
                     <v-icon v-if="item.error" color="error" size="small">mdi-alert-circle</v-icon>
                     <v-icon v-else color="success" size="small">mdi-check-circle</v-icon>
@@ -192,7 +204,9 @@
                   <td class="text-truncate" style="max-width: 200px;">{{ item.name }}</td>
                   <td class="text-truncate text-caption" style="max-width: 250px;">{{ item.base_url }}</td>
                   <td>
-                    <v-chip v-for="tag in getAllTags(item).slice(0, 3)" :key="tag" size="x-small" :color="getTagColor(tag)" class="mr-1">{{ tag }}</v-chip>
+                    <template v-for="(tag, tagIdx) in getAllTags(item)" :key="tag">
+                      <v-chip v-if="tagIdx < 3" size="x-small" :color="getTagColor(tag)" class="mr-1">{{ tag }}</v-chip>
+                    </template>
                     <span v-if="getAllTags(item).length > 3" class="text-caption">+{{ getAllTags(item).length - 3 }}</span>
                   </td>
                 </tr>
@@ -293,16 +307,16 @@ const preview = ref<PreviewItem[]>([])
 const totalAvailable = ref(0)
 const loadingPreview = ref(false)
 const importing = ref(false)
-
-const apiTypes = [
-  { value: 'wikidata', title: 'Wikidata SPARQL', icon: 'mdi-database-search', color: 'blue' },
-  { value: 'oparl', title: 'OParl API', icon: 'mdi-api', color: 'green' },
-  { value: 'custom', title: 'Custom REST API', icon: 'mdi-code-json', color: 'grey' },
-]
+const errorMessage = ref('')
 
 // Computed
+const apiTypes = computed(() => [
+  { value: 'wikidata', title: t('sources.apiImport.wikidata'), icon: 'mdi-database-search', color: 'blue' },
+  { value: 'oparl', title: t('sources.apiImport.oparl'), icon: 'mdi-api', color: 'green' },
+  { value: 'custom', title: t('sources.apiImport.custom'), icon: 'mdi-code-json', color: 'grey' },
+])
 const filteredTemplates = computed(() => {
-  return templates.value.filter(t => t.api_type === apiType.value)
+  return templates.value.filter(tmpl => tmpl.api_type === apiType.value)
 })
 
 const canPreview = computed(() => {
@@ -348,6 +362,7 @@ const onApiTypeChange = () => {
   selectedTemplate.value = null
   preview.value = []
   totalAvailable.value = 0
+  errorMessage.value = ''
 
   // Set default URL
   switch (apiType.value) {
@@ -365,7 +380,7 @@ const onApiTypeChange = () => {
 const onTemplateSelect = (templateId: string | null) => {
   if (!templateId) return
 
-  const template = templates.value.find(t => t.id === templateId)
+  const template = templates.value.find(tmpl => tmpl.id === templateId)
   if (!template) return
 
   apiType.value = template.api_type
@@ -380,6 +395,7 @@ const onTemplateSelect = (templateId: string | null) => {
 const loadPreview = async () => {
   loadingPreview.value = true
   preview.value = []
+  errorMessage.value = ''
 
   try {
     const params: Record<string, any> = {}
@@ -406,6 +422,7 @@ const loadPreview = async () => {
     }
   } catch (error) {
     console.error('Failed to load preview:', error)
+    errorMessage.value = t('sources.apiImport.previewError')
   } finally {
     loadingPreview.value = false
   }
@@ -413,6 +430,7 @@ const loadPreview = async () => {
 
 const executeImport = async () => {
   importing.value = true
+  errorMessage.value = ''
 
   try {
     const params: Record<string, any> = {}
@@ -434,6 +452,7 @@ const executeImport = async () => {
     close()
   } catch (error) {
     console.error('API import failed:', error)
+    errorMessage.value = t('sources.apiImport.importError')
   } finally {
     importing.value = false
   }
@@ -463,6 +482,7 @@ const getTagColor = (tag: string): string => {
 const close = () => {
   preview.value = []
   totalAvailable.value = 0
+  errorMessage.value = ''
   isOpen.value = false
 }
 
@@ -482,6 +502,7 @@ watch(isOpen, (value) => {
     preview.value = []
     totalAvailable.value = 0
     selectedTemplate.value = null
+    errorMessage.value = ''
     loadTemplates()
   }
 })
@@ -489,6 +510,11 @@ watch(isOpen, (value) => {
 
 <style scoped>
 .preview-table {
+  font-size: 0.875rem;
+}
+
+.sparql-textarea :deep(textarea) {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 0.875rem;
 }
 </style>

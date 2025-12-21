@@ -317,7 +317,7 @@ class InsightsService:
             # Count entities of this type
             result = await self.db.execute(
                 select(func.count(Entity.id))
-                .where(Entity.type_id == etype.id)
+                .where(Entity.entity_type_id == etype.id)
             )
             count = result.scalar() or 0
 

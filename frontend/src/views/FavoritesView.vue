@@ -210,6 +210,11 @@ const headers = computed(() => [
 
 // Methods
 async function loadFavorites(page = currentPage.value) {
+  // Prevent multiple simultaneous loads
+  if (loading.value) {
+    return
+  }
+
   loading.value = true
   try {
     await favoritesStore.loadFavorites({
@@ -228,10 +233,21 @@ async function loadFavorites(page = currentPage.value) {
 }
 
 function onTableOptionsUpdate(options: { page: number; itemsPerPage: number }) {
-  if (options.itemsPerPage !== itemsPerPage.value) {
+  // Prevent unnecessary reloads that cause infinite loops
+  const pageChanged = options.page !== currentPage.value
+  const perPageChanged = options.itemsPerPage !== itemsPerPage.value
+
+  if (!pageChanged && !perPageChanged) {
+    return // No actual change, skip reload
+  }
+
+  if (perPageChanged) {
     itemsPerPage.value = options.itemsPerPage
   }
-  loadFavorites(options.page)
+
+  if (pageChanged || perPageChanged) {
+    loadFavorites(options.page)
+  }
 }
 
 function navigateToEntity(favorite: Favorite) {

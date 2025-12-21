@@ -1170,6 +1170,33 @@
           "note": "Note: Only changes from the current session can be undone."
         }
       },
+      "categorySetup": {
+        "title": "Automatic Data Setup",
+        "description": "With 'Create a setup' you can automatically create a complete data pipeline:",
+        "workflow": {
+          "step1": "EntityType is created with appropriate field definitions",
+          "step2": "Category is created with AI extraction prompt",
+          "step3": "AI Source Discovery automatically searches for relevant data sources",
+          "step4": "Found sources are linked to the Category"
+        },
+        "examples": {
+          "title": "Examples",
+          "example1": "Create a setup to collect weekly Bundesliga results",
+          "example2": "Create a setup for software developer job listings",
+          "example3": "Create a setup to collect PlayStation game releases"
+        },
+        "triggerPhrases": {
+          "title": "Trigger Phrases",
+          "phrase1": "Create a setup to...",
+          "phrase2": "Create a setup for...",
+          "phrase3": "Set up a pipeline for..."
+        },
+        "features": {
+          "autoSearchTerms": "Automatic search term generation (10-20 relevant terms)",
+          "aiSourceDiscovery": "AI Source Discovery when < 3 matching sources exist",
+          "preview": "Preview mode before execution"
+        }
+      },
       "errorHandling": {
         "title": "Intelligent Error Handling",
         "description": "The system detects typos and suggests corrections:",

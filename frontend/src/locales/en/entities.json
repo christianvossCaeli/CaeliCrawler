@@ -190,7 +190,14 @@
       "dataSources": "Data Sources",
       "documents": "Documents",
       "pysis": "PySis",
-      "attachments": "Attachments"
+      "attachments": "Attachments",
+      "children": "Children"
+    },
+    "children": {
+      "empty": "No child entities",
+      "emptyHint": "This entity has no subordinate entries.",
+      "subEntities": "Children",
+      "loadError": "Failed to load child entities"
     },
     "searchProperties": "Search in properties...",
     "verified": "verified",

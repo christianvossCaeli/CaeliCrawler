@@ -221,3 +221,4 @@ In Produktion sollte HTTPS verwendet werden.
 | 1.1.0 | 2024-12-20 | Entity Attachments mit KI-Analyse |
 | 1.2.0 | 2024-12-20 | Assistant: Save to Entity Attachments |
 | 2.0.0 | 2025-12-20 | Vollstaendige Modularisierung der API-Dokumentation |
+| 2.1.0 | 2025-12-21 | Smart Write: `create_category_setup` mit AI Source Discovery |

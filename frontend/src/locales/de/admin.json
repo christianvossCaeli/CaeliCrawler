@@ -264,6 +264,118 @@
         "schemaGenerated": "Schema und Einstellungen wurden generiert",
         "schemaGenerationError": "Fehler bei der Schema-Generierung"
       }
+    },
+    "apiTemplates": {
+      "title": "API-Vorlagen",
+      "subtitle": "Wiederverwendbare API-Konfigurationen für die KI-Discovery verwalten",
+      "filters": {
+        "search": "Suche",
+        "status": "Status",
+        "apiType": "API-Typ"
+      },
+      "columns": {
+        "name": "Name",
+        "apiType": "API-Typ",
+        "baseUrl": "Basis-URL",
+        "status": "Status",
+        "usageCount": "Verwendungen",
+        "usage": "Nutzung",
+        "keywords": "Schlüsselwörter",
+        "lastValidated": "Zuletzt validiert",
+        "actions": "Aktionen"
+      },
+      "form": {
+        "name": "Name",
+        "namePlaceholder": "z.B. OpenLigaDB Bundesliga",
+        "nameRequired": "Name ist erforderlich",
+        "description": "Beschreibung",
+        "descriptionPlaceholder": "Kurze Beschreibung der API-Vorlage",
+        "apiType": "API-Typ",
+        "baseUrl": "Basis-URL",
+        "baseUrlPlaceholder": "https://api.example.com",
+        "baseUrlRequired": "Basis-URL ist erforderlich",
+        "endpoint": "Endpunkt",
+        "endpointPlaceholder": "/v1/data",
+        "documentationUrl": "Dokumentations-URL",
+        "documentationUrlPlaceholder": "https://docs.example.com",
+        "authRequired": "Authentifizierung erforderlich",
+        "fieldMapping": "Feld-Mapping (JSON)",
+        "fieldMappingPlaceholder": "{\n  \"sourceName\": \"name\",\n  \"sourceUrl\": \"url\"\n}",
+        "fieldMappingHint": "Mapping von API-Feldern zu Standard-Feldern",
+        "keywords": "Schlüsselwörter",
+        "keywordsHint": "Wörter für automatisches Matching bei Suchanfragen",
+        "defaultTags": "Standard-Tags",
+        "defaultTagsHint": "Tags, die automatisch hinzugefügt werden"
+      },
+      "status": {
+        "ACTIVE": "Aktiv",
+        "INACTIVE": "Inaktiv",
+        "FAILED": "Fehlgeschlagen",
+        "PENDING": "Ausstehend"
+      },
+      "apiTypes": {
+        "REST": "REST API",
+        "GRAPHQL": "GraphQL",
+        "SPARQL": "SPARQL",
+        "OPARL": "OParl"
+      },
+      "actions": {
+        "create": "Neue Vorlage",
+        "edit": "Bearbeiten",
+        "delete": "Löschen",
+        "test": "Testen",
+        "activate": "Aktivieren",
+        "deactivate": "Deaktivieren"
+      },
+      "dialog": {
+        "createTitle": "Neue API-Vorlage",
+        "editTitle": "API-Vorlage bearbeiten",
+        "deleteTitle": "API-Vorlage löschen?",
+        "deleteConfirm": "Möchtest du \"{name}\" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+        "testTitle": "Vorlage testen",
+        "testResult": "Testergebnis"
+      },
+      "tabs": {
+        "basic": "Allgemein",
+        "mapping": "Feld-Mapping",
+        "keywords": "Schlüsselwörter"
+      },
+      "test": {
+        "running": "Teste API...",
+        "success": "API erfolgreich validiert",
+        "failed": "API-Validierung fehlgeschlagen",
+        "itemsFound": "Einträge gefunden",
+        "responseTime": "Antwortzeit",
+        "statusCode": "Status-Code",
+        "sampleData": "Beispieldaten"
+      },
+      "messages": {
+        "created": "API-Vorlage erstellt",
+        "updated": "API-Vorlage aktualisiert",
+        "deleted": "\"{name}\" gelöscht",
+        "loadError": "Fehler beim Laden der API-Vorlagen",
+        "saveError": "Fehler beim Speichern",
+        "deleteError": "Fehler beim Löschen",
+        "testSuccess": "API erfolgreich getestet",
+        "testError": "API-Test fehlgeschlagen"
+      },
+      "errors": {
+        "loadFailed": "Fehler beim Laden der API-Vorlagen",
+        "saveFailed": "Fehler beim Speichern",
+        "deleteFailed": "Fehler beim Löschen",
+        "testFailed": "API-Test fehlgeschlagen"
+      },
+      "never": "Nie",
+      "noTemplates": "Keine API-Vorlagen vorhanden",
+      "noTemplatesHint": "Erstelle eine neue Vorlage oder speichere eine aus der KI-Discovery",
+      "lastUsed": "Zuletzt verwendet: {date}",
+      "neverUsed": "Noch nie verwendet",
+      "items": "Einträge",
+      "testSuccess": "API erfolgreich validiert",
+      "testFailed": "API-Validierung fehlgeschlagen",
+      "statusCode": "Status-Code",
+      "itemCount": "Anzahl Einträge",
+      "sampleData": "Beispieldaten"
     }
   }
 }

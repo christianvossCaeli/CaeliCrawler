@@ -109,7 +109,11 @@ async def list_categories(
     - `is_public`: Explicit visibility filter
     - `search`: Full-text search in name/description
     """
-    query = select(Category)
+    # Eagerly load created_by and owner to avoid lazy loading in Pydantic validation
+    query = select(Category).options(
+        selectinload(Category.created_by),
+        selectinload(Category.owner),
+    )
 
     # Visibility filtering
     if is_public is not None:

@@ -103,6 +103,13 @@ async function copyErrorDetails() {
   }
 }
 
+/**
+ * Reload the page
+ */
+function reloadPage() {
+  window.location.reload()
+}
+
 defineExpose({
   error,
   reset,
@@ -188,7 +195,7 @@ defineExpose({
 
         <v-btn
           variant="text"
-          @click="() => window.location.reload()"
+          @click="reloadPage"
         >
           {{ t('common.errorBoundary.refresh', 'Refresh Page') }}
         </v-btn>

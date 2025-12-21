@@ -20,6 +20,7 @@ class ValueType(str, enum.Enum):
 
     TEXT = "text"  # Simple text value
     STRUCTURED = "structured"  # Complex JSON structure
+    OBJECT = "object"  # Alias for structured (backwards compatibility)
     LIST = "list"  # List of values
     REFERENCE = "reference"  # Reference to another entity
     NUMBER = "number"  # Numeric value (integer or float)

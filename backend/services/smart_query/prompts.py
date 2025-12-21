@@ -53,8 +53,8 @@ Analysiere ob der Benutzer Daten ERSTELLEN oder ÄNDERN möchte.
 - "Erstelle", "Anlegen", "Neue/r/s", "Füge hinzu" → CREATE
 - "Aktualisiere", "Ändere", "Setze" → UPDATE
 - "Verknüpfe", "Verbinde" → CREATE_RELATION
-- "Neuen Entity-Typ", "Neue Kategorie", "Neuen Typ" → CREATE_ENTITY_TYPE
-- "Finde alle...", "Suche nach...", "Überwache...", "Crawle..." + geografische Einschränkung → CREATE_CATEGORY_SETUP
+- "Neuen Entity-Typ", "Neuen Typ" → CREATE_ENTITY_TYPE (nur für reine Typ-Definition ohne Crawling)
+- "Erstelle eine Kategorie für...", "Neue Kategorie für...", "Kategorie für...", "Finde alle...", "Suche nach...", "Überwache...", "Crawle..." → CREATE_CATEGORY_SETUP (mit oder ohne geografische Einschränkung, für Themen die gecrawlt werden sollen wie PlayStation News, Kryptokurse, IT-Jobs, Wetter, etc.)
 - "Starte Crawl", "Crawle", "Führe Crawl aus" → START_CRAWL
 - "Finde Datenquellen", "Suche Datenquellen", "Entdecke Quellen", "Importiere alle X", "Finde alle X im Internet", "Suche im Web nach X" → DISCOVER_SOURCES
 - "Analysiere PySis", "PySis zu Facets", "Extrahiere aus PySis" → ANALYZE_PYSIS_FOR_FACETS
@@ -486,5 +486,164 @@ Standard-Ausschlüsse (immer inkludieren):
 Zusätzliche kontextspezifische Ausschlüsse basierend auf dem Suchfokus hinzufügen.
 
 WICHTIG: url_include_patterns MUSS ein leeres Array [] sein!
+
+Antworte NUR mit validem JSON."""
+
+
+AI_FACET_TYPES_PROMPT = """Du generierst FacetType-Vorschläge für ein Entity-Daten-System.
+
+## Benutzeranfrage:
+{user_intent}
+
+## EntityType:
+Name: {entity_type_name}
+Beschreibung: {entity_type_description}
+
+## Was sind FacetTypes?
+FacetTypes definieren strukturierte Informationen, die über Zeit zu Entities gesammelt werden:
+- Beobachtungen aus verschiedenen Quellen (Dokumente, Web-Crawler)
+- Zeit-basierte Daten mit event_date
+- Mehrere Werte pro Entity möglich
+- Mit Quellenangabe und Confidence Score
+
+## Unterschied zu core_attributes:
+- core_attributes: Statische Grunddaten (Name, Adresse, Gründungsjahr)
+- FacetTypes: Dynamische Beobachtungen (News-Erwähnungen, Pain Points, Kontakte, Events)
+
+## Aufgabe:
+Generiere 2-4 passende FacetTypes für diese Kategorie.
+Wähle aus Standard-FacetTypes oder erstelle neue, themenspezifische.
+
+## Standard-FacetTypes (wenn passend verwenden):
+- pain_point: Probleme, Herausforderungen, negative Entwicklungen
+- positive_signal: Chancen, positive Entwicklungen, Erfolge
+- contact: Ansprechpartner, Kontaktpersonen
+- news_mention: Erwähnungen in Nachrichten/Medien
+- event_attendance: Event-Teilnahmen, Veranstaltungen
+
+## Ausgabe (JSON):
+{{
+  "facet_types": [
+    {{
+      "name": "Name des FacetTypes",
+      "slug": "slug_lowercase_underscore",
+      "name_plural": "Plural-Name",
+      "description": "Kurze Beschreibung wofür dieser FacetType verwendet wird",
+      "value_type": "object",
+      "value_schema": {{
+        "type": "object",
+        "properties": {{
+          "description": {{"type": "string", "description": "Textbeschreibung"}},
+          "category": {{"type": "string", "description": "Kategorie/Typ"}}
+        }}
+      }},
+      "icon": "mdi-icon-name",
+      "color": "#HexColor",
+      "is_time_based": true,
+      "ai_extraction_prompt": "Extrahiere X aus dem Dokument. Achte auf Y und Z."
+    }}
+  ],
+  "reasoning": "Begründung für die Auswahl der FacetTypes"
+}}
+
+## Icon-Auswahl (Material Design Icons):
+- Pain Points: mdi-alert-circle (rot)
+- Positive Signale: mdi-thumb-up (grün)
+- Kontakte: mdi-account (blau)
+- News: mdi-newspaper (orange)
+- Events: mdi-calendar (lila)
+- Finanzen: mdi-currency-eur (grün)
+- Technologie: mdi-chip (blau)
+- Sport: mdi-soccer (grün)
+
+Antworte NUR mit validem JSON."""
+
+
+AI_SEED_ENTITIES_PROMPT = """Du generierst eine Liste von bekannten Entities für ein Datenerfassungssystem.
+
+## Benutzeranfrage:
+{user_intent}
+
+## EntityType:
+Name: {entity_type_name}
+Beschreibung: {entity_type_description}
+
+## Attribute Schema:
+{attribute_schema}
+
+## Geografischer Kontext:
+{geographic_context}
+
+## Aufgabe:
+Generiere eine Liste von BEKANNTEN, REALEN Entities basierend auf deinem Wissen.
+Diese dienen als Seed-Daten, die später durch Crawling angereichert werden.
+
+## WICHTIG:
+- NUR bekannte, verifizierbare Entities nennen
+- Lieber weniger aber korrekte Daten als Vermutungen
+- Bei großen Listen (z.B. alle Gemeinden in NRW): Beschränke auf die wichtigsten ~50
+- Attribute nur ausfüllen wenn SICHER bekannt
+
+## Beispiele:
+- "Bundesliga-Vereine" → Alle 18 aktuellen Erstliga-Vereine
+- "DAX Unternehmen" → Alle 40 DAX-Unternehmen
+- "Gemeinden in NRW" → Die 50 größten Städte/Gemeinden
+
+## Ausgabe (JSON):
+{{
+  "entities": [
+    {{
+      "name": "Name der Entity",
+      "external_id": "Optional: Offizielle ID (z.B. AGS für Gemeinden)",
+      "core_attributes": {{
+        "attribute1": "Wert (nur wenn sicher bekannt)",
+        "attribute2": "Wert"
+      }},
+      "latitude": null,
+      "longitude": null,
+      "admin_level_1": "Bundesland/Region (wenn relevant)",
+      "country": "DE",
+      "relations": [
+        {{
+          "relation_type": "located_in",
+          "target_name": "Name der Ziel-Entity (z.B. Stadt/Gemeinde)",
+          "target_type": "municipality"
+        }}
+      ]
+    }}
+  ],
+  "total_known": 18,
+  "is_complete_list": true,
+  "reasoning": "Begründung warum diese Entities gewählt wurden",
+  "data_quality_note": "Hinweis zur Datenqualität",
+  "hierarchy": {{
+    "use_hierarchy": false,
+    "parent_entity_type": null,
+    "parent_name": null,
+    "hierarchy_reasoning": "Begründung ob Hierarchie sinnvoll ist"
+  }}
+}}
+
+## Relations (Beziehungen):
+Füge sinnvolle Relationen hinzu wenn die Ziel-Entity bekannt ist:
+- located_in: Für geografische Zuordnung (Verein → Stadt, Unternehmen → Stadt)
+- member_of: Für Mitgliedschaften (Person → Organisation)
+- works_for: Für Arbeitsverhältnisse
+
+## Hierarchie:
+Prüfe ob eine hierarchische Struktur sinnvoll ist:
+- "Gemeinden in NRW" → use_hierarchy: true, parent_name: "Nordrhein-Westfalen", parent_entity_type: "municipality"
+- "Städte in Hessen" → use_hierarchy: true, parent_name: "Hessen", parent_entity_type: "municipality"
+- "Kreisfreie Städte in Hessen" → use_hierarchy: true, parent_name: "Hessen", parent_entity_type: "municipality"
+- "Bundesliga-Vereine" → use_hierarchy: false (keine natürliche Hierarchie)
+- "DAX Unternehmen" → use_hierarchy: false
+
+WICHTIG: Bei geografisch eingeschränkten Anfragen (z.B. "in Hessen", "in Bayern", "in NRW")
+MUSS use_hierarchy: true gesetzt werden und parent_name MUSS das Bundesland sein!
+
+## Datenqualität:
+- is_complete_list: true wenn ALLE bekannten Entities enthalten sind (z.B. 18 Bundesliga-Vereine)
+- is_complete_list: false wenn nur eine Auswahl (z.B. 50 von 396 NRW-Gemeinden)
+- total_known: Geschätzte Gesamtzahl bekannter Entities
 
 Antworte NUR mit validem JSON."""

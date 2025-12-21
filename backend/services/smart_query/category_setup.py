@@ -8,7 +8,11 @@ import structlog
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import EntityType, Category, DataSource, DataSourceCategory
+from app.models import EntityType, Category, DataSource, DataSourceCategory, FacetType, Entity
+from app.models.entity_relation import EntityRelation
+from app.models.relation_type import RelationType
+from app.config import settings
+from app.models.data_source import SourceStatus
 
 from .geographic_utils import resolve_geographic_alias, expand_search_terms
 from .schema_generator import (
@@ -20,6 +24,8 @@ from .ai_generation import (
     ai_generate_entity_type_config,
     ai_generate_category_config,
     ai_generate_crawl_config,
+    ai_generate_facet_types,
+    ai_generate_seed_entities,
 )
 from .crawl_operations import find_matching_data_sources
 from .utils import generate_slug
@@ -27,11 +33,64 @@ from .utils import generate_slug
 logger = structlog.get_logger()
 
 # Configuration for AI Source Discovery integration
-# No hard limit on sources - the number depends on the use case:
-# - "Bundesliga" → few fixed sources
-# - "PlayStation games" → ~10 sources
-# - "Gemeinden in NRW" → potentially thousands
-AI_DISCOVERY_MIN_CONFIDENCE = 0.5  # Minimum confidence for auto-import
+# The number of sources depends on the use case type:
+# - ENTITY_COLLECTION: "Gemeinden in NRW" → many sources (one per entity)
+# - TOPIC_MONITORING: "PlayStation news" → few high-quality sources
+AI_DISCOVERY_MIN_CONFIDENCE = 0.6  # Minimum confidence for auto-import
+AI_DISCOVERY_TOPIC_LIMIT = 15  # Max sources for topic monitoring
+AI_DISCOVERY_ENTITY_LIMIT = 500  # Higher limit for entity collection
+
+
+def classify_query_type(user_intent: str, search_terms: list) -> str:
+    """
+    Classify query as ENTITY_COLLECTION or TOPIC_MONITORING.
+
+    ENTITY_COLLECTION: Collecting data about many individual entities
+    - "Alle Gemeinden in NRW"
+    - "Windkraftanlagen in Deutschland"
+    - "Bundesliga-Vereine"
+
+    TOPIC_MONITORING: Monitoring a topic from few authoritative sources
+    - "PlayStation Neuerscheinungen"
+    - "Kryptowährungskurse"
+    - "IT-Stellenangebote"
+
+    Returns:
+        "entity_collection" or "topic_monitoring"
+    """
+    intent_lower = user_intent.lower()
+
+    # Entity collection indicators
+    entity_keywords = [
+        "alle ", "sämtliche", "jede ", "jeden ", "jedes ",
+        "gemeinde", "kommune", "stadt", "städte", "landkreis",
+        "unternehmen", "firmen", "vereine", "mitglieder",
+        "standorte", "filialen", "niederlassungen",
+        "windkraft", "anlagen", "projekte",
+    ]
+
+    # Topic monitoring indicators
+    topic_keywords = [
+        "neuerscheinung", "release", "news", "nachrichten",
+        "kurse", "preise", "ergebnisse", "spieltag",
+        "stellenangebot", "job", "karriere",
+        "wetter", "prognose", "vorhersage",
+        "aktuell", "live", "täglich", "wöchentlich", "monatlich",
+    ]
+
+    entity_score = sum(1 for kw in entity_keywords if kw in intent_lower)
+    topic_score = sum(1 for kw in topic_keywords if kw in intent_lower)
+
+    # Check for geographic scope that suggests entity collection
+    geographic_scope = any(x in intent_lower for x in [
+        "in deutschland", "in nrw", "in bayern", "in hessen",
+        "bundesweit", "landesweit", "regional",
+    ])
+
+    if entity_score > topic_score or geographic_scope and entity_score > 0:
+        return "entity_collection"
+    else:
+        return "topic_monitoring"
 
 
 async def create_category_setup_with_ai(
@@ -65,16 +124,22 @@ async def create_category_setup_with_ai(
         "category_name": None,
         "category_slug": None,
         "linked_data_source_count": 0,
-        "discovered_data_source_count": 0,  # NEW: Sources found via AI Discovery
-        "ai_discovered_sources": [],  # NEW: Details of discovered sources
+        "discovered_data_source_count": 0,  # Sources found via AI Discovery
+        "ai_discovered_sources": [],  # Details of discovered sources
         "ai_extraction_prompt": "",
         "url_patterns": {},
         "search_terms": [],
+        "facet_types_created": [],  # FacetTypes created for this EntityType
+        "facet_types_count": 0,  # Number of FacetTypes created
+        "seed_entities_created": [],  # Seed entities created from AI knowledge
+        "seed_entities_count": 0,  # Number of seed entities created
+        "seed_relations_count": 0,  # Number of relations created for seed entities
+        "hierarchy_parent_id": None,  # Parent entity ID if hierarchy is used
         "warnings": [],
     }
 
-    # Total steps: 1=EntityType, 2=Category, 3=CrawlConfig, 4=AI Source Discovery
-    total_steps = 4
+    # Total steps: 1=EntityType, 2=Category, 3=CrawlConfig, 4=AI Source Discovery, 5=FacetTypes, 6=Seed Entities
+    total_steps = 6
 
     def report_progress(step: int, message: str, success: bool = True):
         result["steps"].append({
@@ -242,7 +307,7 @@ async def create_category_setup_with_ai(
                 term_sources_result = await session.execute(
                     select(DataSource).where(
                         or_(*search_term_conditions),
-                        DataSource.is_active.is_(True),
+                        DataSource.status.in_([SourceStatus.ACTIVE, SourceStatus.PENDING]),
                     )
                 )
                 for source in term_sources_result.scalars().all():
@@ -264,12 +329,57 @@ async def create_category_setup_with_ai(
                 discovery_service = AISourceDiscoveryService()
                 discovery_result = await discovery_service.discover_sources(
                     prompt=discovery_prompt,
-                    max_results=100,  # Get many results, filter by confidence
+                    max_results=200,  # Get more, AI will determine actual limit
                     search_depth="standard",
                 )
 
-                # Process discovered sources - no hard limit, confidence-based filtering
-                for source_data in discovery_result.sources:
+                # Use AI-recommended source limit from search strategy
+                # The AI analyzes the query and determines appropriate limits:
+                # - "Bundesliga-Vereine" → ~25 sources (18 teams × 1.5)
+                # - "Gemeinden in NRW" → ~500 sources (400 Gemeinden × 1.25)
+                # - "PlayStation News" → ~15 sources (topic monitoring)
+                if discovery_result.search_strategy:
+                    source_limit = discovery_result.search_strategy.recommended_max_sources
+                    expected_entities = discovery_result.search_strategy.expected_entity_count
+                    reasoning = discovery_result.search_strategy.reasoning
+                    logger.info(
+                        "AI-determined source limit",
+                        expected_entities=expected_entities,
+                        source_limit=source_limit,
+                        reasoning=reasoning,
+                        user_intent=user_intent[:100],
+                    )
+                else:
+                    # Fallback to keyword-based classification
+                    query_type = classify_query_type(user_intent, search_terms)
+                    source_limit = (
+                        AI_DISCOVERY_ENTITY_LIMIT if query_type == "entity_collection"
+                        else AI_DISCOVERY_TOPIC_LIMIT
+                    )
+                    logger.info(
+                        "Fallback query classification",
+                        query_type=query_type,
+                        source_limit=source_limit,
+                    )
+
+                # Sort sources by confidence (highest first)
+                sorted_sources = sorted(
+                    discovery_result.sources,
+                    key=lambda s: s.confidence,
+                    reverse=True,
+                )
+
+                # Process discovered sources with intelligent limiting
+                for source_data in sorted_sources:
+                    # Enforce AI-recommended source limit
+                    if discovered_count >= source_limit:
+                        logger.info(
+                            "AI source limit reached",
+                            limit=source_limit,
+                            discovered=discovered_count,
+                        )
+                        break
+
                     # Skip low-confidence sources
                     if source_data.confidence < AI_DISCOVERY_MIN_CONFIDENCE:
                         continue
@@ -285,17 +395,24 @@ async def create_category_setup_with_ai(
                         continue
 
                     # Create new DataSource from discovered source
+                    from app.models.data_source import SourceType
+                    # Determine source type
+                    src_type = SourceType.WEBSITE
+                    if source_data.source_type:
+                        try:
+                            src_type = SourceType(source_data.source_type)
+                        except ValueError:
+                            src_type = SourceType.WEBSITE
+
                     new_source = DataSource(
                         id=uuid_module.uuid4(),
                         name=source_data.name[:200] if source_data.name else f"AI-Discovered: {source_data.base_url[:50]}",
                         base_url=source_data.base_url,
-                        source_type=source_data.source_type or "WEBSITE",
+                        source_type=src_type,
                         tags=source_data.tags or [],
-                        crawl_enabled=True,
-                        is_active=True,
-                        created_by_id=current_user_id,
-                        owner_id=current_user_id,
-                        metadata={
+                        status=SourceStatus.PENDING,
+                        priority=1,  # Give AI-discovered sources low priority
+                        extra_data={
                             "ai_discovered": True,
                             "discovery_confidence": source_data.confidence,
                             "discovery_prompt": discovery_prompt[:500],
@@ -346,8 +463,8 @@ async def create_category_setup_with_ai(
         if discovered_count > 0:
             new_sources_result = await session.execute(
                 select(DataSource).where(
-                    DataSource.metadata["ai_discovered"].astext == "true",
-                    DataSource.is_active.is_(True),
+                    DataSource.extra_data["ai_discovered"].astext == "true",
+                    DataSource.status.in_([SourceStatus.ACTIVE, SourceStatus.PENDING]),
                 )
             )
             for source in new_sources_result.scalars().all():
@@ -376,6 +493,437 @@ async def create_category_setup_with_ai(
         await session.flush()  # Let caller handle commit for transaction control
 
         result["linked_data_source_count"] = linked_count
+
+        # =========================================================================
+        # STEP 5/5: Generate and Create FacetTypes
+        # =========================================================================
+        report_progress(5, "Generiere FacetTypes für EntityType...")
+
+        facet_types_created = []
+        facet_types_count = 0
+
+        try:
+            # Generate FacetType suggestions via AI
+            ft_config = await ai_generate_facet_types(
+                user_intent=user_intent,
+                entity_type_name=entity_type.name,
+                entity_type_description=entity_type.description,
+            )
+
+            suggested_facet_types = ft_config.get("facet_types", [])
+
+            for ft_data in suggested_facet_types:
+                ft_slug = ft_data.get("slug", "").strip()
+                ft_name = ft_data.get("name", "").strip()
+
+                if not ft_slug or not ft_name:
+                    continue
+
+                # Check if FacetType already exists
+                existing_ft = await session.execute(
+                    select(FacetType).where(FacetType.slug == ft_slug)
+                )
+                existing = existing_ft.scalar_one_or_none()
+
+                if existing:
+                    # FacetType exists - just add EntityType to applicable_entity_type_slugs
+                    if entity_type.slug not in (existing.applicable_entity_type_slugs or []):
+                        existing.applicable_entity_type_slugs = (
+                            existing.applicable_entity_type_slugs or []
+                        ) + [entity_type.slug]
+                        facet_types_created.append({
+                            "id": str(existing.id),
+                            "name": existing.name,
+                            "slug": existing.slug,
+                            "is_new": False,
+                        })
+                        facet_types_count += 1
+                        logger.info(
+                            "Linked existing FacetType to EntityType",
+                            facet_type=existing.slug,
+                            entity_type=entity_type.slug,
+                        )
+                else:
+                    # Create new FacetType
+                    new_facet_type = FacetType(
+                        id=uuid_module.uuid4(),
+                        name=ft_name,
+                        slug=ft_slug,
+                        name_plural=ft_data.get("name_plural", f"{ft_name}s"),
+                        description=ft_data.get("description", f"FacetType: {ft_name}"),
+                        icon=ft_data.get("icon", "mdi-tag"),
+                        color=ft_data.get("color", "#2196F3"),
+                        value_type=ft_data.get("value_type", "object"),
+                        value_schema=ft_data.get("value_schema", {}),
+                        applicable_entity_type_slugs=[entity_type.slug],
+                        is_time_based=ft_data.get("is_time_based", True),
+                        ai_extraction_enabled=True,
+                        ai_extraction_prompt=ft_data.get(
+                            "ai_extraction_prompt",
+                            f"Extrahiere {ft_name} aus dem Dokument."
+                        ),
+                        is_active=True,
+                        is_system=False,
+                    )
+                    session.add(new_facet_type)
+                    facet_types_created.append({
+                        "id": str(new_facet_type.id),
+                        "name": new_facet_type.name,
+                        "slug": new_facet_type.slug,
+                        "is_new": True,
+                    })
+                    facet_types_count += 1
+                    logger.info(
+                        "Created new FacetType",
+                        facet_type=new_facet_type.slug,
+                        entity_type=entity_type.slug,
+                    )
+
+            await session.flush()
+            result["steps"][-1]["result"] = f"{facet_types_count} FacetTypes erstellt/verknüpft"
+
+        except Exception as ft_error:
+            logger.warning("FacetType generation failed, continuing without", error=str(ft_error))
+            result["warnings"].append(f"FacetType-Generierung übersprungen: {str(ft_error)}")
+            result["steps"][-1]["success"] = False
+            result["steps"][-1]["result"] = f"Übersprungen: {str(ft_error)}"
+
+        result["facet_types_created"] = facet_types_created
+        result["facet_types_count"] = facet_types_count
+
+        # =========================================================================
+        # STEP 6/6: Generate Seed Entities from AI Knowledge
+        # =========================================================================
+        report_progress(6, "Generiere Seed-Entities aus KI-Wissen...")
+
+        seed_entities_created = []
+        seed_entities_count = 0
+        seed_relations_count = 0
+        hierarchy_parent_id = None
+        created_entities_map = {}  # name -> Entity for relation lookup
+
+        try:
+            # Generate seed entities via AI
+            seed_config = await ai_generate_seed_entities(
+                user_intent=user_intent,
+                entity_type_name=entity_type.name,
+                entity_type_description=entity_type.description,
+                attribute_schema=entity_type.attribute_schema or {},
+                geographic_context=geographic_context,
+            )
+
+            suggested_entities = seed_config.get("entities", [])
+            hierarchy_config = seed_config.get("hierarchy", {})
+
+            # Debug logging for seed entity generation
+            logger.info(
+                "AI seed entity generation result",
+                entity_count=len(suggested_entities),
+                hierarchy_use=hierarchy_config.get("use_hierarchy"),
+                hierarchy_parent=hierarchy_config.get("parent_name"),
+                hierarchy_reasoning=hierarchy_config.get("hierarchy_reasoning"),
+                sample_entity_with_relations=suggested_entities[0] if suggested_entities else None,
+            )
+
+            # Handle hierarchy if enabled and suggested
+            from unicodedata import normalize as unicode_normalize
+
+            use_hierarchy = hierarchy_config.get("use_hierarchy", False)
+            parent_name = hierarchy_config.get("parent_name")
+
+            # Auto-enable hierarchy for specific geographic contexts
+            # (not "Deutschland" or empty - those are too broad)
+            if settings.feature_entity_hierarchy and geographic_context:
+                is_specific_region = (
+                    geographic_context != "Deutschland" and
+                    geographic_context != "Keine geografische Einschränkung" and
+                    len(geographic_context) > 2  # Not just a country code
+                )
+
+                if is_specific_region and not use_hierarchy:
+                    logger.info(
+                        "Auto-enabling hierarchy for specific geographic context",
+                        geographic_context=geographic_context,
+                    )
+                    use_hierarchy = True
+                    parent_name = geographic_context
+
+            if (settings.feature_entity_hierarchy and use_hierarchy and parent_name):
+                # Use AI-suggested parent_type or default to municipality for geographic entities
+                parent_type_slug = hierarchy_config.get("parent_entity_type", "municipality")
+
+                # Look up parent entity type
+                parent_et_result = await session.execute(
+                    select(EntityType).where(EntityType.slug == parent_type_slug)
+                )
+                parent_entity_type = parent_et_result.scalar_one_or_none()
+
+                # Fallback to municipality if parent type not found
+                if not parent_entity_type and parent_type_slug != "municipality":
+                    logger.info(
+                        "EntityType not found, falling back to municipality",
+                        requested_type=parent_type_slug,
+                    )
+                    parent_type_slug = "municipality"
+                    parent_et_result = await session.execute(
+                        select(EntityType).where(EntityType.slug == "municipality")
+                    )
+                    parent_entity_type = parent_et_result.scalar_one_or_none()
+
+                if parent_entity_type:
+                    # Look up or create parent entity
+                    parent_normalized = unicode_normalize("NFKD", parent_name.lower())
+                    parent_result = await session.execute(
+                        select(Entity).where(
+                            Entity.entity_type_id == parent_entity_type.id,
+                            Entity.name_normalized == parent_normalized,
+                        )
+                    )
+                    parent_entity = parent_result.scalar_one_or_none()
+
+                    if not parent_entity:
+                        # Create parent entity
+                        parent_entity = Entity(
+                            id=uuid_module.uuid4(),
+                            entity_type_id=parent_entity_type.id,
+                            name=parent_name,
+                            name_normalized=parent_normalized,
+                            slug=generate_slug(parent_name),
+                            country="DE",
+                            is_active=True,
+                            hierarchy_level=0,
+                        )
+                        session.add(parent_entity)
+                        await session.flush()
+                        logger.info("Created hierarchy parent entity", name=parent_name)
+
+                    hierarchy_parent_id = parent_entity.id
+
+                    # Enable hierarchy on EntityType
+                    entity_type.supports_hierarchy = True
+
+            # Create seed entities
+            for entity_data in suggested_entities:
+                entity_name = entity_data.get("name", "").strip()
+
+                if not entity_name:
+                    continue
+
+                # Generate normalized name and slug
+                name_normalized = unicode_normalize("NFKD", entity_name.lower())
+                entity_slug = generate_slug(entity_name)
+
+                # Check if entity already exists
+                existing_entity = await session.execute(
+                    select(Entity).where(
+                        Entity.entity_type_id == entity_type.id,
+                        Entity.name_normalized == name_normalized,
+                    )
+                )
+
+                if existing_entity.scalar_one_or_none():
+                    # Entity already exists, skip
+                    continue
+
+                # Build hierarchy path if parent exists
+                hierarchy_path = None
+                hierarchy_level = 0
+                if hierarchy_parent_id:
+                    hierarchy_path = f"/{geographic_context}/{entity_name}"
+                    hierarchy_level = 1
+
+                # Create new entity
+                new_entity = Entity(
+                    id=uuid_module.uuid4(),
+                    entity_type_id=entity_type.id,
+                    name=entity_name,
+                    name_normalized=name_normalized,
+                    slug=entity_slug,
+                    external_id=entity_data.get("external_id"),
+                    core_attributes=entity_data.get("core_attributes", {}),
+                    latitude=entity_data.get("latitude"),
+                    longitude=entity_data.get("longitude"),
+                    admin_level_1=entity_data.get("admin_level_1") or geographic_context,
+                    country=entity_data.get("country", "DE"),
+                    is_active=True,
+                    created_by_id=current_user_id,
+                    owner_id=current_user_id,
+                    parent_id=hierarchy_parent_id,
+                    hierarchy_path=hierarchy_path,
+                    hierarchy_level=hierarchy_level,
+                )
+                session.add(new_entity)
+                created_entities_map[entity_name] = new_entity
+                seed_entities_created.append({
+                    "id": str(new_entity.id),
+                    "name": new_entity.name,
+                    "external_id": new_entity.external_id,
+                    "relations": entity_data.get("relations", []),
+                })
+                seed_entities_count += 1
+
+            await session.flush()
+
+            # Create relations if feature enabled
+            if settings.feature_auto_entity_relations:
+                logger.info(
+                    "Processing relations for seed entities",
+                    feature_enabled=settings.feature_auto_entity_relations,
+                    entities_with_relations=[
+                        {"name": e["name"], "relations_count": len(e.get("relations", []))}
+                        for e in seed_entities_created
+                    ],
+                )
+                for entity_info in seed_entities_created:
+                    source_entity = created_entities_map.get(entity_info["name"])
+                    if not source_entity:
+                        continue
+
+                    for rel_data in entity_info.get("relations", []):
+                        rel_type_slug = rel_data.get("relation_type", "located_in")
+                        target_name = rel_data.get("target_name", "").strip()
+                        target_type_slug = rel_data.get("target_type", "municipality")
+
+                        if not target_name:
+                            continue
+
+                        # Find or skip target entity
+                        target_normalized = unicode_normalize("NFKD", target_name.lower())
+
+                        # Look up target entity type
+                        target_et_result = await session.execute(
+                            select(EntityType).where(EntityType.slug == target_type_slug)
+                        )
+                        target_entity_type = target_et_result.scalar_one_or_none()
+
+                        if not target_entity_type:
+                            continue
+
+                        # Look up target entity
+                        target_result = await session.execute(
+                            select(Entity).where(
+                                Entity.entity_type_id == target_entity_type.id,
+                                Entity.name_normalized == target_normalized,
+                            )
+                        )
+                        target_entity = target_result.scalar_one_or_none()
+
+                        if not target_entity:
+                            # Create target entity if it doesn't exist
+                            target_entity = Entity(
+                                id=uuid_module.uuid4(),
+                                entity_type_id=target_entity_type.id,
+                                name=target_name,
+                                name_normalized=target_normalized,
+                                slug=generate_slug(target_name),
+                                country="DE",
+                                is_active=True,
+                            )
+                            session.add(target_entity)
+                            await session.flush()
+
+                        # Find or create relation type for this entity type combination
+                        # First, try to find an existing relation type that matches
+                        # source and target entity types
+                        rel_type_result = await session.execute(
+                            select(RelationType).where(
+                                RelationType.slug == rel_type_slug,
+                                RelationType.source_entity_type_id == source_entity.entity_type_id,
+                                RelationType.target_entity_type_id == target_entity_type.id,
+                            )
+                        )
+                        relation_type = rel_type_result.scalar_one_or_none()
+
+                        if not relation_type:
+                            # Check if we have a template relation type with this slug
+                            template_result = await session.execute(
+                                select(RelationType).where(RelationType.slug == rel_type_slug)
+                            )
+                            template_type = template_result.first()
+
+                            # Create a new relation type for this entity type combination
+                            rel_type_names = {
+                                "located_in": ("befindet sich in", "enthält"),
+                                "member_of": ("ist Mitglied von", "hat Mitglied"),
+                                "works_for": ("arbeitet für", "beschäftigt"),
+                            }
+                            name, name_inverse = rel_type_names.get(
+                                rel_type_slug, (rel_type_slug.replace("_", " "), rel_type_slug.replace("_", " "))
+                            )
+
+                            # Create unique slug for this entity type combination
+                            new_slug = f"{rel_type_slug}_{entity_type.slug}_{target_type_slug}"
+
+                            # Check if this specific combination already exists
+                            existing_combo = await session.execute(
+                                select(RelationType).where(RelationType.slug == new_slug)
+                            )
+                            existing_combo_type = existing_combo.scalar_one_or_none()
+                            if existing_combo_type:
+                                relation_type = existing_combo_type
+                            else:
+                                relation_type = RelationType(
+                                    id=uuid_module.uuid4(),
+                                    slug=new_slug,
+                                    name=name,
+                                    name_inverse=name_inverse,
+                                    source_entity_type_id=source_entity.entity_type_id,
+                                    target_entity_type_id=target_entity_type.id,
+                                    is_active=True,
+                                    is_system=False,
+                                )
+                                session.add(relation_type)
+                                await session.flush()
+                                logger.info(
+                                    "Created new RelationType for entity combination",
+                                    slug=new_slug,
+                                    source_type=entity_type.slug,
+                                    target_type=target_type_slug,
+                                )
+
+                        # Check if relation already exists
+                        existing_rel = await session.execute(
+                            select(EntityRelation).where(
+                                EntityRelation.source_entity_id == source_entity.id,
+                                EntityRelation.target_entity_id == target_entity.id,
+                                EntityRelation.relation_type_id == relation_type.id,
+                            )
+                        )
+
+                        if not existing_rel.scalar_one_or_none():
+                            # Create relation
+                            new_relation = EntityRelation(
+                                id=uuid_module.uuid4(),
+                                source_entity_id=source_entity.id,
+                                target_entity_id=target_entity.id,
+                                relation_type_id=relation_type.id,
+                            )
+                            session.add(new_relation)
+                            seed_relations_count += 1
+
+                await session.flush()
+
+            # Update step result
+            is_complete = seed_config.get("is_complete_list", False)
+            total_known = seed_config.get("total_known", seed_entities_count)
+            completeness_note = "vollständig" if is_complete else f"({seed_entities_count} von ~{total_known})"
+            relation_note = f", {seed_relations_count} Relations" if seed_relations_count > 0 else ""
+            hierarchy_note = " (hierarchisch)" if hierarchy_parent_id else ""
+            result["steps"][-1]["result"] = f"{seed_entities_count} Seed-Entities erstellt {completeness_note}{relation_note}{hierarchy_note}"
+
+            if seed_config.get("data_quality_note"):
+                result["warnings"].append(f"Seed-Entities: {seed_config['data_quality_note']}")
+
+        except Exception as seed_error:
+            logger.warning("Seed entity generation failed, continuing without", error=str(seed_error))
+            result["warnings"].append(f"Seed-Entity-Generierung übersprungen: {str(seed_error)}")
+            result["steps"][-1]["success"] = False
+            result["steps"][-1]["result"] = f"Übersprungen: {str(seed_error)}"
+
+        result["seed_entities_created"] = seed_entities_created
+        result["seed_entities_count"] = seed_entities_count
+        result["seed_relations_count"] = seed_relations_count
+        result["hierarchy_parent_id"] = str(hierarchy_parent_id) if hierarchy_parent_id else None
         result["success"] = True
 
         total_sources = linked_count + discovered_count
@@ -383,7 +931,10 @@ async def create_category_setup_with_ai(
             f"Erfolgreich erstellt: EntityType '{entity_type.name}', "
             f"Category '{category.name}', "
             f"{discovered_count} neue Quellen entdeckt, "
-            f"{linked_count} Datenquellen verknüpft"
+            f"{linked_count} Datenquellen verknüpft, "
+            f"{facet_types_count} FacetTypes, "
+            f"{seed_entities_count} Seed-Entities"
+            f"{f', {seed_relations_count} Relations' if seed_relations_count > 0 else ''}"
         )
 
         logger.info(
@@ -392,6 +943,10 @@ async def create_category_setup_with_ai(
             category=category.name,
             discovered_sources=discovered_count,
             linked_sources=linked_count,
+            facet_types=facet_types_count,
+            seed_entities=seed_entities_count,
+            seed_relations=seed_relations_count,
+            hierarchy_parent=str(hierarchy_parent_id) if hierarchy_parent_id else None,
         )
 
         return result

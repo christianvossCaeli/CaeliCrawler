@@ -11,6 +11,18 @@ Erstelle eine JSON-Antwort mit:
 3. preferred_sources: Priorisierte Quelltypen ["official_api", "wikipedia", "open_data", "government", "industry"]
 4. entity_schema: Erwartete Felder pro Entität {{"name": "string", "website": "url", ...}}
 5. base_tags: Basis-Tags die auf alle gefundenen Quellen angewendet werden sollten (lowercase, ohne Leerzeichen)
+6. expected_entity_count: WICHTIG! Schätze die Anzahl der erwarteten Entitäten basierend auf deinem Wissen:
+   - "Bundesliga-Vereine" → 18 (1. Liga) oder 36 (1. + 2. Liga)
+   - "DAX Unternehmen" → 40
+   - "Gemeinden in NRW" → ca. 400
+   - "Ministerien in Deutschland" → ca. 15
+   - "Playstation Neuerscheinungen" → ca. 50 pro Jahr
+   - Bei unbekannter Größe: schätze realistisch basierend auf dem Thema
+7. recommended_max_sources: Empfohlene maximale Quellenanzahl
+   - Für geschlossene Listen (Bundesliga, DAX): ca. 1.5x expected_entity_count
+   - Für offene Themen (News, Stellenangebote): 15-30 qualitative Quellen
+   - KEINE 100+ Quellen wenn nur 20 Entitäten erwartet werden!
+8. reasoning: Kurze Begründung für die Quellenanzahl
 
 Antwort NUR als valides JSON ohne Erklärung:
 
@@ -19,7 +31,10 @@ Antwort NUR als valides JSON ohne Erklärung:
   "expected_data_type": "...",
   "preferred_sources": ["...", "..."],
   "entity_schema": {{"name": "string", "website": "url"}},
-  "base_tags": ["...", "..."]
+  "base_tags": ["...", "..."],
+  "expected_entity_count": 18,
+  "recommended_max_sources": 25,
+  "reasoning": "18 Bundesliga-Vereine, je ~1.5 Quellen pro Verein für offizielle Websites und Backup-Quellen"
 }}"""
 
 

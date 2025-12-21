@@ -30,6 +30,7 @@ celery_app = Celery(
         "workers.notification_tasks",
         "workers.external_api_tasks",
         "workers.export_tasks",
+        "workers.api_template_tasks",
     ],
 )
 
@@ -62,6 +63,7 @@ celery_app.conf.update(
         "workers.ai_tasks.*": {"queue": "ai"},
         "workers.notification_tasks.*": {"queue": "notification"},
         "workers.export_tasks.*": {"queue": "processing"},
+        "workers.api_template_tasks.*": {"queue": "processing"},
     },
 
     # Default queue
@@ -111,6 +113,15 @@ celery_app.conf.update(
         "cleanup-old-exports": {
             "task": "workers.export_tasks.cleanup_old_exports",
             "schedule": crontab(hour=6, minute=0),  # Daily at 6 AM
+        },
+        # API Template validation
+        "validate-api-templates": {
+            "task": "workers.api_template_tasks.validate_all_templates",
+            "schedule": crontab(hour=2, minute=0),  # Daily at 2 AM
+        },
+        "cleanup-failed-templates": {
+            "task": "workers.api_template_tasks.cleanup_failed_templates",
+            "schedule": crontab(hour=3, minute=30, day_of_week=0),  # Weekly on Sunday at 3:30 AM
         },
     },
 )

@@ -63,6 +63,13 @@ services:
       - PYSIS_SCOPE=api://7e32391f-a384-44b1-9850-d565b4a59ed0/.default
       # Caeli Auction API
       - CAELI_AUCTION_MARKETPLACE_API_AUTH=${CAELI_AUCTION_MARKETPLACE_API_AUTH}
+      # Web Search API for AI Source Discovery (SerpAPI - same as caeli-google-news-fetch)
+      - SERPAPI_API_KEY=${SERPAPI_API_KEY}
+      # Claude/Anthropic API for AI Source Discovery
+      - ANTHROPIC_API_ENDPOINT=${ANTHROPIC_API_ENDPOINT}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-opus-4-5}
+      - AI_DISCOVERY_USE_CLAUDE=${AI_DISCOVERY_USE_CLAUDE:-true}
     volumes:
       - ./backend:/app
       - document_storage:/app/storage/documents
@@ -95,6 +102,13 @@ services:
       - AZURE_OPENAI_API_VERSION=2025-04-01-preview
       - AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4.1-mini
       - AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT=text-embedding-3-large
+      # Web Search API for AI Source Discovery (SerpAPI)
+      - SERPAPI_API_KEY=${SERPAPI_API_KEY}
+      # Claude/Anthropic API for AI Source Discovery
+      - ANTHROPIC_API_ENDPOINT=${ANTHROPIC_API_ENDPOINT}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-opus-4-5}
+      - AI_DISCOVERY_USE_CLAUDE=${AI_DISCOVERY_USE_CLAUDE:-true}
       # PySis Integration
       - PYSIS_API_BASE_URL=https://pisys.caeli-wind.de/api/pisys/v1
       - PYSIS_TENANT_ID=d546a5cd-9f03-4040-b588-b8b4cde6448b

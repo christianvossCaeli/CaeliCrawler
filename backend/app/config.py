@@ -137,10 +137,17 @@ class Settings(BaseSettings):
     external_api_max_retries: int = 3
 
     # AI Source Discovery Settings
-    serper_api_key: str = ""  # Serper.dev API Key for web search
+    serpapi_api_key: str = ""  # SerpAPI Key (PRIMARY - user has more quota)
+    serper_api_key: str = ""  # Serper.dev Key (FALLBACK when SerpAPI rate-limited)
     ai_discovery_max_search_results: int = 20
     ai_discovery_max_extraction_pages: int = 10
     ai_discovery_timeout: int = 60
+
+    # Claude/Anthropic API for AI Source Discovery (better API knowledge)
+    anthropic_api_endpoint: str = ""  # Azure-hosted Anthropic endpoint
+    anthropic_api_key: str = ""  # API key for Anthropic
+    anthropic_model: str = "claude-opus-4-5"  # Model to use
+    ai_discovery_use_claude: bool = True  # Use Claude for API discovery (recommended)
 
     # API Settings
     api_v1_prefix: str = "/api/v1"
@@ -170,6 +177,8 @@ class Settings(BaseSettings):
     # Feature Flags
     feature_entity_level_facets: bool = True  # Allow assigning facets to individual entities (enabled by default)
     feature_pysis_field_templates: bool = False  # Enable PySis field templates functionality
+    feature_entity_hierarchy: bool = True  # Enable parent-child relationships between entities
+    feature_auto_entity_relations: bool = True  # Auto-create relations (located_in, member_of) for seed entities
 
     @field_validator("cors_origins", mode="before")
     @classmethod

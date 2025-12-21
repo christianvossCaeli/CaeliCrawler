@@ -120,6 +120,7 @@ class DiscoveryResponseV2(BaseModel):
     stats: dict
     warnings: List[str]
     used_fallback: bool
+    from_template: bool = False  # True wenn gespeicherte Vorlagen verwendet wurden
 
 
 class APIDataImportRequest(BaseModel):
@@ -365,6 +366,7 @@ async def discover_sources_v2(
         max_results=request.max_results,
         search_depth=request.search_depth,
         skip_api_discovery=request.skip_api_discovery,
+        db=session,  # Pass DB session for template lookup
     )
 
     # Convert to response models
@@ -414,6 +416,7 @@ async def discover_sources_v2(
         stats=result.stats.model_dump(),
         warnings=result.warnings,
         used_fallback=result.used_fallback,
+        from_template=result.from_template,
     )
 
 

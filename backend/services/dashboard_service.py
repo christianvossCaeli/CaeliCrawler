@@ -217,7 +217,7 @@ class DashboardService:
             # By type
             result = await self.db.execute(
                 select(EntityType.name, func.count(Entity.id))
-                .join(Entity, Entity.type_id == EntityType.id)
+                .join(Entity, Entity.entity_type_id == EntityType.id)
                 .group_by(EntityType.id, EntityType.name)
             )
             by_type = {row[0]: row[1] for row in result.all()}
@@ -242,7 +242,7 @@ class DashboardService:
             # Verified count
             result = await self.db.execute(
                 select(func.count(FacetValue.id)).where(
-                    FacetValue.is_verified.is_(True)
+                    FacetValue.human_verified.is_(True)
                 )
             )
             verified = result.scalar() or 0
@@ -333,10 +333,19 @@ class DashboardService:
             )
             total_docs = result.scalar() or 0
 
-            # Average duration
+            # Average duration (calculate in SQL since duration_seconds is a Python property)
             result = await self.db.execute(
-                select(func.avg(CrawlJob.duration_seconds)).where(
-                    CrawlJob.status == JobStatus.COMPLETED
+                select(
+                    func.avg(
+                        func.extract(
+                            'epoch',
+                            CrawlJob.completed_at - CrawlJob.started_at
+                        )
+                    )
+                ).where(
+                    CrawlJob.status == JobStatus.COMPLETED,
+                    CrawlJob.completed_at.is_not(None),
+                    CrawlJob.started_at.is_not(None),
                 )
             )
             avg_duration = result.scalar()
@@ -547,7 +556,7 @@ class DashboardService:
             # Unverified facets (action needed)
             result = await self.db.execute(
                 select(func.count(FacetValue.id)).where(
-                    FacetValue.is_verified.is_(False)
+                    FacetValue.human_verified.is_(False)
                 )
             )
             unverified = result.scalar() or 0
@@ -593,7 +602,7 @@ class DashboardService:
         try:
             result = await self.db.execute(
                 select(EntityType.name, func.count(Entity.id))
-                .join(Entity, Entity.type_id == EntityType.id)
+                .join(Entity, Entity.entity_type_id == EntityType.id)
                 .group_by(EntityType.id, EntityType.name)
                 .order_by(desc(func.count(Entity.id)))
                 .limit(10)

@@ -264,6 +264,118 @@
         "schemaGenerated": "Schema and settings have been generated",
         "schemaGenerationError": "Error generating schema"
       }
+    },
+    "apiTemplates": {
+      "title": "API Templates",
+      "subtitle": "Manage reusable API configurations for AI discovery",
+      "filters": {
+        "search": "Search",
+        "status": "Status",
+        "apiType": "API Type"
+      },
+      "columns": {
+        "name": "Name",
+        "apiType": "API Type",
+        "baseUrl": "Base URL",
+        "status": "Status",
+        "usageCount": "Usage Count",
+        "usage": "Usage",
+        "keywords": "Keywords",
+        "lastValidated": "Last Validated",
+        "actions": "Actions"
+      },
+      "form": {
+        "name": "Name",
+        "namePlaceholder": "e.g. OpenLigaDB Bundesliga",
+        "nameRequired": "Name is required",
+        "description": "Description",
+        "descriptionPlaceholder": "Brief description of the API template",
+        "apiType": "API Type",
+        "baseUrl": "Base URL",
+        "baseUrlPlaceholder": "https://api.example.com",
+        "baseUrlRequired": "Base URL is required",
+        "endpoint": "Endpoint",
+        "endpointPlaceholder": "/v1/data",
+        "documentationUrl": "Documentation URL",
+        "documentationUrlPlaceholder": "https://docs.example.com",
+        "authRequired": "Authentication required",
+        "fieldMapping": "Field Mapping (JSON)",
+        "fieldMappingPlaceholder": "{\n  \"sourceName\": \"name\",\n  \"sourceUrl\": \"url\"\n}",
+        "fieldMappingHint": "Mapping from API fields to standard fields",
+        "keywords": "Keywords",
+        "keywordsHint": "Words for automatic matching in search queries",
+        "defaultTags": "Default Tags",
+        "defaultTagsHint": "Tags that are automatically added"
+      },
+      "status": {
+        "ACTIVE": "Active",
+        "INACTIVE": "Inactive",
+        "FAILED": "Failed",
+        "PENDING": "Pending"
+      },
+      "apiTypes": {
+        "REST": "REST API",
+        "GRAPHQL": "GraphQL",
+        "SPARQL": "SPARQL",
+        "OPARL": "OParl"
+      },
+      "actions": {
+        "create": "New Template",
+        "edit": "Edit",
+        "delete": "Delete",
+        "test": "Test",
+        "activate": "Activate",
+        "deactivate": "Deactivate"
+      },
+      "dialog": {
+        "createTitle": "New API Template",
+        "editTitle": "Edit API Template",
+        "deleteTitle": "Delete API Template?",
+        "deleteConfirm": "Do you really want to delete \"{name}\"? This action cannot be undone.",
+        "testTitle": "Test Template",
+        "testResult": "Test Result"
+      },
+      "tabs": {
+        "basic": "General",
+        "mapping": "Field Mapping",
+        "keywords": "Keywords"
+      },
+      "test": {
+        "running": "Testing API...",
+        "success": "API validated successfully",
+        "failed": "API validation failed",
+        "itemsFound": "items found",
+        "responseTime": "Response time",
+        "statusCode": "Status code",
+        "sampleData": "Sample data"
+      },
+      "messages": {
+        "created": "API template created",
+        "updated": "API template updated",
+        "deleted": "\"{name}\" deleted",
+        "loadError": "Error loading API templates",
+        "saveError": "Error saving",
+        "deleteError": "Error deleting",
+        "testSuccess": "API tested successfully",
+        "testError": "API test failed"
+      },
+      "errors": {
+        "loadFailed": "Failed to load API templates",
+        "saveFailed": "Failed to save",
+        "deleteFailed": "Failed to delete",
+        "testFailed": "API test failed"
+      },
+      "never": "Never",
+      "noTemplates": "No API templates found",
+      "noTemplatesHint": "Create a new template or save one from AI Discovery",
+      "lastUsed": "Last used: {date}",
+      "neverUsed": "Never used",
+      "items": "items",
+      "testSuccess": "API validated successfully",
+      "testFailed": "API validation failed",
+      "statusCode": "Status Code",
+      "itemCount": "Item Count",
+      "sampleData": "Sample Data"
     }
   }
 }

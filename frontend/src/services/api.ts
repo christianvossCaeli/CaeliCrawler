@@ -61,7 +61,7 @@ export const adminApi = {
     max_items?: number
   }) => api.post('/admin/api-import/execute', data),
 
-  // AI Discovery
+  // AI Discovery (V1 - Legacy)
   getAiDiscoveryExamples: () => api.get('/admin/ai-discovery/examples'),
   discoverSources: (data: {
     prompt: string
@@ -74,6 +74,76 @@ export const adminApi = {
     category_ids?: string[]
     skip_duplicates?: boolean
   }) => api.post('/admin/ai-discovery/import', data),
+
+  // AI Discovery V2 (KI-First)
+  discoverSourcesV2: (data: {
+    prompt: string
+    max_results?: number
+    search_depth?: 'quick' | 'standard' | 'deep'
+    skip_api_discovery?: boolean
+  }) => api.post('/admin/ai-discovery/discover-v2', data),
+  importApiData: (data: {
+    api_name: string
+    api_url: string
+    field_mapping: Record<string, string>
+    items: any[]
+    category_ids?: string[]
+    tags?: string[]
+    skip_duplicates?: boolean
+  }) => api.post('/admin/ai-discovery/import-api-data', data),
+
+  // API Templates
+  getApiTemplates: (params?: {
+    status?: 'ACTIVE' | 'INACTIVE' | 'FAILED' | 'PENDING'
+    api_type?: 'REST' | 'GRAPHQL' | 'SPARQL' | 'OPARL'
+    limit?: number
+    offset?: number
+  }) => api.get('/admin/api-templates', { params }),
+  getApiTemplate: (id: string) => api.get(`/admin/api-templates/${id}`),
+  createApiTemplate: (data: {
+    name: string
+    description?: string
+    api_type?: 'REST' | 'GRAPHQL' | 'SPARQL' | 'OPARL'
+    base_url: string
+    endpoint: string
+    documentation_url?: string
+    auth_required?: boolean
+    auth_config?: Record<string, any>
+    field_mapping?: Record<string, string>
+    keywords?: string[]
+    default_tags?: string[]
+  }) => api.post('/admin/api-templates', data),
+  updateApiTemplate: (id: string, data: {
+    name?: string
+    description?: string
+    api_type?: 'REST' | 'GRAPHQL' | 'SPARQL' | 'OPARL'
+    base_url?: string
+    endpoint?: string
+    documentation_url?: string
+    auth_required?: boolean
+    auth_config?: Record<string, any>
+    field_mapping?: Record<string, string>
+    keywords?: string[]
+    default_tags?: string[]
+    status?: 'ACTIVE' | 'INACTIVE' | 'FAILED' | 'PENDING'
+  }) => api.put(`/admin/api-templates/${id}`, data),
+  deleteApiTemplate: (id: string) => api.delete(`/admin/api-templates/${id}`),
+  testApiTemplate: (id: string) => api.post(`/admin/api-templates/${id}/test`),
+  saveApiTemplateFromDiscovery: (data: {
+    name: string
+    description?: string
+    api_type?: 'REST' | 'GRAPHQL' | 'SPARQL' | 'OPARL'
+    base_url: string
+    endpoint: string
+    documentation_url?: string
+    auth_required?: boolean
+    field_mapping: Record<string, string>
+    keywords: string[]
+    default_tags?: string[]
+    confidence?: number
+    validation_item_count?: number
+  }) => api.post('/admin/api-templates/save-from-discovery', data),
+  matchApiTemplates: (prompt: string) => api.get(`/admin/api-templates/match/${encodeURIComponent(prompt)}`),
 
   // Crawler
   getCrawlerJobs: (params?: any) => api.get('/admin/crawler/jobs', { params }),

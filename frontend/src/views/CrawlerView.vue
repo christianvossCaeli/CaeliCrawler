@@ -445,7 +445,13 @@ const loadData = async () => {
       adminApi.getRunningJobs(),
       adminApi.getRunningAiTasks(),
     ])
-    status.value = { ...statusRes.data, running_ai_tasks: aiTasksRes.data.running_count || 0 }
+    status.value = {
+      running_jobs: statusRes.data.running_jobs ?? 0,
+      pending_jobs: statusRes.data.pending_jobs ?? 0,
+      worker_count: statusRes.data.worker_count ?? 0,
+      active_tasks: statusRes.data.active_tasks ?? 0,
+      running_ai_tasks: aiTasksRes.data.running_count ?? 0,
+    }
     stats.value = statsRes.data
     jobs.value = jobsRes.data.items
     runningJobs.value = runningRes.data.jobs || []

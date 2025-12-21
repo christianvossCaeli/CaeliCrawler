@@ -11,8 +11,8 @@ from urllib.parse import urlparse
 import httpx
 import structlog
 
-from backend.app.core.retry import API_RETRY_CONFIG, retry_async
-from backend.services.ai_source_discovery.models import (
+from app.core.retry import API_RETRY_CONFIG, retry_async
+from .models import (
     APISuggestion,
     APIValidationResult,
 )
@@ -182,6 +182,14 @@ class APIValidator:
         """Make HTTP GET request."""
         return await self.client.get(url)
 
+    async def _make_sparql_request(self, url: str, query: str) -> httpx.Response:
+        """Make SPARQL query request."""
+        return await self.client.get(
+            url,
+            params={"query": query, "format": "json"},
+            headers={"Accept": "application/sparql-results+json"},
+        )
+
     async def _test_sparql_endpoint(
         self,
         suggestion: APISuggestion,
@@ -192,10 +200,11 @@ class APIValidator:
         # For SPARQL, we need to construct a simple test query
         test_query = "SELECT ?item WHERE { ?item ?p ?o } LIMIT 1"
 
-        response = await self.client.get(
+        response = await retry_async(
+            self._make_sparql_request,
             suggestion.base_url,
-            params={"query": test_query, "format": "json"},
-            headers={"Accept": "application/sparql-results+json"},
+            test_query,
+            config=API_RETRY_CONFIG,
         )
 
         if response.status_code == 200:
@@ -209,8 +218,25 @@ class APIValidator:
                         response_type="application/sparql-results+json",
                         item_count=len(data["results"]["bindings"]),
                     )
-            except Exception:
-                pass
+                else:
+                    return APIValidationResult(
+                        suggestion=suggestion,
+                        is_valid=False,
+                        status_code=200,
+                        error_message="SPARQL response missing results.bindings",
+                    )
+            except ValueError as e:
+                logger.warning(
+                    "SPARQL response JSON parse error",
+                    api_name=suggestion.api_name,
+                    error=str(e),
+                )
+                return APIValidationResult(
+                    suggestion=suggestion,
+                    is_valid=False,
+                    status_code=200,
+                    error_message=f"Invalid JSON in SPARQL response: {str(e)}",
+                )
 
         return APIValidationResult(
             suggestion=suggestion,

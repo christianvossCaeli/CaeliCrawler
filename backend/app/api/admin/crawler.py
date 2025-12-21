@@ -37,7 +37,7 @@ router = APIRouter()
 async def list_jobs(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
-    status: Optional[JobStatus] = Query(default=None),
+    status: Optional[str] = Query(default=None, description="Single status or comma-separated list (e.g. 'COMPLETED,FAILED')"),
     category_id: Optional[UUID] = Query(default=None),
     source_id: Optional[UUID] = Query(default=None),
     session: AsyncSession = Depends(get_session),
@@ -47,7 +47,21 @@ async def list_jobs(
     query = select(CrawlJob)
 
     if status:
-        query = query.where(CrawlJob.status == status)
+        # Support comma-separated status values
+        status_values = [s.strip() for s in status.split(",")]
+        valid_statuses = []
+        for s in status_values:
+            try:
+                valid_statuses.append(JobStatus(s))
+            except ValueError:
+                pass  # Ignore invalid status values
+        if len(valid_statuses) == 1:
+            query = query.where(CrawlJob.status == valid_statuses[0])
+        elif len(valid_statuses) > 1:
+            query = query.where(CrawlJob.status.in_(valid_statuses))
+        elif len(status_values) > 0:
+            # All provided status values were invalid - return empty result
+            query = query.where(False)
     if category_id:
         query = query.where(CrawlJob.category_id == category_id)
     if source_id:
@@ -151,21 +165,35 @@ async def start_crawl(
 
     if crawl_request.source_ids:
         # Crawl specific sources - create jobs for ALL assigned categories
+        from app.models import DataSourceCategory
+
+        # Batch fetch all requested sources to avoid N+1 query
+        sources_result = await session.execute(
+            select(DataSource).where(DataSource.id.in_(crawl_request.source_ids))
+        )
+        sources = {s.id: s for s in sources_result.scalars().all()}
+
+        # Check if all requested sources exist
         for source_id in crawl_request.source_ids:
-            source = await session.get(DataSource, source_id)
-            if not source:
+            if source_id not in sources:
                 raise NotFoundError("Data Source", str(source_id))
 
-            # Get all categories this source is assigned to via N:M relationship
-            from app.models import DataSourceCategory
-            cat_result = await session.execute(
-                select(DataSourceCategory.category_id)
-                .where(DataSourceCategory.data_source_id == source_id)
-            )
-            category_ids = [row[0] for row in cat_result.fetchall()]
+        # Batch fetch all category associations
+        cat_result = await session.execute(
+            select(DataSourceCategory.data_source_id, DataSourceCategory.category_id)
+            .where(DataSourceCategory.data_source_id.in_(crawl_request.source_ids))
+        )
+        source_categories = {}
+        for row in cat_result.fetchall():
+            source_categories.setdefault(row[0], []).append(row[1])
+
+        # Create jobs for each source
+        for source_id in crawl_request.source_ids:
+            source = sources[source_id]
+            category_ids = source_categories.get(source_id, [])
 
             # If no N:M assignments, fall back to primary category
-            if not category_ids:
+            if not category_ids and source.category_id:
                 category_ids = [source.category_id]
 
             # Create a job for each category
@@ -418,12 +446,21 @@ async def get_crawler_status(
 
     # Get Celery worker status
     celery_connected = False
+    worker_count = 0
     try:
         inspector = celery_app.control.inspect()
-        active_tasks = inspector.active() or {}
-        celery_connected = len(active_tasks) > 0 or inspector.ping() is not None
+        ping_result = inspector.ping()
+        if ping_result:
+            worker_count = len(ping_result)
+            celery_connected = True
+        else:
+            # Fallback: check active tasks
+            active_tasks = inspector.active() or {}
+            celery_connected = len(active_tasks) > 0
+            worker_count = len(active_tasks)
     except Exception:
         celery_connected = False
+        worker_count = 0
 
     # Determine overall status
     if running_jobs > 0:
@@ -441,6 +478,7 @@ async def get_crawler_status(
         failed_today=failed_today,
         last_completed_at=last_completed,
         celery_connected=celery_connected,
+        worker_count=worker_count,
     )
 
 

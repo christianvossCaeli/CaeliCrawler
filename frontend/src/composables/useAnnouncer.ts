@@ -17,7 +17,7 @@
  *   announce('Processing...', { politeness: 'polite', clearAfter: 5000 })
  */
 
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
 
 interface AnnounceOptions {
   /** ARIA politeness level: 'polite' (default) or 'assertive' */

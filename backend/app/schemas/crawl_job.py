@@ -109,6 +109,7 @@ class CrawlerStatusResponse(BaseModel):
     failed_today: int = Field(default=0, description="Jobs failed today")
     last_completed_at: Optional[datetime] = Field(None, description="Timestamp of last completed job")
     celery_connected: bool = Field(default=False, description="Whether Celery is connected")
+    worker_count: int = Field(default=0, description="Number of active Celery workers")
 
 
 class JobLogEntry(BaseModel):

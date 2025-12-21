@@ -38,6 +38,7 @@ class AuditAction(str, enum.Enum):
     EXPORT = "EXPORT"
     VIEW = "VIEW"
     IMPORT = "IMPORT"
+    VERIFY = "VERIFY"
 
     # Crawler Operations
     CRAWLER_START = "CRAWLER_START"

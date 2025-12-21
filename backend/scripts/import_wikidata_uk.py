@@ -167,9 +167,14 @@ async def fetch_uk_councils_from_wikidata(
             country_label = UK_COUNTRIES.get(country.lower(), {}).get("name", "")
 
         # Extract data
+        raw_name = binding.get("councilLabel", {}).get("value", "")
+        # Clean council name to get actual place name (removes "Council", "City of" etc.)
+        cleaned_name = clean_council_name(raw_name)
+
         result = {
             "wikidata_id": binding.get("council", {}).get("value", "").split("/")[-1],
-            "name": binding.get("councilLabel", {}).get("value", ""),
+            "name": cleaned_name,
+            "name_original": raw_name,  # Keep original for reference
             "website": website,
             "gss_code": binding.get("gss_code", {}).get("value"),
             "population": binding.get("population", {}).get("value"),
@@ -196,6 +201,54 @@ def normalize_name(name: str, country: str = "GB") -> str:
     return result
 
 
+def clean_council_name(name: str) -> str:
+    """
+    Clean UK council/authority names to get the actual place name.
+
+    Removes institutional suffixes/prefixes that don't represent the place:
+    - "X Council" -> "X"
+    - "X City Council" -> "X"
+    - "City of X" -> "X"
+    - "Borough of X" -> "X"
+    - "County of X" -> "X"
+
+    This prevents creating duplicate entries for the same place.
+    """
+    import re
+
+    original = name
+
+    # Remove common suffixes (order matters - longer patterns first)
+    patterns_to_remove = [
+        r'\s+City\s+Council$',      # "Aberdeen City Council" -> "Aberdeen"
+        r'\s+Borough\s+Council$',   # "X Borough Council" -> "X"
+        r'\s+District\s+Council$',  # "X District Council" -> "X"
+        r'\s+County\s+Council$',    # "X County Council" -> "X"
+        r'\s+Council$',             # "Angus Council" -> "Angus"
+    ]
+
+    for pattern in patterns_to_remove:
+        name = re.sub(pattern, '', name, flags=re.IGNORECASE)
+
+    # Remove common prefixes
+    prefix_patterns = [
+        r'^City\s+of\s+',           # "City of Edinburgh" -> "Edinburgh"
+        r'^Borough\s+of\s+',        # "Borough of X" -> "X"
+        r'^County\s+of\s+',         # "County of X" -> "X"
+        r'^Royal\s+Borough\s+of\s+', # "Royal Borough of X" -> "X"
+    ]
+
+    for pattern in prefix_patterns:
+        name = re.sub(pattern, '', name, flags=re.IGNORECASE)
+
+    # Don't return empty string
+    name = name.strip()
+    if not name:
+        return original
+
+    return name
+
+
 async def import_locations_from_councils(
     councils: List[Dict],
     dry_run: bool = False,
@@ -215,13 +268,23 @@ async def import_locations_from_councils(
     # Track seen GSS codes to avoid duplicates within the same import
     seen_gss_codes = set()
 
+    # Track seen names to avoid duplicates within the same import
+    seen_names = set()
+
     async with async_session_factory() as session:
         for council in councils:
             try:
                 gss_code = council.get("gss_code")
+                name = council["name"]
+                name_norm = normalize_name(name)
 
                 # Skip if we've already seen this GSS code in this batch
                 if gss_code and gss_code in seen_gss_codes:
+                    stats["locations_skipped"] += 1
+                    continue
+
+                # Skip if we've already seen this name in this batch
+                if name_norm in seen_names:
                     stats["locations_skipped"] += 1
                     continue
 
@@ -235,23 +298,26 @@ async def import_locations_from_councils(
                     )
                     if existing.scalar_one_or_none():
                         seen_gss_codes.add(gss_code)
-                        stats["locations_skipped"] += 1
-                        continue
-                else:
-                    # Check by normalized name for entries without GSS code
-                    existing = await session.execute(
-                        select(Location).where(
-                            Location.country == "GB",
-                            Location.name_normalized == normalize_name(council["name"])
-                        )
-                    )
-                    if existing.scalar_one_or_none():
+                        seen_names.add(name_norm)
                         stats["locations_skipped"] += 1
                         continue
 
-                # Mark GSS code as seen
+                # Always check by normalized name (even with GSS code)
+                existing = await session.execute(
+                    select(Location).where(
+                        Location.country == "GB",
+                        Location.name_normalized == name_norm
+                    )
+                )
+                if existing.scalar_one_or_none():
+                    seen_names.add(name_norm)
+                    stats["locations_skipped"] += 1
+                    continue
+
+                # Mark as seen
                 if gss_code:
                     seen_gss_codes.add(gss_code)
+                seen_names.add(name_norm)
 
                 # Create location
                 population = council.get("population")

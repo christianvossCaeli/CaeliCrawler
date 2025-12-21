@@ -4,12 +4,14 @@ import asyncio
 import ipaddress
 import json
 import socket
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from urllib.parse import urlparse
 from uuid import UUID
 
 import httpx
 import structlog
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.cache import search_strategy_cache, make_cache_key
@@ -17,6 +19,62 @@ from app.core.retry import with_retry, LLM_RETRY_CONFIG, NETWORK_RETRY_CONFIG
 from app.core.security_logging import security_logger
 from services.smart_query.query_interpreter import get_openai_client
 from services.smart_query.utils import clean_json_response
+
+
+async def call_claude_api(prompt: str, max_tokens: int = 4000) -> Optional[str]:
+    """
+    Call Claude API via Azure-hosted Anthropic endpoint.
+
+    Args:
+        prompt: The prompt to send to Claude
+        max_tokens: Maximum tokens in response
+
+    Returns:
+        Response content or None on error
+    """
+    if not settings.anthropic_api_endpoint or not settings.anthropic_api_key:
+        return None
+
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                settings.anthropic_api_endpoint,
+                headers={
+                    "api-key": settings.anthropic_api_key,
+                    "Content-Type": "application/json",
+                    "anthropic-version": "2023-06-01",
+                },
+                json={
+                    "model": settings.anthropic_model,
+                    "max_tokens": max_tokens,
+                    "messages": [
+                        {"role": "user", "content": prompt}
+                    ],
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            # Extract content from Claude response
+            if "content" in data and len(data["content"]) > 0:
+                return data["content"][0].get("text", "")
+
+            return None
+
+    except httpx.HTTPError as e:
+        structlog.get_logger().error(
+            "Claude API request failed",
+            error=str(e),
+            status_code=getattr(e.response, 'status_code', None) if hasattr(e, 'response') else None,
+        )
+        return None
+    except Exception as e:
+        structlog.get_logger().error("Claude API error", error=str(e))
+        return None
+
+if TYPE_CHECKING:
+    from app.models.api_template import APITemplate
+
 from .models import (
     APISuggestion,
     APIValidationResult,
@@ -36,7 +94,7 @@ from .prompts import (
     AI_TAG_GENERATION_PROMPT,
 )
 from .api_validator import APIValidator, validate_api_suggestions
-from .search_providers import SerperSearchProvider
+from .search_providers import SerpAPISearchProvider, SerperSearchProvider
 from .extractors import HTMLTableExtractor, WikipediaExtractor, AIExtractor
 
 logger = structlog.get_logger()
@@ -116,12 +174,74 @@ class AISourceDiscoveryService:
     """
 
     def __init__(self):
-        self.search_provider = SerperSearchProvider()
+        # Search providers with fallback chain: SerpAPI → Serper
+        self.primary_search_provider = SerpAPISearchProvider()
+        self.fallback_search_provider = SerperSearchProvider()
         self.extractors = [
             WikipediaExtractor(),
             HTMLTableExtractor(),
             AIExtractor(),
         ]
+
+    async def _search_with_fallback(
+        self,
+        queries: List[str],
+        num_results: int = 10,
+    ) -> List[SearchResult]:
+        """
+        Execute web search with automatic fallback.
+
+        Tries SerpAPI first, falls back to Serper.dev if:
+        - SerpAPI returns no results
+        - SerpAPI is rate-limited (HTTP 429)
+        - SerpAPI key is not configured
+
+        Args:
+            queries: List of search queries
+            num_results: Number of results per query
+
+        Returns:
+            List of SearchResult objects
+        """
+        # Try primary provider (SerpAPI)
+        results = await self.primary_search_provider.search(
+            queries=queries,
+            num_results=num_results,
+        )
+
+        if results:
+            logger.info(
+                "Primary search provider succeeded",
+                provider="SerpAPI",
+                results_count=len(results),
+            )
+            return results
+
+        # Fallback to Serper.dev
+        logger.warning(
+            "Primary search provider returned no results, trying fallback",
+            primary="SerpAPI",
+            fallback="Serper.dev",
+        )
+
+        results = await self.fallback_search_provider.search(
+            queries=queries,
+            num_results=num_results,
+        )
+
+        if results:
+            logger.info(
+                "Fallback search provider succeeded",
+                provider="Serper.dev",
+                results_count=len(results),
+            )
+        else:
+            logger.error(
+                "Both search providers returned no results",
+                queries=queries,
+            )
+
+        return results
 
     async def discover_sources(
         self,
@@ -160,9 +280,9 @@ class AISourceDiscoveryService:
         query_counts = {"quick": 3, "standard": 5, "deep": 8}
         queries = strategy.search_queries[: query_counts.get(search_depth, 5)]
 
-        # Step 2: Search the web
+        # Step 2: Search the web (with automatic fallback)
         logger.info("Searching web", queries=queries)
-        search_results = await self.search_provider.search(
+        search_results = await self._search_with_fallback(
             queries=queries,
             num_results=10 if search_depth != "deep" else 15,
         )
@@ -266,6 +386,10 @@ class AISourceDiscoveryService:
             preferred_sources=data.get("preferred_sources", ["wikipedia"]),
             entity_schema=data.get("entity_schema", {"name": "string", "website": "url"}),
             base_tags=data.get("base_tags", []),
+            # Intelligente Quellenbegrenzung durch KI
+            expected_entity_count=data.get("expected_entity_count", 50),
+            recommended_max_sources=data.get("recommended_max_sources", 50),
+            reasoning=data.get("reasoning", ""),
         )
 
         # Cache the generated strategy
@@ -521,12 +645,13 @@ class AISourceDiscoveryService:
         max_results: int = 50,
         search_depth: str = "standard",
         skip_api_discovery: bool = False,
+        db: Optional[AsyncSession] = None,
     ) -> DiscoveryResultV2:
         """
         KI-First Discovery: Zuerst APIs via KI finden, dann SERP als Fallback.
 
         Flow:
-        1. (Optional) Gespeicherte Vorlagen prüfen
+        1. Gespeicherte Vorlagen prüfen (Keyword-Matching)
         2. KI generiert API-Vorschläge
         3. API-Vorschläge validieren
         4. Bei Erfolg → Daten direkt von API
@@ -537,6 +662,7 @@ class AISourceDiscoveryService:
             max_results: Maximum number of sources to return
             search_depth: quick, standard, deep
             skip_api_discovery: If True, skip to SERP directly
+            db: Optional database session for template lookup
 
         Returns:
             DiscoveryResultV2 with API sources and/or web sources
@@ -547,14 +673,22 @@ class AISourceDiscoveryService:
         api_suggestions: List[APISuggestion] = []
         api_validations: List[APIValidationResult] = []
         used_fallback = False
+        from_template = False
 
-        # Step 1: TODO - Check saved templates (will be implemented with DB model)
-        # template_result = await self._check_saved_templates(prompt)
-        # if template_result:
-        #     return template_result
+        # Step 1: Check saved templates (Keyword-Matching)
+        if db and not skip_api_discovery:
+            template_suggestions = await self._check_saved_templates(db, prompt)
+            if template_suggestions:
+                logger.info(
+                    "Found matching templates",
+                    count=len(template_suggestions),
+                    templates=[s.api_name for s in template_suggestions],
+                )
+                api_suggestions = template_suggestions
+                from_template = True
 
-        # Step 2: Generate API suggestions via LLM
-        if not skip_api_discovery:
+        # Step 2: Generate API suggestions via LLM (only if no templates found)
+        if not skip_api_discovery and not from_template:
             logger.info("Generating API suggestions via LLM", prompt=prompt)
             try:
                 api_suggestions = await self._generate_api_suggestions(prompt)
@@ -633,11 +767,14 @@ class AISourceDiscoveryService:
             stats=stats,
             warnings=warnings,
             used_fallback=used_fallback,
+            from_template=from_template,
         )
 
     async def _generate_api_suggestions(self, prompt: str) -> List[APISuggestion]:
         """
         Generate API suggestions using LLM.
+
+        Uses Claude if configured (better API knowledge), falls back to OpenAI.
 
         Args:
             prompt: User's natural language prompt
@@ -645,23 +782,37 @@ class AISourceDiscoveryService:
         Returns:
             List of API suggestions
         """
-        try:
-            client = get_openai_client()
-        except ValueError:
-            logger.warning("OpenAI not configured, cannot generate API suggestions")
-            return []
-
         api_prompt = AI_API_SUGGESTION_PROMPT.format(prompt=prompt)
+        content = None
 
-        response = client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
-            messages=[{"role": "user", "content": api_prompt}],
-            temperature=0.3,  # Lower temperature for more consistent API suggestions
-            max_tokens=2000,
-        )
+        # Try Claude first if configured (better API knowledge)
+        if settings.ai_discovery_use_claude and settings.anthropic_api_endpoint:
+            logger.info("Using Claude for API suggestions", prompt=prompt[:100])
+            claude_response = await call_claude_api(api_prompt, max_tokens=4000)
+            if claude_response:
+                content = clean_json_response(claude_response)
+                logger.info("Claude API suggestions received", length=len(content))
 
-        content = response.choices[0].message.content.strip()
-        content = clean_json_response(content)
+        # Fall back to OpenAI if Claude not available or failed
+        if content is None:
+            try:
+                client = get_openai_client()
+                logger.info("Using OpenAI for API suggestions (Claude not available)")
+
+                response = client.chat.completions.create(
+                    model=settings.azure_openai_deployment_name,
+                    messages=[{"role": "user", "content": api_prompt}],
+                    temperature=0.3,
+                    max_tokens=2000,
+                )
+                content = response.choices[0].message.content.strip()
+                content = clean_json_response(content)
+            except ValueError:
+                logger.warning("No LLM configured, cannot generate API suggestions")
+                return []
+            except Exception as e:
+                logger.error("OpenAI API suggestions failed", error=str(e))
+                return []
 
         try:
             data = json.loads(content)
@@ -801,3 +952,74 @@ class AISourceDiscoveryService:
             normalized["metadata"] = metadata
 
         return normalized
+
+    async def _check_saved_templates(
+        self,
+        db: AsyncSession,
+        prompt: str,
+        min_match_score: float = 0.3,
+    ) -> List[APISuggestion]:
+        """
+        Check saved API templates for keyword matches.
+
+        Args:
+            db: Database session
+            prompt: User's search prompt
+            min_match_score: Minimum match score (0.0-1.0) to include template
+
+        Returns:
+            List of APISuggestion objects from matching templates
+        """
+        from app.models.api_template import APITemplate, TemplateStatus
+
+        try:
+            # Get all active templates
+            result = await db.execute(
+                select(APITemplate).where(APITemplate.status == TemplateStatus.ACTIVE)
+            )
+            templates = result.scalars().all()
+
+            if not templates:
+                return []
+
+            # Score templates against prompt
+            matched_templates = []
+            for template in templates:
+                score = template.matches_prompt(prompt)
+                if score >= min_match_score:
+                    matched_templates.append((template, score))
+
+            if not matched_templates:
+                return []
+
+            # Sort by score (highest first)
+            matched_templates.sort(key=lambda x: x[1], reverse=True)
+
+            # Convert templates to APISuggestion objects
+            suggestions = []
+            for template, score in matched_templates:
+                suggestion = APISuggestion(
+                    api_name=template.name,
+                    base_url=template.base_url,
+                    endpoint=template.endpoint,
+                    description=template.description or "",
+                    api_type=template.api_type.value,
+                    auth_required=template.auth_required,
+                    confidence=min(1.0, score + template.confidence * 0.5),  # Combine scores
+                    expected_fields=list(template.field_mapping.keys()),
+                    documentation_url=template.documentation_url,
+                )
+                suggestions.append(suggestion)
+
+            logger.info(
+                "Template matching results",
+                prompt=prompt,
+                matched_count=len(suggestions),
+                templates=[s.api_name for s in suggestions],
+            )
+
+            return suggestions
+
+        except Exception as e:
+            logger.warning("Failed to check saved templates", error=str(e))
+            return []

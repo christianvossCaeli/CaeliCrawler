@@ -4,11 +4,14 @@ import { api } from '@/services/api'
 interface FeatureFlags {
   entityLevelFacets: boolean
   pysisFieldTemplates: boolean
+  /** Enable entity hierarchy features (children tab, parent filter) */
+  entityHierarchyEnabled: boolean
 }
 
 const flags = ref<FeatureFlags>({
   entityLevelFacets: false,
   pysisFieldTemplates: false,
+  entityHierarchyEnabled: false,
 })
 
 const loaded = ref(false)

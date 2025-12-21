@@ -139,6 +139,12 @@ const router = createRouter({
       component: () => import('@/views/admin/AuditLogView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
     },
+    {
+      path: '/admin/api-templates',
+      name: 'admin-api-templates',
+      component: () => import('@/views/admin/ApiTemplatesView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
 
     // Catch-all redirect
     {

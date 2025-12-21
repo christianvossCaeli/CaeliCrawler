@@ -853,7 +853,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
@@ -1175,7 +1175,6 @@ const loadSources = async (page = 1, perPage = itemsPerPage.value) => {
     sources.value = response.data.items
     totalSources.value = response.data.total
     currentPage.value = page
-    console.log(`Loaded ${sources.value.length} of ${totalSources.value} sources (page ${page})`)
   } finally {
     loading.value = false
   }
@@ -1256,10 +1255,10 @@ const saveSource = async () => {
     loadSources()
   } catch (error: unknown) {
     console.error('Failed to save source:', error)
-    // Show error to user via snackbar or alert
     const err = error as { response?: { data?: { detail?: string } } }
-    const message = err.response?.data?.detail || t('sources.errors.saveFailed')
-    alert(message) // TODO: Replace with proper snackbar
+    snackbarText.value = err.response?.data?.detail || t('sources.errors.saveFailed')
+    snackbarColor.value = 'error'
+    snackbar.value = true
   } finally {
     saving.value = false
   }
@@ -1288,9 +1287,10 @@ const closeBulkDialog = () => {
 }
 
 // Parse CSV file when selected
-const onCsvFileSelected = async (files: File[] | null) => {
-  if (!files || files.length === 0) return
-  const file = files[0]
+const onCsvFileSelected = async (files: File | File[] | null) => {
+  if (!files) return
+  const file = Array.isArray(files) ? files[0] : files
+  if (!file) return
 
   try {
     const text = await file.text()

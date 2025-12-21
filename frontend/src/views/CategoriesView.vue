@@ -1330,7 +1330,7 @@ const saveWithAiSetup = async () => {
   savingWithAi.value = true
   try {
     // Build the category data with AI suggestions
-    const categoryData = {
+    const categoryData: Record<string, unknown> = {
       ...formData.value,
       // Apply AI-generated data
       ai_extraction_prompt: editableExtractionPrompt.value,
@@ -1346,11 +1346,7 @@ const saveWithAiSetup = async () => {
     }
 
     // Set target_entity_type_id based on selection
-    if (selectedEntityTypeOption.value === 'new') {
-      // For now, we'll create the category without EntityType and let the backend handle it
-      // In a full implementation, we'd call a different endpoint that creates both
-      // For simplicity, we save the category first
-    } else {
+    if (selectedEntityTypeOption.value !== 'new') {
       // Use existing EntityType
       categoryData.target_entity_type_id = selectedEntityTypeOption.value
     }

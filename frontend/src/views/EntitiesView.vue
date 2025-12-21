@@ -109,7 +109,7 @@
               @update:model-value="() => loadEntities()"
             ></v-select>
           </v-col>
-          <v-col cols="12" md="2" v-if="currentEntityType?.supports_hierarchy">
+          <v-col cols="12" md="2" v-if="flags.entityHierarchyEnabled && currentEntityType?.supports_hierarchy">
             <v-autocomplete
               v-model="filters.parent_id"
               :items="parentOptions"
@@ -502,7 +502,7 @@
               <!-- General Tab -->
               <v-window-item value="general">
                 <v-row>
-                  <v-col cols="12" :md="currentEntityType?.supports_hierarchy ? 6 : 12">
+                  <v-col cols="12" :md="flags.entityHierarchyEnabled && currentEntityType?.supports_hierarchy ? 6 : 12">
                     <v-text-field
                       v-model="entityForm.name"
                       :label="t('common.name') + ' *'"
@@ -512,7 +512,7 @@
                       prepend-inner-icon="mdi-format-text"
                     ></v-text-field>
                   </v-col>
-                  <v-col cols="12" md="6" v-if="currentEntityType?.supports_hierarchy">
+                  <v-col cols="12" md="6" v-if="flags.entityHierarchyEnabled && currentEntityType?.supports_hierarchy">
                     <v-select
                       v-model="entityForm.parent_id"
                       :items="parentOptions"
@@ -778,8 +778,10 @@ import { useI18n } from 'vue-i18n'
 import { useEntityStore } from '@/stores/entity'
 import { adminApi, userApi, entityApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { useFeatureFlags } from '@/composables/useFeatureFlags'
 
 const { t } = useI18n()
+const { flags } = useFeatureFlags()
 
 const { showSuccess, showError } = useSnackbar()
 const route = useRoute()
@@ -922,7 +924,7 @@ const tableHeaders = computed(() => {
     { title: t('common.name'), key: 'name' },
   ]
 
-  if (currentEntityType.value?.supports_hierarchy) {
+  if (flags.value.entityHierarchyEnabled && currentEntityType.value?.supports_hierarchy) {
     headers.push({ title: t('entities.path'), key: 'hierarchy_path' })
   }
 

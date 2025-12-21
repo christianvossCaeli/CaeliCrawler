@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class SearchStrategy(BaseModel):
@@ -11,8 +11,12 @@ class SearchStrategy(BaseModel):
     search_queries: List[str] = Field(..., description="3-5 Suchbegriffe")
     expected_data_type: str = Field(..., description="Art der Daten (sports_teams, municipalities, companies)")
     preferred_sources: List[str] = Field(default_factory=list, description="Priorisierte Quelltypen")
-    entity_schema: Dict[str, str] = Field(default_factory=dict, description="Erwartete Felder pro Entität")
+    entity_schema: Dict[str, Any] = Field(default_factory=dict, description="Erwartete Felder pro Entität (kann verschachtelt sein)")
     base_tags: List[str] = Field(default_factory=list, description="Basis-Tags für alle Quellen")
+    # Intelligente Quellenbegrenzung durch KI
+    expected_entity_count: int = Field(default=50, description="Erwartete Anzahl der Entitäten (z.B. 18 für Bundesliga-Vereine)")
+    recommended_max_sources: int = Field(default=50, description="Empfohlene maximale Quellenanzahl (ca. 1.5x expected_entity_count)")
+    reasoning: str = Field(default="", description="Begründung für die Quellenanzahl")
 
 
 class SearchResult(BaseModel):
@@ -43,6 +47,14 @@ class SourceWithTags(BaseModel):
     suggested_category_ids: List[UUID] = Field(default_factory=list, max_length=10)
     metadata: Dict[str, Any] = Field(default_factory=dict)
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def truncate_name(cls, v: str) -> str:
+        """Truncate name to max 500 characters."""
+        if isinstance(v, str) and len(v) > 500:
+            return v[:497] + "..."
+        return v
 
 
 class DiscoveryStats(BaseModel):
@@ -148,3 +160,4 @@ class DiscoveryResultV2(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     # Flow-Info
     used_fallback: bool = False  # True wenn SERP-Fallback verwendet wurde
+    from_template: bool = False  # True wenn Vorlagen verwendet wurden

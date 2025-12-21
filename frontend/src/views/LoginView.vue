@@ -162,7 +162,7 @@ const isFormValid = computed(() => {
 })
 
 // Particle style generator
-function getParticleStyle(index: number) {
+function getParticleStyle(_index: number) {
   const size = 2 + Math.random() * 4
   const left = Math.random() * 100
   const delay = Math.random() * 5

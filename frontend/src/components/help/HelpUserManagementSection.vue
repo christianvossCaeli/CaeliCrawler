@@ -46,7 +46,7 @@
             <p class="mb-2">{{ t('help.userManagement.roles.admin.description') }}</p>
             <v-list density="compact">
               <v-list-item
-                v-for="(permission, idx) in t('help.userManagement.roles.admin.permissions', { returnObjects: true }) as string[]"
+                v-for="(permission, idx) in (t('help.userManagement.roles.admin.permissions', { returnObjects: true }) as unknown as string[])"
                 :key="idx"
                 prepend-icon="mdi-check"
               >
@@ -66,7 +66,7 @@
             <p class="mb-2">{{ t('help.userManagement.roles.editor.description') }}</p>
             <v-list density="compact">
               <v-list-item
-                v-for="(permission, idx) in t('help.userManagement.roles.editor.permissions', { returnObjects: true }) as string[]"
+                v-for="(permission, idx) in (t('help.userManagement.roles.editor.permissions', { returnObjects: true }) as unknown as string[])"
                 :key="idx"
                 prepend-icon="mdi-check"
               >
@@ -86,7 +86,7 @@
             <p class="mb-2">{{ t('help.userManagement.roles.viewer.description') }}</p>
             <v-list density="compact">
               <v-list-item
-                v-for="(permission, idx) in t('help.userManagement.roles.viewer.permissions', { returnObjects: true }) as string[]"
+                v-for="(permission, idx) in (t('help.userManagement.roles.viewer.permissions', { returnObjects: true }) as unknown as string[])"
                 :key="idx"
                 prepend-icon="mdi-check"
               >
@@ -168,7 +168,7 @@
 
     <v-list density="compact" class="mb-4">
       <v-list-item
-        v-for="(step, idx) in t('help.userManagement.resetPassword.steps', { returnObjects: true }) as string[]"
+        v-for="(step, idx) in (t('help.userManagement.resetPassword.steps', { returnObjects: true }) as unknown as string[])"
         :key="idx"
         :prepend-icon="`mdi-numeric-${idx + 1}-circle`"
       >

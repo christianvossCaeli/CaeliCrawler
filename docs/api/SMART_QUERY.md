@@ -170,6 +170,96 @@ Schreib-Kommandos in natuerlicher Sprache mit Preview-Unterstuetzung.
 
 ---
 
+## Create Category Setup (Vollautomatisches Daten-Setup)
+
+Die `create_category_setup` Operation erstellt automatisch einen kompletten Daten-Pipeline:
+
+1. **EntityType** - Neuer Entity-Typ mit Felddefinitionen
+2. **Category** - Kategorie mit AI-Extraktions-Prompt
+3. **AI Source Discovery** - Automatische Suche nach relevanten Datenquellen
+4. **Source Linking** - Verknuepfung gefundener Quellen mit der Kategorie
+
+### Request
+
+```json
+{
+  "question": "Erstelle ein Setup um wöchentlich alle Bundesliga-Ergebnisse der 1. und 2. Bundesliga zu erfassen",
+  "preview_only": true
+}
+```
+
+### Response (Preview)
+
+```json
+{
+  "success": true,
+  "mode": "preview",
+  "interpretation": {
+    "operation": "create_category_setup",
+    "category_setup_data": {
+      "name": "Bundesliga Ergebnisse wöchentlich",
+      "purpose": "Erfassung der wöchentlichen Ergebnisse der 1. und 2. Bundesliga",
+      "search_terms": ["Bundesliga", "1. Bundesliga", "2. Bundesliga", "Ergebnisse"],
+      "geographic_filter": {"country": "DE"},
+      "time_focus": "future_only",
+      "target_entity_types": ["organization", "event"]
+    }
+  },
+  "preview": {
+    "operation_de": "Category-Setup erstellen",
+    "details": [
+      "Name: Bundesliga Ergebnisse wöchentlich",
+      "Suchbegriffe: Bundesliga, 1. Bundesliga, 2. Bundesliga, Ergebnisse",
+      "→ Erstellt EntityType + Category + verknüpft Datenquellen"
+    ]
+  }
+}
+```
+
+### Response (Execute)
+
+```json
+{
+  "success": true,
+  "message": "Erfolgreich erstellt: EntityType 'Bundesliga Ergebnisse', Category 'Bundesliga Ergebnisse', 98 neue Quellen entdeckt, 98 Datenquellen verknüpft",
+  "entity_type": "Bundesliga Ergebnisse",
+  "category": "Bundesliga Ergebnisse",
+  "search_terms": [
+    "Bundesliga Ergebnisse",
+    "1. Bundesliga Spieltag",
+    "2. Bundesliga Ergebnisse",
+    "Fußball Bundesliga Tabelle"
+  ],
+  "discovered_sources": 98,
+  "linked_sources": 98,
+  "steps": [
+    {"step": 1, "message": "Generiere EntityType-Konfiguration...", "success": true},
+    {"step": 2, "message": "Generiere Category & AI-Extraktions-Prompt...", "success": true},
+    {"step": 3, "message": "Generiere URL-Filter & Crawl-Konfiguration...", "success": true},
+    {"step": 4, "message": "Suche automatisch nach relevanten Datenquellen...", "success": true}
+  ]
+}
+```
+
+### Wichtige Hinweise
+
+**Trigger-Phrasen:**
+- "Erstelle ein Setup um..."
+- "Erstelle ein Setup für..."
+- "Richte ein Setup ein für..."
+
+**AI Source Discovery:**
+- Wird automatisch ausgefuehrt wenn < 3 passende Quellen existieren
+- Nutzt AI zur Websuche nach relevanten Datenquellen
+- Gefundene Quellen werden als PENDING erstellt
+
+**Suchbegriff-Generierung:**
+- AI generiert automatisch 10-20 relevante Suchbegriffe
+- Basiert auf dem angegebenen Thema/Zweck
+- Werden fuer AI Source Discovery verwendet
+
+---
+
 ## Beispiele abrufen
 
 ### GET /v1/analysis/smart-query/examples

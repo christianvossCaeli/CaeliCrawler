@@ -121,7 +121,8 @@
     "admin": {
       "title": "Administration",
       "users": "Benutzerverwaltung",
-      "auditLog": "Änderungsverlauf"
+      "auditLog": "Änderungsverlauf",
+      "apiTemplates": "API-Vorlagen"
     }
   },
   "auth": {
@@ -208,6 +209,7 @@
     "required": "Dieses Feld ist erforderlich",
     "email": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
     "url": "Bitte geben Sie eine gültige URL ein",
+    "invalidUrl": "Bitte geben Sie eine gültige URL ein",
     "minLength": "Mindestens {min} Zeichen erforderlich",
     "maxLength": "Maximal {max} Zeichen erlaubt",
     "min": "Mindestwert ist {min}",

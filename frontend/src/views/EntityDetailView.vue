@@ -165,6 +165,11 @@
         {{ t('entityDetail.tabs.attachments') }}
         <v-chip v-if="attachmentCount" size="x-small" class="ml-2">{{ attachmentCount }}</v-chip>
       </v-tab>
+      <v-tab v-if="flags.entityHierarchyEnabled && entityType?.supports_hierarchy" value="children">
+        <v-icon start>mdi-file-tree</v-icon>
+        {{ t('entityDetail.tabs.children', 'Untergeordnete') }}
+        <v-chip v-if="childrenCount" size="x-small" class="ml-2">{{ childrenCount }}</v-chip>
+      </v-tab>
     </v-tabs>
 
     <v-window v-model="activeTab">
@@ -941,6 +946,83 @@
           :entity-id="entity.id"
           @attachments-changed="loadAttachmentCount"
         />
+      </v-window-item>
+
+      <!-- Children Tab (Untergeordnete Entities) -->
+      <v-window-item v-if="flags.entityHierarchyEnabled && entityType?.supports_hierarchy" value="children">
+        <v-card>
+          <v-card-text>
+            <!-- Loading State -->
+            <div v-if="loadingChildren" class="d-flex justify-center py-8">
+              <v-progress-circular indeterminate></v-progress-circular>
+            </div>
+
+            <!-- Empty State -->
+            <v-alert v-else-if="children.length === 0" type="info" variant="tonal" class="mb-0">
+              <v-alert-title>{{ t('entityDetail.children.empty', 'Keine untergeordneten Entities') }}</v-alert-title>
+              {{ t('entityDetail.children.emptyHint', 'Diese Entity hat keine untergeordneten Einträge.') }}
+            </v-alert>
+
+            <!-- Children List -->
+            <template v-else>
+              <v-text-field
+                v-if="children.length > 5"
+                v-model="childrenSearchQuery"
+                prepend-inner-icon="mdi-magnify"
+                :label="t('common.search')"
+                clearable
+                hide-details
+                density="compact"
+                variant="outlined"
+                class="mb-4"
+              ></v-text-field>
+
+              <v-list lines="two">
+                <v-list-item
+                  v-for="child in filteredChildren"
+                  :key="child.id"
+                  :to="`/entities/${typeSlug}/${child.slug}`"
+                  class="mb-1"
+                  rounded
+                >
+                  <template v-slot:prepend>
+                    <v-avatar :color="entityType?.color || 'primary'" size="40">
+                      <v-icon :icon="entityType?.icon || 'mdi-folder'" color="white" size="small"></v-icon>
+                    </v-avatar>
+                  </template>
+                  <v-list-item-title class="font-weight-medium">{{ child.name }}</v-list-item-title>
+                  <v-list-item-subtitle>
+                    <span v-if="child.external_id" class="mr-3">
+                      <v-icon size="x-small" class="mr-1">mdi-identifier</v-icon>
+                      {{ child.external_id }}
+                    </span>
+                    <span v-if="child.facet_count" class="mr-3">
+                      <v-icon size="x-small" class="mr-1">mdi-tag</v-icon>
+                      {{ child.facet_count }} {{ t('entityDetail.stats.facetValues') }}
+                    </span>
+                    <span v-if="child.children_count">
+                      <v-icon size="x-small" class="mr-1">mdi-file-tree</v-icon>
+                      {{ child.children_count }} {{ t('entityDetail.children.subEntities', 'Untergeordnete') }}
+                    </span>
+                  </v-list-item-subtitle>
+                  <template v-slot:append>
+                    <v-icon>mdi-chevron-right</v-icon>
+                  </template>
+                </v-list-item>
+              </v-list>
+
+              <!-- Pagination -->
+              <div v-if="childrenTotalPages > 1" class="d-flex justify-center mt-4">
+                <v-pagination
+                  v-model="childrenPage"
+                  :length="childrenTotalPages"
+                  :total-visible="5"
+                  @update:model-value="loadChildren"
+                ></v-pagination>
+              </div>
+            </template>
+          </v-card-text>
+        </v-card>
       </v-window-item>
     </v-window>
 
@@ -1872,7 +1954,7 @@ import EntityAttachmentsTab from '@/components/entity/EntityAttachmentsTab.vue'
 import FavoriteButton from '@/components/FavoriteButton.vue'
 
 const { t } = useI18n()
-useFeatureFlags() // Initialize feature flags
+const { flags } = useFeatureFlags()
 
 // ============================================================================
 // Local Types
@@ -1969,6 +2051,15 @@ const dataSources = ref<DataSource[]>([])
 const documents = ref<any[]>([])
 const externalData = ref<any>(null)
 const attachmentCount = ref(0)
+
+// Children (Untergeordnete Entities) state
+const children = ref<Entity[]>([])
+const childrenCount = ref(0)
+const childrenPage = ref(1)
+const childrenTotalPages = ref(1)
+const childrenSearchQuery = ref('')
+const loadingChildren = ref(false)
+const childrenLoaded = ref(false)
 
 // Loading states
 const loadingDataSources = ref(false)
@@ -2772,6 +2863,40 @@ async function loadAttachmentCount() {
     attachmentCount.value = 0
   }
 }
+
+// Children (Untergeordnete Entities) functions
+async function loadChildren() {
+  if (!entity.value) return
+
+  loadingChildren.value = true
+  try {
+    const response = await entityApi.getEntityChildren(entity.value.id, {
+      page: childrenPage.value,
+      per_page: 20,
+    })
+    children.value = response.data.items || []
+    childrenCount.value = response.data.total || 0
+    childrenTotalPages.value = response.data.pages || 1
+    childrenLoaded.value = true
+  } catch (e) {
+    console.error('Failed to load children', e)
+    children.value = []
+    childrenCount.value = 0
+  } finally {
+    loadingChildren.value = false
+  }
+}
+
+// Computed: Filtered children based on search query
+const filteredChildren = computed(() => {
+  if (!childrenSearchQuery.value) return children.value
+  const query = childrenSearchQuery.value.toLowerCase()
+  return children.value.filter(
+    (child) =>
+      child.name.toLowerCase().includes(query) ||
+      child.external_id?.toLowerCase().includes(query)
+  )
+})
 
 function toggleFacetExpand(slug: string) {
   const idx = expandedFacets.value.indexOf(slug)
@@ -3707,6 +3832,9 @@ watch(activeTab, (tab) => {
   }
   if (tab === 'documents' && documents.value.length === 0) {
     loadDocuments()
+  }
+  if (tab === 'children' && !childrenLoaded.value) {
+    loadChildren()
   }
 })
 

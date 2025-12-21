@@ -1,14 +1,17 @@
 """Export job model for tracking async exports."""
 
-from datetime import datetime, timezone
-from typing import Optional
-from uuid import UUID, uuid4
+import uuid
+from datetime import datetime
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, JSON
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
-from sqlalchemy.orm import relationship
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class ExportJob(Base):
@@ -16,46 +19,116 @@ class ExportJob(Base):
 
     __tablename__ = "export_jobs"
 
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
 
     # Job metadata
-    user_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    celery_task_id = Column(String(255), nullable=True, index=True)
+    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    celery_task_id: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True,
+    )
 
     # Export configuration (stored as JSON)
-    export_config = Column(JSON, nullable=False, default=dict)
-    export_format = Column(String(20), nullable=False, default="json")
+    export_config: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+    )
+    export_format: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="json",
+    )
 
     # Status tracking
-    status = Column(
+    status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
         default="pending",
         index=True,
-    )  # pending, processing, completed, failed, cancelled
+        comment="pending, processing, completed, failed, cancelled",
+    )
 
     # Progress tracking
-    total_records = Column(Integer, nullable=True)
-    processed_records = Column(Integer, nullable=True, default=0)
-    progress_percent = Column(Integer, nullable=True, default=0)
-    progress_message = Column(String(255), nullable=True)
+    total_records: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    processed_records: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+        default=0,
+    )
+    progress_percent: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+        default=0,
+    )
+    progress_message: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
 
     # Result
-    file_path = Column(Text, nullable=True)
-    file_size = Column(Integer, nullable=True)
-    download_url = Column(Text, nullable=True)
-    error_message = Column(Text, nullable=True)
+    file_path: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    file_size: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    download_url: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    error_message: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
 
     # Timestamps
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    started_at = Column(DateTime(timezone=True), nullable=True)
-    completed_at = Column(DateTime(timezone=True), nullable=True)
-    expires_at = Column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
     # Relationships
-    user = relationship("User", back_populates="export_jobs")
+    user: Mapped[Optional["User"]] = relationship(
+        "User",
+        back_populates="export_jobs",
+    )
 
-    def __repr__(self):
+    # Composite indexes for common queries
+    __table_args__ = (
+        Index("ix_export_jobs_user_status", "user_id", "status"),
+        Index("ix_export_jobs_created_status", "created_at", "status"),
+    )
+
+    def __repr__(self) -> str:
         return f"<ExportJob(id={self.id}, status={self.status}, format={self.export_format})>"
 
     @property

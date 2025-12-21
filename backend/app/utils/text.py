@@ -173,6 +173,65 @@ def build_text_representation(value: Any) -> str:
     return ""
 
 
+def clean_municipality_name(name: str, country: str = "GB") -> str:
+    """
+    Clean municipality names to remove institutional suffixes/prefixes.
+
+    For UK:
+    - "X Council" -> "X"
+    - "X City Council" -> "X"
+    - "City of X" -> "X"
+    - "Borough of X" -> "X"
+
+    This prevents creating duplicate entities for the same place.
+
+    Args:
+        name: The municipality name
+        country: ISO 3166-1 alpha-2 country code
+
+    Returns:
+        Cleaned name without institutional suffixes
+
+    Examples:
+        >>> clean_municipality_name("Aberdeen City Council", "GB")
+        'Aberdeen'
+        >>> clean_municipality_name("City of Edinburgh", "GB")
+        'Edinburgh'
+        >>> clean_municipality_name("Angus Council", "GB")
+        'Angus'
+    """
+    if country != "GB":
+        return name
+
+    original = name
+
+    # Remove common suffixes (order matters - longer patterns first)
+    patterns_to_remove = [
+        r'\s+City\s+Council$',      # "Aberdeen City Council" -> "Aberdeen"
+        r'\s+Borough\s+Council$',   # "X Borough Council" -> "X"
+        r'\s+District\s+Council$',  # "X District Council" -> "X"
+        r'\s+County\s+Council$',    # "X County Council" -> "X"
+        r'\s+Council$',             # "Angus Council" -> "Angus"
+    ]
+
+    for pattern in patterns_to_remove:
+        name = re.sub(pattern, '', name, flags=re.IGNORECASE)
+
+    # Remove common prefixes
+    prefix_patterns = [
+        r'^City\s+of\s+',           # "City of Edinburgh" -> "Edinburgh"
+        r'^Borough\s+of\s+',        # "Borough of X" -> "X"
+        r'^County\s+of\s+',         # "County of X" -> "X"
+        r'^Royal\s+Borough\s+of\s+',  # "Royal Borough of X" -> "X"
+    ]
+
+    for pattern in prefix_patterns:
+        name = re.sub(pattern, '', name, flags=re.IGNORECASE)
+
+    name = name.strip()
+    return name if name else original
+
+
 # Backwards compatibility aliases
 def normalize_name(name: str, country: str = "DE") -> str:
     """Alias for normalize_entity_name for backwards compatibility."""

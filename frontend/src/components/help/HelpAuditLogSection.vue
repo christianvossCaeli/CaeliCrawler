@@ -108,7 +108,7 @@
 
     <v-list density="compact" class="mb-4">
       <v-list-item
-        v-for="(feature, idx) in t('help.auditLog.entityHistory.features', { returnObjects: true }) as string[]"
+        v-for="(feature, idx) in (t('help.auditLog.entityHistory.features', { returnObjects: true }) as unknown as string[])"
         :key="idx"
         prepend-icon="mdi-check"
       >

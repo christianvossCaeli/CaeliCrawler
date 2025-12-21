@@ -190,7 +190,14 @@
       "dataSources": "Datenquellen",
       "documents": "Dokumente",
       "pysis": "PySis",
-      "attachments": "Anhänge"
+      "attachments": "Anhänge",
+      "children": "Untergeordnete"
+    },
+    "children": {
+      "empty": "Keine untergeordneten Entities",
+      "emptyHint": "Diese Entity hat keine untergeordneten Einträge.",
+      "subEntities": "Untergeordnete",
+      "loadError": "Fehler beim Laden der untergeordneten Entities"
     },
     "searchProperties": "In Eigenschaften suchen...",
     "verified": "verifiziert",

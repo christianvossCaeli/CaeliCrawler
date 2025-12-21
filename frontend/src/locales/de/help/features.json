@@ -1170,6 +1170,33 @@
           "note": "Hinweis: Nur Aenderungen der aktuellen Session koennen rueckgaengig gemacht werden."
         }
       },
+      "categorySetup": {
+        "title": "Automatisches Daten-Setup",
+        "description": "Mit 'Erstelle ein Setup' koennen Sie automatisch eine komplette Daten-Pipeline erstellen:",
+        "workflow": {
+          "step1": "EntityType wird erstellt mit passenden Felddefinitionen",
+          "step2": "Category wird erstellt mit AI-Extraktions-Prompt",
+          "step3": "AI Source Discovery sucht automatisch relevante Datenquellen",
+          "step4": "Gefundene Quellen werden mit der Category verknuepft"
+        },
+        "examples": {
+          "title": "Beispiele",
+          "example1": "Erstelle ein Setup um wöchentlich alle Bundesliga-Ergebnisse zu erfassen",
+          "example2": "Erstelle ein Setup für Stellenangebote von Softwareentwicklern",
+          "example3": "Erstelle ein Setup um Neuerscheinungen von PlayStation-Spielen zu sammeln"
+        },
+        "triggerPhrases": {
+          "title": "Trigger-Phrasen",
+          "phrase1": "Erstelle ein Setup um...",
+          "phrase2": "Erstelle ein Setup für...",
+          "phrase3": "Richte ein Setup ein für..."
+        },
+        "features": {
+          "autoSearchTerms": "Automatische Suchbegriff-Generierung (10-20 relevante Begriffe)",
+          "aiSourceDiscovery": "AI Source Discovery wenn < 3 passende Quellen existieren",
+          "preview": "Preview-Modus vor der Ausfuehrung"
+        }
+      },
       "errorHandling": {
         "title": "Intelligente Fehlerbehandlung",
         "description": "Das System erkennt Tippfehler und schlaegt Korrekturen vor:",
@@ -1323,16 +1350,30 @@
     },
     "aiSourceDiscovery": {
       "title": "KI-gesteuerte Datenquellen-Suche",
-      "description": "Mit der KI-gesteuerten Suche koennen Sie automatisch Datenquellen aus dem Internet finden - einfach durch natuerliche Sprache.",
+      "description": "Mit der KI-gesteuerten Suche koennen Sie automatisch Datenquellen aus dem Internet finden - einfach durch natuerliche Sprache. Die V2-Version nutzt einen KI-First Ansatz.",
       "overview": {
         "title": "Uebersicht",
         "description": "Die KI-Discovery ermoeglicht es, Datenquellen durch einen einfachen Prompt zu finden:",
-        "howItWorks": "So funktioniert es",
-        "howItWorksDesc": "Geben Sie einen natuerlichen Suchbegriff ein (z.B. 'Alle deutschen Bundesliga-Fußballvereine'), und die KI sucht automatisch im Internet nach passenden Quellen.",
+        "howItWorks": "So funktioniert es (V2)",
+        "howItWorksDesc": "Die KI schlaegt zuerst passende APIs vor (z.B. OpenLigaDB fuer Bundesliga), validiert diese automatisch und extrahiert Daten. Web-Suche dient nur als Fallback.",
         "autoTags": "Automatische Tag-Generierung",
         "autoTagsDesc": "Die KI generiert automatisch passende Tags basierend auf dem Prompt und den gefundenen Daten.",
         "preview": "Vorschau vor Import",
         "previewDesc": "Sie sehen alle gefundenen Quellen in einer Vorschau und koennen auswaehlen, welche importiert werden sollen."
+      },
+      "kiFirstApproach": {
+        "title": "KI-First Ansatz (V2)",
+        "description": "Der neue KI-First Ansatz folgt diesem Flow:",
+        "step1": "Template-Check",
+        "step1Desc": "Gespeicherte API-Vorlagen werden per Keyword-Matching geprueft",
+        "step2": "KI-API-Vorschlaege",
+        "step2Desc": "Die KI generiert passende API-Endpunkte basierend auf ihrem Wissen",
+        "step3": "Validierung",
+        "step3Desc": "Vorgeschlagene APIs werden automatisch getestet (HTTP-Request, JSON-Parsing)",
+        "step4": "Datenextraktion",
+        "step4Desc": "Valide APIs liefern direkt strukturierte Daten mit automatischem Field-Mapping",
+        "step5": "Fallback",
+        "step5Desc": "Nur wenn keine APIs funktionieren, wird Web-Suche gestartet"
       },
       "access": {
         "title": "Zugriff",
@@ -1348,11 +1389,32 @@
         "step2": "Suchtiefe waehlen",
         "step2Desc": "Schnell (3 Queries), Standard (5 Queries) oder Tiefgehend (8 Queries)",
         "step3": "Suche starten",
-        "step3Desc": "Die KI generiert Suchstrategien und durchsucht das Web.",
+        "step3Desc": "Die KI prueft Vorlagen, generiert API-Vorschlaege und validiert diese.",
         "step4": "Ergebnisse pruefen",
-        "step4Desc": "Sehen Sie die gefundenen Quellen mit automatisch generierten Tags.",
+        "step4Desc": "Sehen Sie API-Quellen (priorisiert) und Web-Quellen (Fallback).",
         "step5": "Auswahl importieren",
         "step5Desc": "Waehlen Sie die gewuenschten Quellen und optional Ziel-Kategorien."
+      },
+      "apiTemplates": {
+        "title": "API-Vorlagen",
+        "description": "Erfolgreiche API-Entdeckungen koennen als Vorlagen gespeichert werden:",
+        "saveTemplate": "Als Vorlage speichern",
+        "saveTemplateDesc": "Nach erfolgreicher Validierung koennen Sie 'Als Vorlage speichern' klicken",
+        "keywords": "Schluesselwoerter",
+        "keywordsDesc": "Definieren Sie Keywords, die bei zukuenftigen Suchen automatisch diese Vorlage aktivieren",
+        "reuse": "Wiederverwendung",
+        "reuseDesc": "Gespeicherte Vorlagen werden vor KI-Generierung geprueft - schneller und zuverlaessiger",
+        "management": "Verwaltung",
+        "managementDesc": "Admins koennen Vorlagen unter Administration → API-Vorlagen verwalten"
+      },
+      "resultTypes": {
+        "title": "Ergebnis-Typen",
+        "apiSources": "API-Quellen",
+        "apiSourcesDesc": "Daten direkt von validierten APIs (z.B. OpenLigaDB) - strukturiert und zuverlaessig",
+        "webSources": "Web-Quellen",
+        "webSourcesDesc": "Gefundene Websites als Fallback wenn keine APIs funktionieren",
+        "apiSuggestions": "API-Vorschlaege",
+        "apiSuggestionsDesc": "Alle von der KI generierten Vorschlaege mit Validierungs-Status"
       },
       "examples": {
         "title": "Beispiel-Prompts",
@@ -1393,7 +1455,9 @@
         "title": "Tipps",
         "specific": "Seien Sie spezifisch - 'Gemeinden in NRW' liefert bessere Ergebnisse als 'Gemeinden'",
         "checkTags": "Pruefen Sie die generierten Tags vor dem Import und passen Sie sie bei Bedarf an",
-        "categories": "Waehlen Sie passende Kategorien, um die importierten Quellen direkt zuzuordnen"
+        "categories": "Waehlen Sie passende Kategorien, um die importierten Quellen direkt zuzuordnen",
+        "saveTemplates": "Speichern Sie erfolgreiche API-Entdeckungen als Vorlagen fuer schnellere zukuenftige Suchen",
+        "useApis": "API-Quellen sind zuverlaessiger als Web-Quellen - priorisieren Sie diese beim Import"
       }
     },
     "dataSourceTags": {

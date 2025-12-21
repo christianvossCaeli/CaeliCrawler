@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.database import get_session
 from app.models.notification import (

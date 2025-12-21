@@ -101,28 +101,10 @@ class SerperSearchProvider(BaseSearchProvider):
         return results
 
     def _get_mock_results(self, queries: List[str]) -> List[SearchResult]:
-        """Return mock results for testing without API key."""
-        mock_results = [
-            SearchResult(
-                url="https://de.wikipedia.org/wiki/Fu%C3%9Fball-Bundesliga",
-                title="Fußball-Bundesliga - Wikipedia",
-                snippet="Die Fußball-Bundesliga ist die höchste Spielklasse im deutschen Fußball...",
-                source_type="wikipedia",
-                confidence=0.9,
-            ),
-            SearchResult(
-                url="https://www.bundesliga.com/de/bundesliga",
-                title="Bundesliga | Die offizielle Seite",
-                snippet="Alle News, Spielpläne, Tabellen und Statistiken zur Bundesliga...",
-                source_type="website",
-                confidence=0.85,
-            ),
-            SearchResult(
-                url="https://www.transfermarkt.de/1-bundesliga/startseite/wettbewerb/L1",
-                title="1. Bundesliga - Transfermarkt",
-                snippet="Alle Vereine der 1. Bundesliga im Überblick...",
-                source_type="website",
-                confidence=0.8,
-            ),
-        ]
-        return mock_results
+        """Return empty results when no API key is configured."""
+        logger.error(
+            "SERPER_API_KEY not configured - web search disabled. "
+            "Set SERPER_API_KEY environment variable for AI Source Discovery.",
+            queries=queries,
+        )
+        return []

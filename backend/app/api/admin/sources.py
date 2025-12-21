@@ -2,7 +2,6 @@
 
 import ipaddress
 import socket
-import uuid as uuid_module
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
@@ -411,8 +410,7 @@ class SourceBriefResponse(BaseModel):
     tags: List[str]
     category_ids: List[UUID]
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 @router.get("/by-tags", response_model=List[SourceBriefResponse])

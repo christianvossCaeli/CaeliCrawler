@@ -28,7 +28,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Entity, EntityType
-from app.utils.text import normalize_entity_name, create_slug
+from app.utils.text import normalize_entity_name, create_slug, clean_municipality_name
 
 logger = structlog.get_logger()
 
@@ -100,11 +100,24 @@ class EntityMatchingService:
             logger.warning("Entity type not found", slug=entity_type_slug)
             return None
 
-        # 2. Normalize name consistently
+        # 2. Clean municipality names (removes "Council", "City of" etc.)
+        # This prevents creating duplicates like "Aberdeen" and "Aberdeen City Council"
+        if entity_type_slug == "municipality":
+            original_name = name
+            name = clean_municipality_name(name, country=country)
+            if name != original_name:
+                logger.debug(
+                    "Cleaned municipality name",
+                    original=original_name,
+                    cleaned=name,
+                    country=country,
+                )
+
+        # 3. Normalize name consistently
         name_normalized = normalize_entity_name(name, country=country)
         slug = create_slug(name, country=country)
 
-        # 3. Try external_id match first (if provided)
+        # 4. Try external_id match first (if provided)
         if external_id:
             entity = await self._find_by_external_id(entity_type.id, external_id)
             if entity:
@@ -115,7 +128,7 @@ class EntityMatchingService:
                 )
                 return entity
 
-        # 4. Try exact normalized name match
+        # 5. Try exact normalized name match
         entity = await self._find_by_normalized_name(entity_type.id, name_normalized)
         if entity:
             logger.debug(
@@ -126,7 +139,7 @@ class EntityMatchingService:
             )
             return entity
 
-        # 5. Try similarity match (if threshold < 1.0)
+        # 6. Try similarity match (if threshold < 1.0)
         if similarity_threshold < 1.0:
             similar_entity = await self._find_similar_entity(
                 entity_type.id, name, similarity_threshold
@@ -140,7 +153,7 @@ class EntityMatchingService:
                 )
                 return similar_entity
 
-        # 6. Create new entity (race-condition-safe)
+        # 7. Create new entity (race-condition-safe)
         return await self._create_entity_safe(
             entity_type=entity_type,
             name=name,

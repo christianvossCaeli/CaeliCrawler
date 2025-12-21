@@ -9,13 +9,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.core.deps import require_editor
 from app.core.rate_limit import check_rate_limit
 from app.models import User
+from app.schemas.common import MessageResponse
 from app.models.api_template import APITemplate, APIType, TemplateStatus
 from services.ai_source_discovery import (
     APISuggestion,
@@ -87,8 +88,7 @@ class APITemplateResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class APITemplateTestResult(BaseModel):
@@ -99,6 +99,12 @@ class APITemplateTestResult(BaseModel):
     error_message: Optional[str]
     field_mapping: dict
     sample_data: Optional[List[dict]] = None
+
+
+class APITemplateListResponse(BaseModel):
+    """Paginated list of API templates."""
+    templates: List[APITemplateResponse]
+    total: int
 
 
 class SaveFromDiscoveryRequest(BaseModel):
@@ -362,7 +368,7 @@ async def update_template(
     )
 
 
-@router.delete("/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{template_id}", response_model=MessageResponse)
 async def delete_template(
     template_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -376,8 +382,11 @@ async def delete_template(
             detail=f"Template '{template_id}' not found",
         )
 
+    name = template.name
     await session.delete(template)
     await session.commit()
+
+    return MessageResponse(message=f"API template '{name}' deleted successfully")
 
 
 @router.post("/{template_id}/test", response_model=APITemplateTestResult)

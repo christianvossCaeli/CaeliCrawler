@@ -343,9 +343,21 @@ function handleNext() {
   emit('next', value)
 }
 
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  }
+  return text.replace(/[&<>"']/g, (char) => map[char])
+}
+
 function formatQuestion(question: string): string {
-  // Convert markdown-like formatting
-  return question
+  // First escape HTML to prevent XSS, then apply markdown-like formatting
+  let formatted = escapeHtml(question)
+  return formatted
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/`(.+?)`/g, '<code>$1</code>')
 }

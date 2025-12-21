@@ -190,17 +190,10 @@ class EntityLinkingService:
         if entity:
             return entity
 
-        # Try case-insensitive like match for partial names
-        result = await self.session.execute(
-            select(Entity)
-            .where(
-                *base_conditions,
-                func.lower(Entity.name).contains(normalized.lower()),
-            )
-            .limit(1)
-        )
-        entity = result.scalar_one_or_none()
-        return entity
+        # NOTE: Removed substring matching (contains) as it caused false positives
+        # like "Falken" matching "Falkenstein". AI interpretation provides a better
+        # fallback for ambiguous cases.
+        return None
 
     async def _ai_interpret_location(
         self, hints: List[str]

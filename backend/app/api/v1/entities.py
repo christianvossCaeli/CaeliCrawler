@@ -62,7 +62,13 @@ async def list_entities(
     session: AsyncSession = Depends(get_session),
 ):
     """List entities with filters."""
-    query = select(Entity)
+    from sqlalchemy.orm import selectinload
+
+    # Eagerly load created_by and owner to avoid lazy loading in Pydantic validation
+    query = select(Entity).options(
+        selectinload(Entity.created_by),
+        selectinload(Entity.owner),
+    )
 
     # Filter by entity type (ID or slug)
     if entity_type_id:
