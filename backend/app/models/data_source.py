@@ -25,9 +25,7 @@ if TYPE_CHECKING:
     from app.models.crawl_job import CrawlJob
     from app.models.document import Document
     from app.models.change_log import ChangeLog
-    from app.models.entity import Entity
     from app.models.data_source_category import DataSourceCategory
-    from app.models.location import Location
     from external_apis.models.external_api_config import ExternalAPIConfig
 
 
@@ -75,21 +73,6 @@ class DataSource(Base):
         index=True,
         comment="Legacy primary category - use categories relationship for N:M",
     )
-    entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("entities.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-        comment="FK to entity (municipality/person/organization/event)",
-    )
-    location_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("locations.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-        comment="FK to location for geographic clustering",
-    )
-
     # Basic info
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     source_type: Mapped[SourceType] = mapped_column(
@@ -98,32 +81,6 @@ class DataSource(Base):
     )
     base_url: Mapped[str] = mapped_column(Text, nullable=False)
     api_endpoint: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-
-    # Location for clustering (legacy string fields, prefer location_id FK)
-    country: Mapped[Optional[str]] = mapped_column(
-        String(2),
-        nullable=True,
-        index=True,
-        comment="ISO 3166-1 alpha-2 country code",
-    )
-    location_name: Mapped[Optional[str]] = mapped_column(
-        String(255),
-        nullable=True,
-        index=True,
-        comment="Location name for result clustering (e.g., 'Münster')",
-    )
-    region: Mapped[Optional[str]] = mapped_column(
-        String(255),
-        nullable=True,
-        index=True,
-        comment="Region for broader clustering (e.g., 'Münsterland')",
-    )
-    admin_level_1: Mapped[Optional[str]] = mapped_column(
-        String(100),
-        nullable=True,
-        index=True,
-        comment="State/Region/Bundesland (e.g., 'Nordrhein-Westfalen')",
-    )
 
     # Configuration
     crawl_config: Mapped[Dict[str, Any]] = mapped_column(
@@ -175,6 +132,16 @@ class DataSource(Base):
         nullable=False,
     )
 
+    # Tags for filtering/search (NOT entity coupling!)
+    # Examples: ["nrw", "kommunal", "windkraft", "gemeinde"]
+    # Used by Smart Query to find relevant sources for categories
+    tags: Mapped[List[str]] = mapped_column(
+        JSONB,
+        default=list,
+        nullable=False,
+        comment="Tags for filtering/categorization (not entity coupling)",
+    )
+
     # Priority for crawling (higher = more important)
     priority: Mapped[int] = mapped_column(default=0, nullable=False)
 
@@ -214,14 +181,6 @@ class DataSource(Base):
         passive_deletes=True,
     )
 
-    entity: Mapped[Optional["Entity"]] = relationship(
-        "Entity",
-        back_populates="data_sources",
-    )
-    location: Mapped[Optional["Location"]] = relationship(
-        "Location",
-        back_populates="data_sources",
-    )
     crawl_jobs: Mapped[List["CrawlJob"]] = relationship(
         "CrawlJob",
         back_populates="source",

@@ -6,9 +6,9 @@ from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_list_categories(client: AsyncClient):
+async def test_list_categories(admin_client: AsyncClient):
     """Test listing all categories."""
-    response = await client.get("/api/admin/categories")
+    response = await admin_client.get("/api/admin/categories")
     assert response.status_code == 200
 
     data = response.json()
@@ -16,7 +16,7 @@ async def test_list_categories(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_create_and_delete_category(client: AsyncClient):
+async def test_create_and_delete_category(admin_client: AsyncClient):
     """Test creating and deleting a category."""
     unique_id = str(uuid.uuid4())[:8]
 
@@ -28,36 +28,36 @@ async def test_create_and_delete_category(client: AsyncClient):
     }
 
     # Create
-    response = await client.post("/api/admin/categories", json=category_data)
+    response = await admin_client.post("/api/admin/categories", json=category_data)
     assert response.status_code in [200, 201]
 
     category_id = response.json()["id"]
 
     try:
         # Get
-        response = await client.get(f"/api/admin/categories/{category_id}")
+        response = await admin_client.get(f"/api/admin/categories/{category_id}")
         assert response.status_code == 200
         assert response.json()["name"] == category_data["name"]
 
         # Get stats
-        response = await client.get(f"/api/admin/categories/{category_id}/stats")
+        response = await admin_client.get(f"/api/admin/categories/{category_id}/stats")
         assert response.status_code == 200
 
         # Delete
-        response = await client.delete(f"/api/admin/categories/{category_id}")
+        response = await admin_client.delete(f"/api/admin/categories/{category_id}")
         assert response.status_code in [200, 204]
 
         # Verify deleted
-        response = await client.get(f"/api/admin/categories/{category_id}")
+        response = await admin_client.get(f"/api/admin/categories/{category_id}")
         assert response.status_code == 404
     except Exception:
         # Cleanup on failure
-        await client.delete(f"/api/admin/categories/{category_id}")
+        await admin_client.delete(f"/api/admin/categories/{category_id}")
         raise
 
 
 @pytest.mark.asyncio
-async def test_update_category(client: AsyncClient):
+async def test_update_category(admin_client: AsyncClient):
     """Test updating a category."""
     unique_id = str(uuid.uuid4())[:8]
 
@@ -68,7 +68,7 @@ async def test_update_category(client: AsyncClient):
     }
 
     # Create
-    response = await client.post("/api/admin/categories", json=category_data)
+    response = await admin_client.post("/api/admin/categories", json=category_data)
     assert response.status_code in [200, 201]
     category_id = response.json()["id"]
 
@@ -78,17 +78,17 @@ async def test_update_category(client: AsyncClient):
             "name": f"Updated Category {unique_id}",
             "description": "Updated description",
         }
-        response = await client.put(f"/api/admin/categories/{category_id}", json=updated_data)
+        response = await admin_client.put(f"/api/admin/categories/{category_id}", json=updated_data)
         assert response.status_code == 200
         assert response.json()["description"] == "Updated description"
     finally:
         # Cleanup
-        await client.delete(f"/api/admin/categories/{category_id}")
+        await admin_client.delete(f"/api/admin/categories/{category_id}")
 
 
 @pytest.mark.asyncio
-async def test_get_nonexistent_category(client: AsyncClient):
+async def test_get_nonexistent_category(admin_client: AsyncClient):
     """Test getting a non-existent category returns 404."""
     fake_id = str(uuid.uuid4())
-    response = await client.get(f"/api/admin/categories/{fake_id}")
+    response = await admin_client.get(f"/api/admin/categories/{fake_id}")
     assert response.status_code == 404

@@ -3,7 +3,7 @@
  * ChartDistribution Widget - Shows entity distribution by type
  */
 
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { dashboardApi } from '@/services/api'
 import BaseWidget from '../BaseWidget.vue'
 import type { WidgetDefinition, WidgetConfig, ChartDataResponse } from '../types'
@@ -36,7 +36,7 @@ onMounted(() => {
 // Compute chart data for display
 const pieData = computed(() => {
   if (!chartData.value?.data) return []
-  return chartData.value.data.slice(0, 6).map((item, index) => ({
+  return chartData.value.data.slice(0, 6).map((item) => ({
     ...item,
     percentage: chartData.value!.total
       ? Math.round((item.value / chartData.value!.total) * 100)

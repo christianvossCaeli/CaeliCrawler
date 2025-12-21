@@ -179,7 +179,7 @@ class InsightsService:
             # Get entity
             result = await self.db.execute(
                 select(Entity)
-                .options(selectinload(Entity.type))
+                .options(selectinload(Entity.entity_type))
                 .where(Entity.id == entity_id)
             )
             entity = result.scalar_one_or_none()
@@ -215,7 +215,7 @@ class InsightsService:
                 .where(
                     and_(
                         FacetValue.entity_id == entity.id,
-                        FacetValue.is_verified.is_(False)
+                        FacetValue.human_verified.is_(False)
                     )
                 )
             )

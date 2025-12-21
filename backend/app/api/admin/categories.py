@@ -17,6 +17,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -31,6 +32,11 @@ from app.schemas.category import (
     CategoryResponse,
     CategoryListResponse,
     CategoryStats,
+    CategoryAiSetupPreview,
+    CategoryAiSetupRequest,
+    CategoryCreateWithAiSetup,
+    EntityTypeSuggestion,
+    FacetTypeSuggestion,
     generate_slug,
 )
 from app.schemas.common import MessageResponse, ErrorResponse
@@ -143,27 +149,32 @@ async def list_categories(
     # Batch fetch counts to avoid N+1 queries
     category_ids = [cat.id for cat in categories]
 
-    # Get source counts in a single query
-    source_counts_result = await session.execute(
-        select(
-            DataSourceCategory.category_id,
-            func.count(DataSourceCategory.id).label("count")
-        )
-        .where(DataSourceCategory.category_id.in_(category_ids))
-        .group_by(DataSourceCategory.category_id)
-    )
-    source_counts = {row[0]: row[1] for row in source_counts_result.fetchall()}
+    source_counts: dict = {}
+    doc_counts: dict = {}
 
-    # Get document counts in a single query
-    doc_counts_result = await session.execute(
-        select(
-            Document.category_id,
-            func.count(Document.id).label("count")
+    # Only run batch queries if there are categories
+    if category_ids:
+        # Get source counts in a single query
+        source_counts_result = await session.execute(
+            select(
+                DataSourceCategory.category_id,
+                func.count(DataSourceCategory.id).label("count")
+            )
+            .where(DataSourceCategory.category_id.in_(category_ids))
+            .group_by(DataSourceCategory.category_id)
         )
-        .where(Document.category_id.in_(category_ids))
-        .group_by(Document.category_id)
-    )
-    doc_counts = {row[0]: row[1] for row in doc_counts_result.fetchall()}
+        source_counts = {row[0]: row[1] for row in source_counts_result.fetchall()}
+
+        # Get document counts in a single query
+        doc_counts_result = await session.execute(
+            select(
+                Document.category_id,
+                func.count(Document.id).label("count")
+            )
+            .where(Document.category_id.in_(category_ids))
+            .group_by(Document.category_id)
+        )
+        doc_counts = {row[0]: row[1] for row in doc_counts_result.fetchall()}
 
     # Build response items
     items = []
@@ -528,4 +539,415 @@ async def get_category_stats(
         extracted_count=extracted_count,
         last_crawl=last_job.completed_at if last_job else None,
         active_jobs=active_jobs,
+    )
+
+
+@router.post(
+    "/preview-ai-setup",
+    response_model=CategoryAiSetupPreview,
+    summary="Preview AI Setup",
+    description="Generate AI-powered suggestions for EntityType, FacetTypes, and extraction prompt.",
+    responses={
+        200: {
+            "description": "AI setup preview with suggestions",
+            "model": CategoryAiSetupPreview,
+        },
+        503: {
+            "description": "AI service not available",
+            "model": ErrorResponse,
+        },
+    },
+)
+async def preview_ai_setup(
+    data: CategoryAiSetupRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """
+    Generate AI-powered suggestions for category setup.
+
+    **This endpoint does NOT save anything to the database.**
+
+    Based on the category name and purpose, the AI generates:
+    - **EntityType**: Suggested entity type with schema
+    - **FacetTypes**: Suggested facet types for data extraction
+    - **Extraction Prompt**: AI prompt for document analysis
+    - **Search Terms**: Keywords for crawling
+    - **URL Patterns**: Include/exclude patterns for filtering
+
+    The user can then review, modify, and confirm these suggestions
+    before saving the category.
+
+    **Example Request:**
+    ```json
+    {
+        "name": "Windkraft-Restriktionen",
+        "purpose": "Identifiziere Hindernisse für Windkraftprojekte in kommunalen Dokumenten"
+    }
+    ```
+    """
+    from app.models import EntityType, FacetType
+    from services.smart_query.ai_generation import (
+        ai_generate_entity_type_config,
+        ai_generate_category_config,
+        ai_generate_crawl_config,
+    )
+    from services.smart_query.utils import generate_slug as sq_generate_slug
+
+    import structlog
+    logger = structlog.get_logger()
+
+    try:
+        # Combine name and purpose for AI context
+        user_intent = f"{data.name}: {data.purpose}"
+        if data.description:
+            user_intent += f" ({data.description})"
+
+        # Step 1: Generate EntityType configuration
+        et_config = await ai_generate_entity_type_config(
+            user_intent=user_intent,
+            geographic_context="Deutschland",
+        )
+
+        # Create EntityType suggestion
+        et_name = et_config.get("name", data.name)
+        et_slug = sq_generate_slug(et_name)
+
+        # Check if similar EntityType already exists
+        existing_et = await session.execute(
+            select(EntityType).where(
+                or_(EntityType.name == et_name, EntityType.slug == et_slug)
+            )
+        )
+        et_exists = existing_et.scalar()
+
+        suggested_entity_type = EntityTypeSuggestion(
+            id=et_exists.id if et_exists else None,
+            name=et_name,
+            slug=et_slug,
+            name_plural=et_config.get("name_plural", et_name),
+            description=et_config.get("description", data.purpose),
+            icon=et_config.get("icon", "mdi-folder"),
+            color=et_config.get("color", "#2196F3"),
+            attribute_schema=et_config.get("attribute_schema", {}),
+            is_new=not et_exists,
+        )
+
+        # Step 2: Generate Category configuration (with extraction prompt)
+        cat_config = await ai_generate_category_config(
+            user_intent=user_intent,
+            entity_type_name=et_name,
+            entity_type_description=suggested_entity_type.description,
+        )
+
+        # Step 3: Generate Crawl configuration
+        search_terms = cat_config.get("search_terms", [])
+        crawl_config = await ai_generate_crawl_config(
+            user_intent=user_intent,
+            search_focus=et_config.get("search_focus", "general"),
+            search_terms=search_terms,
+        )
+
+        # Get existing EntityTypes for alternative selection
+        existing_entity_types_result = await session.execute(
+            select(EntityType)
+            .where(EntityType.is_active.is_(True))
+            .order_by(EntityType.name)
+            .limit(20)
+        )
+        existing_entity_types = [
+            EntityTypeSuggestion(
+                id=et.id,
+                name=et.name,
+                slug=et.slug,
+                name_plural=et.name_plural or et.name,
+                description=et.description or "",
+                icon=et.icon or "mdi-folder",
+                color=et.color or "#2196F3",
+                attribute_schema=et.attribute_schema or {},
+                is_new=False,
+            )
+            for et in existing_entity_types_result.scalars().all()
+        ]
+
+        # Get existing FacetTypes that might be reusable
+        existing_facet_types_result = await session.execute(
+            select(FacetType)
+            .where(FacetType.is_active.is_(True))
+            .order_by(FacetType.name)
+            .limit(30)
+        )
+        existing_facet_types = [
+            FacetTypeSuggestion(
+                id=ft.id,
+                name=ft.name,
+                slug=ft.slug,
+                name_plural=ft.name_plural or ft.name,
+                description=ft.description or "",
+                value_type=ft.value_type or "text",
+                value_schema=ft.value_schema or {},
+                icon=ft.icon or "mdi-tag",
+                color=ft.color or "#4CAF50",
+                is_new=False,
+                selected=False,  # Not selected by default for existing
+            )
+            for ft in existing_facet_types_result.scalars().all()
+        ]
+
+        # Generate suggested FacetTypes based on category purpose
+        # These are common facet types that are useful for most analyses
+        suggested_facet_types = [
+            FacetTypeSuggestion(
+                id=None,
+                name="Pain Point",
+                slug="pain_point",
+                name_plural="Pain Points",
+                description="Probleme, Bedenken und Hindernisse",
+                value_type="object",
+                value_schema={
+                    "type": "object",
+                    "properties": {
+                        "description": {"type": "string"},
+                        "type": {"type": "string"},
+                        "severity": {"type": "string", "enum": ["niedrig", "mittel", "hoch"]},
+                    },
+                },
+                icon="mdi-alert-circle",
+                color="#F44336",
+                is_new=True,
+                selected=True,
+            ),
+            FacetTypeSuggestion(
+                id=None,
+                name="Positive Signal",
+                slug="positive_signal",
+                name_plural="Positive Signale",
+                description="Positive Entwicklungen und Chancen",
+                value_type="object",
+                value_schema={
+                    "type": "object",
+                    "properties": {
+                        "description": {"type": "string"},
+                        "type": {"type": "string"},
+                    },
+                },
+                icon="mdi-thumb-up",
+                color="#4CAF50",
+                is_new=True,
+                selected=True,
+            ),
+            FacetTypeSuggestion(
+                id=None,
+                name="Kontakt",
+                slug="contact",
+                name_plural="Kontakte",
+                description="Ansprechpartner und Entscheidungsträger",
+                value_type="object",
+                value_schema={
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "role": {"type": "string"},
+                        "email": {"type": "string"},
+                        "phone": {"type": "string"},
+                    },
+                },
+                icon="mdi-account",
+                color="#2196F3",
+                is_new=True,
+                selected=True,
+            ),
+        ]
+
+        # Check which suggested FacetTypes already exist and mark them
+        for i, ft in enumerate(suggested_facet_types):
+            existing_ft = await session.execute(
+                select(FacetType).where(FacetType.slug == ft.slug)
+            )
+            existing = existing_ft.scalar()
+            if existing:
+                suggested_facet_types[i] = FacetTypeSuggestion(
+                    id=existing.id,
+                    name=existing.name,
+                    slug=existing.slug,
+                    name_plural=existing.name_plural or existing.name,
+                    description=existing.description or ft.description,
+                    value_type=existing.value_type or ft.value_type,
+                    value_schema=existing.value_schema or ft.value_schema,
+                    icon=existing.icon or ft.icon,
+                    color=existing.color or ft.color,
+                    is_new=False,
+                    selected=True,  # Still selected since it's useful
+                )
+
+        return CategoryAiSetupPreview(
+            suggested_entity_type=suggested_entity_type,
+            existing_entity_types=existing_entity_types,
+            suggested_facet_types=suggested_facet_types,
+            existing_facet_types=existing_facet_types,
+            suggested_extraction_prompt=cat_config.get("ai_extraction_prompt", ""),
+            suggested_search_terms=search_terms,
+            suggested_url_include_patterns=crawl_config.get("url_include_patterns", []),
+            suggested_url_exclude_patterns=crawl_config.get("url_exclude_patterns", []),
+            reasoning=crawl_config.get("reasoning", ""),
+        )
+
+    except ValueError as e:
+        # Azure OpenAI not configured
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI-Service nicht verfügbar: {str(e)}",
+        )
+    except RuntimeError as e:
+        # AI generation failed
+        raise HTTPException(
+            status_code=503,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error("AI setup preview failed", error=str(e), exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Fehler bei der KI-Generierung: {str(e)}",
+        )
+
+
+class AssignSourcesByTagsRequest(BaseModel):
+    """Request to assign sources by tags."""
+    tags: List[str] = Field(..., min_length=1, description="Tags to filter sources by")
+    match_mode: str = Field(default="all", pattern="^(all|any)$", description="Match mode: 'all' (AND) or 'any' (OR)")
+    mode: str = Field(default="add", pattern="^(add|replace)$", description="Assignment mode: 'add' (keep existing) or 'replace' (remove existing)")
+
+
+class AssignSourcesByTagsResponse(BaseModel):
+    """Response for source assignment operation."""
+    assigned: int
+    already_assigned: int
+    removed: int = 0
+    total_in_category: int
+
+
+@router.post(
+    "/{category_id}/assign-sources-by-tags",
+    response_model=AssignSourcesByTagsResponse,
+    summary="Assign Sources by Tags",
+    description="Bulk-assign data sources to this category based on tags.",
+    responses={
+        200: {
+            "description": "Sources assigned successfully",
+            "model": AssignSourcesByTagsResponse,
+        },
+        404: {
+            "description": "Category not found",
+            "model": ErrorResponse,
+        },
+    },
+)
+async def assign_sources_by_tags(
+    category_id: UUID,
+    request: AssignSourcesByTagsRequest,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
+):
+    """
+    Bulk-assign DataSources to a category based on tags.
+
+    **Match Modes:**
+    - `all`: Source must have ALL specified tags (AND logic)
+    - `any`: Source must have at least ONE of the specified tags (OR logic)
+
+    **Assignment Modes:**
+    - `add`: Add new sources, keep existing assignments
+    - `replace`: Remove all existing assignments, add new sources
+
+    **Example Request:**
+    ```json
+    {
+        "tags": ["nrw", "kommunal"],
+        "match_mode": "all",
+        "mode": "add"
+    }
+    ```
+
+    This will assign all sources that have BOTH "nrw" AND "kommunal" tags
+    to the specified category.
+    """
+    from sqlalchemy import and_
+
+    # Verify category exists
+    category = await session.get(Category, category_id)
+    if not category:
+        raise NotFoundError("Category", str(category_id))
+
+    # Build query for sources matching tags
+    query = select(DataSource)
+
+    if request.match_mode == "all":
+        # AND logic: source must have ALL tags
+        for tag in request.tags:
+            query = query.where(DataSource.tags.contains([tag]))
+    else:
+        # OR logic: source must have at least one tag
+        tag_conditions = [DataSource.tags.contains([tag]) for tag in request.tags]
+        query = query.where(or_(*tag_conditions))
+
+    result = await session.execute(query)
+    matching_sources = result.scalars().all()
+
+    # Get existing assignments
+    existing_result = await session.execute(
+        select(DataSourceCategory.data_source_id)
+        .where(DataSourceCategory.category_id == category_id)
+    )
+    existing_source_ids = set(row[0] for row in existing_result.fetchall())
+
+    assigned = 0
+    already_assigned = 0
+    removed = 0
+
+    # Handle replace mode - remove existing assignments first
+    if request.mode == "replace":
+        delete_result = await session.execute(
+            select(DataSourceCategory)
+            .where(DataSourceCategory.category_id == category_id)
+        )
+        existing_links = delete_result.scalars().all()
+        for link in existing_links:
+            await session.delete(link)
+            removed += 1
+        existing_source_ids = set()
+
+    # Assign matching sources
+    for source in matching_sources:
+        if source.id in existing_source_ids:
+            already_assigned += 1
+            continue
+
+        # Check if this is the first category for the source
+        existing_cats_count = (await session.execute(
+            select(func.count())
+            .where(DataSourceCategory.data_source_id == source.id)
+        )).scalar()
+
+        link = DataSourceCategory(
+            data_source_id=source.id,
+            category_id=category_id,
+            is_primary=(existing_cats_count == 0),  # Primary if first category
+        )
+        session.add(link)
+        assigned += 1
+
+    await session.commit()
+
+    # Get total count in category
+    total_in_category = (await session.execute(
+        select(func.count())
+        .where(DataSourceCategory.category_id == category_id)
+    )).scalar()
+
+    return AssignSourcesByTagsResponse(
+        assigned=assigned,
+        already_assigned=already_assigned,
+        removed=removed,
+        total_in_category=total_in_category,
     )

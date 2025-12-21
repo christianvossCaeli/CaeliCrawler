@@ -141,6 +141,17 @@ async def execute_write_command(
             result["crawl_jobs"] = crawl_result.get("jobs", [])
             result["sources_count"] = crawl_result.get("sources_count", 0)
 
+        elif operation == "discover_sources":
+            discover_data = command.get("discover_sources_data", {})
+            discover_result = await execute_discover_sources(session, discover_data)
+            result["message"] = discover_result.get("message", "Datenquellen-Suche abgeschlossen")
+            result["success"] = discover_result.get("success", False)
+            result["sources_found"] = discover_result.get("sources_found", [])
+            result["sources_count"] = discover_result.get("sources_count", 0)
+            result["search_strategy"] = discover_result.get("search_strategy")
+            result["stats"] = discover_result.get("stats")
+            result["imported_count"] = discover_result.get("imported_count", 0)
+
         elif operation == "combined":
             # Support both "operations" and "combined_operations" keys
             operations_list = command.get("operations", []) or command.get("combined_operations", [])
@@ -300,6 +311,10 @@ async def execute_combined_operations(
             elif op_type == "start_crawl":
                 crawl_data = op.get("crawl_command_data", {})
                 op_result = await execute_crawl_command(session, crawl_data)
+
+            elif op_type == "discover_sources":
+                discover_data = op.get("discover_sources_data", {})
+                op_result = await execute_discover_sources(session, discover_data)
 
             elif op_type == "create_entity_type":
                 entity_type_data = op.get("entity_type_data", {})
@@ -1415,3 +1430,147 @@ async def execute_get_history(
         "message": f"Änderungshistorie für '{entity_display_name}': {len(history)} Einträge",
         "history": history,
     }
+
+
+async def execute_discover_sources(
+    session: AsyncSession,
+    discover_data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Execute AI-powered data source discovery.
+
+    Uses the AISourceDiscoveryService to search the internet for data sources
+    matching a natural language prompt, and optionally imports them.
+
+    Args:
+        session: Database session
+        discover_data: Dict with keys:
+            - prompt: Natural language search prompt (required)
+            - max_results: Maximum sources to find (default: 50)
+            - search_depth: quick, standard, or deep (default: standard)
+            - auto_import: Whether to import found sources (default: False)
+            - category_ids: Categories to assign to imported sources (optional)
+
+    Returns:
+        Dict with discovery results, sources found, and import status
+    """
+    from services.ai_source_discovery import AISourceDiscoveryService
+    from app.models import DataSource, DataSourceCategory
+
+    prompt = discover_data.get("prompt")
+    if not prompt:
+        return {
+            "success": False,
+            "message": "Suchbegriff (prompt) erforderlich",
+            "sources_found": [],
+            "sources_count": 0,
+        }
+
+    max_results = discover_data.get("max_results", 50)
+    search_depth = discover_data.get("search_depth", "standard")
+    auto_import = discover_data.get("auto_import", False)
+    category_ids = discover_data.get("category_ids", [])
+
+    try:
+        # Run discovery
+        service = AISourceDiscoveryService()
+        discovery_result = await service.discover_sources(
+            prompt=prompt,
+            max_results=max_results,
+            search_depth=search_depth,
+        )
+
+        # Convert sources to serializable format
+        sources_list = []
+        for source in discovery_result.sources:
+            sources_list.append({
+                "name": source.name,
+                "base_url": source.base_url,
+                "source_type": source.source_type,
+                "tags": source.tags,
+                "confidence": source.confidence,
+                "metadata": source.metadata,
+            })
+
+        result = {
+            "success": True,
+            "message": f"{len(sources_list)} Datenquellen gefunden für '{prompt}'",
+            "sources_found": sources_list,
+            "sources_count": len(sources_list),
+            "search_strategy": {
+                "queries": discovery_result.search_strategy.search_queries if discovery_result.search_strategy else [],
+                "base_tags": discovery_result.search_strategy.base_tags if discovery_result.search_strategy else [],
+            } if discovery_result.search_strategy else None,
+            "stats": {
+                "pages_searched": discovery_result.stats.pages_searched,
+                "sources_extracted": discovery_result.stats.sources_extracted,
+                "duplicates_removed": discovery_result.stats.duplicates_removed,
+            } if discovery_result.stats else None,
+            "warnings": discovery_result.warnings,
+            "imported_count": 0,
+        }
+
+        # Auto-import if requested
+        if auto_import and sources_list:
+            imported_count = 0
+            for source_data in sources_list:
+                try:
+                    # Check if URL already exists
+                    from sqlalchemy import select
+                    existing = await session.execute(
+                        select(DataSource).where(DataSource.base_url == source_data["base_url"])
+                    )
+                    if existing.scalar_one_or_none():
+                        continue
+
+                    # Create new DataSource
+                    new_source = DataSource(
+                        name=source_data["name"],
+                        base_url=source_data["base_url"],
+                        source_type=source_data.get("source_type", "WEBSITE"),
+                        tags=source_data.get("tags", []),
+                        status="ACTIVE",
+                        crawl_config={
+                            "max_depth": 3,
+                            "max_pages": 100,
+                            "render_javascript": False,
+                        },
+                    )
+                    session.add(new_source)
+                    await session.flush()
+
+                    # Link to categories if provided
+                    for i, cat_id in enumerate(category_ids):
+                        try:
+                            assoc = DataSourceCategory(
+                                data_source_id=new_source.id,
+                                category_id=UUID(str(cat_id)),
+                                is_primary=(i == 0),
+                            )
+                            session.add(assoc)
+                        except Exception:
+                            pass
+
+                    imported_count += 1
+
+                except Exception as e:
+                    logger.warning(
+                        "Failed to import source",
+                        source=source_data.get("name"),
+                        error=str(e),
+                    )
+
+            result["imported_count"] = imported_count
+            result["message"] = f"{len(sources_list)} Datenquellen gefunden, {imported_count} importiert"
+
+            await session.commit()
+
+        return result
+
+    except Exception as e:
+        logger.error("Source discovery failed", error=str(e), exc_info=True)
+        return {
+            "success": False,
+            "message": f"Fehler bei der Datenquellen-Suche: {str(e)}",
+            "sources_found": [],
+            "sources_count": 0,
+        }

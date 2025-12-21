@@ -33,11 +33,17 @@ export { default as HelpFacetTypeAdminSection } from './HelpFacetTypeAdminSectio
 export { default as HelpResultsSection } from './HelpResultsSection.vue'
 export { default as HelpExportSection } from './HelpExportSection.vue'
 export { default as HelpNotificationsSection } from './HelpNotificationsSection.vue'
+export { default as HelpFavoritesSection } from './HelpFavoritesSection.vue'
 export { default as HelpApiSection } from './HelpApiSection.vue'
 export { default as HelpTipsSection } from './HelpTipsSection.vue'
 export { default as HelpSecuritySection } from './HelpSecuritySection.vue'
 export { default as HelpTroubleshootingSection } from './HelpTroubleshootingSection.vue'
 export { default as HelpAttachmentsSection } from './HelpAttachmentsSection.vue'
+export { default as HelpAiAssistantSection } from './HelpAiAssistantSection.vue'
+export { default as HelpUserManagementSection } from './HelpUserManagementSection.vue'
+export { default as HelpAuditLogSection } from './HelpAuditLogSection.vue'
+export { default as HelpAiSourceDiscoverySection } from './HelpAiSourceDiscoverySection.vue'
+export { default as HelpDataSourceTagsSection } from './HelpDataSourceTagsSection.vue'
 
 // Data and types
 export {

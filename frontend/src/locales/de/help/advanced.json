@@ -384,6 +384,7 @@
       },
       "entities": {
         "title": "Entities",
+        "note": "Entities sind über FacetValues mit Dokumenten und DataSources verknüpft. Die Rückverfolgungskette ist: Entity → FacetValues → Documents → DataSources",
         "endpoints": {
           "list": "Alle Entities (mit Filtern)",
           "create": "Entity erstellen",
@@ -392,6 +393,9 @@
           "delete": "Entity löschen",
           "brief": "Kurzübersicht",
           "children": "Kind-Entities",
+          "documents": "Verknüpfte Dokumente (via FacetValues)",
+          "sources": "Verknüpfte Datenquellen (via Documents)",
+          "externalData": "Externe API-Daten",
           "hierarchy": "Hierarchie nach Typ",
           "filterLocation": "Location-Filteroptionen",
           "filterAttributes": "Attribut-Filteroptionen"
@@ -432,6 +436,16 @@
           "csv": "CSV-Export",
           "changes": "Änderungs-Feed",
           "webhookTest": "Webhook testen"
+        }
+      },
+      "favorites": {
+        "title": "Favoriten",
+        "endpoints": {
+          "list": "Favoriten auflisten (paginiert)",
+          "add": "Entity zu Favoriten hinzufügen",
+          "check": "Prüfen ob Entity favorisiert ist",
+          "remove": "Favorit per ID entfernen",
+          "removeByEntity": "Favorit per Entity-ID entfernen"
         }
       },
       "pysis": {

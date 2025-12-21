@@ -52,6 +52,8 @@
     "status": "Status",
     "confidence": "Konfidenz",
     "field": "Feld",
+    "method": "Methode",
+    "importType": "Import-Typ",
     "example": "Beispiel",
     "icon": "Symbol",
     "button": "Button",
@@ -91,7 +93,15 @@
     "searchPlaceholder": "Suchen...",
     "confirmDelete": "Möchten Sie diesen Eintrag wirklich löschen?",
     "confirmDeleteTitle": "Löschen bestätigen",
-    "unsavedChanges": "Sie haben ungespeicherte Änderungen. Möchten Sie wirklich fortfahren?"
+    "unsavedChanges": "Sie haben ungespeicherte Änderungen. Möchten Sie wirklich fortfahren?",
+    "errorBoundary": {
+      "title": "Ein Fehler ist aufgetreten",
+      "subtitle": "In diesem Bereich ist ein Fehler aufgetreten",
+      "description": "Die Anwendung hat einen unerwarteten Fehler festgestellt. Sie können es erneut versuchen oder die Seite neu laden.",
+      "technicalDetails": "Technische Details",
+      "retry": "Erneut versuchen",
+      "refresh": "Seite neu laden"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -105,6 +115,7 @@
     "results": "Ergebnisse",
     "smartQuery": "Smart Query",
     "export": "Export",
+    "favorites": "Favoriten",
     "notifications": "Benachrichtigungen",
     "help": "Hilfe & Dokumentation",
     "admin": {
@@ -117,7 +128,9 @@
     "login": "Anmelden",
     "logout": "Abmelden",
     "email": "E-Mail",
+    "enterEmail": "E-Mail eingeben",
     "password": "Passwort",
+    "enterPassword": "Passwort eingeben",
     "rememberMe": "Angemeldet bleiben",
     "forgotPassword": "Passwort vergessen?",
     "changePassword": "Passwort ändern",

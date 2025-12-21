@@ -32,10 +32,10 @@ async def test_list_entity_types(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_create_entity_type(client: AsyncClient):
+async def test_create_entity_type(admin_client: AsyncClient):
     """Test creating a new entity type."""
     entity_type_data = make_unique_entity_type_data()
-    response = await client.post(
+    response = await admin_client.post(
         "/api/v1/entity-types",
         json=entity_type_data,
     )
@@ -47,16 +47,16 @@ async def test_create_entity_type(client: AsyncClient):
     assert "slug" in data
 
     # Cleanup
-    await client.delete(f"/api/v1/entity-types/{data['id']}")
+    await admin_client.delete(f"/api/v1/entity-types/{data['id']}")
 
 
 @pytest.mark.asyncio
-async def test_create_duplicate_entity_type(client: AsyncClient):
+async def test_create_duplicate_entity_type(admin_client: AsyncClient):
     """Test that creating duplicate entity type fails."""
     entity_type_data = make_unique_entity_type_data()
 
     # Create first
-    response1 = await client.post(
+    response1 = await admin_client.post(
         "/api/v1/entity-types",
         json=entity_type_data,
     )
@@ -64,23 +64,23 @@ async def test_create_duplicate_entity_type(client: AsyncClient):
     entity_type_id = response1.json()["id"]
 
     # Try to create duplicate
-    response2 = await client.post(
+    response2 = await admin_client.post(
         "/api/v1/entity-types",
         json=entity_type_data,
     )
     assert response2.status_code == 409  # Conflict
 
     # Cleanup
-    await client.delete(f"/api/v1/entity-types/{entity_type_id}")
+    await admin_client.delete(f"/api/v1/entity-types/{entity_type_id}")
 
 
 @pytest.mark.asyncio
-async def test_get_entity_type_by_id(client: AsyncClient):
+async def test_get_entity_type_by_id(admin_client: AsyncClient):
     """Test getting entity type by ID."""
     entity_type_data = make_unique_entity_type_data()
 
     # Create first
-    create_response = await client.post(
+    create_response = await admin_client.post(
         "/api/v1/entity-types",
         json=entity_type_data,
     )
@@ -88,23 +88,23 @@ async def test_get_entity_type_by_id(client: AsyncClient):
     entity_type_id = create_response.json()["id"]
 
     # Get by ID
-    response = await client.get(f"/api/v1/entity-types/{entity_type_id}")
+    response = await admin_client.get(f"/api/v1/entity-types/{entity_type_id}")
     assert response.status_code == 200
 
     data = response.json()
     assert data["name"] == entity_type_data["name"]
 
     # Cleanup
-    await client.delete(f"/api/v1/entity-types/{entity_type_id}")
+    await admin_client.delete(f"/api/v1/entity-types/{entity_type_id}")
 
 
 @pytest.mark.asyncio
-async def test_update_entity_type(client: AsyncClient):
+async def test_update_entity_type(admin_client: AsyncClient):
     """Test updating an entity type."""
     entity_type_data = make_unique_entity_type_data()
 
     # Create first
-    create_response = await client.post(
+    create_response = await admin_client.post(
         "/api/v1/entity-types",
         json=entity_type_data,
     )
@@ -113,7 +113,7 @@ async def test_update_entity_type(client: AsyncClient):
 
     # Update
     update_data = {"description": "Updated description"}
-    response = await client.put(
+    response = await admin_client.put(
         f"/api/v1/entity-types/{entity_type_id}",
         json=update_data,
     )
@@ -123,16 +123,16 @@ async def test_update_entity_type(client: AsyncClient):
     assert data["description"] == "Updated description"
 
     # Cleanup
-    await client.delete(f"/api/v1/entity-types/{entity_type_id}")
+    await admin_client.delete(f"/api/v1/entity-types/{entity_type_id}")
 
 
 @pytest.mark.asyncio
-async def test_delete_entity_type(client: AsyncClient):
+async def test_delete_entity_type(admin_client: AsyncClient):
     """Test deleting an entity type."""
     entity_type_data = make_unique_entity_type_data()
 
     # Create first
-    create_response = await client.post(
+    create_response = await admin_client.post(
         "/api/v1/entity-types",
         json=entity_type_data,
     )
@@ -140,9 +140,9 @@ async def test_delete_entity_type(client: AsyncClient):
     entity_type_id = create_response.json()["id"]
 
     # Delete
-    response = await client.delete(f"/api/v1/entity-types/{entity_type_id}")
+    response = await admin_client.delete(f"/api/v1/entity-types/{entity_type_id}")
     assert response.status_code == 200
 
     # Verify deleted
-    get_response = await client.get(f"/api/v1/entity-types/{entity_type_id}")
+    get_response = await admin_client.get(f"/api/v1/entity-types/{entity_type_id}")
     assert get_response.status_code == 404

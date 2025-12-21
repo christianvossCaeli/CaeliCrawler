@@ -5,7 +5,6 @@
     "sources": "Datenquellen",
     "tabs": {
       "general": "Allgemein",
-      "location": "Standort",
       "crawl": "Crawl-Einstellungen"
     },
     "loading": {
@@ -13,22 +12,19 @@
       "subtitle": "Bitte warten..."
     },
     "filters": {
-      "country": "Land",
-      "municipality": "Gemeinde",
       "category": "Kategorie",
       "status": "Status",
       "search": "Suche (Name/URL)",
       "searchPlaceholder": "Name oder URL eingeben...",
       "noResults": "Keine Ergebnisse für",
       "typeToSearch": "Tippen zum Suchen...",
-      "noLocations": "Keine Orte gefunden",
-      "minChars": "Min. 2 Zeichen eingeben...",
       "clearAll": "Alle Filter zurücksetzen"
     },
     "sidebar": {
       "categories": "Kategorien",
       "types": "Quellentyp",
       "status": "Status",
+      "tags": "Tags",
       "all": "Alle",
       "expand": "Sidebar einblenden",
       "collapse": "Sidebar ausblenden"
@@ -45,9 +41,6 @@
       "baseUrl": "Basis-URL",
       "baseUrlHint": "z.B. https://gemeinde-musterstadt.de oder https://oparl.stadt-muenster.de/system",
       "apiEndpoint": "API-Endpunkt (optional)",
-      "country": "Land",
-      "location": "Ort (optional)",
-      "locationHint": "Tippen Sie um zu suchen",
       "categories": "Kategorien",
       "categoriesHint": "Erste ausgewählte Kategorie ist die Primäre",
       "primaryCategory": "Primäre Kategorie-Details anzeigen",
@@ -65,10 +58,12 @@
       "enabled": "Aktiv",
       "advancedSettings": "Erweiterte Crawl-Einstellungen",
       "urlFilters": "URL-Filter (Regex)",
-      "locationInfo": "Weisen Sie dieser Datenquelle einen geografischen Standort zu für Filterung und Gruppierung",
       "maxDepthHint": "Wie viele Link-Ebenen von der Startseite aus verfolgt werden",
       "maxPagesHint": "Maximale Anzahl der zu crawlenden Seiten",
-      "renderJsHint": "Aktivieren für dynamische Websites, die JavaScript erfordern"
+      "renderJsHint": "Aktivieren für dynamische Websites, die JavaScript erfordern",
+      "tags": "Tags",
+      "tagsLabel": "Tags hinzufügen",
+      "tagsHint": "Tags für Filterung/Suche (z.B. Region, Thema, Quellentyp). Neue Tags können direkt eingegeben werden."
     },
     "types": {
       "WEBSITE": "Website",
@@ -81,6 +76,7 @@
     "actions": {
       "create": "Neue Quelle",
       "bulkImport": "Bulk Import",
+      "apiImport": "API Import",
       "edit": "Bearbeiten",
       "delete": "Löschen",
       "startCrawl": "Crawlen starten",
@@ -127,11 +123,88 @@
       "reset": "\"{name}\" zurückgesetzt",
       "resetError": "Fehler beim Zurücksetzen",
       "testSuccess": "Verbindung erfolgreich",
-      "testError": "Verbindung fehlgeschlagen"
+      "testError": "Verbindung fehlgeschlagen",
+      "bulkImportSuccess": "{imported} Quellen importiert, {skipped} übersprungen",
+      "bulkImportError": "Fehler beim Bulk-Import",
+      "apiImportSuccess": "{count} Quellen von API importiert"
     },
-    "never": "Nie",
-    "fallback": {
-      "germany": "Deutschland"
-    }
+    "apiImport": {
+      "title": "API Import",
+      "subtitle": "Datenquellen von externen APIs importieren",
+      "apiType": "API-Typ",
+      "template": "Vorlage",
+      "apiUrl": "API-URL",
+      "sparqlHint": "SPARQL Query für Wikidata. Nutzen Sie ?itemLabel für Namen und ?website für URLs."
+    },
+    "bulk": {
+      "defaultTags": "Standard-Tags",
+      "defaultTagsHint": "Diese Tags werden auf alle importierten Quellen angewendet",
+      "csvData": "CSV-Daten",
+      "csvText": "CSV-Text eingeben",
+      "csvFile": "CSV-Datei hochladen",
+      "csvFormat": "CSV-Format: Name;URL;SourceType;Tags",
+      "csvFormatHint": "Trennzeichen: Semikolon (;) oder Komma (,). Tags durch Komma getrennt.",
+      "csvFileUpload": "CSV-Datei auswählen",
+      "loadPreview": "Vorschau laden",
+      "preview": "Vorschau",
+      "entries": "Einträge",
+      "valid": "gültig",
+      "duplicates": "Duplikate",
+      "errors": "Fehler",
+      "moreEntries": "weitere Einträge",
+      "sourcesImport": "Quellen importieren"
+    },
+    "aiDiscovery": {
+      "title": "KI-gesteuerte Suche",
+      "subtitle": "Datenquellen automatisch aus dem Internet finden",
+      "prompt": "Was möchten Sie finden?",
+      "promptPlaceholder": "z.B. Alle deutschen Bundesliga-Fußballvereine",
+      "examples": "Beispiele",
+      "searchDepth": "Suchtiefe",
+      "quick": "Schnell",
+      "standard": "Standard",
+      "deep": "Tiefgehend",
+      "includeCategorySuggestions": "Kategorie-Vorschläge generieren",
+      "startSearch": "Suche starten",
+      "searching": "Suche läuft...",
+      "strategyGenerated": "Suchstrategie generiert",
+      "sourcesFound": "relevante Quellen gefunden",
+      "extractingData": "Daten werden extrahiert",
+      "generatingTags": "Tags werden generiert",
+      "results": "Ergebnisse",
+      "baseTags": "Basis-Tags",
+      "additionalTags": "Zusätzliche Tags",
+      "targetCategories": "Ziel-Kategorien",
+      "noCategory": "Keine Kategorie",
+      "selected": "ausgewählt",
+      "importSources": "Quellen importieren",
+      "discoverySuccess": "{count} Datenquellen gefunden",
+      "importSuccess": "{count} Quellen erfolgreich importiert",
+      "noResults": "Keine Datenquellen gefunden",
+      "error": "Fehler bei der Suche"
+    },
+    "import": {
+      "title": "Importieren",
+      "bulkImport": "Bulk Import",
+      "bulkImportDesc": "CSV/Liste importieren",
+      "apiImport": "API Import",
+      "apiImportDesc": "Wikidata, OParl, REST API",
+      "aiDiscovery": "KI-Suche",
+      "aiDiscoveryDesc": "KI findet Datenquellen"
+    },
+    "validation": {
+      "nameRequired": "Name ist erforderlich",
+      "nameTooShort": "Name muss mindestens 2 Zeichen lang sein",
+      "nameTooLong": "Name darf maximal 200 Zeichen lang sein",
+      "urlRequired": "URL ist erforderlich",
+      "urlInvalid": "Bitte geben Sie eine gültige URL ein (http:// oder https://)",
+      "sourceTypeRequired": "Quellentyp ist erforderlich"
+    },
+    "errors": {
+      "saveFailed": "Fehler beim Speichern der Datenquelle",
+      "loadFailed": "Fehler beim Laden der Datenquellen",
+      "deleteFailed": "Fehler beim Löschen der Datenquelle"
+    },
+    "never": "Nie"
   }
 }

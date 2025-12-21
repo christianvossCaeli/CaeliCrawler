@@ -31,7 +31,6 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 // Computed
 const widgetTitle = computed(() => t(props.definition.name))
-const widgetDescription = computed(() => t(props.definition.description))
 
 const hasRefreshInterval = computed(
   () => props.definition.refreshInterval && props.definition.refreshInterval > 0

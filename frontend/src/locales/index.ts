@@ -27,6 +27,7 @@ import deHelpAdvanced from './de/help/advanced.json'
 import deHelpUi from './de/help/ui.json'
 import deAssistant from './de/assistant.json'
 import deMisc from './de/misc.json'
+import deFavorites from './de/favorites.json'
 
 // English locale modules
 import enCommon from './en/common.json'
@@ -48,6 +49,7 @@ import enHelpAdvanced from './en/help/advanced.json'
 import enHelpUi from './en/help/ui.json'
 import enAssistant from './en/assistant.json'
 import enMisc from './en/misc.json'
+import enFavorites from './en/favorites.json'
 
 // Merge German modules
 const de = {
@@ -73,6 +75,7 @@ const de = {
   },
   ...deAssistant,
   ...deMisc,
+  ...deFavorites,
 }
 
 // Merge English modules
@@ -99,6 +102,7 @@ const en = {
   },
   ...enAssistant,
   ...enMisc,
+  ...enFavorites,
 }
 
 export type SupportedLocale = 'de' | 'en'

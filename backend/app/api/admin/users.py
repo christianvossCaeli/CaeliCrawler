@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,7 @@ from app.core.deps import require_admin
 from app.core.security import get_password_hash
 from app.core.exceptions import NotFoundError, ConflictError
 from app.core.password_policy import validate_password, default_policy
+from app.core.rate_limit import check_rate_limit
 
 router = APIRouter()
 
@@ -142,8 +143,9 @@ async def list_users(
 @router.post("", response_model=UserResponse, status_code=201)
 async def create_user(
     data: UserCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """
     Create a new user.
@@ -156,6 +158,9 @@ async def create_user(
     - At least one lowercase letter (a-z)
     - At least one digit (0-9)
     """
+    # Rate limit: 10 user creations per minute
+    await check_rate_limit(request, "user_create", identifier=str(current_user.id))
+
     # Check for duplicate email
     existing = await session.execute(select(User).where(User.email == data.email))
     if existing.scalar_one_or_none():
@@ -210,6 +215,7 @@ async def get_user(
 async def update_user(
     user_id: UUID,
     data: UserUpdate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_admin),
 ):
@@ -218,6 +224,9 @@ async def update_user(
 
     Admin only.
     """
+    # Rate limit: 20 user updates per minute
+    await check_rate_limit(request, "user_update", identifier=str(current_user.id))
+
     user = await session.get(User, user_id)
     if not user:
         raise NotFoundError("User", str(user_id))
@@ -258,6 +267,7 @@ async def update_user(
 @router.delete("/{user_id}", response_model=MessageResponse)
 async def delete_user(
     user_id: UUID,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_admin),
 ):
@@ -266,6 +276,9 @@ async def delete_user(
 
     Admin only. Cannot delete yourself.
     """
+    # Rate limit: 5 user deletions per minute
+    await check_rate_limit(request, "user_delete", identifier=str(current_user.id))
+
     user = await session.get(User, user_id)
     if not user:
         raise NotFoundError("User", str(user_id))

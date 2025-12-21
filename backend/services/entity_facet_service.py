@@ -55,54 +55,46 @@ async def get_or_create_entity(
     core_attributes: Optional[Dict[str, Any]] = None,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
+    country: str = "DE",
+    similarity_threshold: float = 0.85,
 ) -> Optional[Entity]:
     """
     Get or create an entity by name and type.
 
-    Returns None if entity_type not found.
+    Delegates to EntityMatchingService for consistent:
+    - Name normalization
+    - Duplicate detection (with optional fuzzy matching)
+    - Race-condition-safe creation
+
+    Args:
+        session: Database session
+        entity_type_slug: The entity type slug
+        name: Entity name
+        external_id: Optional external ID
+        parent_id: Optional parent entity ID
+        core_attributes: Optional JSON attributes
+        latitude: Optional latitude
+        longitude: Optional longitude
+        country: Country code for normalization (default: DE)
+        similarity_threshold: Threshold for fuzzy matching (default: 0.85, set to 1.0 for exact only)
+
+    Returns:
+        Entity if found or created, None if entity_type not found.
     """
-    # Get entity type
-    result = await session.execute(
-        select(EntityType).where(EntityType.slug == entity_type_slug)
-    )
-    entity_type = result.scalar_one_or_none()
-    if not entity_type:
-        logger.warning("Entity type not found", slug=entity_type_slug)
-        return None
+    from services.entity_matching_service import EntityMatchingService
 
-    # Try to find existing entity
-    name_normalized = normalize_name(name)
-    slug = create_slug(name)
-
-    result = await session.execute(
-        select(Entity).where(
-            Entity.entity_type_id == entity_type.id,
-            Entity.name_normalized == name_normalized,
-        )
-    )
-    entity = result.scalar_one_or_none()
-
-    if entity:
-        logger.debug("Found existing entity", entity_id=str(entity.id), name=name)
-        return entity
-
-    # Create new entity
-    entity = Entity(
-        entity_type_id=entity_type.id,
+    service = EntityMatchingService(session)
+    return await service.get_or_create_entity(
+        entity_type_slug=entity_type_slug,
         name=name,
-        name_normalized=name_normalized,
-        slug=slug,
+        country=country,
         external_id=external_id,
+        core_attributes=core_attributes,
         parent_id=parent_id,
-        core_attributes=core_attributes or {},
         latitude=latitude,
         longitude=longitude,
+        similarity_threshold=similarity_threshold,
     )
-    session.add(entity)
-    await session.flush()
-
-    logger.info("Created new entity", entity_id=str(entity.id), name=name, type=entity_type_slug)
-    return entity
 
 
 async def get_facet_type_by_slug(session: AsyncSession, slug: str) -> Optional[FacetType]:
@@ -230,11 +222,10 @@ async def convert_extraction_to_facets(
     if not content:
         return {}
 
-    # Determine municipality name
+    # Determine municipality name from AI extraction
     municipality_name = (
         content.get("municipality")
         or content.get("source_location")
-        or (source.location_name if source else None)
     )
 
     if not municipality_name or municipality_name.lower() in ("", "unbekannt", "null"):
@@ -407,48 +398,6 @@ async def convert_extraction_to_facets(
     )
 
     return counts
-
-
-async def link_source_to_entity(
-    session: AsyncSession,
-    source: DataSource,
-) -> Optional[Entity]:
-    """
-    Link a DataSource to an Entity based on location_name.
-
-    Returns the linked entity or None if not found/created.
-    """
-    if not source.location_name:
-        return None
-
-    if source.entity_id:
-        # Already linked
-        entity = await session.get(Entity, source.entity_id)
-        if entity:
-            return entity
-
-    # Get or create municipality entity
-    entity = await get_or_create_entity(
-        session,
-        entity_type_slug="municipality",
-        name=source.location_name,
-        core_attributes={
-            "country": source.country,
-            "admin_level_1": source.admin_level_1,
-            "region": source.region,
-        },
-    )
-
-    if entity:
-        source.entity_id = entity.id
-        logger.info(
-            "Linked source to entity",
-            source_id=str(source.id),
-            entity_id=str(entity.id),
-            entity_name=entity.name,
-        )
-
-    return entity
 
 
 # =============================================================================

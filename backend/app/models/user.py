@@ -12,11 +12,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.device_token import DeviceToken
     from app.models.notification import Notification
     from app.models.notification_rule import NotificationRule
     from app.models.reminder import Reminder
     from app.models.user_dashboard import UserDashboardPreference
     from app.models.user_email import UserEmailAddress
+    from app.models.user_favorite import UserFavorite
     from app.models.user_session import UserSession
 
 
@@ -165,6 +167,18 @@ class User(Base):
         "ExportJob",
         back_populates="user",
         cascade="all, delete-orphan",
+    )
+    favorites: Mapped[List["UserFavorite"]] = relationship(
+        "UserFavorite",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="desc(UserFavorite.created_at)",
+    )
+    device_tokens: Mapped[List["DeviceToken"]] = relationship(
+        "DeviceToken",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="desc(DeviceToken.created_at)",
     )
 
     def __repr__(self) -> str:

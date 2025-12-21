@@ -129,6 +129,38 @@
         </v-list>
       </div>
 
+      <v-divider class="my-3" v-if="!isCollapsed && availableTags.length > 0" />
+
+      <!-- Tags Section -->
+      <div class="sidebar-section" v-if="!isCollapsed && availableTags.length > 0">
+        <div class="text-overline text-medium-emphasis mb-2">{{ $t('sources.sidebar.tags') }}</div>
+        <div class="tags-container">
+          <v-chip
+            v-for="tag in availableTags.slice(0, 15)"
+            :key="tag.tag"
+            :color="isTagSelected(tag.tag) ? getTagColor(tag.tag) : 'default'"
+            :variant="isTagSelected(tag.tag) ? 'flat' : 'outlined'"
+            size="small"
+            class="ma-1"
+            @click="toggleTag(tag.tag)"
+          >
+            {{ tag.tag }}
+            <span class="ml-1 text-caption">({{ tag.count }})</span>
+          </v-chip>
+          <v-chip
+            v-if="selectedTags.length > 0"
+            color="grey"
+            variant="text"
+            size="small"
+            class="ma-1"
+            @click="clearTags"
+          >
+            <v-icon size="x-small" start>mdi-close</v-icon>
+            {{ $t('sources.filters.clearAll') }}
+          </v-chip>
+        </div>
+      </div>
+
       <!-- Collapsed Icons -->
       <div v-if="isCollapsed" class="collapsed-icons">
         <v-tooltip location="right" v-for="cat in counts.categories.slice(0, 5)" :key="cat.id">
@@ -182,6 +214,11 @@ interface StatusCount {
   count: number
 }
 
+interface TagCount {
+  tag: string
+  count: number
+}
+
 interface Counts {
   total: number
   categories: CategoryCount[]
@@ -194,6 +231,8 @@ const props = defineProps<{
   selectedCategory: string | null
   selectedType: string | null
   selectedStatus: string | null
+  selectedTags: string[]
+  availableTags: TagCount[]
   modelValue?: boolean
 }>()
 
@@ -201,6 +240,7 @@ const emit = defineEmits<{
   (e: 'update:selectedCategory', value: string | null): void
   (e: 'update:selectedType', value: string | null): void
   (e: 'update:selectedStatus', value: string | null): void
+  (e: 'update:selectedTags', value: string[]): void
   (e: 'update:modelValue', value: boolean): void
 }>()
 
@@ -228,6 +268,45 @@ const toggleType = (type: string) => {
 const toggleStatus = (status: string) => {
   emit('update:selectedStatus', props.selectedStatus === status ? null : status)
 }
+
+// Tag functions
+const isTagSelected = (tag: string) => props.selectedTags.includes(tag)
+
+const toggleTag = (tag: string) => {
+  const newTags = isTagSelected(tag)
+    ? props.selectedTags.filter(t => t !== tag)
+    : [...props.selectedTags, tag]
+  emit('update:selectedTags', newTags)
+}
+
+const clearTags = () => {
+  emit('update:selectedTags', [])
+}
+
+// Color mapping for tags based on type
+const getTagColor = (tag: string): string => {
+  const tagLower = tag?.toLowerCase() || ''
+  // Geographic regions
+  if (['nrw', 'bayern', 'baden-württemberg', 'niedersachsen', 'hessen', 'sachsen',
+       'rheinland-pfalz', 'berlin', 'schleswig-holstein', 'brandenburg',
+       'sachsen-anhalt', 'thüringen', 'hamburg', 'mecklenburg-vorpommern',
+       'saarland', 'bremen', 'nordrhein-westfalen'].includes(tagLower)) {
+    return 'blue'
+  }
+  // Countries
+  if (['deutschland', 'österreich', 'schweiz', 'de', 'at', 'ch', 'uk'].includes(tagLower)) {
+    return 'indigo'
+  }
+  // Source types
+  if (['kommunal', 'gemeinde', 'stadt', 'landkreis', 'landesebene', 'kreis'].includes(tagLower)) {
+    return 'green'
+  }
+  // API types
+  if (['oparl', 'rss', 'api'].includes(tagLower)) {
+    return 'purple'
+  }
+  return 'grey'
+}
 </script>
 
 <style scoped>
@@ -244,5 +323,11 @@ const toggleStatus = (status: string) => {
   flex-direction: column;
   align-items: center;
   padding-top: 8px;
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
 }
 </style>

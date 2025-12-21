@@ -24,81 +24,39 @@ router = APIRouter()
 async def list_extraction_locations(
     session: AsyncSession = Depends(get_session),
 ):
-    """Get distinct location names from sources that have extracted data."""
-    result = await session.execute(
-        select(DataSource.location_name)
-        .distinct()
-        .where(DataSource.location_name.isnot(None))
-        .where(
-            DataSource.id.in_(
-                select(Document.source_id)
-                .distinct()
-                .where(
-                    Document.id.in_(
-                        select(ExtractedData.document_id).distinct()
-                    )
-                )
-            )
-        )
-        .order_by(DataSource.location_name)
-    )
-    locations = [row[0] for row in result.fetchall()]
-    return locations
+    """
+    Legacy endpoint - location_name no longer exists on DataSource.
+
+    DataSources are now decoupled from location data.
+    Use Entity-based location queries instead.
+    """
+    return []
 
 
 @router.get("/countries", response_model=List[dict])
 async def list_extraction_countries(
     session: AsyncSession = Depends(get_session),
 ):
-    """Get distinct countries from sources that have extracted data."""
-    from app.countries import COUNTRY_CONFIGS
+    """
+    Legacy endpoint - country no longer exists on DataSource.
 
-    result = await session.execute(
-        select(DataSource.country)
-        .distinct()
-        .where(DataSource.country.isnot(None))
-        .where(
-            DataSource.id.in_(
-                select(Document.source_id)
-                .distinct()
-                .where(
-                    Document.id.in_(
-                        select(ExtractedData.document_id).distinct()
-                    )
-                )
-            )
-        )
-        .order_by(DataSource.country)
-    )
-    countries = []
-    for row in result.fetchall():
-        code = row[0]
-        config = COUNTRY_CONFIGS.get(code)
-        countries.append({
-            "code": code,
-            "name": config.name_de if config else code,
-        })
-    return countries
+    DataSources are now decoupled from location data.
+    Use Entity-based location queries instead.
+    """
+    return []
 
 
 @router.get("/documents/locations", response_model=List[str])
 async def list_document_locations(
     session: AsyncSession = Depends(get_session),
 ):
-    """Get distinct location names from sources that have documents."""
-    result = await session.execute(
-        select(DataSource.location_name)
-        .distinct()
-        .where(DataSource.location_name.isnot(None))
-        .where(
-            DataSource.id.in_(
-                select(Document.source_id).distinct()
-            )
-        )
-        .order_by(DataSource.location_name)
-    )
-    locations = [row[0] for row in result.fetchall()]
-    return locations
+    """
+    Legacy endpoint - location_name no longer exists on DataSource.
+
+    DataSources are now decoupled from location data.
+    Use Entity-based location queries instead.
+    """
+    return []
 
 
 @router.get("/documents", response_model=DocumentListResponse)
@@ -109,7 +67,6 @@ async def list_documents(
     source_id: Optional[UUID] = Query(default=None),
     document_type: Optional[str] = Query(default=None),
     processing_status: Optional[ProcessingStatus] = Query(default=None),
-    location_name: Optional[str] = Query(default=None, description="Filter by source location name"),
     session: AsyncSession = Depends(get_session),
 ):
     """List documents with filters."""
@@ -123,11 +80,6 @@ async def list_documents(
         query = query.where(Document.document_type == document_type)
     if processing_status:
         query = query.where(Document.processing_status == processing_status)
-    if location_name:
-        # Join with DataSource to filter by location_name
-        query = query.join(DataSource, Document.source_id == DataSource.id).where(
-            func.lower(DataSource.location_name) == location_name.lower()
-        )
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
@@ -261,10 +213,17 @@ async def search_documents(
     result = await session.execute(query)
     documents = result.scalars().all()
 
+    # Batch load sources to avoid N+1 query
+    source_ids = list({doc.source_id for doc in documents if doc.source_id})
+    sources_result = await session.execute(
+        select(DataSource).where(DataSource.id.in_(source_ids))
+    )
+    sources_map = {s.id: s for s in sources_result.scalars().all()}
+
     items = []
     for doc in documents:
-        source = await session.get(DataSource, doc.source_id)
         item = DocumentResponse.model_validate(doc)
+        source = sources_map.get(doc.source_id)
         item.source_name = source.name if source else None
         items.append(item)
 

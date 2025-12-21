@@ -19,8 +19,9 @@ E-Mail-Adressen des aktuellen Benutzers auflisten.
     "email": "notification@example.com",
     "label": "Arbeit",
     "is_verified": true,
-    "is_primary": false,
-    "created_at": "2025-01-01T00:00:00Z"
+    "verified_at": "2025-01-05T12:00:00Z",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-05T12:00:00Z"
   }
 ]
 ```
@@ -49,6 +50,96 @@ E-Mail-Adresse verifizieren.
 
 ### POST /admin/notifications/email-addresses/{email_id}/resend-verification
 Verifizierungs-E-Mail erneut senden.
+
+---
+
+## Device-Tokens (Push-Benachrichtigungen)
+
+Device-Tokens werden verwendet, um Push-Benachrichtigungen an mobile Geraete (iOS/Android) zu senden.
+
+### GET /admin/notifications/device-tokens
+Alle registrierten Device-Tokens des aktuellen Benutzers auflisten.
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "token": "apns_token_or_fcm_token",
+    "platform": "ios",
+    "device_name": "iPhone 15 Pro",
+    "app_version": "1.0.0",
+    "os_version": "iOS 18.1",
+    "is_active": true,
+    "last_used_at": "2025-01-15T10:00:00Z",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-15T10:00:00Z"
+  }
+]
+```
+
+### POST /admin/notifications/device-token
+Neuen Device-Token registrieren.
+
+Wenn der Token bereits existiert, wird er aktualisiert. Falls der Token einem anderen Benutzer gehoert, wird er auf den aktuellen Benutzer uebertragen.
+
+**Request Body:**
+```json
+{
+  "token": "apns_device_token_string",
+  "platform": "ios",
+  "device_name": "iPhone 15 Pro",
+  "app_version": "1.0.0",
+  "os_version": "iOS 18.1"
+}
+```
+
+**Plattformen:**
+| Plattform | Beschreibung |
+|-----------|--------------|
+| `ios` | Apple Push Notification Service (APNS) |
+| `android` | Firebase Cloud Messaging (FCM) |
+| `web` | Web Push Notifications |
+
+**Response:** `201 Created`
+```json
+{
+  "id": "uuid",
+  "token": "apns_token_string",
+  "platform": "ios",
+  "device_name": "iPhone 15 Pro",
+  "app_version": "1.0.0",
+  "os_version": "iOS 18.1",
+  "is_active": true,
+  "last_used_at": "2025-01-15T10:00:00Z",
+  "created_at": "2025-01-15T10:00:00Z",
+  "updated_at": "2025-01-15T10:00:00Z"
+}
+```
+
+### DELETE /admin/notifications/device-token/{token}
+Device-Token abmelden (loeschen).
+
+Der Token muss URL-encoded sein, falls er Sonderzeichen enthaelt.
+
+**Response:**
+```json
+{
+  "message": "Device token unregistered"
+}
+```
+
+### POST /admin/notifications/device-token/{token}/deactivate
+Device-Token deaktivieren ohne zu loeschen.
+
+Nuetzlich wenn der Benutzer sich ausloggt, aber spaeter wieder einloggen koennte.
+
+**Response:**
+```json
+{
+  "message": "Device token deactivated"
+}
+```
 
 ---
 

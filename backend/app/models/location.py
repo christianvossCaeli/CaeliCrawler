@@ -3,16 +3,13 @@
 import unicodedata
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from sqlalchemy import String, Integer, Float, Boolean, DateTime, func, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
-
-if TYPE_CHECKING:
-    from app.models.data_source import DataSource
 
 
 class Location(Base):
@@ -129,12 +126,6 @@ class Location(Base):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
-    )
-
-    # Relationships
-    data_sources: Mapped[List["DataSource"]] = relationship(
-        "DataSource",
-        back_populates="location",
     )
 
     # Composite unique constraint: official_code must be unique within a country

@@ -13,8 +13,6 @@ from app.database import get_session
 from app.core.deps import require_editor, require_admin
 from app.models import User
 from app.models.location import Location
-from app.models.data_source import DataSource
-from app.models.pysis import PySisProcess
 from app.schemas.location import (
     LocationCreate,
     LocationListResponse,
@@ -26,6 +24,7 @@ from app.schemas.location import (
     AdminLevelInfo,
     AdminLevelsResponse,
 )
+from app.schemas.common import MessageResponse
 
 router = APIRouter()
 
@@ -125,42 +124,18 @@ async def link_all_sources(
     _: User = Depends(require_admin),
 ):
     """
-    Link all unlinked DataSources and PySis processes to their locations.
+    Legacy endpoint - DataSources are no longer linked to locations directly.
 
-    Matches by location name (case-insensitive).
+    DataSources are now linked to Categories, and Entities are created
+    via AI analysis. The linkage is:
+    DataSource -> Category -> AI Analysis -> Entity + FacetValues
+
+    This endpoint is kept for backwards compatibility but returns no-op.
     """
-    # Get all locations
-    locations_result = await session.execute(
-        select(Location).where(Location.is_active.is_(True))
-    )
-    locations = {
-        loc.name.lower(): loc.id
-        for loc in locations_result.scalars().all()
-    }
-
-    # Link DataSources
-    unlinked_sources = await session.execute(
-        select(DataSource).where(
-            DataSource.location_id.is_(None),
-            DataSource.location_name.is_not(None)
-        )
-    )
-    sources_linked = 0
-    for source in unlinked_sources.scalars().all():
-        if source.location_name and source.location_name.lower() in locations:
-            source.location_id = locations[source.location_name.lower()]
-            sources_linked += 1
-
-    # Note: PySisProcess links via entity_id, not location_id
-    # PySis process linking would require entity-based matching
-    processes_linked = 0
-
-    await session.flush()
-
     return {
-        "sources_linked": sources_linked,
-        "processes_linked": processes_linked,
-        "message": f"Linked {sources_linked} sources"
+        "sources_linked": 0,
+        "processes_linked": 0,
+        "message": "DataSources are no longer linked to locations directly. Use Categories for grouping."
     }
 
 
@@ -176,41 +151,19 @@ async def list_locations_with_sources(
     _: User = Depends(require_editor),
 ):
     """
-    List all locations that have data sources assigned.
+    List all locations.
 
-    Optimized version using aggregated queries to avoid N+1 problems.
+    Note: DataSources are no longer directly linked to Locations.
+    Source counts are no longer available via this endpoint.
+    Use the Entity system for geographic data.
     """
-    from sqlalchemy import func as sql_func, literal, case
-    from sqlalchemy.orm import aliased
-    from app.models.document import Document
+    from sqlalchemy import func as sql_func, literal
 
     # Normalize country filter
     if country:
         country = country.upper()
 
-    # Build optimized query with aggregations using subqueries
-    # Subquery for source count per location
-    source_count_subq = (
-        select(
-            DataSource.location_id,
-            sql_func.count(DataSource.id).label("source_count")
-        )
-        .where(DataSource.location_id.isnot(None))
-        .group_by(DataSource.location_id)
-    ).subquery()
-
-    # Subquery for document count per location
-    doc_count_subq = (
-        select(
-            DataSource.location_id,
-            sql_func.count(Document.id).label("document_count")
-        )
-        .join(Document, Document.source_id == DataSource.id)
-        .where(DataSource.location_id.isnot(None))
-        .group_by(DataSource.location_id)
-    ).subquery()
-
-    # Main query - locations with sources using LEFT JOINs for counts
+    # Main query - all locations
     main_query = (
         select(
             Location.id,
@@ -220,13 +173,11 @@ async def list_locations_with_sources(
             Location.admin_level_2,
             Location.official_code,
             Location.population,
-            sql_func.coalesce(source_count_subq.c.source_count, 0).label("source_count"),
-            sql_func.coalesce(doc_count_subq.c.document_count, 0).label("document_count"),
-            literal(0).label("extracted_count"),  # Skip extracted_count for performance
+            literal(0).label("source_count"),  # Legacy - no longer tracked
+            literal(0).label("document_count"),  # Legacy - no longer tracked
+            literal(0).label("extracted_count"),
             literal(True).label("has_location_record"),
         )
-        .join(source_count_subq, Location.id == source_count_subq.c.location_id)
-        .outerjoin(doc_count_subq, Location.id == doc_count_subq.c.location_id)
         .where(Location.is_active.is_(True))
     )
 
@@ -247,14 +198,27 @@ async def list_locations_with_sources(
         )
 
     # Get total count first (without pagination)
-    count_subq = main_query.subquery()
-    total_query = select(sql_func.count()).select_from(count_subq)
-    total = (await session.execute(total_query)).scalar() or 0
+    count_query = select(sql_func.count(Location.id)).where(Location.is_active.is_(True))
+    if country:
+        count_query = count_query.where(Location.country == country)
+    if admin_level_1:
+        count_query = count_query.where(Location.admin_level_1 == admin_level_1)
+    if admin_level_2:
+        count_query = count_query.where(Location.admin_level_2 == admin_level_2)
+    if search:
+        search_normalized = Location.normalize_name(search, country or "DE")
+        count_query = count_query.where(
+            or_(
+                Location.name.ilike(f"%{search}%"),
+                Location.name_normalized.ilike(f"%{search_normalized}%"),
+            )
+        )
+    total = (await session.execute(count_query)).scalar() or 0
 
     # Add ordering and pagination
     main_query = (
         main_query
-        .order_by(sql_func.coalesce(source_count_subq.c.source_count, 0).desc(), Location.name)
+        .order_by(Location.name)
         .offset((page - 1) * per_page)
         .limit(per_page)
     )
@@ -280,91 +244,12 @@ async def list_locations_with_sources(
             "has_location_record": row.has_location_record,
         })
 
-    # Also check for legacy locations (unlinked) - only if we have room on the page
-    # This is a simpler query since we're just getting aggregates
-    legacy_total = 0
-    if total < per_page or page == 1:
-        # Count legacy locations
-        legacy_count_q = (
-            select(sql_func.count(sql_func.distinct(DataSource.location_name)))
-            .where(
-                DataSource.location_name.isnot(None),
-                DataSource.location_name != "",
-                DataSource.location_id.is_(None),
-            )
-        )
-        if country:
-            legacy_count_q = legacy_count_q.where(DataSource.country == country)
-        if admin_level_1:
-            legacy_count_q = legacy_count_q.where(DataSource.admin_level_1 == admin_level_1)
-        if search:
-            legacy_count_q = legacy_count_q.where(
-                DataSource.location_name.ilike(f"%{search}%")
-            )
-        legacy_total = (await session.execute(legacy_count_q)).scalar() or 0
-
-    # If we need legacy items to fill the page
-    if len(items) < per_page and legacy_total > 0:
-        # Get seen names to exclude
-        seen_names = {item["name"].lower() for item in items}
-
-        legacy_query = (
-            select(
-                DataSource.location_name,
-                DataSource.country,
-                sql_func.count(DataSource.id).label("source_count"),
-            )
-            .where(
-                DataSource.location_name.isnot(None),
-                DataSource.location_name != "",
-                DataSource.location_id.is_(None),
-            )
-            .group_by(DataSource.location_name, DataSource.country)
-            .order_by(sql_func.count(DataSource.id).desc())
-            .limit(per_page - len(items) + 100)  # Get extra to filter seen names
-        )
-        if country:
-            legacy_query = legacy_query.where(DataSource.country == country)
-        if admin_level_1:
-            legacy_query = legacy_query.where(DataSource.admin_level_1 == admin_level_1)
-        if search:
-            legacy_query = legacy_query.where(
-                DataSource.location_name.ilike(f"%{search}%")
-            )
-
-        legacy_result = await session.execute(legacy_query)
-        legacy_rows = legacy_result.all()
-
-        for row in legacy_rows:
-            if len(items) >= per_page:
-                break
-            if row.location_name.lower() in seen_names:
-                continue
-
-            items.append({
-                "id": None,
-                "name": row.location_name,
-                "country": row.country or "DE",
-                "admin_level_1": None,
-                "admin_level_2": None,
-                "official_code": None,
-                "population": None,
-                "source_count": row.source_count,
-                "document_count": 0,  # Skip for performance
-                "extracted_count": 0,
-                "has_location_record": False,
-            })
-            seen_names.add(row.location_name.lower())
-
-    # Combine totals (subtract duplicates approximately)
-    combined_total = total + legacy_total
-
     return {
         "items": items,
-        "total": combined_total,
+        "total": total,
         "page": page,
         "per_page": per_page,
-        "pages": (combined_total + per_page - 1) // per_page if per_page > 0 else 1,
+        "pages": (total + per_page - 1) // per_page if per_page > 0 else 1,
     }
 
 
@@ -490,21 +375,14 @@ async def list_locations(
     result = await session.execute(query)
     locations = result.scalars().all()
 
-    # Build response with counts
+    # Build response
+    # Note: DataSources are no longer linked to Locations directly.
+    # source_count is set to 0 for backwards compatibility.
     items = []
     for loc in locations:
-        source_count_q = select(func.count(DataSource.id)).where(
-            DataSource.location_id == loc.id
-        )
-        source_count = (await session.execute(source_count_q)).scalar() or 0
-
-        # PySisProcess links via entity_id, not location_id
-        # For now, set to 0 - would need Entity join for accurate count
-        pysis_count = 0
-
         item = LocationResponse.model_validate(loc)
-        item.source_count = source_count
-        item.pysis_process_count = pysis_count
+        item.source_count = 0  # Legacy - DataSources no longer linked to Locations
+        item.pysis_process_count = 0  # PySisProcess links via Entity
         items.append(item)
 
     return LocationListResponse(
@@ -553,17 +431,10 @@ async def get_location(
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
 
-    # Get counts
-    source_count = (await session.execute(
-        select(func.count(DataSource.id)).where(DataSource.location_id == location.id)
-    )).scalar() or 0
-
-    # PySisProcess links via entity_id, not location_id
-    pysis_count = 0
-
+    # Note: DataSources are no longer linked to Locations directly.
     response = LocationResponse.model_validate(location)
-    response.source_count = source_count
-    response.pysis_process_count = pysis_count
+    response.source_count = 0  # Legacy - DataSources no longer linked to Locations
+    response.pysis_process_count = 0  # PySisProcess links via Entity
     return response
 
 
@@ -633,29 +504,11 @@ async def create_location(
     await session.flush()
     await session.refresh(location)
 
-    # Auto-link existing DataSources
-    from sqlalchemy import func as sql_func
-    sources_to_link = await session.execute(
-        select(DataSource).where(
-            DataSource.location_id.is_(None),
-            sql_func.lower(DataSource.location_name) == data.name.lower(),
-        )
-    )
-    linked_sources = 0
-    for source in sources_to_link.scalars().all():
-        source.location_id = location.id
-        if not source.country:
-            source.country = data.country
-        linked_sources += 1
-
-    # Note: PySisProcess links via entity_id, not location_id
-    linked_processes = 0
-
-    await session.flush()
-
+    # Note: DataSources are no longer linked to Locations directly.
+    # The relationship is now: DataSource -> Category -> AI Analysis -> Entity + FacetValues
     response = LocationResponse.model_validate(location)
-    response.source_count = linked_sources
-    response.pysis_process_count = linked_processes
+    response.source_count = 0
+    response.pysis_process_count = 0
     return response
 
 
@@ -689,21 +542,14 @@ async def update_location(
     await session.flush()
     await session.refresh(location)
 
-    # Get counts
-    source_count = (await session.execute(
-        select(func.count(DataSource.id)).where(DataSource.location_id == location.id)
-    )).scalar() or 0
-
-    # PySisProcess links via entity_id, not location_id
-    pysis_count = 0
-
+    # Note: DataSources are no longer linked to Locations directly.
     response = LocationResponse.model_validate(location)
-    response.source_count = source_count
-    response.pysis_process_count = pysis_count
+    response.source_count = 0
+    response.pysis_process_count = 0
     return response
 
 
-@router.delete("/{location_id}", status_code=204)
+@router.delete("/{location_id}", response_model=MessageResponse)
 async def delete_location(
     location_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -718,19 +564,13 @@ async def delete_location(
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
 
-    # Check for linked sources
-    source_count = (await session.execute(
-        select(func.count(DataSource.id)).where(DataSource.location_id == location.id)
-    )).scalar() or 0
-
-    if source_count > 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot delete location with {source_count} linked data sources",
-        )
-
+    # Note: DataSources are no longer linked to Locations directly.
+    # Locations can be freely deleted (soft delete).
+    name = location.name
     location.is_active = False
-    await session.flush()
+    await session.commit()
+
+    return MessageResponse(message=f"Location '{name}' deleted successfully")
 
 
 @router.post("/enrich-admin-levels", response_model=dict)

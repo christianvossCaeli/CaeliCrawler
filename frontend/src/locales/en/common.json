@@ -52,6 +52,8 @@
     "status": "Status",
     "confidence": "Confidence",
     "field": "Field",
+    "method": "Method",
+    "importType": "Import Type",
     "example": "Example",
     "icon": "Icon",
     "button": "Button",
@@ -91,7 +93,15 @@
     "searchPlaceholder": "Search...",
     "confirmDelete": "Are you sure you want to delete this item?",
     "confirmDeleteTitle": "Confirm deletion",
-    "unsavedChanges": "You have unsaved changes. Do you really want to continue?"
+    "unsavedChanges": "You have unsaved changes. Do you really want to continue?",
+    "errorBoundary": {
+      "title": "Something went wrong",
+      "subtitle": "An error occurred in this section",
+      "description": "The application encountered an unexpected error. You can try again or refresh the page.",
+      "technicalDetails": "Technical Details",
+      "retry": "Try Again",
+      "refresh": "Refresh Page"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -105,6 +115,7 @@
     "results": "Results",
     "smartQuery": "Smart Query",
     "export": "Export",
+    "favorites": "Favorites",
     "notifications": "Notifications",
     "help": "Help & Documentation",
     "admin": {
@@ -117,7 +128,9 @@
     "login": "Login",
     "logout": "Logout",
     "email": "Email",
+    "enterEmail": "Enter email",
     "password": "Password",
+    "enterPassword": "Enter password",
     "rememberMe": "Remember me",
     "forgotPassword": "Forgot password?",
     "changePassword": "Change Password",

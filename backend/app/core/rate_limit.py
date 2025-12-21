@@ -14,6 +14,7 @@ from fastapi import HTTPException, Request, status
 from redis.asyncio import Redis
 
 from app.config import settings
+from app.core.security_logging import security_logger
 
 
 class InMemoryRateLimiter:
@@ -193,6 +194,13 @@ RATE_LIMITS = {
 
     # Webhook Testing
     "webhook_test": {"max_requests": 5, "window_seconds": 60},  # 5 per minute (SSRF concern)
+
+    # AI Discovery (expensive: LLM calls + web scraping)
+    "ai_discovery": {"max_requests": 10, "window_seconds": 60},  # 10 per minute
+    "ai_discovery_import": {"max_requests": 20, "window_seconds": 60},  # 20 per minute
+
+    # External API Sync (external API calls)
+    "external_api_sync": {"max_requests": 10, "window_seconds": 60},  # 10 per minute
 }
 
 
@@ -229,6 +237,7 @@ async def check_rate_limit(
     Convenience function to check rate limit.
 
     Uses Redis-based limiter when available, falls back to in-memory limiter.
+    Logs rate limit exceeded events to the security logger.
 
     Args:
         request: FastAPI request object
@@ -240,23 +249,42 @@ async def check_rate_limit(
 
     config = RATE_LIMITS[action]
     client_id = identifier or (request.client.host if request.client else "unknown")
+    ip_address = request.client.host if request.client else None
 
     limiter = get_rate_limiter()
 
-    if limiter is not None:
-        # Use Redis-based rate limiter
-        return await limiter.check(
-            key_prefix=action,
-            identifier=client_id,
-            max_requests=config["max_requests"],
-            window_seconds=config["window_seconds"],
-        )
-    else:
-        # Fallback to in-memory rate limiter (security: don't allow unlimited requests)
-        fallback = get_fallback_limiter()
-        return fallback.check(
-            key_prefix=action,
-            identifier=client_id,
-            max_requests=config["max_requests"],
-            window_seconds=config["window_seconds"],
-        )
+    try:
+        if limiter is not None:
+            # Use Redis-based rate limiter
+            return await limiter.check(
+                key_prefix=action,
+                identifier=client_id,
+                max_requests=config["max_requests"],
+                window_seconds=config["window_seconds"],
+            )
+        else:
+            # Fallback to in-memory rate limiter (security: don't allow unlimited requests)
+            fallback = get_fallback_limiter()
+            return fallback.check(
+                key_prefix=action,
+                identifier=client_id,
+                max_requests=config["max_requests"],
+                window_seconds=config["window_seconds"],
+            )
+    except HTTPException as e:
+        if e.status_code == 429:
+            # Log rate limit exceeded
+            from uuid import UUID
+            try:
+                user_id = UUID(identifier) if identifier else None
+            except (ValueError, TypeError):
+                user_id = None
+
+            security_logger.log_rate_limit_exceeded(
+                user_id=user_id,
+                endpoint=action,
+                limit=config["max_requests"],
+                window_seconds=config["window_seconds"],
+                ip_address=ip_address,
+            )
+        raise

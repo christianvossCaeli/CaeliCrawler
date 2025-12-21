@@ -1,7 +1,6 @@
 """API endpoints for Entity management."""
 
 import json
-import unicodedata
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -12,8 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_session
 from app.models import Entity, EntityType, FacetValue, EntityRelation
 from app.models.document import Document
+from app.models.data_source import DataSource
 from app.models.user import User
 from app.core.deps import get_current_user, require_editor
+from app.utils.text import normalize_entity_name
+from services.entity_matching_service import EntityMatchingService
 
 # Import for external API data
 try:
@@ -29,6 +31,12 @@ from app.schemas.entity import (
     EntityListResponse,
     EntityBrief,
     EntityHierarchy,
+    LocationFilterOptionsResponse,
+    AttributeFilterOptionsResponse,
+    FilterableAttribute,
+    EntityDocumentsResponse,
+    EntitySourcesResponse,
+    EntityExternalDataResponse,
 )
 from app.schemas.common import MessageResponse
 from app.core.exceptions import NotFoundError, ConflictError
@@ -140,49 +148,57 @@ async def list_entities(
     entity_ids = [e.id for e in entities]
     entity_type_ids = list(set(e.entity_type_id for e in entities))
 
-    # Batch load EntityTypes (1 query instead of N)
-    entity_types_result = await session.execute(
-        select(EntityType).where(EntityType.id.in_(entity_type_ids))
-    )
-    entity_types_map = {et.id: et for et in entity_types_result.scalars().all()}
+    # Initialize empty maps
+    entity_types_map: dict = {}
+    facet_counts_map: dict = {}
+    relation_counts_map: dict = {}
+    children_counts_map: dict = {}
 
-    # Batch count facet values (1 query instead of N)
-    facet_counts_result = await session.execute(
-        select(FacetValue.entity_id, func.count(FacetValue.id))
-        .where(FacetValue.entity_id.in_(entity_ids))
-        .group_by(FacetValue.entity_id)
-    )
-    facet_counts_map = dict(facet_counts_result.fetchall())
+    # Only run batch queries if there are entities
+    if entity_ids:
+        # Batch load EntityTypes (1 query instead of N)
+        if entity_type_ids:
+            entity_types_result = await session.execute(
+                select(EntityType).where(EntityType.id.in_(entity_type_ids))
+            )
+            entity_types_map = {et.id: et for et in entity_types_result.scalars().all()}
 
-    # Batch count relations (1 query instead of N)
-    # Count as source
-    source_counts_result = await session.execute(
-        select(EntityRelation.source_entity_id, func.count(EntityRelation.id))
-        .where(EntityRelation.source_entity_id.in_(entity_ids))
-        .group_by(EntityRelation.source_entity_id)
-    )
-    source_counts = dict(source_counts_result.fetchall())
+        # Batch count facet values (1 query instead of N)
+        facet_counts_result = await session.execute(
+            select(FacetValue.entity_id, func.count(FacetValue.id))
+            .where(FacetValue.entity_id.in_(entity_ids))
+            .group_by(FacetValue.entity_id)
+        )
+        facet_counts_map = dict(facet_counts_result.fetchall())
 
-    # Count as target
-    target_counts_result = await session.execute(
-        select(EntityRelation.target_entity_id, func.count(EntityRelation.id))
-        .where(EntityRelation.target_entity_id.in_(entity_ids))
-        .group_by(EntityRelation.target_entity_id)
-    )
-    target_counts = dict(target_counts_result.fetchall())
+        # Batch count relations (1 query instead of N)
+        # Count as source
+        source_counts_result = await session.execute(
+            select(EntityRelation.source_entity_id, func.count(EntityRelation.id))
+            .where(EntityRelation.source_entity_id.in_(entity_ids))
+            .group_by(EntityRelation.source_entity_id)
+        )
+        source_counts = dict(source_counts_result.fetchall())
 
-    # Merge relation counts
-    relation_counts_map = {}
-    for entity_id in entity_ids:
-        relation_counts_map[entity_id] = source_counts.get(entity_id, 0) + target_counts.get(entity_id, 0)
+        # Count as target
+        target_counts_result = await session.execute(
+            select(EntityRelation.target_entity_id, func.count(EntityRelation.id))
+            .where(EntityRelation.target_entity_id.in_(entity_ids))
+            .group_by(EntityRelation.target_entity_id)
+        )
+        target_counts = dict(target_counts_result.fetchall())
 
-    # Batch count children (1 query instead of N)
-    children_counts_result = await session.execute(
-        select(Entity.parent_id, func.count(Entity.id))
-        .where(Entity.parent_id.in_(entity_ids))
-        .group_by(Entity.parent_id)
-    )
-    children_counts_map = dict(children_counts_result.fetchall())
+        # Merge relation counts
+        for entity_id in entity_ids:
+            relation_counts_map[entity_id] = source_counts.get(entity_id, 0) + target_counts.get(entity_id, 0)
+
+        # Batch count children (1 query instead of N)
+        children_counts_result = await session.execute(
+            select(Entity.parent_id, func.count(Entity.id))
+            .where(Entity.parent_id.in_(entity_ids))
+            .group_by(Entity.parent_id)
+        )
+        children_counts_map = dict(children_counts_result.fetchall())
 
     # Build response items using pre-fetched data
     items = []
@@ -252,8 +268,8 @@ async def create_entity(
     else:
         hierarchy_path = f"/{slug}"
 
-    # Normalize name for search
-    name_normalized = unicodedata.normalize("NFKD", data.name.lower())
+    # Use centralized normalization for consistent entity matching
+    name_normalized = normalize_entity_name(data.name, country=data.country or "DE")
 
     entity = Entity(
         entity_type_id=data.entity_type_id,
@@ -367,7 +383,7 @@ def _count_nodes(tree: List[Dict]) -> int:
 # ============================================================================
 
 
-@router.get("/filter-options/location")
+@router.get("/filter-options/location", response_model=LocationFilterOptionsResponse)
 async def get_location_filter_options(
     country: Optional[str] = Query(default=None, description="Filter admin_level_1 options by country"),
     admin_level_1: Optional[str] = Query(default=None, description="Filter admin_level_2 options by admin_level_1"),
@@ -405,14 +421,14 @@ async def get_location_filter_options(
     admin_level_2_result = await session.execute(admin_level_2_query)
     admin_level_2_values = [row[0] for row in admin_level_2_result.fetchall()]
 
-    return {
-        "countries": countries,
-        "admin_level_1": admin_level_1_values,
-        "admin_level_2": admin_level_2_values,
-    }
+    return LocationFilterOptionsResponse(
+        countries=countries,
+        admin_level_1=admin_level_1_values,
+        admin_level_2=admin_level_2_values,
+    )
 
 
-@router.get("/filter-options/attributes")
+@router.get("/filter-options/attributes", response_model=AttributeFilterOptionsResponse)
 async def get_attribute_filter_options(
     entity_type_slug: str = Query(..., description="Entity type slug to get attribute options for"),
     attribute_key: Optional[str] = Query(default=None, description="Specific attribute key to get values for"),
@@ -440,19 +456,15 @@ async def get_attribute_filter_options(
         attr_type = prop.get("type", "string")
         # Only include filterable types (strings, enums)
         if attr_type in ["string", "integer", "number"]:
-            filterable_attributes.append({
-                "key": key,
-                "title": prop.get("title", key),
-                "description": prop.get("description"),
-                "type": attr_type,
-                "format": prop.get("format"),
-            })
+            filterable_attributes.append(FilterableAttribute(
+                key=key,
+                title=prop.get("title", key),
+                description=prop.get("description"),
+                type=attr_type,
+                format=prop.get("format"),
+            ))
 
-    result = {
-        "entity_type_slug": entity_type_slug,
-        "entity_type_name": entity_type.name,
-        "attributes": filterable_attributes,
-    }
+    attribute_values = None
 
     # If specific attribute requested, get distinct values
     if attribute_key and attribute_key in properties:
@@ -470,11 +482,14 @@ async def get_attribute_filter_options(
         )
         values_result = await session.execute(values_query)
         distinct_values = [row[0] for row in values_result.fetchall() if row[0]]
-        result["attribute_values"] = {
-            attribute_key: distinct_values
-        }
+        attribute_values = {attribute_key: distinct_values}
 
-    return result
+    return AttributeFilterOptionsResponse(
+        entity_type_slug=entity_type_slug,
+        entity_type_name=entity_type.name,
+        attributes=filterable_attributes,
+        attribute_values=attribute_values,
+    )
 
 
 # ============================================================================
@@ -674,9 +689,11 @@ async def update_entity(
         update_data["hierarchy_path"] = f"/{entity.slug}"
         update_data["hierarchy_level"] = 0
 
-    # If name changes, update normalized name
+    # If name changes, update normalized name using centralized function
     if "name" in update_data:
-        update_data["name_normalized"] = unicodedata.normalize("NFKD", update_data["name"].lower())
+        # Get country from update or existing entity for consistent normalization
+        country = update_data.get("country", entity.country) or "DE"
+        update_data["name_normalized"] = normalize_entity_name(update_data["name"], country=country)
 
     for field, value in update_data.items():
         setattr(entity, field, value)
@@ -890,6 +907,101 @@ async def get_entity_documents(
         "entity_name": entity.name,
         "documents": document_list,
         "total": len(document_list),
+    }
+
+
+@router.get("/{entity_id}/sources")
+async def get_entity_sources(
+    entity_id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    """Get data sources linked to an entity via facet values.
+
+    Traces the path: Entity -> FacetValues -> Documents -> DataSources
+    Returns all unique DataSources that provided documents for this entity's facet values.
+    """
+    # Verify entity exists
+    entity = await session.get(Entity, entity_id)
+    if not entity:
+        raise NotFoundError("Entity", str(entity_id))
+
+    # Get distinct source_document_ids from all FacetValues for this entity
+    source_doc_query = (
+        select(FacetValue.source_document_id)
+        .where(
+            FacetValue.entity_id == entity_id,
+            FacetValue.source_document_id.isnot(None)
+        )
+        .distinct()
+    )
+    result = await session.execute(source_doc_query)
+    document_ids = [row[0] for row in result.fetchall()]
+
+    if not document_ids:
+        return {
+            "entity_id": str(entity_id),
+            "entity_name": entity.name,
+            "sources": [],
+            "total": 0,
+        }
+
+    # Get distinct source_ids from documents
+    docs_query = (
+        select(Document.source_id)
+        .where(
+            Document.id.in_(document_ids),
+            Document.source_id.isnot(None)
+        )
+        .distinct()
+    )
+    docs_result = await session.execute(docs_query)
+    source_ids = [row[0] for row in docs_result.fetchall()]
+
+    if not source_ids:
+        return {
+            "entity_id": str(entity_id),
+            "entity_name": entity.name,
+            "sources": [],
+            "total": 0,
+        }
+
+    # Load DataSources
+    sources_query = select(DataSource).where(DataSource.id.in_(source_ids))
+    sources_result = await session.execute(sources_query)
+    sources = sources_result.scalars().all()
+
+    # Count documents per source
+    doc_counts_query = (
+        select(Document.source_id, func.count(Document.id))
+        .where(
+            Document.id.in_(document_ids),
+            Document.source_id.in_(source_ids)
+        )
+        .group_by(Document.source_id)
+    )
+    doc_counts_result = await session.execute(doc_counts_query)
+    doc_counts_map = dict(doc_counts_result.fetchall())
+
+    # Build response
+    source_list = []
+    for source in sources:
+        source_list.append({
+            "id": str(source.id),
+            "name": source.name,
+            "base_url": source.base_url,
+            "source_type": source.source_type,
+            "status": source.status,
+            "document_count": doc_counts_map.get(source.id, 0),
+        })
+
+    # Sort by document count descending
+    source_list.sort(key=lambda x: x["document_count"], reverse=True)
+
+    return {
+        "entity_id": str(entity_id),
+        "entity_name": entity.name,
+        "sources": source_list,
+        "total": len(source_list),
     }
 
 

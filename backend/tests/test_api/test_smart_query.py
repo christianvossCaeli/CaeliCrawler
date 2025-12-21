@@ -5,9 +5,9 @@ from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_smart_query_read_mode(client: AsyncClient):
+async def test_smart_query_read_mode(admin_client: AsyncClient):
     """Test smart query in read mode."""
-    response = await client.post(
+    response = await admin_client.post(
         "/api/v1/analysis/smart-query",
         json={
             "question": "Zeige mir alle Gemeinden",
@@ -22,9 +22,9 @@ async def test_smart_query_read_mode(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_smart_write_preview(client: AsyncClient):
+async def test_smart_write_preview(admin_client: AsyncClient):
     """Test smart write in preview mode."""
-    response = await client.post(
+    response = await admin_client.post(
         "/api/v1/analysis/smart-write",
         json={
             "question": "Erstelle eine Person Test User",
@@ -43,9 +43,9 @@ async def test_smart_write_preview(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_smart_write_requires_confirmation(client: AsyncClient):
+async def test_smart_write_requires_confirmation(admin_client: AsyncClient):
     """Test that smart write requires confirmation."""
-    response = await client.post(
+    response = await admin_client.post(
         "/api/v1/analysis/smart-write",
         json={
             "question": "Erstelle eine Person Test User",
@@ -61,9 +61,9 @@ async def test_smart_write_requires_confirmation(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_smart_write_invalid_command(client: AsyncClient):
+async def test_smart_write_invalid_command(admin_client: AsyncClient):
     """Test smart write with invalid/non-write command."""
-    response = await client.post(
+    response = await admin_client.post(
         "/api/v1/analysis/smart-write",
         json={
             "question": "Was ist das Wetter heute?",  # Not a write command
@@ -82,10 +82,10 @@ async def test_smart_write_invalid_command(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_smart_query_question_validation(client: AsyncClient):
+async def test_smart_query_question_validation(admin_client: AsyncClient):
     """Test that question validation works."""
     # Too short
-    response = await client.post(
+    response = await admin_client.post(
         "/api/v1/analysis/smart-query",
         json={
             "question": "ab",  # Less than 3 characters
@@ -96,9 +96,9 @@ async def test_smart_query_question_validation(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_smart_write_entity_type_creation_preview(client: AsyncClient):
+async def test_smart_write_entity_type_creation_preview(admin_client: AsyncClient):
     """Test smart write preview for entity type creation."""
-    response = await client.post(
+    response = await admin_client.post(
         "/api/v1/analysis/smart-write",
         json={
             "question": "Erstelle einen neuen Entity-Typ Solarpark fuer Solarprojekte",

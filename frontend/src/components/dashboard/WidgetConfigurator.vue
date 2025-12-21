@@ -5,7 +5,6 @@
  */
 
 import { ref, computed, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
 import { useDashboardStore } from '@/stores/dashboard'
 import { getAllWidgets, WIDGET_SIZE_OPTIONS } from '@/widgets'
 import type { WidgetConfig, WidgetDefinition } from '@/widgets/types'
@@ -26,7 +25,6 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
-const { t } = useI18n()
 const store = useDashboardStore()
 
 const dialog = computed({
@@ -212,12 +210,6 @@ const resetToDefaults = async () => {
 const cancel = () => {
   dialog.value = false
 }
-
-// Get width label
-const getWidthLabel = (width: number): string => {
-  const option = sizeOptions.find((o) => o.value === width)
-  return option ? t(option.label) : `${width} col`
-}
 </script>
 
 <template>
@@ -351,7 +343,7 @@ const getWidthLabel = (width: number): string => {
           {{ $t('dashboard.preview') }}
         </div>
         <div class="preview-grid">
-          <template v-for="(widget, index) in widgetList" :key="widget.id">
+          <template v-for="widget in widgetList" :key="widget.id">
             <div
               v-if="widget.enabled"
               class="preview-item"

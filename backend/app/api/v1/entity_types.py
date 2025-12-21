@@ -92,12 +92,14 @@ async def list_entity_types(
 
     # Batch count entities (1 query instead of N)
     entity_type_ids = [et.id for et in entity_types]
-    entity_counts_result = await session.execute(
-        select(Entity.entity_type_id, func.count(Entity.id))
-        .where(Entity.entity_type_id.in_(entity_type_ids))
-        .group_by(Entity.entity_type_id)
-    )
-    entity_counts_map = dict(entity_counts_result.fetchall())
+    entity_counts_map: dict = {}
+    if entity_type_ids:
+        entity_counts_result = await session.execute(
+            select(Entity.entity_type_id, func.count(Entity.id))
+            .where(Entity.entity_type_id.in_(entity_type_ids))
+            .group_by(Entity.entity_type_id)
+        )
+        entity_counts_map = dict(entity_counts_result.fetchall())
 
     # Build response items using pre-fetched data
     items = []

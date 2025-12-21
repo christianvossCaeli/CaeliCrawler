@@ -1,0 +1,229 @@
+"""
+Base classes for Smart Query write operations.
+
+This module implements the Command Pattern for handling write operations,
+making them modular, testable, and maintainable.
+
+Architecture:
+    - WriteOperation: Abstract base class for all operations
+    - OperationResult: Standardized result container
+    - OPERATIONS_REGISTRY: Central registry for operation handlers
+    - execute_operation: Main entry point for executing operations
+"""
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional, Type
+from uuid import UUID
+
+import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = structlog.get_logger()
+
+
+@dataclass
+class OperationResult:
+    """Standardized result container for write operations."""
+
+    success: bool = False
+    message: str = ""
+    operation: str = ""
+    created_items: List[Dict[str, Any]] = field(default_factory=list)
+    data: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {
+            "success": self.success,
+            "message": self.message,
+            "operation": self.operation,
+            "created_items": self.created_items,
+        }
+        if self.data:
+            result["data"] = self.data
+        if self.error:
+            result["error"] = self.error
+        return result
+
+
+class WriteOperation(ABC):
+    """
+    Abstract base class for write operations.
+
+    Subclasses must implement the execute method to perform
+    the actual operation logic.
+
+    Example:
+        @register_operation("create_entity")
+        class CreateEntityOperation(WriteOperation):
+            async def execute(
+                self,
+                session: AsyncSession,
+                command: Dict[str, Any],
+                user_id: Optional[UUID] = None,
+            ) -> OperationResult:
+                entity_type = command.get("entity_type", "municipality")
+                entity_data = command.get("entity_data", {})
+                # ... implementation ...
+                return OperationResult(
+                    success=True,
+                    message="Entity created",
+                    operation="create_entity",
+                    created_items=[{"type": "entity", "id": str(entity.id)}]
+                )
+    """
+
+    # Operation name (set by @register_operation decorator)
+    operation_name: str = ""
+
+    @abstractmethod
+    async def execute(
+        self,
+        session: AsyncSession,
+        command: Dict[str, Any],
+        user_id: Optional[UUID] = None,
+    ) -> OperationResult:
+        """
+        Execute the write operation.
+
+        Args:
+            session: Database session
+            command: Command data containing operation parameters
+            user_id: Optional user ID for ownership tracking
+
+        Returns:
+            OperationResult with success status and created items
+        """
+        pass
+
+    def validate(self, command: Dict[str, Any]) -> Optional[str]:
+        """
+        Validate command data before execution.
+
+        Override in subclasses to add operation-specific validation.
+
+        Args:
+            command: Command data to validate
+
+        Returns:
+            Error message if validation fails, None if valid
+        """
+        return None
+
+
+# Global registry of operation handlers
+OPERATIONS_REGISTRY: Dict[str, Type[WriteOperation]] = {}
+
+
+def register_operation(name: str) -> Callable[[Type[WriteOperation]], Type[WriteOperation]]:
+    """
+    Decorator to register an operation handler.
+
+    Usage:
+        @register_operation("create_entity")
+        class CreateEntityOperation(WriteOperation):
+            ...
+
+    Args:
+        name: Operation name (e.g., "create_entity", "update_facet")
+
+    Returns:
+        Decorator function
+    """
+    def decorator(cls: Type[WriteOperation]) -> Type[WriteOperation]:
+        cls.operation_name = name
+        OPERATIONS_REGISTRY[name] = cls
+        logger.debug("Registered write operation", operation=name, handler=cls.__name__)
+        return cls
+    return decorator
+
+
+def get_operation(name: str) -> Optional[Type[WriteOperation]]:
+    """
+    Get an operation handler by name.
+
+    Args:
+        name: Operation name
+
+    Returns:
+        Operation class or None if not found
+    """
+    return OPERATIONS_REGISTRY.get(name)
+
+
+async def execute_operation(
+    session: AsyncSession,
+    command: Dict[str, Any],
+    user_id: Optional[UUID] = None,
+) -> OperationResult:
+    """
+    Execute a write operation using the registered handler.
+
+    This is the main entry point for the command pattern.
+    Falls back to the legacy execute_write_command for
+    operations not yet migrated to the new pattern.
+
+    Args:
+        session: Database session
+        command: Command data with "operation" key
+        user_id: Optional user ID for ownership
+
+    Returns:
+        OperationResult with success status
+    """
+    operation_name = command.get("operation", "none")
+
+    if operation_name == "none":
+        return OperationResult(
+            success=False,
+            message="Keine Schreib-Operation erkannt",
+            operation="none",
+        )
+
+    # Check if operation has a registered handler
+    operation_class = OPERATIONS_REGISTRY.get(operation_name)
+
+    if operation_class:
+        # Use new command pattern
+        handler = operation_class()
+
+        # Validate command
+        validation_error = handler.validate(command)
+        if validation_error:
+            return OperationResult(
+                success=False,
+                message=validation_error,
+                operation=operation_name,
+            )
+
+        try:
+            result = await handler.execute(session, command, user_id)
+            result.operation = operation_name
+            return result
+        except Exception as e:
+            logger.error(
+                "Write operation failed",
+                operation=operation_name,
+                error=str(e),
+                exc_info=True,
+            )
+            return OperationResult(
+                success=False,
+                message=f"Operation fehlgeschlagen: {str(e)}",
+                operation=operation_name,
+                error=str(e),
+            )
+    else:
+        # Fall back to legacy executor for unmigrated operations
+        from ..write_executor import execute_write_command
+
+        legacy_result = await execute_write_command(session, command, user_id)
+        return OperationResult(
+            success=legacy_result.get("success", False),
+            message=legacy_result.get("message", ""),
+            operation=operation_name,
+            created_items=legacy_result.get("created_items", []),
+            data=legacy_result.get("data"),
+        )

@@ -97,3 +97,93 @@ class StartCrawlResponse(BaseModel):
     jobs_created: int
     job_ids: List[UUID]
     message: str
+
+
+class CrawlerStatusResponse(BaseModel):
+    """Response for crawler status endpoint."""
+
+    status: str = Field(..., description="Current crawler status")
+    running_jobs: int = Field(default=0, description="Number of running jobs")
+    pending_jobs: int = Field(default=0, description="Number of pending jobs")
+    completed_today: int = Field(default=0, description="Jobs completed today")
+    failed_today: int = Field(default=0, description="Jobs failed today")
+    last_completed_at: Optional[datetime] = Field(None, description="Timestamp of last completed job")
+    celery_connected: bool = Field(default=False, description="Whether Celery is connected")
+
+
+class JobLogEntry(BaseModel):
+    """Single log entry for a crawl job."""
+
+    timestamp: datetime
+    level: str = Field(..., description="Log level (INFO, WARNING, ERROR)")
+    message: str
+    details: Optional[Dict[str, Any]] = None
+
+
+class JobLogResponse(BaseModel):
+    """Response for job log endpoint."""
+
+    job_id: UUID
+    entries: List[JobLogEntry] = Field(default_factory=list)
+    total: int
+    has_more: bool = False
+
+
+class RunningJobInfo(BaseModel):
+    """Information about a running job."""
+
+    id: UUID
+    source_id: UUID
+    source_name: Optional[str] = None
+    category_id: UUID
+    category_name: Optional[str] = None
+    status: str
+    started_at: Optional[datetime] = None
+    pages_crawled: int = 0
+    documents_found: int = 0
+    progress_percent: Optional[float] = None
+    celery_task_id: Optional[str] = None
+
+
+class RunningJobsResponse(BaseModel):
+    """Response for running jobs endpoint."""
+
+    jobs: List[RunningJobInfo] = Field(default_factory=list)
+    total: int
+
+
+class AITaskInfo(BaseModel):
+    """Information about an AI task."""
+
+    id: UUID
+    task_type: str
+    status: str
+    document_id: Optional[UUID] = None
+    document_title: Optional[str] = None
+    source_id: Optional[UUID] = None
+    source_name: Optional[str] = None
+    category_id: Optional[UUID] = None
+    category_name: Optional[str] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    error_message: Optional[str] = None
+    progress_percent: Optional[float] = None
+    celery_task_id: Optional[str] = None
+
+
+class AITaskListResponse(BaseModel):
+    """Response for AI task list endpoint."""
+
+    items: List[AITaskInfo] = Field(default_factory=list)
+    total: int
+    page: int
+    per_page: int
+    pages: int
+
+
+class RunningAITasksResponse(BaseModel):
+    """Response for running AI tasks endpoint."""
+
+    tasks: List[AITaskInfo] = Field(default_factory=list)
+    total: int

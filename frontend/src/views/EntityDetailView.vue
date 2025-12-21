@@ -23,8 +23,9 @@
           <div class="flex-grow-1">
             <div class="d-flex align-center mb-1">
               <h1 class="text-h4 mr-3">{{ entity.name }}</h1>
-              <v-chip v-if="entity.external_id" size="small" variant="outlined">
-                {{ entity.external_id }}
+              <v-chip v-if="entity.external_id" size="small" variant="tonal" color="info">
+                <span class="text-caption font-weight-medium">ID:</span>
+                <span class="ml-1">{{ entity.external_id }}</span>
               </v-chip>
             </div>
             <div v-if="entity.hierarchy_path" class="text-body-2 text-medium-emphasis">
@@ -32,6 +33,13 @@
             </div>
           </div>
           <div class="d-flex ga-2">
+            <FavoriteButton
+              v-if="entity"
+              :entity-id="entity.id"
+              size="default"
+              variant="tonal"
+              show-tooltip
+            />
             <v-btn variant="tonal" @click="notesDialog = true" :title="t('entityDetail.notes')">
               <v-icon>mdi-note-text</v-icon>
               <v-badge v-if="notes.length" :content="notes.length" color="primary" floating></v-badge>
@@ -114,14 +122,12 @@
         </v-row>
 
         <!-- Core Attributes -->
-        <v-row v-if="hasAttributes" class="mt-2">
-          <v-col v-for="(value, key) in entity.core_attributes" :key="key" cols="auto">
-            <v-chip size="small" variant="tonal">
-              <strong class="mr-1">{{ formatAttributeKey(key) }}:</strong>
-              {{ formatAttributeValue(value) }}
-            </v-chip>
-          </v-col>
-        </v-row>
+        <div v-if="hasAttributes" class="d-flex flex-wrap ga-1 mt-2">
+          <v-chip v-for="(value, key) in entity.core_attributes" :key="key" size="small" variant="tonal">
+            <strong class="mr-1">{{ formatAttributeKey(key) }}:</strong>
+            {{ formatAttributeValue(value) }}
+          </v-chip>
+        </div>
       </v-card-text>
     </v-card>
 
@@ -1634,19 +1640,19 @@
 
             <!-- PySis Process Info -->
             <div v-if="getPysisSourceInfo(selectedSourceFacet)" class="mb-3">
-              <div v-if="getPysisSourceInfo(selectedSourceFacet).processTitle" class="mb-2">
+              <div v-if="getPysisSourceInfo(selectedSourceFacet)?.processTitle" class="mb-2">
                 <div class="text-caption text-medium-emphasis">Prozess</div>
-                <div class="text-body-1">{{ getPysisSourceInfo(selectedSourceFacet).processTitle }}</div>
+                <div class="text-body-1">{{ getPysisSourceInfo(selectedSourceFacet)?.processTitle }}</div>
               </div>
-              <div v-if="getPysisSourceInfo(selectedSourceFacet).processId" class="mb-2">
+              <div v-if="getPysisSourceInfo(selectedSourceFacet)?.processId" class="mb-2">
                 <div class="text-caption text-medium-emphasis">Prozess-ID</div>
-                <code class="text-body-2">{{ getPysisSourceInfo(selectedSourceFacet).processId }}</code>
+                <code class="text-body-2">{{ getPysisSourceInfo(selectedSourceFacet)?.processId }}</code>
               </div>
-              <div v-if="getPysisSourceInfo(selectedSourceFacet).fieldNames?.length" class="mb-2">
+              <div v-if="getPysisSourceInfo(selectedSourceFacet)?.fieldNames?.length" class="mb-2">
                 <div class="text-caption text-medium-emphasis mb-1">Feldname(n)</div>
                 <div class="d-flex flex-wrap ga-1">
                   <v-chip
-                    v-for="fieldName in getPysisSourceInfo(selectedSourceFacet).fieldNames"
+                    v-for="fieldName in getPysisSourceInfo(selectedSourceFacet)?.fieldNames || []"
                     :key="fieldName"
                     size="small"
                     variant="outlined"
@@ -1854,7 +1860,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useEntityStore, type FacetValue, type Entity, type EntityType } from '@/stores/entity'
-import { adminApi, entityApi, facetApi, pysisApi, aiTasksApi, entityDataApi, attachmentApi } from '@/services/api'
+import { adminApi, entityApi, facetApi, pysisApi, aiTasksApi, entityDataApi, attachmentApi, relationApi } from '@/services/api'
 import { format, formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
@@ -1863,9 +1869,10 @@ import PySisTab from '@/components/PySisTab.vue'
 import FacetEnrichmentReview from '@/components/FacetEnrichmentReview.vue'
 import DynamicSchemaForm from '@/components/DynamicSchemaForm.vue'
 import EntityAttachmentsTab from '@/components/entity/EntityAttachmentsTab.vue'
+import FavoriteButton from '@/components/FavoriteButton.vue'
 
 const { t } = useI18n()
-const { flags: featureFlags } = useFeatureFlags()
+useFeatureFlags() // Initialize feature flags
 
 // ============================================================================
 // Local Types
@@ -1986,7 +1993,6 @@ const newFacet = ref({
 })
 
 // Relation CRUD State
-const relationForm = ref<any>(null)
 const relationTypes = ref<any[]>([])
 const loadingRelationTypes = ref(false)
 const editingRelation = ref<Relation | null>(null)
@@ -2003,9 +2009,6 @@ const savingRelation = ref(false)
 const deleteRelationConfirm = ref(false)
 const relationToDelete = ref<Relation | null>(null)
 const deletingRelation = ref(false)
-
-// Form ref
-const addFacetForm = ref<any>(null)
 
 const editForm = ref({
   name: '',
@@ -2728,20 +2731,16 @@ async function loadDataSources() {
 
   loadingDataSources.value = true
   try {
-    // Sources linked via entity_id
-    const response = await adminApi.getSources({ entity_id: entity.value.id, per_page: 10000 })
-    dataSources.value = response.data.items || []
-
-    // Also check for sources linked via location_name for backward compatibility
-    if (dataSources.value.length === 0) {
-      const byNameResponse = await adminApi.getSources({ location_name: entity.value.name, per_page: 10000 })
-      dataSources.value = byNameResponse.data.items || []
-    }
+    // Get sources via the new traceability endpoint:
+    // Entity -> FacetValues -> Documents -> DataSources
+    const response = await entityApi.getEntitySources(entity.value.id)
+    dataSources.value = response.data.sources || []
 
     // Cache the result
     setCachedData(cacheKey, dataSources.value)
   } catch (e) {
     console.error('Failed to load data sources', e)
+    dataSources.value = []
   } finally {
     loadingDataSources.value = false
   }
@@ -2751,14 +2750,13 @@ async function loadDocuments() {
   if (!entity.value) return
   loadingDocuments.value = true
   try {
-    // This would need an endpoint to get documents by entity
-    // For now we can use the location_name based endpoint
-    // Query sources to see if entity is referenced - result stored for potential future use
-    await adminApi.getSources({ location_name: entity.value.name })
-    // This is a placeholder - would need proper document listing by entity
-    documents.value = []
+    // Get documents via the traceability endpoint:
+    // Entity -> FacetValues -> Documents
+    const response = await entityApi.getEntityDocuments(entity.value.id)
+    documents.value = response.data.documents || []
   } catch (e) {
     console.error('Failed to load documents', e)
+    documents.value = []
   } finally {
     loadingDocuments.value = false
   }
@@ -2834,7 +2832,7 @@ function resetAddFacetForm() {
 }
 
 // Build text representation from structured value
-function buildTextRepresentation(value: Record<string, any>, facetType: any): string {
+function buildTextRepresentation(value: Record<string, any>, _facetType?: any): string {
   if (!value || Object.keys(value).length === 0) return ''
 
   // If there's a description field, use it as primary text
@@ -2844,7 +2842,7 @@ function buildTextRepresentation(value: Record<string, any>, facetType: any): st
 
   // Otherwise concatenate all string values
   const parts: string[] = []
-  for (const [key, val] of Object.entries(value)) {
+  for (const [, val] of Object.entries(value)) {
     if (typeof val === 'string' && val.trim()) {
       parts.push(val)
     } else if (Array.isArray(val)) {
@@ -3209,7 +3207,9 @@ function navigateToRelatedEntity(rel: any) {
 }
 
 function goToSources() {
-  router.push({ path: '/sources', query: { location_name: entity.value?.name } })
+  // Note: DataSources are no longer directly linked to Entities via location_name.
+  // Navigate to sources view without filter - users can filter by category.
+  router.push({ path: '/sources' })
 }
 
 // Attribute key translation map (fallback)

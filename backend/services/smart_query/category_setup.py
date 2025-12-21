@@ -138,6 +138,7 @@ async def create_category_setup_with_ai(
             user_intent,
             entity_type.name,
             entity_type.description,
+            geographic_context=geographic_context,
         )
 
         search_terms = cat_config.get("search_terms", [])

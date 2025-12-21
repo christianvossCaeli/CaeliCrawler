@@ -7,7 +7,8 @@
       "general": "General",
       "search": "Search",
       "filters": "URL Filters",
-      "ai": "AI"
+      "ai": "AI",
+      "dataSources": "Data Sources"
     },
     "filters": {
       "search": "Search (Name/Purpose)",
@@ -135,11 +136,56 @@
     },
     "messages": {
       "created": "Analysis topic created successfully",
+      "createdWithAi": "Analysis topic with AI setup created successfully",
       "updated": "Analysis topic updated successfully",
       "deleted": "Analysis topic deleted successfully",
       "reanalyzeStarted": "Reanalysis started",
       "reanalyzeError": "Error starting reanalysis",
-      "sourcesLoadError": "Error loading data sources"
+      "sourcesLoadError": "Error loading data sources",
+      "saveError": "Error saving"
+    },
+    "aiPreview": {
+      "title": "AI Setup Suggestions",
+      "subtitle": "Based on name and purpose, AI generates suggestions",
+      "generating": "AI is generating suggestions...",
+      "generatingHint": "This may take a few seconds",
+      "entityType": "Entity Type",
+      "createNew": "Create new",
+      "useExisting": "Use existing",
+      "facetTypes": "Facet Types",
+      "facetTypesHint": "Select facet types for data extraction",
+      "exists": "exists",
+      "new": "new",
+      "extractionPrompt": "Extraction Prompt",
+      "promptHint": "The AI prompt defines which information is extracted",
+      "searchTerms": "Search Terms",
+      "urlPatterns": "URL Patterns",
+      "reasoning": "Reasoning",
+      "saveWithoutAi": "Save without AI",
+      "applyAndSave": "Apply and Save",
+      "error": "Error generating AI setup"
+    },
+    "dataSourcesTab": {
+      "title": "Assign Data Sources",
+      "description": "Assign data sources to this analysis topic via tags",
+      "filterByTags": "Filter by tags",
+      "matchMode": "Match mode",
+      "matchAll": "ALL tags (AND)",
+      "matchAny": "At least one tag (OR)",
+      "matchAllHint": "Source must have all selected tags",
+      "matchAnyHint": "Source must have at least one tag",
+      "foundSources": "Found data sources",
+      "noTagsSelected": "Select tags to search for data sources",
+      "noSourcesFound": "No data sources found with these tags",
+      "selectAll": "Select all",
+      "alreadyAssigned": "already assigned",
+      "assignSelected": "Assign selected",
+      "assignAll": "Assign all",
+      "assignedCount": "Assigned",
+      "assignSuccess": "{count} data sources assigned successfully",
+      "assignError": "Error assigning data sources",
+      "loading": "Loading data sources...",
+      "currentlyAssigned": "Currently assigned"
     }
   }
 }

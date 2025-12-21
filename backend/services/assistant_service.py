@@ -90,6 +90,7 @@ INTENT_CLASSIFICATION_PROMPT = """Du bist ein Intent-Classifier für einen Chat-
 8. BATCH_ACTION - Benutzer will Massenoperation durchführen (z.B. "Füge allen Gemeinden in NRW Pain Point hinzu", "Aktualisiere alle Entities vom Typ X")
 9. FACET_MANAGEMENT - Benutzer will Facet-Typen erstellen, zuweisen oder verwalten (z.B. "Erstelle einen neuen Facet-Typ", "Welche Facets gibt es für Gemeinden?")
 10. CONTEXT_ACTION - Benutzer will Aktion auf aktueller Entity ausführen (z.B. "Analysiere PySis", "Reichere Facets an", "Zeig PySis-Status", "Starte Crawl für diese Gemeinde")
+11. SOURCE_MANAGEMENT - Benutzer will Datenquellen verwalten, Tags abfragen oder Quellen suchen/importieren (z.B. "Welche Tags gibt es?", "Zeige Quellen mit Tag nrw", "Finde Datenquellen für Bundesliga")
 
 ## Context Actions (für Intent CONTEXT_ACTION):
 - show_pysis_status: PySis-Status anzeigen
@@ -104,6 +105,22 @@ INTENT_CLASSIFICATION_PROMPT = """Du bist ein Intent-Classifier für einen Chat-
 - start_crawl: Crawl starten
 - create_facet: Facet-Wert zur aktuellen Entity hinzufügen (z.B. "Füge Pain Point hinzu", "Neues Positive Signal")
   - context_action_data sollte enthalten: facet_type (pain_point|positive_signal|contact|summary), description, optional: severity, type
+
+## Source Management Actions (für Intent SOURCE_MANAGEMENT):
+- list_tags: Alle verfügbaren Tags anzeigen (z.B. "Welche Tags gibt es?", "Zeig alle Tags")
+- list_sources_by_tag: Quellen nach Tag filtern (z.B. "Quellen mit Tag nrw", "Zeige kommunale Datenquellen")
+  - source_action_data sollte enthalten: tags (Liste), match_mode (all|any)
+- suggest_tags: Tags für einen Kontext vorschlagen (z.B. "Welche Tags passen zu Gemeinden in Bayern?")
+  - source_action_data sollte enthalten: context (z.B. "Gemeinden Bayern")
+- discover_sources: KI-gesteuerte Quellensuche (z.B. "Finde Datenquellen für Bundesliga-Vereine", "Suche Webseiten von Universitäten")
+  - source_action_data sollte enthalten: prompt (Suchbegriff), search_depth (quick|standard|deep)
+
+## DataSource Tags (Referenz):
+Tags kategorisieren Datenquellen für effiziente Filterung und Kategorie-Zuordnung:
+- Bundesländer: nrw, bayern, baden-wuerttemberg, hessen, niedersachsen, schleswig-holstein, etc.
+- Länder: de (Deutschland), at (Österreich), ch (Schweiz)
+- Typen: kommunal, landkreis, landesebene, oparl, ratsinformation
+- Themen: windkraft, solar, bauen, verkehr, umwelt
 
 WICHTIG bei Bestätigungen:
 - "Ja, starte die PySis-Analyse" → context_action: "analyze_pysis_execute"
@@ -126,7 +143,7 @@ WICHTIG für Entity-Daten-Analyse:
 
 Analysiere die Nachricht und gib JSON zurück:
 {{
-  "intent": "QUERY|CONTEXT_QUERY|INLINE_EDIT|COMPLEX_WRITE|NAVIGATION|SUMMARIZE|HELP|BATCH_ACTION|FACET_MANAGEMENT|CONTEXT_ACTION",
+  "intent": "QUERY|CONTEXT_QUERY|INLINE_EDIT|COMPLEX_WRITE|NAVIGATION|SUMMARIZE|HELP|BATCH_ACTION|FACET_MANAGEMENT|CONTEXT_ACTION|SOURCE_MANAGEMENT",
   "confidence": 0.0-1.0,
   "extracted_data": {{
     "query_text": "optional: der Suchtext",
@@ -143,7 +160,9 @@ Analysiere die Nachricht und gib JSON zurück:
     "facet_description": "optional: Beschreibung",
     "target_entity_types": "optional: Liste von Entity-Typ-Slugs für Zuweisung",
     "context_action": "optional: analyze_pysis|enrich_facets|show_pysis_status|start_crawl|update_entity|create_facet|analyze_entity_data",
-    "context_action_data": "optional: zusätzliche Parameter für die Aktion (z.B. source_types für analyze_entity_data)"
+    "context_action_data": "optional: zusätzliche Parameter für die Aktion (z.B. source_types für analyze_entity_data)",
+    "source_action": "optional: list_tags|list_sources_by_tag|suggest_tags|discover_sources",
+    "source_action_data": "optional: Parameter für Source-Aktionen (z.B. tags, match_mode, context, prompt, search_depth)"
   }},
   "reasoning": "Kurze Begründung"
 }}

@@ -19,11 +19,15 @@ Die API-Dokumentation wurde in thematische Module aufgeteilt fuer bessere Uebers
 | Benachrichtigungen | [NOTIFICATIONS.md](./api/NOTIFICATIONS.md) | E-Mail, Webhooks, In-App-Benachrichtigungen, Regeln |
 | Data API | [DATA.md](./api/DATA.md) | Extraktionen, Dokumente, Gemeinden, Reports, Export |
 | Entity-Facet System | [ENTITIES.md](./api/ENTITIES.md) | Entity Types, Entities, Facet Types, Facet Values, Relations |
+| Favorites | [FAVORITES.md](./api/FAVORITES.md) | Entity-Favoriten verwalten |
 | Attachments | [ATTACHMENTS.md](./api/ATTACHMENTS.md) | Datei-Uploads, Thumbnails, KI-Analyse |
 | Enrichment | [ENRICHMENT.md](./api/ENRICHMENT.md) | KI-basierte Facet-Anreicherung |
 | KI-Assistant | [ASSISTANT.md](./api/ASSISTANT.md) | Chat, Streaming, Batch-Operationen, Wizards, Reminders |
 | Smart Query | [SMART_QUERY.md](./api/SMART_QUERY.md) | Natuerlichsprachliche Abfragen und Schreiboperationen |
+| Dashboard | [DASHBOARD.md](./api/DASHBOARD.md) | Dashboard-Widgets, Statistiken, Activity Feed, Insights |
 | PySis | [PYSIS.md](./api/PYSIS.md) | PySis-Integration, Prozesse, Felder |
+| AI Discovery | [AI_DISCOVERY.md](./api/AI_DISCOVERY.md) | KI-gesteuerte Datenquellen-Suche |
+| External APIs | [EXTERNAL_APIS.md](./api/EXTERNAL_APIS.md) | Externe API-Konfiguration und Synchronisation |
 | System | [SYSTEM.md](./api/SYSTEM.md) | Health, Konfiguration, Sicherheit, Rate Limiting |
 
 **Vollstaendige Uebersicht:** [docs/api/README.md](./api/README.md)
@@ -55,6 +59,8 @@ Die API-Dokumentation wurde in thematische Module aufgeteilt fuer bessere Uebers
 | PUT | `/admin/categories/{id}` | Kategorie aktualisieren |
 | DELETE | `/admin/categories/{id}` | Kategorie loeschen |
 | GET | `/admin/categories/{id}/stats` | Kategorie-Statistiken |
+| POST | `/admin/categories/preview-ai-setup` | KI-Setup Vorschau |
+| POST | `/admin/categories/{id}/assign-sources-by-tags` | Quellen per Tags zuordnen |
 
 ### Admin - Datenquellen (`/admin/sources`)
 
@@ -67,6 +73,43 @@ Die API-Dokumentation wurde in thematische Module aufgeteilt fuer bessere Uebers
 | PUT | `/admin/sources/{id}` | Quelle aktualisieren |
 | DELETE | `/admin/sources/{id}` | Quelle loeschen |
 | POST | `/admin/sources/{id}/reset` | Quelle zuruecksetzen |
+| GET | `/admin/sources/meta/counts` | Quellen-Zaehler |
+| GET | `/admin/sources/meta/tags` | Alle Tags |
+| GET | `/admin/sources/by-tags` | Quellen nach Tags |
+
+### Admin - API Import (`/admin/api-import`)
+
+| Methode | Endpoint | Beschreibung |
+|---------|----------|--------------|
+| GET | `/admin/api-import/templates` | Import-Templates |
+| GET | `/admin/api-import/templates/{id}` | Template-Details |
+| POST | `/admin/api-import/preview` | Import-Vorschau |
+| POST | `/admin/api-import/execute` | Import ausfuehren |
+
+### Admin - KI-Discovery (`/admin/ai-discovery`)
+
+| Methode | Endpoint | Beschreibung |
+|---------|----------|--------------|
+| GET | `/admin/ai-discovery/examples` | Beispiel-Prompts |
+| POST | `/admin/ai-discovery/discover` | Quellen suchen |
+| POST | `/admin/ai-discovery/import` | Quellen importieren |
+
+### Admin - External APIs (`/admin/external-apis`)
+
+| Methode | Endpoint | Beschreibung |
+|---------|----------|--------------|
+| GET | `/admin/external-apis` | Alle API-Konfigurationen |
+| POST | `/admin/external-apis` | Konfiguration erstellen |
+| GET | `/admin/external-apis/{id}` | Konfiguration abrufen |
+| PATCH | `/admin/external-apis/{id}` | Konfiguration aktualisieren |
+| DELETE | `/admin/external-apis/{id}` | Konfiguration loeschen |
+| POST | `/admin/external-apis/{id}/sync` | Sync starten |
+| POST | `/admin/external-apis/{id}/test` | Verbindung testen |
+| GET | `/admin/external-apis/{id}/stats` | Sync-Statistiken |
+| GET | `/admin/external-apis/{id}/records` | Sync-Records |
+| GET | `/admin/external-apis/{id}/records/{rid}` | Record-Details |
+| DELETE | `/admin/external-apis/{id}/records/{rid}` | Record loeschen |
+| GET | `/admin/external-apis/types/available` | Verfuegbare API-Typen |
 
 ### Admin - Crawler (`/admin/crawler`)
 
@@ -112,6 +155,25 @@ Die API-Dokumentation wurde in thematische Module aufgeteilt fuer bessere Uebers
 | POST | `/admin/notifications/rules` | Regel erstellen |
 | GET | `/admin/notifications/notifications` | Benachrichtigungen |
 | GET | `/admin/notifications/notifications/unread-count` | Ungelesene Anzahl |
+| GET | `/admin/notifications/device-tokens` | Device Tokens |
+| POST | `/admin/notifications/device-token` | Device Token hinzufuegen |
+| DELETE | `/admin/notifications/device-token/{token}` | Device Token loeschen |
+| POST | `/admin/notifications/device-token/{token}/deactivate` | Device Token deaktivieren |
+| GET | `/admin/notifications/preferences` | Praeferenzen abrufen |
+| PUT | `/admin/notifications/preferences` | Praeferenzen aktualisieren |
+| GET | `/admin/notifications/event-types` | Event-Typen |
+| GET | `/admin/notifications/channels` | Kanaele |
+
+### Dashboard (`/v1/dashboard`)
+
+| Methode | Endpoint | Beschreibung |
+|---------|----------|--------------|
+| GET | `/v1/dashboard/preferences` | Widget-Praeferenzen abrufen |
+| PUT | `/v1/dashboard/preferences` | Widget-Praeferenzen aktualisieren |
+| GET | `/v1/dashboard/stats` | Dashboard-Statistiken |
+| GET | `/v1/dashboard/activity` | Activity Feed |
+| GET | `/v1/dashboard/insights` | Benutzer-Insights |
+| GET | `/v1/dashboard/charts/{type}` | Chart-Daten |
 
 ### Data API (`/v1/data`)
 
@@ -273,6 +335,16 @@ Die API-Dokumentation wurde in thematische Module aufgeteilt fuer bessere Uebers
 | GET | `/v1/dashboard/preferences` | Benutzer-Praeferenzen |
 | PUT | `/v1/dashboard/preferences` | Praeferenzen speichern |
 
+### Favorites (`/v1/favorites`)
+
+| Methode | Endpoint | Beschreibung |
+|---------|----------|--------------|
+| GET | `/v1/favorites` | Favoritenliste |
+| POST | `/v1/favorites` | Favorit hinzufuegen |
+| GET | `/v1/favorites/check/{entity_id}` | Pruefen ob favorisiert |
+| DELETE | `/v1/favorites/{id}` | Favorit entfernen |
+| DELETE | `/v1/favorites/entity/{entity_id}` | Favorit per Entity-ID entfernen |
+
 ### System
 
 | Methode | Endpoint | Beschreibung |
@@ -336,4 +408,4 @@ Content-Type: application/json
 
 ---
 
-**Letzte Aktualisierung:** 2025-12-20
+**Letzte Aktualisierung:** 2025-12-21

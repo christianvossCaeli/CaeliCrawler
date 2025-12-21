@@ -59,11 +59,12 @@ async def ai_generate_category_config(
     user_intent: str,
     entity_type_name: str,
     entity_type_description: str,
+    geographic_context: str = None,
 ) -> Dict[str, Any]:
     """
     Step 2/3: Generate Category configuration with AI extraction prompt.
 
-    Returns dict with: purpose, search_terms, extraction_handler, ai_extraction_prompt
+    Returns dict with: purpose, search_terms, extraction_handler, ai_extraction_prompt, suggested_tags
 
     Raises:
         ValueError: If Azure OpenAI is not configured
@@ -75,6 +76,7 @@ async def ai_generate_category_config(
         user_intent=user_intent,
         entity_type_name=entity_type_name,
         entity_type_description=entity_type_description,
+        geographic_context=geographic_context or "Keine geografische Einschränkung",
     )
 
     try:

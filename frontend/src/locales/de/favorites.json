@@ -1,0 +1,23 @@
+{
+  "favorites": {
+    "title": "Favoriten",
+    "subtitle": "{count} Entities gespeichert",
+    "myFavorites": "Meine Favoriten",
+    "entries": "Einträge",
+    "entity": "Entity",
+    "type": "Typ",
+    "addedAt": "Hinzugefügt",
+    "addToFavorites": "Zu Favoriten hinzufügen",
+    "removeFromFavorites": "Aus Favoriten entfernen",
+    "noFavorites": "Noch keine Favoriten",
+    "noFavoritesHint": "Klicke auf das Stern-Symbol bei einer Entity, um sie zu deinen Favoriten hinzuzufügen",
+    "browseEntities": "Entities durchsuchen",
+    "showAll": "Alle anzeigen ({count})",
+    "filterByType": "Nach Typ filtern",
+    "removed": "Aus Favoriten entfernt",
+    "added": "Zu Favoriten hinzugefügt",
+    "loadError": "Favoriten konnten nicht geladen werden",
+    "removeError": "Favorit konnte nicht entfernt werden",
+    "addError": "Favorit konnte nicht hinzugefügt werden"
+  }
+}

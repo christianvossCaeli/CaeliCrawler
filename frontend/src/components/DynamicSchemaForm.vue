@@ -188,7 +188,7 @@ interface SchemaProperty {
 }
 
 interface JsonSchema {
-  type: string
+  type?: string
   properties?: Record<string, SchemaProperty>
   required?: string[]
 }

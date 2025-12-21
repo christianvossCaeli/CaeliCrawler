@@ -77,6 +77,10 @@
       "systemHealth": {
         "name": "System-Status",
         "description": "KI-Tasks und System-Gesundheit"
+      },
+      "favorites": {
+        "name": "Favoriten",
+        "description": "Ihre Lieblings-Entities für schnellen Zugriff"
       }
     },
     "stats": {

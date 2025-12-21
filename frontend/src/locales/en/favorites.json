@@ -1,0 +1,23 @@
+{
+  "favorites": {
+    "title": "Favorites",
+    "subtitle": "{count} entities saved",
+    "myFavorites": "My Favorites",
+    "entries": "entries",
+    "entity": "Entity",
+    "type": "Type",
+    "addedAt": "Added",
+    "addToFavorites": "Add to favorites",
+    "removeFromFavorites": "Remove from favorites",
+    "noFavorites": "No favorites yet",
+    "noFavoritesHint": "Click the star icon on any entity to add it to your favorites",
+    "browseEntities": "Browse Entities",
+    "showAll": "Show all ({count})",
+    "filterByType": "Filter by type",
+    "removed": "Removed from favorites",
+    "added": "Added to favorites",
+    "loadError": "Failed to load favorites",
+    "removeError": "Failed to remove favorite",
+    "addError": "Failed to add favorite"
+  }
+}

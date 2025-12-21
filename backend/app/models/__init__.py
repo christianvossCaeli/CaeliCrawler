@@ -21,6 +21,7 @@ from app.models.location import Location  # Legacy - will be replaced by Entity
 # New Entity-Facet System
 from app.models.entity_type import EntityType
 from app.models.entity import Entity
+from app.models.category_entity_type import CategoryEntityType
 from app.models.entity_attachment import EntityAttachment, AttachmentAnalysisStatus
 from app.models.facet_type import FacetType, ValueType, AggregationMethod, TimeFilter
 from app.models.facet_value import FacetValue, FacetValueSourceType
@@ -32,6 +33,7 @@ from app.models.analysis_template import AnalysisTemplate
 from app.models.user import User, UserRole
 from app.models.user_email import UserEmailAddress
 from app.models.user_session import UserSession, DeviceType, parse_user_agent
+from app.models.device_token import DeviceToken, DevicePlatform
 
 # Notifications
 from app.models.notification import (
@@ -55,6 +57,9 @@ from app.models.user_dashboard import UserDashboardPreference
 
 # Export Jobs
 from app.models.export_job import ExportJob
+
+# User Favorites
+from app.models.user_favorite import UserFavorite
 
 # External API Integration
 from external_apis.models.external_api_config import ExternalAPIConfig, AuthType, SyncStatus
@@ -91,6 +96,7 @@ __all__ = [
     # Entity-Facet System
     "EntityType",
     "Entity",
+    "CategoryEntityType",
     "EntityAttachment",
     "AttachmentAnalysisStatus",
     "FacetType",
@@ -110,6 +116,8 @@ __all__ = [
     "UserSession",
     "DeviceType",
     "parse_user_agent",
+    "DeviceToken",
+    "DevicePlatform",
     # Notifications
     "Notification",
     "NotificationChannel",
@@ -130,6 +138,8 @@ __all__ = [
     "UserDashboardPreference",
     # Export Jobs
     "ExportJob",
+    # User Favorites
+    "UserFavorite",
     # External API Integration
     "ExternalAPIConfig",
     "AuthType",

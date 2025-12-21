@@ -389,7 +389,7 @@ async function fetchUsers() {
     if (roleFilter.value) params.role = roleFilter.value
     if (activeFilter.value !== null) params.is_active = activeFilter.value
 
-    const response = await api.get('/api/admin/users', { params })
+    const response = await api.get('/admin/users', { params })
     users.value = response.data.items
     totalUsers.value = response.data.total
   } catch (error) {
@@ -430,14 +430,14 @@ async function saveUser() {
   saving.value = true
   try {
     if (editingUser.value) {
-      await api.put(`/api/admin/users/${editingUser.value.id}`, {
+      await api.put(`/admin/users/${editingUser.value.id}`, {
         email: formData.email,
         full_name: formData.full_name,
         role: formData.role,
         is_active: formData.is_active,
       })
     } else {
-      await api.post('/api/admin/users', formData)
+      await api.post('/admin/users', formData)
     }
     dialogOpen.value = false
     await fetchUsers()
@@ -460,7 +460,7 @@ async function resetPassword() {
 
   saving.value = true
   try {
-    await api.post(`/api/admin/users/${selectedUser.value.id}/reset-password`, {
+    await api.post(`/admin/users/${selectedUser.value.id}/reset-password`, {
       new_password: newPassword.value,
     })
     passwordDialogOpen.value = false
@@ -482,7 +482,7 @@ async function deleteUser() {
 
   saving.value = true
   try {
-    await api.delete(`/api/admin/users/${selectedUser.value.id}`)
+    await api.delete(`/admin/users/${selectedUser.value.id}`)
     deleteDialogOpen.value = false
     await fetchUsers()
   } catch (error: any) {

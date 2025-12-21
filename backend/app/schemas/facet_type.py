@@ -112,6 +112,9 @@ class FacetTypeListResponse(BaseModel):
 
     items: List[FacetTypeResponse]
     total: int
+    page: int
+    per_page: int
+    pages: int
 
 
 class FacetTypeSchemaGenerateRequest(BaseModel):

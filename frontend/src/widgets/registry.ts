@@ -5,8 +5,8 @@
  * Each widget is defined with its component, default size, and metadata.
  */
 
-import { defineAsyncComponent, type Component } from 'vue'
-import type { WidgetDefinition, WidgetConfig, WidgetPosition } from './types'
+import { defineAsyncComponent } from 'vue'
+import type { WidgetDefinition, WidgetConfig } from './types'
 
 /**
  * Registry of all available widgets
@@ -165,6 +165,23 @@ export const widgetRegistry: Map<string, WidgetDefinition> = new Map([
       refreshInterval: 30000,
     },
   ],
+  [
+    'favorites',
+    {
+      id: 'favorites',
+      type: 'favorites',
+      name: 'dashboard.widgets.favorites.name',
+      description: 'dashboard.widgets.favorites.description',
+      icon: 'mdi-star',
+      defaultSize: { w: 2, h: 2 },
+      minSize: { w: 1, h: 1 },
+      maxSize: { w: 4, h: 3 },
+      component: defineAsyncComponent(
+        () => import('./components/FavoritesWidget.vue')
+      ),
+      refreshInterval: 60000,
+    },
+  ],
 ])
 
 /**
@@ -233,6 +250,12 @@ export function getDefaultWidgets(): WidgetConfig[] {
       type: 'chart-distribution',
       enabled: true,
       position: { x: 2, y: 3, w: 2, h: 2 },
+    },
+    {
+      id: 'favorites',
+      type: 'favorites',
+      enabled: true,
+      position: { x: 0, y: 5, w: 2, h: 2 },
     },
   ]
 }

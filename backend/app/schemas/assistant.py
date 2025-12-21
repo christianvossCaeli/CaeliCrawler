@@ -20,6 +20,7 @@ class IntentType(str, Enum):
     BATCH_ACTION = "batch_action"  # Bulk operation on multiple entities
     FACET_MANAGEMENT = "facet_management"  # Create, modify, or assign facet types
     CONTEXT_ACTION = "context_action"  # Action on current entity (PySis, crawl, etc.)
+    SOURCE_MANAGEMENT = "source_management"  # DataSource and Tag management
 
 
 class ViewMode(str, Enum):

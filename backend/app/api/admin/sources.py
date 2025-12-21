@@ -9,13 +9,13 @@ from urllib.parse import urlparse
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.core.deps import require_editor, require_admin
 from app.models import DataSource, Document, Category, SourceStatus, SourceType, DataSourceCategory, User
-from app.models.location import Location
 from app.schemas.data_source import (
     CategoryLink,
     DataSourceCreate,
@@ -24,6 +24,12 @@ from app.schemas.data_source import (
     DataSourceListResponse,
     DataSourceBulkImport,
     DataSourceBulkImportResult,
+    SourceCountsResponse,
+    CategoryCount,
+    TypeCount,
+    StatusCount,
+    TagsResponse,
+    TagCount,
 )
 from app.schemas.common import MessageResponse
 from app.core.exceptions import NotFoundError, ConflictError
@@ -104,43 +110,6 @@ def validate_crawler_url(url: str, allow_http: bool = True) -> Tuple[bool, str]:
 
     except Exception as e:
         return False, f"Invalid URL: {str(e)}"
-
-
-async def get_or_create_location(
-    session: AsyncSession,
-    name: str,
-    admin_level_1: Optional[str] = None,
-    country: str = "DE",
-) -> UUID:
-    """Get existing location by name or create a new one."""
-    name_normalized = Location.normalize_name(name, country)
-
-    # Try to find existing location in the same country
-    result = await session.execute(
-        select(Location).where(
-            Location.country == country,
-            Location.name_normalized == name_normalized,
-            Location.is_active.is_(True),
-        )
-    )
-    existing = result.scalar_one_or_none()
-
-    if existing:
-        return existing.id
-
-    # Create new location
-    location = Location(
-        id=uuid_module.uuid4(),
-        name=name,
-        name_normalized=name_normalized,
-        country=country,
-        admin_level_1=admin_level_1,
-        is_active=True,
-    )
-    session.add(location)
-    await session.flush()
-
-    return location.id
 
 
 async def get_categories_for_source(
@@ -250,14 +219,10 @@ def build_source_response(
         base_url=source.base_url,
         api_endpoint=source.api_endpoint,
         category_id=primary_category_id,  # From junction table, not legacy field
-        location_id=getattr(source, 'location_id', None),
-        country=source.country,
-        location_name=source.location_name,
-        region=source.region,
-        admin_level_1=source.admin_level_1,
         crawl_config=source.crawl_config,
         extra_data=source.extra_data,
         priority=source.priority,
+        tags=source.tags or [],
         status=source.status,
         last_crawl=source.last_crawl,
         last_change_detected=source.last_change_detected,
@@ -279,17 +244,16 @@ async def list_sources(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=10000),
     category_id: Optional[UUID] = Query(default=None, description="Filter by category (N:M)"),
-    entity_id: Optional[UUID] = Query(default=None, description="Filter by entity ID"),
     status: Optional[SourceStatus] = Query(default=None),
     source_type: Optional[SourceType] = Query(default=None),
     search: Optional[str] = Query(default=None),
-    location_name: Optional[str] = Query(default=None, description="Filter by location name"),
-    location_id: Optional[UUID] = Query(default=None, description="Filter by location ID"),
-    country: Optional[str] = Query(default=None, description="Filter by country code"),
+    tags: Optional[List[str]] = Query(default=None, description="Filter by tags (OR logic)"),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
     """List all data sources with pagination and filters."""
+    from sqlalchemy import or_
+
     query = select(DataSource)
 
     # Filter by category via N:M junction table
@@ -300,25 +264,19 @@ async def list_sources(
         )
         query = query.where(DataSource.id.in_(source_ids_in_cat))
 
-    # Filter by entity
-    if entity_id:
-        query = query.where(DataSource.entity_id == entity_id)
-
     if status:
         query = query.where(DataSource.status == status)
     if source_type:
         query = query.where(DataSource.source_type == source_type)
-    if country:
-        query = query.where(func.upper(DataSource.country) == country.upper())
-    if location_name:
-        query = query.where(func.lower(DataSource.location_name) == location_name.lower())
-    if location_id:
-        query = query.where(DataSource.location_id == location_id)
     if search:
         query = query.where(
             DataSource.name.ilike(f"%{search}%") |
             DataSource.base_url.ilike(f"%{search}%")
         )
+    # Filter by tags (OR logic - source must have at least one of the tags)
+    if tags:
+        tag_conditions = [DataSource.tags.contains([tag]) for tag in tags]
+        query = query.where(or_(*tag_conditions))
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
@@ -417,31 +375,17 @@ async def create_source(
             detail=f"A source with URL '{data.base_url}' already exists",
         )
 
-    # Get or default country
-    country = data.country or "DE"
-
-    # Auto-link or create location if name is provided
-    location_id = data.location_id
-    if not location_id and data.location_name:
-        location_id = await get_or_create_location(
-            session, data.location_name, data.admin_level_1, country
-        )
-
     source = DataSource(
         category_id=primary_category_id,  # Legacy field
         name=data.name,
         source_type=data.source_type,
         base_url=data.base_url,
         api_endpoint=data.api_endpoint,
-        country=country,
-        location_id=location_id,
-        location_name=data.location_name,
-        region=data.region,
-        admin_level_1=data.admin_level_1,
         crawl_config=data.crawl_config.model_dump() if data.crawl_config else {},
         auth_config=data.auth_config,
         extra_data=data.extra_data,
         priority=data.priority,
+        tags=data.tags,
     )
     session.add(source)
     await session.flush()  # Get ID
@@ -456,6 +400,84 @@ async def create_source(
     categories = await get_categories_for_source(session, source.id)
 
     return build_source_response(source, categories)
+
+
+class SourceBriefResponse(BaseModel):
+    """Brief response for source listing (used in tag-based search)."""
+    id: UUID
+    name: str
+    base_url: str
+    source_type: SourceType
+    tags: List[str]
+    category_ids: List[UUID]
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/by-tags", response_model=List[SourceBriefResponse])
+async def get_sources_by_tags(
+    tags: List[str] = Query(..., min_length=1, description="Tags to filter by"),
+    match_mode: str = Query(default="all", regex="^(all|any)$", description="Match mode: 'all' (AND) or 'any' (OR)"),
+    exclude_category_id: Optional[UUID] = Query(default=None, description="Exclude sources already in this category"),
+    limit: int = Query(default=1000, ge=1, le=5000),
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
+):
+    """
+    Find DataSources by tags with AND/OR logic.
+
+    **match_mode:**
+    - `all`: Source must have ALL specified tags (AND logic)
+    - `any`: Source must have at least ONE of the specified tags (OR logic)
+
+    **exclude_category_id:**
+    If provided, excludes sources that are already linked to this category.
+
+    This endpoint is useful for:
+    - Finding sources to assign to a category
+    - Tag-based filtering and management
+    """
+    from sqlalchemy import and_, or_
+
+    query = select(DataSource)
+
+    if match_mode == "all":
+        # AND logic: source must have ALL tags
+        for tag in tags:
+            query = query.where(DataSource.tags.contains([tag]))
+    else:
+        # OR logic: source must have at least one tag
+        tag_conditions = [DataSource.tags.contains([tag]) for tag in tags]
+        query = query.where(or_(*tag_conditions))
+
+    # Exclude sources already in the specified category
+    if exclude_category_id:
+        sources_in_category = (
+            select(DataSourceCategory.data_source_id)
+            .where(DataSourceCategory.category_id == exclude_category_id)
+        )
+        query = query.where(~DataSource.id.in_(sources_in_category))
+
+    query = query.order_by(DataSource.name).limit(limit)
+    result = await session.execute(query)
+    sources = result.scalars().all()
+
+    # Bulk load category IDs for response
+    source_ids = [s.id for s in sources]
+    category_mapping = await get_categories_for_sources_bulk(session, source_ids)
+
+    return [
+        SourceBriefResponse(
+            id=s.id,
+            name=s.name,
+            base_url=s.base_url,
+            source_type=s.source_type,
+            tags=s.tags or [],
+            category_ids=[cat.id for cat in category_mapping.get(s.id, [])],
+        )
+        for s in sources
+    ]
 
 
 @router.get("/{source_id}", response_model=DataSourceResponse)
@@ -531,17 +553,6 @@ async def update_source(
     if "crawl_config" in update_data and update_data["crawl_config"]:
         update_data["crawl_config"] = update_data["crawl_config"].model_dump()
 
-    # Auto-link location if name is provided but no ID
-    if "location_name" in update_data and update_data.get("location_name"):
-        if not update_data.get("location_id") and not source.location_id:
-            country = update_data.get("country") or source.country or "DE"
-            update_data["location_id"] = await get_or_create_location(
-                session,
-                update_data["location_name"],
-                update_data.get("admin_level_1") or source.admin_level_1,
-                country,
-            )
-
     for field, value in update_data.items():
         setattr(source, field, value)
 
@@ -579,14 +590,23 @@ async def bulk_import_sources(
     _: User = Depends(require_admin),
 ):
     """
-    Bulk import data sources from a list.
+    Bulk import data sources from a list with N:M category support and tags.
 
     **Security**: All URLs are validated against SSRF attacks (internal networks blocked).
+
+    Features:
+    - Multiple categories per source (N:M relation)
+    - Default tags applied to all sources
+    - Per-source tags merged with default tags
+    - CSV format support: Name;URL;SourceType;Tags
     """
-    # Verify category exists
-    category = await session.get(Category, data.category_id)
-    if not category:
-        raise NotFoundError("Category", str(data.category_id))
+    # Verify all categories exist
+    categories = []
+    for cat_id in data.category_ids:
+        category = await session.get(Category, cat_id)
+        if not category:
+            raise NotFoundError("Category", str(cat_id))
+        categories.append(category)
 
     imported = 0
     skipped = 0
@@ -603,11 +623,10 @@ async def bulk_import_sources(
                 })
                 continue
 
-            # Check for duplicate
+            # Check for duplicate by URL across all sources (not per-category)
             if data.skip_duplicates:
                 existing = await session.execute(
                     select(DataSource).where(
-                        DataSource.category_id == data.category_id,
                         DataSource.base_url == item.base_url,
                     )
                 )
@@ -615,14 +634,28 @@ async def bulk_import_sources(
                     skipped += 1
                     continue
 
+            # Combine default_tags with item-specific tags (no duplicates)
+            combined_tags = list(set(data.default_tags + item.tags))
+
             source = DataSource(
-                category_id=data.category_id,
                 name=item.name,
                 source_type=item.source_type,
                 base_url=item.base_url,
+                tags=combined_tags,
                 extra_data=item.extra_data,
             )
             session.add(source)
+            await session.flush()  # Get the source ID
+
+            # Create N:M category associations
+            for idx, category in enumerate(categories):
+                assoc = DataSourceCategory(
+                    data_source_id=source.id,
+                    category_id=category.id,
+                    is_primary=(idx == 0),  # First category is primary
+                )
+                session.add(assoc)
+
             imported += 1
 
         except Exception as e:
@@ -638,89 +671,6 @@ async def bulk_import_sources(
         skipped=skipped,
         errors=errors,
     )
-
-
-@router.get("/meta/countries")
-async def get_source_countries(
-    session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
-):
-    """Get list of countries that have data sources."""
-    query = (
-        select(DataSource.country, func.count(DataSource.id).label("count"))
-        .where(DataSource.country.isnot(None))
-        .group_by(DataSource.country)
-        .order_by(func.count(DataSource.id).desc())
-    )
-    result = await session.execute(query)
-
-    # Map country codes to names
-    country_names = {
-        "DE": "Deutschland",
-        "GB": "United Kingdom",
-        "AT": "Österreich",
-        "CH": "Schweiz",
-        "FR": "Frankreich",
-        "NL": "Niederlande",
-        "BE": "Belgien",
-        "PL": "Polen",
-        "CZ": "Tschechien",
-        "DK": "Dänemark",
-    }
-
-    countries = []
-    for row in result.all():
-        if row.country:
-            countries.append({
-                "code": row.country,
-                "name": country_names.get(row.country, row.country),
-                "source_count": row.count,
-            })
-
-    return countries
-
-
-@router.get("/meta/locations")
-async def get_source_locations(
-    country: Optional[str] = Query(None, description="Filter by country code"),
-    search: Optional[str] = Query(None, min_length=2, description="Search location name"),
-    limit: int = Query(default=50, ge=1, le=200),
-    session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
-):
-    """Get list of locations that have data sources (for filtering)."""
-    query = (
-        select(
-            DataSource.location_name,
-            DataSource.country,
-            func.count(DataSource.id).label("count")
-        )
-        .where(
-            DataSource.location_name.isnot(None),
-            DataSource.location_name != "",
-        )
-        .group_by(DataSource.location_name, DataSource.country)
-        .order_by(func.count(DataSource.id).desc())
-    )
-
-    if country:
-        query = query.where(DataSource.country == country.upper())
-
-    if search:
-        query = query.where(DataSource.location_name.ilike(f"%{search}%"))
-
-    query = query.limit(limit)
-    result = await session.execute(query)
-
-    locations = []
-    for row in result.all():
-        locations.append({
-            "name": row.location_name,
-            "country": row.country,
-            "source_count": row.count,
-        })
-
-    return locations
 
 
 @router.post("/{source_id}/reset", response_model=MessageResponse)
@@ -741,7 +691,7 @@ async def reset_source(
     return MessageResponse(message=f"Source '{source.name}' reset to pending")
 
 
-@router.get("/meta/counts")
+@router.get("/meta/counts", response_model=SourceCountsResponse)
 async def get_source_counts(
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
@@ -774,12 +724,12 @@ async def get_source_counts(
     )
     category_result = await session.execute(category_counts_query)
     categories = [
-        {
-            "id": str(row.id),
-            "name": row.name,
-            "slug": row.slug,
-            "count": row.count,
-        }
+        CategoryCount(
+            id=str(row.id),
+            name=row.name,
+            slug=row.slug,
+            count=row.count,
+        )
         for row in category_result.all()
     ]
 
@@ -791,7 +741,7 @@ async def get_source_counts(
     )
     type_result = await session.execute(type_counts_query)
     types = [
-        {"type": row.source_type.value if row.source_type else None, "count": row.count}
+        TypeCount(type=row.source_type.value if row.source_type else None, count=row.count)
         for row in type_result.all()
     ]
 
@@ -803,13 +753,44 @@ async def get_source_counts(
     )
     status_result = await session.execute(status_counts_query)
     statuses = [
-        {"status": row.status.value if row.status else None, "count": row.count}
+        StatusCount(status=row.status.value if row.status else None, count=row.count)
         for row in status_result.all()
     ]
 
-    return {
-        "total": total,
-        "categories": categories,
-        "types": types,
-        "statuses": statuses,
-    }
+    return SourceCountsResponse(
+        total=total,
+        categories=categories,
+        types=types,
+        statuses=statuses,
+    )
+
+
+@router.get("/meta/tags", response_model=TagsResponse)
+async def get_available_tags(
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
+):
+    """
+    Get all unique tags currently used across DataSources.
+
+    Returns a list of tags with their usage counts, sorted by frequency.
+    This allows the UI to offer autocomplete suggestions based on existing tags.
+    """
+    # PostgreSQL: unnest the JSONB tags array and count occurrences
+    # This is more efficient than loading all sources and counting in Python
+    result = await session.execute(
+        select(
+            func.jsonb_array_elements_text(DataSource.tags).label("tag"),
+            func.count().label("count"),
+        )
+        .where(DataSource.tags != [])  # Skip sources with no tags
+        .group_by(func.jsonb_array_elements_text(DataSource.tags))
+        .order_by(func.count().desc())
+    )
+
+    tags = [
+        TagCount(tag=row.tag, count=row.count)
+        for row in result.all()
+    ]
+
+    return TagsResponse(tags=tags)

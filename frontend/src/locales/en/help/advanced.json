@@ -339,6 +339,7 @@
       },
       "entities": {
         "title": "Entities",
+        "note": "Entities are linked to documents and data sources via FacetValues. The traceability chain is: Entity → FacetValues → Documents → DataSources",
         "endpoints": {
           "list": "All entities (with filters)",
           "create": "Create entity",
@@ -347,6 +348,9 @@
           "delete": "Delete entity",
           "brief": "Brief overview",
           "children": "Child entities",
+          "documents": "Linked documents (via FacetValues)",
+          "sources": "Linked data sources (via Documents)",
+          "externalData": "External API data",
           "hierarchy": "Hierarchy by type",
           "filterLocation": "Location filter options",
           "filterAttributes": "Attribute filter options"
@@ -387,6 +391,16 @@
           "csv": "CSV export",
           "changes": "Change feed",
           "webhookTest": "Test webhook"
+        }
+      },
+      "favorites": {
+        "title": "Favorites",
+        "endpoints": {
+          "list": "List favorites (paginated)",
+          "add": "Add entity to favorites",
+          "check": "Check if entity is favorited",
+          "remove": "Remove favorite by ID",
+          "removeByEntity": "Remove favorite by entity ID"
         }
       },
       "pysis": {

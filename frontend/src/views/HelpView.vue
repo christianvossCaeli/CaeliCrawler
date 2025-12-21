@@ -33,6 +33,8 @@
         <HelpSmartQuerySection />
         <HelpCategoriesSection />
         <HelpSourcesSection />
+        <HelpAiSourceDiscoverySection />
+        <HelpDataSourceTagsSection />
         <HelpCrawlerSection />
         <HelpDocumentsSection />
         <HelpMunicipalitiesSection />
@@ -42,6 +44,10 @@
         <HelpResultsSection />
         <HelpExportSection />
         <HelpNotificationsSection />
+        <HelpFavoritesSection />
+        <HelpAiAssistantSection />
+        <HelpUserManagementSection />
+        <HelpAuditLogSection />
         <HelpApiSection />
         <HelpTipsSection />
         <HelpSecuritySection />
@@ -83,6 +89,8 @@ import {
   HelpSmartQuerySection,
   HelpCategoriesSection,
   HelpSourcesSection,
+  HelpAiSourceDiscoverySection,
+  HelpDataSourceTagsSection,
   HelpCrawlerSection,
   HelpDocumentsSection,
   HelpMunicipalitiesSection,
@@ -92,6 +100,10 @@ import {
   HelpResultsSection,
   HelpExportSection,
   HelpNotificationsSection,
+  HelpFavoritesSection,
+  HelpAiAssistantSection,
+  HelpUserManagementSection,
+  HelpAuditLogSection,
   HelpApiSection,
   HelpTipsSection,
   HelpSecuritySection,
@@ -108,6 +120,8 @@ const sections = [
   { id: 'smart-query', title: t('help.sections.smartQuery'), icon: 'mdi-brain' },
   { id: 'categories', title: t('help.sections.categories'), icon: 'mdi-folder-multiple' },
   { id: 'sources', title: t('help.sections.sources'), icon: 'mdi-web' },
+  { id: 'ai-source-discovery', title: t('help.sections.aiSourceDiscovery'), icon: 'mdi-robot-outline' },
+  { id: 'data-source-tags', title: t('help.sections.dataSourceTags'), icon: 'mdi-tag-multiple' },
   { id: 'crawler', title: t('help.sections.crawler'), icon: 'mdi-robot' },
   { id: 'documents', title: t('help.sections.documents'), icon: 'mdi-file-document-multiple' },
   { id: 'municipalities', title: t('help.sections.municipalities'), icon: 'mdi-city' },
@@ -117,6 +131,10 @@ const sections = [
   { id: 'results', title: t('help.sections.results'), icon: 'mdi-chart-bar' },
   { id: 'export', title: t('help.sections.export'), icon: 'mdi-export' },
   { id: 'notifications', title: t('help.sections.notifications'), icon: 'mdi-bell' },
+  { id: 'favorites', title: t('help.sections.favorites'), icon: 'mdi-star' },
+  { id: 'ai-assistant', title: t('help.sections.aiAssistant'), icon: 'mdi-robot-happy' },
+  { id: 'user-management', title: t('help.sections.userManagement'), icon: 'mdi-account-group' },
+  { id: 'audit-log', title: t('help.sections.auditLog'), icon: 'mdi-history' },
   { id: 'api', title: t('help.sections.api'), icon: 'mdi-api' },
   { id: 'tips', title: t('help.sections.tips'), icon: 'mdi-lightbulb' },
   { id: 'security', title: t('help.sections.security'), icon: 'mdi-shield-lock' },

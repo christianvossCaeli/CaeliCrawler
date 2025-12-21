@@ -353,7 +353,7 @@ async function fetchLogs() {
     if (startDate.value) params.start_date = new Date(startDate.value).toISOString()
     if (endDate.value) params.end_date = new Date(endDate.value).toISOString()
 
-    const response = await api.get('/api/admin/audit', { params })
+    const response = await api.get('/admin/audit', { params })
     logs.value = response.data.items
     totalLogs.value = response.data.total
   } catch (error) {
@@ -365,7 +365,7 @@ async function fetchLogs() {
 
 async function fetchStats() {
   try {
-    const response = await api.get('/api/admin/audit/stats')
+    const response = await api.get('/admin/audit/stats')
     stats.value = response.data
   } catch (error) {
     console.error('Failed to fetch stats:', error)

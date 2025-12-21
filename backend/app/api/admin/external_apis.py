@@ -6,12 +6,13 @@ Provides CRUD operations for ExternalAPIConfig and sync management.
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import Integer, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.core.deps import require_admin
+from app.core.rate_limit import check_rate_limit
 from app.models import User
 from app.schemas.external_api import (
     ExternalAPIConfigCreate,
@@ -27,6 +28,7 @@ from app.schemas.external_api import (
     TriggerSyncRequest,
     TriggerSyncResponse,
 )
+from app.schemas.common import MessageResponse
 from external_apis.models.external_api_config import ExternalAPIConfig
 from external_apis.models.sync_record import RecordStatus, SyncRecord
 
@@ -181,7 +183,7 @@ async def update_external_api_config(
     return ExternalAPIConfigResponse.model_validate(config)
 
 
-@router.delete("/{config_id}", status_code=204)
+@router.delete("/{config_id}", response_model=MessageResponse)
 async def delete_external_api_config(
     config_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -197,8 +199,11 @@ async def delete_external_api_config(
     if not config:
         raise HTTPException(status_code=404, detail="Configuration not found")
 
+    name = config.name
     await session.delete(config)
     await session.commit()
+
+    return MessageResponse(message=f"External API configuration '{name}' deleted successfully")
 
 
 # ============================================================================
@@ -209,11 +214,15 @@ async def delete_external_api_config(
 @router.post("/{config_id}/sync", response_model=TriggerSyncResponse)
 async def trigger_sync(
     config_id: UUID,
-    request: Optional[TriggerSyncRequest] = None,
+    http_request: Request,
+    sync_request: Optional[TriggerSyncRequest] = None,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Trigger a manual sync for an external API."""
+    # Rate limit: 10 syncs per minute (external API calls)
+    await check_rate_limit(http_request, "external_api_sync", identifier=str(current_user.id))
+
     config = await session.get(ExternalAPIConfig, config_id)
     if not config:
         raise HTTPException(status_code=404, detail="Configuration not found")
@@ -383,7 +392,7 @@ async def get_sync_record(
     return SyncRecordDetail.model_validate(record)
 
 
-@router.delete("/{config_id}/records/{record_id}", status_code=204)
+@router.delete("/{config_id}/records/{record_id}", response_model=MessageResponse)
 async def delete_sync_record(
     config_id: UUID,
     record_id: UUID,
@@ -399,8 +408,11 @@ async def delete_sync_record(
     if not record or record.external_api_config_id != config_id:
         raise HTTPException(status_code=404, detail="Sync record not found")
 
+    external_id = record.external_id
     await session.delete(record)
     await session.commit()
+
+    return MessageResponse(message=f"Sync record '{external_id}' deleted successfully")
 
 
 # ============================================================================

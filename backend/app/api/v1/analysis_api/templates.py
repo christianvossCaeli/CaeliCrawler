@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.models import AnalysisTemplate, Category, EntityType
+from app.models.user import User
 from app.schemas.analysis_template import (
     AnalysisTemplateCreate,
     AnalysisTemplateUpdate,
@@ -18,6 +19,7 @@ from app.schemas.analysis_template import (
 )
 from app.schemas.common import MessageResponse
 from app.core.exceptions import NotFoundError, ConflictError
+from app.core.deps import require_editor, require_admin
 
 router = APIRouter()
 
@@ -75,6 +77,7 @@ async def list_analysis_templates(
 async def create_analysis_template(
     data: AnalysisTemplateCreate,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Create a new analysis template."""
     # Verify entity type exists
@@ -173,6 +176,7 @@ async def update_analysis_template(
     template_id: UUID,
     data: AnalysisTemplateUpdate,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
 ):
     """Update an analysis template."""
     template = await session.get(AnalysisTemplate, template_id)
@@ -203,6 +207,7 @@ async def update_analysis_template(
 async def delete_analysis_template(
     template_id: UUID,
     session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
 ):
     """Delete an analysis template."""
     template = await session.get(AnalysisTemplate, template_id)

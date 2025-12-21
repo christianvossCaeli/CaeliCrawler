@@ -281,6 +281,30 @@
           "timeFilters": "Use time-based filters for event tracking"
         }
       },
+      "entityMatching": {
+        "title": "Automatic Entity Deduplication",
+        "description": "The system automatically prevents duplicate entities through intelligent name matching.",
+        "howItWorks": {
+          "title": "How It Works",
+          "description": "When creating an entity, the system automatically checks for duplicates:",
+          "normalization": "Name Normalization - Umlauts (ae/oe/ue), case, and special characters are standardized",
+          "prefixRemoval": "Prefix Removal - 'Stadt Muenchen' and 'Muenchen' are recognized as identical",
+          "fuzzyMatching": "Similarity Matching - Slight spelling variations are automatically detected (default: 85% similarity)"
+        },
+        "examples": {
+          "title": "Examples of Automatic Matching",
+          "umlaut": "Muenchen ↔ München - Recognized as same entity",
+          "prefix": "Stadt Muenchen ↔ Muenchen - Recognized as same entity",
+          "case": "MUENCHEN ↔ muenchen - Recognized as same entity"
+        },
+        "benefits": {
+          "title": "Benefits",
+          "consistency": "No duplicate records from different spellings",
+          "aggregation": "Correct data aggregation across all import paths",
+          "quality": "Higher data quality through consistent entity assignment"
+        },
+        "tip": "Tip: Matching works across all import paths - crawling, smart query, and manual creation."
+      },
       "pysisToFacets": {
         "title": "Analyze PySis Data for Facets",
         "description": "This feature allows you to analyze PySis field values using AI and automatically extract relevant information into existing FacetTypes.",
@@ -640,6 +664,66 @@
         "basicAuth": "Basic Auth",
         "basicAuthDesc": "HTTP Basic Authentication (username/password)",
         "warning": "Test Webhook: Use the test function to check if your endpoint is reachable and responds correctly before activating the rule."
+      }
+    },
+    "favorites": {
+      "title": "Favorites",
+      "description": "The Favorites feature allows you to quickly access your most important entities. Starred entities appear in the dashboard widget and on the favorites management page.",
+      "overview": {
+        "title": "Overview",
+        "description": "Favorites give you quick access to entities you work with frequently:",
+        "quickAccess": "Quick Access",
+        "quickAccessDesc": "Jump directly to important entities from the dashboard",
+        "persistent": "Persistent",
+        "persistentDesc": "Your favorites are stored on the server and available across devices",
+        "dashboardWidget": "Dashboard Widget",
+        "dashboardWidgetDesc": "Shows your recent favorites on the dashboard"
+      },
+      "addFavorite": {
+        "title": "Adding Favorites",
+        "description": "There are several ways to add an entity to your favorites:",
+        "methods": {
+          "detailPage": "On the entity detail page, click the star icon next to the entity name",
+          "entityList": "In entity lists, use the star icon in the actions column (if available)"
+        },
+        "tip": "Tip: The star turns yellow when an entity is favorited."
+      },
+      "removeFavorite": {
+        "title": "Removing Favorites",
+        "description": "To remove an entity from your favorites:",
+        "methods": {
+          "detailPage": "On the entity detail page, click the yellow star to unfavorite",
+          "managementPage": "On the favorites management page, click the remove button"
+        }
+      },
+      "dashboardWidget": {
+        "title": "Dashboard Widget",
+        "description": "The Favorites widget on the dashboard shows:",
+        "features": {
+          "recent": "Your 8 most recently added favorites",
+          "entityType": "The entity type with icon and color",
+          "navigation": "Click any favorite to navigate directly to its detail page",
+          "showAll": "Link to view all favorites"
+        }
+      },
+      "managementPage": {
+        "title": "Favorites Management",
+        "description": "The full favorites page (accessible via Navigation → Favorites) provides:",
+        "features": {
+          "fullList": "Complete list of all your favorites with pagination",
+          "search": "Search favorites by name",
+          "filter": "Filter by entity type",
+          "sort": "Sort by date added",
+          "remove": "Remove favorites directly from the list"
+        }
+      },
+      "apiEndpoints": {
+        "title": "API Endpoints",
+        "list": "Get list of favorites (paginated)",
+        "add": "Add entity to favorites",
+        "check": "Check if entity is favorited",
+        "remove": "Remove favorite by ID",
+        "removeByEntity": "Remove favorite by entity ID"
       }
     },
     "aiAssistant": {
@@ -1235,6 +1319,138 @@
         "step1": "Click 'View Analysis' on the attachment",
         "step2": "Select the desired facet suggestions",
         "step3": "Click 'Apply Facets' to add them to the entity"
+      }
+    },
+    "aiSourceDiscovery": {
+      "title": "AI-Powered Data Source Discovery",
+      "description": "With AI-powered discovery, you can automatically find data sources from the internet - simply using natural language.",
+      "overview": {
+        "title": "Overview",
+        "description": "AI Discovery allows you to find data sources through a simple prompt:",
+        "howItWorks": "How it works",
+        "howItWorksDesc": "Enter a natural search term (e.g., 'All German Bundesliga football clubs'), and the AI will automatically search the internet for matching sources.",
+        "autoTags": "Automatic Tag Generation",
+        "autoTagsDesc": "The AI automatically generates appropriate tags based on the prompt and found data.",
+        "preview": "Preview Before Import",
+        "previewDesc": "You see all found sources in a preview and can select which ones to import."
+      },
+      "access": {
+        "title": "Access",
+        "description": "Access AI Discovery via:",
+        "sourcesView": "Data Sources → Import → AI Search",
+        "smartQuery": "Smart Query: 'Find data sources for ...'",
+        "assistant": "AI Assistant: 'Search websites of ...'"
+      },
+      "workflow": {
+        "title": "Workflow",
+        "step1": "Enter Prompt",
+        "step1Desc": "Describe what kind of data sources you want to find.",
+        "step2": "Choose Search Depth",
+        "step2Desc": "Quick (3 queries), Standard (5 queries) or Deep (8 queries)",
+        "step3": "Start Search",
+        "step3Desc": "The AI generates search strategies and searches the web.",
+        "step4": "Review Results",
+        "step4Desc": "See the found sources with automatically generated tags.",
+        "step5": "Import Selection",
+        "step5Desc": "Select the desired sources and optionally target categories."
+      },
+      "examples": {
+        "title": "Example Prompts",
+        "example1": "All German Bundesliga football clubs",
+        "example2": "Municipalities in Saxony",
+        "example3": "German universities",
+        "example4": "DAX companies",
+        "example5": "Hospitals in Bavaria"
+      },
+      "searchDepth": {
+        "title": "Search Depth",
+        "quick": "Quick",
+        "quickDesc": "3 search queries, fast results, less comprehensive",
+        "standard": "Standard",
+        "standardDesc": "5 search queries, balanced approach",
+        "deep": "Deep",
+        "deepDesc": "8 search queries, most thorough search, longer duration"
+      },
+      "tagGeneration": {
+        "title": "Automatic Tag Generation",
+        "description": "The AI generates tags based on:",
+        "fromPrompt": "From the Prompt",
+        "fromPromptDesc": "Thematic tags like 'bundesliga', 'football', 'sports'",
+        "geographic": "Geographic",
+        "geographicDesc": "Regional tags like 'de', 'nrw', 'munich'",
+        "orgType": "Organization Type",
+        "orgTypeDesc": "Type tags like 'club', 'municipality', 'company'"
+      },
+      "smartQueryIntegration": {
+        "title": "Smart Query Integration",
+        "description": "AI Discovery can also be used via Smart Query:",
+        "example1": "'Find data sources for Bundesliga clubs'",
+        "example2": "'Search websites of municipalities in Bavaria'",
+        "example3": "'Import DAX companies as data sources'",
+        "note": "The difference to CREATE_CATEGORY_SETUP: DISCOVER_SOURCES searches the internet for NEW sources, while CREATE_CATEGORY_SETUP uses existing DataSources."
+      },
+      "tips": {
+        "title": "Tips",
+        "specific": "Be specific - 'Municipalities in NRW' yields better results than 'Municipalities'",
+        "checkTags": "Review the generated tags before import and adjust if needed",
+        "categories": "Select appropriate categories to directly assign the imported sources"
+      }
+    },
+    "dataSourceTags": {
+      "title": "DataSource Tags",
+      "description": "Tags enable flexible categorization of data sources for filtering and category assignment.",
+      "overview": {
+        "title": "Overview",
+        "description": "Tags are used to categorize and filter data sources:",
+        "geographic": "Geographic Tags",
+        "geographicDesc": "States (nrw, bayern, hessen, etc.)",
+        "country": "Country Tags",
+        "countryDesc": "de, at, ch, uk",
+        "type": "Type Tags",
+        "typeDesc": "kommunal, landkreis, oparl, ratsinformation",
+        "topic": "Topic Tags",
+        "topicDesc": "windkraft, solar, bauen, verkehr"
+      },
+      "addTags": {
+        "title": "Adding Tags",
+        "description": "There are several ways to add tags to data sources:",
+        "manual": "Manual in Data Source Dialog",
+        "manualDesc": "Tags can be entered when creating or editing a data source in the 'Tags' field",
+        "bulkImport": "Via Bulk Import",
+        "bulkImportDesc": "CSV format with tags column: Name;URL;SourceType;Tags",
+        "apiImport": "Via API Import",
+        "apiImportDesc": "Default tags are automatically applied (e.g. nrw, kommunal)"
+      },
+      "categoryAssignment": {
+        "title": "Tag-based Category Assignment",
+        "description": "In the category dialog, you can assign data sources via tags:",
+        "step1": "Open the category dialog and switch to the 'Data Sources' tab",
+        "step2": "Select one or more tags",
+        "step3": "Choose the match mode (AND/OR)",
+        "step4": "Review the found data sources in the preview",
+        "step5": "Click 'Assign All' to add the data sources to the category",
+        "matchModes": {
+          "title": "Match Modes",
+          "all": "ALL Tags (AND)",
+          "allDesc": "Source must have all selected tags",
+          "any": "At least one Tag (OR)",
+          "anyDesc": "Source must have at least one of the selected tags"
+        }
+      },
+      "apiImport": {
+        "title": "API Import with Tags",
+        "description": "API import automatically creates tags based on the data source:",
+        "wikidata": "Wikidata Import",
+        "wikidataDesc": "Imports municipalities by state with automatic tags (e.g. 'nrw', 'kommunal')",
+        "oparl": "OParl Import",
+        "oparlDesc": "Imports OParl systems with tags 'de', 'oparl', 'ratsinformation'"
+      },
+      "filtering": {
+        "title": "Filtering by Tags",
+        "description": "In the data sources overview, you can filter by tags:",
+        "sidebar": "The sidebar shows all available tags with counts",
+        "click": "Click on a tag to filter",
+        "combine": "Multiple tags can be combined"
       }
     }
   }

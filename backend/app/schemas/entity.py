@@ -183,3 +183,66 @@ class EntityHierarchy(BaseModel):
     total_nodes: int = 0
 
     model_config = {"from_attributes": True}
+
+
+class LocationFilterOptionsResponse(BaseModel):
+    """Response for location filter options."""
+
+    countries: List[str] = Field(default_factory=list, description="Available countries")
+    admin_level_1: List[str] = Field(default_factory=list, description="Available admin level 1 values (states)")
+    admin_level_2: List[str] = Field(default_factory=list, description="Available admin level 2 values (districts)")
+
+
+class FilterableAttribute(BaseModel):
+    """Schema for a filterable attribute."""
+
+    key: str = Field(..., description="Attribute key in core_attributes")
+    title: str = Field(..., description="Human-readable title")
+    description: Optional[str] = Field(None, description="Attribute description")
+    type: str = Field(..., description="Attribute data type (string, integer, number)")
+    format: Optional[str] = Field(None, description="Format specification (e.g., date, email)")
+
+
+class AttributeFilterOptionsResponse(BaseModel):
+    """Response for attribute filter options."""
+
+    entity_type_slug: str = Field(..., description="Entity type slug")
+    entity_type_name: str = Field(..., description="Entity type name")
+    attributes: List[FilterableAttribute] = Field(default_factory=list, description="Filterable attributes")
+    attribute_values: Optional[Dict[str, List[str]]] = Field(
+        None, description="Distinct values for requested attribute"
+    )
+
+
+class EntityDocumentsResponse(BaseModel):
+    """Response for entity documents."""
+
+    entity_id: UUID
+    entity_name: str
+    items: List[Dict[str, Any]] = Field(default_factory=list)
+    total: int
+    page: int
+    per_page: int
+    pages: int
+
+
+class EntitySourcesResponse(BaseModel):
+    """Response for entity sources."""
+
+    entity_id: UUID
+    entity_name: str
+    items: List[Dict[str, Any]] = Field(default_factory=list)
+    total: int
+
+
+class EntityExternalDataResponse(BaseModel):
+    """Response for entity external data."""
+
+    entity_id: UUID
+    entity_name: str
+    has_external_data: bool = False
+    external_source_id: Optional[UUID] = None
+    external_source_name: Optional[str] = None
+    external_id: Optional[str] = None
+    raw_data: Optional[Dict[str, Any]] = None
+    last_synced_at: Optional[datetime] = None

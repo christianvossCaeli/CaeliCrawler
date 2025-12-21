@@ -7,7 +7,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDashboardStore } from '@/stores/dashboard'
 import BaseWidget from '../BaseWidget.vue'
-import type { WidgetDefinition, WidgetConfig, InsightItem } from '../types'
+import type { WidgetDefinition, WidgetConfig } from '../types'
 
 const props = defineProps<{
   definition: WidgetDefinition

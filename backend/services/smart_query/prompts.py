@@ -34,6 +34,7 @@ Analysiere ob der Benutzer Daten ERSTELLEN oder ÄNDERN möchte.
 - create_relation: Relation zwischen Entities erstellen
 - create_category_setup: KOMPLEXE OPERATION - Erstellt EntityType + Category + verknüpft DataSources
 - start_crawl: Crawls für DataSources starten
+- discover_sources: KI-gesteuerte Suche nach Datenquellen im Internet (z.B. "Finde alle Bundesliga-Vereine", "Suche nach Gemeinden in NRW")
 - analyze_pysis_for_facets: PySis-Felder analysieren und Facets erstellen
 - enrich_facets_from_pysis: Bestehende Facets mit PySis-Daten anreichern
 - update_entity: Entity aktualisieren
@@ -55,6 +56,7 @@ Analysiere ob der Benutzer Daten ERSTELLEN oder ÄNDERN möchte.
 - "Neuen Entity-Typ", "Neue Kategorie", "Neuen Typ" → CREATE_ENTITY_TYPE
 - "Finde alle...", "Suche nach...", "Überwache...", "Crawle..." + geografische Einschränkung → CREATE_CATEGORY_SETUP
 - "Starte Crawl", "Crawle", "Führe Crawl aus" → START_CRAWL
+- "Finde Datenquellen", "Suche Datenquellen", "Entdecke Quellen", "Importiere alle X", "Finde alle X im Internet", "Suche im Web nach X" → DISCOVER_SOURCES
 - "Analysiere PySis", "PySis zu Facets", "Extrahiere aus PySis" → ANALYZE_PYSIS_FOR_FACETS
 - "Reichere Facets an", "Befülle Facets", "Ergänze Facets mit PySis" → ENRICH_FACETS_FROM_PYSIS
 - "Neuen Facet-Typ", "Erstelle Facet-Typ", "Neuer Facet für" → CREATE_FACET_TYPE
@@ -75,6 +77,20 @@ Trigger-Phrasen für Rückgängig-Machen:
 - "Setze die Entity Y zurück"
 - "Stelle den vorherigen Zustand wieder her"
 - "Zeige mir die Änderungshistorie von Entity X"
+
+## DISCOVER_SOURCES erkennen (KI-gesteuerte Datenquellen-Suche):
+Trigger-Phrasen für Datenquellen-Suche im Internet:
+- "Finde alle deutschen Bundesliga-Vereine"
+- "Suche nach Gemeinden in NRW"
+- "Entdecke alle Universitäten in Deutschland"
+- "Importiere alle DAX-Unternehmen"
+- "Finde Datenquellen für Windparks"
+- "Suche im Web nach Gemeinden in Bayern"
+- "Durchsuche das Internet nach..."
+
+WICHTIG: Diese Operation unterscheidet sich von CREATE_CATEGORY_SETUP:
+- DISCOVER_SOURCES: Sucht im Internet nach neuen Datenquellen die noch nicht im System sind
+- CREATE_CATEGORY_SETUP: Erstellt eine Kategorie um BESTEHENDE DataSources zu crawlen
 
 ## EXPORT-OPERATIONEN erkennen:
 Trigger-Phrasen für Exports:
@@ -131,9 +147,26 @@ Trigger-Phrasen (kombiniert mit geografischer Einschränkung):
 - HH → Hamburg
 - HB → Bremen
 
+## DataSource Tags:
+DataSources werden über Tags kategorisiert und gefiltert:
+### Geografische Tags (Bundesländer):
+- nrw, bayern, baden-wuerttemberg, hessen, niedersachsen, schleswig-holstein
+- rheinland-pfalz, saarland, berlin, brandenburg, mecklenburg-vorpommern
+- sachsen, sachsen-anhalt, thueringen, hamburg, bremen
+### Länder-Tags:
+- de (Deutschland), at (Österreich), ch (Schweiz), uk (Großbritannien)
+### Typ-Tags:
+- kommunal (Gemeinden/Städte), landkreis, landesebene, bundesebene
+- oparl (OParl-API), ratsinformation
+### Themen-Tags:
+- windkraft, solar, bauen, verkehr, umwelt
+
+Bei CREATE_CATEGORY_SETUP: suggested_tags werden aus geographic_filter und Kontext abgeleitet.
+Beispiel: "Gemeinden in NRW" → suggested_tags: ["nrw", "kommunal"]
+
 Analysiere die Anfrage und gib JSON zurück:
 {{
-  "operation": "create_entity|create_entity_type|create_facet|create_relation|create_category_setup|start_crawl|analyze_pysis_for_facets|enrich_facets_from_pysis|update_entity|create_facet_type|assign_facet_type|batch_operation|delete_entity|delete_facet|batch_delete|export_query_result|undo_change|get_change_history|combined|none",
+  "operation": "create_entity|create_entity_type|create_facet|create_relation|create_category_setup|start_crawl|discover_sources|analyze_pysis_for_facets|enrich_facets_from_pysis|update_entity|create_facet_type|assign_facet_type|batch_operation|delete_entity|delete_facet|batch_delete|export_query_result|undo_change|get_change_history|combined|none",
   "entity_type": "municipality|person|organization|event",
   "entity_data": {{
     "name": "Name der Entity",
@@ -176,7 +209,8 @@ Analysiere die Anfrage und gib JSON zurück:
     "time_focus": "future_only|past_only|all",
     "target_entity_types": ["person", "event"],
     "extraction_handler": "event|default",
-    "suggested_facets": ["event_attendance", "contact"]
+    "suggested_facets": ["event_attendance", "contact"],
+    "suggested_tags": ["nrw", "kommunal"]
   }},
   "crawl_command_data": {{
     "filter_type": "location|category|source_ids|entity_name",
@@ -185,6 +219,13 @@ Analysiere die Anfrage und gib JSON zurück:
     "category_slug": "kategorie-slug",
     "source_ids": [],
     "include_all_categories": true
+  }},
+  "discover_sources_data": {{
+    "prompt": "Natürlichsprachiger Suchauftrag (z.B. 'Alle deutschen Bundesliga-Vereine', 'Gemeinden in NRW')",
+    "max_results": 50,
+    "search_depth": "quick|standard|deep",
+    "auto_import": false,
+    "category_ids": []
   }},
   "pysis_data": {{
     "entity_name": "Name der Entity (z.B. 'Gummersbach')",
@@ -361,6 +402,9 @@ AI_CATEGORY_PROMPT = """Du generierst eine Category-Konfiguration für Web-Crawl
 Name: {entity_type_name}
 Beschreibung: {entity_type_description}
 
+## Geografischer Kontext:
+{geographic_context}
+
 ## Aufgabe:
 Erstelle eine Category-Konfiguration mit einem detaillierten KI-Extraktions-Prompt.
 
@@ -369,7 +413,8 @@ Erstelle eine Category-Konfiguration mit einem detaillierten KI-Extraktions-Prom
   "purpose": "Kurze Zweckbeschreibung für die Category",
   "search_terms": ["Begriff1", "Begriff2", "Begriff3", "..."],
   "extraction_handler": "event|default",
-  "ai_extraction_prompt": "Detaillierter mehrzeiliger Prompt für die KI-Extraktion...\\n\\nMit Anweisungen...\\n\\nUnd Beispielen..."
+  "ai_extraction_prompt": "Detaillierter mehrzeiliger Prompt für die KI-Extraktion...\\n\\nMit Anweisungen...\\n\\nUnd Beispielen...",
+  "suggested_tags": ["tag1", "tag2"]
 }}
 
 ## Wichtig für search_terms:
@@ -384,6 +429,19 @@ Erstelle eine Category-Konfiguration mit einem detaillierten KI-Extraktions-Prom
 - Konkrete Beispiele was extrahiert werden soll
 - Bezug zum EntityType "{entity_type_name}"
 - Output-Format spezifizieren (JSON-Struktur)
+
+## Wichtig für suggested_tags:
+Tags werden verwendet um passende DataSources der Category zuzuordnen.
+Verfügbare Tag-Kategorien:
+- Bundesländer: nrw, bayern, baden-wuerttemberg, hessen, niedersachsen, etc.
+- Länder: de, at, ch, uk
+- Typ: kommunal, landkreis, landesebene, oparl, ratsinformation
+- Themen: windkraft, solar, bauen, verkehr, umwelt
+
+Leite Tags aus dem geografischen Kontext und Thema ab:
+- "Gemeinden in NRW" → ["nrw", "kommunal"]
+- "OParl-Daten aus Bayern" → ["bayern", "oparl"]
+- "Windkraft-Projekte in Deutschland" → ["de", "kommunal", "windkraft"]
 
 Antworte NUR mit validem JSON."""
 

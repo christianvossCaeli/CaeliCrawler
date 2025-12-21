@@ -225,6 +225,9 @@
 
     <!-- AI Chat Assistant -->
     <ChatAssistant v-if="auth.isAuthenticated" />
+
+    <!-- ARIA Live Regions for screen reader announcements -->
+    <AriaLiveRegion />
   </v-app>
 </template>
 
@@ -236,6 +239,7 @@ import { useI18n } from 'vue-i18n'
 import CaeliWindLogo from './components/CaeliWindLogo.vue'
 import ChatAssistant from './components/assistant/ChatAssistant.vue'
 import LanguageSwitcher from './components/LanguageSwitcher.vue'
+import AriaLiveRegion from './components/AriaLiveRegion.vue'
 import { useSnackbar } from './composables/useSnackbar'
 import { useAuthStore } from './stores/auth'
 import { useNotifications } from './composables/useNotifications'
@@ -287,6 +291,7 @@ const mainNavItems = computed(() => [
 ])
 
 const secondaryNavItems = computed(() => [
+  { title: t('nav.favorites'), icon: 'mdi-star', to: '/favorites' },
   { title: t('nav.notifications'), icon: 'mdi-bell-outline', to: '/notifications' },
   { title: t('nav.help'), icon: 'mdi-help-circle-outline', to: '/help' },
 ])

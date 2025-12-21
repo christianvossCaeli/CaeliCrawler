@@ -71,16 +71,13 @@ class DataSourceBase(BaseModel):
     base_url: str = Field(..., description="Base URL for the source")
     api_endpoint: Optional[str] = Field(None, description="API endpoint (for API sources)")
 
-    # Location for clustering results (international)
-    country: Optional[str] = Field(None, max_length=2, description="ISO 3166-1 alpha-2 country code")
-    location_id: Optional[UUID] = Field(None, description="FK to locations table")
-    location_name: Optional[str] = Field(None, max_length=255, description="Location name")
-    region: Optional[str] = Field(None, max_length=255, description="Region")
-    admin_level_1: Optional[str] = Field(None, max_length=100, description="State/Bundesland/Region")
-
     crawl_config: CrawlConfig = Field(default_factory=CrawlConfig, description="Crawl configuration")
     extra_data: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     priority: int = Field(default=0, description="Crawl priority (higher = more important)")
+    tags: List[str] = Field(
+        default_factory=list,
+        description="Tags for filtering/categorization (e.g., ['nrw', 'kommunal', 'windkraft'])",
+    )
 
 
 class CategoryLink(BaseModel):
@@ -109,18 +106,12 @@ class DataSourceUpdate(BaseModel):
     base_url: Optional[str] = None
     api_endpoint: Optional[str] = None
 
-    # Location for clustering (international)
-    country: Optional[str] = Field(None, max_length=2)
-    location_id: Optional[UUID] = None
-    location_name: Optional[str] = Field(None, max_length=255)
-    region: Optional[str] = Field(None, max_length=255)
-    admin_level_1: Optional[str] = Field(None, max_length=100)
-
     crawl_config: Optional[CrawlConfig] = None
     auth_config: Optional[Dict[str, Any]] = None
     extra_data: Optional[Dict[str, Any]] = None
     priority: Optional[int] = None
     status: Optional[SourceStatus] = None
+    tags: Optional[List[str]] = Field(None, description="Tags for filtering/categorization")
 
     # Category management (N:M)
     category_ids: Optional[List[UUID]] = Field(None, description="List of category IDs (replaces existing)")
@@ -133,8 +124,6 @@ class DataSourceResponse(DataSourceBase):
     id: UUID
     # Legacy category_id (nullable for N:M transition)
     category_id: Optional[UUID] = None
-    location_id: Optional[UUID] = None
-    country: Optional[str] = None
     status: SourceStatus
     last_crawl: Optional[datetime]
     last_change_detected: Optional[datetime]
@@ -169,13 +158,15 @@ class DataSourceBulkImportItem(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     base_url: str
     source_type: SourceType = Field(default=SourceType.WEBSITE)
+    tags: List[str] = Field(default_factory=list, description="Tags for this specific source")
     extra_data: Dict[str, Any] = Field(default_factory=dict)
 
 
 class DataSourceBulkImport(BaseModel):
     """Schema for bulk importing data sources."""
 
-    category_id: UUID
+    category_ids: List[UUID] = Field(..., min_length=1, description="Categories to assign (N:M)")
+    default_tags: List[str] = Field(default_factory=list, description="Tags applied to all sources")
     sources: List[DataSourceBulkImportItem] = Field(..., min_length=1, max_length=1000)
     skip_duplicates: bool = Field(default=True, description="Skip sources with duplicate URLs")
 
@@ -186,3 +177,53 @@ class DataSourceBulkImportResult(BaseModel):
     imported: int
     skipped: int
     errors: List[Dict[str, str]]
+
+
+# =============================================================================
+# Meta Endpoints Response Models
+# =============================================================================
+
+
+class CategoryCount(BaseModel):
+    """Category with source count."""
+
+    id: str
+    name: str
+    slug: str
+    count: int
+
+
+class TypeCount(BaseModel):
+    """Source type with count."""
+
+    type: Optional[str]
+    count: int
+
+
+class StatusCount(BaseModel):
+    """Source status with count."""
+
+    status: Optional[str]
+    count: int
+
+
+class SourceCountsResponse(BaseModel):
+    """Response for source counts endpoint."""
+
+    total: int = Field(..., description="Total number of sources")
+    categories: List[CategoryCount] = Field(default_factory=list, description="Counts by category")
+    types: List[TypeCount] = Field(default_factory=list, description="Counts by source type")
+    statuses: List[StatusCount] = Field(default_factory=list, description="Counts by status")
+
+
+class TagCount(BaseModel):
+    """Tag with usage count."""
+
+    tag: str
+    count: int
+
+
+class TagsResponse(BaseModel):
+    """Response for available tags endpoint."""
+
+    tags: List[TagCount] = Field(default_factory=list, description="Tags with usage counts")

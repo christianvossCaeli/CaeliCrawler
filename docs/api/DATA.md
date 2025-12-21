@@ -193,110 +193,39 @@ Extraktion verifizieren.
 
 ---
 
-## Gemeinden & Reports
-
-### GET /v1/data/municipalities
-Gemeinden-Uebersicht.
-
-**Query-Parameter:**
-| Parameter | Typ | Beschreibung |
-|-----------|-----|--------------|
-| `country` | string | Filter nach Land |
-| `admin_level_1` | string | Filter nach Bundesland |
-| `admin_level_2` | string | Filter nach Landkreis |
-| `category_id` | uuid | Filter nach Kategorie |
-| `min_confidence` | float | Min. Konfidenz |
-| `search` | string | Suche im Namen |
-| `page` | int | Seite |
-| `per_page` | int | Ergebnisse pro Seite |
-
-**Response:**
-```json
-{
-  "items": [
-    {
-      "name": "Musterstadt",
-      "country": "DE",
-      "admin_level_1": "NRW",
-      "admin_level_2": "Kreis Muster",
-      "source_count": 3,
-      "document_count": 45,
-      "relevant_count": 30,
-      "high_priority_count": 5,
-      "avg_confidence": 0.82,
-      "opportunity_score": 7.5,
-      "decision_maker_count": 3
-    }
-  ],
-  "total": 500
-}
-```
-
-### GET /v1/data/municipalities/{municipality_name}/report
-Detaillierter Gemeinde-Report.
-
-**Query-Parameter:**
-| Parameter | Typ | Beschreibung |
-|-----------|-----|--------------|
-| `category_id` | uuid | Filter nach Kategorie |
-
-**Response:**
-```json
-{
-  "municipality": "Musterstadt",
-  "category": "Windenergie",
-  "category_purpose": "Windkraft-Restriktionen analysieren",
-  "overview": {
-    "total_documents": 45,
-    "relevant_documents": 30,
-    "avg_confidence": 0.82,
-    "overall_priority": "high"
-  },
-  "decision_makers": [
-    {
-      "name": "Max Mustermann",
-      "role": "Buergermeister",
-      "contact": "buergermeister@musterstadt.de",
-      "document_ids": ["uuid1", "uuid2"]
-    }
-  ],
-  "pain_points": [
-    {
-      "text": "Strenge Abstandsregelungen von 1000m",
-      "type": "regulation",
-      "severity": "high",
-      "document_id": "uuid"
-    }
-  ],
-  "positive_signals": [
-    {
-      "text": "Grundsaetzliche Zustimmung zu erneuerbaren Energien",
-      "type": "political_support",
-      "priority": "medium",
-      "document_id": "uuid"
-    }
-  ],
-  "summaries": [
-    {
-      "document_id": "uuid",
-      "document_title": "Ratsbeschluss 2025/01",
-      "summary": "Der Rat hat beschlossen..."
-    }
-  ]
-}
-```
-
-### GET /v1/data/municipalities/{municipality_name}/documents
-Dokumente einer Gemeinde.
-
-### GET /v1/data/report/overview
-Uebersichts-Report.
-
-### GET /v1/data/history/municipalities
-Aenderungshistorie fuer Gemeinden.
+## History
 
 ### GET /v1/data/history/crawls
 Crawl-Historie.
+
+**Query-Parameter:**
+| Parameter | Typ | Beschreibung |
+|-----------|-----|--------------|
+| `source_id` | uuid | Filter nach Quelle |
+| `category_id` | uuid | Filter nach Kategorie |
+| `limit` | int | Max. Ergebnisse (default: 20) |
+
+**Response:**
+```json
+{
+  "crawls": [
+    {
+      "id": "uuid",
+      "source_id": "uuid",
+      "source_name": "Stadt Musterstadt",
+      "status": "COMPLETED",
+      "documents_found": 15,
+      "documents_new": 3,
+      "started_at": "2025-01-15T10:00:00Z",
+      "finished_at": "2025-01-15T10:05:00Z"
+    }
+  ],
+  "total": 100
+}
+```
+
+> **Hinweis:** Die Gemeinden-Reports (`/municipalities/*`) wurden durch das Entity-Facet-System ersetzt.
+> Fuer Entity-basierte Analysen siehe [ENTITIES.md](./ENTITIES.md) und [Analysis API](#analysis-api).
 
 ---
 

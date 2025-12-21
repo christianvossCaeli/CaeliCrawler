@@ -12,8 +12,8 @@ from redis.asyncio import Redis
 from app import __version__
 from app.config import settings
 from app.database import close_db, init_db
-from app.api.admin import categories, sources, crawler, pysis, locations, users, versions, audit, notifications, external_apis
-from app.api.v1 import export, entity_types, entities, facets, relations, assistant, pysis_facets, dashboard, ai_tasks, entity_data, attachments
+from app.api.admin import categories, sources, crawler, pysis, locations, users, versions, audit, notifications, external_apis, api_import, ai_discovery
+from app.api.v1 import export, entity_types, entities, facets, relations, assistant, pysis_facets, dashboard, ai_tasks, entity_data, attachments, favorites
 from app.api.v1.data_api import router as data_router
 from app.api.v1.analysis_api import router as analysis_router
 from app.api import auth
@@ -273,6 +273,16 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         prefix=f"{settings.admin_api_prefix}/external-apis",
         tags=["Admin - External APIs"],
     )
+    app.include_router(
+        api_import.router,
+        prefix=f"{settings.admin_api_prefix}/api-import",
+        tags=["Admin - API Import"],
+    )
+    app.include_router(
+        ai_discovery.router,
+        prefix=f"{settings.admin_api_prefix}/ai-discovery",
+        tags=["Admin - AI Discovery"],
+    )
 
     # Public API v1 (Legacy)
     app.include_router(
@@ -326,6 +336,11 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         dashboard.router,
         prefix=f"{settings.api_v1_prefix}/dashboard",
         tags=["API v1 - Dashboard"],
+    )
+    app.include_router(
+        favorites.router,
+        prefix=f"{settings.api_v1_prefix}/favorites",
+        tags=["API v1 - Favorites"],
     )
     app.include_router(
         ai_tasks.router,

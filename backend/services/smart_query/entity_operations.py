@@ -1,7 +1,7 @@
 """Entity, Facet, and Relation operations for Smart Query Service."""
 
-import unicodedata
 import uuid as uuid_module
+from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy import select, or_
@@ -15,6 +15,7 @@ from app.models import (
     RelationType,
     EntityRelation,
 )
+from services.entity_matching_service import EntityMatchingService
 from .utils import generate_slug
 
 
@@ -88,49 +89,50 @@ async def create_entity_from_command(
     entity_type_slug: str,
     entity_data: Dict[str, Any],
 ) -> Tuple[Optional[Entity], str]:
-    """Create a new entity from smart query command."""
-    # Get entity type
-    entity_type_result = await session.execute(
-        select(EntityType).where(EntityType.slug == entity_type_slug)
-    )
-    entity_type = entity_type_result.scalar_one_or_none()
-    if not entity_type:
-        return None, f"Entity-Typ '{entity_type_slug}' nicht gefunden"
+    """
+    Create or find an entity from smart query command.
 
+    Uses centralized EntityMatchingService for consistent:
+    - Name normalization
+    - Duplicate detection
+    - Race-condition-safe creation
+    """
     name = entity_data.get("name", "").strip()
     if not name:
         return None, "Name ist erforderlich"
 
-    slug = generate_slug(name)
+    # Use centralized EntityMatchingService for consistent entity creation
+    service = EntityMatchingService(session)
 
-    # Check for duplicates
-    existing = await session.execute(
-        select(Entity).where(
-            Entity.entity_type_id == entity_type.id,
-            or_(Entity.name == name, Entity.slug == slug),
-        )
-    )
-    if existing.scalar():
-        return None, f"Entity '{name}' existiert bereits"
-
-    # Create entity
-    name_normalized = unicodedata.normalize("NFKD", name.lower())
-    entity = Entity(
-        id=uuid_module.uuid4(),
-        entity_type_id=entity_type.id,
+    entity = await service.get_or_create_entity(
+        entity_type_slug=entity_type_slug,
         name=name,
-        name_normalized=name_normalized,
-        slug=slug,
+        country=entity_data.get("country", "DE"),
         external_id=entity_data.get("external_id"),
-        hierarchy_path=f"/{slug}",
-        hierarchy_level=0,
         core_attributes=entity_data.get("core_attributes", {}),
-        is_active=True,
+        latitude=entity_data.get("latitude"),
+        longitude=entity_data.get("longitude"),
+        admin_level_1=entity_data.get("admin_level_1"),
+        admin_level_2=entity_data.get("admin_level_2"),
+        similarity_threshold=entity_data.get("similarity_threshold", 0.85),
     )
-    session.add(entity)
-    await session.flush()
 
-    return entity, f"Entity '{name}' ({entity_type.name}) erstellt"
+    if not entity:
+        return None, f"Entity-Typ '{entity_type_slug}' nicht gefunden"
+
+    # Determine if entity was just created (within last 5 seconds)
+    was_created = entity.created_at and entity.created_at > (
+        datetime.utcnow() - timedelta(seconds=5)
+    )
+
+    # Get entity type name for message
+    entity_type = await service._get_entity_type(entity_type_slug)
+    type_name = entity_type.name if entity_type else entity_type_slug
+
+    if was_created:
+        return entity, f"Entity '{name}' ({type_name}) erstellt"
+    else:
+        return entity, f"Entity '{entity.name}' ({type_name}) gefunden"
 
 
 async def create_facet_from_command(

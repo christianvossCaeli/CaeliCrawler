@@ -21,13 +21,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
-    from app.models.data_source import DataSource
     from app.models.entity_attachment import EntityAttachment
     from app.models.entity_relation import EntityRelation
     from app.models.entity_type import EntityType
     from app.models.facet_value import FacetValue
     from app.models.reminder import Reminder
     from app.models.user import User
+    from app.models.user_favorite import UserFavorite
     from external_apis.models.external_api_config import ExternalAPIConfig
 
 
@@ -239,12 +239,6 @@ class Entity(Base):
         foreign_keys="EntityRelation.target_entity_id",
         cascade="all, delete-orphan",
     )
-    # Data sources linked to this entity
-    data_sources: Mapped[List["DataSource"]] = relationship(
-        "DataSource",
-        back_populates="entity",
-        passive_deletes=True,  # Let DB handle SET NULL on delete
-    )
     # User who created this entity
     created_by: Mapped[Optional["User"]] = relationship(
         "User",
@@ -273,6 +267,12 @@ class Entity(Base):
         "ExternalAPIConfig",
         back_populates="managed_entities",
         foreign_keys=[external_source_id],
+    )
+    # Users who favorited this entity
+    favorited_by: Mapped[List["UserFavorite"]] = relationship(
+        "UserFavorite",
+        back_populates="entity",
+        cascade="all, delete-orphan",
     )
 
     @property

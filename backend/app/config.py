@@ -136,6 +136,12 @@ class Settings(BaseSettings):
     external_api_default_sync_interval: int = 4  # hours
     external_api_max_retries: int = 3
 
+    # AI Source Discovery Settings
+    serper_api_key: str = ""  # Serper.dev API Key for web search
+    ai_discovery_max_search_results: int = 20
+    ai_discovery_max_extraction_pages: int = 10
+    ai_discovery_timeout: int = 60
+
     # API Settings
     api_v1_prefix: str = "/api/v1"
     admin_api_prefix: str = "/api/admin"

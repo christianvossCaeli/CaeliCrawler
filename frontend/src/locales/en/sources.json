@@ -5,7 +5,6 @@
     "sources": "Data Sources",
     "tabs": {
       "general": "General",
-      "location": "Location",
       "crawl": "Crawl Settings"
     },
     "loading": {
@@ -13,22 +12,19 @@
       "subtitle": "Please wait..."
     },
     "filters": {
-      "country": "Country",
-      "municipality": "Municipality",
       "category": "Category",
       "status": "Status",
       "search": "Search (Name/URL)",
       "searchPlaceholder": "Enter name or URL...",
       "noResults": "No results for",
       "typeToSearch": "Type to search...",
-      "noLocations": "No locations found",
-      "minChars": "Enter at least 2 characters...",
       "clearAll": "Clear all filters"
     },
     "sidebar": {
       "categories": "Categories",
       "types": "Source Type",
       "status": "Status",
+      "tags": "Tags",
       "all": "All",
       "expand": "Expand sidebar",
       "collapse": "Collapse sidebar"
@@ -45,9 +41,6 @@
       "baseUrl": "Base URL",
       "baseUrlHint": "e.g. https://municipality-example.com or https://oparl.city-muenster.de/system",
       "apiEndpoint": "API Endpoint (optional)",
-      "country": "Country",
-      "location": "Location (optional)",
-      "locationHint": "Type to search",
       "categories": "Categories",
       "categoriesHint": "First selected category is primary",
       "primaryCategory": "Show primary category details",
@@ -65,10 +58,12 @@
       "enabled": "Active",
       "advancedSettings": "Advanced Crawl Settings",
       "urlFilters": "URL Filters (Regex)",
-      "locationInfo": "Assign a geographic location to this data source for filtering and grouping",
       "maxDepthHint": "How many link levels to follow from the start page",
       "maxPagesHint": "Maximum number of pages to crawl",
-      "renderJsHint": "Enable for dynamic websites that require JavaScript"
+      "renderJsHint": "Enable for dynamic websites that require JavaScript",
+      "tags": "Tags",
+      "tagsLabel": "Add tags",
+      "tagsHint": "Tags for filtering/search (e.g., region, topic, source type). New tags can be entered directly."
     },
     "types": {
       "WEBSITE": "Website",
@@ -81,6 +76,7 @@
     "actions": {
       "create": "New Source",
       "bulkImport": "Bulk Import",
+      "apiImport": "API Import",
       "edit": "Edit",
       "delete": "Delete",
       "startCrawl": "Start Crawl",
@@ -127,11 +123,88 @@
       "reset": "\"{name}\" reset",
       "resetError": "Error resetting",
       "testSuccess": "Connection successful",
-      "testError": "Connection failed"
+      "testError": "Connection failed",
+      "bulkImportSuccess": "{imported} sources imported, {skipped} skipped",
+      "bulkImportError": "Bulk import failed",
+      "apiImportSuccess": "{count} sources imported from API"
     },
-    "never": "Never",
-    "fallback": {
-      "germany": "Germany"
-    }
+    "apiImport": {
+      "title": "API Import",
+      "subtitle": "Import data sources from external APIs",
+      "apiType": "API Type",
+      "template": "Template",
+      "apiUrl": "API URL",
+      "sparqlHint": "SPARQL query for Wikidata. Use ?itemLabel for names and ?website for URLs."
+    },
+    "bulk": {
+      "defaultTags": "Default Tags",
+      "defaultTagsHint": "These tags will be applied to all imported sources",
+      "csvData": "CSV Data",
+      "csvText": "Enter CSV text",
+      "csvFile": "Upload CSV file",
+      "csvFormat": "CSV format: Name;URL;SourceType;Tags",
+      "csvFormatHint": "Delimiter: semicolon (;) or comma (,). Tags separated by comma.",
+      "csvFileUpload": "Select CSV file",
+      "loadPreview": "Load Preview",
+      "preview": "Preview",
+      "entries": "entries",
+      "valid": "valid",
+      "duplicates": "duplicates",
+      "errors": "errors",
+      "moreEntries": "more entries",
+      "sourcesImport": "sources import"
+    },
+    "aiDiscovery": {
+      "title": "AI-Powered Search",
+      "subtitle": "Automatically find data sources from the internet",
+      "prompt": "What do you want to find?",
+      "promptPlaceholder": "e.g. All German Bundesliga football clubs",
+      "examples": "Examples",
+      "searchDepth": "Search Depth",
+      "quick": "Quick",
+      "standard": "Standard",
+      "deep": "Deep",
+      "includeCategorySuggestions": "Generate category suggestions",
+      "startSearch": "Start Search",
+      "searching": "Searching...",
+      "strategyGenerated": "Search strategy generated",
+      "sourcesFound": "relevant sources found",
+      "extractingData": "Extracting data",
+      "generatingTags": "Generating tags",
+      "results": "Results",
+      "baseTags": "Base Tags",
+      "additionalTags": "Additional Tags",
+      "targetCategories": "Target Categories",
+      "noCategory": "No category",
+      "selected": "selected",
+      "importSources": "Import Sources",
+      "discoverySuccess": "{count} data sources found",
+      "importSuccess": "{count} sources imported successfully",
+      "noResults": "No data sources found",
+      "error": "Search error"
+    },
+    "import": {
+      "title": "Import",
+      "bulkImport": "Bulk Import",
+      "bulkImportDesc": "Import CSV/list",
+      "apiImport": "API Import",
+      "apiImportDesc": "Wikidata, OParl, REST API",
+      "aiDiscovery": "AI Search",
+      "aiDiscoveryDesc": "AI finds data sources"
+    },
+    "validation": {
+      "nameRequired": "Name is required",
+      "nameTooShort": "Name must be at least 2 characters",
+      "nameTooLong": "Name must be at most 200 characters",
+      "urlRequired": "URL is required",
+      "urlInvalid": "Please enter a valid URL (http:// or https://)",
+      "sourceTypeRequired": "Source type is required"
+    },
+    "errors": {
+      "saveFailed": "Failed to save data source",
+      "loadFailed": "Failed to load data sources",
+      "deleteFailed": "Failed to delete data source"
+    },
+    "never": "Never"
   }
 }

@@ -97,11 +97,13 @@ def analyze_document(self, document_id: str, skip_relevance_check: bool = False)
                     )
                     return
 
-            # Get source for location info
+            # Get source info
+            # Note: location_name, region, admin_level_1 were removed from DataSource
+            # These values are now determined by AI analysis and stored on Entity
             source = await session.get(DataSource, document.source_id)
-            source_location = source.location_name if source else None
-            source_region = source.region if source else None
-            source_admin_level_1 = source.admin_level_1 if source else None
+            source_location = None  # No longer on DataSource
+            source_region = None  # No longer on DataSource
+            source_admin_level_1 = None  # No longer on DataSource
 
             # Update status
             document.processing_status = ProcessingStatus.ANALYZING
@@ -826,11 +828,12 @@ async def _convert_extractions_async(
                             source = await session.get(DataSource, doc.source_id)
 
                     # Check if municipality can be determined
+                    # Note: source.location_name was removed - municipality must come from AI extraction
                     content = extraction.final_content
                     municipality_name = (
                         content.get("municipality")
                         or content.get("source_location")
-                        or (source.location_name if source else None)
+                        # source.location_name no longer available
                     )
 
                     if not municipality_name or municipality_name.lower() in ("", "unbekannt", "null"):
@@ -870,102 +873,6 @@ async def _convert_extractions_async(
             skipped=skipped,
             errors=errors,
             total_facets=total_facets,
-        )
-
-
-@celery_app.task(name="workers.ai_tasks.sync_entity_from_source")
-def sync_entity_from_source(source_id: str):
-    """
-    Synchronize Entity from a DataSource's location_name.
-
-    Creates or updates the Entity and links the source to it.
-
-    Args:
-        source_id: UUID of the DataSource
-    """
-    import asyncio
-    asyncio.run(_sync_entity_from_source_async(source_id))
-
-
-async def _sync_entity_from_source_async(source_id: str):
-    """Async implementation of entity synchronization."""
-    from app.database import get_celery_session_context
-    from app.models import DataSource
-    from services.entity_facet_service import link_source_to_entity
-
-    async with get_celery_session_context() as session:
-        source = await session.get(DataSource, UUID(source_id))
-        if not source:
-            logger.warning("Source not found", source_id=source_id)
-            return
-
-        entity = await link_source_to_entity(session, source)
-        await session.commit()
-
-        if entity:
-            logger.info(
-                "Synchronized entity from source",
-                source_id=source_id,
-                entity_id=str(entity.id),
-                entity_name=entity.name,
-            )
-        else:
-            logger.debug("No entity created for source", source_id=source_id)
-
-
-@celery_app.task(name="workers.ai_tasks.batch_sync_entities_from_sources")
-def batch_sync_entities_from_sources():
-    """
-    Batch synchronize all DataSources to Entities.
-
-    Creates Entity records for all sources with location_name and links them.
-    """
-    import asyncio
-    asyncio.run(_batch_sync_entities_async())
-
-
-async def _batch_sync_entities_async():
-    """Async implementation of batch entity synchronization."""
-    from app.database import get_celery_session_context
-    from app.models import DataSource
-    from services.entity_facet_service import link_source_to_entity
-    from sqlalchemy import select
-
-    async with get_celery_session_context() as session:
-        # Get all sources with location_name but no entity_id
-        result = await session.execute(
-            select(DataSource)
-            .where(DataSource.location_name.isnot(None))
-            .where(DataSource.location_name != "")
-            .where(DataSource.entity_id.is_(None))
-        )
-        sources = result.scalars().all()
-
-        logger.info("Starting batch entity sync", source_count=len(sources))
-
-        linked = 0
-        errors = 0
-
-        for source in sources:
-            try:
-                entity = await link_source_to_entity(session, source)
-                if entity:
-                    linked += 1
-            except Exception as e:
-                errors += 1
-                logger.warning(
-                    "Failed to link source to entity",
-                    source_id=str(source.id),
-                    error=str(e),
-                )
-
-        await session.commit()
-
-        logger.info(
-            "Batch entity sync completed",
-            linked=linked,
-            errors=errors,
-            total_sources=len(sources),
         )
 
 

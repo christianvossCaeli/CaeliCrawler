@@ -27,13 +27,14 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 # Valid extraction handlers
 VALID_EXTRACTION_HANDLERS = ("default", "event")
 
-# Cron expression regex pattern (5 or 6 fields)
+# Cron expression regex pattern (5 fields)
+# Supports: *, */n, ranges (1-5), lists (1,3,5), and combinations
 CRON_PATTERN = re.compile(
-    r"^(\*|([0-9]|[1-5][0-9])(-([0-9]|[1-5][0-9]))?(,([0-9]|[1-5][0-9])(-([0-9]|[1-5][0-9]))?)*(/[0-9]+)?)\s+"  # minute
-    r"(\*|([0-9]|1[0-9]|2[0-3])(-([0-9]|1[0-9]|2[0-3]))?(,([0-9]|1[0-9]|2[0-3])(-([0-9]|1[0-9]|2[0-3]))?)*(/[0-9]+)?)\s+"  # hour
-    r"(\*|([1-9]|[12][0-9]|3[01])(-([1-9]|[12][0-9]|3[01]))?(,([1-9]|[12][0-9]|3[01])(-([1-9]|[12][0-9]|3[01]))?)*(/[0-9]+)?)\s+"  # day of month
-    r"(\*|([1-9]|1[0-2])(-([1-9]|1[0-2]))?(,([1-9]|1[0-2])(-([1-9]|1[0-2]))?)*(/[0-9]+)?)\s+"  # month
-    r"(\*|([0-6])(-([0-6]))?(,([0-6])(-([0-6]))?)*(/[0-9]+)?)$"  # day of week
+    r"^(\*(/[0-9]+)?|([0-9]|[1-5][0-9])(-([0-9]|[1-5][0-9]))?(,([0-9]|[1-5][0-9])(-([0-9]|[1-5][0-9]))?)*(/[0-9]+)?)\s+"  # minute
+    r"(\*(/[0-9]+)?|([0-9]|1[0-9]|2[0-3])(-([0-9]|1[0-9]|2[0-3]))?(,([0-9]|1[0-9]|2[0-3])(-([0-9]|1[0-9]|2[0-3]))?)*(/[0-9]+)?)\s+"  # hour
+    r"(\*(/[0-9]+)?|([1-9]|[12][0-9]|3[01])(-([1-9]|[12][0-9]|3[01]))?(,([1-9]|[12][0-9]|3[01])(-([1-9]|[12][0-9]|3[01]))?)*(/[0-9]+)?)\s+"  # day of month
+    r"(\*(/[0-9]+)?|([1-9]|1[0-2])(-([1-9]|1[0-2]))?(,([1-9]|1[0-2])(-([1-9]|1[0-2]))?)*(/[0-9]+)?)\s+"  # month
+    r"(\*(/[0-9]+)?|([0-6])(-([0-6]))?(,([0-6])(-([0-6]))?)*(/[0-9]+)?)$"  # day of week
 )
 
 # Known ISO 639-1 language codes
@@ -350,3 +351,154 @@ class CategoryStats(BaseModel):
     extracted_count: int
     last_crawl: Optional[datetime]
     active_jobs: int
+
+
+# =============================================================================
+# AI Setup Preview Schemas
+# =============================================================================
+
+
+class EntityTypeSuggestion(BaseModel):
+    """Suggested EntityType for AI setup - can be new or existing."""
+
+    id: Optional[UUID] = Field(None, description="UUID if existing, None if new")
+    name: str = Field(..., description="EntityType name")
+    slug: str = Field(..., description="EntityType slug")
+    name_plural: str = Field(..., description="Plural name")
+    description: str = Field(..., description="Description")
+    icon: str = Field(default="mdi-folder", description="Material Design icon")
+    color: str = Field(default="#2196F3", description="Color hex code")
+    attribute_schema: dict = Field(default_factory=dict, description="JSON schema for attributes")
+    is_new: bool = Field(default=True, description="True if this would create a new EntityType")
+
+
+class FacetTypeSuggestion(BaseModel):
+    """Suggested FacetType for AI setup - can be new or existing."""
+
+    id: Optional[UUID] = Field(None, description="UUID if existing, None if new")
+    name: str = Field(..., description="FacetType name")
+    slug: str = Field(..., description="FacetType slug")
+    name_plural: str = Field(..., description="Plural name")
+    description: str = Field(..., description="Description")
+    value_type: str = Field(default="text", description="Value type (text, number, date, etc.)")
+    value_schema: dict = Field(default_factory=dict, description="JSON schema for values")
+    icon: str = Field(default="mdi-tag", description="Material Design icon")
+    color: str = Field(default="#4CAF50", description="Color hex code")
+    is_new: bool = Field(default=True, description="True if this would create a new FacetType")
+    selected: bool = Field(default=True, description="Whether this facet type is selected for creation")
+
+
+class CategoryAiSetupPreview(BaseModel):
+    """
+    Preview response for AI-generated category setup.
+
+    Contains suggestions that the user can review and modify before saving.
+    """
+
+    # Suggested EntityType
+    suggested_entity_type: EntityTypeSuggestion = Field(
+        ..., description="Suggested EntityType configuration"
+    )
+
+    # List of existing EntityTypes user can choose instead
+    existing_entity_types: List[EntityTypeSuggestion] = Field(
+        default_factory=list,
+        description="Existing EntityTypes that might be suitable",
+    )
+
+    # Suggested FacetTypes
+    suggested_facet_types: List[FacetTypeSuggestion] = Field(
+        default_factory=list,
+        description="Suggested FacetTypes for this category",
+    )
+
+    # Existing FacetTypes that might be reusable
+    existing_facet_types: List[FacetTypeSuggestion] = Field(
+        default_factory=list,
+        description="Existing FacetTypes that could be reused",
+    )
+
+    # Generated extraction prompt
+    suggested_extraction_prompt: str = Field(
+        ..., description="AI-generated extraction prompt"
+    )
+
+    # Generated search terms
+    suggested_search_terms: List[str] = Field(
+        default_factory=list,
+        description="Suggested search terms",
+    )
+
+    # Generated URL patterns
+    suggested_url_include_patterns: List[str] = Field(
+        default_factory=list,
+        description="Suggested URL include patterns",
+    )
+    suggested_url_exclude_patterns: List[str] = Field(
+        default_factory=list,
+        description="Suggested URL exclude patterns",
+    )
+
+    # Reasoning/explanation for suggestions
+    reasoning: str = Field(
+        default="",
+        description="AI explanation for the suggestions",
+    )
+
+
+class CategoryAiSetupRequest(BaseModel):
+    """Request for generating AI setup preview for a category."""
+
+    name: str = Field(..., min_length=1, max_length=255, description="Category name")
+    purpose: str = Field(..., min_length=1, description="Purpose/intent for this category")
+    description: Optional[str] = Field(None, description="Optional additional description")
+
+
+class CategoryCreateWithAiSetup(CategoryCreate):
+    """
+    Extended category creation schema that includes AI setup selections.
+
+    This is used when the user has reviewed the AI preview and selected
+    what EntityType/FacetTypes to create or reuse.
+    """
+
+    # EntityType selection
+    create_new_entity_type: bool = Field(
+        default=True,
+        description="If true, create new EntityType from ai_entity_type_config",
+    )
+    use_existing_entity_type_id: Optional[UUID] = Field(
+        None,
+        description="If create_new_entity_type is false, use this existing EntityType",
+    )
+    ai_entity_type_config: Optional[EntityTypeSuggestion] = Field(
+        None,
+        description="EntityType config to create (if create_new_entity_type is true)",
+    )
+
+    # FacetTypes to create
+    facet_types_to_create: List[FacetTypeSuggestion] = Field(
+        default_factory=list,
+        description="New FacetTypes to create and associate with the EntityType",
+    )
+
+    # Existing FacetTypes to associate
+    facet_type_ids_to_associate: List[UUID] = Field(
+        default_factory=list,
+        description="Existing FacetType IDs to associate with the EntityType",
+    )
+
+    @model_validator(mode="after")
+    def validate_entity_type_selection(self):
+        """Ensure either new EntityType config or existing ID is provided."""
+        if self.create_new_entity_type:
+            if not self.ai_entity_type_config:
+                raise ValueError(
+                    "ai_entity_type_config required when create_new_entity_type is true"
+                )
+        else:
+            if not self.use_existing_entity_type_id:
+                raise ValueError(
+                    "use_existing_entity_type_id required when create_new_entity_type is false"
+                )
+        return self

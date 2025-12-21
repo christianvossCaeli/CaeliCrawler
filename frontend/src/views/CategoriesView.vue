@@ -136,6 +136,13 @@
             <v-icon start>mdi-robot</v-icon>
             {{ $t('categories.tabs.ai') }}
           </v-tab>
+          <v-tab v-if="editMode" value="dataSources">
+            <v-icon start>mdi-database</v-icon>
+            {{ $t('categories.tabs.dataSources') }}
+            <v-chip v-if="selectedCategory?.source_count" size="x-small" color="primary" class="ml-1">
+              {{ selectedCategory.source_count }}
+            </v-chip>
+          </v-tab>
         </v-tabs>
 
         <v-card-text class="pa-6 dialog-content-lg">
@@ -373,6 +380,162 @@
                   :hint="$t('categories.form.aiPromptHint')"
                   persistent-hint
                 ></v-textarea>
+              </v-window-item>
+
+              <!-- DataSources Tab (only in edit mode) -->
+              <v-window-item v-if="editMode" value="dataSources">
+                <v-alert type="info" variant="tonal" class="mb-4">
+                  <div class="d-flex align-center">
+                    <v-icon start>mdi-tag-multiple</v-icon>
+                    {{ $t('categories.dataSourcesTab.description') }}
+                  </div>
+                </v-alert>
+
+                <!-- Tag Filter Section -->
+                <v-card variant="outlined" class="mb-4">
+                  <v-card-title class="text-subtitle-1 pb-2">
+                    <v-icon start color="primary">mdi-filter</v-icon>
+                    {{ $t('categories.dataSourcesTab.filterByTags') }}
+                  </v-card-title>
+                  <v-card-text>
+                    <v-row>
+                      <v-col cols="12" md="8">
+                        <v-combobox
+                          v-model="dataSourcesTab.selectedTags"
+                          :items="availableTags"
+                          :label="$t('categories.dataSourcesTab.filterByTags')"
+                          multiple
+                          chips
+                          closable-chips
+                          variant="outlined"
+                          density="compact"
+                          @update:model-value="searchSourcesByTags"
+                        >
+                          <template v-slot:chip="{ item, props }">
+                            <v-chip v-bind="props" color="primary" variant="tonal">
+                              <v-icon start size="small">mdi-tag</v-icon>
+                              {{ item.raw }}
+                            </v-chip>
+                          </template>
+                        </v-combobox>
+                      </v-col>
+                      <v-col cols="12" md="4">
+                        <v-radio-group v-model="dataSourcesTab.matchMode" inline hide-details>
+                          <v-radio value="all" :label="$t('categories.dataSourcesTab.matchAll')">
+                            <template v-slot:label>
+                              <span class="text-caption">{{ $t('categories.dataSourcesTab.matchAll') }}</span>
+                            </template>
+                          </v-radio>
+                          <v-radio value="any" :label="$t('categories.dataSourcesTab.matchAny')">
+                            <template v-slot:label>
+                              <span class="text-caption">{{ $t('categories.dataSourcesTab.matchAny') }}</span>
+                            </template>
+                          </v-radio>
+                        </v-radio-group>
+                      </v-col>
+                    </v-row>
+                  </v-card-text>
+                </v-card>
+
+                <!-- Results Section -->
+                <v-card variant="outlined">
+                  <v-card-title class="text-subtitle-1 d-flex align-center justify-space-between">
+                    <div>
+                      <v-icon start color="secondary">mdi-database-search</v-icon>
+                      {{ $t('categories.dataSourcesTab.foundSources') }}
+                      <v-chip v-if="dataSourcesTab.foundSources.length" size="small" color="info" class="ml-2">
+                        {{ dataSourcesTab.foundSources.length }}
+                      </v-chip>
+                    </div>
+                    <div v-if="dataSourcesTab.foundSources.length > 0">
+                      <v-btn
+                        size="small"
+                        variant="tonal"
+                        color="primary"
+                        :loading="dataSourcesTab.assigning"
+                        @click="assignSourcesByTags"
+                      >
+                        <v-icon start>mdi-link-plus</v-icon>
+                        {{ $t('categories.dataSourcesTab.assignAll') }} ({{ dataSourcesTab.foundSources.length }})
+                      </v-btn>
+                    </div>
+                  </v-card-title>
+                  <v-card-text>
+                    <!-- Loading state -->
+                    <div v-if="dataSourcesTab.loading" class="text-center py-8">
+                      <v-progress-circular indeterminate color="primary" class="mb-2"></v-progress-circular>
+                      <div class="text-caption">{{ $t('categories.dataSourcesTab.loading') }}</div>
+                    </div>
+
+                    <!-- No tags selected -->
+                    <v-alert v-else-if="!dataSourcesTab.selectedTags.length" type="info" variant="tonal">
+                      {{ $t('categories.dataSourcesTab.noTagsSelected') }}
+                    </v-alert>
+
+                    <!-- No results -->
+                    <v-alert v-else-if="!dataSourcesTab.foundSources.length" type="warning" variant="tonal">
+                      {{ $t('categories.dataSourcesTab.noSourcesFound') }}
+                    </v-alert>
+
+                    <!-- Results list -->
+                    <v-list v-else lines="two" class="sources-result-list">
+                      <v-list-item
+                        v-for="source in dataSourcesTab.foundSources.slice(0, 50)"
+                        :key="source.id"
+                        :title="source.name"
+                        :subtitle="source.base_url"
+                      >
+                        <template v-slot:prepend>
+                          <v-avatar :color="getStatusColor(source.status)" size="36">
+                            <v-icon size="small" :color="getContrastColor(getStatusColor(source.status))">
+                              {{ getSourceTypeIcon(source.source_type) }}
+                            </v-icon>
+                          </v-avatar>
+                        </template>
+                        <template v-slot:append>
+                          <div class="d-flex align-center ga-2">
+                            <div class="d-flex flex-wrap ga-1">
+                              <v-chip
+                                v-for="tag in (source.tags || []).slice(0, 3)"
+                                :key="tag"
+                                size="x-small"
+                                color="primary"
+                                variant="outlined"
+                              >
+                                {{ tag }}
+                              </v-chip>
+                              <v-chip
+                                v-if="(source.tags || []).length > 3"
+                                size="x-small"
+                                color="grey"
+                              >
+                                +{{ source.tags.length - 3 }}
+                              </v-chip>
+                            </div>
+                            <v-chip
+                              v-if="source.is_assigned"
+                              size="x-small"
+                              color="success"
+                              variant="tonal"
+                            >
+                              <v-icon start size="x-small">mdi-check</v-icon>
+                              {{ $t('categories.dataSourcesTab.alreadyAssigned') }}
+                            </v-chip>
+                          </div>
+                        </template>
+                      </v-list-item>
+                      <v-list-item v-if="dataSourcesTab.foundSources.length > 50" class="text-center text-medium-emphasis">
+                        ... {{ $t('sources.bulk.moreEntries', { count: dataSourcesTab.foundSources.length - 50 }) }}
+                      </v-list-item>
+                    </v-list>
+                  </v-card-text>
+                </v-card>
+
+                <!-- Current assigned count -->
+                <v-alert v-if="selectedCategory?.source_count" type="success" variant="tonal" class="mt-4">
+                  <v-icon start>mdi-check-circle</v-icon>
+                  {{ $t('categories.dataSourcesTab.currentlyAssigned') }}: <strong>{{ selectedCategory.source_count }}</strong> {{ $t('categories.crawler.sourcesCount') }}
+                </v-alert>
               </v-window-item>
             </v-window>
           </v-form>
@@ -679,6 +842,197 @@
       </v-card>
     </v-dialog>
 
+    <!-- AI Setup Preview Dialog -->
+    <v-dialog v-model="aiPreviewDialog" max-width="900" persistent scrollable>
+      <v-card>
+        <v-card-title class="d-flex align-center pa-4 bg-info">
+          <v-avatar color="info-darken-1" size="40" class="mr-3">
+            <v-icon color="on-info">mdi-robot</v-icon>
+          </v-avatar>
+          <div>
+            <div class="text-h6">{{ $t('categories.aiPreview.title') }}</div>
+            <div class="text-caption opacity-80">{{ $t('categories.aiPreview.subtitle') }}</div>
+          </div>
+        </v-card-title>
+
+        <v-card-text v-if="aiPreviewLoading" class="pa-6 text-center">
+          <v-progress-circular indeterminate color="info" size="64" class="mb-4"></v-progress-circular>
+          <div class="text-h6">{{ $t('categories.aiPreview.generating') }}</div>
+          <div class="text-body-2 text-medium-emphasis">{{ $t('categories.aiPreview.generatingHint') }}</div>
+        </v-card-text>
+
+        <v-card-text v-else-if="aiPreviewData" class="pa-6">
+          <!-- EntityType Section -->
+          <v-card variant="outlined" class="mb-4">
+            <v-card-title class="text-subtitle-1 pb-2">
+              <v-icon start color="primary">mdi-shape</v-icon>
+              {{ $t('categories.aiPreview.entityType') }}
+            </v-card-title>
+            <v-card-text>
+              <v-radio-group v-model="selectedEntityTypeOption" hide-details>
+                <v-radio value="new" :label="$t('categories.aiPreview.createNew')">
+                  <template v-slot:label>
+                    <div>
+                      <span class="font-weight-medium">{{ $t('categories.aiPreview.createNew') }}: </span>
+                      <v-chip size="small" color="success" class="ml-1">{{ aiPreviewData.suggested_entity_type.name }}</v-chip>
+                      <span class="text-caption text-medium-emphasis ml-2">{{ aiPreviewData.suggested_entity_type.description }}</span>
+                    </div>
+                  </template>
+                </v-radio>
+                <v-radio
+                  v-for="et in aiPreviewData.existing_entity_types.slice(0, 5)"
+                  :key="et.id"
+                  :value="et.id"
+                >
+                  <template v-slot:label>
+                    <div>
+                      <span class="font-weight-medium">{{ $t('categories.aiPreview.useExisting') }}: </span>
+                      <v-chip size="small" color="primary" class="ml-1">{{ et.name }}</v-chip>
+                      <span class="text-caption text-medium-emphasis ml-2">{{ et.description }}</span>
+                    </div>
+                  </template>
+                </v-radio>
+              </v-radio-group>
+            </v-card-text>
+          </v-card>
+
+          <!-- FacetTypes Section -->
+          <v-card variant="outlined" class="mb-4">
+            <v-card-title class="text-subtitle-1 pb-2">
+              <v-icon start color="secondary">mdi-tag-multiple</v-icon>
+              {{ $t('categories.aiPreview.facetTypes') }}
+            </v-card-title>
+            <v-card-text>
+              <p class="text-body-2 text-medium-emphasis mb-3">{{ $t('categories.aiPreview.facetTypesHint') }}</p>
+              <v-checkbox
+                v-for="(ft, index) in aiPreviewData.suggested_facet_types"
+                :key="ft.slug"
+                v-model="selectedFacetTypes[index]"
+                hide-details
+                density="compact"
+              >
+                <template v-slot:label>
+                  <div class="d-flex align-center">
+                    <v-icon :color="ft.color" size="small" class="mr-2">{{ ft.icon }}</v-icon>
+                    <span class="font-weight-medium">{{ ft.name }}</span>
+                    <v-chip v-if="!ft.is_new" size="x-small" color="info" class="ml-2">{{ $t('categories.aiPreview.exists') }}</v-chip>
+                    <v-chip v-else size="x-small" color="success" class="ml-2">{{ $t('categories.aiPreview.new') }}</v-chip>
+                    <span class="text-caption text-medium-emphasis ml-2">{{ ft.description }}</span>
+                  </div>
+                </template>
+              </v-checkbox>
+            </v-card-text>
+          </v-card>
+
+          <!-- Extraction Prompt Section -->
+          <v-card variant="outlined" class="mb-4">
+            <v-card-title class="text-subtitle-1 pb-2">
+              <v-icon start color="info">mdi-text-box-edit</v-icon>
+              {{ $t('categories.aiPreview.extractionPrompt') }}
+            </v-card-title>
+            <v-card-text>
+              <v-textarea
+                v-model="editableExtractionPrompt"
+                rows="8"
+                variant="outlined"
+                :hint="$t('categories.aiPreview.promptHint')"
+                persistent-hint
+              ></v-textarea>
+            </v-card-text>
+          </v-card>
+
+          <!-- Search Terms & URL Patterns -->
+          <v-row>
+            <v-col cols="12" md="6">
+              <v-card variant="outlined" class="h-100">
+                <v-card-title class="text-subtitle-2 pb-2">
+                  <v-icon start size="small">mdi-magnify</v-icon>
+                  {{ $t('categories.aiPreview.searchTerms') }}
+                </v-card-title>
+                <v-card-text>
+                  <v-chip
+                    v-for="term in aiPreviewData.suggested_search_terms"
+                    :key="term"
+                    size="small"
+                    color="primary"
+                    variant="tonal"
+                    class="mr-1 mb-1"
+                  >
+                    {{ term }}
+                  </v-chip>
+                </v-card-text>
+              </v-card>
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-card variant="outlined" class="h-100">
+                <v-card-title class="text-subtitle-2 pb-2">
+                  <v-icon start size="small">mdi-filter</v-icon>
+                  {{ $t('categories.aiPreview.urlPatterns') }}
+                </v-card-title>
+                <v-card-text>
+                  <div class="mb-2">
+                    <span class="text-caption font-weight-medium text-success">Include:</span>
+                    <v-chip
+                      v-for="pattern in aiPreviewData.suggested_url_include_patterns"
+                      :key="pattern"
+                      size="x-small"
+                      color="success"
+                      variant="tonal"
+                      class="ml-1 mb-1"
+                    >
+                      {{ pattern }}
+                    </v-chip>
+                    <span v-if="!aiPreviewData.suggested_url_include_patterns?.length" class="text-caption text-medium-emphasis">-</span>
+                  </div>
+                  <div>
+                    <span class="text-caption font-weight-medium text-error">Exclude:</span>
+                    <v-chip
+                      v-for="pattern in aiPreviewData.suggested_url_exclude_patterns"
+                      :key="pattern"
+                      size="x-small"
+                      color="error"
+                      variant="tonal"
+                      class="ml-1 mb-1"
+                    >
+                      {{ pattern }}
+                    </v-chip>
+                    <span v-if="!aiPreviewData.suggested_url_exclude_patterns?.length" class="text-caption text-medium-emphasis">-</span>
+                  </div>
+                </v-card-text>
+              </v-card>
+            </v-col>
+          </v-row>
+
+          <!-- Reasoning -->
+          <v-alert v-if="aiPreviewData.reasoning" type="info" variant="tonal" class="mt-4">
+            <div class="text-caption font-weight-medium mb-1">{{ $t('categories.aiPreview.reasoning') }}</div>
+            <div class="text-body-2">{{ aiPreviewData.reasoning }}</div>
+          </v-alert>
+        </v-card-text>
+
+        <v-divider></v-divider>
+
+        <v-card-actions class="pa-4">
+          <v-btn variant="tonal" @click="aiPreviewDialog = false">{{ $t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="grey" @click="saveWithoutAiSetup">
+            <v-icon start>mdi-content-save-outline</v-icon>
+            {{ $t('categories.aiPreview.saveWithoutAi') }}
+          </v-btn>
+          <v-spacer></v-spacer>
+          <v-btn
+            variant="tonal"
+            color="primary"
+            :loading="savingWithAi"
+            :disabled="aiPreviewLoading"
+            @click="saveWithAiSetup"
+          >
+            <v-icon start>mdi-check</v-icon>
+            {{ $t('categories.aiPreview.applyAndSave') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar for feedback -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000">
       {{ snackbarText }}
@@ -710,6 +1064,16 @@ const selectedCategoryForSources = ref<any>(null)
 const categorySources = ref<any[]>([])
 const categorySourcesSearch = ref('')
 const categorySourcesLoading = ref(false)
+
+// DataSources Tab state
+const availableTags = ref<string[]>([])
+const dataSourcesTab = ref({
+  selectedTags: [] as string[],
+  matchMode: 'all' as 'all' | 'any',
+  foundSources: [] as any[],
+  loading: false,
+  assigning: false,
+})
 
 // Category filters
 const categoryFilters = ref({
@@ -784,6 +1148,15 @@ const snackbar = ref(false)
 const snackbarText = ref('')
 const snackbarColor = ref('success')
 
+// AI Preview state
+const aiPreviewDialog = ref(false)
+const aiPreviewLoading = ref(false)
+const aiPreviewData = ref<any>(null)
+const savingWithAi = ref(false)
+const selectedEntityTypeOption = ref<string>('new')
+const selectedFacetTypes = ref<boolean[]>([])
+const editableExtractionPrompt = ref('')
+
 // Available languages
 const availableLanguages = [
   { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
@@ -856,7 +1229,7 @@ const openCreateDialog = () => {
   dialog.value = true
 }
 
-const openEditDialog = (category: any) => {
+const openEditDialog = async (category: any) => {
   editMode.value = true
   selectedCategory.value = category
   formData.value = {
@@ -868,20 +1241,133 @@ const openEditDialog = (category: any) => {
     url_include_patterns: category.url_include_patterns || [],
     url_exclude_patterns: category.url_exclude_patterns || [],
   }
+  // Reset DataSources tab state
+  dataSourcesTab.value = {
+    selectedTags: [],
+    matchMode: 'all',
+    foundSources: [],
+    loading: false,
+    assigning: false,
+  }
   dialog.value = true
+  // Load available tags for the DataSources tab
+  await loadAvailableTags()
 }
 
 const saveCategory = async () => {
   try {
     if (editMode.value) {
+      // For edit mode, just save directly
       await adminApi.updateCategory(selectedCategory.value.id, formData.value)
+      dialog.value = false
+      loadCategories()
     } else {
-      await adminApi.createCategory(formData.value)
+      // For new categories, show AI preview dialog
+      dialog.value = false
+      await showAiPreview()
     }
-    dialog.value = false
-    loadCategories()
   } catch (error) {
     console.error('Failed to save category:', error)
+    snackbarText.value = t('categories.messages.saveError')
+    snackbarColor.value = 'error'
+    snackbar.value = true
+  }
+}
+
+const showAiPreview = async () => {
+  aiPreviewDialog.value = true
+  aiPreviewLoading.value = true
+  aiPreviewData.value = null
+
+  try {
+    const response = await adminApi.previewCategoryAiSetup({
+      name: formData.value.name,
+      purpose: formData.value.purpose,
+      description: formData.value.description || undefined,
+    })
+
+    aiPreviewData.value = response.data
+    editableExtractionPrompt.value = response.data.suggested_extraction_prompt || ''
+
+    // Initialize facet type selections (all selected by default)
+    selectedFacetTypes.value = response.data.suggested_facet_types.map((ft: any) => ft.selected !== false)
+
+    // Default to creating new EntityType if suggested
+    selectedEntityTypeOption.value = response.data.suggested_entity_type.is_new ? 'new' : (response.data.suggested_entity_type.id || 'new')
+  } catch (error: any) {
+    console.error('Failed to get AI preview:', error)
+    aiPreviewDialog.value = false
+    dialog.value = true // Re-open the original dialog
+
+    const errorMessage = error.response?.data?.detail || t('categories.aiPreview.error')
+    snackbarText.value = errorMessage
+    snackbarColor.value = 'error'
+    snackbar.value = true
+  } finally {
+    aiPreviewLoading.value = false
+  }
+}
+
+const saveWithoutAiSetup = async () => {
+  try {
+    await adminApi.createCategory(formData.value)
+    aiPreviewDialog.value = false
+    loadCategories()
+    snackbarText.value = t('categories.messages.created')
+    snackbarColor.value = 'success'
+    snackbar.value = true
+  } catch (error) {
+    console.error('Failed to save category:', error)
+    snackbarText.value = t('categories.messages.saveError')
+    snackbarColor.value = 'error'
+    snackbar.value = true
+  }
+}
+
+const saveWithAiSetup = async () => {
+  if (!aiPreviewData.value) return
+
+  savingWithAi.value = true
+  try {
+    // Build the category data with AI suggestions
+    const categoryData = {
+      ...formData.value,
+      // Apply AI-generated data
+      ai_extraction_prompt: editableExtractionPrompt.value,
+      search_terms: formData.value.search_terms?.length
+        ? formData.value.search_terms
+        : aiPreviewData.value.suggested_search_terms,
+      url_include_patterns: formData.value.url_include_patterns?.length
+        ? formData.value.url_include_patterns
+        : aiPreviewData.value.suggested_url_include_patterns,
+      url_exclude_patterns: formData.value.url_exclude_patterns?.length
+        ? formData.value.url_exclude_patterns
+        : aiPreviewData.value.suggested_url_exclude_patterns,
+    }
+
+    // Set target_entity_type_id based on selection
+    if (selectedEntityTypeOption.value === 'new') {
+      // For now, we'll create the category without EntityType and let the backend handle it
+      // In a full implementation, we'd call a different endpoint that creates both
+      // For simplicity, we save the category first
+    } else {
+      // Use existing EntityType
+      categoryData.target_entity_type_id = selectedEntityTypeOption.value
+    }
+
+    await adminApi.createCategory(categoryData)
+    aiPreviewDialog.value = false
+    loadCategories()
+    snackbarText.value = t('categories.messages.createdWithAi')
+    snackbarColor.value = 'success'
+    snackbar.value = true
+  } catch (error) {
+    console.error('Failed to save category with AI setup:', error)
+    snackbarText.value = t('categories.messages.saveError')
+    snackbarColor.value = 'error'
+    snackbar.value = true
+  } finally {
+    savingWithAi.value = false
   }
 }
 
@@ -1035,8 +1521,7 @@ const filteredCategorySources = computed(() => {
   const search = categorySourcesSearch.value.toLowerCase()
   return categorySources.value.filter(s =>
     s.name?.toLowerCase().includes(search) ||
-    s.base_url?.toLowerCase().includes(search) ||
-    s.location_name?.toLowerCase().includes(search)
+    s.base_url?.toLowerCase().includes(search)
   )
 })
 
@@ -1102,6 +1587,85 @@ const navigateToSourcesFiltered = () => {
   })
 }
 
+// DataSources Tab methods
+const loadAvailableTags = async () => {
+  try {
+    const response = await adminApi.getAvailableTags()
+    availableTags.value = response.data.tags || []
+  } catch (error) {
+    console.error('Failed to load available tags:', error)
+    availableTags.value = []
+  }
+}
+
+const searchSourcesByTags = async () => {
+  if (!dataSourcesTab.value.selectedTags.length) {
+    dataSourcesTab.value.foundSources = []
+    return
+  }
+
+  dataSourcesTab.value.loading = true
+  try {
+    const response = await adminApi.getSourcesByTags({
+      tags: dataSourcesTab.value.selectedTags,
+      match_mode: dataSourcesTab.value.matchMode,
+      exclude_category_id: selectedCategory.value?.id,
+      limit: 1000,
+    })
+    // Mark sources that are already assigned to this category
+    const assignedSourceIds = new Set(categorySources.value.map(s => s.id))
+    dataSourcesTab.value.foundSources = response.data.map((source: any) => ({
+      ...source,
+      is_assigned: assignedSourceIds.has(source.id),
+    }))
+  } catch (error) {
+    console.error('Failed to search sources by tags:', error)
+    dataSourcesTab.value.foundSources = []
+    snackbarText.value = t('categories.dataSourcesTab.assignError')
+    snackbarColor.value = 'error'
+    snackbar.value = true
+  } finally {
+    dataSourcesTab.value.loading = false
+  }
+}
+
+const assignSourcesByTags = async () => {
+  if (!selectedCategory.value || !dataSourcesTab.value.selectedTags.length) return
+
+  dataSourcesTab.value.assigning = true
+  try {
+    const response = await adminApi.assignSourcesByTags(selectedCategory.value.id, {
+      tags: dataSourcesTab.value.selectedTags,
+      match_mode: dataSourcesTab.value.matchMode,
+      mode: 'add',
+    })
+
+    const assignedCount = response.data.assigned_count || dataSourcesTab.value.foundSources.length
+    snackbarText.value = t('categories.dataSourcesTab.assignSuccess', { count: assignedCount })
+    snackbarColor.value = 'success'
+    snackbar.value = true
+
+    // Refresh categories to update source_count
+    await loadCategories()
+
+    // Update selected category with new source count
+    const updatedCategory = categories.value.find(c => c.id === selectedCategory.value.id)
+    if (updatedCategory) {
+      selectedCategory.value = updatedCategory
+    }
+
+    // Re-search to mark newly assigned sources
+    await searchSourcesByTags()
+  } catch (error) {
+    console.error('Failed to assign sources:', error)
+    snackbarText.value = t('categories.dataSourcesTab.assignError')
+    snackbarColor.value = 'error'
+    snackbar.value = true
+  } finally {
+    dataSourcesTab.value.assigning = false
+  }
+}
+
 onMounted(() => {
   loadCategories()
 })
@@ -1110,6 +1674,11 @@ onMounted(() => {
 <style scoped>
 .sources-list {
   max-height: 400px;
+  overflow-y: auto;
+}
+
+.sources-result-list {
+  max-height: 350px;
   overflow-y: auto;
 }
 

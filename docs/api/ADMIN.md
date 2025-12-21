@@ -193,6 +193,58 @@ Verfuegbare Orte mit Autocomplete.
 ### GET /admin/sources/meta/counts
 Aggregierte Counts fuer Sidebar-Navigation.
 
+**Response:**
+```json
+{
+  "total": 500,
+  "by_status": {
+    "ACTIVE": 450,
+    "PENDING": 30,
+    "ERROR": 20
+  },
+  "by_country": {
+    "DE": 400,
+    "AT": 50,
+    "CH": 50
+  }
+}
+```
+
+### GET /admin/sources/meta/tags
+Alle verfuegbaren Tags fuer Datenquellen.
+
+**Response:**
+```json
+{
+  "tags": [
+    {"name": "windenergie", "count": 150},
+    {"name": "solar", "count": 80},
+    {"name": "kommunal", "count": 200}
+  ]
+}
+```
+
+### GET /admin/sources/by-tags
+Datenquellen nach Tags filtern.
+
+**Query-Parameter:**
+| Parameter | Typ | Beschreibung |
+|-----------|-----|--------------|
+| `tags` | string | Komma-getrennte Tag-Namen |
+| `match_all` | boolean | Alle Tags muessen vorhanden sein (default: false) |
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "name": "Stadt Musterstadt",
+    "base_url": "https://musterstadt.de",
+    "tags": ["windenergie", "kommunal"]
+  }
+]
+```
+
 ### GET /admin/sources/{source_id}
 Einzelne Quelle abrufen.
 

@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
-from app.models import ExtractedData, Document, DataSource, Category
+from app.models import ExtractedData, Document, Category
 from app.schemas.extracted_data import (
     ExtractedDataResponse,
     ExtractedDataListResponse,
@@ -30,21 +30,14 @@ async def list_extracted_data(
     extraction_type: Optional[str] = Query(default=None),
     min_confidence: float = Query(default=0, ge=0, le=1, description="Minimum confidence score filter"),
     human_verified: Optional[bool] = Query(default=None),
-    location_name: Optional[str] = Query(default=None, description="Filter by source location name"),
-    country: Optional[str] = Query(default=None, description="Filter by source country code"),
     session: AsyncSession = Depends(get_session),
 ):
     """List extracted data with filters."""
     query = select(ExtractedData)
 
-    # Track if we need to join with Document and DataSource
-    needs_document_join = source_id is not None or location_name is not None or country is not None
-    needs_source_join = location_name is not None or country is not None
-
-    if needs_document_join:
+    # Join with Document if filtering by source_id
+    if source_id is not None:
         query = query.join(Document, ExtractedData.document_id == Document.id)
-        if needs_source_join:
-            query = query.join(DataSource, Document.source_id == DataSource.id)
 
     if category_id:
         query = query.where(ExtractedData.category_id == category_id)
@@ -56,10 +49,6 @@ async def list_extracted_data(
         query = query.where(ExtractedData.confidence_score >= min_confidence)
     if human_verified is not None:
         query = query.where(ExtractedData.human_verified == human_verified)
-    if location_name:
-        query = query.where(func.lower(DataSource.location_name) == location_name.lower())
-    if country:
-        query = query.where(func.upper(DataSource.country) == country.upper())
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())

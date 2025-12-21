@@ -16,6 +16,13 @@ export const adminApi = {
   updateCategory: (id: string, data: any) => api.put(`/admin/categories/${id}`, data),
   deleteCategory: (id: string) => api.delete(`/admin/categories/${id}`),
   getCategoryStats: (id: string) => api.get(`/admin/categories/${id}/stats`),
+  previewCategoryAiSetup: (data: { name: string; purpose: string; description?: string }) =>
+    api.post('/admin/categories/preview-ai-setup', data),
+  assignSourcesByTags: (categoryId: string, data: {
+    tags: string[]
+    match_mode?: 'all' | 'any'
+    mode?: 'add' | 'replace'
+  }) => api.post(`/admin/categories/${categoryId}/assign-sources-by-tags`, data),
 
   // Sources
   getSources: (params?: any) => api.get('/admin/sources', { params }),
@@ -25,10 +32,48 @@ export const adminApi = {
   deleteSource: (id: string) => api.delete(`/admin/sources/${id}`),
   bulkImportSources: (data: any) => api.post('/admin/sources/bulk-import', data),
   resetSource: (id: string) => api.post(`/admin/sources/${id}/reset`),
-  getSourceCountries: () => api.get('/admin/sources/meta/countries'),
-  getSourceLocations: (params?: { country?: string; search?: string; limit?: number }) =>
-    api.get('/admin/sources/meta/locations', { params }),
   getSourceCounts: () => api.get('/admin/sources/meta/counts'),
+  getAvailableTags: () => api.get('/admin/sources/meta/tags'),
+  getSourcesByTags: (params: {
+    tags: string[]
+    match_mode?: 'all' | 'any'
+    exclude_category_id?: string
+    limit?: number
+  }) => api.get('/admin/sources/by-tags', { params }),
+
+  // API Import
+  getApiImportTemplates: () => api.get('/admin/api-import/templates'),
+  getApiImportTemplate: (templateId: string) => api.get(`/admin/api-import/templates/${templateId}`),
+  previewApiImport: (data: {
+    api_type: string
+    api_url: string
+    params?: Record<string, any>
+    sample_size?: number
+  }) => api.post('/admin/api-import/preview', data),
+  executeApiImport: (data: {
+    api_type: string
+    api_url: string
+    params?: Record<string, any>
+    category_ids: string[]
+    default_tags?: string[]
+    field_mapping?: Record<string, string>
+    skip_duplicates?: boolean
+    max_items?: number
+  }) => api.post('/admin/api-import/execute', data),
+
+  // AI Discovery
+  getAiDiscoveryExamples: () => api.get('/admin/ai-discovery/examples'),
+  discoverSources: (data: {
+    prompt: string
+    max_results?: number
+    search_depth?: 'quick' | 'standard' | 'deep'
+    include_category_suggestions?: boolean
+  }) => api.post('/admin/ai-discovery/discover', data),
+  importDiscoveredSources: (data: {
+    sources: any[]
+    category_ids?: string[]
+    skip_duplicates?: boolean
+  }) => api.post('/admin/ai-discovery/import', data),
 
   // Crawler
   getCrawlerJobs: (params?: any) => api.get('/admin/crawler/jobs', { params }),
@@ -53,6 +98,76 @@ export const adminApi = {
   processAllPending: () => api.post('/admin/crawler/documents/process-pending'),
   stopAllProcessing: () => api.post('/admin/crawler/documents/stop-all'),
   reanalyzeFiltered: (limit = 100) => api.post('/admin/crawler/documents/reanalyze-filtered', null, { params: { limit } }),
+}
+
+// External APIs Admin API
+export const externalApiApi = {
+  // List & CRUD
+  list: (params?: { is_active?: boolean; api_type?: string }) =>
+    api.get('/admin/external-apis', { params }),
+  get: (id: string) => api.get(`/admin/external-apis/${id}`),
+  create: (data: {
+    name: string
+    description?: string
+    api_type: string
+    api_base_url: string
+    api_endpoint?: string
+    auth_type?: string
+    auth_config?: Record<string, any>
+    sync_interval_hours?: number
+    sync_enabled?: boolean
+    entity_type_slug?: string
+    id_field?: string
+    name_field?: string
+    field_mappings?: Record<string, any>
+    location_fields?: Record<string, string>
+    request_config?: Record<string, any>
+    mark_missing_inactive?: boolean
+    inactive_after_days?: number
+    ai_linking_enabled?: boolean
+    link_to_entity_types?: string[]
+    data_source_id?: string
+  }) => api.post('/admin/external-apis', data),
+  update: (id: string, data: Partial<{
+    name: string
+    description: string
+    api_base_url: string
+    api_endpoint: string
+    auth_type: string
+    auth_config: Record<string, any>
+    sync_interval_hours: number
+    sync_enabled: boolean
+    is_active: boolean
+    entity_type_slug: string
+    id_field: string
+    name_field: string
+    field_mappings: Record<string, any>
+    location_fields: Record<string, string>
+    request_config: Record<string, any>
+    mark_missing_inactive: boolean
+    inactive_after_days: number
+    ai_linking_enabled: boolean
+    link_to_entity_types: string[]
+    data_source_id: string
+  }>) => api.patch(`/admin/external-apis/${id}`, data),
+  delete: (id: string) => api.delete(`/admin/external-apis/${id}`),
+
+  // Sync Operations
+  triggerSync: (id: string, options?: { full_sync?: boolean }) =>
+    api.post(`/admin/external-apis/${id}/sync`, options),
+  testConnection: (id: string) => api.post(`/admin/external-apis/${id}/test`),
+  getStats: (id: string) => api.get(`/admin/external-apis/${id}/stats`),
+
+  // Sync Records
+  listRecords: (configId: string, params?: { status?: string; page?: number; page_size?: number }) =>
+    api.get(`/admin/external-apis/${configId}/records`, { params }),
+  getRecord: (configId: string, recordId: string) =>
+    api.get(`/admin/external-apis/${configId}/records/${recordId}`),
+  deleteRecord: (configId: string, recordId: string) =>
+    api.delete(`/admin/external-apis/${configId}/records/${recordId}`),
+
+  // Utility
+  getAvailableApiTypes: () => api.get('/admin/external-apis/types/available'),
 }
 
 // Public API v1
@@ -178,12 +293,18 @@ export const entityApi = {
   deleteEntity: (id: string, force?: boolean) =>
     api.delete(`/v1/entities/${id}`, { params: { force } }),
   getEntityExternalData: (id: string) => api.get(`/v1/entities/${id}/external-data`),
+  getEntityDocuments: (id: string) => api.get(`/v1/entities/${id}/documents`),
+  getEntitySources: (id: string) => api.get(`/v1/entities/${id}/sources`),
 
   // Filter Options
   getLocationFilterOptions: (params?: { country?: string; admin_level_1?: string }) =>
     api.get('/v1/entities/filter-options/location', { params }),
   getAttributeFilterOptions: (params: { entity_type_slug: string; attribute_key?: string }) =>
     api.get('/v1/entities/filter-options/attributes', { params }),
+
+  // Search
+  searchEntities: (params: { q: string; per_page?: number; entity_type_slug?: string }) =>
+    api.get('/v1/entities', { params: { search: params.q, per_page: params.per_page, entity_type_slug: params.entity_type_slug } }),
 }
 
 export const facetApi = {
@@ -662,6 +783,15 @@ export const notificationApi = {
   updatePreferences: (data: any) =>
     api.put('/admin/notifications/preferences', data),
 
+  // Device Tokens (Push Notifications)
+  getDeviceTokens: () => api.get('/admin/notifications/device-tokens'),
+  addDeviceToken: (data: { token: string; platform: 'web' | 'ios' | 'android'; device_name?: string }) =>
+    api.post('/admin/notifications/device-token', data),
+  deleteDeviceToken: (token: string) =>
+    api.delete(`/admin/notifications/device-token/${encodeURIComponent(token)}`),
+  deactivateDeviceToken: (token: string) =>
+    api.post(`/admin/notifications/device-token/${encodeURIComponent(token)}/deactivate`),
+
   // Meta
   getEventTypes: () => api.get('/admin/notifications/event-types'),
   getChannels: () => api.get('/admin/notifications/channels'),
@@ -692,6 +822,37 @@ export const dashboardApi = {
   // Charts
   getChartData: (chartType: string) =>
     api.get(`/v1/dashboard/charts/${chartType}`),
+}
+
+// Favorites API
+export const favoritesApi = {
+  // List user's favorites with pagination and filtering
+  list: (params?: {
+    page?: number
+    per_page?: number
+    entity_type_slug?: string
+    search?: string
+  }) => api.get('/v1/favorites', { params }),
+
+  // Add entity to favorites
+  add: (entityId: string) =>
+    api.post('/v1/favorites', { entity_id: entityId }),
+
+  // Check if entity is favorited
+  check: (entityId: string) =>
+    api.get<{
+      entity_id: string
+      is_favorited: boolean
+      favorite_id: string | null
+    }>(`/v1/favorites/check/${entityId}`),
+
+  // Remove favorite by favorite ID
+  remove: (favoriteId: string) =>
+    api.delete(`/v1/favorites/${favoriteId}`),
+
+  // Remove favorite by entity ID (convenience)
+  removeByEntity: (entityId: string) =>
+    api.delete(`/v1/favorites/entity/${entityId}`),
 }
 
 // Entity Attachments API

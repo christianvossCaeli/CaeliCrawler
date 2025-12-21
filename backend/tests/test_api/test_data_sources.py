@@ -6,9 +6,9 @@ from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_list_data_sources(client: AsyncClient):
+async def test_list_data_sources(admin_client: AsyncClient):
     """Test listing all data sources."""
-    response = await client.get("/api/admin/sources")
+    response = await admin_client.get("/api/admin/sources")
     assert response.status_code == 200
 
     data = response.json()
@@ -17,9 +17,9 @@ async def test_list_data_sources(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_list_data_sources_pagination(client: AsyncClient):
+async def test_list_data_sources_pagination(admin_client: AsyncClient):
     """Test data sources pagination."""
-    response = await client.get("/api/admin/sources", params={"page": 1, "per_page": 5})
+    response = await admin_client.get("/api/admin/sources", params={"page": 1, "per_page": 5})
     assert response.status_code == 200
 
     data = response.json()
@@ -27,24 +27,10 @@ async def test_list_data_sources_pagination(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_get_source_countries(client: AsyncClient):
-    """Test getting available countries for sources."""
-    response = await client.get("/api/admin/sources/meta/countries")
-    assert response.status_code == 200
-
-
-@pytest.mark.asyncio
-async def test_get_source_locations(client: AsyncClient):
-    """Test getting available locations for sources."""
-    response = await client.get("/api/admin/sources/meta/locations")
-    assert response.status_code == 200
-
-
-@pytest.mark.asyncio
-async def test_create_and_delete_data_source(client: AsyncClient):
+async def test_create_and_delete_data_source(admin_client: AsyncClient):
     """Test creating and deleting a data source."""
     # First get a category
-    cat_response = await client.get("/api/admin/categories")
+    cat_response = await admin_client.get("/api/admin/categories")
     if cat_response.status_code != 200 or not cat_response.json().get("items"):
         pytest.skip("No categories available")
 
@@ -60,7 +46,7 @@ async def test_create_and_delete_data_source(client: AsyncClient):
     }
 
     # Create
-    response = await client.post("/api/admin/sources", json=source_data)
+    response = await admin_client.post("/api/admin/sources", json=source_data)
     # Accept 200, 201, or 400 (if validation fails)
     if response.status_code not in [200, 201]:
         pytest.skip(f"Could not create source: {response.text}")
@@ -69,21 +55,21 @@ async def test_create_and_delete_data_source(client: AsyncClient):
 
     try:
         # Get
-        response = await client.get(f"/api/admin/sources/{source_id}")
+        response = await admin_client.get(f"/api/admin/sources/{source_id}")
         assert response.status_code == 200
 
         # Delete
-        response = await client.delete(f"/api/admin/sources/{source_id}")
+        response = await admin_client.delete(f"/api/admin/sources/{source_id}")
         assert response.status_code in [200, 204]
     except Exception:
         # Cleanup on failure
-        await client.delete(f"/api/admin/sources/{source_id}")
+        await admin_client.delete(f"/api/admin/sources/{source_id}")
         raise
 
 
 @pytest.mark.asyncio
-async def test_get_nonexistent_source(client: AsyncClient):
+async def test_get_nonexistent_source(admin_client: AsyncClient):
     """Test getting a non-existent source returns 404."""
     fake_id = str(uuid.uuid4())
-    response = await client.get(f"/api/admin/sources/{fake_id}")
+    response = await admin_client.get(f"/api/admin/sources/{fake_id}")
     assert response.status_code == 404

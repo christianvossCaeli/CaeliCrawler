@@ -7,7 +7,8 @@
       "general": "Allgemein",
       "search": "Suche",
       "filters": "URL-Filter",
-      "ai": "KI"
+      "ai": "KI",
+      "dataSources": "Datenquellen"
     },
     "filters": {
       "search": "Suche (Name/Zweck)",
@@ -135,11 +136,56 @@
     },
     "messages": {
       "created": "Analysethema erfolgreich erstellt",
+      "createdWithAi": "Analysethema mit KI-Setup erfolgreich erstellt",
       "updated": "Analysethema erfolgreich aktualisiert",
       "deleted": "Analysethema erfolgreich gelöscht",
       "reanalyzeStarted": "Neu-Analyse gestartet",
       "reanalyzeError": "Fehler beim Starten der Neu-Analyse",
-      "sourcesLoadError": "Fehler beim Laden der Datenquellen"
+      "sourcesLoadError": "Fehler beim Laden der Datenquellen",
+      "saveError": "Fehler beim Speichern"
+    },
+    "aiPreview": {
+      "title": "KI-Setup Vorschläge",
+      "subtitle": "Basierend auf Name und Zweck generiert die KI Vorschläge",
+      "generating": "KI generiert Vorschläge...",
+      "generatingHint": "Dies kann einige Sekunden dauern",
+      "entityType": "Entity-Typ",
+      "createNew": "Neu erstellen",
+      "useExisting": "Vorhandenen nutzen",
+      "facetTypes": "Facetten-Typen",
+      "facetTypesHint": "Wählen Sie die Facetten-Typen für die Datenextraktion",
+      "exists": "vorhanden",
+      "new": "neu",
+      "extractionPrompt": "Extraktions-Prompt",
+      "promptHint": "Der KI-Prompt definiert, welche Informationen extrahiert werden",
+      "searchTerms": "Suchbegriffe",
+      "urlPatterns": "URL-Patterns",
+      "reasoning": "Begründung",
+      "saveWithoutAi": "Ohne KI speichern",
+      "applyAndSave": "Übernehmen und Speichern",
+      "error": "Fehler bei der KI-Generierung"
+    },
+    "dataSourcesTab": {
+      "title": "Datenquellen zuordnen",
+      "description": "Ordnen Sie Datenquellen über Tags diesem Analysethema zu",
+      "filterByTags": "Nach Tags filtern",
+      "matchMode": "Verknüpfung",
+      "matchAll": "ALLE Tags (UND)",
+      "matchAny": "Mind. ein Tag (ODER)",
+      "matchAllHint": "Quelle muss alle gewählten Tags haben",
+      "matchAnyHint": "Quelle muss mindestens einen Tag haben",
+      "foundSources": "Gefundene Datenquellen",
+      "noTagsSelected": "Wählen Sie Tags um Datenquellen zu suchen",
+      "noSourcesFound": "Keine Datenquellen mit diesen Tags gefunden",
+      "selectAll": "Alle auswählen",
+      "alreadyAssigned": "bereits zugeordnet",
+      "assignSelected": "Ausgewählte zuordnen",
+      "assignAll": "Alle zuordnen",
+      "assignedCount": "Zugeordnet",
+      "assignSuccess": "{count} Datenquellen erfolgreich zugeordnet",
+      "assignError": "Fehler beim Zuordnen der Datenquellen",
+      "loading": "Lade Datenquellen...",
+      "currentlyAssigned": "Aktuell zugeordnet"
     }
   }
 }

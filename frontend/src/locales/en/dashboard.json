@@ -77,6 +77,10 @@
       "systemHealth": {
         "name": "System Status",
         "description": "AI tasks and system health"
+      },
+      "favorites": {
+        "name": "Favorites",
+        "description": "Your favorite entities for quick access"
       }
     },
     "stats": {

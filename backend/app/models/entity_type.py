@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from app.models.facet_type import FacetType
     from app.models.relation_type import RelationType
     from app.models.user import User
+    from app.models.category_entity_type import CategoryEntityType
 
 
 class EntityType(Base):
@@ -165,6 +166,13 @@ class EntityType(Base):
     owner: Mapped[Optional["User"]] = relationship(
         "User",
         foreign_keys=[owner_id],
+    )
+
+    # N:M relationship to Categories via junction table (Multi-EntityType Support)
+    category_associations: Mapped[List["CategoryEntityType"]] = relationship(
+        "CategoryEntityType",
+        back_populates="entity_type",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

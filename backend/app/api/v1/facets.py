@@ -104,7 +104,14 @@ async def list_facet_types(
         item.value_count = value_counts_map.get(ft.id, 0)
         items.append(item)
 
-    return FacetTypeListResponse(items=items, total=total)
+    pages = (total + per_page - 1) // per_page if total > 0 else 1
+    return FacetTypeListResponse(
+        items=items,
+        total=total,
+        page=page,
+        per_page=per_page,
+        pages=pages,
+    )
 
 
 @router.post("/types", response_model=FacetTypeResponse, status_code=201)
@@ -866,7 +873,8 @@ async def search_facet_values(
     q: str = Query(..., min_length=2, description="Search query"),
     entity_id: Optional[UUID] = Query(default=None, description="Filter by entity"),
     facet_type_slug: Optional[str] = Query(default=None, description="Filter by facet type"),
-    limit: int = Query(default=20, ge=1, le=100, description="Max results"),
+    page: int = Query(default=1, ge=1, description="Page number"),
+    per_page: int = Query(default=20, ge=1, le=100, description="Results per page"),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -909,9 +917,9 @@ async def search_facet_values(
         subq = select(FacetType.id).where(FacetType.slug == facet_type_slug)
         query = query.where(FacetValue.facet_type_id.in_(subq))
 
-    # Order by rank (highest first)
+    # Order by rank (highest first) with pagination
     query = query.order_by(func.ts_rank(FacetValue.search_vector, search_query).desc())
-    query = query.limit(limit)
+    query = query.offset((page - 1) * per_page).limit(per_page)
 
     # Execute with eager loading
     query = query.options(
@@ -962,10 +970,14 @@ async def search_facet_values(
         ))
 
     search_time_ms = (time.time() - start_time) * 1000
+    pages = (total + per_page - 1) // per_page if total > 0 else 1
 
     return FacetValueSearchResponse(
         items=items,
         total=total,
+        page=page,
+        per_page=per_page,
+        pages=pages,
         query=q,
         search_time_ms=round(search_time_ms, 2),
     )

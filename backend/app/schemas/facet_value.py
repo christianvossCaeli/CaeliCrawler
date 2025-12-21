@@ -159,5 +159,8 @@ class FacetValueSearchResponse(BaseModel):
 
     items: List[FacetValueSearchResult]
     total: int
+    page: int
+    per_page: int
+    pages: int
     query: str
     search_time_ms: float = Field(default=0.0, description="Search execution time")

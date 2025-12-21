@@ -242,6 +242,12 @@ entity_type_cache: TTLCache[Any] = TTLCache(default_ttl=300, max_size=50)
 # Category cache - 5 minute TTL
 category_cache: TTLCache[Any] = TTLCache(default_ttl=300, max_size=100)
 
+# AI Discovery cache - 30 minute TTL for expensive LLM operations
+ai_discovery_cache: TTLCache[Any] = TTLCache(default_ttl=1800, max_size=200)
+
+# Search strategy cache - 1 hour TTL
+search_strategy_cache: TTLCache[Any] = TTLCache(default_ttl=3600, max_size=100)
+
 
 def get_cache_stats() -> Dict[str, Dict[str, Any]]:
     """Get statistics for all caches."""
@@ -249,6 +255,8 @@ def get_cache_stats() -> Dict[str, Dict[str, Any]]:
         "facet_types": facet_type_cache.stats,
         "entity_types": entity_type_cache.stats,
         "categories": category_cache.stats,
+        "ai_discovery": ai_discovery_cache.stats,
+        "search_strategy": search_strategy_cache.stats,
     }
 
 
@@ -257,4 +265,74 @@ def clear_all_caches() -> None:
     facet_type_cache.clear()
     entity_type_cache.clear()
     category_cache.clear()
+    ai_discovery_cache.clear()
+    search_strategy_cache.clear()
     logger.info("All caches cleared")
+
+
+import hashlib
+import json
+
+
+def make_cache_key(*args: Any, **kwargs: Any) -> str:
+    """
+    Create a deterministic cache key from arguments.
+
+    Args:
+        *args: Positional arguments to include in key
+        **kwargs: Keyword arguments to include in key
+
+    Returns:
+        SHA256 hash of the serialized arguments (first 16 chars)
+    """
+    key_data = json.dumps({"args": args, "kwargs": kwargs}, sort_keys=True, default=str)
+    return hashlib.sha256(key_data.encode()).hexdigest()[:16]
+
+
+def cached_async(
+    cache: TTLCache,
+    key_prefix: str = "",
+    ttl: Optional[int] = None,
+):
+    """
+    Decorator for caching async function results.
+
+    Args:
+        cache: TTLCache instance to use
+        key_prefix: Prefix for cache keys
+        ttl: Optional TTL override
+
+    Usage:
+        @cached_async(ai_discovery_cache, key_prefix="strategy")
+        async def generate_search_strategy(prompt: str) -> dict:
+            ...
+    """
+    def decorator(func: Callable):
+        async def wrapper(*args, **kwargs):
+            # Build cache key
+            cache_key = f"{key_prefix}:{make_cache_key(*args, **kwargs)}" if key_prefix else make_cache_key(*args, **kwargs)
+
+            # Try to get from cache
+            cached_result = cache.get(cache_key)
+            if cached_result is not None:
+                logger.debug("Cache hit for function", func=func.__name__, key=cache_key)
+                return cached_result
+
+            # Execute function
+            result = await func(*args, **kwargs)
+
+            # Cache result
+            if result is not None:
+                # Handle Pydantic models
+                if hasattr(result, "model_dump"):
+                    cache_data = result.model_dump()
+                else:
+                    cache_data = result
+
+                cache.set(cache_key, cache_data, ttl=ttl)
+                logger.debug("Cached function result", func=func.__name__, key=cache_key)
+
+            return result
+
+        return wrapper
+    return decorator

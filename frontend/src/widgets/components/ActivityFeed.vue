@@ -7,7 +7,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDashboardStore } from '@/stores/dashboard'
 import BaseWidget from '../BaseWidget.vue'
-import type { WidgetDefinition, WidgetConfig, ActivityItem } from '../types'
+import type { WidgetDefinition, WidgetConfig } from '../types'
 
 const props = defineProps<{
   definition: WidgetDefinition

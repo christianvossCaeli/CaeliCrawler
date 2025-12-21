@@ -281,6 +281,30 @@
           "timeFilters": "Nutzen Sie zeitbasierte Filter fuer Event-Tracking"
         }
       },
+      "entityMatching": {
+        "title": "Automatische Entity-Deduplizierung",
+        "description": "Das System verhindert automatisch doppelte Entities durch intelligentes Name-Matching.",
+        "howItWorks": {
+          "title": "So funktioniert es",
+          "description": "Bei der Erstellung einer Entity prueft das System automatisch auf Duplikate:",
+          "normalization": "Name-Normalisierung - Umlaute (ae/oe/ue), Gross-/Kleinschreibung und Sonderzeichen werden vereinheitlicht",
+          "prefixRemoval": "Praefix-Entfernung - 'Stadt Muenchen' und 'Muenchen' werden als identisch erkannt",
+          "fuzzyMatching": "Aehnlichkeits-Matching - Leichte Schreibvarianten werden automatisch erkannt (Standard: 85% Aehnlichkeit)"
+        },
+        "examples": {
+          "title": "Beispiele fuer automatisches Matching",
+          "umlaut": "Muenchen ↔ München - Erkannt als dieselbe Entity",
+          "prefix": "Stadt Muenchen ↔ Muenchen - Erkannt als dieselbe Entity",
+          "case": "MUENCHEN ↔ muenchen - Erkannt als dieselbe Entity"
+        },
+        "benefits": {
+          "title": "Vorteile",
+          "consistency": "Keine doppelten Datensaetze bei verschiedenen Schreibweisen",
+          "aggregation": "Korrekte Datenaggregation ueber alle Import-Pfade",
+          "quality": "Hoehere Datenqualitaet durch konsistente Entity-Zuordnung"
+        },
+        "tip": "Tipp: Das Matching funktioniert ueber alle Import-Wege - Crawling, Smart Query und manuelle Erstellung."
+      },
       "pysisToFacets": {
         "title": "PySis-Daten fuer Facets analysieren",
         "description": "Diese Funktion ermoeglicht es, PySis-Feldwerte mittels KI zu analysieren und relevante Informationen automatisch in bestehende FacetTypes zu extrahieren.",
@@ -640,6 +664,66 @@
         "basicAuth": "Basic Auth",
         "basicAuthDesc": "HTTP Basic Authentication (Benutzername/Passwort)",
         "warning": "Webhook testen: Nutzen Sie die Test-Funktion, um zu pruefen, ob Ihr Endpunkt erreichbar ist und korrekt antwortet, bevor Sie die Regel aktivieren."
+      }
+    },
+    "favorites": {
+      "title": "Favoriten",
+      "description": "Die Favoriten-Funktion ermoeglicht schnellen Zugriff auf Ihre wichtigsten Entities. Markierte Entities erscheinen im Dashboard-Widget und auf der Favoritenverwaltungsseite.",
+      "overview": {
+        "title": "Uebersicht",
+        "description": "Favoriten bieten schnellen Zugriff auf Entities, mit denen Sie haeufig arbeiten:",
+        "quickAccess": "Schnellzugriff",
+        "quickAccessDesc": "Springen Sie direkt vom Dashboard zu wichtigen Entities",
+        "persistent": "Persistent",
+        "persistentDesc": "Ihre Favoriten werden auf dem Server gespeichert und sind auf allen Geraeten verfuegbar",
+        "dashboardWidget": "Dashboard Widget",
+        "dashboardWidgetDesc": "Zeigt Ihre neuesten Favoriten auf dem Dashboard"
+      },
+      "addFavorite": {
+        "title": "Favoriten hinzufuegen",
+        "description": "Es gibt mehrere Moeglichkeiten, eine Entity zu Ihren Favoriten hinzuzufuegen:",
+        "methods": {
+          "detailPage": "Klicken Sie auf der Entity-Detailseite auf das Stern-Symbol neben dem Entity-Namen",
+          "entityList": "In Entity-Listen koennen Sie das Stern-Symbol in der Aktionsspalte nutzen (falls verfuegbar)"
+        },
+        "tip": "Tipp: Der Stern wird gelb, wenn eine Entity favorisiert ist."
+      },
+      "removeFavorite": {
+        "title": "Favoriten entfernen",
+        "description": "So entfernen Sie eine Entity aus Ihren Favoriten:",
+        "methods": {
+          "detailPage": "Klicken Sie auf der Entity-Detailseite auf den gelben Stern, um den Favoriten zu entfernen",
+          "managementPage": "Auf der Favoritenverwaltungsseite koennen Sie den Entfernen-Button nutzen"
+        }
+      },
+      "dashboardWidget": {
+        "title": "Dashboard Widget",
+        "description": "Das Favoriten-Widget auf dem Dashboard zeigt:",
+        "features": {
+          "recent": "Ihre 8 zuletzt hinzugefuegten Favoriten",
+          "entityType": "Den Entity-Typ mit Symbol und Farbe",
+          "navigation": "Klicken Sie auf einen Favoriten, um direkt zur Detailseite zu gelangen",
+          "showAll": "Link zur vollstaendigen Favoritenliste"
+        }
+      },
+      "managementPage": {
+        "title": "Favoritenverwaltung",
+        "description": "Die vollstaendige Favoritenseite (erreichbar ueber Navigation → Favoriten) bietet:",
+        "features": {
+          "fullList": "Vollstaendige Liste aller Favoriten mit Paginierung",
+          "search": "Favoriten nach Name durchsuchen",
+          "filter": "Nach Entity-Typ filtern",
+          "sort": "Nach Hinzufuegedatum sortieren",
+          "remove": "Favoriten direkt aus der Liste entfernen"
+        }
+      },
+      "apiEndpoints": {
+        "title": "API-Endpunkte",
+        "list": "Favoritenliste abrufen (paginiert)",
+        "add": "Entity zu Favoriten hinzufuegen",
+        "check": "Pruefen ob Entity favorisiert ist",
+        "remove": "Favorit per ID entfernen",
+        "removeByEntity": "Favorit per Entity-ID entfernen"
       }
     },
     "aiAssistant": {
@@ -1235,6 +1319,138 @@
         "step1": "Klicken Sie auf 'Analyse anzeigen' beim Anhang",
         "step2": "Wählen Sie die gewünschten Facet-Vorschläge aus",
         "step3": "Klicken Sie auf 'Facets übernehmen' um sie der Entity hinzuzufügen"
+      }
+    },
+    "aiSourceDiscovery": {
+      "title": "KI-gesteuerte Datenquellen-Suche",
+      "description": "Mit der KI-gesteuerten Suche koennen Sie automatisch Datenquellen aus dem Internet finden - einfach durch natuerliche Sprache.",
+      "overview": {
+        "title": "Uebersicht",
+        "description": "Die KI-Discovery ermoeglicht es, Datenquellen durch einen einfachen Prompt zu finden:",
+        "howItWorks": "So funktioniert es",
+        "howItWorksDesc": "Geben Sie einen natuerlichen Suchbegriff ein (z.B. 'Alle deutschen Bundesliga-Fußballvereine'), und die KI sucht automatisch im Internet nach passenden Quellen.",
+        "autoTags": "Automatische Tag-Generierung",
+        "autoTagsDesc": "Die KI generiert automatisch passende Tags basierend auf dem Prompt und den gefundenen Daten.",
+        "preview": "Vorschau vor Import",
+        "previewDesc": "Sie sehen alle gefundenen Quellen in einer Vorschau und koennen auswaehlen, welche importiert werden sollen."
+      },
+      "access": {
+        "title": "Zugriff",
+        "description": "Die KI-Discovery erreichen Sie ueber:",
+        "sourcesView": "Datenquellen → Importieren → KI-Suche",
+        "smartQuery": "Smart Query: 'Finde Datenquellen fuer ...'",
+        "assistant": "KI-Assistent: 'Suche Webseiten von ...'"
+      },
+      "workflow": {
+        "title": "Workflow",
+        "step1": "Prompt eingeben",
+        "step1Desc": "Beschreiben Sie, welche Art von Datenquellen Sie finden moechten.",
+        "step2": "Suchtiefe waehlen",
+        "step2Desc": "Schnell (3 Queries), Standard (5 Queries) oder Tiefgehend (8 Queries)",
+        "step3": "Suche starten",
+        "step3Desc": "Die KI generiert Suchstrategien und durchsucht das Web.",
+        "step4": "Ergebnisse pruefen",
+        "step4Desc": "Sehen Sie die gefundenen Quellen mit automatisch generierten Tags.",
+        "step5": "Auswahl importieren",
+        "step5Desc": "Waehlen Sie die gewuenschten Quellen und optional Ziel-Kategorien."
+      },
+      "examples": {
+        "title": "Beispiel-Prompts",
+        "example1": "Alle deutschen Bundesliga-Fußballvereine",
+        "example2": "Gemeinden in Sachsen",
+        "example3": "Deutsche Universitaeten",
+        "example4": "DAX-Unternehmen",
+        "example5": "Krankenhaeuser in Bayern"
+      },
+      "searchDepth": {
+        "title": "Suchtiefe",
+        "quick": "Schnell",
+        "quickDesc": "3 Suchanfragen, schnelle Ergebnisse, weniger umfassend",
+        "standard": "Standard",
+        "standardDesc": "5 Suchanfragen, ausgewogenes Verhaeltnis",
+        "deep": "Tiefgehend",
+        "deepDesc": "8 Suchanfragen, gruendlichste Suche, laengere Dauer"
+      },
+      "tagGeneration": {
+        "title": "Automatische Tag-Generierung",
+        "description": "Die KI generiert Tags basierend auf:",
+        "fromPrompt": "Aus dem Prompt",
+        "fromPromptDesc": "Thematische Tags wie 'bundesliga', 'fussball', 'sport'",
+        "geographic": "Geografisch",
+        "geographicDesc": "Regionale Tags wie 'de', 'nrw', 'muenchen'",
+        "orgType": "Organisationstyp",
+        "orgTypeDesc": "Typ-Tags wie 'verein', 'kommune', 'unternehmen'"
+      },
+      "smartQueryIntegration": {
+        "title": "Smart Query Integration",
+        "description": "Die KI-Discovery kann auch ueber Smart Query genutzt werden:",
+        "example1": "'Finde Datenquellen fuer Bundesliga-Vereine'",
+        "example2": "'Suche Webseiten von Gemeinden in Bayern'",
+        "example3": "'Importiere DAX-Unternehmen als Datenquellen'",
+        "note": "Der Unterschied zu CREATE_CATEGORY_SETUP: DISCOVER_SOURCES sucht im Internet nach NEUEN Quellen, waehrend CREATE_CATEGORY_SETUP bestehende DataSources verwendet."
+      },
+      "tips": {
+        "title": "Tipps",
+        "specific": "Seien Sie spezifisch - 'Gemeinden in NRW' liefert bessere Ergebnisse als 'Gemeinden'",
+        "checkTags": "Pruefen Sie die generierten Tags vor dem Import und passen Sie sie bei Bedarf an",
+        "categories": "Waehlen Sie passende Kategorien, um die importierten Quellen direkt zuzuordnen"
+      }
+    },
+    "dataSourceTags": {
+      "title": "DataSource Tags",
+      "description": "Tags ermöglichen eine flexible Kategorisierung von Datenquellen für Filterung und Kategorie-Zuordnung.",
+      "overview": {
+        "title": "Übersicht",
+        "description": "Tags werden verwendet um Datenquellen zu kategorisieren und zu filtern:",
+        "geographic": "Geografische Tags",
+        "geographicDesc": "Bundesländer (nrw, bayern, hessen, etc.)",
+        "country": "Länder-Tags",
+        "countryDesc": "de, at, ch, uk",
+        "type": "Typ-Tags",
+        "typeDesc": "kommunal, landkreis, oparl, ratsinformation",
+        "topic": "Themen-Tags",
+        "topicDesc": "windkraft, solar, bauen, verkehr"
+      },
+      "addTags": {
+        "title": "Tags hinzufügen",
+        "description": "Es gibt mehrere Wege, Tags zu Datenquellen hinzuzufügen:",
+        "manual": "Manuell im Datenquellen-Dialog",
+        "manualDesc": "Tags können beim Erstellen oder Bearbeiten einer Datenquelle im Feld 'Tags' eingegeben werden",
+        "bulkImport": "Per Bulk-Import",
+        "bulkImportDesc": "CSV-Format mit Tags-Spalte: Name;URL;SourceType;Tags",
+        "apiImport": "Per API-Import",
+        "apiImportDesc": "Standard-Tags werden automatisch angewendet (z.B. nrw, kommunal)"
+      },
+      "categoryAssignment": {
+        "title": "Tag-basierte Kategorie-Zuordnung",
+        "description": "Im Kategorie-Dialog können Sie Datenquellen über Tags zuordnen:",
+        "step1": "Öffnen Sie den Kategorie-Dialog und wechseln Sie zum Tab 'Datenquellen'",
+        "step2": "Wählen Sie einen oder mehrere Tags aus",
+        "step3": "Wählen Sie den Verknüpfungsmodus (UND/ODER)",
+        "step4": "Prüfen Sie die gefundenen Datenquellen in der Vorschau",
+        "step5": "Klicken Sie auf 'Alle zuordnen' um die Datenquellen der Kategorie hinzuzufügen",
+        "matchModes": {
+          "title": "Verknüpfungsmodi",
+          "all": "ALLE Tags (UND)",
+          "allDesc": "Quelle muss alle ausgewählten Tags haben",
+          "any": "Mind. ein Tag (ODER)",
+          "anyDesc": "Quelle muss mindestens einen der ausgewählten Tags haben"
+        }
+      },
+      "apiImport": {
+        "title": "API-Import mit Tags",
+        "description": "Der API-Import erstellt automatisch Tags basierend auf der Datenquelle:",
+        "wikidata": "Wikidata-Import",
+        "wikidataDesc": "Importiert Gemeinden nach Bundesland mit automatischen Tags (z.B. 'nrw', 'kommunal')",
+        "oparl": "OParl-Import",
+        "oparlDesc": "Importiert OParl-Systeme mit Tags 'de', 'oparl', 'ratsinformation'"
+      },
+      "filtering": {
+        "title": "Filterung nach Tags",
+        "description": "In der Datenquellen-Übersicht können Sie nach Tags filtern:",
+        "sidebar": "Die Sidebar zeigt alle verfügbaren Tags mit Anzahl",
+        "click": "Klicken Sie auf einen Tag um zu filtern",
+        "combine": "Mehrere Tags können kombiniert werden"
       }
     }
   }

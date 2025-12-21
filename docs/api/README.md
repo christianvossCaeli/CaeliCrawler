@@ -19,9 +19,12 @@ Die API-Dokumentation ist in mehrere thematische Dateien aufgeteilt:
 |-------|--------------|
 | [AUTH.md](./AUTH.md) | Authentifizierung & Benutzerverwaltung |
 | [ADMIN.md](./ADMIN.md) | Admin-Endpunkte (Kategorien, Datenquellen, Crawler, Locations) |
-| [NOTIFICATIONS.md](./NOTIFICATIONS.md) | Benachrichtigungssystem |
-| [DATA.md](./DATA.md) | Public Data API, Gemeinden, Reports, Export |
+| [NOTIFICATIONS.md](./NOTIFICATIONS.md) | Benachrichtigungssystem (E-Mail, Push, Webhooks) |
+| [DATA.md](./DATA.md) | Public Data API, Dokumente, Export |
 | [ENTITIES.md](./ENTITIES.md) | Entity-Facet System |
+| [ANALYSIS.md](./ANALYSIS.md) | Entity-Analyse, Reports, Statistiken |
+| [DASHBOARD.md](./DASHBOARD.md) | Dashboard-Statistiken, Activity, Insights, Charts |
+| [FAVORITES.md](./FAVORITES.md) | Favoriten-Verwaltung |
 | [ATTACHMENTS.md](./ATTACHMENTS.md) | Entity Attachments mit KI-Analyse |
 | [ENRICHMENT.md](./ENRICHMENT.md) | Entity Data Enrichment |
 | [ASSISTANT.md](./ASSISTANT.md) | KI-Assistant (Chat, Wizards, Reminders) |
@@ -73,9 +76,13 @@ Siehe [AUTH.md](./AUTH.md) fuer Details.
 - **Versionierung** - Versionierung von Entities
 
 ### Public API v1
-- **Data API** - Dokumente, Extractions, History
-- **Gemeinden & Reports** - Statistiken und Reports
-- **Export** - Datenexport
+- **Data API** - Dokumente, Extractions, Crawl-History
+- **Export** - Datenexport (JSON, CSV, Excel)
+
+### Analysis API
+- **Statistiken** - Gesamtuebersicht Entity-Facet-System
+- **Entity Reports** - Detaillierte Analyse-Reports
+- **Templates** - Analyse-Templates konfigurieren
 
 ### Entity-Facet System
 - **Entities** - Kern-Entitaeten (Gemeinden, Organisationen, etc.)

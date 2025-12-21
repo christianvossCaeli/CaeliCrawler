@@ -21,6 +21,7 @@ from app.models.notification import (
 from app.models.notification_rule import NotificationRule
 from app.models.user import User
 from app.models.user_email import UserEmailAddress
+from app.models.device_token import DeviceToken, DevicePlatform
 from app.core.deps import get_current_user
 from app.core.exceptions import NotFoundError, ConflictError
 from services.notifications.notification_service import NotificationService
@@ -173,6 +174,34 @@ class NotificationPreferencesResponse(BaseModel):
     notification_digest_time: Optional[str] = None
 
 
+class DeviceTokenCreate(BaseModel):
+    """Schema for registering a device token."""
+
+    token: str
+    platform: str  # "ios", "android", "web"
+    device_name: Optional[str] = None
+    app_version: Optional[str] = None
+    os_version: Optional[str] = None
+
+
+class DeviceTokenResponse(BaseModel):
+    """Device token response schema."""
+
+    id: UUID
+    token: str
+    platform: DevicePlatform
+    device_name: Optional[str] = None
+    app_version: Optional[str] = None
+    os_version: Optional[str] = None
+    is_active: bool
+    last_used_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # =============================================================================
 # Email Addresses Endpoints
 # =============================================================================
@@ -315,6 +344,140 @@ async def resend_verification(
     # TODO: Send verification email via notification service
 
     return MessageResponse(message="Verification email sent")
+
+
+# =============================================================================
+# Device Token Endpoints (Push Notifications)
+# =============================================================================
+
+
+@router.get("/device-tokens", response_model=List[DeviceTokenResponse])
+async def list_device_tokens(
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List all registered device tokens for current user.
+    """
+    result = await session.execute(
+        select(DeviceToken)
+        .where(DeviceToken.user_id == current_user.id)
+        .order_by(DeviceToken.created_at.desc())
+    )
+    return [DeviceTokenResponse.model_validate(dt) for dt in result.scalars().all()]
+
+
+@router.post("/device-token", response_model=DeviceTokenResponse, status_code=201)
+async def register_device_token(
+    data: DeviceTokenCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Register a device token for push notifications.
+
+    If the token already exists for this user, it will be updated.
+    If the token exists for another user, it will be moved to this user.
+    """
+    # Validate platform
+    try:
+        platform = DevicePlatform(data.platform.lower())
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid platform. Must be one of: {', '.join(p.value for p in DevicePlatform)}",
+        )
+
+    # Check if token already exists (for any user)
+    existing = await session.execute(
+        select(DeviceToken).where(DeviceToken.token == data.token)
+    )
+    existing_token = existing.scalar_one_or_none()
+
+    if existing_token:
+        # Update existing token - transfer to current user if needed
+        existing_token.user_id = current_user.id
+        existing_token.platform = platform
+        existing_token.device_name = data.device_name
+        existing_token.app_version = data.app_version
+        existing_token.os_version = data.os_version
+        existing_token.is_active = True
+        existing_token.last_used_at = datetime.now(timezone.utc)
+        await session.commit()
+        await session.refresh(existing_token)
+        return DeviceTokenResponse.model_validate(existing_token)
+
+    # Create new token
+    device_token = DeviceToken(
+        user_id=current_user.id,
+        token=data.token,
+        platform=platform,
+        device_name=data.device_name,
+        app_version=data.app_version,
+        os_version=data.os_version,
+        last_used_at=datetime.now(timezone.utc),
+    )
+    session.add(device_token)
+    await session.commit()
+    await session.refresh(device_token)
+
+    return DeviceTokenResponse.model_validate(device_token)
+
+
+@router.delete("/device-token/{token}", response_model=MessageResponse)
+async def unregister_device_token(
+    token: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Unregister a device token.
+
+    The token is identified by the raw token string (URL-encoded if necessary).
+    """
+    result = await session.execute(
+        select(DeviceToken).where(
+            DeviceToken.token == token,
+            DeviceToken.user_id == current_user.id,
+        )
+    )
+    device_token = result.scalar_one_or_none()
+
+    if not device_token:
+        raise NotFoundError("Device token", token[:20] + "...")
+
+    await session.delete(device_token)
+    await session.commit()
+
+    return MessageResponse(message="Device token unregistered")
+
+
+@router.post("/device-token/{token}/deactivate", response_model=MessageResponse)
+async def deactivate_device_token(
+    token: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Deactivate a device token without deleting it.
+
+    Useful when the user logs out but may log back in.
+    """
+    result = await session.execute(
+        select(DeviceToken).where(
+            DeviceToken.token == token,
+            DeviceToken.user_id == current_user.id,
+        )
+    )
+    device_token = result.scalar_one_or_none()
+
+    if not device_token:
+        raise NotFoundError("Device token", token[:20] + "...")
+
+    device_token.is_active = False
+    await session.commit()
+
+    return MessageResponse(message="Device token deactivated")
 
 
 # =============================================================================

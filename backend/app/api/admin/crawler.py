@@ -3,12 +3,13 @@
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.core.deps import require_editor, require_admin
+from app.core.rate_limit import check_rate_limit
 from app.models import CrawlJob, DataSource, Category, JobStatus, SourceStatus, SourceType, AITask, AITaskStatus, AITaskType, User
 from app.schemas.crawl_job import (
     CrawlJobResponse,
@@ -17,6 +18,14 @@ from app.schemas.crawl_job import (
     CrawlJobStats,
     StartCrawlRequest,
     StartCrawlResponse,
+    CrawlerStatusResponse,
+    JobLogResponse,
+    JobLogEntry,
+    RunningJobInfo,
+    RunningJobsResponse,
+    AITaskInfo,
+    AITaskListResponse,
+    RunningAITasksResponse,
 )
 from app.schemas.common import MessageResponse
 from app.core.exceptions import NotFoundError, ValidationError
@@ -117,9 +126,10 @@ async def get_job(
 
 @router.post("/start", response_model=StartCrawlResponse)
 async def start_crawl(
-    request: StartCrawlRequest,
+    crawl_request: StartCrawlRequest,
+    http_request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Start crawling for specific sources or a whole category.
 
@@ -132,13 +142,16 @@ async def start_crawl(
     - search: Filter by name or URL
     - limit: Maximum number of sources to crawl
     """
+    # Rate limit: 5 crawl starts per minute (resource intensive)
+    await check_rate_limit(http_request, "crawler_start", identifier=str(current_user.id))
+
     from workers.crawl_tasks import create_crawl_job
 
     job_ids = []
 
-    if request.source_ids:
+    if crawl_request.source_ids:
         # Crawl specific sources - create jobs for ALL assigned categories
-        for source_id in request.source_ids:
+        for source_id in crawl_request.source_ids:
             source = await session.get(DataSource, source_id)
             if not source:
                 raise NotFoundError("Data Source", str(source_id))
@@ -166,51 +179,51 @@ async def start_crawl(
         query = select(DataSource)
 
         # Category filter - use junction table (N:M relationship)
-        if request.category_id:
-            category = await session.get(Category, request.category_id)
+        if crawl_request.category_id:
+            category = await session.get(Category, crawl_request.category_id)
             if not category:
-                raise NotFoundError("Category", str(request.category_id))
+                raise NotFoundError("Category", str(crawl_request.category_id))
             # Join with junction table to find sources linked to this category
             query = (
                 select(DataSource)
                 .join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id)
-                .where(DataSourceCategory.category_id == request.category_id)
+                .where(DataSourceCategory.category_id == crawl_request.category_id)
             )
 
         # Country filter
-        if request.country:
-            query = query.where(DataSource.country == request.country.upper())
+        if crawl_request.country:
+            query = query.where(DataSource.country == crawl_request.country.upper())
 
         # Status filter
-        if request.status:
+        if crawl_request.status:
             try:
-                status_enum = SourceStatus(request.status)
+                status_enum = SourceStatus(crawl_request.status)
                 query = query.where(DataSource.status == status_enum)
             except ValueError:
-                raise ValidationError(f"Invalid status: {request.status}")
+                raise ValidationError(f"Invalid status: {crawl_request.status}")
         else:
             # Default: only active/pending sources
             query = query.where(DataSource.status.in_([SourceStatus.ACTIVE, SourceStatus.PENDING]))
 
         # Source type filter
-        if request.source_type:
+        if crawl_request.source_type:
             try:
-                type_enum = SourceType(request.source_type)
+                type_enum = SourceType(crawl_request.source_type)
                 query = query.where(DataSource.source_type == type_enum)
             except ValueError:
-                raise ValidationError(f"Invalid source type: {request.source_type}")
+                raise ValidationError(f"Invalid source type: {crawl_request.source_type}")
 
         # Search filter
-        if request.search:
-            search_term = f"%{request.search}%"
+        if crawl_request.search:
+            search_term = f"%{crawl_request.search}%"
             query = query.where(
                 DataSource.name.ilike(search_term) |
                 DataSource.base_url.ilike(search_term)
             )
 
         # Apply limit
-        if request.limit:
-            query = query.limit(request.limit)
+        if crawl_request.limit:
+            query = query.limit(crawl_request.limit)
 
         # Execute query
         result = await session.execute(query)
@@ -226,7 +239,7 @@ async def start_crawl(
         for source in sources:
             # If filtering by category, use that category_id
             # Otherwise, fall back to legacy category_id (if set)
-            cat_id = request.category_id or source.category_id
+            cat_id = crawl_request.category_id or source.category_id
             if cat_id:
                 create_crawl_job.delay(str(source.id), str(cat_id))
                 job_ids.append(source.id)
@@ -362,43 +375,76 @@ async def reanalyze_documents(
     )
 
 
-@router.get("/status", response_model=dict)
+@router.get("/status", response_model=CrawlerStatusResponse)
 async def get_crawler_status(
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
     """Get current crawler status (running jobs, queued jobs, etc.)."""
+    from datetime import date
     from workers.celery_app import celery_app
 
     running_jobs = (await session.execute(
-        select(CrawlJob).where(CrawlJob.status == JobStatus.RUNNING)
-    )).scalars().all()
+        select(func.count()).where(CrawlJob.status == JobStatus.RUNNING)
+    )).scalar() or 0
 
     pending_jobs = (await session.execute(
-        select(CrawlJob).where(CrawlJob.status == JobStatus.PENDING)
-    )).scalars().all()
+        select(func.count()).where(CrawlJob.status == JobStatus.PENDING)
+    )).scalar() or 0
+
+    # Jobs completed/failed today
+    today = date.today()
+    completed_today = (await session.execute(
+        select(func.count()).where(
+            CrawlJob.status == JobStatus.COMPLETED,
+            func.date(CrawlJob.completed_at) == today
+        )
+    )).scalar() or 0
+
+    failed_today = (await session.execute(
+        select(func.count()).where(
+            CrawlJob.status == JobStatus.FAILED,
+            func.date(CrawlJob.completed_at) == today
+        )
+    )).scalar() or 0
+
+    # Last completed job
+    last_completed = (await session.execute(
+        select(CrawlJob.completed_at)
+        .where(CrawlJob.status == JobStatus.COMPLETED)
+        .order_by(CrawlJob.completed_at.desc())
+        .limit(1)
+    )).scalar()
 
     # Get Celery worker status
+    celery_connected = False
     try:
         inspector = celery_app.control.inspect()
         active_tasks = inspector.active() or {}
-        reserved_tasks = inspector.reserved() or {}
-        worker_count = len(active_tasks)
+        celery_connected = len(active_tasks) > 0 or inspector.ping() is not None
     except Exception:
-        active_tasks = {}
-        reserved_tasks = {}
-        worker_count = 0
+        celery_connected = False
 
-    return {
-        "running_jobs": len(running_jobs),
-        "pending_jobs": len(pending_jobs),
-        "worker_count": worker_count,
-        "active_tasks": sum(len(tasks) for tasks in active_tasks.values()),
-        "queued_tasks": sum(len(tasks) for tasks in reserved_tasks.values()),
-    }
+    # Determine overall status
+    if running_jobs > 0:
+        status = "crawling"
+    elif pending_jobs > 0:
+        status = "pending"
+    else:
+        status = "idle"
+
+    return CrawlerStatusResponse(
+        status=status,
+        running_jobs=running_jobs,
+        pending_jobs=pending_jobs,
+        completed_today=completed_today,
+        failed_today=failed_today,
+        last_completed_at=last_completed,
+        celery_connected=celery_connected,
+    )
 
 
-@router.get("/jobs/{job_id}/log")
+@router.get("/jobs/{job_id}/log", response_model=JobLogResponse)
 async def get_job_log(
     job_id: UUID,
     limit: int = Query(default=30, ge=1, le=100),
@@ -406,6 +452,7 @@ async def get_job_log(
     _: User = Depends(require_editor),
 ):
     """Get live crawl log for a running job."""
+    from datetime import datetime
     from app.services.crawler_progress import crawler_progress
 
     job = await session.get(CrawlJob, job_id)
@@ -413,25 +460,29 @@ async def get_job_log(
         raise NotFoundError("Crawl Job", str(job_id))
 
     # Get recent log entries from Redis
-    log_entries = await crawler_progress.get_log(job_id, limit=limit)
-    current_url = await crawler_progress.get_current_url(job_id)
+    raw_entries = await crawler_progress.get_log(job_id, limit=limit + 1)
+    has_more = len(raw_entries) > limit
+    raw_entries = raw_entries[:limit]
 
-    source = await session.get(DataSource, job.source_id)
+    # Convert to JobLogEntry format
+    entries = []
+    for entry in raw_entries:
+        entries.append(JobLogEntry(
+            timestamp=datetime.fromisoformat(entry.get("timestamp", datetime.now().isoformat())),
+            level=entry.get("level", "INFO"),
+            message=entry.get("message", entry.get("url", "")),
+            details=entry.get("details"),
+        ))
 
-    return {
-        "job_id": str(job_id),
-        "source_name": source.name if source else None,
-        "status": job.status.value,
-        "current_url": current_url,
-        "pages_crawled": job.pages_crawled,
-        "documents_found": job.documents_found,
-        "documents_new": job.documents_new,
-        "error_count": job.error_count,
-        "log_entries": log_entries,
-    }
+    return JobLogResponse(
+        job_id=job_id,
+        entries=entries,
+        total=len(entries),
+        has_more=has_more,
+    )
 
 
-@router.get("/running")
+@router.get("/running", response_model=RunningJobsResponse)
 async def get_running_jobs(
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
@@ -467,34 +518,34 @@ async def get_running_jobs(
     for job in running_jobs:
         source = sources_dict.get(job.source_id)
         category = categories_dict.get(job.category_id)
-        current_url = await crawler_progress.get_current_url(job.id)
-        recent_log = await crawler_progress.get_log(job.id, limit=5)
         live_stats = await crawler_progress.get_stats(job.id)
 
-        jobs.append({
-            "id": str(job.id),
-            "source_id": str(job.source_id),
-            "source_name": source.name if source else None,
-            "base_url": source.base_url if source else None,
-            "category_id": str(job.category_id),
-            "category_name": category.name if category else None,
-            "status": job.status.value,
-            "started_at": job.started_at.isoformat() if job.started_at else None,
-            "pages_crawled": live_stats.get("pages_crawled", job.pages_crawled),
-            "documents_found": live_stats.get("documents_found", job.documents_found),
-            "documents_new": job.documents_new,
-            "error_count": job.error_count,
-            "current_url": current_url,
-            "recent_urls": [e.get("url") for e in recent_log[:3]],
-        })
+        # Calculate progress percentage if we have total pages estimate
+        progress_percent = None
+        if live_stats.get("total_pages"):
+            progress_percent = (live_stats.get("pages_crawled", 0) / live_stats["total_pages"]) * 100
 
-    return {
-        "running_count": len(jobs),
-        "jobs": jobs,
-    }
+        jobs.append(RunningJobInfo(
+            id=job.id,
+            source_id=job.source_id,
+            source_name=source.name if source else None,
+            category_id=job.category_id,
+            category_name=category.name if category else None,
+            status=job.status.value,
+            started_at=job.started_at,
+            pages_crawled=live_stats.get("pages_crawled", job.pages_crawled),
+            documents_found=live_stats.get("documents_found", job.documents_found),
+            progress_percent=progress_percent,
+            celery_task_id=job.celery_task_id,
+        ))
+
+    return RunningJobsResponse(
+        jobs=jobs,
+        total=len(jobs),
+    )
 
 
-@router.get("/ai-tasks")
+@router.get("/ai-tasks", response_model=AITaskListResponse)
 async def list_ai_tasks(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
@@ -534,46 +585,38 @@ async def list_ai_tasks(
     # Enrich with process info
     items = []
     for task in tasks:
-        process_name = None
-        location_name = None
+        source_name = None
+        category_name = None
         if task.process_id:
             process = processes_dict.get(task.process_id)
             if process:
-                process_name = process.name
-                location_name = process.location_name
+                source_name = process.name
+                category_name = process.entity_name
 
-        items.append({
-            "id": str(task.id),
-            "task_type": task.task_type.value,
-            "status": task.status.value,
-            "name": task.name,
-            "description": task.description,
-            "process_id": str(task.process_id) if task.process_id else None,
-            "process_name": process_name,
-            "location_name": location_name,
-            "scheduled_at": task.scheduled_at.isoformat() if task.scheduled_at else None,
-            "started_at": task.started_at.isoformat() if task.started_at else None,
-            "completed_at": task.completed_at.isoformat() if task.completed_at else None,
-            "progress_current": task.progress_current,
-            "progress_total": task.progress_total,
-            "progress_percent": task.progress_percent,
-            "current_item": task.current_item,
-            "fields_extracted": task.fields_extracted,
-            "avg_confidence": task.avg_confidence,
-            "duration_seconds": task.duration_seconds,
-            "error_message": task.error_message,
-        })
+        items.append(AITaskInfo(
+            id=task.id,
+            task_type=task.task_type.value,
+            status=task.status.value,
+            source_name=source_name,
+            category_name=category_name,
+            created_at=task.scheduled_at,
+            started_at=task.started_at,
+            completed_at=task.completed_at,
+            error_message=task.error_message,
+            progress_percent=task.progress_percent,
+            celery_task_id=task.celery_task_id,
+        ))
 
-    return {
-        "items": items,
-        "total": total,
-        "page": page,
-        "per_page": per_page,
-        "pages": (total + per_page - 1) // per_page if per_page > 0 else 0,
-    }
+    return AITaskListResponse(
+        items=items,
+        total=total,
+        page=page,
+        per_page=per_page,
+        pages=(total + per_page - 1) // per_page if per_page > 0 else 0,
+    )
 
 
-@router.get("/ai-tasks/running")
+@router.get("/ai-tasks/running", response_model=RunningAITasksResponse)
 async def get_running_ai_tasks(
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
@@ -597,32 +640,32 @@ async def get_running_ai_tasks(
 
     tasks = []
     for task in running_tasks:
-        process_name = None
-        location_name = None
+        source_name = None
+        category_name = None
         if task.process_id:
             process = processes_dict.get(task.process_id)
             if process:
-                process_name = process.name
-                location_name = process.location_name
+                source_name = process.name
+                category_name = process.entity_name
 
-        tasks.append({
-            "id": str(task.id),
-            "task_type": task.task_type.value,
-            "name": task.name,
-            "process_name": process_name,
-            "location_name": location_name,
-            "started_at": task.started_at.isoformat() if task.started_at else None,
-            "progress_current": task.progress_current,
-            "progress_total": task.progress_total,
-            "progress_percent": task.progress_percent,
-            "current_item": task.current_item,
-            "duration_seconds": task.duration_seconds,
-        })
+        tasks.append(AITaskInfo(
+            id=task.id,
+            task_type=task.task_type.value,
+            status=task.status.value,
+            source_name=source_name,
+            category_name=category_name,
+            created_at=task.scheduled_at,
+            started_at=task.started_at,
+            completed_at=task.completed_at,
+            error_message=task.error_message,
+            progress_percent=task.progress_percent,
+            celery_task_id=task.celery_task_id,
+        ))
 
-    return {
-        "running_count": len(tasks),
-        "tasks": tasks,
-    }
+    return RunningAITasksResponse(
+        tasks=tasks,
+        total=len(tasks),
+    )
 
 
 @router.post("/ai-tasks/{task_id}/cancel", response_model=MessageResponse)
@@ -632,8 +675,6 @@ async def cancel_ai_task(
     _: User = Depends(require_editor),
 ):
     """Cancel a running AI task."""
-    from workers.celery_app import celery_app
-
     task = await session.get(AITask, task_id)
     if not task:
         raise NotFoundError("AI Task", str(task_id))
@@ -641,8 +682,9 @@ async def cancel_ai_task(
     if task.status != AITaskStatus.RUNNING:
         raise ValidationError("Can only cancel running tasks")
 
-    # Revoke Celery task
+    # Revoke Celery task - import here to avoid issues when Celery isn't running
     if task.celery_task_id:
+        from workers.celery_app import celery_app
         celery_app.control.revoke(task.celery_task_id, terminate=True)
 
     task.status = AITaskStatus.CANCELLED

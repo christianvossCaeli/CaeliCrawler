@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from app.models.api_export import ApiExport
     from app.models.entity_type import EntityType
     from app.models.user import User
+    from app.models.category_entity_type import CategoryEntityType
 
 
 class Category(Base):
@@ -181,11 +182,33 @@ class Category(Base):
         foreign_keys=[owner_id],
     )
 
-    # Target EntityType relationship
+    # Target EntityType relationship (legacy 1:1 for backwards compatibility)
     target_entity_type: Mapped[Optional["EntityType"]] = relationship(
         "EntityType",
         foreign_keys=[target_entity_type_id],
     )
+
+    # N:M relationship to EntityTypes via junction table (Multi-EntityType Support)
+    entity_type_associations: Mapped[List["CategoryEntityType"]] = relationship(
+        "CategoryEntityType",
+        back_populates="category",
+        cascade="all, delete-orphan",
+        order_by="CategoryEntityType.extraction_order",
+    )
+
+    @property
+    def entity_types(self) -> List["EntityType"]:
+        """Get all associated EntityTypes in extraction order."""
+        return [assoc.entity_type for assoc in self.entity_type_associations]
+
+    @property
+    def primary_entity_type(self) -> Optional["EntityType"]:
+        """Get the primary EntityType for this category."""
+        for assoc in self.entity_type_associations:
+            if assoc.is_primary:
+                return assoc.entity_type
+        # Fallback to legacy target_entity_type
+        return self.target_entity_type
 
     def __repr__(self) -> str:
         return f"<Category(id={self.id}, name='{self.name}')>"
