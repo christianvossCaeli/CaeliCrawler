@@ -318,6 +318,82 @@
       </v-list>
     </v-alert>
 
+    <h3 class="text-h6 mb-3">{{ t('help.entityFacet.entityMatching.title') }}</h3>
+    <v-alert type="info" variant="tonal" class="mb-3">
+      {{ t('help.entityFacet.entityMatching.description') }}
+    </v-alert>
+
+    <v-card variant="outlined" class="mb-4">
+      <v-card-title class="text-subtitle-1">
+        <v-icon class="mr-2" color="primary">mdi-cog</v-icon>
+        {{ t('help.entityFacet.entityMatching.howItWorks.title') }}
+      </v-card-title>
+      <v-card-text>
+        <p class="mb-2">{{ t('help.entityFacet.entityMatching.howItWorks.description') }}</p>
+        <v-list density="compact">
+          <v-list-item prepend-icon="mdi-format-letter-case">
+            <v-list-item-title>{{ t('help.entityFacet.entityMatching.howItWorks.normalization') }}</v-list-item-title>
+          </v-list-item>
+          <v-list-item prepend-icon="mdi-text-box-minus">
+            <v-list-item-title>{{ t('help.entityFacet.entityMatching.howItWorks.prefixRemoval') }}</v-list-item-title>
+          </v-list-item>
+          <v-list-item prepend-icon="mdi-approximately-equal">
+            <v-list-item-title>{{ t('help.entityFacet.entityMatching.howItWorks.fuzzyMatching') }}</v-list-item-title>
+          </v-list-item>
+        </v-list>
+      </v-card-text>
+    </v-card>
+
+    <v-row class="mb-4">
+      <v-col cols="12" md="6">
+        <v-card variant="outlined" class="h-100">
+          <v-card-title class="text-subtitle-1">
+            <v-icon class="mr-2" color="success">mdi-check-all</v-icon>
+            {{ t('help.entityFacet.entityMatching.examples.title') }}
+          </v-card-title>
+          <v-card-text>
+            <v-list density="compact">
+              <v-list-item prepend-icon="mdi-swap-horizontal">
+                <v-list-item-title>{{ t('help.entityFacet.entityMatching.examples.umlaut') }}</v-list-item-title>
+              </v-list-item>
+              <v-list-item prepend-icon="mdi-swap-horizontal">
+                <v-list-item-title>{{ t('help.entityFacet.entityMatching.examples.prefix') }}</v-list-item-title>
+              </v-list-item>
+              <v-list-item prepend-icon="mdi-swap-horizontal">
+                <v-list-item-title>{{ t('help.entityFacet.entityMatching.examples.case') }}</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-card-text>
+        </v-card>
+      </v-col>
+      <v-col cols="12" md="6">
+        <v-card variant="outlined" class="h-100">
+          <v-card-title class="text-subtitle-1">
+            <v-icon class="mr-2" color="primary">mdi-star</v-icon>
+            {{ t('help.entityFacet.entityMatching.benefits.title') }}
+          </v-card-title>
+          <v-card-text>
+            <v-list density="compact">
+              <v-list-item prepend-icon="mdi-check">
+                <v-list-item-title>{{ t('help.entityFacet.entityMatching.benefits.consistency') }}</v-list-item-title>
+              </v-list-item>
+              <v-list-item prepend-icon="mdi-check">
+                <v-list-item-title>{{ t('help.entityFacet.entityMatching.benefits.aggregation') }}</v-list-item-title>
+              </v-list-item>
+              <v-list-item prepend-icon="mdi-check">
+                <v-list-item-title>{{ t('help.entityFacet.entityMatching.benefits.quality') }}</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+
+    <v-alert type="success" variant="tonal" class="mb-4">
+      <v-icon class="mr-2">mdi-lightbulb</v-icon>
+      {{ t('help.entityFacet.entityMatching.tip') }}
+    </v-alert>
+
     <h3 class="text-h6 mb-3">{{ t('help.entityFacet.multiSourceEnrichment.title') }}</h3>
     <v-alert type="info" variant="tonal" class="mb-3">
       {{ t('help.entityFacet.multiSourceEnrichment.description') }}

@@ -61,6 +61,9 @@ from app.models.export_job import ExportJob
 # User Favorites
 from app.models.user_favorite import UserFavorite
 
+# API Templates (KI-First Discovery)
+from app.models.api_template import APITemplate, APIType, TemplateStatus
+
 # External API Integration
 from external_apis.models.external_api_config import ExternalAPIConfig, AuthType, SyncStatus
 from external_apis.models.sync_record import SyncRecord, RecordStatus
@@ -140,6 +143,10 @@ __all__ = [
     "ExportJob",
     # User Favorites
     "UserFavorite",
+    # API Templates (KI-First Discovery)
+    "APITemplate",
+    "APIType",
+    "TemplateStatus",
     # External API Integration
     "ExternalAPIConfig",
     "AuthType",

@@ -22,6 +22,7 @@ Die API-Dokumentation ist in mehrere thematische Dateien aufgeteilt:
 | [NOTIFICATIONS.md](./NOTIFICATIONS.md) | Benachrichtigungssystem (E-Mail, Push, Webhooks) |
 | [DATA.md](./DATA.md) | Public Data API, Dokumente, Export |
 | [ENTITIES.md](./ENTITIES.md) | Entity-Facet System |
+| [ENTITY_MATCHING.md](./ENTITY_MATCHING.md) | Entity-Deduplizierung & Matching-Logik |
 | [ANALYSIS.md](./ANALYSIS.md) | Entity-Analyse, Reports, Statistiken |
 | [DASHBOARD.md](./DASHBOARD.md) | Dashboard-Statistiken, Activity, Insights, Charts |
 | [FAVORITES.md](./FAVORITES.md) | Favoriten-Verwaltung |

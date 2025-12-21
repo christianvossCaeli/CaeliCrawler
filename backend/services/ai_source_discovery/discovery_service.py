@@ -18,14 +18,24 @@ from app.core.security_logging import security_logger
 from services.smart_query.query_interpreter import get_openai_client
 from services.smart_query.utils import clean_json_response
 from .models import (
+    APISuggestion,
+    APIValidationResult,
     DiscoveryResult,
+    DiscoveryResultV2,
     DiscoveryStats,
     ExtractedSource,
     SearchResult,
     SearchStrategy,
     SourceWithTags,
+    ValidatedAPISource,
 )
-from .prompts import AI_SEARCH_STRATEGY_PROMPT, AI_TAG_GENERATION_PROMPT
+from .prompts import (
+    AI_API_SUGGESTION_PROMPT,
+    AI_FIELD_MAPPING_PROMPT,
+    AI_SEARCH_STRATEGY_PROMPT,
+    AI_TAG_GENERATION_PROMPT,
+)
+from .api_validator import APIValidator, validate_api_suggestions
 from .search_providers import SerperSearchProvider
 from .extractors import HTMLTableExtractor, WikipediaExtractor, AIExtractor
 
@@ -500,3 +510,294 @@ class AISourceDiscoveryService:
                 tags.append(tag)
 
         return list(set(tags))
+
+    # ================================================================
+    # KI-FIRST DISCOVERY (V2)
+    # ================================================================
+
+    async def discover_sources_v2(
+        self,
+        prompt: str,
+        max_results: int = 50,
+        search_depth: str = "standard",
+        skip_api_discovery: bool = False,
+    ) -> DiscoveryResultV2:
+        """
+        KI-First Discovery: Zuerst APIs via KI finden, dann SERP als Fallback.
+
+        Flow:
+        1. (Optional) Gespeicherte Vorlagen prüfen
+        2. KI generiert API-Vorschläge
+        3. API-Vorschläge validieren
+        4. Bei Erfolg → Daten direkt von API
+        5. Bei Misserfolg → SERP Fallback
+
+        Args:
+            prompt: Natural language prompt
+            max_results: Maximum number of sources to return
+            search_depth: quick, standard, deep
+            skip_api_discovery: If True, skip to SERP directly
+
+        Returns:
+            DiscoveryResultV2 with API sources and/or web sources
+        """
+        stats = DiscoveryStats()
+        warnings: List[str] = []
+        api_sources: List[ValidatedAPISource] = []
+        api_suggestions: List[APISuggestion] = []
+        api_validations: List[APIValidationResult] = []
+        used_fallback = False
+
+        # Step 1: TODO - Check saved templates (will be implemented with DB model)
+        # template_result = await self._check_saved_templates(prompt)
+        # if template_result:
+        #     return template_result
+
+        # Step 2: Generate API suggestions via LLM
+        if not skip_api_discovery:
+            logger.info("Generating API suggestions via LLM", prompt=prompt)
+            try:
+                api_suggestions = await self._generate_api_suggestions(prompt)
+                logger.info(
+                    "Generated API suggestions",
+                    count=len(api_suggestions),
+                    apis=[s.api_name for s in api_suggestions],
+                )
+            except Exception as e:
+                logger.warning("Failed to generate API suggestions", error=str(e))
+                warnings.append(f"KI-API-Vorschläge konnten nicht generiert werden: {str(e)}")
+
+        # Step 3: Validate API suggestions
+        if api_suggestions:
+            logger.info("Validating API suggestions", count=len(api_suggestions))
+            api_validations = await validate_api_suggestions(api_suggestions)
+
+            # Step 4: Extract data from valid APIs
+            for validation in api_validations:
+                if validation.is_valid and validation.item_count and validation.item_count > 0:
+                    logger.info(
+                        "Valid API found",
+                        api_name=validation.suggestion.api_name,
+                        items=validation.item_count,
+                    )
+
+                    # Fetch full data from API
+                    extracted_items = await self._fetch_full_api_data(
+                        validation.suggestion,
+                        validation.field_mapping,
+                        max_results,
+                    )
+
+                    # Generate tags for this API source
+                    tags = self._extract_base_tags(prompt)
+                    tags.append(validation.suggestion.api_type.lower())
+
+                    api_sources.append(ValidatedAPISource(
+                        api_suggestion=validation.suggestion,
+                        validation=validation,
+                        extracted_items=extracted_items,
+                        tags=tags,
+                    ))
+
+        # Step 5: If no valid APIs found, fallback to SERP
+        web_sources: List[SourceWithTags] = []
+        search_strategy: Optional[SearchStrategy] = None
+
+        if not api_sources:
+            logger.info("No valid APIs found, falling back to SERP")
+            used_fallback = True
+
+            # Use existing SERP-based discovery
+            serp_result = await self.discover_sources(
+                prompt=prompt,
+                max_results=max_results,
+                search_depth=search_depth,
+            )
+            web_sources = serp_result.sources
+            search_strategy = serp_result.search_strategy
+            stats = serp_result.stats
+            warnings.extend(serp_result.warnings)
+        else:
+            # Calculate stats for API discovery
+            stats.sources_extracted = sum(
+                len(s.extracted_items) for s in api_sources
+            )
+            stats.sources_validated = len(api_sources)
+
+        return DiscoveryResultV2(
+            api_sources=api_sources,
+            web_sources=web_sources,
+            api_suggestions=api_suggestions,
+            api_validations=api_validations,
+            search_strategy=search_strategy,
+            stats=stats,
+            warnings=warnings,
+            used_fallback=used_fallback,
+        )
+
+    async def _generate_api_suggestions(self, prompt: str) -> List[APISuggestion]:
+        """
+        Generate API suggestions using LLM.
+
+        Args:
+            prompt: User's natural language prompt
+
+        Returns:
+            List of API suggestions
+        """
+        try:
+            client = get_openai_client()
+        except ValueError:
+            logger.warning("OpenAI not configured, cannot generate API suggestions")
+            return []
+
+        api_prompt = AI_API_SUGGESTION_PROMPT.format(prompt=prompt)
+
+        response = client.chat.completions.create(
+            model=settings.azure_openai_deployment_name,
+            messages=[{"role": "user", "content": api_prompt}],
+            temperature=0.3,  # Lower temperature for more consistent API suggestions
+            max_tokens=2000,
+        )
+
+        content = response.choices[0].message.content.strip()
+        content = clean_json_response(content)
+
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError as e:
+            logger.error("Failed to parse API suggestions JSON", error=str(e), content=content[:500])
+            return []
+
+        if not isinstance(data, list):
+            logger.warning("API suggestions response is not a list", type=type(data))
+            return []
+
+        suggestions = []
+        for item in data:
+            try:
+                suggestion = APISuggestion(
+                    api_name=item.get("api_name", "Unknown"),
+                    base_url=item.get("base_url", ""),
+                    endpoint=item.get("endpoint", ""),
+                    description=item.get("description", ""),
+                    api_type=item.get("api_type", "REST"),
+                    auth_required=item.get("auth_required", False),
+                    confidence=item.get("confidence", 0.5),
+                    expected_fields=item.get("expected_fields", []),
+                    documentation_url=item.get("documentation_url"),
+                )
+                if suggestion.base_url and suggestion.endpoint:
+                    suggestions.append(suggestion)
+            except Exception as e:
+                logger.warning("Failed to parse API suggestion", error=str(e), item=item)
+
+        return suggestions
+
+    async def _fetch_full_api_data(
+        self,
+        suggestion: APISuggestion,
+        field_mapping: Dict[str, str],
+        max_items: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch full data from a validated API.
+
+        Args:
+            suggestion: The validated API suggestion
+            field_mapping: Detected field mapping
+            max_items: Maximum items to fetch
+
+        Returns:
+            List of extracted items with normalized field names
+        """
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.get(
+                    suggestion.full_url,
+                    headers={
+                        "User-Agent": "CaeliCrawler/1.0 (Data Import)",
+                        "Accept": "application/json",
+                    },
+                )
+
+                if response.status_code != 200:
+                    logger.warning(
+                        "API fetch failed",
+                        api=suggestion.api_name,
+                        status=response.status_code,
+                    )
+                    return []
+
+                data = response.json()
+
+                # Extract items from response
+                items = self._extract_items_from_response(data)
+
+                # Apply field mapping and limit
+                normalized_items = []
+                for item in items[:max_items]:
+                    normalized = self._apply_field_mapping(item, field_mapping)
+                    if normalized.get("name"):  # Must have a name
+                        normalized_items.append(normalized)
+
+                return normalized_items
+
+        except Exception as e:
+            logger.error(
+                "Failed to fetch API data",
+                api=suggestion.api_name,
+                error=str(e),
+            )
+            return []
+
+    def _extract_items_from_response(self, data: Any) -> List[Dict]:
+        """Extract list of items from API response."""
+        # Direct array
+        if isinstance(data, list):
+            return data
+
+        if not isinstance(data, dict):
+            return []
+
+        # Common wrapper fields
+        wrapper_fields = [
+            "data", "items", "results", "records", "entries",
+            "teams", "matches", "bodies", "members", "list",
+        ]
+
+        for field in wrapper_fields:
+            if field in data and isinstance(data[field], list):
+                return data[field]
+
+        # Check for any list field
+        for key, value in data.items():
+            if isinstance(value, list) and len(value) > 0:
+                if isinstance(value[0], dict):
+                    return value
+
+        return []
+
+    def _apply_field_mapping(
+        self,
+        item: Dict[str, Any],
+        field_mapping: Dict[str, str],
+    ) -> Dict[str, Any]:
+        """Apply field mapping to normalize item fields."""
+        normalized = {}
+
+        # Apply explicit mapping
+        for source_field, target_field in field_mapping.items():
+            if source_field in item:
+                normalized[target_field] = item[source_field]
+
+        # Copy unmapped fields to metadata
+        metadata = {}
+        for key, value in item.items():
+            if key not in field_mapping:
+                metadata[key] = value
+
+        if metadata:
+            normalized["metadata"] = metadata
+
+        return normalized
