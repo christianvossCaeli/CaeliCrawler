@@ -1,0 +1,50 @@
+{
+  "crawlPresets": {
+    "title": "Crawl Presets",
+    "create": "New Preset",
+    "edit": "Edit Preset",
+    "delete": "Delete Preset",
+    "execute": "Execute Now",
+    "preview": "Preview",
+    "all": "All",
+    "favorites": "Favorites",
+    "scheduled": "Scheduled",
+    "empty": "No presets found",
+    "emptyHint": "Save filter configurations as presets for quick re-execution",
+    "createFirst": "Create First Preset",
+    "name": "Name",
+    "description": "Description",
+    "filters": "Filter Configuration",
+    "entityType": "Entity Type",
+    "adminLevel1": "Region/State",
+    "tags": "Tags",
+    "tagsHint": "Press Enter to add tags",
+    "sourceType": "Source Type",
+    "limit": "Limit",
+    "sourcesMatched": "sources matched",
+    "loadingPreview": "Loading preview...",
+    "quickStart": "Quick Start",
+    "noFavoritesYet": "No favorites yet",
+    "noFavoritesHint": "Mark presets as favorites for quick access",
+    "usedTimes": "Used {count} times",
+    "scheduledCount": "{count} scheduled crawls active",
+    "justNow": "Just now",
+    "minutesAgo": "{n} min ago",
+    "hoursAgo": "{n}h ago",
+    "daysAgo": "{n} days ago",
+    "addedToFavorites": "Added to favorites",
+    "removedFromFavorites": "Removed from favorites",
+    "deleteConfirm": "Do you really want to delete the preset \"{name}\"?",
+    "schedule": {
+      "title": "Schedule",
+      "enabled": "Automatic Execution"
+    },
+    "messages": {
+      "created": "Preset created",
+      "updated": "Preset updated",
+      "deleted": "Preset deleted",
+      "executed": "{count} crawl jobs started",
+      "executeFailed": "Execution failed"
+    }
+  }
+}
