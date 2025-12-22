@@ -1,5 +1,7 @@
 """Celery application configuration."""
 
+from datetime import timedelta
+
 from celery import Celery
 from celery.schedules import crontab
 from celery.signals import (
@@ -31,6 +33,7 @@ celery_app = Celery(
         "workers.external_api_tasks",
         "workers.export_tasks",
         "workers.api_template_tasks",
+        "workers.crawl_preset_tasks",
     ],
 )
 
@@ -64,6 +67,7 @@ celery_app.conf.update(
         "workers.notification_tasks.*": {"queue": "notification"},
         "workers.export_tasks.*": {"queue": "processing"},
         "workers.api_template_tasks.*": {"queue": "processing"},
+        "workers.crawl_preset_tasks.*": {"queue": "crawl"},
     },
 
     # Default queue
@@ -73,7 +77,7 @@ celery_app.conf.update(
     beat_schedule={
         "check-scheduled-crawls": {
             "task": "workers.crawl_tasks.check_scheduled_crawls",
-            "schedule": crontab(minute="*/15"),  # Every 15 minutes
+            "schedule": timedelta(seconds=5),  # High-frequency for seconds-level schedules
         },
         "cleanup-old-jobs": {
             "task": "workers.crawl_tasks.cleanup_old_jobs",
@@ -122,6 +126,15 @@ celery_app.conf.update(
         "cleanup-failed-templates": {
             "task": "workers.api_template_tasks.cleanup_failed_templates",
             "schedule": crontab(hour=3, minute=30, day_of_week=0),  # Weekly on Sunday at 3:30 AM
+        },
+        # Crawl Preset scheduling
+        "check-scheduled-presets": {
+            "task": "workers.crawl_preset_tasks.check_scheduled_presets",
+            "schedule": timedelta(seconds=5),  # High-frequency for seconds-level schedules
+        },
+        "cleanup-archived-presets": {
+            "task": "workers.crawl_preset_tasks.cleanup_archived_presets",
+            "schedule": crontab(hour=4, minute=30, day_of_week=0),  # Weekly on Sunday at 4:30 AM
         },
     },
 )

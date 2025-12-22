@@ -13,6 +13,22 @@
       <h1 class="text-h4">{{ $t('crawler.title') }}</h1>
       <v-spacer></v-spacer>
       <v-btn
+        color="primary"
+        variant="tonal"
+        prepend-icon="mdi-content-save-cog"
+        class="mr-2"
+        @click="presetsDrawer = true"
+      >
+        {{ $t('crawlPresets.title') }}
+        <v-badge
+          v-if="presetsStore.favoriteCount > 0"
+          :content="presetsStore.favoriteCount"
+          color="warning"
+          offset-x="-8"
+          offset-y="-8"
+        />
+      </v-btn>
+      <v-btn
         v-if="status.running_jobs > 0 || status.pending_jobs > 0"
         color="error"
         variant="outlined"
@@ -23,6 +39,25 @@
         {{ $t('crawler.stopAll') }}
       </v-btn>
     </div>
+
+    <!-- Presets Drawer -->
+    <v-navigation-drawer
+      v-model="presetsDrawer"
+      location="right"
+      temporary
+      width="600"
+    >
+      <div class="pa-4">
+        <div class="d-flex align-center mb-4">
+          <h2 class="text-h5">{{ $t('crawlPresets.title') }}</h2>
+          <v-spacer />
+          <v-btn icon variant="text" @click="presetsDrawer = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </div>
+        <CrawlPresetsTab />
+      </div>
+    </v-navigation-drawer>
 
     <!-- Live Status -->
     <v-row class="mb-4">
@@ -269,6 +304,26 @@
       </v-data-table>
     </v-card>
 
+    <!-- Confirmation Dialog -->
+    <v-dialog v-model="confirmDialog" max-width="450">
+      <v-card>
+        <v-card-title class="text-h6">
+          <v-icon color="warning" class="mr-2">mdi-alert</v-icon>
+          {{ confirmTitle }}
+        </v-card-title>
+        <v-card-text>{{ confirmMessage }}</v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="text" @click="confirmDialog = false">
+            {{ $t('common.cancel') }}
+          </v-btn>
+          <v-btn color="error" variant="flat" @click="executeConfirmedAction">
+            {{ $t('common.confirm') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Job Details Dialog -->
     <v-dialog v-model="detailsDialog" max-width="800">
       <v-card v-if="selectedJob">
@@ -350,6 +405,9 @@ import { adminApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { useCrawlPresetsStore } from '@/stores/crawlPresets'
+import { useAuthStore } from '@/stores/auth'
+import CrawlPresetsTab from '@/components/crawler/CrawlPresetsTab.vue'
 
 interface LogEntry {
   status: string
@@ -364,8 +422,11 @@ interface JobLog {
 
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
+const presetsStore = useCrawlPresetsStore()
+const authStore = useAuthStore()
 
 const loading = ref(true)
+const presetsDrawer = ref(false)
 const initialLoad = ref(true)
 const stoppingAll = ref(false)
 const jobs = ref<any[]>([])
@@ -374,9 +435,15 @@ const runningAiTasks = ref<any[]>([])
 const jobLogs = ref<Record<string, JobLog>>({})
 const statusFilter = ref('')
 const detailsDialog = ref(false)
+const confirmDialog = ref(false)
+const confirmAction = ref<(() => Promise<void>) | null>(null)
+const confirmMessage = ref('')
+const confirmTitle = ref('')
 const selectedJob = ref<any>(null)
 let refreshInterval: number | null = null
 let logRefreshInterval: number | null = null
+let eventSource: EventSource | null = null
+const useSSE = ref(true)  // Enable SSE by default
 
 const status = ref({
   running_jobs: 0,
@@ -519,7 +586,31 @@ const cancelAiTask = async (task: any) => {
   }
 }
 
-const stopAllCrawlers = async () => {
+// Confirmation dialog helper
+const showConfirm = (title: string, message: string, action: () => Promise<void>) => {
+  confirmTitle.value = title
+  confirmMessage.value = message
+  confirmAction.value = action
+  confirmDialog.value = true
+}
+
+const executeConfirmedAction = async () => {
+  confirmDialog.value = false
+  if (confirmAction.value) {
+    await confirmAction.value()
+  }
+}
+
+const stopAllCrawlers = () => {
+  const totalJobs = status.value.running_jobs + status.value.pending_jobs
+  showConfirm(
+    t('crawler.confirmStopAllTitle'),
+    t('crawler.confirmStopAllMessage', { count: totalJobs }),
+    doStopAllCrawlers
+  )
+}
+
+const doStopAllCrawlers = async () => {
   stoppingAll.value = true
   try {
     let cancelledCount = 0
@@ -558,6 +649,68 @@ const stopAllCrawlers = async () => {
   }
 }
 
+// SSE connection for real-time updates
+const connectSSE = () => {
+  if (eventSource) {
+    eventSource.close()
+  }
+
+  const baseUrl = import.meta.env.VITE_API_URL || ''
+  // EventSource cannot send headers, so we pass the token as query parameter
+  const token = authStore.token
+  const url = token
+    ? `${baseUrl}/api/admin/crawler/events?token=${encodeURIComponent(token)}`
+    : `${baseUrl}/api/admin/crawler/events`
+  eventSource = new EventSource(url)
+
+  eventSource.addEventListener('status', (event) => {
+    const data = JSON.parse(event.data)
+    status.value.running_jobs = data.running_jobs ?? 0
+    status.value.pending_jobs = data.pending_jobs ?? 0
+  })
+
+  eventSource.addEventListener('jobs', (event) => {
+    const data = JSON.parse(event.data)
+    // Update running jobs from SSE
+    runningJobs.value = data.map((j: any) => ({
+      ...j,
+      id: j.id,
+      source_name: j.source_name || 'Unknown',
+      category_name: j.category_name || '-',
+      pages_crawled: j.pages_crawled || 0,
+      documents_found: j.documents_found || 0,
+    }))
+  })
+
+  eventSource.addEventListener('error', () => {
+    // Fallback to polling on error
+    console.warn('SSE connection failed, falling back to polling')
+    useSSE.value = false
+    disconnectSSE()
+    startPolling()
+  })
+}
+
+const disconnectSSE = () => {
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+  }
+}
+
+const startPolling = () => {
+  if (!refreshInterval) {
+    refreshInterval = window.setInterval(loadData, 5000)
+  }
+}
+
+const stopPolling = () => {
+  if (refreshInterval) {
+    clearInterval(refreshInterval)
+    refreshInterval = null
+  }
+}
+
 const showJobDetails = async (job: any) => {
   const response = await adminApi.getCrawlerJob(job.id)
   selectedJob.value = response.data
@@ -566,14 +719,23 @@ const showJobDetails = async (job: any) => {
 
 onMounted(() => {
   loadData()
-  // Auto-refresh every 5 seconds
-  refreshInterval = window.setInterval(loadData, 5000)
+
+  // Try SSE first, fallback to polling
+  if (useSSE.value) {
+    try {
+      connectSSE()
+    } catch (e) {
+      console.warn('SSE not available, using polling')
+      startPolling()
+    }
+  } else {
+    startPolling()
+  }
 })
 
 onUnmounted(() => {
-  if (refreshInterval) {
-    clearInterval(refreshInterval)
-  }
+  disconnectSSE()
+  stopPolling()
   if (logRefreshInterval) {
     clearInterval(logRefreshInterval)
   }

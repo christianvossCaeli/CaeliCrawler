@@ -52,6 +52,13 @@
     "aiTaskCancelling": "Cancelling AI task...",
     "cancelAiTaskError": "Error cancelling AI task",
     "noCategory": "No Category",
-    "jobsStopped": "{count} jobs stopped"
+    "jobsStopped": "{count} jobs stopped",
+    "confirmStopAllTitle": "Stop all jobs?",
+    "confirmStopAllMessage": "Are you sure you want to stop {count} running and pending jobs? This action cannot be undone.",
+    "confirmCancelJobTitle": "Cancel job?",
+    "confirmCancelJobMessage": "Are you sure you want to cancel the job \"{name}\"?",
+    "bulkCancel": "Cancel selected",
+    "selectAll": "Select all",
+    "selectedCount": "{count} selected"
   }
 }

@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 import structlog
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .entity_operations import (
@@ -21,12 +22,98 @@ from .crawl_operations import execute_crawl_command
 logger = structlog.get_logger()
 
 
+async def save_operation_to_history(
+    session: AsyncSession,
+    user_id: UUID,
+    command_text: str,
+    operation: str,
+    interpretation: Dict[str, Any],
+    result_summary: Dict[str, Any],
+    was_successful: bool,
+) -> None:
+    """Save a Smart Query operation to history for the user.
+
+    Handles deduplication: if the same command was executed before,
+    updates execution_count instead of creating a new record.
+    """
+    from app.models.smart_query_operation import SmartQueryOperation, OperationType
+
+    try:
+        # Map operation string to OperationType enum
+        operation_type_map = {
+            "start_crawl": OperationType.START_CRAWL,
+            "create_category_setup": OperationType.CREATE_CATEGORY_SETUP,
+            "create_entity": OperationType.CREATE_ENTITY,
+            "create_entity_type": OperationType.CREATE_ENTITY_TYPE,
+            "create_facet": OperationType.CREATE_FACET,
+            "create_relation": OperationType.CREATE_RELATION,
+            "fetch_and_create_from_api": OperationType.FETCH_AND_CREATE_FROM_API,
+            "discover_sources": OperationType.DISCOVER_SOURCES,
+            "combined": OperationType.COMBINED,
+        }
+        op_type = operation_type_map.get(operation, OperationType.OTHER)
+
+        # Compute hash for deduplication
+        command_hash = SmartQueryOperation.compute_hash(command_text)
+
+        # Check if this exact command exists for this user
+        existing = await session.execute(
+            select(SmartQueryOperation).where(
+                SmartQueryOperation.user_id == user_id,
+                SmartQueryOperation.command_hash == command_hash,
+            )
+        )
+        existing_op = existing.scalar()
+
+        if existing_op:
+            # Update existing record
+            existing_op.execution_count += 1
+            existing_op.last_executed_at = datetime.now(timezone.utc)
+            existing_op.was_successful = was_successful
+            existing_op.result_summary = result_summary
+            existing_op.interpretation = interpretation
+            logger.info(
+                "Updated Smart Query history",
+                operation_id=str(existing_op.id),
+                execution_count=existing_op.execution_count,
+            )
+        else:
+            # Create new record
+            new_op = SmartQueryOperation(
+                user_id=user_id,
+                command_text=command_text,
+                command_hash=command_hash,
+                operation_type=op_type,
+                interpretation=interpretation,
+                result_summary=result_summary,
+                was_successful=was_successful,
+            )
+            session.add(new_op)
+            logger.info(
+                "Saved new Smart Query to history",
+                operation_type=op_type.value,
+                command_text=command_text[:100],
+            )
+
+    except Exception as e:
+        # Don't fail the main operation if history saving fails
+        logger.warning("Failed to save Smart Query to history", error=str(e))
+
+
 async def execute_write_command(
     session: AsyncSession,
     command: Dict[str, Any],
     current_user_id: Optional[UUID] = None,
+    original_question: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Execute a write command and return the result."""
+    """Execute a write command and return the result.
+
+    Args:
+        session: Database session
+        command: The interpreted command to execute
+        current_user_id: ID of the user executing the command
+        original_question: The original natural language question (for history)
+    """
     operation = command.get("operation", "none")
 
     if operation == "none":
@@ -322,6 +409,28 @@ async def execute_write_command(
         logger.error("Write command execution failed", error=str(e))
         await session.rollback()
         result["message"] = f"Fehler: {str(e)}"
+
+    # Save to history if user is authenticated and we have a question
+    if current_user_id and original_question:
+        result_summary = {
+            "message": result.get("message", ""),
+            "success": result.get("success", False),
+            "created_items": result.get("created_items", []),
+        }
+        await save_operation_to_history(
+            session=session,
+            user_id=current_user_id,
+            command_text=original_question,
+            operation=operation,
+            interpretation=command,
+            result_summary=result_summary,
+            was_successful=result.get("success", False),
+        )
+        # Commit the history save (separate from main operation)
+        try:
+            await session.commit()
+        except Exception:
+            pass  # History save failure shouldn't affect main result
 
     return result
 

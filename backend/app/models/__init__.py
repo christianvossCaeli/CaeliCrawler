@@ -62,8 +62,14 @@ from app.models.export_job import ExportJob
 # User Favorites
 from app.models.user_favorite import UserFavorite
 
+# Smart Query History
+from app.models.smart_query_operation import SmartQueryOperation, OperationType
+
 # API Templates (KI-First Discovery)
 from app.models.api_template import APITemplate, APIType, TemplateStatus
+
+# Crawl Presets
+from app.models.crawl_preset import CrawlPreset, PresetStatus
 
 # External API Integration
 from external_apis.models.external_api_config import ExternalAPIConfig, AuthType, SyncStatus
@@ -145,10 +151,16 @@ __all__ = [
     "ExportJob",
     # User Favorites
     "UserFavorite",
+    # Smart Query History
+    "SmartQueryOperation",
+    "OperationType",
     # API Templates (KI-First Discovery)
     "APITemplate",
     "APIType",
     "TemplateStatus",
+    # Crawl Presets
+    "CrawlPreset",
+    "PresetStatus",
     # External API Integration
     "ExternalAPIConfig",
     "AuthType",

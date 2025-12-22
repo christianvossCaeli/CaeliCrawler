@@ -330,9 +330,9 @@
         "documentTypes": "Dokumenttypen",
         "documentTypesDesc": "Erwartete Typen zur Klassifizierung",
         "documentTypesExample": "Beschluss, Protokoll, Satzung",
-        "schedule": "Zeitplan (Cron)",
-        "scheduleDesc": "Automatischer Crawl-Zeitplan",
-        "scheduleExample": "0 2 * * * (täglich 2 Uhr)"
+        "schedule": "Zeitplan",
+        "scheduleDesc": "Automatische Crawls per Zeitplan-Builder konfigurieren (Sekunden optional). Advanced-Cron ist möglich.",
+        "scheduleExample": "Alle 15 Minuten oder täglich um 06:00"
       },
       "searchTerms": {
         "title": "Suchbegriffe (Keywords)",

@@ -238,7 +238,7 @@ async def create_category(
 
     **Validation:**
     - `url_include_patterns` and `url_exclude_patterns` must be valid regex
-    - `schedule_cron` must be a valid 5-field cron expression
+    - `schedule_cron` must be a valid 5- or 6-field cron expression (seconds optional)
     - `languages` must be 2-letter ISO 639-1 codes
     - `extraction_handler` must be 'default' or 'event'
 

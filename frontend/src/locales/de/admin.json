@@ -377,6 +377,54 @@
       "statusCode": "Status-Code",
       "itemCount": "Anzahl Einträge",
       "sampleData": "Beispieldaten"
+    },
+    "crawlPresets": {
+      "title": "Crawl-Presets",
+      "create": "Neues Preset",
+      "edit": "Preset bearbeiten",
+      "delete": "Preset löschen",
+      "execute": "Jetzt ausführen",
+      "preview": "Vorschau",
+      "all": "Alle",
+      "favorites": "Favoriten",
+      "scheduled": "Geplant",
+      "empty": "Keine Presets vorhanden",
+      "emptyHint": "Speichere Filter-Konfigurationen als Presets für schnelle Wiederholung",
+      "createFirst": "Erstes Preset erstellen",
+      "name": "Name",
+      "description": "Beschreibung",
+      "filters": "Filter-Konfiguration",
+      "entityType": "Entity-Typ",
+      "adminLevel1": "Region/Bundesland",
+      "tags": "Tags",
+      "tagsHint": "Eingabe mit Enter bestätigen",
+      "sourceType": "Quellen-Typ",
+      "limit": "Limit",
+      "sourcesMatched": "Quellen gefunden",
+      "loadingPreview": "Lade Vorschau...",
+      "quickStart": "Schnellstart",
+      "noFavoritesYet": "Keine Favoriten",
+      "noFavoritesHint": "Markiere Presets als Favoriten für schnellen Zugriff",
+      "usedTimes": "{count}x verwendet",
+      "scheduledCount": "{count} geplante Crawls aktiv",
+      "justNow": "Gerade eben",
+      "minutesAgo": "Vor {n} Min.",
+      "hoursAgo": "Vor {n} Std.",
+      "daysAgo": "Vor {n} Tagen",
+      "addedToFavorites": "Zu Favoriten hinzugefügt",
+      "removedFromFavorites": "Aus Favoriten entfernt",
+      "deleteConfirm": "Möchten Sie das Preset \"{name}\" wirklich löschen?",
+      "schedule": {
+        "title": "Zeitplan",
+        "enabled": "Automatische Ausführung"
+      },
+      "messages": {
+        "created": "Preset erstellt",
+        "updated": "Preset aktualisiert",
+        "deleted": "Preset gelöscht",
+        "executed": "{count} Crawl-Jobs gestartet",
+        "executeFailed": "Ausführung fehlgeschlagen"
+      }
     }
   }
 }

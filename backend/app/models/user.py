@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from app.models.notification import Notification
     from app.models.notification_rule import NotificationRule
     from app.models.reminder import Reminder
+    from app.models.smart_query_operation import SmartQueryOperation
     from app.models.user_dashboard import UserDashboardPreference
     from app.models.user_email import UserEmailAddress
     from app.models.user_favorite import UserFavorite
@@ -179,6 +180,12 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
         order_by="desc(DeviceToken.created_at)",
+    )
+    smart_query_operations: Mapped[List["SmartQueryOperation"]] = relationship(
+        "SmartQueryOperation",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="desc(SmartQueryOperation.last_executed_at)",
     )
 
     def __repr__(self) -> str:

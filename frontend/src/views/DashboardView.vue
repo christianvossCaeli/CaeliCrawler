@@ -23,6 +23,9 @@
       </v-btn>
     </div>
 
+    <!-- Crawl Presets Quick Actions -->
+    <CrawlPresetQuickActions class="mb-4" />
+
     <!-- Loading State -->
     <div v-if="dashboardStore.isLoading" class="d-flex justify-center py-12">
       <v-progress-circular indeterminate size="48" color="primary" />
@@ -188,6 +191,7 @@ import { adminApi } from '@/services/api'
 import { useDashboardStore } from '@/stores/dashboard'
 import DashboardGrid from '@/widgets/DashboardGrid.vue'
 import WidgetConfigurator from '@/components/dashboard/WidgetConfigurator.vue'
+import CrawlPresetQuickActions from '@/components/crawler/CrawlPresetQuickActions.vue'
 
 const { t } = useI18n()
 const dashboardStore = useDashboardStore()

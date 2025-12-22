@@ -120,7 +120,9 @@ async def smart_write_endpoint(
         }
 
     # Execute the command with current user context
-    result = await execute_write_command(session, command, current_user.id)
+    result = await execute_write_command(
+        session, command, current_user.id, original_question=request.question
+    )
     result["original_question"] = request.question
     result["mode"] = "write"
     result["interpretation"] = command

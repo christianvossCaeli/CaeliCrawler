@@ -8,38 +8,9 @@ from sqlalchemy import select, or_, func, cast, Float
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import DataSource, DataSourceCategory, Category, Entity
+from services.smart_query.constants import TAG_ALIASES
 
 logger = structlog.get_logger()
-
-
-# Tag aliases for common geographic regions
-TAG_ALIASES = {
-    # German Bundesländer
-    "nordrhein-westfalen": ["nrw", "nordrhein-westfalen"],
-    "nrw": ["nrw", "nordrhein-westfalen"],
-    "bayern": ["bayern", "by"],
-    "baden-württemberg": ["baden-württemberg", "bw"],
-    "niedersachsen": ["niedersachsen", "ni"],
-    "hessen": ["hessen", "he"],
-    "sachsen": ["sachsen", "sn"],
-    "rheinland-pfalz": ["rheinland-pfalz", "rlp"],
-    "berlin": ["berlin", "be"],
-    "schleswig-holstein": ["schleswig-holstein", "sh"],
-    "brandenburg": ["brandenburg", "bb"],
-    "sachsen-anhalt": ["sachsen-anhalt", "st"],
-    "thüringen": ["thüringen", "th"],
-    "hamburg": ["hamburg", "hh"],
-    "mecklenburg-vorpommern": ["mecklenburg-vorpommern", "mv"],
-    "saarland": ["saarland", "sl"],
-    "bremen": ["bremen", "hb"],
-    # Countries
-    "deutschland": ["deutschland", "de", "germany"],
-    "österreich": ["österreich", "at", "austria"],
-    "schweiz": ["schweiz", "ch", "switzerland"],
-    # Source types
-    "kommunal": ["kommunal", "gemeinde", "stadt", "kommune"],
-    "landkreis": ["landkreis", "kreis"],
-}
 
 
 def expand_tag(tag: str) -> List[str]:
@@ -366,6 +337,61 @@ async def find_sources_for_crawl(
     logger.info(f"Found {len(sources)} sources matching criteria")
 
     return sources
+
+
+async def start_crawl_jobs(
+    session: AsyncSession,
+    sources: List[DataSource],
+    force: bool = False,
+) -> List[str]:
+    """Start crawl jobs for a list of data sources.
+
+    Args:
+        session: Database session
+        sources: List of DataSource objects to crawl
+        force: If True, force crawl even if recently crawled
+
+    Returns:
+        List of created job IDs
+    """
+    from workers.crawl_tasks import create_crawl_job
+
+    job_ids: List[str] = []
+
+    for source in sources:
+        # Get all categories for this source
+        cat_result = await session.execute(
+            select(DataSourceCategory.category_id)
+            .where(DataSourceCategory.data_source_id == source.id)
+        )
+        category_ids = [row[0] for row in cat_result.fetchall()]
+
+        # Also include legacy category_id if set
+        if source.category_id and source.category_id not in category_ids:
+            category_ids.append(source.category_id)
+
+        if not category_ids:
+            logger.warning(
+                "Source has no categories, skipping",
+                source_id=str(source.id),
+                source_name=source.name,
+            )
+            continue
+
+        # Create crawl job for each category
+        for cat_id in category_ids:
+            try:
+                task = create_crawl_job.delay(str(source.id), str(cat_id))
+                job_ids.append(str(task.id))
+            except Exception as e:
+                logger.error(
+                    "Failed to create crawl job",
+                    source_id=str(source.id),
+                    category_id=str(cat_id),
+                    error=str(e),
+                )
+
+    return job_ids
 
 
 async def execute_crawl_command(

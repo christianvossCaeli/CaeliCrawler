@@ -17,8 +17,8 @@ class CrawlerProgress:
     LOG_KEY = "crawler:log:{job_id}"
     CURRENT_URL_KEY = "crawler:current:{job_id}"
     STATS_KEY = "crawler:stats:{job_id}"
-    MAX_LOG_ENTRIES = 50
-    LOG_TTL = 3600  # 1 hour
+    MAX_LOG_ENTRIES = 500  # Increased for long-running crawls
+    LOG_TTL = 86400  # 24 hours (increased from 1 hour)
 
     def __init__(self):
         self._redis: Optional[redis.Redis] = None

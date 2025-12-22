@@ -3,7 +3,7 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -95,6 +95,79 @@ async def get_current_user_optional(
         return None
 
 
+async def get_current_user_from_token(
+    token: str,
+    session: AsyncSession,
+) -> User:
+    """
+    Validate a token string and return the user.
+
+    Used internally for SSE authentication where tokens come from query params.
+    """
+    payload = decode_access_token(token)
+
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+
+    if await is_token_blacklisted(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+        )
+
+    try:
+        user_id = UUID(payload["sub"])
+    except (KeyError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    user = await session.get(User, user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is deactivated",
+        )
+
+    return user
+
+
+async def get_current_user_sse(
+    token: Optional[str] = Query(default=None, description="JWT token for SSE auth"),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
+    session: AsyncSession = Depends(get_session),
+) -> User:
+    """
+    Get current user from either Bearer header or query parameter.
+
+    SSE (EventSource) cannot send custom headers, so this dependency
+    accepts the token as a query parameter as fallback.
+    """
+    # Try Bearer header first
+    if credentials:
+        return await get_current_user(credentials, session)
+
+    # Fallback to query parameter (for SSE)
+    if token:
+        return await get_current_user_from_token(token, session)
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Authentication required",
+    )
+
+
 def require_role(required_roles: list[UserRole]):
     """
     Dependency factory for role-based access control.
@@ -127,6 +200,24 @@ def require_role(required_roles: list[UserRole]):
 require_admin = require_role([UserRole.ADMIN])
 require_editor = require_role([UserRole.ADMIN, UserRole.EDITOR])
 require_viewer = require_role([UserRole.ADMIN, UserRole.EDITOR, UserRole.VIEWER])
+
+
+async def require_editor_sse(
+    user: User = Depends(get_current_user_sse),
+) -> User:
+    """
+    SSE-compatible editor role check.
+
+    Accepts both Bearer header and query parameter token.
+    """
+    if user.is_superuser:
+        return user
+    if user.role not in [UserRole.ADMIN, UserRole.EDITOR]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions",
+        )
+    return user
 
 
 async def get_current_session_id(

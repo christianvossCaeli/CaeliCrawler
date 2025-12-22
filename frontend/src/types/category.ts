@@ -39,7 +39,7 @@ export interface CategoryBase {
   ai_extraction_prompt?: string | null;
   /** Handler for processing extractions */
   extraction_handler: ExtractionHandler;
-  /** Cron expression for scheduled crawls (e.g., "0 2 * * *") */
+  /** Cron expression for scheduled crawls (5 or 6 fields, e.g., "0 2 * * *") */
   schedule_cron: string;
   /** Whether category is active for crawling */
   is_active: boolean;

@@ -13,8 +13,29 @@
       "execute": "Ausführen"
     },
     "history": {
-      "title": "Verlauf",
-      "clear": "Verlauf löschen"
+      "title": "Befehlsverlauf",
+      "all": "Alle",
+      "favorites": "Favoriten",
+      "empty": "Noch keine Befehle ausgeführt",
+      "noFavorites": "Noch keine Favoriten",
+      "clear": "Verlauf löschen",
+      "clearTitle": "Verlauf löschen",
+      "clearConfirm": "Möchten Sie den Verlauf wirklich löschen? Favoriten bleiben erhalten.",
+      "cleared": "Verlauf wurde gelöscht",
+      "clearError": "Fehler beim Löschen des Verlaufs",
+      "rerun": "Erneut ausführen",
+      "delete": "Aus Verlauf entfernen",
+      "deleted": "Aus Verlauf entfernt",
+      "deleteError": "Fehler beim Entfernen",
+      "favorite": "Als Favorit speichern",
+      "unfavorite": "Aus Favoriten entfernen",
+      "addedToFavorites": "Zu Favoriten hinzugefügt",
+      "removedFromFavorites": "Aus Favoriten entfernt",
+      "failed": "Fehlgeschlagen",
+      "justNow": "Gerade eben",
+      "minutesAgo": "Vor {n} Min.",
+      "hoursAgo": "Vor {n} Std.",
+      "daysAgo": "Vor {n} Tagen"
     },
     "createError": "Fehler beim Erstellen"
   },

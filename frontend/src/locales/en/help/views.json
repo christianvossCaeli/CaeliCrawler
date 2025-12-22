@@ -330,9 +330,9 @@
         "documentTypes": "Document Types",
         "documentTypesDesc": "Expected types for classification",
         "documentTypesExample": "Resolution, Protocol, Statute",
-        "schedule": "Schedule (Cron)",
-        "scheduleDesc": "Automatic crawl schedule",
-        "scheduleExample": "0 2 * * * (daily at 2 AM)"
+        "schedule": "Schedule",
+        "scheduleDesc": "Configure automatic crawls with the schedule builder (seconds optional). Advanced cron is available.",
+        "scheduleExample": "Every 15 minutes or daily at 06:00"
       },
       "searchTerms": {
         "title": "Search Terms (Keywords)",

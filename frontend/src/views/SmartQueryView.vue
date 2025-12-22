@@ -13,23 +13,46 @@
           </p>
         </div>
       </div>
-      <v-btn-toggle
-        v-model="writeMode"
-        mandatory
-        divided
-        density="comfortable"
-        class="mode-toggle"
-        :disabled="previewData !== null"
-      >
-        <v-btn :value="false" min-width="140">
-          <v-icon start :color="!writeMode ? 'primary' : undefined">mdi-magnify</v-icon>
-          {{ t('smartQueryView.mode.read') }}
+      <div class="d-flex align-center ga-3">
+        <v-btn-toggle
+          v-model="writeMode"
+          mandatory
+          divided
+          density="comfortable"
+          class="mode-toggle"
+          :disabled="previewData !== null"
+        >
+          <v-btn :value="false" min-width="140">
+            <v-icon start :color="!writeMode ? 'primary' : undefined">mdi-magnify</v-icon>
+            {{ t('smartQueryView.mode.read') }}
+          </v-btn>
+          <v-btn :value="true" min-width="140">
+            <v-icon start :color="writeMode ? 'warning' : undefined">mdi-pencil-plus</v-icon>
+            {{ t('smartQueryView.mode.write') }}
+          </v-btn>
+        </v-btn-toggle>
+
+        <!-- History Toggle Button -->
+        <v-btn
+          icon
+          variant="tonal"
+          :color="showHistory ? 'primary' : undefined"
+          @click="showHistory = !showHistory"
+        >
+          <v-badge
+            v-if="historyStore.favoriteCount > 0"
+            :content="historyStore.favoriteCount"
+            color="warning"
+            floating
+          >
+            <v-icon>mdi-history</v-icon>
+          </v-badge>
+          <v-icon v-else>mdi-history</v-icon>
+          <v-tooltip activator="parent" location="bottom">
+            {{ t('smartQuery.history.title') }}
+          </v-tooltip>
         </v-btn>
-        <v-btn :value="true" min-width="140">
-          <v-icon start :color="writeMode ? 'warning' : undefined">mdi-pencil-plus</v-icon>
-          {{ t('smartQueryView.mode.write') }}
-        </v-btn>
-      </v-btn-toggle>
+      </div>
     </div>
 
     <!-- Chat-Style Input Card -->
@@ -709,6 +732,19 @@
         </v-card-actions>
       </v-card>
     </template>
+
+    <!-- History Drawer -->
+    <v-navigation-drawer
+      v-model="showHistory"
+      location="right"
+      temporary
+      width="360"
+    >
+      <SmartQueryHistoryPanel
+        @close="showHistory = false"
+        @rerun="handleHistoryRerun"
+      />
+    </v-navigation-drawer>
   </div>
 </template>
 
@@ -719,6 +755,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { api, assistantApi } from '@/services/api'
 import { useSpeechRecognition } from '@/composables/useSpeechRecognition'
 import { useQueryContextStore } from '@/stores/queryContext'
+import { useSmartQueryHistoryStore } from '@/stores/smartQueryHistory'
+import SmartQueryHistoryPanel from '@/components/smartquery/SmartQueryHistoryPanel.vue'
 
 // Types for attachments
 interface AttachmentInfo {
@@ -733,8 +771,10 @@ const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const queryContextStore = useQueryContextStore()
+const historyStore = useSmartQueryHistoryStore()
 
 const question = ref('')
+const showHistory = ref(false)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const results = ref<any>(null)
@@ -1147,6 +1187,19 @@ function resetAll() {
   results.value = null
   previewData.value = null
   question.value = ''
+}
+
+/**
+ * Handle rerun from history panel
+ */
+function handleHistoryRerun(commandText: string, interpretation: Record<string, any>) {
+  // Set the command text and switch to write mode
+  question.value = commandText
+  writeMode.value = true
+  showHistory.value = false
+
+  // Execute the query
+  executeQuery()
 }
 
 function useExample(q: string) {

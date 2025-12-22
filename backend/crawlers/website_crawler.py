@@ -5,12 +5,18 @@ import hashlib
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, ClassVar, Dict, List, Optional, Set
 from urllib.parse import urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
 import structlog
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
 
 from crawlers.base import BaseCrawler, CrawlResult
 from app.config import settings
@@ -18,6 +24,38 @@ from app.services.crawler_progress import crawler_progress
 from services.relevance_checker import check_relevance
 
 logger = structlog.get_logger()
+
+# Module-level HTTP client for connection pooling (singleton pattern)
+_http_client: Optional[httpx.AsyncClient] = None
+
+
+async def get_shared_http_client() -> httpx.AsyncClient:
+    """Get or create shared HTTP client with connection pooling.
+
+    Uses a singleton pattern to reuse connections across crawl operations,
+    improving performance by avoiding TCP handshake overhead.
+    """
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(30.0, connect=10.0),
+            limits=httpx.Limits(
+                max_connections=100,
+                max_keepalive_connections=20,
+                keepalive_expiry=30.0,
+            ),
+            headers={"User-Agent": settings.crawler_user_agent},
+            follow_redirects=True,
+        )
+    return _http_client
+
+
+async def close_shared_http_client() -> None:
+    """Close the shared HTTP client. Call during shutdown."""
+    global _http_client
+    if _http_client is not None and not _http_client.is_closed:
+        await _http_client.aclose()
+        _http_client = None
 
 
 class WebsiteCrawler(BaseCrawler):
@@ -37,6 +75,28 @@ class WebsiteCrawler(BaseCrawler):
         self.filtered_urls_count: int = 0
         self.capture_html_content: bool = True  # Enable HTML content capture by default
         self.html_min_relevance_score: float = 0.2  # Minimum relevance score to capture
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type((httpx.ConnectError, httpx.TimeoutException)),
+        reraise=True,
+    )
+    async def _fetch_with_retry(
+        self, client: httpx.AsyncClient, url: str
+    ) -> httpx.Response:
+        """Fetch URL with automatic retry on transient errors.
+
+        Retries up to 3 times with exponential backoff (1s, 2s, 4s) on:
+        - Connection errors (network issues)
+        - Timeout errors
+
+        Does NOT retry on HTTP errors (4xx, 5xx) as those are typically
+        permanent failures that won't resolve with retry.
+        """
+        response = await client.get(url)
+        response.raise_for_status()
+        return response
 
     def _compile_url_patterns(self, config: Dict[str, Any], category=None) -> None:
         """
@@ -337,88 +397,90 @@ class WebsiteCrawler(BaseCrawler):
         job,
         category=None,
     ):
-        """Crawl using httpx for static pages."""
+        """Crawl using httpx for static pages.
+
+        Uses shared HTTP client with connection pooling for improved performance.
+        Includes automatic retry with exponential backoff for transient errors.
+        """
         queue = [(start_url, 0)]  # (url, depth)
         base_domain = urlparse(start_url).netloc
 
-        async with httpx.AsyncClient(
-            timeout=30,
-            headers={"User-Agent": settings.crawler_user_agent},
-            follow_redirects=True,
-        ) as client:
-            while queue and len(self.visited_urls) < max_pages:
-                url, depth = queue.pop(0)
+        # Use shared client with connection pooling
+        client = await get_shared_http_client()
 
-                if url in self.visited_urls:
-                    continue
-                if depth > max_depth:
-                    continue
+        while queue and len(self.visited_urls) < max_pages:
+            url, depth = queue.pop(0)
 
-                # Check URL filter patterns (but always allow the start URL to discover links)
-                is_start_url = url == start_url
-                if not is_start_url and not self._should_crawl_url(url):
-                    await crawler_progress.log_url(job.id, url, status="filtered")
-                    continue
+            if url in self.visited_urls:
+                continue
+            if depth > max_depth:
+                continue
 
-                # Check if it's a document
-                ext = url.split(".")[-1].lower().split("?")[0]
-                if ext in download_extensions:
-                    self.document_urls.add(url)
-                    self.visited_urls.add(url)
-                    # Log document found and update live stats
-                    await crawler_progress.log_url(job.id, url, status="document", doc_found=True)
-                    await crawler_progress.increment_documents(job.id)
-                    continue
+            # Check URL filter patterns (but always allow the start URL to discover links)
+            is_start_url = url == start_url
+            if not is_start_url and not self._should_crawl_url(url):
+                await crawler_progress.log_url(job.id, url, status="filtered")
+                continue
 
-                try:
-                    response = await client.get(url)
-                    response.raise_for_status()
-                    self.visited_urls.add(url)
-                    result.pages_crawled += 1
+            # Check if it's a document
+            ext = url.split(".")[-1].lower().split("?")[0]
+            if ext in download_extensions:
+                self.document_urls.add(url)
+                self.visited_urls.add(url)
+                # Log document found and update live stats
+                await crawler_progress.log_url(job.id, url, status="document", doc_found=True)
+                await crawler_progress.increment_documents(job.id)
+                continue
 
-                    # Log the URL being crawled and update live stats
-                    await crawler_progress.log_url(job.id, url, status="fetched")
-                    await crawler_progress.increment_pages(job.id)
+            try:
+                # Use retry-enabled fetch method
+                response = await self._fetch_with_retry(client, url)
+                self.visited_urls.add(url)
+                result.pages_crawled += 1
 
-                    # Parse HTML
-                    html_content = response.text
-                    soup = BeautifulSoup(html_content, "lxml")
+                # Log the URL being crawled and update live stats
+                await crawler_progress.log_url(job.id, url, status="fetched")
+                await crawler_progress.increment_pages(job.id)
 
-                    # Check and capture HTML content if relevant
-                    if self.capture_html_content:
-                        await self._check_and_capture_html(url, html_content, soup, category)
+                # Parse HTML
+                html_content = response.text
+                soup = BeautifulSoup(html_content, "lxml")
 
-                    # Find all links
-                    for link in soup.find_all("a", href=True):
-                        href = link["href"]
-                        full_url = urljoin(url, href)
+                # Check and capture HTML content if relevant
+                if self.capture_html_content:
+                    await self._check_and_capture_html(url, html_content, soup, category)
 
-                        # Check if same domain
-                        if urlparse(full_url).netloc != base_domain:
-                            continue
+                # Find all links
+                for link in soup.find_all("a", href=True):
+                    href = link["href"]
+                    full_url = urljoin(url, href)
 
-                        # Check if document (PDF, DOC, etc.) - always collect these
-                        link_ext = full_url.split(".")[-1].lower().split("?")[0]
-                        if link_ext in download_extensions:
-                            if full_url not in self.document_urls:
-                                self.document_urls.add(full_url)
-                                await crawler_progress.increment_documents(job.id)
-                            continue
+                    # Check if same domain
+                    if urlparse(full_url).netloc != base_domain:
+                        continue
 
-                        # Check URL filter patterns for non-document links
-                        if not self._should_crawl_url(full_url):
-                            continue
+                    # Check if document (PDF, DOC, etc.) - always collect these
+                    link_ext = full_url.split(".")[-1].lower().split("?")[0]
+                    if link_ext in download_extensions:
+                        if full_url not in self.document_urls:
+                            self.document_urls.add(full_url)
+                            await crawler_progress.increment_documents(job.id)
+                        continue
 
-                        # Add to crawl queue
-                        if full_url not in self.visited_urls:
-                            queue.append((full_url, depth + 1))
+                    # Check URL filter patterns for non-document links
+                    if not self._should_crawl_url(full_url):
+                        continue
 
-                    # Rate limiting
-                    await asyncio.sleep(settings.crawler_default_delay)
+                    # Add to crawl queue
+                    if full_url not in self.visited_urls:
+                        queue.append((full_url, depth + 1))
 
-                except Exception as e:
-                    self.logger.warning("Failed to fetch page", url=url, error=str(e))
-                    await crawler_progress.log_url(job.id, url, status="error")
+                # Rate limiting
+                await asyncio.sleep(settings.crawler_default_delay)
+
+            except Exception as e:
+                self.logger.warning("Failed to fetch page", url=url, error=str(e))
+                await crawler_progress.log_url(job.id, url, status="error")
 
     async def _crawl_with_playwright(
         self,

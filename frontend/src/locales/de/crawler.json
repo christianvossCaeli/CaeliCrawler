@@ -52,6 +52,13 @@
     "aiTaskCancelling": "KI-Aufgabe wird abgebrochen...",
     "cancelAiTaskError": "Fehler beim Abbrechen der KI-Aufgabe",
     "noCategory": "Keine Kategorie",
-    "jobsStopped": "{count} Jobs gestoppt"
+    "jobsStopped": "{count} Jobs gestoppt",
+    "confirmStopAllTitle": "Alle Jobs stoppen?",
+    "confirmStopAllMessage": "Möchten Sie wirklich {count} laufende und wartende Jobs stoppen? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "confirmCancelJobTitle": "Job abbrechen?",
+    "confirmCancelJobMessage": "Möchten Sie den Job \"{name}\" wirklich abbrechen?",
+    "bulkCancel": "Ausgewählte abbrechen",
+    "selectAll": "Alle auswählen",
+    "selectedCount": "{count} ausgewählt"
   }
 }

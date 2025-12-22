@@ -983,6 +983,139 @@ export const favoritesApi = {
     api.delete(`/v1/favorites/entity/${entityId}`),
 }
 
+// Smart Query History API
+export const smartQueryHistoryApi = {
+  // List user's Smart Query history with pagination and filtering
+  getHistory: (params?: {
+    page?: number
+    per_page?: number
+    favorites_only?: boolean
+    operation_type?: string
+    search?: string
+  }) => api.get('/v1/smart-query/history', { params }),
+
+  // Get single operation by ID
+  getOperation: (operationId: string) =>
+    api.get(`/v1/smart-query/history/${operationId}`),
+
+  // Toggle favorite status for an operation
+  toggleFavorite: (operationId: string) =>
+    api.post<{
+      id: string
+      is_favorite: boolean
+      message: string
+    }>(`/v1/smart-query/history/${operationId}/toggle-favorite`),
+
+  // Re-execute a saved operation
+  execute: (operationId: string) =>
+    api.post<{
+      operation_id: string
+      success: boolean
+      message: string
+      result: Record<string, any>
+    }>(`/v1/smart-query/history/${operationId}/execute`),
+
+  // Update operation (rename, etc.)
+  update: (operationId: string, data: { is_favorite?: boolean; display_name?: string }) =>
+    api.patch(`/v1/smart-query/history/${operationId}`, data),
+
+  // Delete single operation from history
+  delete: (operationId: string) =>
+    api.delete(`/v1/smart-query/history/${operationId}`),
+
+  // Clear all history (preserves favorites by default)
+  clearHistory: (includeFavorites: boolean = false) =>
+    api.delete('/v1/smart-query/history', { params: { include_favorites: includeFavorites } }),
+}
+
+// Crawl Presets API - Saved filter configurations for deterministic crawl re-execution
+export const crawlPresetsApi = {
+  // List user's crawl presets with pagination and filtering
+  list: (params?: {
+    page?: number
+    per_page?: number
+    favorites_only?: boolean
+    status?: string
+    search?: string
+  }) => api.get('/admin/crawl-presets', { params }),
+
+  // Get single preset by ID
+  get: (presetId: string) =>
+    api.get(`/admin/crawl-presets/${presetId}`),
+
+  // Create a new preset
+  create: (data: {
+    name: string
+    description?: string
+    filters: Record<string, any>
+    schedule_cron?: string
+    schedule_enabled?: boolean
+  }) => api.post('/admin/crawl-presets', data),
+
+  // Update an existing preset
+  update: (presetId: string, data: {
+    name?: string
+    description?: string
+    filters?: Record<string, any>
+    schedule_cron?: string
+    schedule_enabled?: boolean
+    is_favorite?: boolean
+    status?: 'active' | 'archived'
+  }) => api.put(`/admin/crawl-presets/${presetId}`, data),
+
+  // Delete a preset
+  delete: (presetId: string) =>
+    api.delete(`/admin/crawl-presets/${presetId}`),
+
+  // Execute a preset (start crawl with preset filters)
+  execute: (presetId: string, options?: { force?: boolean }) =>
+    api.post<{
+      preset_id: string
+      jobs_created: number
+      job_ids: string[]
+      sources_matched: number
+      message: string
+    }>(`/admin/crawl-presets/${presetId}/execute`, options || {}),
+
+  // Toggle favorite status
+  toggleFavorite: (presetId: string) =>
+    api.post<{
+      id: string
+      is_favorite: boolean
+      message: string
+    }>(`/admin/crawl-presets/${presetId}/toggle-favorite`),
+
+  // Create preset from current filter selection
+  createFromFilters: (data: {
+    name: string
+    description?: string
+    filters: Record<string, any>
+    schedule_cron?: string
+    schedule_enabled?: boolean
+  }) => api.post('/admin/crawl-presets/from-filters', data),
+
+  // Preview how many sources would be crawled
+  preview: (presetId: string) =>
+    api.get<{
+      preset_id: string
+      sources_count: number
+      sources_preview: Array<{ id: string; name: string; url: string }>
+      has_more: boolean
+    }>(`/admin/crawl-presets/${presetId}/preview`),
+
+  // Get predefined schedule presets
+  getSchedulePresets: () =>
+    api.get<Array<{ label: string; cron: string; description: string }>>('/admin/crawl-presets/schedule-presets'),
+
+  // Preview filters before saving (for new presets)
+  previewFilters: (filters: Record<string, any>) =>
+    api.post<{
+      sources_count: number
+      sources_preview: Array<{ id: string; name: string; url: string }>
+      has_more: boolean
+    }>('/admin/crawl-presets/preview-filters', filters),
+}
+
 // Entity Attachments API
 export const attachmentApi = {
   // Upload attachment to entity

@@ -24,18 +24,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.utils.cron import normalize_cron_expression
+
 # Valid extraction handlers
 VALID_EXTRACTION_HANDLERS = ("default", "event")
-
-# Cron expression regex pattern (5 fields)
-# Supports: *, */n, ranges (1-5), lists (1,3,5), and combinations
-CRON_PATTERN = re.compile(
-    r"^(\*(/[0-9]+)?|([0-9]|[1-5][0-9])(-([0-9]|[1-5][0-9]))?(,([0-9]|[1-5][0-9])(-([0-9]|[1-5][0-9]))?)*(/[0-9]+)?)\s+"  # minute
-    r"(\*(/[0-9]+)?|([0-9]|1[0-9]|2[0-3])(-([0-9]|1[0-9]|2[0-3]))?(,([0-9]|1[0-9]|2[0-3])(-([0-9]|1[0-9]|2[0-3]))?)*(/[0-9]+)?)\s+"  # hour
-    r"(\*(/[0-9]+)?|([1-9]|[12][0-9]|3[01])(-([1-9]|[12][0-9]|3[01]))?(,([1-9]|[12][0-9]|3[01])(-([1-9]|[12][0-9]|3[01]))?)*(/[0-9]+)?)\s+"  # day of month
-    r"(\*(/[0-9]+)?|([1-9]|1[0-2])(-([1-9]|1[0-2]))?(,([1-9]|1[0-2])(-([1-9]|1[0-2]))?)*(/[0-9]+)?)\s+"  # month
-    r"(\*(/[0-9]+)?|([0-6])(-([0-6]))?(,([0-6])(-([0-6]))?)*(/[0-9]+)?)$"  # day of week
-)
 
 # Known ISO 639-1 language codes
 VALID_LANGUAGE_CODES: Set[str] = {
@@ -131,6 +123,9 @@ def _validate_cron_expression(cron: Optional[str]) -> Optional[str]:
     - month (1-12)
     - day of week (0-6, where 0 = Sunday)
 
+    Also supports optional seconds as a 6th leading field:
+    - second (0-59)
+
     Args:
         cron: Cron expression string (e.g., "0 2 * * *" for daily at 2 AM)
 
@@ -147,6 +142,8 @@ def _validate_cron_expression(cron: Optional[str]) -> Optional[str]:
         '*/15 * * * *'
         >>> _validate_cron_expression("0 0 1 * *")  # Monthly on 1st at midnight
         '0 0 1 * *'
+        >>> _validate_cron_expression("*/15 * * * * *")  # Every 15 seconds
+        '*/15 * * * * *'
     """
     if cron is None:
         return None
@@ -155,21 +152,7 @@ def _validate_cron_expression(cron: Optional[str]) -> Optional[str]:
     if not cron:
         return None
 
-    # Check field count (should be 5)
-    fields = cron.split()
-    if len(fields) != 5:
-        raise ValueError(
-            f"Invalid cron expression: expected 5 fields (minute hour day month weekday), got {len(fields)}"
-        )
-
-    # Validate with regex pattern
-    if not CRON_PATTERN.match(cron):
-        raise ValueError(
-            f"Invalid cron expression format. Examples: '0 2 * * *' (daily at 2 AM), "
-            f"'*/15 * * * *' (every 15 min), '0 0 * * 0' (weekly on Sunday)"
-        )
-
-    return cron
+    return normalize_cron_expression(cron)
 
 
 class CategoryBase(BaseModel):
@@ -202,7 +185,10 @@ class CategoryBase(BaseModel):
         default="default",
         description="Handler for processing extractions: 'default' (entity_facet_service) or 'event' (event_extraction_service)",
     )
-    schedule_cron: str = Field(default="0 2 * * *", description="Cron expression for scheduled crawls")
+    schedule_cron: str = Field(
+        default="0 2 * * *",
+        description="Cron expression for scheduled crawls (5 or 6 fields, seconds optional)",
+    )
     is_active: bool = Field(default=True, description="Whether category is active")
 
     @field_validator("url_include_patterns", "url_exclude_patterns", mode="before")

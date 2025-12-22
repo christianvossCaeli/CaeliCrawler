@@ -17,6 +17,7 @@
     "axios": "^1.7.0",
     "chart.js": "^4.4.0",
     "chartjs-adapter-date-fns": "^3.0.0",
+    "cronstrue": "^3.9.0",
     "date-fns": "^4.1.0",
     "maplibre-gl": "^5.15.0",
     "pinia": "^3.0.0",

@@ -1,8 +1,9 @@
 """Celery tasks for crawling operations."""
 
+import asyncio
 import hashlib
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Coroutine, Optional, TypeVar
 from uuid import UUID
 
 import structlog
@@ -11,6 +12,30 @@ from celery.exceptions import SoftTimeLimitExceeded
 from workers.celery_app import celery_app
 
 logger = structlog.get_logger()
+
+T = TypeVar("T")
+
+
+def _run_async(coro: Coroutine[Any, Any, T]) -> T:
+    """
+    Run async coroutine in Celery task safely.
+
+    Creates a new event loop for each task execution to avoid conflicts
+    with existing loops. This is the recommended pattern for running
+    async code in synchronous Celery tasks.
+
+    Args:
+        coro: The coroutine to execute
+
+    Returns:
+        The result of the coroutine
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
 
 # Try to import metrics (optional - may not be available in all environments)
 try:
@@ -48,7 +73,6 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
     """
     from app.database import get_celery_session_context
     from app.models import DataSource, CrawlJob, JobStatus, SourceStatus
-    import asyncio
 
     async def _crawl():
         async with get_celery_session_context() as session:
@@ -58,6 +82,29 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
 
             if not source or not job:
                 logger.error("Source or job not found", source_id=source_id, job_id=job_id)
+                return
+
+            # Validate URL before crawling (SSRF protection)
+            from app.core.url_validator import validate_url
+
+            is_valid, error_msg = validate_url(source.base_url)
+            if not is_valid:
+                logger.error(
+                    "URL validation failed - potential SSRF",
+                    source_id=source_id,
+                    base_url=source.base_url,
+                    error=error_msg,
+                )
+                job.status = JobStatus.FAILED
+                job.error_count = 1
+                job.error_log = [{
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "error": f"URL validation failed: {error_msg}",
+                    "type": "URLValidationError",
+                }]
+                source.status = SourceStatus.ERROR
+                source.error_message = f"Invalid URL: {error_msg}"
+                await session.commit()
                 return
 
             # Update job status
@@ -232,7 +279,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
 
             await session.commit()
 
-    asyncio.run(_crawl())
+    _run_async(_crawl())
 
 
 @celery_app.task(name="workers.crawl_tasks.check_scheduled_crawls")
@@ -241,8 +288,7 @@ def check_scheduled_crawls():
     from app.database import get_celery_session_context
     from app.models import Category, DataSource, DataSourceCategory, SourceStatus
     from sqlalchemy import select
-    import asyncio
-    from croniter import croniter
+    from app.utils.cron import croniter_for_expression
 
     async def _check():
         async with get_celery_session_context() as session:
@@ -257,7 +303,7 @@ def check_scheduled_crawls():
 
             for category in categories:
                 # Check if category is due based on cron schedule
-                cron = croniter(category.schedule_cron, now - timedelta(hours=1))
+                cron = croniter_for_expression(category.schedule_cron, now - timedelta(hours=1))
                 next_run = cron.get_next(datetime)
 
                 if next_run <= now:
@@ -279,7 +325,7 @@ def check_scheduled_crawls():
                             continue
 
                         # Check if source was crawled recently (within cron interval)
-                        prev_run = croniter(category.schedule_cron, source.last_crawl).get_prev(datetime)
+                        prev_run = croniter_for_expression(category.schedule_cron, source.last_crawl).get_prev(datetime)
                         if source.last_crawl >= prev_run:
                             continue  # Already crawled this period
 
@@ -290,18 +336,50 @@ def check_scheduled_crawls():
 
             logger.info("Scheduled crawl check completed", jobs_created=jobs_created)
 
-    asyncio.run(_check())
+    _run_async(_check())
 
 
 @celery_app.task(name="workers.crawl_tasks.create_crawl_job")
-def create_crawl_job(source_id: str, category_id: str):
-    """Create a new crawl job and start crawling."""
+def create_crawl_job(source_id: str, category_id: str, force: bool = False):
+    """Create a new crawl job and start crawling.
+
+    Args:
+        source_id: UUID of the data source to crawl
+        category_id: UUID of the category
+        force: If True, create job even if one already exists (default: False)
+
+    Returns:
+        Job ID if created, None if duplicate was skipped
+    """
     from app.database import get_celery_session_context
     from app.models import CrawlJob, JobStatus
-    import asyncio
+    from sqlalchemy import select, and_
 
     async def _create():
         async with get_celery_session_context() as session:
+            # Check for existing PENDING or RUNNING job for same source+category
+            if not force:
+                existing_job = await session.execute(
+                    select(CrawlJob).where(
+                        and_(
+                            CrawlJob.source_id == UUID(source_id),
+                            CrawlJob.category_id == UUID(category_id),
+                            CrawlJob.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
+                        )
+                    )
+                )
+                existing = existing_job.scalar_one_or_none()
+
+                if existing:
+                    logger.info(
+                        "Skipping duplicate crawl job",
+                        source_id=source_id,
+                        category_id=category_id,
+                        existing_job_id=str(existing.id),
+                        existing_status=existing.status.value,
+                    )
+                    return None  # Skip duplicate
+
             job = CrawlJob(
                 source_id=UUID(source_id),
                 category_id=UUID(category_id),
@@ -317,7 +395,7 @@ def create_crawl_job(source_id: str, category_id: str):
             logger.info("Crawl job created", job_id=str(job.id), source_id=source_id)
             return str(job.id)
 
-    return asyncio.run(_create())
+    return _run_async(_create())
 
 
 @celery_app.task(name="workers.crawl_tasks.cleanup_old_jobs")
@@ -326,7 +404,6 @@ def cleanup_old_jobs():
     from app.database import get_celery_session_context
     from app.models import CrawlJob, JobStatus
     from sqlalchemy import delete
-    import asyncio
 
     async def _cleanup():
         async with get_celery_session_context() as session:
@@ -344,7 +421,7 @@ def cleanup_old_jobs():
 
             logger.info("Old jobs cleaned up", deleted=deleted)
 
-    asyncio.run(_cleanup())
+    _run_async(_cleanup())
 
 
 @celery_app.task(name="workers.crawl_tasks.detect_changes")
@@ -352,7 +429,6 @@ def detect_changes(source_id: str):
     """Detect changes on a data source without full crawl."""
     from app.database import get_celery_session_context
     from app.models import DataSource, ChangeLog, ChangeType
-    import asyncio
     import httpx
 
     async def _detect():
@@ -412,4 +488,4 @@ def detect_changes(source_id: str):
             except Exception as e:
                 logger.error("Change detection failed", source_id=source_id, error=str(e))
 
-    asyncio.run(_detect())
+    _run_async(_detect())

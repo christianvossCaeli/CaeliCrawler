@@ -282,14 +282,10 @@
                     {{ $t('categories.form.scheduleTitle') }}
                   </v-card-title>
                   <v-card-text class="pt-4">
-                    <v-text-field
+                    <ScheduleBuilder
                       v-model="formData.schedule_cron"
-                      :label="$t('categories.form.scheduleCron')"
-                      :hint="$t('categories.form.scheduleCronHint')"
-                      persistent-hint
-                      variant="outlined"
-                      prepend-inner-icon="mdi-timer-cog"
-                    ></v-text-field>
+                      :show-advanced="true"
+                    />
                   </v-card-text>
                 </v-card>
               </v-window-item>
@@ -1046,6 +1042,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
 import { getContrastColor } from '@/composables/useColorHelpers'
+import ScheduleBuilder from '@/components/common/ScheduleBuilder.vue'
 
 const { t } = useI18n()
 const router = useRouter()

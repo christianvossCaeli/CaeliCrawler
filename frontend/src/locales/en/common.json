@@ -103,6 +103,35 @@
       "technicalDetails": "Technical Details",
       "retry": "Try Again",
       "refresh": "Refresh Page"
+    },
+    "scheduleBuilder": {
+      "mode": "Schedule type",
+      "modes": {
+        "interval": "Every",
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "custom": "Advanced (Cron)"
+      },
+      "intervalValue": "Interval",
+      "unit": "Unit",
+      "units": {
+        "seconds": "Seconds",
+        "minutes": "Minutes",
+        "hours": "Hours"
+      },
+      "time": {
+        "hour": "Hour",
+        "minute": "Minute",
+        "second": "Second"
+      },
+      "dayOfWeek": "Day of week",
+      "dayOfMonth": "Day of month",
+      "customLabel": "Cron expression",
+      "customHint": "5 or 6 fields (seconds optional)",
+      "nextRun": "Next run",
+      "invalid": "Invalid schedule expression",
+      "previewUnavailable": "Preview not available for this expression"
     }
   },
   "nav": {

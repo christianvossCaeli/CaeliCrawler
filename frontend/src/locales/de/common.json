@@ -103,6 +103,35 @@
       "technicalDetails": "Technische Details",
       "retry": "Erneut versuchen",
       "refresh": "Seite neu laden"
+    },
+    "scheduleBuilder": {
+      "mode": "Zeitplan-Typ",
+      "modes": {
+        "interval": "Alle",
+        "daily": "Täglich",
+        "weekly": "Wöchentlich",
+        "monthly": "Monatlich",
+        "custom": "Erweitert (Cron)"
+      },
+      "intervalValue": "Intervall",
+      "unit": "Einheit",
+      "units": {
+        "seconds": "Sekunden",
+        "minutes": "Minuten",
+        "hours": "Stunden"
+      },
+      "time": {
+        "hour": "Stunde",
+        "minute": "Minute",
+        "second": "Sekunde"
+      },
+      "dayOfWeek": "Wochentag",
+      "dayOfMonth": "Tag im Monat",
+      "customLabel": "Cron-Ausdruck",
+      "customHint": "5 oder 6 Felder (Sekunden optional)",
+      "nextRun": "Nächster Lauf",
+      "invalid": "Ungültiger Zeitplan",
+      "previewUnavailable": "Vorschau für diesen Ausdruck nicht verfügbar"
     }
   },
   "nav": {

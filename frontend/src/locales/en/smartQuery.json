@@ -13,8 +13,29 @@
       "execute": "Execute"
     },
     "history": {
-      "title": "History",
-      "clear": "Clear history"
+      "title": "Command History",
+      "all": "All",
+      "favorites": "Favorites",
+      "empty": "No commands executed yet",
+      "noFavorites": "No favorites yet",
+      "clear": "Clear history",
+      "clearTitle": "Clear History",
+      "clearConfirm": "Do you really want to clear the history? Favorites will be preserved.",
+      "cleared": "History cleared",
+      "clearError": "Error clearing history",
+      "rerun": "Run again",
+      "delete": "Remove from history",
+      "deleted": "Removed from history",
+      "deleteError": "Error removing",
+      "favorite": "Save as favorite",
+      "unfavorite": "Remove from favorites",
+      "addedToFavorites": "Added to favorites",
+      "removedFromFavorites": "Removed from favorites",
+      "failed": "Failed",
+      "justNow": "Just now",
+      "minutesAgo": "{n} min ago",
+      "hoursAgo": "{n}h ago",
+      "daysAgo": "{n} days ago"
     },
     "createError": "Error creating"
   },
