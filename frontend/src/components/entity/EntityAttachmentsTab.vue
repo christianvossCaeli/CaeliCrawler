@@ -2,12 +2,12 @@
   <v-card variant="outlined">
     <v-card-title class="d-flex align-center">
       <v-icon start>mdi-paperclip</v-icon>
-      {{ t('attachments.title') }}
+      {{ t('entityDetail.attachments.title') }}
       <v-chip size="small" class="ml-2">{{ attachments.length }}</v-chip>
       <v-spacer></v-spacer>
       <v-btn color="primary" variant="tonal" size="small" @click="openUploadDialog">
         <v-icon start>mdi-upload</v-icon>
-        {{ t('attachments.upload') }}
+        {{ t('entityDetail.attachments.upload') }}
       </v-btn>
     </v-card-title>
 
@@ -22,7 +22,7 @@
       >
         <v-icon size="48" color="grey-lighten-1">mdi-cloud-upload</v-icon>
         <p class="text-body-2 text-medium-emphasis mt-2">
-          {{ t('attachments.dropHint') }}
+          {{ t('entityDetail.attachments.dropHint') }}
         </p>
       </div>
 
@@ -72,7 +72,7 @@
                 :loading="analyzingIds.includes(att.id)"
               >
                 <v-icon>mdi-brain</v-icon>
-                <v-tooltip activator="parent">{{ t('attachments.analyze') }}</v-tooltip>
+                <v-tooltip activator="parent">{{ t('entityDetail.attachments.analyze') }}</v-tooltip>
               </v-btn>
 
               <!-- View Analysis -->
@@ -85,7 +85,7 @@
                 @click="viewAnalysis(att)"
               >
                 <v-icon>mdi-eye</v-icon>
-                <v-tooltip activator="parent">{{ t('attachments.viewAnalysis') }}</v-tooltip>
+                <v-tooltip activator="parent">{{ t('entityDetail.attachments.viewAnalysis') }}</v-tooltip>
               </v-btn>
 
               <!-- Download -->
@@ -108,7 +108,7 @@
       <div v-else-if="!loading" class="text-center py-8">
         <v-icon size="64" color="grey-lighten-1">mdi-paperclip</v-icon>
         <p class="text-body-1 text-medium-emphasis mt-2">
-          {{ t('attachments.empty') }}
+          {{ t('entityDetail.attachments.empty') }}
         </p>
       </div>
     </v-card-text>
@@ -116,21 +116,21 @@
     <!-- Upload Dialog -->
     <v-dialog v-model="uploadDialog" max-width="500">
       <v-card>
-        <v-card-title>{{ t('attachments.uploadTitle') }}</v-card-title>
+        <v-card-title>{{ t('entityDetail.attachments.uploadTitle') }}</v-card-title>
         <v-card-text>
           <v-file-input
             v-model="selectedFile"
-            :label="t('attachments.selectFile')"
+            :label="t('entityDetail.attachments.selectFile')"
             accept="image/*,application/pdf"
             prepend-icon="mdi-paperclip"
             show-size
           ></v-file-input>
           <v-textarea
             v-model="uploadDescription"
-            :label="t('attachments.description')"
+            :label="t('entityDetail.attachments.description')"
             rows="2"
           ></v-textarea>
-          <v-checkbox v-model="autoAnalyze" :label="t('attachments.autoAnalyze')"></v-checkbox>
+          <v-checkbox v-model="autoAnalyze" :label="t('entityDetail.attachments.autoAnalyze')"></v-checkbox>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
@@ -144,7 +144,7 @@
             :loading="uploading"
             :disabled="!selectedFile"
           >
-            {{ t('attachments.upload') }}
+            {{ t('entityDetail.attachments.upload') }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -155,19 +155,19 @@
       <v-card v-if="selectedAttachment">
         <v-card-title class="d-flex align-center">
           <v-icon start>mdi-chart-box</v-icon>
-          {{ t('attachments.analysisTitle') }}: {{ selectedAttachment.filename }}
+          {{ t('entityDetail.attachments.analysisTitle') }}: {{ selectedAttachment.filename }}
         </v-card-title>
         <v-card-text>
           <template v-if="selectedAttachment.analysis_result">
             <!-- Description -->
             <div class="mb-4">
-              <h4 class="text-subtitle-2 mb-1">{{ t('attachments.analysisDescription') }}</h4>
+              <h4 class="text-subtitle-2 mb-1">{{ t('entityDetail.attachments.analysisDescription') }}</h4>
               <p class="text-body-2">{{ selectedAttachment.analysis_result.description }}</p>
             </div>
 
             <!-- Detected Text -->
             <div v-if="selectedAttachment.analysis_result.detected_text?.length" class="mb-4">
-              <h4 class="text-subtitle-2 mb-1">{{ t('attachments.detectedText') }}</h4>
+              <h4 class="text-subtitle-2 mb-1">{{ t('entityDetail.attachments.detectedText') }}</h4>
               <v-chip
                 v-for="(text, i) in selectedAttachment.analysis_result.detected_text.slice(0, 10)"
                 :key="i"
@@ -180,7 +180,7 @@
 
             <!-- Entities -->
             <div v-if="hasEntities" class="mb-4">
-              <h4 class="text-subtitle-2 mb-1">{{ t('attachments.extractedEntities') }}</h4>
+              <h4 class="text-subtitle-2 mb-1">{{ t('entityDetail.attachments.extractedEntities') }}</h4>
               <div v-for="(values, key) in selectedAttachment.analysis_result.entities" :key="key" class="mb-1">
                 <span class="text-caption text-medium-emphasis mr-2">{{ getEntityLabel(key) }}:</span>
                 <v-chip
@@ -200,12 +200,12 @@
             <div v-if="hasFacetSuggestions" class="mb-4">
               <h4 class="text-subtitle-2 mb-2 d-flex align-center">
                 <v-icon start size="small">mdi-lightbulb-on</v-icon>
-                {{ t('attachments.facetSuggestions') }}
+                {{ t('entityDetail.attachments.facetSuggestions') }}
                 <v-chip size="x-small" class="ml-2">{{ facetSuggestions.length }}</v-chip>
               </h4>
 
               <v-alert type="info" variant="tonal" density="compact" class="mb-3">
-                {{ t('attachments.facetSuggestionsHint') }}
+                {{ t('entityDetail.attachments.facetSuggestionsHint') }}
               </v-alert>
 
               <v-list density="compact" class="facet-suggestions-list">
@@ -262,7 +262,7 @@
             <div v-else-if="selectedAttachment.analysis_result && !hasFacetSuggestions" class="text-center py-4">
               <v-icon color="grey-lighten-1">mdi-lightbulb-off-outline</v-icon>
               <p class="text-body-2 text-medium-emphasis mt-1">
-                {{ t('attachments.noFacetSuggestions') }}
+                {{ t('entityDetail.attachments.noFacetSuggestions') }}
               </p>
             </div>
           </template>
@@ -280,7 +280,7 @@
             :loading="applyingFacets"
           >
             <v-icon start>mdi-check-all</v-icon>
-            {{ t('attachments.applyFacets') }} ({{ selectedFacetIndices.length }})
+            {{ t('entityDetail.attachments.applyFacets') }} ({{ selectedFacetIndices.length }})
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -289,9 +289,9 @@
     <!-- Delete Confirmation Dialog -->
     <v-dialog v-model="deleteDialog" max-width="400">
       <v-card>
-        <v-card-title>{{ t('attachments.deleteConfirm') }}</v-card-title>
+        <v-card-title>{{ t('entityDetail.attachments.deleteConfirm') }}</v-card-title>
         <v-card-text>
-          {{ t('attachments.deleteMessage', { filename: attachmentToDelete?.filename }) }}
+          {{ t('entityDetail.attachments.deleteMessage', { filename: attachmentToDelete?.filename }) }}
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
@@ -469,10 +469,10 @@ async function uploadFile() {
     uploadDialog.value = false
     await loadAttachments()
     emit('attachments-changed')
-    showSnackbar(t('attachments.uploadSuccess'), 'success')
+    showSnackbar(t('entityDetail.attachments.uploadSuccess'), 'success')
   } catch (error: any) {
     console.error('Upload failed:', error)
-    showSnackbar(error.response?.data?.detail || t('attachments.uploadError'), 'error')
+    showSnackbar(error.response?.data?.detail || t('entityDetail.attachments.uploadError'), 'error')
   } finally {
     uploading.value = false
   }
@@ -488,10 +488,10 @@ async function onDrop(event: DragEvent) {
       await attachmentApi.upload(props.entityId, file)
       await loadAttachments()
       emit('attachments-changed')
-      showSnackbar(t('attachments.uploadSuccess'), 'success')
+      showSnackbar(t('entityDetail.attachments.uploadSuccess'), 'success')
     } catch (error: any) {
       console.error('Upload failed:', error)
-      showSnackbar(error.response?.data?.detail || t('attachments.uploadError'), 'error')
+      showSnackbar(error.response?.data?.detail || t('entityDetail.attachments.uploadError'), 'error')
     } finally {
       uploading.value = false
     }
@@ -505,10 +505,10 @@ async function analyzeAttachment(att: Attachment) {
     await attachmentApi.analyze(props.entityId, att.id)
     // Update local status
     att.analysis_status = 'ANALYZING'
-    showSnackbar(t('attachments.analysisStarted'), 'info')
+    showSnackbar(t('entityDetail.attachments.analysisStarted'), 'info')
   } catch (error: any) {
     console.error('Analysis failed:', error)
-    showSnackbar(error.response?.data?.detail || t('attachments.analysisError'), 'error')
+    showSnackbar(error.response?.data?.detail || t('entityDetail.attachments.analysisError'), 'error')
   } finally {
     analyzingIds.value = analyzingIds.value.filter((id) => id !== att.id)
   }
@@ -542,7 +542,7 @@ async function applySelectedFacets() {
 
     const data = response.data
     showSnackbar(
-      t('attachments.facetsApplied', { count: data.created_count }),
+      t('entityDetail.attachments.facetsApplied', { count: data.created_count }),
       'success'
     )
 
@@ -553,7 +553,7 @@ async function applySelectedFacets() {
     emit('facets-applied')
   } catch (error: any) {
     console.error('Apply facets failed:', error)
-    showSnackbar(error.response?.data?.detail || t('attachments.facetsApplyError'), 'error')
+    showSnackbar(error.response?.data?.detail || t('entityDetail.attachments.facetsApplyError'), 'error')
   } finally {
     applyingFacets.value = false
   }
@@ -590,7 +590,7 @@ async function deleteAttachment() {
     deleteDialog.value = false
     await loadAttachments()
     emit('attachments-changed')
-    showSnackbar(t('attachments.deleteSuccess'), 'success')
+    showSnackbar(t('entityDetail.attachments.deleteSuccess'), 'success')
   } catch (error) {
     console.error('Delete failed:', error)
   } finally {
@@ -632,10 +632,10 @@ function getStatusLabel(status: string): string {
 
 function getEntityLabel(entityType: string): string {
   const labels: Record<string, string> = {
-    persons: t('attachments.entityTypes.persons'),
-    organizations: t('attachments.entityTypes.organizations'),
-    locations: t('attachments.entityTypes.locations'),
-    dates: t('attachments.entityTypes.dates'),
+    persons: t('entityDetail.attachments.entityTypes.persons'),
+    organizations: t('entityDetail.attachments.entityTypes.organizations'),
+    locations: t('entityDetail.attachments.entityTypes.locations'),
+    dates: t('entityDetail.attachments.entityTypes.dates'),
   }
   return labels[entityType] || entityType
 }

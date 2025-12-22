@@ -323,7 +323,7 @@ class ExternalAPISyncService:
                 linked = await self._link_entity_to_locations(
                     entity.id,
                     record.location_hints,
-                    config.link_to_entity_types or ["municipality"],
+                    config.link_to_entity_types or ["territorial_entity"],
                 )
                 if linked:
                     result["linked"] = True

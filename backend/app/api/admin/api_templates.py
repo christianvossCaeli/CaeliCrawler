@@ -15,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_session
 from app.core.deps import require_editor
 from app.core.rate_limit import check_rate_limit
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 from app.models import User
 from app.schemas.common import MessageResponse
 from app.models.api_template import APITemplate, APIType, TemplateStatus
@@ -127,11 +129,13 @@ class SaveFromDiscoveryRequest(BaseModel):
 # Endpoints
 # =============================================================================
 
-@router.get("", response_model=List[APITemplateResponse])
+@router.get("", response_model=APITemplateListResponse)
 async def list_templates(
     status_filter: Optional[str] = None,
     api_type: Optional[str] = None,
     search: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_editor),
 ):
@@ -142,6 +146,8 @@ async def list_templates(
     - **status_filter**: Filter by status (ACTIVE, INACTIVE, FAILED, PENDING)
     - **api_type**: Filter by API type (REST, GRAPHQL, SPARQL, OPARL)
     - **search**: Search in name and keywords
+    - **limit**: Number of items per page (default 100)
+    - **offset**: Offset for pagination (default 0)
     """
     query = select(APITemplate).order_by(APITemplate.usage_count.desc())
 
@@ -165,10 +171,18 @@ async def list_templates(
             APITemplate.name.ilike(search_lower)
         )
 
+    # Get total count
+    from sqlalchemy import func
+    count_query = select(func.count()).select_from(query.subquery())
+    total = (await session.execute(count_query)).scalar() or 0
+
+    # Apply pagination
+    query = query.offset(offset).limit(limit)
+
     result = await session.execute(query)
     templates = result.scalars().all()
 
-    return [
+    template_responses = [
         APITemplateResponse(
             id=t.id,
             name=t.name,
@@ -195,6 +209,8 @@ async def list_templates(
         )
         for t in templates
     ]
+
+    return APITemplateListResponse(templates=template_responses, total=total)
 
 
 @router.get("/{template_id}", response_model=APITemplateResponse)
@@ -239,7 +255,8 @@ async def get_template(
 
 @router.post("", response_model=APITemplateResponse, status_code=status.HTTP_201_CREATED)
 async def create_template(
-    request: APITemplateCreate,
+    data: APITemplateCreate,
+    http_request: Request,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_editor),
 ):
@@ -249,26 +266,43 @@ async def create_template(
     The template will have status=PENDING until validated.
     """
     template = APITemplate(
-        name=request.name,
-        description=request.description,
-        api_type=APIType(request.api_type),
-        base_url=request.base_url,
-        endpoint=request.endpoint,
-        documentation_url=request.documentation_url,
-        auth_required=request.auth_required,
-        auth_config=request.auth_config,
-        field_mapping=request.field_mapping,
-        keywords=request.keywords,
-        default_tags=request.default_tags,
-        confidence=request.confidence,
+        name=data.name,
+        description=data.description,
+        api_type=APIType(data.api_type),
+        base_url=data.base_url,
+        endpoint=data.endpoint,
+        documentation_url=data.documentation_url,
+        auth_required=data.auth_required,
+        auth_config=data.auth_config,
+        field_mapping=data.field_mapping,
+        keywords=data.keywords,
+        default_tags=data.default_tags,
+        confidence=data.confidence,
         source="manual",
         created_by_id=user.id,
         status=TemplateStatus.PENDING,
     )
 
-    session.add(template)
-    await session.commit()
-    await session.refresh(template)
+    async with AuditContext(session, user, http_request) as audit:
+        session.add(template)
+        await session.flush()
+
+        audit.track_action(
+            action=AuditAction.CREATE,
+            entity_type="APITemplate",
+            entity_id=template.id,
+            entity_name=template.name,
+            changes={
+                "name": template.name,
+                "api_type": template.api_type.value,
+                "base_url": template.base_url,
+                "endpoint": template.endpoint,
+                "source": "manual",
+            },
+        )
+
+        await session.commit()
+        await session.refresh(template)
 
     return APITemplateResponse(
         id=template.id,
@@ -299,7 +333,8 @@ async def create_template(
 @router.put("/{template_id}", response_model=APITemplateResponse)
 async def update_template(
     template_id: UUID,
-    request: APITemplateUpdate,
+    data: APITemplateUpdate,
+    http_request: Request,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_editor),
 ):
@@ -311,36 +346,52 @@ async def update_template(
             detail=f"Template '{template_id}' not found",
         )
 
-    # Update fields
-    if request.name is not None:
-        template.name = request.name
-    if request.description is not None:
-        template.description = request.description
-    if request.api_type is not None:
-        template.api_type = APIType(request.api_type)
-    if request.base_url is not None:
-        template.base_url = request.base_url
-    if request.endpoint is not None:
-        template.endpoint = request.endpoint
-    if request.documentation_url is not None:
-        template.documentation_url = request.documentation_url
-    if request.auth_required is not None:
-        template.auth_required = request.auth_required
-    if request.auth_config is not None:
-        template.auth_config = request.auth_config
-    if request.field_mapping is not None:
-        template.field_mapping = request.field_mapping
-    if request.keywords is not None:
-        template.keywords = request.keywords
-    if request.default_tags is not None:
-        template.default_tags = request.default_tags
-    if request.status is not None:
-        template.status = TemplateStatus(request.status)
-    if request.confidence is not None:
-        template.confidence = request.confidence
+    # Capture old state for audit
+    old_data = {
+        "name": template.name,
+        "base_url": template.base_url,
+        "status": template.status.value,
+    }
 
-    await session.commit()
-    await session.refresh(template)
+    # Update fields
+    if data.name is not None:
+        template.name = data.name
+    if data.description is not None:
+        template.description = data.description
+    if data.api_type is not None:
+        template.api_type = APIType(data.api_type)
+    if data.base_url is not None:
+        template.base_url = data.base_url
+    if data.endpoint is not None:
+        template.endpoint = data.endpoint
+    if data.documentation_url is not None:
+        template.documentation_url = data.documentation_url
+    if data.auth_required is not None:
+        template.auth_required = data.auth_required
+    if data.auth_config is not None:
+        template.auth_config = data.auth_config
+    if data.field_mapping is not None:
+        template.field_mapping = data.field_mapping
+    if data.keywords is not None:
+        template.keywords = data.keywords
+    if data.default_tags is not None:
+        template.default_tags = data.default_tags
+    if data.status is not None:
+        template.status = TemplateStatus(data.status)
+    if data.confidence is not None:
+        template.confidence = data.confidence
+
+    async with AuditContext(session, user, http_request) as audit:
+        new_data = {
+            "name": template.name,
+            "base_url": template.base_url,
+            "status": template.status.value,
+        }
+
+        audit.track_update(template, old_data, new_data)
+
+        await session.commit()
+        await session.refresh(template)
 
     return APITemplateResponse(
         id=template.id,
@@ -371,6 +422,7 @@ async def update_template(
 @router.delete("/{template_id}", response_model=MessageResponse)
 async def delete_template(
     template_id: UUID,
+    http_request: Request,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_editor),
 ):
@@ -383,8 +435,23 @@ async def delete_template(
         )
 
     name = template.name
-    await session.delete(template)
-    await session.commit()
+
+    async with AuditContext(session, user, http_request) as audit:
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="APITemplate",
+            entity_id=template_id,
+            entity_name=name,
+            changes={
+                "deleted": True,
+                "name": name,
+                "api_type": template.api_type.value,
+                "base_url": template.base_url,
+            },
+        )
+
+        await session.delete(template)
+        await session.commit()
 
     return MessageResponse(message=f"API template '{name}' deleted successfully")
 
@@ -466,7 +533,8 @@ async def test_template(
 
 @router.post("/save-from-discovery", response_model=APITemplateResponse, status_code=status.HTTP_201_CREATED)
 async def save_from_discovery(
-    request: SaveFromDiscoveryRequest,
+    data: SaveFromDiscoveryRequest,
+    http_request: Request,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_editor),
 ):
@@ -479,8 +547,8 @@ async def save_from_discovery(
     # Check if template with same URL already exists
     existing = await session.execute(
         select(APITemplate).where(
-            APITemplate.base_url == request.base_url,
-            APITemplate.endpoint == request.endpoint,
+            APITemplate.base_url == data.base_url,
+            APITemplate.endpoint == data.endpoint,
         )
     )
     if existing.scalar():
@@ -490,28 +558,46 @@ async def save_from_discovery(
         )
 
     template = APITemplate(
-        name=request.api_name,
-        description=request.description,
-        api_type=APIType(request.api_type),
-        base_url=request.base_url,
-        endpoint=request.endpoint,
-        documentation_url=request.documentation_url,
-        auth_required=request.auth_required,
-        field_mapping=request.field_mapping,
-        keywords=request.keywords,
-        default_tags=request.default_tags,
-        confidence=request.confidence,
+        name=data.api_name,
+        description=data.description,
+        api_type=APIType(data.api_type),
+        base_url=data.base_url,
+        endpoint=data.endpoint,
+        documentation_url=data.documentation_url,
+        auth_required=data.auth_required,
+        field_mapping=data.field_mapping,
+        keywords=data.keywords,
+        default_tags=data.default_tags,
+        confidence=data.confidence,
         source="ai_generated",
         created_by_id=user.id,
         # Already validated
         status=TemplateStatus.ACTIVE,
         last_validated=datetime.utcnow(),
-        validation_item_count=request.validation_item_count,
+        validation_item_count=data.validation_item_count,
     )
 
-    session.add(template)
-    await session.commit()
-    await session.refresh(template)
+    async with AuditContext(session, user, http_request) as audit:
+        session.add(template)
+        await session.flush()
+
+        audit.track_action(
+            action=AuditAction.CREATE,
+            entity_type="APITemplate",
+            entity_id=template.id,
+            entity_name=template.name,
+            changes={
+                "name": template.name,
+                "api_type": template.api_type.value,
+                "base_url": template.base_url,
+                "endpoint": template.endpoint,
+                "source": "ai_generated",
+                "validation_item_count": template.validation_item_count,
+            },
+        )
+
+        await session.commit()
+        await session.refresh(template)
 
     return APITemplateResponse(
         id=template.id,

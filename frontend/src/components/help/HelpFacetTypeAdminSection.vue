@@ -61,7 +61,7 @@
         </v-expansion-panel-title>
         <v-expansion-panel-text>
           <v-table density="compact">
-            <thead><tr><th>{{ t('help.facetTypeAdmin.createFacetType.basicSettings.name') }}</th><th>{{ t('help.dashboard.crawler_dialog.table.description') }}</th></tr></thead>
+            <thead><tr><th>{{ t('common.field') }}</th><th>{{ t('common.description') }}</th></tr></thead>
             <tbody>
               <tr><td><strong>{{ t('help.facetTypeAdmin.createFacetType.basicSettings.name') }}</strong></td><td>{{ t('help.facetTypeAdmin.createFacetType.basicSettings.nameDesc') }}</td></tr>
               <tr><td><strong>{{ t('help.facetTypeAdmin.createFacetType.basicSettings.namePlural') }}</strong></td><td>{{ t('help.facetTypeAdmin.createFacetType.basicSettings.namePluralDesc') }}</td></tr>
@@ -128,7 +128,7 @@
     <p class="mb-2">{{ t('help.facetTypeAdmin.schema.description') }}</p>
     <v-card variant="outlined" class="mb-4 pa-3">
       <div class="text-caption mb-1">{{ t('help.facetTypeAdmin.schema.example') }}</div>
-      <code class="text-body-2 text-pre-wrap">{{ t('help.facetTypeAdmin.schema.exampleSchema') }}</code>
+      <code class="text-body-2 text-pre-wrap">{{ exampleSchema }}</code>
     </v-card>
     <v-alert type="info" variant="tonal" density="compact" class="mb-4">
       {{ t('help.facetTypeAdmin.schema.tip') }}
@@ -176,4 +176,7 @@ import { useI18n } from 'vue-i18n'
 import HelpCard from './HelpCard.vue'
 
 const { t } = useI18n()
+
+// JSON example - defined here to avoid vue-i18n parsing issues with curly braces
+const exampleSchema = '{ "type": "object", "properties": { "severity": { "type": "string", "enum": ["low", "medium", "high"] }, "category": { "type": "string" }, "details": { "type": "string" } } }'
 </script>

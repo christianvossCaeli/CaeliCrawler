@@ -4,7 +4,7 @@ import json
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import delete, func, select, text, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,8 @@ from app.models.document import Document
 from app.models.data_source import DataSource
 from app.models.user import User
 from app.core.deps import get_current_user, require_editor
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 from app.utils.text import normalize_entity_name
 from services.entity_matching_service import EntityMatchingService
 
@@ -37,6 +39,7 @@ from app.schemas.entity import (
     EntityDocumentsResponse,
     EntitySourcesResponse,
     EntityExternalDataResponse,
+    GeoJSONFeatureCollection,
 )
 from app.schemas.common import MessageResponse
 from app.core.exceptions import NotFoundError, ConflictError
@@ -206,6 +209,17 @@ async def list_entities(
         )
         children_counts_map = dict(children_counts_result.fetchall())
 
+    # Batch load parent names (1 query instead of N)
+    parent_ids = list(set(e.parent_id for e in entities if e.parent_id))
+    parent_names_map: dict = {}
+    if parent_ids:
+        parent_result = await session.execute(
+            select(Entity.id, Entity.name, Entity.slug)
+            .where(Entity.id.in_(parent_ids))
+        )
+        for parent_id, parent_name, parent_slug in parent_result.fetchall():
+            parent_names_map[parent_id] = {"name": parent_name, "slug": parent_slug}
+
     # Build response items using pre-fetched data
     items = []
     for entity in entities:
@@ -217,6 +231,9 @@ async def list_entities(
         item.facet_count = facet_counts_map.get(entity.id, 0)
         item.relation_count = relation_counts_map.get(entity.id, 0)
         item.children_count = children_counts_map.get(entity.id, 0)
+        # Add parent name
+        if entity.parent_id and entity.parent_id in parent_names_map:
+            item.parent_name = parent_names_map[entity.parent_id]["name"]
         items.append(item)
 
     return EntityListResponse(
@@ -231,6 +248,7 @@ async def list_entities(
 @router.post("", response_model=EntityResponse, status_code=201)
 async def create_entity(
     data: EntityCreate,
+    request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
@@ -277,27 +295,45 @@ async def create_entity(
     # Use centralized normalization for consistent entity matching
     name_normalized = normalize_entity_name(data.name, country=data.country or "DE")
 
-    entity = Entity(
-        entity_type_id=data.entity_type_id,
-        name=data.name,
-        name_normalized=name_normalized,
-        slug=slug,
-        external_id=data.external_id,
-        parent_id=data.parent_id,
-        hierarchy_path=hierarchy_path,
-        hierarchy_level=hierarchy_level,
-        country=data.country.upper() if data.country else None,
-        admin_level_1=data.admin_level_1,
-        admin_level_2=data.admin_level_2,
-        core_attributes=data.core_attributes or {},
-        latitude=data.latitude,
-        longitude=data.longitude,
-        is_active=data.is_active,
-        owner_id=data.owner_id,
-    )
-    session.add(entity)
-    await session.commit()
-    await session.refresh(entity)
+    async with AuditContext(session, current_user, request) as audit:
+        entity = Entity(
+            entity_type_id=data.entity_type_id,
+            name=data.name,
+            name_normalized=name_normalized,
+            slug=slug,
+            external_id=data.external_id,
+            parent_id=data.parent_id,
+            hierarchy_path=hierarchy_path,
+            hierarchy_level=hierarchy_level,
+            country=data.country.upper() if data.country else None,
+            admin_level_1=data.admin_level_1,
+            admin_level_2=data.admin_level_2,
+            core_attributes=data.core_attributes or {},
+            latitude=data.latitude,
+            longitude=data.longitude,
+            is_active=data.is_active,
+            owner_id=data.owner_id,
+        )
+        session.add(entity)
+        await session.flush()
+
+        audit.track_action(
+            action=AuditAction.CREATE,
+            entity_type="Entity",
+            entity_id=entity.id,
+            entity_name=entity.name,
+            changes={
+                "name": entity.name,
+                "slug": entity.slug,
+                "entity_type": entity_type.name,
+                "country": entity.country,
+                "external_id": entity.external_id,
+                "parent_id": str(entity.parent_id) if entity.parent_id else None,
+            },
+        )
+
+        await session.commit()
+        await session.refresh(entity)
 
     item = EntityResponse.model_validate(entity)
     item.entity_type_name = entity_type.name
@@ -475,15 +511,17 @@ async def get_attribute_filter_options(
     # If specific attribute requested, get distinct values
     if attribute_key and attribute_key in properties:
         # Query distinct values from core_attributes JSONB
+        # Use labeled column so ORDER BY matches SELECT DISTINCT exactly
+        attr_value = Entity.core_attributes[attribute_key].astext.label("attr_value")
         values_query = (
-            select(Entity.core_attributes[attribute_key].astext)
+            select(attr_value)
             .where(
                 Entity.entity_type_id == entity_type.id,
                 Entity.core_attributes[attribute_key].astext.isnot(None),
                 Entity.core_attributes[attribute_key].astext != "",
             )
             .distinct()
-            .order_by(Entity.core_attributes[attribute_key].astext)
+            .order_by(attr_value)
             .limit(100)  # Limit to prevent huge lists
         )
         values_result = await session.execute(values_query)
@@ -495,6 +533,138 @@ async def get_attribute_filter_options(
         entity_type_name=entity_type.name,
         attributes=filterable_attributes,
         attribute_values=attribute_values,
+    )
+
+
+@router.get("/geojson", response_model=GeoJSONFeatureCollection)
+async def get_entities_geojson(
+    entity_type_slug: Optional[str] = Query(default=None, description="Filter by entity type slug"),
+    country: Optional[str] = Query(default=None, description="Filter by country code"),
+    admin_level_1: Optional[str] = Query(default=None, description="Filter by admin level 1"),
+    admin_level_2: Optional[str] = Query(default=None, description="Filter by admin level 2"),
+    search: Optional[str] = Query(default=None, description="Search in name"),
+    include_geometry: bool = Query(default=True, description="Include polygon/boundary geometries"),
+    limit: int = Query(default=50000, ge=1, le=100000, description="Max entities to return"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get entities as GeoJSON FeatureCollection for map display.
+
+    Returns entities with valid geo data:
+    - Point geometry from latitude/longitude fields
+    - Complex geometry (Polygon, MultiPolygon, etc.) from geometry field
+
+    Optimized for large datasets - supports clustering for points.
+    """
+    # Build base query - entities with any geo data (lat/lng OR geometry)
+    query = select(
+        Entity.id,
+        Entity.name,
+        Entity.slug,
+        Entity.latitude,
+        Entity.longitude,
+        Entity.geometry,
+        Entity.entity_type_id,
+        Entity.external_id,
+        Entity.country,
+        Entity.admin_level_1,
+        Entity.admin_level_2,
+    ).where(
+        or_(
+            and_(Entity.latitude.isnot(None), Entity.longitude.isnot(None)),
+            Entity.geometry.isnot(None),
+        ),
+        Entity.is_active.is_(True),
+    )
+
+    # Apply filters
+    if entity_type_slug:
+        subq = select(EntityType.id).where(EntityType.slug == entity_type_slug)
+        query = query.where(Entity.entity_type_id.in_(subq))
+
+    if country:
+        query = query.where(Entity.country == country.upper())
+
+    if admin_level_1:
+        query = query.where(Entity.admin_level_1 == admin_level_1)
+
+    if admin_level_2:
+        query = query.where(Entity.admin_level_2 == admin_level_2)
+
+    if search:
+        query = query.where(Entity.name.ilike(f"%{search}%"))
+
+    # Limit results
+    query = query.limit(limit)
+
+    result = await session.execute(query)
+    rows = result.fetchall()
+
+    # Count total without any geo data
+    count_without_query = select(func.count()).select_from(Entity).where(
+        and_(
+            or_(Entity.latitude.is_(None), Entity.longitude.is_(None)),
+            Entity.geometry.is_(None),
+        ),
+        Entity.is_active.is_(True),
+    )
+    if entity_type_slug:
+        subq = select(EntityType.id).where(EntityType.slug == entity_type_slug)
+        count_without_query = count_without_query.where(Entity.entity_type_id.in_(subq))
+    total_without = (await session.execute(count_without_query)).scalar() or 0
+
+    # Get entity type info for icons/colors
+    entity_type_ids = list(set(row.entity_type_id for row in rows))
+    entity_types_map = {}
+    if entity_type_ids:
+        et_result = await session.execute(
+            select(EntityType).where(EntityType.id.in_(entity_type_ids))
+        )
+        entity_types_map = {et.id: et for et in et_result.scalars().all()}
+
+    # Build GeoJSON features
+    features = []
+    for row in rows:
+        et = entity_types_map.get(row.entity_type_id)
+
+        # Determine geometry: use stored geometry if available, else create Point
+        if include_geometry and row.geometry:
+            geometry = row.geometry
+        elif row.latitude is not None and row.longitude is not None:
+            geometry = {
+                "type": "Point",
+                "coordinates": [row.longitude, row.latitude],
+            }
+        else:
+            # Should not happen due to query filter, but skip just in case
+            continue
+
+        # Determine geometry type for frontend styling
+        geometry_type = geometry.get("type", "Point") if isinstance(geometry, dict) else "Point"
+
+        features.append({
+            "type": "Feature",
+            "geometry": geometry,
+            "properties": {
+                "id": str(row.id),
+                "name": row.name,
+                "slug": row.slug,
+                "external_id": row.external_id,
+                "entity_type_slug": et.slug if et else None,
+                "entity_type_name": et.name if et else None,
+                "icon": et.icon if et else "mdi-map-marker",
+                "color": et.color if et else "#1976D2",
+                "country": row.country,
+                "admin_level_1": row.admin_level_1,
+                "admin_level_2": row.admin_level_2,
+                "geometry_type": geometry_type,
+            },
+        })
+
+    return GeoJSONFeatureCollection(
+        type="FeatureCollection",
+        features=features,
+        total_with_coords=len(features),
+        total_without_coords=total_without,
     )
 
 
@@ -537,14 +707,18 @@ async def get_entity(
 
     # Get parent info
     parent_name = None
+    parent_slug = None
     if entity.parent_id:
         parent = await session.get(Entity, entity.parent_id)
-        parent_name = parent.name if parent else None
+        if parent:
+            parent_name = parent.name
+            parent_slug = parent.slug
 
     response = EntityResponse.model_validate(entity)
     response.entity_type_name = entity_type.name if entity_type else None
     response.entity_type_slug = entity_type.slug if entity_type else None
     response.parent_name = parent_name
+    response.parent_slug = parent_slug
     response.facet_count = facet_count
     response.relation_count = relation_count
     response.children_count = children_count
@@ -598,9 +772,20 @@ async def get_entity_by_slug(
         select(func.count()).where(Entity.parent_id == entity.id)
     )).scalar()
 
+    # Get parent info
+    parent_name = None
+    parent_slug = None
+    if entity.parent_id:
+        parent = await session.get(Entity, entity.parent_id)
+        if parent:
+            parent_name = parent.name
+            parent_slug = parent.slug
+
     response = EntityResponse.model_validate(entity)
     response.entity_type_name = entity_type.name
     response.entity_type_slug = entity_type.slug
+    response.parent_name = parent_name
+    response.parent_slug = parent_slug
     response.facet_count = facet_count
     response.relation_count = relation_count
     response.children_count = children_count
@@ -653,6 +838,7 @@ async def get_entity_children(
 async def update_entity(
     entity_id: UUID,
     data: EntityUpdate,
+    request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
@@ -660,6 +846,15 @@ async def update_entity(
     entity = await session.get(Entity, entity_id)
     if not entity:
         raise NotFoundError("Entity", str(entity_id))
+
+    # Capture old state for audit
+    old_data = {
+        "name": entity.name,
+        "slug": entity.slug,
+        "country": entity.country,
+        "is_active": entity.is_active,
+        "parent_id": str(entity.parent_id) if entity.parent_id else None,
+    }
 
     # Update fields
     update_data = data.model_dump(exclude_unset=True)
@@ -701,11 +896,23 @@ async def update_entity(
         country = update_data.get("country", entity.country) or "DE"
         update_data["name_normalized"] = normalize_entity_name(update_data["name"], country=country)
 
-    for field, value in update_data.items():
-        setattr(entity, field, value)
+    async with AuditContext(session, current_user, request) as audit:
+        for field, value in update_data.items():
+            setattr(entity, field, value)
 
-    await session.commit()
-    await session.refresh(entity)
+        # Capture new state
+        new_data = {
+            "name": entity.name,
+            "slug": entity.slug,
+            "country": entity.country,
+            "is_active": entity.is_active,
+            "parent_id": str(entity.parent_id) if entity.parent_id else None,
+        }
+
+        audit.track_update(entity, old_data, new_data)
+
+        await session.commit()
+        await session.refresh(entity)
 
     entity_type = await session.get(EntityType, entity.entity_type_id)
 
@@ -719,6 +926,7 @@ async def update_entity(
 @router.delete("/{entity_id}", response_model=MessageResponse)
 async def delete_entity(
     entity_id: UUID,
+    request: Request,
     force: bool = Query(default=False, description="Force delete with all facets and relations"),
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
@@ -813,11 +1021,38 @@ async def delete_entity(
             await session.execute(
                 delete(Entity).where(Entity.id.in_(all_entity_ids))
             )
+
+            # Audit log for cascade delete
+            async with AuditContext(session, current_user, request) as audit:
+                audit.track_action(
+                    action=AuditAction.DELETE,
+                    entity_type="Entity",
+                    entity_id=entity_id,
+                    entity_name=entity_name,
+                    changes={
+                        "deleted": True,
+                        "force": True,
+                        "cascade_deleted_entities": len(all_entity_ids),
+                        "children_count": children_count,
+                        "facet_count": facet_count,
+                    },
+                )
+                await session.commit()
     else:
         # Simple delete without cascade
-        await session.delete(entity)
-
-    await session.commit()
+        async with AuditContext(session, current_user, request) as audit:
+            audit.track_action(
+                action=AuditAction.DELETE,
+                entity_type="Entity",
+                entity_id=entity_id,
+                entity_name=entity_name,
+                changes={
+                    "deleted": True,
+                    "force": False,
+                },
+            )
+            await session.delete(entity)
+            await session.commit()
 
     return MessageResponse(message=f"Entity '{entity_name}' deleted successfully")
 
@@ -921,17 +1156,31 @@ async def get_entity_sources(
     entity_id: UUID,
     session: AsyncSession = Depends(get_session),
 ):
-    """Get data sources linked to an entity via facet values.
+    """Get data sources linked to an entity.
 
-    Traces the path: Entity -> FacetValues -> Documents -> DataSources
-    Returns all unique DataSources that provided documents for this entity's facet values.
+    Finds DataSources via two paths:
+    1. Direct link: DataSource.extra_data->>'entity_id' = entity_id
+    2. Indirect: Entity -> FacetValues -> Documents -> DataSources
+
+    Returns all unique DataSources for this entity.
     """
     # Verify entity exists
     entity = await session.get(Entity, entity_id)
     if not entity:
         raise NotFoundError("Entity", str(entity_id))
 
-    # Get distinct source_document_ids from all FacetValues for this entity
+    all_source_ids = set()
+
+    # Path 1: Direct link via extra_data->>'entity_id'
+    direct_sources_query = (
+        select(DataSource.id)
+        .where(DataSource.extra_data["entity_id"].astext == str(entity_id))
+    )
+    direct_result = await session.execute(direct_sources_query)
+    for row in direct_result.fetchall():
+        all_source_ids.add(row[0])
+
+    # Path 2: Via FacetValues -> Documents -> DataSources
     source_doc_query = (
         select(FacetValue.source_document_id)
         .where(
@@ -943,27 +1192,20 @@ async def get_entity_sources(
     result = await session.execute(source_doc_query)
     document_ids = [row[0] for row in result.fetchall()]
 
-    if not document_ids:
-        return {
-            "entity_id": str(entity_id),
-            "entity_name": entity.name,
-            "sources": [],
-            "total": 0,
-        }
-
-    # Get distinct source_ids from documents
-    docs_query = (
-        select(Document.source_id)
-        .where(
-            Document.id.in_(document_ids),
-            Document.source_id.isnot(None)
+    if document_ids:
+        docs_query = (
+            select(Document.source_id)
+            .where(
+                Document.id.in_(document_ids),
+                Document.source_id.isnot(None)
+            )
+            .distinct()
         )
-        .distinct()
-    )
-    docs_result = await session.execute(docs_query)
-    source_ids = [row[0] for row in docs_result.fetchall()]
+        docs_result = await session.execute(docs_query)
+        for row in docs_result.fetchall():
+            all_source_ids.add(row[0])
 
-    if not source_ids:
+    if not all_source_ids:
         return {
             "entity_id": str(entity_id),
             "entity_name": entity.name,
@@ -972,25 +1214,30 @@ async def get_entity_sources(
         }
 
     # Load DataSources
-    sources_query = select(DataSource).where(DataSource.id.in_(source_ids))
+    sources_query = select(DataSource).where(DataSource.id.in_(all_source_ids))
     sources_result = await session.execute(sources_query)
     sources = sources_result.scalars().all()
 
-    # Count documents per source
-    doc_counts_query = (
-        select(Document.source_id, func.count(Document.id))
-        .where(
-            Document.id.in_(document_ids),
-            Document.source_id.in_(source_ids)
+    # Count documents per source (only for sources that have documents)
+    doc_counts_map = {}
+    if document_ids:
+        doc_counts_query = (
+            select(Document.source_id, func.count(Document.id))
+            .where(
+                Document.id.in_(document_ids),
+                Document.source_id.in_(all_source_ids)
+            )
+            .group_by(Document.source_id)
         )
-        .group_by(Document.source_id)
-    )
-    doc_counts_result = await session.execute(doc_counts_query)
-    doc_counts_map = dict(doc_counts_result.fetchall())
+        doc_counts_result = await session.execute(doc_counts_query)
+        doc_counts_map = dict(doc_counts_result.fetchall())
 
     # Build response
     source_list = []
     for source in sources:
+        # Check if this is a direct link (from extra_data)
+        is_direct_link = source.extra_data and source.extra_data.get("entity_id") == str(entity_id)
+
         source_list.append({
             "id": str(source.id),
             "name": source.name,
@@ -998,10 +1245,11 @@ async def get_entity_sources(
             "source_type": source.source_type,
             "status": source.status,
             "document_count": doc_counts_map.get(source.id, 0),
+            "is_primary": is_direct_link,  # Mark directly linked sources
         })
 
-    # Sort by document count descending
-    source_list.sort(key=lambda x: x["document_count"], reverse=True)
+    # Sort: primary sources first, then by document count
+    source_list.sort(key=lambda x: (not x.get("is_primary", False), -x["document_count"]))
 
     return {
         "entity_id": str(entity_id),

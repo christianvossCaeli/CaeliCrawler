@@ -3,13 +3,15 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
-from app.models import EntityType, Entity
+from app.models import EntityType, Entity, FacetType, RelationType, AnalysisTemplate
 from app.models.user import User
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 from app.schemas.entity_type import (
     EntityTypeCreate,
     EntityTypeUpdate,
@@ -120,6 +122,7 @@ async def list_entity_types(
 @router.post("", response_model=EntityTypeResponse, status_code=201)
 async def create_entity_type(
     data: EntityTypeCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_editor),
 ):
@@ -143,27 +146,44 @@ async def create_entity_type(
             detail=f"An entity type with name '{data.name}' or slug '{slug}' already exists",
         )
 
-    entity_type = EntityType(
-        name=data.name,
-        slug=slug,
-        name_plural=data.name_plural or f"{data.name}s",
-        description=data.description,
-        icon=data.icon,
-        color=data.color,
-        is_primary=data.is_primary,
-        supports_hierarchy=data.supports_hierarchy,
-        hierarchy_config=data.hierarchy_config,
-        attribute_schema=data.attribute_schema,
-        display_order=data.display_order,
-        is_active=data.is_active,
-        is_public=data.is_public,
-        is_system=False,
-        created_by_id=current_user.id if current_user else None,
-        owner_id=current_user.id if current_user else None,
-    )
-    session.add(entity_type)
-    await session.commit()
-    await session.refresh(entity_type)
+    async with AuditContext(session, current_user, request) as audit:
+        entity_type = EntityType(
+            name=data.name,
+            slug=slug,
+            name_plural=data.name_plural or f"{data.name}s",
+            description=data.description,
+            icon=data.icon,
+            color=data.color,
+            is_primary=data.is_primary,
+            supports_hierarchy=data.supports_hierarchy,
+            hierarchy_config=data.hierarchy_config,
+            attribute_schema=data.attribute_schema,
+            display_order=data.display_order,
+            is_active=data.is_active,
+            is_public=data.is_public,
+            is_system=False,
+            created_by_id=current_user.id if current_user else None,
+            owner_id=current_user.id if current_user else None,
+        )
+        session.add(entity_type)
+        await session.flush()
+
+        audit.track_action(
+            action=AuditAction.CREATE,
+            entity_type="EntityType",
+            entity_id=entity_type.id,
+            entity_name=entity_type.name,
+            changes={
+                "name": entity_type.name,
+                "slug": entity_type.slug,
+                "is_public": entity_type.is_public,
+                "is_primary": entity_type.is_primary,
+                "supports_hierarchy": entity_type.supports_hierarchy,
+            },
+        )
+
+        await session.commit()
+        await session.refresh(entity_type)
 
     return EntityTypeResponse.model_validate(entity_type)
 
@@ -215,21 +235,42 @@ async def get_entity_type_by_slug(
 async def update_entity_type(
     entity_type_id: UUID,
     data: EntityTypeUpdate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Update an entity type."""
     entity_type = await session.get(EntityType, entity_type_id)
     if not entity_type:
         raise NotFoundError("EntityType", str(entity_type_id))
 
-    # Update fields
-    update_data = data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(entity_type, field, value)
+    # Capture old state
+    old_data = {
+        "name": entity_type.name,
+        "slug": entity_type.slug,
+        "is_public": entity_type.is_public,
+        "is_active": entity_type.is_active,
+        "is_primary": entity_type.is_primary,
+    }
 
-    await session.commit()
-    await session.refresh(entity_type)
+    async with AuditContext(session, current_user, request) as audit:
+        # Update fields
+        update_data = data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(entity_type, field, value)
+
+        new_data = {
+            "name": entity_type.name,
+            "slug": entity_type.slug,
+            "is_public": entity_type.is_public,
+            "is_active": entity_type.is_active,
+            "is_primary": entity_type.is_primary,
+        }
+
+        audit.track_update(entity_type, old_data, new_data)
+
+        await session.commit()
+        await session.refresh(entity_type)
 
     return EntityTypeResponse.model_validate(entity_type)
 
@@ -237,8 +278,9 @@ async def update_entity_type(
 @router.delete("/{entity_type_id}", response_model=MessageResponse)
 async def delete_entity_type(
     entity_type_id: UUID,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Delete an entity type."""
     entity_type = await session.get(EntityType, entity_type_id)
@@ -262,7 +304,63 @@ async def delete_entity_type(
             detail=f"Entity type '{entity_type.name}' has {entity_count} entities. Delete them first.",
         )
 
-    await session.delete(entity_type)
-    await session.commit()
+    # Check for RelationType dependencies (source or target)
+    relation_type_count = (await session.execute(
+        select(func.count()).where(
+            or_(
+                RelationType.source_entity_type_id == entity_type.id,
+                RelationType.target_entity_type_id == entity_type.id,
+            )
+        )
+    )).scalar()
 
-    return MessageResponse(message=f"Entity type '{entity_type.name}' deleted successfully")
+    if relation_type_count > 0:
+        raise ConflictError(
+            "Cannot delete entity type with existing relation types",
+            detail=f"Entity type '{entity_type.name}' is used by {relation_type_count} relation type(s). Delete them first.",
+        )
+
+    # Check for AnalysisTemplate dependencies
+    analysis_template_count = (await session.execute(
+        select(func.count()).where(
+            AnalysisTemplate.primary_entity_type_id == entity_type.id
+        )
+    )).scalar()
+
+    if analysis_template_count > 0:
+        raise ConflictError(
+            "Cannot delete entity type with existing analysis templates",
+            detail=f"Entity type '{entity_type.name}' is used by {analysis_template_count} analysis template(s). Delete them first.",
+        )
+
+    # Clean up FacetType references to this entity type slug
+    slug_to_remove = entity_type.slug
+    facet_types_with_ref = await session.execute(
+        select(FacetType).where(
+            FacetType.applicable_entity_type_slugs.any(slug_to_remove)
+        )
+    )
+    for facet_type in facet_types_with_ref.scalars():
+        facet_type.applicable_entity_type_slugs = [
+            s for s in facet_type.applicable_entity_type_slugs if s != slug_to_remove
+        ]
+
+    entity_type_name = entity_type.name
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="EntityType",
+            entity_id=entity_type_id,
+            entity_name=entity_type_name,
+            changes={
+                "deleted": True,
+                "name": entity_type_name,
+                "slug": slug_to_remove,
+            },
+        )
+
+        await session.delete(entity_type)
+        await session.commit()
+
+    return MessageResponse(message=f"Entity type '{entity_type_name}' deleted successfully")

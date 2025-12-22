@@ -112,6 +112,9 @@ class FacetValueAggregated(BaseModel):
     facet_type_name: str
     facet_type_icon: Optional[str] = None
     facet_type_color: Optional[str] = None
+    facet_type_value_type: Optional[str] = Field(
+        default=None, description="Value type (text, number, structured, history)"
+    )
     display_order: int = Field(default=0, description="Display order for sorting")
     value_count: int
     verified_count: int

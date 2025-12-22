@@ -572,7 +572,7 @@ const form = ref({
   name_plural: '',
   description: '',
   icon: 'mdi-tag',
-  color: 'secondary',
+  color: '#9E9E9E',
   value_type: 'structured',
   value_schema: null as any,
   applicable_entity_type_slugs: [] as string[],
@@ -682,7 +682,7 @@ function openCreateDialog() {
     name_plural: '',
     description: '',
     icon: 'mdi-tag',
-    color: 'secondary',
+    color: '#9E9E9E',
     value_type: 'structured',
     value_schema: null,
     applicable_entity_type_slugs: [],
@@ -703,12 +703,15 @@ function openEditDialog(item: any) {
   editingItem.value = item
   activeTab.value = 'basic'
   schemaError.value = ''
+  // Convert Vuetify color names to HEX for the color picker
+  const colorValue = item.color || '#9E9E9E'
+  const resolvedColor = colorValue.startsWith('#') ? colorValue : '#9E9E9E'
   form.value = {
     name: item.name,
     name_plural: item.name_plural || '',
     description: item.description || '',
     icon: item.icon || 'mdi-tag',
-    color: item.color || 'secondary',
+    color: resolvedColor,
     value_type: item.value_type || 'structured',
     value_schema: item.value_schema,
     applicable_entity_type_slugs: item.applicable_entity_type_slugs || [],

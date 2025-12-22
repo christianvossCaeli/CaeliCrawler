@@ -59,7 +59,7 @@
           <td>{{ t('help.notifications.eventTypes.crawlFailedDesc') }}</td>
         </tr>
         <tr>
-          <td><v-chip size="small" color="cyan">{{ t('help.notifications.eventTypes.aiAnalysisCompleted') }}</v-chip></td>
+          <td><v-chip size="small" color="teal">{{ t('help.notifications.eventTypes.aiAnalysisCompleted') }}</v-chip></td>
           <td>{{ t('help.notifications.eventTypes.aiAnalysisCompletedDesc') }}</td>
         </tr>
         <tr>
@@ -67,7 +67,7 @@
           <td>{{ t('help.notifications.eventTypes.highConfidenceDesc') }}</td>
         </tr>
         <tr>
-          <td><v-chip size="small" color="grey">{{ t('help.notifications.eventTypes.sourceStatusChanged') }}</v-chip></td>
+          <td><v-chip size="small">{{ t('help.notifications.eventTypes.sourceStatusChanged') }}</v-chip></td>
           <td>{{ t('help.notifications.eventTypes.sourceStatusChangedDesc') }}</td>
         </tr>
         <tr>

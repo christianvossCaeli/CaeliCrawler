@@ -78,10 +78,10 @@
         <li>{{ t('help.sources.bulkImport.step1') }}</li>
         <li>{{ t('help.sources.bulkImport.step2') }}</li>
       </ol>
-      <v-code class="mt-2 pa-2 d-block text-caption">[
+      <pre class="mt-2 pa-2 d-block text-caption bg-grey-lighten-4 rounded" style="font-family: monospace;">[
   {"name": "Stadt X", "base_url": "https://...", "location_name": "Stadt X"},
   {"name": "Stadt Y", "base_url": "https://...", "location_name": "Stadt Y"}
-]</v-code>
+]</pre>
     </v-alert>
 
     <h3 class="text-h6 mb-3">{{ t('help.sources.crawlConfig.title') }}</h3>
@@ -114,8 +114,8 @@
         </v-card>
       </v-col>
       <v-col cols="12" md="6">
-        <v-card variant="outlined" class="pa-3" color="grey">
-          <div class="text-subtitle-2 mb-2"><v-icon color="grey">mdi-check</v-icon> {{ t('help.sources.urlFiltersAdvanced.includeTitle') }}</div>
+        <v-card variant="outlined" class="pa-3">
+          <div class="text-subtitle-2 mb-2"><v-icon>mdi-check</v-icon> {{ t('help.sources.urlFiltersAdvanced.includeTitle') }}</div>
           <div class="text-body-2">{{ t('help.sources.urlFiltersAdvanced.includeDesc') }}</div>
           <v-chip-group class="mt-2">
             <v-chip size="small" variant="outlined">/dokumente/</v-chip>
@@ -129,7 +129,7 @@
     <v-table density="compact">
       <thead><tr><th>{{ t('common.status') }}</th><th>{{ t('common.meaning') }}</th></tr></thead>
       <tbody>
-        <tr><td><v-chip size="small" color="grey">{{ t('help.sources.statusMeaning.pending') }}</v-chip></td><td>{{ t('help.sources.statusMeaning.pendingDesc') }}</td></tr>
+        <tr><td><v-chip size="small">{{ t('help.sources.statusMeaning.pending') }}</v-chip></td><td>{{ t('help.sources.statusMeaning.pendingDesc') }}</td></tr>
         <tr><td><v-chip size="small" color="info">{{ t('help.sources.statusMeaning.crawling') }}</v-chip></td><td>{{ t('help.sources.statusMeaning.crawlingDesc') }}</td></tr>
         <tr><td><v-chip size="small" color="success">{{ t('help.sources.statusMeaning.active') }}</v-chip></td><td>{{ t('help.sources.statusMeaning.activeDesc') }}</td></tr>
         <tr><td><v-chip size="small" color="error">{{ t('help.sources.statusMeaning.error') }}</v-chip></td><td>{{ t('help.sources.statusMeaning.errorDesc') }}</td></tr>

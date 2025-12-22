@@ -1,5 +1,5 @@
 <template>
-  <HelpCard section-id="municipalities" :title="t('help.municipalities.title')" icon="mdi-city" color="cyan">
+  <HelpCard section-id="municipalities" :title="t('help.municipalities.title')" icon="mdi-city" color="teal">
     <p class="mb-4">{{ t('help.municipalities.description') }}</p>
 
     <h3 class="text-h6 mb-3">{{ t('help.municipalities.statisticsCards') }}</h3>

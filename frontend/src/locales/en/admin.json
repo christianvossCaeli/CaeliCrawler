@@ -147,7 +147,8 @@
         "noFacetsFound": "No facets found",
         "facetsSelected": "facets selected",
         "deselectAll": "Deselect all",
-        "selectAll": "Select all"
+        "selectAll": "Select all",
+        "appliesToAll": "All types"
       },
       "columns": {
         "name": "Name",
@@ -228,7 +229,7 @@
         "timeFieldPath": "Time Field Path",
         "timeFieldPathPlaceholder": "e.g. event_date",
         "valueSchema": "Value Schema (JSON)",
-        "valueSchemePlaceholder": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"name\": { \"type\": \"string\" }\n  }\n}",
+        "valueSchemePlaceholder": "Enter JSON schema for value structure...",
         "schemaInfo": "The JSON schema defines the structure of values for this facet type",
         "invalidJson": "Invalid JSON",
         "deduplicationFields": "Deduplication Fields",
@@ -300,7 +301,7 @@
         "documentationUrlPlaceholder": "https://docs.example.com",
         "authRequired": "Authentication required",
         "fieldMapping": "Field Mapping (JSON)",
-        "fieldMappingPlaceholder": "{\n  \"sourceName\": \"name\",\n  \"sourceUrl\": \"url\"\n}",
+        "fieldMappingPlaceholder": "Enter JSON field mapping...",
         "fieldMappingHint": "Mapping from API fields to standard fields",
         "keywords": "Keywords",
         "keywordsHint": "Words for automatic matching in search queries",

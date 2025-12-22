@@ -4,6 +4,7 @@
     "addProcess": "Add Process",
     "fields": "Fields",
     "field": "Field",
+    "editField": "Edit field",
     "lastSynced": "Last synced",
     "noProcesses": "No PySis processes linked",
     "fieldsFor": "Fields",

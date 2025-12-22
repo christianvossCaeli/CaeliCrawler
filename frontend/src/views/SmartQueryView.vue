@@ -1,48 +1,99 @@
 <template>
-  <div>
-    <div class="d-flex justify-space-between align-center mb-6">
-      <div>
-        <h1 class="text-h4">{{ t('smartQueryView.title') }}</h1>
-        <p class="text-subtitle-1 text-medium-emphasis mt-1">
-          {{ t('smartQueryView.subtitle') }}
-        </p>
+  <div class="smart-query-view">
+    <!-- Modern Header with Mode Toggle -->
+    <div class="smart-query-header mb-6">
+      <div class="header-content d-flex align-center">
+        <v-avatar color="primary" size="56" class="mr-4 header-avatar">
+          <v-icon size="32" color="white">mdi-brain</v-icon>
+        </v-avatar>
+        <div>
+          <h1 class="text-h4 font-weight-bold">{{ t('smartQueryView.title') }}</h1>
+          <p class="text-body-2 text-medium-emphasis mb-0">
+            {{ t('smartQueryView.subtitle') }}
+          </p>
+        </div>
       </div>
+      <v-btn-toggle
+        v-model="writeMode"
+        mandatory
+        divided
+        density="comfortable"
+        class="mode-toggle"
+        :disabled="previewData !== null"
+      >
+        <v-btn :value="false" min-width="140">
+          <v-icon start :color="!writeMode ? 'primary' : undefined">mdi-magnify</v-icon>
+          {{ t('smartQueryView.mode.read') }}
+        </v-btn>
+        <v-btn :value="true" min-width="140">
+          <v-icon start :color="writeMode ? 'warning' : undefined">mdi-pencil-plus</v-icon>
+          {{ t('smartQueryView.mode.write') }}
+        </v-btn>
+      </v-btn-toggle>
     </div>
 
-    <!-- Query Input -->
-    <v-card class="mb-6">
-      <v-card-text>
-        <div class="d-flex align-start">
-          <v-textarea
-            v-model="question"
-            :label="writeMode ? t('smartQueryView.input.labelWrite') : t('smartQueryView.input.labelRead')"
-            :placeholder="isListening
-              ? t('smartQueryView.input.placeholderListening')
-              : (writeMode
-                ? t('smartQueryView.input.placeholderWrite')
-                : t('smartQueryView.input.placeholderRead'))"
-            rows="3"
-            variant="outlined"
-            hide-details
-            class="mb-4 flex-grow-1"
-            :disabled="previewData !== null"
-            @paste="handlePaste"
+    <!-- Chat-Style Input Card -->
+    <v-card class="input-card mb-6" :class="{ 'input-card--active': question.trim() || pendingAttachments.length > 0 }">
+      <!-- Attachment Preview inside card -->
+      <div v-if="pendingAttachments.length > 0" class="attachment-preview pa-3 pb-0">
+        <div class="d-flex flex-wrap ga-2">
+          <v-chip
+            v-for="attachment in pendingAttachments"
+            :key="attachment.id"
+            closable
+            @click:close="removeAttachment(attachment.id)"
+            color="primary"
+            variant="tonal"
+            size="small"
           >
-            <template v-slot:append-inner v-if="interimTranscript">
-              <span class="text-caption text-medium-emphasis font-italic">{{ interimTranscript }}</span>
-            </template>
-          </v-textarea>
+            <v-avatar start size="20" v-if="attachment.preview">
+              <v-img :src="attachment.preview" />
+            </v-avatar>
+            <v-icon v-else start size="16">{{ getAttachmentIcon(attachment.contentType) }}</v-icon>
+            {{ attachment.filename }}
+          </v-chip>
+        </div>
+      </div>
+
+      <!-- Textarea -->
+      <v-textarea
+        v-model="question"
+        :placeholder="getInputPlaceholder"
+        rows="2"
+        auto-grow
+        max-rows="8"
+        variant="plain"
+        hide-details
+        class="input-textarea"
+        :disabled="previewData !== null"
+        @paste="handlePaste"
+        @keydown.enter.ctrl="executeQuery"
+        @keydown.enter.meta="executeQuery"
+      />
+
+      <!-- Interim transcript overlay -->
+      <div v-if="interimTranscript" class="interim-transcript px-4 pb-2">
+        <span class="text-caption text-medium-emphasis font-italic">
+          <v-icon size="12" class="mr-1">mdi-microphone</v-icon>
+          {{ interimTranscript }}
+        </span>
+      </div>
+
+      <v-divider />
+
+      <!-- Action Bar -->
+      <div class="input-actions">
+        <div class="action-buttons d-flex ga-1">
           <!-- Attachment Button -->
           <v-btn
-            icon="mdi-paperclip"
-            variant="tonal"
-            size="large"
-            class="ml-2 mt-1"
+            icon
+            variant="text"
+            size="small"
             :disabled="previewData !== null || loading || isUploading"
             :loading="isUploading"
             @click="triggerFileInput"
           >
-            <v-icon>{{ isUploading ? 'mdi-loading' : 'mdi-paperclip' }}</v-icon>
+            <v-icon size="20">mdi-paperclip</v-icon>
             <v-tooltip activator="parent" location="top">
               {{ t('assistant.attachFile') }}
             </v-tooltip>
@@ -55,141 +106,148 @@
             @change="handleFileSelect"
             multiple
           />
+
+          <!-- Voice Button -->
           <v-btn
             v-if="hasMicrophone"
-            :icon="isListening ? 'mdi-microphone-off' : 'mdi-microphone'"
-            :color="isListening ? 'error' : 'default'"
+            icon
+            variant="text"
+            size="small"
+            :color="isListening ? 'error' : undefined"
             :class="{ 'voice-btn-listening': isListening }"
-            variant="tonal"
-            size="large"
-            class="ml-2 mt-1"
             :disabled="previewData !== null || loading"
             @click="handleVoiceInput"
           >
+            <v-icon size="20">{{ isListening ? 'mdi-microphone-off' : 'mdi-microphone' }}</v-icon>
             <v-tooltip activator="parent" location="top">
               {{ isListening ? t('smartQueryView.voice.stopRecording') : t('smartQueryView.voice.startRecording') }}
             </v-tooltip>
           </v-btn>
-        </div>
 
-        <!-- Attachment Preview -->
-        <div v-if="pendingAttachments.length > 0" class="d-flex flex-wrap ga-2 mb-4">
-          <v-chip
-            v-for="attachment in pendingAttachments"
-            :key="attachment.id"
-            closable
-            @click:close="removeAttachment(attachment.id)"
-            color="primary"
-            variant="tonal"
-          >
-            <v-avatar start v-if="attachment.preview">
-              <v-img :src="attachment.preview" />
-            </v-avatar>
-            <v-icon v-else start>{{ getAttachmentIcon(attachment.contentType) }}</v-icon>
-            {{ attachment.filename }}
+          <!-- Write Mode Indicator -->
+          <v-chip v-if="writeMode && !previewData" color="warning" size="x-small" variant="flat" class="ml-2">
+            <v-icon start size="12">mdi-eye</v-icon>
+            {{ t('smartQueryView.mode.previewFirst') }}
           </v-chip>
         </div>
-        <div class="d-flex justify-space-between align-center">
-          <div class="d-flex align-center">
-            <v-switch
-              v-model="writeMode"
-              color="warning"
-              hide-details
-              density="compact"
-              class="mr-3"
-              :disabled="previewData !== null"
+
+        <!-- Submit Button -->
+        <v-btn
+          v-if="!previewData"
+          :color="getSubmitButtonColor"
+          rounded="pill"
+          :loading="loading"
+          :disabled="!question.trim() && pendingAttachments.length === 0"
+          @click="executeQuery"
+          class="submit-btn"
+        >
+          <v-icon start>{{ getSubmitButtonIcon }}</v-icon>
+          {{ getSubmitButtonText }}
+        </v-btn>
+      </div>
+    </v-card>
+
+    <!-- Example Queries as Card Grid -->
+    <div v-if="!results && !previewData && !loading" class="examples-section mb-6">
+      <div class="d-flex align-center mb-4">
+        <v-icon class="mr-2" :color="writeMode ? 'warning' : 'primary'">mdi-lightbulb-outline</v-icon>
+        <span class="text-subtitle-1 font-weight-medium">
+          {{ writeMode ? t('smartQueryView.examples.commandsTitle') : t('smartQueryView.examples.questionsTitle') }}
+        </span>
+      </div>
+      <div class="examples-grid">
+        <v-card
+          v-for="example in currentExamplesWithMeta"
+          :key="example.question"
+          class="example-card"
+          :class="{ 'example-card--write': writeMode }"
+          @click="useExample(example.question)"
+          hover
+          variant="outlined"
+        >
+          <v-card-text class="d-flex align-center pa-4">
+            <v-avatar
+              :color="writeMode ? 'warning' : 'primary'"
+              size="44"
+              class="mr-3 example-avatar"
+              variant="tonal"
             >
-              <template v-slot:label>
-                <v-icon :color="writeMode ? 'warning' : 'grey'" class="mr-1">
-                  {{ writeMode ? 'mdi-pencil-plus' : 'mdi-magnify' }}
-                </v-icon>
-                {{ writeMode ? t('smartQueryView.mode.write') : t('smartQueryView.mode.read') }}
-              </template>
-            </v-switch>
-            <v-chip v-if="writeMode && !previewData" color="info" size="small" variant="tonal">
-              <v-icon start size="small">mdi-eye</v-icon>
-              {{ t('smartQueryView.mode.previewFirst') }}
-            </v-chip>
-          </div>
-          <v-btn
-            v-if="!previewData"
-            :color="pendingAttachments.length > 0 ? 'info' : (writeMode ? 'warning' : 'primary')"
-            size="large"
-            :loading="loading"
-            :disabled="!question.trim() && pendingAttachments.length === 0"
-            @click="executeQuery"
-          >
-            <v-icon left>{{ pendingAttachments.length > 0 ? 'mdi-image-search' : (writeMode ? 'mdi-eye' : 'mdi-magnify') }}</v-icon>
-            {{ pendingAttachments.length > 0 ? t('smartQueryView.actions.analyzeImage') : (writeMode ? t('smartQueryView.actions.preview') : t('smartQueryView.actions.query')) }}
-          </v-btn>
-        </div>
-      </v-card-text>
-    </v-card>
-
-    <!-- Example Queries -->
-    <v-card class="mb-6" v-if="!results && !previewData">
-      <v-card-title class="text-h6">
-        <v-icon left>mdi-lightbulb-outline</v-icon>
-        {{ writeMode ? t('smartQueryView.examples.commandsTitle') : t('smartQueryView.examples.questionsTitle') }}
-      </v-card-title>
-      <v-card-text>
-        <v-chip-group>
-          <v-chip
-            v-for="example in currentExamples"
-            :key="example.question"
-            @click="useExample(example.question)"
-            variant="outlined"
-            :color="writeMode ? 'warning' : 'primary'"
-            class="ma-1"
-          >
-            {{ example.question }}
-          </v-chip>
-        </v-chip-group>
-      </v-card-text>
-    </v-card>
+              <v-icon size="22">{{ example.icon }}</v-icon>
+            </v-avatar>
+            <div class="flex-grow-1 overflow-hidden">
+              <div class="text-body-2 font-weight-medium text-truncate">{{ example.title }}</div>
+              <div class="text-caption text-medium-emphasis text-truncate">{{ example.question }}</div>
+            </div>
+            <v-icon size="18" class="ml-2 example-arrow" color="grey">mdi-arrow-right</v-icon>
+          </v-card-text>
+        </v-card>
+      </div>
+    </div>
 
     <!-- Error -->
     <v-alert v-if="error" type="error" class="mb-6" closable @click:close="error = null">
       {{ error }}
     </v-alert>
 
-    <!-- AI Generation Progress -->
-    <v-card v-if="loading && writeMode" class="mb-6" color="info" variant="tonal">
-      <v-card-title class="d-flex align-center">
-        <v-progress-circular indeterminate size="24" width="2" class="mr-3" />
-        {{ t('smartQueryView.generation.running') }}
-      </v-card-title>
-      <v-card-text>
-        <v-stepper :model-value="currentStep" alt-labels>
-          <v-stepper-header>
-            <v-stepper-item
-              :value="1"
-              :complete="currentStep > 1"
-              :color="currentStep >= 1 ? 'success' : 'grey'"
-              :title="t('smartQueryView.generation.stepperTitles.entityType')"
-              :subtitle="t('smartQueryView.generation.stepperSubtitles.entityType')"
+    <!-- Loading State - Read Mode -->
+    <div v-if="loading && !writeMode" class="loading-section mb-6">
+      <v-card class="loading-card">
+        <v-card-text class="text-center py-8">
+          <div class="loading-animation mb-4">
+            <v-progress-circular
+              indeterminate
+              size="56"
+              width="4"
+              color="primary"
             />
-            <v-divider />
-            <v-stepper-item
-              :value="2"
-              :complete="currentStep > 2"
-              :color="currentStep >= 2 ? 'success' : 'grey'"
-              :title="t('smartQueryView.generation.stepperTitles.category')"
-              :subtitle="t('smartQueryView.generation.stepperSubtitles.category')"
-            />
-            <v-divider />
-            <v-stepper-item
-              :value="3"
-              :complete="currentStep > 3"
-              :color="currentStep >= 3 ? 'success' : 'grey'"
-              :title="t('smartQueryView.generation.stepperTitles.crawlConfig')"
-              :subtitle="t('smartQueryView.generation.stepperSubtitles.crawlConfig')"
-            />
-          </v-stepper-header>
-        </v-stepper>
-        <div class="text-center mt-4 text-body-2">
-          {{ stepMessages[currentStep] || t('smartQueryView.generation.processing') }}
+          </div>
+          <div class="text-h6 mb-2">{{ t('smartQueryView.loading.analyzing') }}</div>
+          <div class="text-body-2 text-medium-emphasis">{{ t('smartQueryView.loading.pleaseWait') }}</div>
+        </v-card-text>
+      </v-card>
+    </div>
+
+    <!-- AI Generation Progress - Write Mode -->
+    <v-card v-if="loading && writeMode" class="mb-6 generation-card">
+      <v-card-text class="pa-6">
+        <div class="d-flex align-center mb-6">
+          <v-avatar color="warning" size="48" class="mr-4">
+            <v-icon size="24" class="generation-icon">mdi-robot</v-icon>
+          </v-avatar>
+          <div>
+            <div class="text-h6">{{ t('smartQueryView.generation.running') }}</div>
+            <div class="text-body-2 text-medium-emphasis">{{ t('smartQueryView.generation.processing') }}</div>
+          </div>
         </div>
+
+        <!-- Timeline Steps -->
+        <v-timeline density="compact" side="end" class="generation-timeline">
+          <v-timeline-item
+            v-for="step in generationSteps"
+            :key="step.value"
+            :dot-color="getStepColor(step.value)"
+            size="small"
+          >
+            <template #icon>
+              <v-icon v-if="currentStep > step.value" size="16" color="white">mdi-check</v-icon>
+              <v-progress-circular
+                v-else-if="currentStep === step.value"
+                indeterminate
+                size="16"
+                width="2"
+                color="white"
+              />
+            </template>
+            <div class="d-flex align-center">
+              <div>
+                <div class="text-body-2 font-weight-medium" :class="{ 'text-medium-emphasis': currentStep < step.value }">
+                  {{ step.title }}
+                </div>
+                <div class="text-caption text-medium-emphasis">{{ step.subtitle }}</div>
+              </div>
+            </div>
+          </v-timeline-item>
+        </v-timeline>
       </v-card-text>
     </v-card>
 
@@ -456,76 +514,101 @@
 
     <!-- Read Results -->
     <template v-if="results?.mode === 'read' || (!results?.mode && results && !previewData)">
-      <!-- Query Interpretation -->
-      <v-card class="mb-4">
-        <v-card-title class="text-subtitle-1">
-          <v-icon left size="small">mdi-brain</v-icon>
-          {{ t('smartQueryView.read.aiInterpretation') }}
-        </v-card-title>
-        <v-card-text>
-          <v-chip class="mr-2" size="small" color="primary">
-            {{ t('smartQueryView.read.entity') }}: {{ results.query_interpretation?.primary_entity_type }}
-          </v-chip>
-          <v-chip
-            v-for="facet in results.query_interpretation?.facet_types || []"
-            :key="facet"
-            class="mr-2"
-            size="small"
-            color="secondary"
-          >
-            {{ t('smartQueryView.read.facet') }}: {{ facet }}
-          </v-chip>
-          <v-chip class="mr-2" size="small" :color="getTimeFilterColor(results.query_interpretation?.time_filter)">
-            {{ results.query_interpretation?.time_filter || 'all' }}
-          </v-chip>
-          <div class="text-caption mt-2" v-if="results.query_interpretation?.explanation">
-            {{ results.query_interpretation.explanation }}
-          </div>
-        </v-card-text>
-      </v-card>
+      <!-- Compact Interpretation Bar -->
+      <div class="interpretation-bar mb-4 pa-4 d-flex align-center flex-wrap ga-2">
+        <v-icon size="20" class="mr-2" color="primary">mdi-brain</v-icon>
+        <v-chip size="small" color="primary" variant="flat" class="mr-1">
+          <v-icon start size="14">{{ getEntityTypeIcon(results.query_interpretation?.primary_entity_type) }}</v-icon>
+          {{ results.query_interpretation?.primary_entity_type }}
+        </v-chip>
+        <v-chip
+          v-for="facet in results.query_interpretation?.facet_types || []"
+          :key="facet"
+          size="small"
+          color="secondary"
+          variant="tonal"
+          class="mr-1"
+        >
+          <v-icon start size="14">mdi-tag</v-icon>
+          {{ facet }}
+        </v-chip>
+        <v-chip size="small" :color="getTimeFilterColor(results.query_interpretation?.time_filter)" variant="tonal">
+          <v-icon start size="14">mdi-clock-outline</v-icon>
+          {{ results.query_interpretation?.time_filter || 'all' }}
+        </v-chip>
+        <v-spacer />
+        <span class="text-body-2 text-medium-emphasis" v-if="results.query_interpretation?.explanation">
+          {{ results.query_interpretation.explanation }}
+        </span>
+      </div>
 
-      <!-- Results Count -->
-      <v-card class="mb-4">
-        <v-card-text class="d-flex align-center">
-          <v-icon class="mr-2" color="success">mdi-check-circle</v-icon>
-          <span class="text-h6">{{ t('smartQueryView.read.resultsCount', { count: results.total }) }}</span>
+      <!-- Results Summary Card -->
+      <v-card class="results-summary-card mb-6">
+        <v-card-text class="d-flex align-center py-4">
+          <v-avatar color="success" size="44" class="mr-4" variant="tonal">
+            <v-icon>mdi-check</v-icon>
+          </v-avatar>
+          <div>
+            <div class="text-h5 font-weight-bold">{{ results.total }}</div>
+            <div class="text-body-2 text-medium-emphasis">{{ t('smartQueryView.read.resultsFound') }}</div>
+          </div>
           <v-spacer />
-          <v-chip size="small" variant="outlined">
-            {{ t('smartQueryView.read.grouping') }}: {{ results.grouping || 'flat' }}
+          <v-chip size="small" variant="outlined" class="text-capitalize">
+            <v-icon start size="14">mdi-view-list</v-icon>
+            {{ results.grouping || 'flat' }}
           </v-chip>
+          <v-btn
+            variant="tonal"
+            size="small"
+            class="ml-3"
+            @click="resetAll"
+          >
+            <v-icon start size="18">mdi-refresh</v-icon>
+            {{ t('smartQueryView.results.newQuery') }}
+          </v-btn>
         </v-card-text>
       </v-card>
 
       <!-- Event-grouped Results -->
-      <template v-if="results.grouping === 'by_event'">
-        <v-card v-for="event in results.items" :key="event.event_name" class="mb-4">
-          <v-card-title>
-            <v-icon left color="orange">mdi-calendar-star</v-icon>
-            {{ event.event_name }}
-          </v-card-title>
-          <v-card-subtitle>
-            <v-icon size="small">mdi-calendar</v-icon>
-            {{ event.event_date || t('smartQueryView.read.dateUnknown') }}
-            <span class="mx-2">|</span>
-            <v-icon size="small">mdi-map-marker</v-icon>
-            {{ event.event_location || t('smartQueryView.read.locationUnknown') }}
-          </v-card-subtitle>
-          <v-card-text>
-            <v-list density="compact">
-              <v-list-subheader>{{ t('smartQueryView.read.attendees', { count: event.attendees?.length || 0 }) }}</v-list-subheader>
+      <transition-group name="result-list" tag="div" v-if="results.grouping === 'by_event'">
+        <v-card
+          v-for="(event, index) in results.items"
+          :key="event.event_name"
+          class="result-card mb-4"
+          :style="{ '--animation-delay': `${index * 50}ms` }"
+        >
+          <v-card-text class="pa-0">
+            <div class="result-card-header pa-4 d-flex align-center">
+              <v-avatar color="orange" size="48" variant="tonal" class="mr-4">
+                <v-icon>mdi-calendar-star</v-icon>
+              </v-avatar>
+              <div class="flex-grow-1">
+                <div class="text-h6">{{ event.event_name }}</div>
+                <div class="d-flex align-center ga-3 text-body-2 text-medium-emphasis">
+                  <span><v-icon size="14" class="mr-1">mdi-calendar</v-icon>{{ event.event_date || t('smartQueryView.read.dateUnknown') }}</span>
+                  <span><v-icon size="14" class="mr-1">mdi-map-marker</v-icon>{{ event.event_location || t('smartQueryView.read.locationUnknown') }}</span>
+                </div>
+              </div>
+              <v-chip size="small" color="primary" variant="tonal">
+                {{ event.attendees?.length || 0 }} {{ t('smartQueryView.read.attendeesLabel') }}
+              </v-chip>
+            </div>
+            <v-divider />
+            <v-list density="compact" class="py-0">
               <v-list-item
                 v-for="attendee in event.attendees"
                 :key="attendee.person_id"
-                :title="attendee.person_name"
-                :subtitle="formatAttendeeSubtitle(attendee)"
+                class="attendee-item"
               >
                 <template v-slot:prepend>
-                  <v-avatar color="primary" size="32">
-                    <span class="text-caption">{{ getInitials(attendee.person_name) }}</span>
+                  <v-avatar color="primary" size="36" variant="tonal">
+                    <span class="text-caption font-weight-bold">{{ getInitials(attendee.person_name) }}</span>
                   </v-avatar>
                 </template>
+                <v-list-item-title class="font-weight-medium">{{ attendee.person_name }}</v-list-item-title>
+                <v-list-item-subtitle>{{ formatAttendeeSubtitle(attendee) }}</v-list-item-subtitle>
                 <template v-slot:append>
-                  <v-chip v-if="attendee.role" size="x-small" color="info">
+                  <v-chip v-if="attendee.role" size="x-small" color="info" variant="tonal">
                     {{ attendee.role }}
                   </v-chip>
                 </template>
@@ -533,52 +616,82 @@
             </v-list>
           </v-card-text>
         </v-card>
-      </template>
+      </transition-group>
 
-      <!-- Flat Results -->
-      <template v-else>
-        <v-card v-for="item in results.items" :key="item.entity_id" class="mb-4">
-          <v-card-title>
-            <v-icon left :color="getEntityTypeColor(item.entity_type)">
-              {{ getEntityTypeIcon(item.entity_type) }}
-            </v-icon>
-            {{ item.entity_name }}
-          </v-card-title>
-          <v-card-subtitle v-if="item.attributes?.position">
-            {{ item.attributes.position }}
-            <span v-if="item.relations?.works_for">
-              @ {{ item.relations.works_for.entity_name }}
-            </span>
-          </v-card-subtitle>
-          <v-card-text v-if="Object.keys(item.facets || {}).length > 0">
-            <template v-for="(values, facetType) in item.facets" :key="facetType">
-              <div v-if="values.length > 0" class="mb-3">
-                <div class="text-subtitle-2 mb-1">{{ facetType }} ({{ values.length }})</div>
-                <v-chip
-                  v-for="fv in values.slice(0, 5)"
-                  :key="fv.id"
-                  size="small"
-                  class="mr-1 mb-1"
-                  variant="outlined"
+      <!-- Flat Results Grid -->
+      <div v-else class="results-grid">
+        <transition-group name="result-list" tag="div" class="results-grid-inner">
+          <v-card
+            v-for="(item, index) in results.items"
+            :key="item.entity_id"
+            class="result-card"
+            :style="{ '--animation-delay': `${index * 50}ms` }"
+          >
+            <v-card-text class="pa-4">
+              <div class="d-flex align-start mb-3">
+                <v-avatar
+                  :color="getEntityTypeColor(item.entity_type)"
+                  size="44"
+                  variant="tonal"
+                  class="mr-3"
                 >
-                  {{ fv.text?.substring(0, 50) }}{{ fv.text?.length > 50 ? '...' : '' }}
-                </v-chip>
-                <v-chip v-if="values.length > 5" size="small" variant="text">
-                  {{ t('smartQueryView.read.moreItems', { count: values.length - 5 }) }}
-                </v-chip>
+                  <v-icon size="22">{{ getEntityTypeIcon(item.entity_type) }}</v-icon>
+                </v-avatar>
+                <div class="flex-grow-1 overflow-hidden">
+                  <div class="text-subtitle-1 font-weight-bold text-truncate">{{ item.entity_name }}</div>
+                  <div v-if="item.attributes?.position" class="text-body-2 text-medium-emphasis">
+                    {{ item.attributes.position }}
+                    <span v-if="item.relations?.works_for" class="text-primary">
+                      @ {{ item.relations.works_for.entity_name }}
+                    </span>
+                  </div>
+                </div>
               </div>
-            </template>
-          </v-card-text>
-        </v-card>
-      </template>
+
+              <!-- Facets -->
+              <template v-if="Object.keys(item.facets || {}).length > 0">
+                <template v-for="(values, facetType) in item.facets" :key="facetType">
+                  <div v-if="values.length > 0" class="facet-group mb-2">
+                    <div class="text-caption text-medium-emphasis mb-1 d-flex align-center">
+                      <v-icon size="12" class="mr-1">mdi-tag-outline</v-icon>
+                      {{ facetType }}
+                      <span class="ml-1">({{ values.length }})</span>
+                    </div>
+                    <div class="d-flex flex-wrap ga-1">
+                      <v-chip
+                        v-for="fv in values.slice(0, 3)"
+                        :key="fv.id"
+                        size="x-small"
+                        variant="tonal"
+                        color="secondary"
+                      >
+                        {{ fv.text?.substring(0, 40) }}{{ fv.text?.length > 40 ? '...' : '' }}
+                      </v-chip>
+                      <v-chip v-if="values.length > 3" size="x-small" variant="text" color="primary">
+                        +{{ values.length - 3 }}
+                      </v-chip>
+                    </div>
+                  </div>
+                </template>
+              </template>
+            </v-card-text>
+          </v-card>
+        </transition-group>
+      </div>
 
       <!-- No Results -->
-      <v-card v-if="results.total === 0" class="text-center pa-8">
-        <v-icon size="64" color="grey">mdi-database-search</v-icon>
-        <div class="text-h6 mt-4">{{ t('smartQueryView.read.noResults') }}</div>
-        <div class="text-body-2 text-medium-emphasis">
+      <v-card v-if="results.total === 0" class="no-results-card text-center py-12">
+        <v-avatar size="80" color="grey-lighten-3" class="mb-4">
+          <v-icon size="40" color="grey">mdi-database-search</v-icon>
+        </v-avatar>
+        <div class="text-h6 mb-2">{{ t('smartQueryView.read.noResults') }}</div>
+        <div class="text-body-2 text-medium-emphasis mb-4">
           {{ t('smartQueryView.read.noResultsHint') }}
         </div>
+        <v-btn variant="tonal" @click="resetAll">
+          <v-icon start>mdi-refresh</v-icon>
+          {{ t('smartQueryView.results.newQuery') }}
+        </v-btn>
       </v-card>
 
       <!-- Back to Assistant Button -->
@@ -783,29 +896,111 @@ function getAttachmentIcon(contentType: string): string {
 // ============================================================================
 // AI Generation Progress
 const currentStep = ref(1)
-const stepMessages: Record<number, string> = {
-  1: t('smartQueryView.generation.step1'),
-  2: t('smartQueryView.generation.step2'),
-  3: t('smartQueryView.generation.step3'),
-  4: t('smartQueryView.generation.step4')
+
+// Generation steps for timeline
+const generationSteps = computed(() => [
+  {
+    value: 1,
+    title: t('smartQueryView.generation.stepperTitles.entityType'),
+    subtitle: t('smartQueryView.generation.stepperSubtitles.entityType')
+  },
+  {
+    value: 2,
+    title: t('smartQueryView.generation.stepperTitles.category'),
+    subtitle: t('smartQueryView.generation.stepperSubtitles.category')
+  },
+  {
+    value: 3,
+    title: t('smartQueryView.generation.stepperTitles.crawlConfig'),
+    subtitle: t('smartQueryView.generation.stepperSubtitles.crawlConfig')
+  }
+])
+
+function getStepColor(stepValue: number): string {
+  if (currentStep.value > stepValue) return 'success'
+  if (currentStep.value === stepValue) return 'warning'
+  return 'grey'
 }
 
+// ============================================================================
+// Input computed properties
+const getInputPlaceholder = computed(() => {
+  if (isListening.value) return t('smartQueryView.input.placeholderListening')
+  return writeMode.value
+    ? t('smartQueryView.input.placeholderWrite')
+    : t('smartQueryView.input.placeholderRead')
+})
+
+const getSubmitButtonColor = computed(() => {
+  if (pendingAttachments.value.length > 0) return 'info'
+  return writeMode.value ? 'warning' : 'primary'
+})
+
+const getSubmitButtonIcon = computed(() => {
+  if (pendingAttachments.value.length > 0) return 'mdi-image-search'
+  return writeMode.value ? 'mdi-eye' : 'mdi-send'
+})
+
+const getSubmitButtonText = computed(() => {
+  if (pendingAttachments.value.length > 0) return t('smartQueryView.actions.analyzeImage')
+  return writeMode.value ? t('smartQueryView.actions.preview') : t('smartQueryView.actions.query')
+})
+
+// ============================================================================
+// Examples with metadata
 const readExamples = ref([
-  { question: t('smartQueryView.examples.read.futureEvents') },
-  { question: t('smartQueryView.examples.read.mayorsOnEvents') },
-  { question: t('smartQueryView.examples.read.allPainPoints') },
-  { question: t('smartQueryView.examples.read.gummersbachPainPoints') },
+  {
+    question: t('smartQueryView.examples.read.futureEvents'),
+    icon: 'mdi-calendar-clock',
+    title: t('smartQueryView.examples.read.futureEventsTitle')
+  },
+  {
+    question: t('smartQueryView.examples.read.mayorsOnEvents'),
+    icon: 'mdi-account-tie',
+    title: t('smartQueryView.examples.read.mayorsOnEventsTitle')
+  },
+  {
+    question: t('smartQueryView.examples.read.allPainPoints'),
+    icon: 'mdi-alert-circle-outline',
+    title: t('smartQueryView.examples.read.allPainPointsTitle')
+  },
+  {
+    question: t('smartQueryView.examples.read.gummersbachPainPoints'),
+    icon: 'mdi-map-marker',
+    title: t('smartQueryView.examples.read.gummersbachPainPointsTitle')
+  },
 ])
 
 const writeExamples = ref([
-  { question: t('smartQueryView.examples.write.createPerson') },
-  { question: t('smartQueryView.examples.write.addPainPoint') },
-  { question: t('smartQueryView.examples.write.findEvents') },
-  { question: t('smartQueryView.examples.write.startCrawls') },
-  { question: t('smartQueryView.examples.write.createCategory') },
+  {
+    question: t('smartQueryView.examples.write.createPerson'),
+    icon: 'mdi-account-plus',
+    title: t('smartQueryView.examples.write.createPersonTitle')
+  },
+  {
+    question: t('smartQueryView.examples.write.addPainPoint'),
+    icon: 'mdi-comment-plus-outline',
+    title: t('smartQueryView.examples.write.addPainPointTitle')
+  },
+  {
+    question: t('smartQueryView.examples.write.findEvents'),
+    icon: 'mdi-calendar-search',
+    title: t('smartQueryView.examples.write.findEventsTitle')
+  },
+  {
+    question: t('smartQueryView.examples.write.startCrawls'),
+    icon: 'mdi-spider-web',
+    title: t('smartQueryView.examples.write.startCrawlsTitle')
+  },
+  {
+    question: t('smartQueryView.examples.write.createCategory'),
+    icon: 'mdi-folder-plus',
+    title: t('smartQueryView.examples.write.createCategoryTitle')
+  },
 ])
 
 const currentExamples = computed(() => writeMode.value ? writeExamples.value : readExamples.value)
+const currentExamplesWithMeta = computed(() => currentExamples.value)
 
 async function loadExamples() {
   try {
@@ -1094,8 +1289,225 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ============================================================================
+   Smart Query View - Modern UX Styles
+   ============================================================================ */
+
+/* Header Section */
+.smart-query-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.06) 0%, rgba(var(--v-theme-primary), 0.02) 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(var(--v-theme-primary), 0.1);
+}
+
+.header-avatar {
+  box-shadow: 0 4px 12px rgba(var(--v-theme-primary), 0.2);
+}
+
+.mode-toggle {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+/* Input Card */
+.input-card {
+  border-radius: 16px !important;
+  overflow: hidden;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.input-card--active {
+  border-color: rgba(var(--v-theme-primary), 0.3);
+  box-shadow: 0 4px 20px rgba(var(--v-theme-primary), 0.1);
+}
+
+.input-textarea {
+  padding: 16px 20px 8px;
+}
+
+.input-textarea :deep(.v-field__input) {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.interim-transcript {
+  background: rgba(var(--v-theme-error), 0.05);
+  margin: 0 16px 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.input-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: rgba(var(--v-theme-surface-variant), 0.3);
+}
+
+.submit-btn {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+/* Examples Section */
+.examples-section {
+  animation: fadeIn 0.3s ease;
+}
+
+.examples-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.example-card {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 12px !important;
+}
+
+.example-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--v-theme-primary), 0.4) !important;
+}
+
+.example-card--write:hover {
+  border-color: rgba(var(--v-theme-warning), 0.4) !important;
+}
+
+.example-avatar {
+  transition: transform 0.2s ease;
+}
+
+.example-card:hover .example-avatar {
+  transform: scale(1.05);
+}
+
+.example-arrow {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: all 0.2s ease;
+}
+
+.example-card:hover .example-arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Loading Section */
+.loading-card {
+  border-radius: 16px !important;
+}
+
+.loading-animation {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.generation-card {
+  border-radius: 16px !important;
+  border-left: 4px solid rgb(var(--v-theme-warning));
+}
+
+.generation-icon {
+  animation: rotate 2s linear infinite;
+}
+
+.generation-timeline {
+  margin-left: 8px;
+}
+
+/* Interpretation Bar */
+.interpretation-bar {
+  background: rgba(var(--v-theme-surface-variant), 0.4);
+  border-radius: 12px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+
+/* Results */
+.results-summary-card {
+  border-radius: 16px !important;
+  border-left: 4px solid rgb(var(--v-theme-success));
+}
+
+.results-grid-inner {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.result-card {
+  border-radius: 12px !important;
+  transition: all 0.2s ease;
+  animation: slideUp 0.3s ease backwards;
+  animation-delay: var(--animation-delay, 0ms);
+}
+
+.result-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--v-theme-on-surface), 0.1);
+}
+
+.result-card-header {
+  background: rgba(var(--v-theme-surface-variant), 0.2);
+}
+
+.attendee-item {
+  transition: background-color 0.2s ease;
+}
+
+.attendee-item:hover {
+  background: rgba(var(--v-theme-primary), 0.04);
+}
+
+.facet-group {
+  padding: 8px;
+  background: rgba(var(--v-theme-surface-variant), 0.3);
+  border-radius: 8px;
+}
+
+.no-results-card {
+  border-radius: 16px !important;
+}
+
+/* Voice Button Animation */
 .voice-btn-listening {
   animation: pulse-voice 1.5s ease-in-out infinite;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 @keyframes pulse-voice {
@@ -1106,6 +1518,59 @@ onMounted(() => {
   50% {
     transform: scale(1.15);
     opacity: 0.85;
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Transition Group Animations */
+.result-list-enter-active {
+  animation: slideUp 0.3s ease;
+}
+
+.result-list-leave-active {
+  animation: slideUp 0.2s ease reverse;
+}
+
+.result-list-move {
+  transition: transform 0.3s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .smart-query-header {
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+
+  .header-content {
+    flex-direction: column;
+  }
+
+  .header-avatar {
+    margin-right: 0 !important;
+    margin-bottom: 12px;
+  }
+
+  .examples-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .results-grid-inner {
+    grid-template-columns: 1fr;
+  }
+
+  .interpretation-bar {
+    flex-direction: column;
+    align-items: flex-start !important;
   }
 }
 </style>

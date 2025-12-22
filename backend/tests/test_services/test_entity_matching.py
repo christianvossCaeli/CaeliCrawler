@@ -124,7 +124,7 @@ class TestEntityMatchingService:
         # Mock entity type
         mock_entity_type = MagicMock()
         mock_entity_type.id = entity_type_id
-        mock_entity_type.slug = "municipality"
+        mock_entity_type.slug = "territorial_entity"
 
         # Mock existing entity
         mock_entity = MagicMock()
@@ -139,7 +139,7 @@ class TestEntityMatchingService:
                 mock_find.return_value = mock_entity
 
                 result = await service.get_or_create_entity(
-                    entity_type_slug="municipality",
+                    entity_type_slug="territorial_entity",
                     name="München",
                 )
 
@@ -171,7 +171,7 @@ class TestEntityMatchingService:
         # Mock entity type
         mock_entity_type = MagicMock()
         mock_entity_type.id = entity_type_id
-        mock_entity_type.slug = "municipality"
+        mock_entity_type.slug = "territorial_entity"
 
         with patch.object(service, '_get_entity_type', new_callable=AsyncMock) as mock_get_type:
             mock_get_type.return_value = mock_entity_type
@@ -186,7 +186,7 @@ class TestEntityMatchingService:
                     mock_create.return_value = mock_new_entity
 
                     result = await service.get_or_create_entity(
-                        entity_type_slug="municipality",
+                        entity_type_slug="territorial_entity",
                         name="New Entity",
                     )
 
@@ -216,7 +216,7 @@ class TestEntityMatchingService:
                 mock_find_ext.return_value = mock_entity
 
                 result = await service.get_or_create_entity(
-                    entity_type_slug="municipality",
+                    entity_type_slug="territorial_entity",
                     name="München",
                     external_id="EXT-123",
                 )
@@ -249,7 +249,7 @@ class TestEntityMatchingService:
                     mock_find_similar.return_value = mock_similar_entity
 
                     result = await service.get_or_create_entity(
-                        entity_type_slug="municipality",
+                        entity_type_slug="territorial_entity",
                         name="Muenchen",
                         similarity_threshold=0.85,
                     )
@@ -271,7 +271,7 @@ class TestBatchOperations:
 
         mock_entity_type = MagicMock()
         mock_entity_type.id = entity_type_id
-        mock_entity_type.slug = "municipality"
+        mock_entity_type.slug = "territorial_entity"
 
         # Mock existing entity
         mock_existing = MagicMock()
@@ -295,7 +295,7 @@ class TestBatchOperations:
                     mock_create.return_value = mock_new
 
                     result = await service.batch_get_or_create_entities(
-                        entity_type_slug="municipality",
+                        entity_type_slug="territorial_entity",
                         names=["München", "Berlin"],
                     )
 
@@ -317,7 +317,7 @@ class TestRaceConditionSafety:
 
         mock_entity_type = MagicMock()
         mock_entity_type.id = entity_type_id
-        mock_entity_type.slug = "municipality"
+        mock_entity_type.slug = "territorial_entity"
 
         # After rollback, find the existing entity
         mock_existing = MagicMock()

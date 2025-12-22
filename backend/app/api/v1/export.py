@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select, update
@@ -23,6 +23,8 @@ from app.models import ExtractedData, Document, DataSource, DataSourceCategory, 
 from app.models.export_job import ExportJob
 from app.models.user import User
 from app.core.deps import get_current_user
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 
 router = APIRouter()
 
@@ -36,7 +38,7 @@ EXPORT_DIR = os.environ.get("EXPORT_DIR", "/tmp/exports")
 
 class AsyncExportRequest(BaseModel):
     """Request body for starting an async export."""
-    entity_type: str = "municipality"
+    entity_type: str = "territorial_entity"
     format: str = "json"  # json, csv, excel
     location_filter: Optional[str] = None
     facet_types: Optional[List[str]] = None
@@ -409,7 +411,8 @@ async def test_webhook(
 
 @router.post("/async", response_model=ExportJobResponse)
 async def start_async_export(
-    request: AsyncExportRequest,
+    export_request: AsyncExportRequest,
+    http_request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -428,28 +431,44 @@ async def start_async_export(
     # Create export job record
     job_id = uuid4()
     export_config = {
-        "format": request.format,
+        "format": export_request.format,
         "query_filter": {
-            "entity_type": request.entity_type,
-            "location_filter": request.location_filter,
-            "facet_types": request.facet_types or [],
-            "position_keywords": request.position_keywords or [],
-            "country": request.country,
+            "entity_type": export_request.entity_type,
+            "location_filter": export_request.location_filter,
+            "facet_types": export_request.facet_types or [],
+            "position_keywords": export_request.position_keywords or [],
+            "country": export_request.country,
         },
-        "include_facets": request.include_facets,
-        "filename": request.filename or f"export_{job_id}",
+        "include_facets": export_request.include_facets,
+        "filename": export_request.filename or f"export_{job_id}",
     }
 
-    export_job = ExportJob(
-        id=job_id,
-        user_id=current_user.id,
-        export_config=export_config,
-        export_format=request.format,
-        status="pending",
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
-    )
-    session.add(export_job)
-    await session.commit()
+    async with AuditContext(session, current_user, http_request) as audit:
+        export_job = ExportJob(
+            id=job_id,
+            user_id=current_user.id,
+            export_config=export_config,
+            export_format=export_request.format,
+            status="pending",
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+        )
+        session.add(export_job)
+
+        audit.track_action(
+            action=AuditAction.EXPORT,
+            entity_type="ExportJob",
+            entity_id=job_id,
+            entity_name=export_config.get("filename", str(job_id)),
+            changes={
+                "format": export_request.format,
+                "entity_type": export_request.entity_type,
+                "location_filter": export_request.location_filter,
+                "country": export_request.country,
+                "include_facets": export_request.include_facets,
+            },
+        )
+
+        await session.commit()
 
     # Start Celery task
     task = async_entity_export.delay(

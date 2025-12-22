@@ -212,10 +212,10 @@ async def convert_extraction_to_facets(
         logger.debug("No municipality name found, skipping facet creation")
         return {}
 
-    # Get or create municipality entity
+    # Get or create territorial entity (municipality/city/town)
     entity = await get_or_create_entity(
         session,
-        entity_type_slug="municipality",
+        entity_type_slug="territorial_entity",
         name=municipality_name,
     )
     if not entity:

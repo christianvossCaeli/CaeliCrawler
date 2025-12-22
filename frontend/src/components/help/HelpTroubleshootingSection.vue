@@ -34,7 +34,7 @@
           <ul class="pl-4 mb-3">
             <li>{{ t('help.troubleshooting.noAiResults.causes.strictKeywords') }}</li>
             <li>{{ t('help.troubleshooting.noAiResults.causes.noRelevantContent') }}</li>
-            <li>{{ t('help.troubleshooting.noAiResults.causes.unsuitable Prompt') }}</li>
+            <li>{{ t('help.troubleshooting.noAiResults.causes.unsuitablePrompt') }}</li>
           </ul>
           <strong>{{ t('help.troubleshooting.noAiResults.solutions') }}</strong>
           <ul class="pl-4">
@@ -90,7 +90,7 @@
           <td>{{ t('help.troubleshooting.statusCodes.completed.action') }}</td>
         </tr>
         <tr>
-          <td><v-chip size="small" color="grey">FILTERED</v-chip></td>
+          <td><v-chip size="small">FILTERED</v-chip></td>
           <td>{{ t('help.troubleshooting.statusCodes.filtered.meaning') }}</td>
           <td>{{ t('help.troubleshooting.statusCodes.filtered.action') }}</td>
         </tr>

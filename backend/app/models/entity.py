@@ -143,7 +143,7 @@ class Entity(Base):
         comment="Type-specific attributes (population, area_km2, email, etc.)",
     )
 
-    # Geo-coordinates (optional)
+    # Geo-coordinates (optional, for point locations)
     latitude: Mapped[Optional[float]] = mapped_column(
         Float,
         nullable=True,
@@ -151,6 +151,15 @@ class Entity(Base):
     longitude: Mapped[Optional[float]] = mapped_column(
         Float,
         nullable=True,
+    )
+
+    # GeoJSON geometry (optional, for complex shapes like polygons/boundaries)
+    # Supports: Point, LineString, Polygon, MultiPolygon, etc.
+    # Example: {"type": "Polygon", "coordinates": [[[lon, lat], ...]]}
+    geometry: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="GeoJSON geometry for boundaries, regions, routes etc.",
     )
 
     # Status

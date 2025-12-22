@@ -36,7 +36,7 @@ class CreateEntityCommand(BaseCommand):
         """Create the entity."""
         from services.smart_query.entity_operations import create_entity_from_command
 
-        entity_type = self.data.get("entity_type", "municipality")
+        entity_type = self.data.get("entity_type", "territorial_entity")
         entity_data = self.data.get("entity_data", {})
 
         entity, message = await create_entity_from_command(
@@ -206,7 +206,7 @@ class CreateEntityTypeCommand(BaseCommand):
         if self.current_user_id:
             entity_type_data["created_by_id"] = self.current_user_id
             entity_type_data["owner_id"] = self.current_user_id
-            entity_type_data.setdefault("is_public", False)
+            entity_type_data.setdefault("is_public", True)  # Always visible in frontend
 
         entity_type, message = await create_entity_type_from_command(
             self.session, entity_type_data

@@ -13,6 +13,7 @@ from .entity_operations import (
     create_facet_from_command,
     create_relation_from_command,
     find_entity_by_name,
+    bulk_create_entities_from_api_data,
 )
 from .category_setup import create_category_setup_with_ai
 from .crawl_operations import execute_crawl_command
@@ -40,7 +41,7 @@ async def execute_write_command(
 
     try:
         if operation == "create_entity":
-            entity_type = command.get("entity_type", "municipality")
+            entity_type = command.get("entity_type", "territorial_entity")
             entity_data = command.get("entity_data", {})
             entity, message = await create_entity_from_command(session, entity_type, entity_data)
             result["message"] = message
@@ -82,7 +83,7 @@ async def execute_write_command(
             if current_user_id:
                 entity_type_data["created_by_id"] = current_user_id
                 entity_type_data["owner_id"] = current_user_id
-                entity_type_data.setdefault("is_public", False)
+                entity_type_data.setdefault("is_public", True)  # Always visible in frontend
             entity_type, message = await create_entity_type_from_command(session, entity_type_data)
             result["message"] = message
             if entity_type:
@@ -167,6 +168,22 @@ async def execute_write_command(
             result["stats"] = discover_result.get("stats")
             result["imported_count"] = discover_result.get("imported_count", 0)
 
+        elif operation == "fetch_and_create_from_api":
+            fetch_data = command.get("fetch_and_create_data", {})
+            fetch_result = await execute_fetch_and_create_from_api(session, fetch_data)
+            result["message"] = fetch_result.get("message", "API-Import abgeschlossen")
+            result["success"] = fetch_result.get("success", False)
+            result["created_count"] = fetch_result.get("created_count", 0)
+            result["existing_count"] = fetch_result.get("existing_count", 0)
+            result["error_count"] = fetch_result.get("error_count", 0)
+            result["total_fetched"] = fetch_result.get("total_fetched", 0)
+            result["entity_type"] = fetch_result.get("entity_type")
+            result["parent_type"] = fetch_result.get("parent_type")
+            if fetch_result.get("errors"):
+                result["errors"] = fetch_result["errors"][:10]  # Limit error list
+            if fetch_result.get("warnings"):
+                result["warnings"] = fetch_result["warnings"]
+
         elif operation == "combined":
             # Support both "operations" and "combined_operations" keys
             operations_list = command.get("operations", []) or command.get("combined_operations", [])
@@ -216,6 +233,21 @@ async def execute_write_command(
             assign_result = await execute_facet_type_assign(session, assign_data)
             result["message"] = assign_result.get("message", "Facet-Typ zugewiesen")
             result["success"] = assign_result.get("success", False)
+
+        elif operation == "add_history_point":
+            history_data = command.get("history_point_data", {})
+            history_result = await execute_add_history_point(session, history_data)
+            result["message"] = history_result.get("message", "Datenpunkt hinzugefügt")
+            result["success"] = history_result.get("success", False)
+            if history_result.get("data_point_id"):
+                result["created_items"].append({
+                    "type": "history_data_point",
+                    "id": history_result["data_point_id"],
+                    "entity_id": history_result.get("entity_id"),
+                    "facet_type": history_result.get("facet_type"),
+                    "value": history_result.get("value"),
+                    "recorded_at": history_result.get("recorded_at"),
+                })
 
         elif operation == "batch_operation":
             batch_data = command.get("batch_operation_data", {})
@@ -316,12 +348,19 @@ async def execute_combined_operations(
             logger.info(f"Executing combined operation {i+1}/{len(operations)}", operation=op_type)
 
             if op_type == "create_category_setup":
+                # Support both nested and flat format from AI
                 setup_data = op.get("category_setup_data", {})
-                user_intent = setup_data.get("user_intent", setup_data.get("purpose", ""))
-                geographic_filter = setup_data.get("geographic_filter", {})
-                op_result = await create_category_setup_with_ai(
-                    session, user_intent, geographic_filter, current_user_id
-                )
+                category_slug = op.get("category_slug") or setup_data.get("category_slug")
+
+                if category_slug:
+                    # Link to existing category instead of creating new one
+                    op_result = await execute_link_existing_category(session, category_slug)
+                else:
+                    user_intent = setup_data.get("user_intent", setup_data.get("purpose", ""))
+                    geographic_filter = setup_data.get("geographic_filter", {})
+                    op_result = await create_category_setup_with_ai(
+                        session, user_intent, geographic_filter, current_user_id
+                    )
 
             elif op_type == "start_crawl":
                 crawl_data = op.get("crawl_command_data", {})
@@ -332,16 +371,18 @@ async def execute_combined_operations(
                 op_result = await execute_discover_sources(session, discover_data)
 
             elif op_type == "create_entity_type":
-                entity_type_data = op.get("entity_type_data", {})
+                # Support both nested and flat format from AI
+                entity_type_data = op.get("entity_type_data") or op.get("entity_type_config", {})
                 entity_type, message = await create_entity_type_from_command(session, entity_type_data)
                 op_result = {
                     "success": entity_type is not None,
                     "message": message,
                     "entity_type_id": str(entity_type.id) if entity_type else None,
+                    "entity_type_slug": entity_type.slug if entity_type else None,
                 }
 
             elif op_type == "create_entity":
-                entity_type = op.get("entity_type", "municipality")
+                entity_type = op.get("entity_type", "territorial_entity")
                 entity_data = op.get("entity_data", {})
                 entity, message = await create_entity_from_command(session, entity_type, entity_data)
                 op_result = {
@@ -349,6 +390,36 @@ async def execute_combined_operations(
                     "message": message,
                     "entity_id": str(entity.id) if entity else None,
                 }
+
+            elif op_type == "fetch_and_create_from_api":
+                fetch_data = op.get("fetch_and_create_data", {})
+                op_result = await execute_fetch_and_create_from_api(session, fetch_data)
+
+            elif op_type == "assign_facet_types" or op_type == "assign_facet_type":
+                # Support both nested and flat format from AI
+                assign_data = op.get("assign_facet_types_data") or op.get("assign_facet_type_data", {})
+                # If flat format: take facet_type and entity_type directly from op
+                if not assign_data and (op.get("facet_type") or op.get("entity_type")):
+                    assign_data = {
+                        "facet_type_slug": op.get("facet_type"),
+                        "entity_type_slug": op.get("entity_type"),
+                    }
+                op_result = await execute_assign_facet_types(session, assign_data)
+
+            elif op_type == "link_category_entity_types":
+                link_data = op.get("link_data", {})
+                op_result = await execute_link_category_entity_types(session, link_data)
+
+            elif op_type == "create_relation":
+                # Support flat format from AI: relation_type, from_entity_type, to_entity_type
+                relation_data = op.get("relation_data", {})
+                if not relation_data:
+                    relation_data = {
+                        "relation_type": op.get("relation_type"),
+                        "source_type": op.get("from_entity_type"),
+                        "target_type": op.get("to_entity_type"),
+                    }
+                op_result = await execute_create_relation_type(session, relation_data)
 
             else:
                 op_result = {"success": False, "message": f"Unbekannte Operation: {op_type}"}
@@ -550,6 +621,17 @@ async def execute_facet_type_create(
     )
     if existing.scalar_one_or_none():
         return {"success": False, "message": f"Facet-Typ mit Name '{name}' oder Slug '{slug}' existiert bereits"}
+
+    # Validate applicable_entity_type_slugs
+    applicable_slugs = facet_type_data.get("applicable_entity_type_slugs") or []
+    if applicable_slugs:
+        from app.core.validators import validate_entity_type_slugs
+        _, invalid_slugs = await validate_entity_type_slugs(session, applicable_slugs)
+        if invalid_slugs:
+            return {
+                "success": False,
+                "message": f"Ungültige Entity-Typ-Slugs: {', '.join(sorted(invalid_slugs))}",
+            }
 
     # Create FacetType with all supported fields
     facet_type = FacetType(
@@ -1185,7 +1267,7 @@ async def execute_export(
     include_relations = export_data.get("include_relations", False)
     filename = export_data.get("filename", "smart_query_export")
 
-    entity_type_slug = query_filter.get("entity_type", "municipality")
+    entity_type_slug = query_filter.get("entity_type", "territorial_entity")
     location_filter = query_filter.get("location_filter")
     facet_type_slugs = query_filter.get("facet_types", [])
     position_keywords = query_filter.get("position_keywords", [])
@@ -1589,3 +1671,858 @@ async def execute_discover_sources(
             "sources_found": [],
             "sources_count": 0,
         }
+
+
+async def execute_fetch_and_create_from_api(
+    session: AsyncSession,
+    fetch_data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Fetch data from an external API and create entities.
+
+    This operation supports:
+    - Wikidata SPARQL queries for German municipalities, Bundeslaender, UK councils, etc.
+    - REST APIs with predefined templates (e.g., Caeli Auction Windparks)
+    - Automatic parent entity creation for hierarchies
+    - Bulk entity creation with proper hierarchy setup
+    - Entity matching to link imported items to existing entities (e.g., Windpark -> Gemeinde)
+
+    Args:
+        session: Database session
+        fetch_data: Dict with keys:
+            - api_config: API configuration
+                - type: "sparql", "rest"
+                - template: Predefined template name (e.g., "caeli_auction_windparks")
+                - query: SPARQL query or predefined query name
+                - country: Country code for predefined queries
+                - pagination: { limit, max_results }
+            - entity_type: Target entity type slug
+            - field_mapping: Mapping from API fields to entity fields
+            - parent_config: Optional parent entity configuration
+                - field: API field containing parent name
+                - entity_type: Parent entity type slug
+            - create_entity_type: Whether to create the entity type if missing
+            - entity_type_config: Config for new entity type
+            - match_to_parent: Whether to fuzzy match items to parent entities by name
+
+    Returns:
+        Dict with fetch and create results
+    """
+    from .api_fetcher import ExternalAPIFetcher, get_predefined_query, get_predefined_rest_template
+
+    api_config = fetch_data.get("api_config", {})
+    entity_type_slug = fetch_data.get("entity_type", "territorial_entity")
+    field_mapping = fetch_data.get("field_mapping", {})
+    parent_config = fetch_data.get("parent_config")
+    create_entity_type_flag = fetch_data.get("create_entity_type", False)
+    entity_type_config = fetch_data.get("entity_type_config", {})
+    match_to_parent = fetch_data.get("match_to_gemeinde", False) or fetch_data.get("match_to_parent", False)
+
+    # NEW: Hierarchical import parameters for same-entity-type hierarchies
+    # hierarchy_level: Explicit level to set (1=Bundesland, 2=Gemeinde within territorial-entity)
+    # parent_field: API field containing parent name for lookup WITHIN SAME entity type
+    hierarchy_level = fetch_data.get("hierarchy_level")
+    parent_field = fetch_data.get("parent_field")
+
+    # Check for predefined REST API template
+    template_name = api_config.get("template", "")
+    if template_name:
+        template_config = get_predefined_rest_template(template_name)
+        if template_config:
+            logger.info(f"Using predefined REST API template: {template_name}")
+            # Merge template config into api_config (explicit config takes precedence)
+            for key, value in template_config.items():
+                if key not in api_config or not api_config[key]:
+                    api_config[key] = value
+
+            # Use template's field_mapping if not provided
+            # REST templates use API_field -> entity_field format
+            # Code expects entity_field -> API_field format - so we invert
+            if not field_mapping and template_config.get("field_mapping"):
+                template_mapping = template_config["field_mapping"]
+                field_mapping = {v: k for k, v in template_mapping.items()}
+
+            # Add name_template to field_mapping if present in template
+            if template_config.get("name_template"):
+                if field_mapping is None:
+                    field_mapping = {}
+                field_mapping["name_template"] = template_config["name_template"]
+
+            # Use template's entity_type_config if not provided
+            if not entity_type_config and template_config.get("entity_type_config"):
+                entity_type_config = template_config["entity_type_config"]
+                entity_type_slug = entity_type_config.get("slug", entity_type_slug)
+                create_entity_type_flag = True  # Auto-create from template
+
+            # For windpark templates, auto-enable parent matching (to Gemeinden)
+            if "windpark" in template_name.lower():
+                match_to_parent = True
+
+    # Build parent_match_config if matching is enabled
+    # This allows fuzzy matching of entities to parent entities by name
+    parent_match_config = None
+    if match_to_parent:
+        # Try to get config from template
+        match_field = None
+        parent_entity_type = "territorial_entity"  # Default to Gemeinden
+
+        if template_name:
+            template_config = get_predefined_rest_template(template_name)
+            if template_config:
+                match_field = template_config.get("gemeinde_match_field") or template_config.get("parent_match_field")
+                parent_entity_type = template_config.get("parent_entity_type", "territorial_entity")
+
+        parent_match_config = {
+            "field": match_field or "areaName",  # Field containing name to match
+            "admin_level_field": "administrativeDivisionLevel1",  # For filtering by region
+            "parent_entity_type": parent_entity_type,  # Entity type to match against
+        }
+
+    result = {
+        "success": False,
+        "message": "",
+        "total_fetched": 0,
+        "created_count": 0,
+        "existing_count": 0,
+        "error_count": 0,
+        "matched_count": 0,  # Count of entities matched to Gemeinden
+        "errors": [],
+        "warnings": [],
+        "entity_type": entity_type_slug,
+        "parent_type": parent_config.get("entity_type") if parent_config else None,
+    }
+
+    try:
+        # Step 1: Ensure entity type exists
+        from app.models import EntityType
+        from sqlalchemy import select
+
+        et_result = await session.execute(
+            select(EntityType).where(EntityType.slug == entity_type_slug)
+        )
+        entity_type = et_result.scalar_one_or_none()
+
+        if not entity_type:
+            if create_entity_type_flag and entity_type_config:
+                # Create the entity type
+                entity_type, et_message = await create_entity_type_from_command(
+                    session, entity_type_config
+                )
+                if not entity_type:
+                    result["message"] = f"Entity-Typ konnte nicht erstellt werden: {et_message}"
+                    return result
+                result["warnings"].append(f"Entity-Typ '{entity_type_slug}' erstellt")
+            else:
+                result["message"] = f"Entity-Typ '{entity_type_slug}' nicht gefunden"
+                return result
+
+        # Step 2: Ensure parent entity type exists (if configured)
+        if parent_config:
+            parent_type_slug = parent_config.get("entity_type")
+            if parent_type_slug:
+                pet_result = await session.execute(
+                    select(EntityType).where(EntityType.slug == parent_type_slug)
+                )
+                parent_entity_type = pet_result.scalar_one_or_none()
+
+                if not parent_entity_type:
+                    # Create parent entity type - use provided config or defaults
+                    parent_type_config = parent_config.get("parent_type_config") or parent_config.get("entity_type_config") or {
+                        "name": parent_type_slug.replace("-", " ").title(),
+                        "name_plural": parent_type_slug.replace("-", " ").title() + "s",
+                        "slug": parent_type_slug,
+                        "icon": "mdi-map-marker",
+                        "color": "#FF9800",
+                        "is_primary": False,
+                        "is_public": True,
+                        "supports_hierarchy": False,
+                    }
+                    parent_entity_type, pet_message = await create_entity_type_from_command(
+                        session, parent_type_config
+                    )
+                    if parent_entity_type:
+                        result["warnings"].append(f"Parent Entity-Typ '{parent_type_slug}' erstellt")
+
+        # Step 3: Fetch data from API
+        fetcher = ExternalAPIFetcher()
+
+        try:
+            # Apply default field mappings for predefined queries
+            query = api_config.get("query", "")
+            country = api_config.get("country", "DE")
+
+            # Set default field mappings based on query type
+            if not field_mapping:
+                if "gemeinden" in query.lower() or "municipalities" in query.lower():
+                    if country == "DE":
+                        field_mapping = {
+                            "name": "gemeindeLabel",
+                            "external_id": "ags",
+                            "admin_level_1": "bundeslandLabel",
+                            "population": "einwohner",
+                            "area": "flaeche",
+                            "latitude": "lat",
+                            "longitude": "lon",
+                            "website": "website",  # Official website URL
+                            "country": "DE",
+                        }
+                    elif country == "AT":
+                        field_mapping = {
+                            "name": "gemeindeLabel",
+                            "external_id": "gkz",
+                            "admin_level_1": "bundeslandLabel",
+                            "population": "einwohner",
+                            "area": "flaeche",
+                            "latitude": "lat",
+                            "longitude": "lon",
+                            "website": "website",  # Official website URL
+                            "country": "AT",
+                        }
+                elif "bundeslaender" in query.lower() or "states" in query.lower():
+                    field_mapping = {
+                        "name": "bundeslandLabel",
+                        "population": "einwohner",
+                        "area": "flaeche",
+                        "latitude": "lat",
+                        "longitude": "lon",
+                        "website": "website",  # Official website URL
+                        "country": country,
+                    }
+                elif "councils" in query.lower() or "parishes" in query.lower() or "uk-local-authorit" in query.lower() or "local_authorit" in query.lower():
+                    field_mapping = {
+                        "name": "councilLabel",
+                        "external_id": "gss_code",
+                        "admin_level_1": "regionLabel",
+                        "population": "einwohner",
+                        "latitude": "lat",
+                        "longitude": "lon",
+                        "website": "website",  # Official website URL
+                        "country": "GB",
+                    }
+
+            # Set default hierarchy for municipalities
+            # For hierarchical entity types (like territorial-entity), we use parent_field
+            # to link to the parent WITHIN THE SAME entity type, not separate entity types
+            if "gemeinden" in query.lower() or "municipalities" in query.lower():
+                # Check if target entity type is hierarchical
+                et_check = await session.execute(
+                    select(EntityType).where(EntityType.slug == entity_type_slug)
+                )
+                entity_type_obj = et_check.scalar_one_or_none()
+
+                if entity_type_obj and entity_type_obj.supports_hierarchy:
+                    # Use same-entity-type hierarchy via parent_field
+                    if hierarchy_level is None:
+                        hierarchy_level = 2  # Gemeinden are level 2
+                    if parent_field is None:
+                        parent_field = "bundeslandLabel" if country in ["DE", "AT"] else "regionLabel"
+                    logger.info(
+                        "Using hierarchical parent linking within same entity type",
+                        entity_type=entity_type_slug,
+                        hierarchy_level=hierarchy_level,
+                        parent_field=parent_field,
+                    )
+                elif not parent_config:
+                    # Fall back to separate entity types (legacy behavior)
+                    parent_config = {
+                        "field": "bundeslandLabel" if country in ["DE", "AT"] else "regionLabel",
+                        "entity_type": "bundesland" if country in ["DE", "AT"] else "region",
+                        "create_parent_type": True,
+                        "parent_type_config": {
+                            "name": "Bundesland" if country == "DE" else ("Bundesland" if country == "AT" else "Region"),
+                            "name_plural": "Bundesländer" if country in ["DE", "AT"] else "Regions",
+                            "slug": "bundesland" if country in ["DE", "AT"] else "region",
+                            "description": "Deutsche Bundesländer" if country == "DE" else ("Österreichische Bundesländer" if country == "AT" else "UK Regions"),
+                            "icon": "mdi-map-marker-radius",
+                            "color": "#FF9800",
+                            "is_primary": False,
+                            "is_public": True,
+                            "supports_hierarchy": False,
+                        }
+                    }
+
+            # For Bundesländer/regions at level 1 (no parent needed within same type)
+            if "bundeslaender" in query.lower() or "states" in query.lower():
+                if hierarchy_level is None:
+                    hierarchy_level = 1  # Top-level entities
+
+            logger.info(
+                "Fetching data from external API",
+                api_type=api_config.get("type"),
+                query_type=query[:50] if len(query) > 50 else query,
+                country=country,
+            )
+
+            fetch_result = await fetcher.fetch(api_config)
+
+            if not fetch_result.success:
+                result["message"] = f"API-Fetch fehlgeschlagen: {fetch_result.error}"
+                result["errors"].append(fetch_result.error)
+                return result
+
+            result["total_fetched"] = fetch_result.total_count
+            result["warnings"].extend(fetch_result.warnings)
+
+            if not fetch_result.items:
+                result["success"] = True
+                result["message"] = "API lieferte keine Daten"
+                return result
+
+            logger.info(
+                "API fetch successful",
+                items_count=len(fetch_result.items),
+            )
+
+        finally:
+            await fetcher.close()
+
+        # Step 4: AI-based analysis of API response (if no explicit field_mapping)
+        # This allows the AI to intelligently determine field mappings, DataSource creation, etc.
+        use_ai_analysis = fetch_data.get("use_ai_analysis", True)  # Default: enabled
+
+        if use_ai_analysis and not field_mapping and fetch_result.items:
+            try:
+                from .ai_generation import ai_analyze_api_response
+
+                logger.info("Starting AI analysis of API response...")
+
+                ai_result = await ai_analyze_api_response(
+                    api_items=fetch_result.items,
+                    user_intent=fetch_data.get("user_intent", ""),
+                    api_type=api_config.get("type", "unknown"),
+                    target_entity_type=entity_type_slug,
+                    sample_size=5,
+                )
+
+                # Apply AI-generated field mapping
+                if ai_result.get("field_mapping"):
+                    field_mapping = ai_result["field_mapping"]
+                    result["ai_analysis"] = {
+                        "detected_type": ai_result.get("analysis", {}).get("detected_entity_type"),
+                        "confidence": ai_result.get("analysis", {}).get("confidence"),
+                        "reasoning": ai_result.get("reasoning"),
+                    }
+                    result["warnings"].extend(ai_result.get("warnings", []))
+
+                    logger.info(
+                        "AI analysis applied",
+                        field_mapping_keys=list(field_mapping.keys()),
+                        detected_type=ai_result.get("analysis", {}).get("detected_entity_type"),
+                    )
+
+                # Apply AI-suggested parent config if not set
+                ai_parent_config = ai_result.get("parent_config", {})
+                if not parent_config and ai_parent_config.get("use_hierarchy"):
+                    parent_config = {
+                        "field": ai_parent_config.get("parent_field"),
+                        "entity_type": ai_parent_config.get("parent_entity_type", "bundesland"),
+                        "create_parent_type": ai_parent_config.get("create_parent_if_missing", True),
+                    }
+
+                # Apply AI-suggested entity type config if creating new type
+                ai_et_suggestion = ai_result.get("entity_type_suggestion", {})
+                if create_entity_type_flag and not entity_type_config and ai_et_suggestion:
+                    entity_type_config = ai_et_suggestion
+
+            except ValueError as e:
+                # AI not configured - use fallback
+                logger.warning("AI analysis skipped - not configured", error=str(e))
+                result["warnings"].append("KI-Analyse übersprungen - Azure OpenAI nicht konfiguriert")
+            except Exception as e:
+                logger.warning("AI analysis failed, using fallback", error=str(e))
+                result["warnings"].append(f"KI-Analyse fehlgeschlagen: {str(e)}")
+
+        # Step 5: Bulk create entities
+        create_result = await bulk_create_entities_from_api_data(
+            session=session,
+            entity_type_slug=entity_type_slug,
+            items=fetch_result.items,
+            field_mapping=field_mapping,
+            parent_config=parent_config,
+            parent_match_config=parent_match_config,
+            api_config=api_config,  # For automatic DataSource creation
+            hierarchy_level=hierarchy_level,  # Explicit hierarchy level (1=Bundesland, 2=Gemeinde)
+            parent_field=parent_field,  # API field for parent lookup within same entity type
+        )
+
+        result["created_count"] = create_result["created_count"]
+        result["existing_count"] = create_result["existing_count"]
+        result["error_count"] = create_result["error_count"]
+        result["errors"].extend(create_result["errors"])
+        result["matched_count"] = create_result.get("parents_matched", 0)
+        result["hierarchy_matched_count"] = create_result.get("hierarchy_parents_matched", 0)
+        result["data_sources_created"] = create_result.get("data_sources_created", 0)
+        result["hierarchy_level"] = hierarchy_level
+
+        # Commit changes
+        await session.commit()
+
+        result["success"] = True
+        matched_info = f", {result['matched_count']} mit Parent-Entities verknüpft" if result["matched_count"] > 0 else ""
+        hierarchy_info = f", {result['hierarchy_matched_count']} hierarchisch verknüpft" if result.get("hierarchy_matched_count", 0) > 0 else ""
+        ds_info = f", {result['data_sources_created']} Datenquellen erstellt" if result.get("data_sources_created", 0) > 0 else ""
+        level_info = f" (Level {hierarchy_level})" if hierarchy_level else ""
+        result["message"] = (
+            f"API-Import abgeschlossen{level_info}: {result['created_count']} erstellt, "
+            f"{result['existing_count']} existierten bereits, "
+            f"{result['error_count']} Fehler{matched_info}{hierarchy_info}{ds_info}"
+        )
+
+        logger.info(
+            "Fetch and create completed",
+            entity_type=entity_type_slug,
+            total_fetched=result["total_fetched"],
+            created=result["created_count"],
+            existing=result["existing_count"],
+            errors=result["error_count"],
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error("Fetch and create failed", error=str(e), exc_info=True)
+        await session.rollback()
+        result["message"] = f"Fehler: {str(e)}"
+        return result
+
+
+async def execute_assign_facet_types(
+    session: AsyncSession,
+    assign_data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Assign facet types to entity types.
+
+    FacetType has applicable_entity_type_slugs array - we add entity type slugs to it.
+
+    Supports two formats:
+    1. Single facet to multiple entity types:
+       - facet_type_slug: "pain_point"
+       - target_entity_type_slugs: ["territorial_entity", "windpark"]
+
+    2. Multiple facets to single entity type:
+       - entity_type_slug: "territorial_entity"
+       - facet_type_slugs: ["pain_point", "contact"]
+
+    Args:
+        assign_data: Dict with keys (see above)
+
+    Returns:
+        Dict with assignment results
+    """
+    from app.models import EntityType, FacetType
+    from sqlalchemy import select
+
+    # Support both formats
+    facet_type_slug = assign_data.get("facet_type_slug")  # Single facet
+    target_entity_type_slugs = assign_data.get("target_entity_type_slugs", [])  # Multiple targets
+
+    entity_type_slug = assign_data.get("entity_type_slug")  # Single target
+    facet_type_slugs = assign_data.get("facet_type_slugs", [])  # Multiple facets
+
+    auto_detect = assign_data.get("auto_detect", False)
+
+    result = {
+        "success": False,
+        "message": "",
+        "assigned_facets": [],
+        "assigned_to_entity_types": [],
+    }
+
+    try:
+        # Format 1: Single facet to multiple entity types
+        if facet_type_slug and target_entity_type_slugs:
+            ft_result = await session.execute(
+                select(FacetType).where(FacetType.slug == facet_type_slug)
+            )
+            facet_type = ft_result.scalar_one_or_none()
+
+            if not facet_type:
+                result["message"] = f"Facet-Typ '{facet_type_slug}' nicht gefunden"
+                return result
+
+            # Verify entity types exist
+            for et_slug in target_entity_type_slugs:
+                et_result = await session.execute(
+                    select(EntityType).where(EntityType.slug == et_slug)
+                )
+                if et_result.scalar_one_or_none():
+                    # Add to applicable_entity_type_slugs if not already there
+                    current_slugs = list(facet_type.applicable_entity_type_slugs or [])
+                    if et_slug not in current_slugs:
+                        current_slugs.append(et_slug)
+                        facet_type.applicable_entity_type_slugs = current_slugs
+                        result["assigned_to_entity_types"].append(et_slug)
+
+            result["assigned_facets"].append(facet_type_slug)
+            await session.flush()
+            result["success"] = True
+            result["message"] = f"Facet '{facet_type_slug}' für {len(result['assigned_to_entity_types'])} Entity-Types aktiviert"
+            return result
+
+        # Format 2: Multiple facets to single entity type
+        if entity_type_slug:
+            # Verify entity type exists
+            et_result = await session.execute(
+                select(EntityType).where(EntityType.slug == entity_type_slug)
+            )
+            entity_type = et_result.scalar_one_or_none()
+
+            if not entity_type:
+                result["message"] = f"Entity-Typ '{entity_type_slug}' nicht gefunden"
+                return result
+
+            # Get facet types
+            if auto_detect or not facet_type_slugs:
+                ft_result = await session.execute(
+                    select(FacetType).where(FacetType.is_active == True)
+                )
+                facet_types = list(ft_result.scalars().all())
+            else:
+                ft_result = await session.execute(
+                    select(FacetType).where(FacetType.slug.in_(facet_type_slugs))
+                )
+                facet_types = list(ft_result.scalars().all())
+
+            for facet_type in facet_types:
+                current_slugs = list(facet_type.applicable_entity_type_slugs or [])
+                if entity_type_slug not in current_slugs:
+                    current_slugs.append(entity_type_slug)
+                    facet_type.applicable_entity_type_slugs = current_slugs
+                    result["assigned_facets"].append(facet_type.slug)
+
+            await session.flush()
+            result["success"] = True
+            result["message"] = f"{len(result['assigned_facets'])} Facet-Types für '{entity_type_slug}' aktiviert"
+            return result
+
+        result["message"] = "Keine gültige Konfiguration: entity_type_slug oder facet_type_slug + target_entity_type_slugs erforderlich"
+        return result
+
+    except Exception as e:
+        logger.error("Assign facet types failed", error=str(e), exc_info=True)
+        result["message"] = f"Fehler: {str(e)}"
+        return result
+
+
+async def execute_link_category_entity_types(
+    session: AsyncSession,
+    link_data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Link entity types to categories.
+
+    Args:
+        link_data: Dict with keys:
+            - category_slug: Target category slug
+            - entity_type_slugs: List of entity type slugs to link
+            - auto_detect: Whether to auto-detect matching categories
+
+    Returns:
+        Dict with linking results
+    """
+    from app.models import EntityType, Category, CategoryEntityType
+    from sqlalchemy import select
+
+    category_slug = link_data.get("category_slug")
+    entity_type_slugs = link_data.get("entity_type_slugs", [])
+    auto_detect = link_data.get("auto_detect", False)
+
+    result = {
+        "success": False,
+        "message": "",
+        "linked_entity_types": [],
+        "linked_categories": [],
+    }
+
+    try:
+        if auto_detect:
+            # Get all active categories
+            cat_result = await session.execute(
+                select(Category).where(Category.is_active == True)
+            )
+            categories = list(cat_result.scalars().all())
+        else:
+            cat_result = await session.execute(
+                select(Category).where(Category.slug == category_slug)
+            )
+            categories = list(cat_result.scalars().all())
+
+        if not categories:
+            result["message"] = "Keine passenden Kategorien gefunden"
+            return result
+
+        # Get entity types
+        et_result = await session.execute(
+            select(EntityType).where(EntityType.slug.in_(entity_type_slugs))
+        )
+        entity_types = list(et_result.scalars().all())
+
+        if not entity_types:
+            result["message"] = "Keine passenden Entity-Types gefunden"
+            return result
+
+        # Create links
+        for category in categories:
+            for entity_type in entity_types:
+                # Check if link already exists
+                existing = await session.execute(
+                    select(CategoryEntityType).where(
+                        CategoryEntityType.category_id == category.id,
+                        CategoryEntityType.entity_type_id == entity_type.id
+                    )
+                )
+                if not existing.scalar_one_or_none():
+                    link = CategoryEntityType(
+                        category_id=category.id,
+                        entity_type_id=entity_type.id,
+                        is_primary=(entity_type.slug == "territorial_entity"),
+                    )
+                    session.add(link)
+                    result["linked_entity_types"].append(entity_type.slug)
+                    result["linked_categories"].append(category.slug)
+
+        await session.flush()
+        result["success"] = True
+        result["message"] = f"{len(set(result['linked_entity_types']))} Entity-Types mit {len(set(result['linked_categories']))} Kategorien verknüpft"
+
+        return result
+
+    except Exception as e:
+        logger.error("Link category entity types failed", error=str(e), exc_info=True)
+        result["message"] = f"Fehler: {str(e)}"
+        return result
+
+
+async def execute_link_existing_category(
+    session: AsyncSession,
+    category_slug: str,
+) -> Dict[str, Any]:
+    """Link to an existing category by slug.
+
+    This is used when the AI references an existing category instead of creating a new one.
+    """
+    from app.models import Category
+    from sqlalchemy import select
+
+    result = {
+        "success": False,
+        "message": "",
+        "category_id": None,
+        "category_slug": None,
+    }
+
+    try:
+        cat_result = await session.execute(
+            select(Category).where(Category.slug == category_slug)
+        )
+        category = cat_result.scalar_one_or_none()
+
+        if not category:
+            result["message"] = f"Kategorie '{category_slug}' nicht gefunden"
+            return result
+
+        result["success"] = True
+        result["message"] = f"Kategorie '{category.name}' verknüpft"
+        result["category_id"] = str(category.id)
+        result["category_slug"] = category.slug
+        result["category_name"] = category.name
+        return result
+
+    except Exception as e:
+        logger.error("Link existing category failed", error=str(e), exc_info=True)
+        result["message"] = f"Fehler: {str(e)}"
+        return result
+
+
+async def execute_create_relation_type(
+    session: AsyncSession,
+    relation_data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Create or verify a relation type between entity types.
+
+    Args:
+        relation_data: Dict with keys:
+            - relation_type: Existing relation type slug
+            - source_type: Source entity type slug
+            - target_type: Target entity type slug
+
+    Returns:
+        Dict with result
+    """
+    from app.models import RelationType, EntityType
+    from sqlalchemy import select
+
+    result = {
+        "success": False,
+        "message": "",
+    }
+
+    relation_type_slug = relation_data.get("relation_type")
+    source_type_slug = relation_data.get("source_type")
+    target_type_slug = relation_data.get("target_type")
+
+    try:
+        # Find the existing relation type
+        rt_result = await session.execute(
+            select(RelationType).where(RelationType.slug == relation_type_slug)
+        )
+        relation_type = rt_result.scalar_one_or_none()
+
+        if not relation_type:
+            result["message"] = f"Relation-Typ '{relation_type_slug}' nicht gefunden"
+            return result
+
+        # Verify entity types exist
+        source_result = await session.execute(
+            select(EntityType).where(EntityType.slug == source_type_slug)
+        )
+        source_type = source_result.scalar_one_or_none()
+
+        target_result = await session.execute(
+            select(EntityType).where(EntityType.slug == target_type_slug)
+        )
+        target_type = target_result.scalar_one_or_none()
+
+        if not source_type:
+            result["message"] = f"Quell-Entity-Typ '{source_type_slug}' nicht gefunden"
+            return result
+
+        if not target_type:
+            result["message"] = f"Ziel-Entity-Typ '{target_type_slug}' nicht gefunden"
+            return result
+
+        result["success"] = True
+        result["message"] = f"Relation '{relation_type.name}' ({source_type.name} → {target_type.name}) verifiziert"
+        result["relation_type_slug"] = relation_type_slug
+        result["source_type_slug"] = source_type_slug
+        result["target_type_slug"] = target_type_slug
+        return result
+
+    except Exception as e:
+        logger.error("Create relation type failed", error=str(e), exc_info=True)
+        result["message"] = f"Fehler: {str(e)}"
+        return result
+
+
+async def execute_add_history_point(
+    session: AsyncSession,
+    history_data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Add a data point to a history-type facet.
+
+    Args:
+        session: Database session
+        history_data: Dict containing:
+            - entity_id or entity_name: Target entity
+            - facet_type: Facet type slug (must be value_type=history)
+            - value: Numeric value
+            - recorded_at: Timestamp (optional, defaults to now)
+            - track_key: Track identifier (optional, defaults to "default")
+            - note: Optional note for the data point
+
+    Returns:
+        Dict with result
+    """
+    from datetime import datetime
+    from app.models import Entity, FacetType
+    from services.facet_history_service import FacetHistoryService
+    from sqlalchemy import select
+
+    entity_id = history_data.get("entity_id")
+    entity_name = history_data.get("entity_name")
+    facet_type_slug = history_data.get("facet_type")
+    value = history_data.get("value")
+    recorded_at = history_data.get("recorded_at")
+    track_key = history_data.get("track_key", "default")
+    note = history_data.get("note")
+
+    result = {
+        "success": False,
+        "message": "",
+        "data_point_id": None,
+    }
+
+    # Validate required fields
+    if value is None:
+        result["message"] = "Wert (value) erforderlich"
+        return result
+
+    if not facet_type_slug:
+        result["message"] = "Facet-Typ erforderlich"
+        return result
+
+    # Find entity
+    entity = None
+    if entity_id:
+        entity = await session.get(Entity, UUID(str(entity_id)))
+    elif entity_name:
+        entity = await find_entity_by_name(session, entity_name)
+
+    if not entity:
+        result["message"] = f"Entity nicht gefunden: {entity_name or entity_id}"
+        return result
+
+    # Find FacetType
+    ft_result = await session.execute(
+        select(FacetType).where(FacetType.slug == facet_type_slug)
+    )
+    facet_type = ft_result.scalar_one_or_none()
+
+    if not facet_type:
+        result["message"] = f"Facet-Typ '{facet_type_slug}' nicht gefunden"
+        return result
+
+    if facet_type.value_type.value != "history":
+        result["message"] = f"Facet-Typ '{facet_type_slug}' ist kein History-Typ (aktuell: {facet_type.value_type.value})"
+        return result
+
+    # Parse recorded_at if provided, otherwise use current time
+    if recorded_at:
+        if isinstance(recorded_at, str):
+            try:
+                recorded_at = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
+            except ValueError:
+                result["message"] = f"Ungültiges Datumsformat: {recorded_at}"
+                return result
+    else:
+        recorded_at = datetime.utcnow()
+
+    # Build annotations
+    annotations = {}
+    if note:
+        annotations["note"] = note
+
+    try:
+        # Add the data point using the service
+        service = FacetHistoryService(session)
+        data_point = await service.add_data_point(
+            entity_id=entity.id,
+            facet_type_id=facet_type.id,
+            value=float(value),
+            recorded_at=recorded_at,
+            track_key=track_key,
+            annotations=annotations,
+            source_type="MANUAL",
+        )
+
+        logger.info(
+            "History data point added via Smart Query",
+            entity_id=str(entity.id),
+            entity_name=entity.name,
+            facet_type=facet_type_slug,
+            value=value,
+            recorded_at=str(recorded_at),
+        )
+
+        return {
+            "success": True,
+            "message": f"Datenpunkt für '{entity.name}' hinzugefügt: {value} am {recorded_at.strftime('%d.%m.%Y')}",
+            "data_point_id": str(data_point.id),
+            "entity_id": str(entity.id),
+            "facet_type": facet_type_slug,
+            "value": value,
+            "recorded_at": recorded_at.isoformat(),
+        }
+
+    except Exception as e:
+        logger.error("Add history point failed", error=str(e), exc_info=True)
+        result["message"] = f"Fehler: {str(e)}"
+        return result

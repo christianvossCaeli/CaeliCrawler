@@ -1,5 +1,5 @@
 <template>
-  <HelpCard section-id="crawler" :title="t('help.crawler.title')" icon="mdi-robot" color="cyan">
+  <HelpCard section-id="crawler" :title="t('help.crawler.title')" icon="mdi-robot" color="teal">
     <p class="mb-4">{{ t('help.crawler.description') }}</p>
 
     <h3 class="text-h6 mb-3">{{ t('help.crawler.statusCards') }}</h3>

@@ -105,6 +105,10 @@ INTENT_CLASSIFICATION_PROMPT = """Du bist ein Intent-Classifier für einen Chat-
 - start_crawl: Crawl starten
 - create_facet: Facet-Wert zur aktuellen Entity hinzufügen (z.B. "Füge Pain Point hinzu", "Neues Positive Signal")
   - context_action_data sollte enthalten: facet_type (pain_point|positive_signal|contact|summary), description, optional: severity, type
+- show_entity_history: Verlaufsdaten anzeigen (z.B. "Zeige den Verlauf", "Wie ist der Haushaltsverlauf?")
+  - context_action_data kann enthalten: facet_type_slug (History-Facet-Typ)
+- add_history_point: Datenpunkt zu History-Facet hinzufügen (z.B. "Füge Haushaltsvolumen 5 Mio für 2024 hinzu")
+  - context_action_data sollte enthalten: facet_type_slug, value, recorded_at (optional), track_key (optional), note (optional)
 
 ## Source Management Actions (für Intent SOURCE_MANAGEMENT):
 - list_tags: Alle verfügbaren Tags anzeigen (z.B. "Welche Tags gibt es?", "Zeig alle Tags")
@@ -159,7 +163,7 @@ Analysiere die Nachricht und gib JSON zurück:
     "facet_name": "optional: Name des neuen Facet-Typs",
     "facet_description": "optional: Beschreibung",
     "target_entity_types": "optional: Liste von Entity-Typ-Slugs für Zuweisung",
-    "context_action": "optional: analyze_pysis|enrich_facets|show_pysis_status|start_crawl|update_entity|create_facet|analyze_entity_data",
+    "context_action": "optional: analyze_pysis|enrich_facets|show_pysis_status|start_crawl|update_entity|create_facet|analyze_entity_data|show_entity_history|add_history_point",
     "context_action_data": "optional: zusätzliche Parameter für die Aktion (z.B. source_types für analyze_entity_data)",
     "source_action": "optional: list_tags|list_sources_by_tag|suggest_tags|discover_sources",
     "source_action_data": "optional: Parameter für Source-Aktionen (z.B. tags, match_mode, context, prompt, search_depth)"
@@ -657,7 +661,7 @@ class AssistantService:
         # 2. Check for entity type suggestions
         entity_type_aliases = {
             "person": ["personen", "leute", "menschen", "kontakte", "ansprechpartner"],
-            "municipality": ["gemeinden", "städte", "kommunen", "ortschaften", "landkreise", "kreis"],
+            "territorial_entity": ["gemeinden", "städte", "kommunen", "ortschaften", "landkreise", "kreis", "gebietskörperschaften"],
             "organization": ["organisationen", "unternehmen", "firmen", "vereine", "verbände"],
             "event": ["events", "veranstaltungen", "termine", "messen", "konferenzen"],
         }
@@ -2164,6 +2168,226 @@ Regeln:
                     logger.error("analyze_entity_data_error", error=str(e))
                     return ContextActionResponse(
                         message=f"Fehler beim Starten der Analyse: {str(e)}",
+                        action=action,
+                        entity_id=entity_id,
+                        entity_name=entity_name,
+                        success=False
+                    ), []
+
+            # ==========================================
+            # SHOW ENTITY HISTORY - Display history data
+            # ==========================================
+            elif action == "show_entity_history":
+                from services.facet_history_service import FacetHistoryService
+
+                facet_type_slug = action_data.get("facet_type_slug") if isinstance(action_data, dict) else None
+
+                try:
+                    history_service = FacetHistoryService(self.db)
+
+                    # If facet_type_slug specified, show that specific history
+                    if facet_type_slug:
+                        ft_result = await self.db.execute(
+                            select(FacetType).where(FacetType.slug == facet_type_slug)
+                        )
+                        facet_type = ft_result.scalar_one_or_none()
+
+                        if not facet_type or facet_type.value_type.value != "history":
+                            return ContextActionResponse(
+                                message=f"Facet-Typ '{facet_type_slug}' ist kein History-Typ.",
+                                action=action,
+                                entity_id=entity_id,
+                                entity_name=entity_name,
+                                success=False
+                            ), []
+
+                        history = await history_service.get_history(
+                            entity_id=UUID(entity_id),
+                            facet_type_id=facet_type.id,
+                        )
+
+                        if not history.tracks:
+                            return ContextActionResponse(
+                                message=f"Keine Verlaufsdaten für **{facet_type.name}** bei **{entity_name}** vorhanden.",
+                                action=action,
+                                entity_id=entity_id,
+                                entity_name=entity_name,
+                                success=True
+                            ), [
+                                SuggestedAction(label="Datenpunkt hinzufügen", action="query", value=f"Füge Datenpunkt für {facet_type.name} hinzu"),
+                            ]
+
+                        # Format history stats
+                        msg = f"**{facet_type.name}-Verlauf für {entity_name}**\n\n"
+                        stats = history.statistics
+                        if stats:
+                            trend_emoji = "📈" if stats.trend == "up" else ("📉" if stats.trend == "down" else "➡️")
+                            msg += f"- **Aktueller Wert:** {stats.latest_value} {history.unit_label or ''}\n"
+                            msg += f"- **Trend:** {trend_emoji} {'+' if stats.change_percent and stats.change_percent > 0 else ''}{stats.change_percent or 0:.1f}%\n"
+                            msg += f"- **Minimum:** {stats.min_value} | **Maximum:** {stats.max_value}\n"
+                            msg += f"- **Datenpunkte:** {stats.total_points}\n"
+
+                        return ContextActionResponse(
+                            message=msg,
+                            action=action,
+                            entity_id=entity_id,
+                            entity_name=entity_name,
+                            success=True,
+                            preview={"history": history.model_dump() if hasattr(history, "model_dump") else None}
+                        ), [
+                            SuggestedAction(label="Datenpunkt hinzufügen", action="query", value=f"Füge Datenpunkt für {facet_type.name} hinzu"),
+                            SuggestedAction(label="Chart öffnen", action="navigate", value=f"entity/{entity_id}"),
+                        ]
+                    else:
+                        # List available history facet types
+                        ft_result = await self.db.execute(
+                            select(FacetType).where(FacetType.value_type == "history")
+                        )
+                        history_types = ft_result.scalars().all()
+
+                        if not history_types:
+                            return ContextActionResponse(
+                                message="Es gibt noch keine Facet-Typen vom Typ 'History'. Erstelle zuerst einen History-Facet-Typ.",
+                                action=action,
+                                entity_id=entity_id,
+                                entity_name=entity_name,
+                                success=False
+                            ), [
+                                SuggestedAction(label="History-Facet erstellen", action="query", value="Erstelle History-Facet-Typ für Haushaltsvolumen"),
+                            ]
+
+                        msg = f"**Verfügbare History-Facets für {entity_name}:**\n\n"
+                        for ft in history_types:
+                            msg += f"- **{ft.name}** (`{ft.slug}`)\n"
+
+                        return ContextActionResponse(
+                            message=msg,
+                            action=action,
+                            entity_id=entity_id,
+                            entity_name=entity_name,
+                            success=True
+                        ), [SuggestedAction(label=ft.name, action="query", value=f"Zeige {ft.name}-Verlauf") for ft in history_types[:3]]
+
+                except Exception as e:
+                    logger.error("show_entity_history_error", error=str(e))
+                    return ContextActionResponse(
+                        message=f"Fehler beim Laden der Verlaufsdaten: {str(e)}",
+                        action=action,
+                        entity_id=entity_id,
+                        entity_name=entity_name,
+                        success=False
+                    ), []
+
+            # ==========================================
+            # ADD HISTORY POINT - Add data point to history facet
+            # ==========================================
+            elif action == "add_history_point":
+                from datetime import datetime
+                from services.facet_history_service import FacetHistoryService
+
+                facet_type_slug = action_data.get("facet_type_slug") if isinstance(action_data, dict) else None
+                value = action_data.get("value") if isinstance(action_data, dict) else None
+                recorded_at = action_data.get("recorded_at") if isinstance(action_data, dict) else None
+                track_key = action_data.get("track_key", "default") if isinstance(action_data, dict) else "default"
+                note = action_data.get("note") if isinstance(action_data, dict) else None
+
+                if not facet_type_slug:
+                    return ContextActionResponse(
+                        message="Bitte gib einen History-Facet-Typ an (z.B. haushaltsvolumen, einwohnerzahl).",
+                        action=action,
+                        entity_id=entity_id,
+                        entity_name=entity_name,
+                        success=False
+                    ), []
+
+                if value is None:
+                    return ContextActionResponse(
+                        message="Bitte gib einen Wert an (z.B. 'Füge Haushaltsvolumen 5000000 hinzu').",
+                        action=action,
+                        entity_id=entity_id,
+                        entity_name=entity_name,
+                        success=False
+                    ), []
+
+                # Find FacetType
+                ft_result = await self.db.execute(
+                    select(FacetType).where(FacetType.slug == facet_type_slug)
+                )
+                facet_type = ft_result.scalar_one_or_none()
+
+                if not facet_type:
+                    return ContextActionResponse(
+                        message=f"Facet-Typ '{facet_type_slug}' nicht gefunden.",
+                        action=action,
+                        entity_id=entity_id,
+                        entity_name=entity_name,
+                        success=False
+                    ), []
+
+                if facet_type.value_type.value != "history":
+                    return ContextActionResponse(
+                        message=f"Facet-Typ '{facet_type.name}' ist kein History-Typ.",
+                        action=action,
+                        entity_id=entity_id,
+                        entity_name=entity_name,
+                        success=False
+                    ), []
+
+                try:
+                    # Parse recorded_at
+                    if recorded_at:
+                        if isinstance(recorded_at, str):
+                            recorded_at = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
+                    else:
+                        recorded_at = datetime.utcnow()
+
+                    # Build annotations
+                    annotations = {}
+                    if note:
+                        annotations["note"] = note
+
+                    # Add data point
+                    history_service = FacetHistoryService(self.db)
+                    data_point = await history_service.add_data_point(
+                        entity_id=UUID(entity_id),
+                        facet_type_id=facet_type.id,
+                        value=float(value),
+                        recorded_at=recorded_at,
+                        track_key=track_key,
+                        annotations=annotations,
+                        source_type="AI_ASSISTANT",
+                    )
+
+                    # Get unit from facet type schema
+                    unit = ""
+                    if facet_type.value_schema and isinstance(facet_type.value_schema, dict):
+                        props = facet_type.value_schema.get("properties", {})
+                        unit = props.get("unit_label", props.get("unit", ""))
+
+                    msg = f"✅ **Datenpunkt hinzugefügt!**\n\n"
+                    msg += f"- **Entity:** {entity_name}\n"
+                    msg += f"- **Facet-Typ:** {facet_type.name}\n"
+                    msg += f"- **Wert:** {value} {unit}\n"
+                    msg += f"- **Datum:** {recorded_at.strftime('%d.%m.%Y')}\n"
+                    if note:
+                        msg += f"- **Notiz:** {note}\n"
+
+                    return ContextActionResponse(
+                        message=msg,
+                        action=action,
+                        entity_id=entity_id,
+                        entity_name=entity_name,
+                        success=True,
+                        data_point_id=str(data_point.id)
+                    ), [
+                        SuggestedAction(label="Verlauf anzeigen", action="query", value=f"Zeige {facet_type.name}-Verlauf"),
+                        SuggestedAction(label="Weiteren hinzufügen", action="query", value=f"Füge weiteren {facet_type.name}-Datenpunkt hinzu"),
+                    ]
+
+                except Exception as e:
+                    logger.error("add_history_point_error", error=str(e))
+                    return ContextActionResponse(
+                        message=f"Fehler beim Hinzufügen des Datenpunkts: {str(e)}",
                         action=action,
                         entity_id=entity_id,
                         entity_name=entity_name,

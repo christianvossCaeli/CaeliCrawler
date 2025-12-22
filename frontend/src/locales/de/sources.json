@@ -136,7 +136,7 @@
       "apiUrl": "API-URL",
       "sparqlQuery": "SPARQL Query",
       "sparqlHint": "SPARQL Query für Wikidata. Nutzen Sie ?itemLabel für Namen und ?website für URLs.",
-      "sparqlPlaceholder": "SELECT ?item ?itemLabel ?website WHERE { ... }",
+      "sparqlPlaceholder": "SELECT ?item ?itemLabel ?website WHERE [...]",
       "wikidata": "Wikidata SPARQL",
       "oparl": "OParl API",
       "custom": "Benutzerdefinierte REST API",

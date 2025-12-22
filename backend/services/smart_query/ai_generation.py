@@ -12,6 +12,7 @@ from .prompts import (
     AI_CRAWL_CONFIG_PROMPT,
     AI_FACET_TYPES_PROMPT,
     AI_SEED_ENTITIES_PROMPT,
+    AI_API_RESPONSE_ANALYSIS_PROMPT,
 )
 from .query_interpreter import get_openai_client
 from .utils import clean_json_response
@@ -277,3 +278,182 @@ async def ai_generate_seed_entities(
             "is_complete_list": False,
             "reasoning": f"Seed-Entity-Generierung übersprungen: {str(e)}",
         }
+
+
+async def ai_analyze_api_response(
+    api_items: List[Dict[str, Any]],
+    user_intent: str = "",
+    api_type: str = "unknown",
+    target_entity_type: str = "",
+    sample_size: int = 3,
+) -> Dict[str, Any]:
+    """
+    Analyze API response and generate intelligent field mappings.
+
+    Uses AI to analyze the structure of API data and automatically determine:
+    - Field mappings for entity creation
+    - Whether to create DataSources for websites
+    - Hierarchy relationships
+    - Suggested tags and categories
+
+    Args:
+        api_items: List of items from API response
+        user_intent: Original user request
+        api_type: Type of API (sparql, rest, etc.)
+        target_entity_type: Target entity type if known
+        sample_size: Number of items to include in sample (default 3)
+
+    Returns:
+        Dict with:
+        - analysis: Detection results
+        - field_mapping: Mapping from API fields to entity fields
+        - additional_mappings: Extra fields for core_attributes
+        - data_source_config: Config for DataSource creation
+        - parent_config: Hierarchy configuration
+        - entity_type_suggestion: Suggested EntityType config
+        - warnings: List of warnings
+        - reasoning: Explanation of decisions
+
+    Raises:
+        ValueError: If Azure OpenAI is not configured
+        RuntimeError: If AI analysis fails
+    """
+    client = get_openai_client()  # Raises ValueError if not configured
+
+    # Take sample of items for analysis
+    sample_items = api_items[:sample_size] if len(api_items) >= sample_size else api_items
+    api_sample = json.dumps(sample_items, indent=2, ensure_ascii=False, default=str)
+
+    prompt = AI_API_RESPONSE_ANALYSIS_PROMPT.format(
+        user_intent=user_intent or "Daten importieren",
+        api_type=api_type,
+        target_entity_type=target_entity_type or "unbekannt",
+        sample_size=len(sample_items),
+        api_sample=api_sample,
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model=settings.azure_openai_deployment_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,  # Lower temperature for accurate analysis
+            max_tokens=2000,
+        )
+
+        content = response.choices[0].message.content.strip()
+        content = clean_json_response(content)
+
+        result = json.loads(content)
+
+        # Log analysis results
+        analysis = result.get("analysis", {})
+        field_mapping = result.get("field_mapping", {})
+        data_source_config = result.get("data_source_config", {})
+
+        logger.info(
+            "AI analyzed API response",
+            detected_type=analysis.get("detected_entity_type"),
+            confidence=analysis.get("confidence"),
+            create_data_sources=data_source_config.get("create_data_sources"),
+            website_field=data_source_config.get("website_field"),
+            name_field=field_mapping.get("name"),
+            warnings_count=len(result.get("warnings", [])),
+        )
+
+        return result
+
+    except ValueError:
+        raise
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse AI API analysis response", error=str(e))
+        # Return a basic fallback mapping
+        return _generate_fallback_mapping(api_items)
+    except Exception as e:
+        logger.error("Failed to analyze API response via AI", error=str(e))
+        # Return a basic fallback mapping instead of failing
+        return _generate_fallback_mapping(api_items)
+
+
+def _generate_fallback_mapping(api_items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Generate a basic fallback mapping when AI analysis fails.
+
+    Attempts to detect common field patterns automatically.
+    """
+    if not api_items:
+        return {
+            "analysis": {"detected_entity_type": "unknown", "confidence": 0.0},
+            "field_mapping": {},
+            "warnings": ["Keine Daten für Analyse verfügbar"],
+        }
+
+    # Get all keys from first item
+    sample = api_items[0]
+    keys = list(sample.keys())
+
+    field_mapping = {}
+
+    # Try to detect name field
+    name_candidates = ["name", "label", "title", "bezeichnung", "Name", "Label"]
+    for key in keys:
+        if any(candidate.lower() in key.lower() for candidate in name_candidates):
+            field_mapping["name"] = key
+            break
+
+    # Try to detect ID field
+    id_candidates = ["id", "Id", "ID", "code", "Code", "key", "slug", "ags", "gkz"]
+    for key in keys:
+        if any(candidate.lower() == key.lower() for candidate in id_candidates):
+            field_mapping["external_id"] = key
+            break
+
+    # Try to detect website field
+    url_candidates = ["website", "url", "homepage", "web", "Website", "URL"]
+    for key in keys:
+        if any(candidate.lower() in key.lower() for candidate in url_candidates):
+            field_mapping["website"] = key
+            break
+
+    # Try to detect admin level
+    admin_candidates = ["bundesland", "state", "region", "administrativeDivision", "land"]
+    for key in keys:
+        if any(candidate.lower() in key.lower() for candidate in admin_candidates):
+            field_mapping["admin_level_1"] = key
+            break
+
+    # Try to detect coordinates
+    lat_candidates = ["lat", "latitude", "breite"]
+    lon_candidates = ["lon", "lng", "longitude", "laenge"]
+    for key in keys:
+        if any(candidate.lower() in key.lower() for candidate in lat_candidates):
+            field_mapping["latitude"] = key
+        if any(candidate.lower() in key.lower() for candidate in lon_candidates):
+            field_mapping["longitude"] = key
+
+    # Determine if we should create data sources
+    create_data_sources = "website" in field_mapping
+
+    return {
+        "analysis": {
+            "detected_entity_type": "unknown",
+            "detected_structure": "flat",
+            "confidence": 0.5,
+            "data_quality": "unknown",
+        },
+        "field_mapping": field_mapping,
+        "additional_mappings": {},
+        "data_source_config": {
+            "create_data_sources": create_data_sources,
+            "website_field": field_mapping.get("website"),
+            "suggested_tags": [],
+            "suggested_category_slugs": [],
+        },
+        "parent_config": {
+            "use_hierarchy": "admin_level_1" in field_mapping,
+            "parent_field": field_mapping.get("admin_level_1"),
+            "parent_entity_type": "bundesland",
+            "create_parent_if_missing": True,
+        },
+        "warnings": ["Fallback-Mapping verwendet - KI-Analyse fehlgeschlagen"],
+        "reasoning": "Automatisches Pattern-Matching auf API-Feldnamen",
+    }

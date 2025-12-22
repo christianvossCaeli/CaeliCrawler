@@ -170,12 +170,12 @@ async def process_event_extraction(
         is_future=is_future,
     )
 
-    # Link event to location (municipality) if known
+    # Link event to location (territorial entity) if known
     event_location = event_data.get("event_location")
     if event_location and located_in_type:
         location_entity = await get_or_create_entity(
             session,
-            entity_type_slug="municipality",
+            entity_type_slug="territorial_entity",
             name=event_location,
         )
         if location_entity:
@@ -267,7 +267,7 @@ async def process_event_extraction(
         )
         counts["relations"] += 1
 
-        # Link person to municipality if they represent one
+        # Link person to territorial entity if they represent one
         municipality_name = attendee.get("municipality") or (
             attendee.get("organization")
             if attendee.get("organization_type") in ("Gemeinde", "Stadt", "Landkreis")
@@ -277,7 +277,7 @@ async def process_event_extraction(
         if municipality_name and works_for_type:
             municipality_entity = await get_or_create_entity(
                 session,
-                entity_type_slug="municipality",
+                entity_type_slug="territorial_entity",
                 name=municipality_name,
             )
             if municipality_entity:

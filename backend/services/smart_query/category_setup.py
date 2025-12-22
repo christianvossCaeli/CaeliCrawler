@@ -194,7 +194,7 @@ async def create_category_setup_with_ai(
             attribute_schema=et_config.get("attribute_schema", {}),
             is_active=True,
             is_system=False,
-            is_public=False,
+            is_public=True,  # Always visible in frontend
             created_by_id=current_user_id,
             owner_id=current_user_id,
         )
@@ -266,7 +266,7 @@ async def create_category_setup_with_ai(
             extraction_handler=extraction_handler,
             schedule_cron="0 2 * * *",
             is_active=True,
-            is_public=False,
+            is_public=True,  # Always visible in frontend
             created_by_id=current_user_id,
             owner_id=current_user_id,
             target_entity_type_id=entity_type.id,
@@ -649,8 +649,8 @@ async def create_category_setup_with_ai(
                     parent_name = geographic_context
 
             if (settings.feature_entity_hierarchy and use_hierarchy and parent_name):
-                # Use AI-suggested parent_type or default to municipality for geographic entities
-                parent_type_slug = hierarchy_config.get("parent_entity_type", "municipality")
+                # Use AI-suggested parent_type or default to territorial_entity for geographic entities
+                parent_type_slug = hierarchy_config.get("parent_entity_type", "territorial_entity")
 
                 # Look up parent entity type
                 parent_et_result = await session.execute(
@@ -658,15 +658,15 @@ async def create_category_setup_with_ai(
                 )
                 parent_entity_type = parent_et_result.scalar_one_or_none()
 
-                # Fallback to municipality if parent type not found
-                if not parent_entity_type and parent_type_slug != "municipality":
+                # Fallback to territorial_entity if parent type not found
+                if not parent_entity_type and parent_type_slug != "territorial_entity":
                     logger.info(
-                        "EntityType not found, falling back to municipality",
+                        "EntityType not found, falling back to territorial_entity",
                         requested_type=parent_type_slug,
                     )
-                    parent_type_slug = "municipality"
+                    parent_type_slug = "territorial_entity"
                     parent_et_result = await session.execute(
-                        select(EntityType).where(EntityType.slug == "municipality")
+                        select(EntityType).where(EntityType.slug == "territorial_entity")
                     )
                     parent_entity_type = parent_et_result.scalar_one_or_none()
 
@@ -782,7 +782,7 @@ async def create_category_setup_with_ai(
                     for rel_data in entity_info.get("relations", []):
                         rel_type_slug = rel_data.get("relation_type", "located_in")
                         target_name = rel_data.get("target_name", "").strip()
-                        target_type_slug = rel_data.get("target_type", "municipality")
+                        target_type_slug = rel_data.get("target_type", "territorial_entity")
 
                         if not target_name:
                             continue
@@ -1031,7 +1031,7 @@ async def create_category_setup(
             attribute_schema=attribute_schema,
             is_active=True,
             is_system=False,
-            is_public=False,  # Private by default
+            is_public=True,  # Always visible in frontend
             created_by_id=current_user_id,
             owner_id=current_user_id,
         )
@@ -1081,7 +1081,7 @@ async def create_category_setup(
             extraction_handler=extraction_handler,
             schedule_cron="0 2 * * *",
             is_active=True,
-            is_public=False,  # Private by default
+            is_public=True,  # Always visible in frontend
             created_by_id=current_user_id,
             owner_id=current_user_id,
             target_entity_type_id=entity_type.id,

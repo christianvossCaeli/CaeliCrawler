@@ -658,7 +658,7 @@
         "none": "Keine",
         "noneDesc": "Keine Authentifizierung (nur fuer interne Endpunkte empfohlen)",
         "bearer": "Bearer Token",
-        "bearerDesc": "Authorization: Bearer <token>",
+        "bearerDesc": "Authorization: Bearer [token]",
         "apiKey": "API Key",
         "apiKeyDesc": "Custom Header mit API-Schluessel",
         "basicAuth": "Basic Auth",
@@ -780,13 +780,13 @@
         "title": "Verfuegbare Slash-Kommandos",
         "help": "/help [thema]",
         "helpDesc": "Hilfe anzeigen, optional zu einem bestimmten Thema",
-        "search": "/search <suchbegriff>",
+        "search": "/search [suchbegriff]",
         "searchDesc": "Entities durchsuchen",
-        "create": "/create <details>",
+        "create": "/create [details]",
         "createDesc": "Neuen Datensatz erstellen (leitet zu Smart Query weiter)",
         "summary": "/summary",
         "summaryDesc": "Aktuelle Entity zusammenfassen",
-        "navigate": "/navigate <entity>",
+        "navigate": "/navigate [entity]",
         "navigateDesc": "Zu einer Entity navigieren"
       },
       "exampleQueries": {
@@ -1069,7 +1069,7 @@
         "title": "Schema-Definition",
         "description": "Fuer strukturierte Facet-Typen koennen Sie ein JSON-Schema definieren:",
         "example": "Beispiel fuer Pain Point:",
-        "exampleSchema": "{ \"type\": \"object\", \"properties\": { \"severity\": { \"type\": \"string\", \"enum\": [\"low\", \"medium\", \"high\"] }, \"category\": { \"type\": \"string\" }, \"details\": { \"type\": \"string\" } } }",
+        "exampleSchema": "type: object mit properties: severity (string, enum: low/medium/high), category (string), details (string)",
         "tip": "Tipp: Die KI verwendet das Schema, um strukturierte Daten zu extrahieren."
       },
       "aiExtraction": {

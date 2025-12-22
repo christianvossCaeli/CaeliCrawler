@@ -139,7 +139,7 @@ async def smart_query(
     """
     # First, check if this is a write command
     if allow_write:
-        write_command = await interpret_write_command(question)
+        write_command = await interpret_write_command(question, session)
         if write_command and write_command.get("operation", "none") != "none":
             logger.info(
                 "Executing write command",

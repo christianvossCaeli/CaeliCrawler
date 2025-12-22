@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_session
 from app.core.deps import require_editor, require_admin
 from app.core.rate_limit import check_rate_limit
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 from app.models import CrawlJob, DataSource, Category, JobStatus, SourceStatus, SourceType, AITask, AITaskStatus, AITaskType, User
 from app.schemas.crawl_job import (
     CrawlJobResponse,
@@ -272,6 +274,35 @@ async def start_crawl(
                 create_crawl_job.delay(str(source.id), str(cat_id))
                 job_ids.append(source.id)
 
+    # Audit log for crawler start
+    if job_ids:
+        async with AuditContext(session, current_user, http_request) as audit:
+            # Get category name if available
+            category_name = None
+            if crawl_request.category_id:
+                cat = await session.get(Category, crawl_request.category_id)
+                category_name = cat.name if cat else None
+
+            audit.track_action(
+                action=AuditAction.CRAWLER_START,
+                entity_type="CrawlJob",
+                entity_name=category_name or "Multiple Sources",
+                changes={
+                    "jobs_created": len(job_ids),
+                    "category_id": str(crawl_request.category_id) if crawl_request.category_id else None,
+                    "category_name": category_name,
+                    "source_count": len(set(job_ids)),
+                    "filters": {
+                        "country": crawl_request.country,
+                        "status": crawl_request.status,
+                        "source_type": crawl_request.source_type,
+                        "search": crawl_request.search,
+                        "limit": crawl_request.limit,
+                    },
+                },
+            )
+            await session.commit()
+
     return StartCrawlResponse(
         jobs_created=len(job_ids),
         job_ids=job_ids,
@@ -282,8 +313,9 @@ async def start_crawl(
 @router.post("/jobs/{job_id}/cancel", response_model=MessageResponse)
 async def cancel_job(
     job_id: UUID,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Cancel a running crawl job."""
     from workers.celery_app import celery_app
@@ -295,12 +327,32 @@ async def cancel_job(
     if job.status != JobStatus.RUNNING:
         raise ValidationError("Can only cancel running jobs")
 
-    # Revoke Celery task
-    if job.celery_task_id:
-        celery_app.control.revoke(job.celery_task_id, terminate=True)
+    # Get source and category names for audit
+    source = await session.get(DataSource, job.source_id) if job.source_id else None
+    category = await session.get(Category, job.category_id) if job.category_id else None
 
-    job.status = JobStatus.CANCELLED
-    await session.commit()
+    async with AuditContext(session, current_user, request) as audit:
+        # Revoke Celery task
+        if job.celery_task_id:
+            celery_app.control.revoke(job.celery_task_id, terminate=True)
+
+        job.status = JobStatus.CANCELLED
+
+        audit.track_action(
+            action=AuditAction.CRAWLER_STOP,
+            entity_type="CrawlJob",
+            entity_id=job.id,
+            entity_name=source.name if source else str(job_id),
+            changes={
+                "cancelled": True,
+                "source_name": source.name if source else None,
+                "category_name": category.name if category else None,
+                "pages_crawled": job.pages_crawled,
+                "documents_found": job.documents_found,
+            },
+        )
+
+        await session.commit()
 
     return MessageResponse(message="Job cancelled")
 
@@ -358,10 +410,11 @@ async def get_crawler_stats(
 
 @router.post("/reanalyze", response_model=MessageResponse)
 async def reanalyze_documents(
+    request: Request,
     category_id: Optional[UUID] = Query(default=None),
     reanalyze_all: bool = Query(default=False, description="Re-analyze all documents, not just low confidence"),
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """
     Re-analyze documents with the updated AI prompt.
@@ -396,7 +449,26 @@ async def reanalyze_documents(
     for doc_id in document_ids:
         analyze_document.delay(doc_id)
 
-    await session.commit()
+    # Get category name for audit
+    category_name = None
+    if category_id:
+        cat = await session.get(Category, category_id)
+        category_name = cat.name if cat else None
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.CRAWLER_START,
+            entity_type="ReanalysisJob",
+            entity_name=category_name or "All Documents",
+            changes={
+                "documents_queued": len(document_ids),
+                "category_id": str(category_id) if category_id else None,
+                "category_name": category_name,
+                "reanalyze_all": reanalyze_all,
+                "mode": "all" if reanalyze_all else "low_confidence_only",
+            },
+        )
+        await session.commit()
 
     return MessageResponse(
         message=f"Queued {len(document_ids)} documents for re-analysis"
@@ -709,10 +781,13 @@ async def get_running_ai_tasks(
 @router.post("/ai-tasks/{task_id}/cancel", response_model=MessageResponse)
 async def cancel_ai_task(
     task_id: UUID,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Cancel a running AI task."""
+    from app.models.pysis import PySisProcess
+
     task = await session.get(AITask, task_id)
     if not task:
         raise NotFoundError("AI Task", str(task_id))
@@ -720,13 +795,34 @@ async def cancel_ai_task(
     if task.status != AITaskStatus.RUNNING:
         raise ValidationError("Can only cancel running tasks")
 
-    # Revoke Celery task - import here to avoid issues when Celery isn't running
-    if task.celery_task_id:
-        from workers.celery_app import celery_app
-        celery_app.control.revoke(task.celery_task_id, terminate=True)
+    # Get process info for audit
+    process_name = None
+    if task.process_id:
+        process = await session.get(PySisProcess, task.process_id)
+        process_name = process.name if process else None
 
-    task.status = AITaskStatus.CANCELLED
-    await session.commit()
+    async with AuditContext(session, current_user, request) as audit:
+        # Revoke Celery task - import here to avoid issues when Celery isn't running
+        if task.celery_task_id:
+            from workers.celery_app import celery_app
+            celery_app.control.revoke(task.celery_task_id, terminate=True)
+
+        task.status = AITaskStatus.CANCELLED
+
+        audit.track_action(
+            action=AuditAction.CRAWLER_STOP,
+            entity_type="AITask",
+            entity_id=task.id,
+            entity_name=process_name or str(task_id),
+            changes={
+                "cancelled": True,
+                "task_type": task.task_type.value,
+                "process_name": process_name,
+                "progress_percent": task.progress_percent,
+            },
+        )
+
+        await session.commit()
 
     return MessageResponse(message="AI Task cancelled")
 
@@ -789,21 +885,41 @@ async def analyze_document(
 
 @router.post("/documents/process-pending", response_model=MessageResponse)
 async def process_all_pending(
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Trigger processing for all pending documents."""
     from workers.processing_tasks import process_pending_documents
+    from app.models import Document, ProcessingStatus
+
+    # Count pending documents for audit
+    pending_count = (await session.execute(
+        select(func.count()).where(Document.processing_status == ProcessingStatus.PENDING)
+    )).scalar() or 0
 
     process_pending_documents.delay()
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.CRAWLER_START,
+            entity_type="ProcessingJob",
+            entity_name="Process All Pending",
+            changes={
+                "pending_documents": pending_count,
+                "action": "process_pending",
+            },
+        )
+        await session.commit()
 
     return MessageResponse(message="Processing task queued")
 
 
 @router.post("/documents/stop-all", response_model=MessageResponse)
 async def stop_all_processing(
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """
     Stop all document processing.
@@ -827,7 +943,19 @@ async def stop_all_processing(
         .returning(Document.id)
     )
     reset_count = len(result.fetchall())
-    await session.commit()
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.CRAWLER_STOP,
+            entity_type="ProcessingJob",
+            entity_name="Stop All Processing",
+            changes={
+                "action": "stop_all",
+                "documents_reset": reset_count,
+                "queue_purged": True,
+            },
+        )
+        await session.commit()
 
     return MessageResponse(
         message=f"Processing stopped. {reset_count} documents reset to pending.",
@@ -837,9 +965,10 @@ async def stop_all_processing(
 
 @router.post("/documents/reanalyze-filtered", response_model=MessageResponse)
 async def reanalyze_filtered_documents(
+    request: Request,
     limit: int = Query(default=100, ge=1, le=1000),
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """
     Re-analyze all FILTERED documents, skipping relevance check.
@@ -862,6 +991,19 @@ async def reanalyze_filtered_documents(
     # Queue for AI analysis with skip_relevance_check
     for doc_id in doc_ids:
         analyze_doc_task.delay(str(doc_id), skip_relevance_check=True)
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.CRAWLER_START,
+            entity_type="ReanalysisJob",
+            entity_name="Reanalyze Filtered",
+            changes={
+                "documents_queued": len(doc_ids),
+                "limit": limit,
+                "mode": "filtered_skip_relevance",
+            },
+        )
+        await session.commit()
 
     return MessageResponse(
         message=f"Queued {len(doc_ids)} filtered documents for re-analysis",

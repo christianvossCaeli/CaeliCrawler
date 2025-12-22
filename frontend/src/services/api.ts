@@ -375,6 +375,16 @@ export const entityApi = {
   // Search
   searchEntities: (params: { q: string; per_page?: number; entity_type_slug?: string }) =>
     api.get('/v1/entities', { params: { search: params.q, per_page: params.per_page, entity_type_slug: params.entity_type_slug } }),
+
+  // GeoJSON for map display
+  getEntitiesGeoJSON: (params?: {
+    entity_type_slug?: string
+    country?: string
+    admin_level_1?: string
+    admin_level_2?: string
+    search?: string
+    limit?: number
+  }) => api.get('/v1/entities/geojson', { params }),
 }
 
 export const facetApi = {
@@ -405,6 +415,54 @@ export const facetApi = {
   // Full-Text Search
   searchFacetValues: (params: { q: string; entity_id?: string; facet_type_slug?: string; limit?: number }) =>
     api.get('/v1/facets/search', { params }),
+
+  // History (Time-Series Data)
+  getEntityHistory: (entityId: string, facetTypeId: string, params?: {
+    from_date?: string
+    to_date?: string
+    tracks?: string[]
+    limit?: number
+  }) => api.get(`/v1/facets/entity/${entityId}/history/${facetTypeId}`, { params }),
+
+  getEntityHistoryAggregated: (entityId: string, facetTypeId: string, params?: {
+    interval?: 'day' | 'week' | 'month' | 'quarter' | 'year'
+    method?: 'avg' | 'sum' | 'min' | 'max'
+    from_date?: string
+    to_date?: string
+    tracks?: string[]
+  }) => api.get(`/v1/facets/entity/${entityId}/history/${facetTypeId}/aggregated`, { params }),
+
+  addHistoryDataPoint: (entityId: string, facetTypeId: string, data: {
+    recorded_at: string
+    value: number
+    track_key?: string
+    value_label?: string
+    annotations?: Record<string, any>
+    source_type?: string
+    source_url?: string
+    confidence_score?: number
+  }) => api.post(`/v1/facets/entity/${entityId}/history/${facetTypeId}`, data),
+
+  addHistoryDataPointsBulk: (entityId: string, facetTypeId: string, data: {
+    data_points: Array<{
+      recorded_at: string
+      value: number
+      track_key?: string
+      value_label?: string
+      annotations?: Record<string, any>
+    }>
+    skip_duplicates?: boolean
+  }) => api.post(`/v1/facets/entity/${entityId}/history/${facetTypeId}/bulk`, data),
+
+  updateHistoryDataPoint: (entityId: string, facetTypeId: string, pointId: string, data: {
+    value?: number
+    value_label?: string
+    annotations?: Record<string, any>
+    human_verified?: boolean
+  }) => api.put(`/v1/facets/entity/${entityId}/history/${facetTypeId}/${pointId}`, data),
+
+  deleteHistoryDataPoint: (entityId: string, facetTypeId: string, pointId: string) =>
+    api.delete(`/v1/facets/entity/${entityId}/history/${facetTypeId}/${pointId}`),
 }
 
 export const relationApi = {

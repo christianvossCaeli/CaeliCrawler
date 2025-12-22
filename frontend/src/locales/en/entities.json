@@ -5,6 +5,7 @@
     "entities": "Entities",
     "overview": "Overview",
     "entries": "Entries",
+    "connections": "Connections",
     "tabs": {
       "general": "General",
       "attributes": "Attributes",
@@ -75,6 +76,18 @@
       "cards": "Card view",
       "map": "Map view"
     },
+    "mapView": {
+      "loading": "Loading map data...",
+      "onMap": "on map",
+      "withCoordinates": "with coordinates",
+      "withoutCoordinates": "without coordinates",
+      "clusterLegend": "Cluster Legend",
+      "clickToZoom": "Click to zoom in",
+      "noGeoData": "No geo data available",
+      "noGeoDataHint": "No coordinates are stored for these entities.",
+      "regions": "Regions",
+      "boundaries": "Boundaries / Areas"
+    },
     "filters": {
       "search": "Search in properties...",
       "type": "Entity Type",
@@ -130,6 +143,24 @@
       "facetAdded": "Facet added successfully",
       "facetRemoved": "Facet removed successfully",
       "noteAdded": "Note added successfully"
+    },
+    "history": {
+      "title": "History",
+      "noData": "No history data available",
+      "addDataPoint": "Add data point",
+      "value": "Value",
+      "recordedAt": "Recorded at",
+      "track": "Track",
+      "note": "Note",
+      "current": "Current",
+      "change": "Change",
+      "minimum": "Minimum",
+      "maximum": "Maximum",
+      "trend": {
+        "up": "Rising",
+        "down": "Falling",
+        "stable": "Stable"
+      }
     }
   },
   "entityTypes": {
@@ -170,7 +201,9 @@
     "export": "Export",
     "stats": {
       "facetValues": "Facet Values",
+      "properties": "Properties",
       "relations": "Relations",
+      "connections": "Connections",
       "verified": "Verified",
       "dataSources": "Data Sources"
     },
@@ -184,9 +217,14 @@
     },
     "verifiedLabel": "Verified",
     "verifyAction": "Verify",
+    "enrichCompleted": "Enrichment completed",
+    "enrichFailed": "Enrichment failed",
+    "enrichRunning": "Enrichment running",
+    "processing": "Processing",
     "tabs": {
       "properties": "Properties",
       "relations": "Relations",
+      "connections": "Connections",
       "dataSources": "Data Sources",
       "documents": "Documents",
       "pysis": "PySis",
@@ -199,6 +237,12 @@
       "subEntities": "Children",
       "loadError": "Failed to load child entities"
     },
+    "connections": {
+      "parent": "Parent",
+      "children": "Children",
+      "otherRelations": "Other Relations"
+    },
+    "loadingConnections": "Loading connections...",
     "searchProperties": "Search in properties...",
     "verified": "verified",
     "source": "Source",
@@ -222,6 +266,8 @@
       "checkDataSources": "Check data sources",
       "noRelations": "No relations available",
       "noRelationsDesc": "Relations show relationships to other entities such as people, organizations, or events.",
+      "noConnections": "No connections available",
+      "noConnectionsDesc": "Connections show relationships to other entities such as people, organizations, or events.",
       "noDataSources": "No data sources linked",
       "noDataSourcesDesc": "Data sources are websites or APIs that are automatically crawled to extract relevant information.",
       "noNotes": "No notes yet"
@@ -267,7 +313,7 @@
       "noEntitiesFound": "No entities found",
       "typeToSearch": "Type at least 2 characters to search",
       "relationAttributes": "Attributes (JSON, optional)",
-      "relationAttributesHint": "e.g. {\"since\": \"2024\", \"role\": \"Partner\"}"
+      "relationAttributesHint": "e.g. since: 2024, role: Partner"
     },
     "messages": {
       "entityNotFound": "Entity not found",

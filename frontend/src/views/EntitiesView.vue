@@ -365,14 +365,14 @@
         <template v-slot:item.facet_count="{ item }">
           <v-chip size="small" color="primary" variant="tonal">
             <v-icon start size="small">mdi-tag-multiple</v-icon>
-            {{ item.facet_count || 0 }}
+            {{ (item.facet_count || 0) + (item.core_attributes ? Object.keys(item.core_attributes).length : 0) }}
           </v-chip>
         </template>
 
         <template v-slot:item.relation_count="{ item }">
           <v-chip size="small" color="info" variant="tonal">
-            <v-icon start size="small">mdi-link</v-icon>
-            {{ item.relation_count || 0 }}
+            <v-icon start size="small">mdi-sitemap</v-icon>
+            {{ (item.relation_count || 0) + (item.children_count || 0) + (item.parent_id ? 1 : 0) }}
           </v-chip>
         </template>
 
@@ -435,11 +435,11 @@
                 <div class="d-flex ga-2 mb-2">
                   <v-chip size="small" color="primary" variant="tonal">
                     <v-icon start size="small">mdi-tag-multiple</v-icon>
-                    {{ entity.facet_count || 0 }} {{ t('entities.properties') }}
+                    {{ (entity.facet_count || 0) + (entity.core_attributes ? Object.keys(entity.core_attributes).length : 0) }} {{ t('entities.properties') }}
                   </v-chip>
                   <v-chip size="small" color="info" variant="tonal">
-                    <v-icon start size="small">mdi-link</v-icon>
-                    {{ entity.relation_count || 0 }} {{ t('entities.relations') }}
+                    <v-icon start size="small">mdi-sitemap</v-icon>
+                    {{ (entity.relation_count || 0) + (entity.children_count || 0) + (entity.parent_id ? 1 : 0) }} {{ t('entities.connections', 'Verknüpfungen') }}
                   </v-chip>
                 </div>
               </v-card-text>
@@ -460,6 +460,17 @@
           @update:model-value="loadEntities"
         ></v-pagination>
       </v-container>
+
+      <!-- Map View -->
+      <v-card-text v-else-if="viewMode === 'map'" class="pa-0">
+        <EntityMapView
+          :entity-type-slug="currentEntityType?.slug"
+          :country="extendedFilters.country || undefined"
+          :admin-level1="extendedFilters.admin_level_1 || undefined"
+          :admin-level2="extendedFilters.admin_level_2 || undefined"
+          :search="searchQuery || undefined"
+        />
+      </v-card-text>
     </v-card>
 
     <!-- Create/Edit Dialog -->
@@ -779,6 +790,7 @@ import { useEntityStore } from '@/stores/entity'
 import { adminApi, userApi, entityApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useFeatureFlags } from '@/composables/useFeatureFlags'
+import EntityMapView from '@/components/entities/EntityMapView.vue'
 
 const { t } = useI18n()
 const { flags } = useFeatureFlags()
@@ -874,9 +886,25 @@ const currentEntityType = computed(() => {
 const totalEntities = computed(() => store.entitiesTotal)
 const totalPages = computed(() => Math.ceil(totalEntities.value / itemsPerPage.value))
 
-const hasGeoData = computed(() =>
-  store.entities.some(e => e.latitude !== null && e.longitude !== null)
-)
+// Show map button only if this entity type has entities with geo coordinates
+const hasGeoData = ref(false)
+
+async function checkGeoDataAvailable() {
+  if (!currentEntityType.value?.slug) {
+    hasGeoData.value = false
+    return
+  }
+  try {
+    // Quick check: fetch geojson with limit=1 to see if any geo data exists
+    const response = await entityApi.getEntitiesGeoJSON({
+      entity_type_slug: currentEntityType.value.slug,
+      limit: 1,
+    })
+    hasGeoData.value = response.data.total_with_coords > 0
+  } catch {
+    hasGeoData.value = false
+  }
+}
 
 // Extended filters: combines location + schema attributes
 const hasExtendedFilters = computed(() =>
@@ -930,7 +958,7 @@ const tableHeaders = computed(() => {
 
   headers.push(
     { title: t('entities.properties'), key: 'facet_count', align: 'center' },
-    { title: t('entities.relations'), key: 'relation_count', align: 'center' },
+    { title: t('entities.connections', 'Verknüpfungen'), key: 'relation_count', align: 'center' },
     { title: t('entities.summary'), key: 'facet_summary', sortable: false },
     { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' },
   )
@@ -1010,10 +1038,13 @@ async function loadStats() {
     const result = await store.fetchAnalysisStats({
       entity_type_slug: currentEntityType.value?.slug,
     })
+    // Stats are nested under 'overview' in the API response
+    const overview = result.overview || result
     stats.value = {
-      total_facet_values: result.total_facet_values || 0,
-      verified_count: result.verified_count || 0,
-      relation_count: result.total_relations || 0,
+      total_facet_values: overview.total_facet_values || 0,
+      verified_count: overview.verified_facet_values || 0,
+      // Use total_connections (relations + hierarchy links) instead of just relations
+      relation_count: overview.total_connections || overview.total_relations || 0,
     }
   } catch (e) {
     console.error('Failed to load stats', e)
@@ -1335,9 +1366,11 @@ watch(selectedTypeTab, () => {
     // Clear extended filters when switching entity type
     clearExtendedFilters()
     attributeValueOptions.value = {}
+    viewMode.value = 'table' // Reset to table view when switching types
     loadEntities(1)
     loadParentOptions()
     loadSchemaAttributes()
+    checkGeoDataAvailable()
   }
 })
 
@@ -1346,9 +1379,11 @@ watch(() => route.params.typeSlug, () => {
     // Clear extended filters when switching entity type
     clearExtendedFilters()
     attributeValueOptions.value = {}
+    viewMode.value = 'table' // Reset to table view when switching types
     loadEntities(1)
     loadParentOptions()
     loadSchemaAttributes()
+    checkGeoDataAvailable()
   }
 })
 
@@ -1374,6 +1409,7 @@ onMounted(async () => {
   await loadEntities()
   await loadParentOptions()
   await loadSchemaAttributes()
+  await checkGeoDataAvailable()
 })
 </script>
 

@@ -7,6 +7,27 @@
 
 import { createI18n } from 'vue-i18n'
 
+// Deep merge helper for nested objects
+function deepMerge<T extends Record<string, unknown>>(...objects: T[]): T {
+  const result = {} as T
+  for (const obj of objects) {
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const value = obj[key]
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          result[key] = deepMerge(
+            (result[key] || {}) as Record<string, unknown>,
+            value as Record<string, unknown>
+          ) as T[Extract<keyof T, string>]
+        } else {
+          result[key] = value as T[Extract<keyof T, string>]
+        }
+      }
+    }
+  }
+  return result
+}
+
 // German locale modules
 import deCommon from './de/common.json'
 import deDashboard from './de/dashboard.json'
@@ -65,14 +86,14 @@ const de = {
   ...deSmartQuery,
   ...deNotifications,
   ...deAdmin,
-  // Merge help sub-modules
-  help: {
-    ...deHelpIntro.help,
-    ...deHelpViews.help,
-    ...deHelpFeatures.help,
-    ...deHelpAdvanced.help,
-    ...deHelpUi.help,
-  },
+  // Merge help sub-modules using deep merge to preserve nested objects
+  help: deepMerge(
+    deHelpIntro.help || {},
+    deHelpViews.help || {},
+    deHelpFeatures.help || {},
+    deHelpAdvanced.help || {},
+    deHelpUi.help || {},
+  ),
   ...deAssistant,
   ...deMisc,
   ...deFavorites,
@@ -92,14 +113,14 @@ const en = {
   ...enSmartQuery,
   ...enNotifications,
   ...enAdmin,
-  // Merge help sub-modules
-  help: {
-    ...enHelpIntro.help,
-    ...enHelpViews.help,
-    ...enHelpFeatures.help,
-    ...enHelpAdvanced.help,
-    ...enHelpUi.help,
-  },
+  // Merge help sub-modules using deep merge to preserve nested objects
+  help: deepMerge(
+    enHelpIntro.help || {},
+    enHelpViews.help || {},
+    enHelpFeatures.help || {},
+    enHelpAdvanced.help || {},
+    enHelpUi.help || {},
+  ),
   ...enAssistant,
   ...enMisc,
   ...enFavorites,

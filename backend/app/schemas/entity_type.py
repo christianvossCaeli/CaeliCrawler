@@ -29,6 +29,7 @@ class EntityTypeBase(BaseModel):
     # Capabilities
     is_primary: bool = Field(default=False, description="Can serve as primary aggregation level")
     supports_hierarchy: bool = Field(default=False, description="Has hierarchical structure")
+    supports_pysis: bool = Field(default=False, description="Supports PySis data enrichment")
     hierarchy_config: Optional[Dict[str, Any]] = Field(
         None,
         description='Hierarchy configuration {"levels": ["country", "admin_level_1", ...]}',
@@ -87,6 +88,7 @@ class EntityTypeUpdate(BaseModel):
     display_order: Optional[int] = None
     is_primary: Optional[bool] = None
     supports_hierarchy: Optional[bool] = None
+    supports_pysis: Optional[bool] = None
     hierarchy_config: Optional[Dict[str, Any]] = None
     attribute_schema: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None

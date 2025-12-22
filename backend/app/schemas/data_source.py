@@ -53,12 +53,51 @@ class CrawlConfig(BaseModel):
     max_articles: int = Field(default=50, ge=1, le=500, description="Maximum articles to fetch")
     filter_keywords: List[str] = Field(default_factory=list, description="Keywords to filter articles")
 
-    # API-specific settings
+    # API-specific settings (for CUSTOM_API)
     api_type: Optional[str] = Field(None, description="API type: govdata, dip_bundestag, fragdenstaat")
     search_query: Optional[str] = Field(None, description="Search query for API")
     wahlperiode: Optional[int] = Field(None, description="Legislative period (for DIP)")
     vorgangstyp: Optional[str] = Field(None, description="Process type (for DIP)")
     max_results: int = Field(default=100, ge=1, le=1000, description="Maximum results from API")
+
+    # Entity API settings (for REST_API and SPARQL_API source types)
+    # These APIs are used to keep Entities up-to-date
+    entity_api_type: Optional[str] = Field(
+        None,
+        description="Entity API type: rest or sparql"
+    )
+    entity_api_endpoint: Optional[str] = Field(
+        None,
+        description="API endpoint path (appended to base_url)"
+    )
+    entity_api_method: str = Field(
+        default="GET",
+        description="HTTP method for REST API"
+    )
+    entity_api_query: Optional[str] = Field(
+        None,
+        description="SPARQL query string (for SPARQL_API)"
+    )
+    entity_api_template: Optional[str] = Field(
+        None,
+        description="Predefined API template name (e.g., 'caeli_auction_windparks')"
+    )
+    entity_field_mapping: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Mapping from API fields to Entity fields (e.g., {'auctionId': 'external_id'})"
+    )
+    entity_type_slug: Optional[str] = Field(
+        None,
+        description="Target EntityType slug for updates"
+    )
+    entity_update_strategy: str = Field(
+        default="merge",
+        description="Update strategy: merge (update existing), replace (overwrite), upsert (create or update)"
+    )
+    entity_id_field: Optional[str] = Field(
+        None,
+        description="API field used to identify existing entities (default: external_id from field_mapping)"
+    )
 
     model_config = {"extra": "allow"}  # Allow additional fields
 

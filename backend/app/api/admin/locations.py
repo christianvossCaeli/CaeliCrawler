@@ -4,13 +4,15 @@ import math
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.countries import get_country_config, get_supported_countries, is_country_supported
 from app.database import get_session
 from app.core.deps import require_editor, require_admin
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 from app.models import User
 from app.models.location import Location
 from app.schemas.location import (
@@ -441,8 +443,9 @@ async def get_location(
 @router.post("", response_model=LocationResponse, status_code=201)
 async def create_location(
     data: LocationCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Create a new location."""
     # Validate country
@@ -485,27 +488,41 @@ async def create_location(
             detail=f"Location '{data.name}' already exists in {data.country}",
         )
 
-    location = Location(
-        name=data.name,
-        name_normalized=name_normalized,
-        country=data.country.upper(),
-        official_code=data.official_code,
-        admin_level_1=data.admin_level_1,
-        admin_level_2=data.admin_level_2,
-        locality_type=data.locality_type,
-        country_metadata=data.country_metadata or {},
-        population=data.population,
-        area_km2=data.area_km2,
-        latitude=data.latitude,
-        longitude=data.longitude,
-        is_active=True,
-    )
-    session.add(location)
-    await session.flush()
-    await session.refresh(location)
+    async with AuditContext(session, current_user, request) as audit:
+        location = Location(
+            name=data.name,
+            name_normalized=name_normalized,
+            country=data.country.upper(),
+            official_code=data.official_code,
+            admin_level_1=data.admin_level_1,
+            admin_level_2=data.admin_level_2,
+            locality_type=data.locality_type,
+            country_metadata=data.country_metadata or {},
+            population=data.population,
+            area_km2=data.area_km2,
+            latitude=data.latitude,
+            longitude=data.longitude,
+            is_active=True,
+        )
+        session.add(location)
+        await session.flush()
 
-    # Note: DataSources are no longer linked to Locations directly.
-    # The relationship is now: DataSource -> Category -> AI Analysis -> Entity + FacetValues
+        audit.track_action(
+            action=AuditAction.CREATE,
+            entity_type="Location",
+            entity_id=location.id,
+            entity_name=location.name,
+            changes={
+                "name": location.name,
+                "country": location.country,
+                "official_code": location.official_code,
+                "admin_level_1": location.admin_level_1,
+            },
+        )
+
+        await session.commit()
+        await session.refresh(location)
+
     response = LocationResponse.model_validate(location)
     response.source_count = 0
     response.pysis_process_count = 0
@@ -516,8 +533,9 @@ async def create_location(
 async def update_location(
     location_id: UUID,
     data: LocationUpdate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """Update a location."""
     result = await session.execute(
@@ -528,6 +546,8 @@ async def update_location(
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
 
+    old_data = {"name": location.name, "country": location.country, "is_active": location.is_active}
+
     update_data = data.model_dump(exclude_unset=True)
 
     # If name or country is updated, update normalized name
@@ -536,13 +556,16 @@ async def update_location(
         new_country = update_data.get("country", location.country)
         update_data["name_normalized"] = Location.normalize_name(new_name, new_country)
 
-    for field, value in update_data.items():
-        setattr(location, field, value)
+    async with AuditContext(session, current_user, request) as audit:
+        for field, value in update_data.items():
+            setattr(location, field, value)
 
-    await session.flush()
-    await session.refresh(location)
+        new_data = {"name": location.name, "country": location.country, "is_active": location.is_active}
+        audit.track_update(location, old_data, new_data)
 
-    # Note: DataSources are no longer linked to Locations directly.
+        await session.commit()
+        await session.refresh(location)
+
     response = LocationResponse.model_validate(location)
     response.source_count = 0
     response.pysis_process_count = 0
@@ -552,8 +575,9 @@ async def update_location(
 @router.delete("/{location_id}", response_model=MessageResponse)
 async def delete_location(
     location_id: UUID,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Delete a location (soft delete)."""
     result = await session.execute(
@@ -567,8 +591,24 @@ async def delete_location(
     # Note: DataSources are no longer linked to Locations directly.
     # Locations can be freely deleted (soft delete).
     name = location.name
-    location.is_active = False
-    await session.commit()
+
+    async with AuditContext(session, current_user, request) as audit:
+        location.is_active = False
+
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="Location",
+            entity_id=location.id,
+            entity_name=name,
+            changes={
+                "name": name,
+                "country": location.country,
+                "admin_level_1": location.admin_level_1,
+                "soft_delete": True,
+            },
+        )
+
+        await session.commit()
 
     return MessageResponse(message=f"Location '{name}' deleted successfully")
 

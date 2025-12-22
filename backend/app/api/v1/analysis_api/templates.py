@@ -8,7 +8,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
-from app.models import AnalysisTemplate, Category, EntityType
+from app.models import AnalysisTemplate, Category, EntityType, FacetType
+from app.core.validators import validate_facet_config_slugs
 from app.models.user import User
 from app.schemas.analysis_template import (
     AnalysisTemplateCreate,
@@ -84,6 +85,16 @@ async def create_analysis_template(
     entity_type = await session.get(EntityType, data.primary_entity_type_id)
     if not entity_type:
         raise NotFoundError("EntityType", str(data.primary_entity_type_id))
+
+    # Validate facet_config slugs
+    if data.facet_config:
+        facet_configs = [fc.model_dump() if hasattr(fc, 'model_dump') else fc for fc in data.facet_config]
+        _, invalid_slugs = await validate_facet_config_slugs(session, facet_configs)
+        if invalid_slugs:
+            raise ConflictError(
+                "Invalid facet type slugs in facet_config",
+                detail=f"The following facet type slugs do not exist: {', '.join(sorted(invalid_slugs))}",
+            )
 
     # Generate slug if not provided
     slug = data.slug or generate_slug(data.name)
@@ -182,6 +193,16 @@ async def update_analysis_template(
     template = await session.get(AnalysisTemplate, template_id)
     if not template:
         raise NotFoundError("AnalysisTemplate", str(template_id))
+
+    # Validate facet_config slugs if being updated
+    if data.facet_config:
+        facet_configs = [fc.model_dump() if hasattr(fc, 'model_dump') else fc for fc in data.facet_config]
+        _, invalid_slugs = await validate_facet_config_slugs(session, facet_configs)
+        if invalid_slugs:
+            raise ConflictError(
+                "Invalid facet type slugs in facet_config",
+                detail=f"The following facet type slugs do not exist: {', '.join(sorted(invalid_slugs))}",
+            )
 
     # Update fields
     update_data = data.model_dump(exclude_unset=True)

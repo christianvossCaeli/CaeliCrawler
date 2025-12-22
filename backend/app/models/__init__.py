@@ -25,6 +25,7 @@ from app.models.category_entity_type import CategoryEntityType
 from app.models.entity_attachment import EntityAttachment, AttachmentAnalysisStatus
 from app.models.facet_type import FacetType, ValueType, AggregationMethod, TimeFilter
 from app.models.facet_value import FacetValue, FacetValueSourceType
+from app.models.facet_value_history import FacetValueHistory
 from app.models.relation_type import RelationType, Cardinality
 from app.models.entity_relation import EntityRelation
 from app.models.analysis_template import AnalysisTemplate
@@ -108,6 +109,7 @@ __all__ = [
     "TimeFilter",
     "FacetValue",
     "FacetValueSourceType",
+    "FacetValueHistory",
     "RelationType",
     "Cardinality",
     "EntityRelation",

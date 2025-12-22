@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,8 @@ from app.config import settings
 from app.database import get_session
 from app.models.user import User, UserRole
 from app.core.deps import get_current_user, get_current_user_optional
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 from services.attachment_service import AttachmentService
 
 router = APIRouter()
@@ -28,6 +30,7 @@ ALLOWED_TYPES = {
 @router.post("/entities/{entity_id}/attachments")
 async def upload_attachment(
     entity_id: UUID,
+    request: Request,
     file: UploadFile = File(...),
     description: Optional[str] = Query(None, max_length=500),
     auto_analyze: bool = Query(False, description="Start AI analysis immediately"),
@@ -74,6 +77,23 @@ async def upload_attachment(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    # Audit log for attachment upload
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.CREATE,
+            entity_type="Attachment",
+            entity_id=attachment.id,
+            entity_name=attachment.filename,
+            changes={
+                "filename": attachment.filename,
+                "content_type": attachment.content_type,
+                "file_size": attachment.file_size,
+                "entity_id": str(entity_id),
+                "auto_analyze": auto_analyze,
+            },
+        )
+        await session.commit()
 
     result: Dict[str, Any] = {
         "success": True,
@@ -236,6 +256,7 @@ async def get_thumbnail(
 async def delete_attachment(
     entity_id: UUID,
     attachment_id: UUID,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
@@ -253,7 +274,24 @@ async def delete_attachment(
     if not attachment or attachment.entity_id != entity_id:
         raise HTTPException(status_code=404, detail="Attachment nicht gefunden")
 
-    success = await service.delete_attachment(attachment_id)
+    filename = attachment.filename
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="Attachment",
+            entity_id=attachment_id,
+            entity_name=filename,
+            changes={
+                "deleted": True,
+                "filename": filename,
+                "entity_id": str(entity_id),
+                "file_size": attachment.file_size,
+            },
+        )
+        # Note: delete_attachment handles its own commit
+        success = await service.delete_attachment(attachment_id)
+        await session.commit()
 
     return {"success": success, "message": "Attachment geloescht"}
 

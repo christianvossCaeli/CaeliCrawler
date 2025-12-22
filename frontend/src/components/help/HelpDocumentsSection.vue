@@ -16,7 +16,7 @@
         <v-icon start size="small">mdi-check-circle</v-icon>
         {{ t('help.documents.statuses.completed') }}
       </v-chip>
-      <v-chip color="grey" variant="tonal">
+      <v-chip variant="tonal">
         <v-icon start size="small">mdi-filter-remove</v-icon>
         {{ t('help.documents.statuses.filtered') }}
       </v-chip>
@@ -38,7 +38,7 @@
 
     <h3 class="text-h6 mt-4 mb-3">{{ t('help.documents.availableFilters') }}</h3>
     <v-chip-group>
-      <v-chip size="small" variant="outlined" v-for="(filter, index) in t('help.documents.filters')" :key="index">
+      <v-chip size="small" variant="outlined" v-for="(filter, index) in (tm('help.documents.filters') as string[])" :key="index">
         {{ filter }}
       </v-chip>
     </v-chip-group>
@@ -48,7 +48,7 @@
       <v-expansion-panel :title="t('help.documents.documentDetails.tabInfo')">
         <v-expansion-panel-text>
           <ul class="pl-4">
-            <li v-for="(item, index) in t('help.documents.documentDetails.tabInfoItems')" :key="index">
+            <li v-for="(item, index) in (tm('help.documents.documentDetails.tabInfoItems') as string[])" :key="index">
               {{ item }}
             </li>
           </ul>
@@ -62,7 +62,7 @@
       <v-expansion-panel :title="t('help.documents.documentDetails.tabExtracted')">
         <v-expansion-panel-text>
           <ul class="pl-4">
-            <li v-for="(item, index) in t('help.documents.documentDetails.tabExtractedItems')" :key="index">
+            <li v-for="(item, index) in (tm('help.documents.documentDetails.tabExtractedItems') as string[])" :key="index">
               {{ item }}
             </li>
           </ul>
@@ -76,5 +76,5 @@
 import { useI18n } from 'vue-i18n'
 import HelpCard from './HelpCard.vue'
 
-const { t } = useI18n()
+const { t, tm } = useI18n()
 </script>

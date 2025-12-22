@@ -89,14 +89,14 @@
         <v-row class="mt-4">
           <v-col cols="6" sm="3" md="2">
             <div class="text-center">
-              <div class="text-h5">{{ entity.facet_count || 0 }}</div>
-              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.stats.facetValues') }}</div>
+              <div class="text-h5">{{ totalPropertiesCount }}</div>
+              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.stats.properties', 'Eigenschaften') }}</div>
             </div>
           </v-col>
           <v-col cols="6" sm="3" md="2">
             <div class="text-center">
-              <div class="text-h5">{{ entity.relation_count || 0 }}</div>
-              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.stats.relations') }}</div>
+              <div class="text-h5">{{ totalConnectionsCount }}</div>
+              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.stats.connections', 'Verknüpfungen') }}</div>
             </div>
           </v-col>
           <v-col cols="6" sm="3" md="2">
@@ -138,10 +138,10 @@
         {{ t('entityDetail.tabs.properties') }}
         <v-chip v-if="facetsSummary" size="x-small" class="ml-2">{{ facetsSummary.total_facet_values }}</v-chip>
       </v-tab>
-      <v-tab value="relations">
-        <v-icon start>mdi-link</v-icon>
-        {{ t('entityDetail.tabs.relations') }}
-        <v-chip v-if="relations.length" size="x-small" class="ml-2">{{ relations.length }}</v-chip>
+      <v-tab value="connections">
+        <v-icon start>mdi-sitemap</v-icon>
+        {{ t('entityDetail.tabs.connections', 'Verknüpfungen') }}
+        <v-chip v-if="totalConnectionsCount" size="x-small" class="ml-2">{{ totalConnectionsCount }}</v-chip>
       </v-tab>
       <v-tab value="sources">
         <v-icon start>mdi-web</v-icon>
@@ -152,7 +152,7 @@
         <v-icon start>mdi-file-document-multiple</v-icon>
         {{ t('entityDetail.tabs.documents') }}
       </v-tab>
-      <v-tab v-if="entityType?.slug === 'municipality'" value="pysis">
+      <v-tab v-if="entityType?.supports_pysis" value="pysis">
         <v-icon start>mdi-database-sync</v-icon>
         {{ t('entityDetail.tabs.pysis') }}
       </v-tab>
@@ -164,11 +164,6 @@
         <v-icon start>mdi-paperclip</v-icon>
         {{ t('entityDetail.tabs.attachments') }}
         <v-chip v-if="attachmentCount" size="x-small" class="ml-2">{{ attachmentCount }}</v-chip>
-      </v-tab>
-      <v-tab v-if="flags.entityHierarchyEnabled && entityType?.supports_hierarchy" value="children">
-        <v-icon start>mdi-file-tree</v-icon>
-        {{ t('entityDetail.tabs.children', 'Untergeordnete') }}
-        <v-chip v-if="childrenCount" size="x-small" class="ml-2">{{ childrenCount }}</v-chip>
       </v-tab>
     </v-tabs>
 
@@ -191,7 +186,7 @@
               ></v-text-field>
               <!-- Enrichment Dropdown Menu -->
               <v-menu
-                v-if="entityType?.slug === 'municipality'"
+                v-if="entityType?.supports_pysis"
                 v-model="enrichmentMenuOpen"
                 :close-on-content-click="false"
                 location="bottom end"
@@ -404,8 +399,18 @@
 
               <v-expand-transition>
                 <v-card-text v-show="expandedFacets.includes(facetGroup.facet_type_slug)">
-                  <!-- Facet Values List -->
-                  <div v-if="getDisplayedFacets(facetGroup).length" class="mb-4">
+                  <!-- History Facet Type - Show Chart -->
+                  <template v-if="facetGroup.facet_type_value_type === 'history'">
+                    <FacetHistoryChart
+                      :entity-id="entity.id"
+                      :facet-type-id="facetGroup.facet_type_id"
+                      :facet-type="facetGroup"
+                      @updated="refreshFacetsSummary"
+                    />
+                  </template>
+
+                  <!-- Regular Facet Values List -->
+                  <div v-else-if="getDisplayedFacets(facetGroup).length" class="mb-4">
                     <div
                       v-for="(sample, idx) in getDisplayedFacets(facetGroup)"
                       :key="sample.id || idx"
@@ -694,74 +699,206 @@
       </v-window-item>
 
       <!-- Relations Tab -->
-      <v-window-item value="relations">
+      <v-window-item value="connections">
         <v-card>
           <v-card-text>
             <!-- Loading State -->
-            <div v-if="loadingRelations" class="text-center pa-8">
+            <div v-if="loadingRelations || loadingChildren" class="text-center pa-8">
               <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
-              <p class="mt-4 text-medium-emphasis">{{ t('entityDetail.loadingRelations') }}</p>
+              <p class="mt-4 text-medium-emphasis">{{ t('entityDetail.loadingConnections', 'Lade Verknüpfungen...') }}</p>
             </div>
-            <div v-else-if="relations.length">
-              <!-- Add button at top when relations exist -->
-              <div class="d-flex justify-end mb-2">
-                <v-btn variant="tonal" color="primary" size="small" @click="openAddRelationDialog">
+
+            <div v-else>
+              <!-- Hierarchy Tree Visualization -->
+              <div class="hierarchy-tree mb-6">
+                <!-- Parent (Übergeordnet) -->
+                <div v-if="entity?.parent_id" class="tree-level tree-parent">
+                  <div class="tree-connector tree-connector-down"></div>
+                  <v-card
+                    variant="outlined"
+                    class="tree-node tree-node-parent mx-auto"
+                    max-width="400"
+                    @click="navigateToParent"
+                    style="cursor: pointer;"
+                  >
+                    <v-card-text class="d-flex align-center pa-3">
+                      <v-avatar :color="entityType?.color || 'primary'" size="44" class="mr-3">
+                        <v-icon :icon="entityType?.icon || 'mdi-folder'" color="white"></v-icon>
+                      </v-avatar>
+                      <div class="flex-grow-1">
+                        <div class="text-overline text-medium-emphasis mb-0">
+                          {{ entityType?.hierarchy_config?.parent_label || t('entityDetail.connections.parent', 'Übergeordnet') }}
+                        </div>
+                        <div class="text-subtitle-1 font-weight-medium">{{ entity.parent_name || 'Übergeordnete Entity' }}</div>
+                      </div>
+                      <v-icon color="primary">mdi-arrow-up</v-icon>
+                    </v-card-text>
+                  </v-card>
+                </div>
+
+                <!-- Current Entity (Zentrum) -->
+                <div class="tree-level tree-current my-4">
+                  <div v-if="entity?.parent_id" class="tree-connector tree-connector-vertical"></div>
+                  <v-card
+                    variant="outlined"
+                    class="tree-node tree-node-current mx-auto elevation-2"
+                    max-width="450"
+                    :style="{ borderColor: entityType?.color || 'var(--v-theme-primary)', borderWidth: '2px' }"
+                  >
+                    <v-card-text class="d-flex align-center pa-4">
+                      <v-avatar :color="entityType?.color || 'primary'" size="52" class="mr-4">
+                        <v-icon :icon="entityType?.icon || 'mdi-folder'" color="white" size="28"></v-icon>
+                      </v-avatar>
+                      <div class="flex-grow-1">
+                        <div class="text-overline text-medium-emphasis mb-0">{{ entityType?.name || 'Entity' }}</div>
+                        <div class="text-h6 font-weight-bold">{{ entity?.name }}</div>
+                        <div v-if="entity?.external_id" class="text-caption text-medium-emphasis">{{ entity.external_id }}</div>
+                      </div>
+                      <v-chip :color="entityType?.color || 'primary'" variant="tonal" size="small" class="ml-2">
+                        <v-icon start size="x-small">mdi-sitemap</v-icon>
+                        {{ totalConnectionsCount }}
+                      </v-chip>
+                    </v-card-text>
+                  </v-card>
+                  <div v-if="childrenCount > 0 || relations.length > 0" class="tree-connector tree-connector-vertical tree-connector-down-from-current"></div>
+                </div>
+
+                <!-- Children (Untergeordnete) - Tree Branch Style -->
+                <div v-if="flags.entityHierarchyEnabled && entityType?.supports_hierarchy && childrenCount > 0" class="tree-level tree-children">
+                  <div class="d-flex justify-center mb-3">
+                    <v-chip color="success" variant="tonal" size="small">
+                      <v-icon start size="small">mdi-arrow-down</v-icon>
+                      {{ entityType?.hierarchy_config?.children_label || t('entityDetail.connections.children', 'Untergeordnete') }}
+                      ({{ childrenCount }})
+                    </v-chip>
+                  </div>
+
+                  <!-- Search for children -->
+                  <v-text-field
+                    v-if="children.length > 5"
+                    v-model="childrenSearchQuery"
+                    prepend-inner-icon="mdi-magnify"
+                    :label="t('common.search')"
+                    clearable
+                    hide-details
+                    density="compact"
+                    variant="outlined"
+                    class="mb-3 mx-auto"
+                    style="max-width: 400px;"
+                  ></v-text-field>
+
+                  <!-- Children Grid -->
+                  <div class="tree-children-grid">
+                    <v-card
+                      v-for="child in filteredChildren"
+                      :key="child.id"
+                      variant="outlined"
+                      class="tree-node tree-node-child"
+                      :to="`/entities/${typeSlug}/${child.slug}`"
+                    >
+                      <v-card-text class="d-flex align-center pa-3">
+                        <v-avatar :color="entityType?.color || 'success'" size="36" class="mr-3">
+                          <v-icon :icon="entityType?.icon || 'mdi-folder'" color="white" size="small"></v-icon>
+                        </v-avatar>
+                        <div class="flex-grow-1 overflow-hidden">
+                          <div class="text-subtitle-2 font-weight-medium text-truncate">{{ child.name }}</div>
+                          <div class="text-caption text-medium-emphasis">
+                            <span v-if="child.external_id">{{ child.external_id }}</span>
+                            <v-chip v-if="child.children_count" size="x-small" variant="text" class="ml-1 pa-0">
+                              <v-icon size="x-small">mdi-file-tree</v-icon>
+                              {{ child.children_count }}
+                            </v-chip>
+                          </div>
+                        </div>
+                        <v-icon size="small" color="grey">mdi-chevron-right</v-icon>
+                      </v-card-text>
+                    </v-card>
+                  </div>
+
+                  <!-- Pagination -->
+                  <div v-if="childrenTotalPages > 1" class="d-flex justify-center mt-4">
+                    <v-pagination
+                      v-model="childrenPage"
+                      :length="childrenTotalPages"
+                      :total-visible="5"
+                      density="compact"
+                      @update:model-value="loadChildren"
+                    ></v-pagination>
+                  </div>
+                </div>
+              </div>
+
+              <v-divider v-if="relations.length > 0" class="my-6"></v-divider>
+
+              <!-- Relations Section (Other Connections) -->
+              <div v-if="relations.length > 0" class="relations-section">
+                <div class="d-flex align-center justify-space-between mb-4">
+                  <div class="d-flex align-center">
+                    <v-icon color="info" size="small" class="mr-2">mdi-link-variant</v-icon>
+                    <span class="text-subtitle-1 font-weight-medium">{{ t('entityDetail.connections.otherRelations', 'Weitere Verknüpfungen') }}</span>
+                    <v-chip size="x-small" class="ml-2">{{ relations.length }}</v-chip>
+                  </div>
+                  <v-btn variant="tonal" color="primary" size="small" @click="openAddRelationDialog">
+                    <v-icon start size="small">mdi-link-plus</v-icon>
+                    {{ t('entityDetail.addRelation') }}
+                  </v-btn>
+                </div>
+
+                <div class="relations-grid">
+                  <v-card
+                    v-for="rel in relations"
+                    :key="rel.id"
+                    variant="outlined"
+                    class="relation-card"
+                    @click="navigateToRelatedEntity(rel)"
+                    style="cursor: pointer;"
+                  >
+                    <v-card-text class="d-flex align-center pa-3">
+                      <v-avatar :color="rel.relation_type_color || 'info'" size="36" class="mr-3">
+                        <v-icon color="white" size="small">mdi-link-variant</v-icon>
+                      </v-avatar>
+                      <div class="flex-grow-1 overflow-hidden">
+                        <div class="text-caption text-medium-emphasis">{{ rel.relation_type_name }}</div>
+                        <div class="text-subtitle-2 font-weight-medium text-truncate">
+                          {{ rel.source_entity_id === entity?.id ? rel.target_entity_name : rel.source_entity_name }}
+                        </div>
+                      </div>
+                      <div class="d-flex align-center ga-1">
+                        <v-chip v-if="rel.human_verified" size="x-small" color="success" variant="flat">
+                          <v-icon size="x-small">mdi-check</v-icon>
+                        </v-chip>
+                        <v-btn icon size="x-small" variant="text" @click.stop="editRelation(rel)">
+                          <v-icon size="x-small">mdi-pencil</v-icon>
+                        </v-btn>
+                        <v-btn icon size="x-small" variant="text" color="error" @click.stop="confirmDeleteRelation(rel)">
+                          <v-icon size="x-small">mdi-delete</v-icon>
+                        </v-btn>
+                      </div>
+                    </v-card-text>
+                  </v-card>
+                </div>
+              </div>
+
+              <!-- Add Relation Button (wenn keine Relations aber noch keine children angezeigt werden) -->
+              <div v-if="relations.length === 0 && childrenCount === 0 && !entity?.parent_id" class="text-center mt-4">
+                <v-btn variant="tonal" color="primary" @click="openAddRelationDialog">
                   <v-icon start>mdi-link-plus</v-icon>
                   {{ t('entityDetail.addRelation') }}
                 </v-btn>
               </div>
-              <v-list>
-                <v-list-item
-                  v-for="rel in relations"
-                  :key="rel.id"
-                  class="cursor-pointer"
-                >
-                  <template v-slot:prepend>
-                    <v-icon :color="rel.relation_type_color || 'primary'">mdi-link-variant</v-icon>
-                  </template>
-                  <v-list-item-title @click="navigateToRelatedEntity(rel)" class="cursor-pointer">
-                    <span v-if="rel.source_entity_id === entity?.id">
-                      {{ rel.relation_type_name }}: <strong>{{ rel.target_entity_name }}</strong>
-                    </span>
-                    <span v-else>
-                      {{ rel.relation_type_name_inverse || rel.relation_type_name }}: <strong>{{ rel.source_entity_name }}</strong>
-                    </span>
-                  </v-list-item-title>
-                  <v-list-item-subtitle v-if="rel.attributes && Object.keys(rel.attributes).length">
-                    <v-chip v-for="(val, key) in rel.attributes" :key="key" size="x-small" class="mr-1">
-                      {{ key }}: {{ val }}
-                    </v-chip>
-                  </v-list-item-subtitle>
-                  <template v-slot:append>
-                    <div class="d-flex align-center ga-2">
-                      <v-chip v-if="rel.human_verified" size="x-small" color="success">
-                        <v-icon size="x-small">mdi-check</v-icon>
-                      </v-chip>
-                      <v-btn icon size="small" variant="text" @click.stop="editRelation(rel)">
-                        <v-icon size="small">mdi-pencil</v-icon>
-                        <v-tooltip activator="parent" location="top">{{ t('common.edit') }}</v-tooltip>
-                      </v-btn>
-                      <v-btn icon size="small" variant="text" color="error" @click.stop="confirmDeleteRelation(rel)">
-                        <v-icon size="small">mdi-delete</v-icon>
-                        <v-tooltip activator="parent" location="top">{{ t('common.delete') }}</v-tooltip>
-                      </v-btn>
-                      <v-icon @click="navigateToRelatedEntity(rel)">mdi-chevron-right</v-icon>
-                    </div>
-                  </template>
-                </v-list-item>
-              </v-list>
-            </div>
-            <!-- Empty State for Relations -->
-            <div v-else class="text-center pa-8">
-              <v-icon size="80" color="grey-lighten-1" class="mb-4">mdi-link-off</v-icon>
-              <h3 class="text-h6 mb-2">{{ t('entityDetail.emptyState.noRelations') }}</h3>
-              <p class="text-body-2 text-medium-emphasis mb-4">
-                {{ t('entityDetail.emptyState.noRelationsDesc') }}
-              </p>
-              <v-btn variant="tonal" color="primary" @click="openAddRelationDialog">
-                <v-icon start>mdi-link-plus</v-icon>
-                {{ t('entityDetail.addRelation') }}
-              </v-btn>
+
+              <!-- Empty State when no connections at all -->
+              <div v-if="totalConnectionsCount === 0" class="text-center pa-8">
+                <v-icon size="80" color="grey-lighten-1" class="mb-4">mdi-sitemap</v-icon>
+                <h3 class="text-h6 mb-2">{{ t('entityDetail.emptyState.noConnections', 'Keine Verknüpfungen') }}</h3>
+                <p class="text-body-2 text-medium-emphasis mb-4">
+                  {{ t('entityDetail.emptyState.noConnectionsDesc', 'Diese Entity hat noch keine Verknüpfungen zu anderen Entities.') }}
+                </p>
+                <v-btn variant="tonal" color="primary" @click="openAddRelationDialog">
+                  <v-icon start>mdi-link-plus</v-icon>
+                  {{ t('entityDetail.addRelation') }}
+                </v-btn>
+              </div>
             </div>
           </v-card-text>
         </v-card>
@@ -855,7 +992,7 @@
       </v-window-item>
 
       <!-- PySis Tab (only for municipalities) -->
-      <v-window-item v-if="entityType?.slug === 'municipality'" value="pysis" eager>
+      <v-window-item v-if="entityType?.supports_pysis" value="pysis" eager>
         <PySisTab
           v-if="entity"
           :municipality="entity.name"
@@ -949,81 +1086,6 @@
       </v-window-item>
 
       <!-- Children Tab (Untergeordnete Entities) -->
-      <v-window-item v-if="flags.entityHierarchyEnabled && entityType?.supports_hierarchy" value="children">
-        <v-card>
-          <v-card-text>
-            <!-- Loading State -->
-            <div v-if="loadingChildren" class="d-flex justify-center py-8">
-              <v-progress-circular indeterminate></v-progress-circular>
-            </div>
-
-            <!-- Empty State -->
-            <v-alert v-else-if="children.length === 0" type="info" variant="tonal" class="mb-0">
-              <v-alert-title>{{ t('entityDetail.children.empty', 'Keine untergeordneten Entities') }}</v-alert-title>
-              {{ t('entityDetail.children.emptyHint', 'Diese Entity hat keine untergeordneten Einträge.') }}
-            </v-alert>
-
-            <!-- Children List -->
-            <template v-else>
-              <v-text-field
-                v-if="children.length > 5"
-                v-model="childrenSearchQuery"
-                prepend-inner-icon="mdi-magnify"
-                :label="t('common.search')"
-                clearable
-                hide-details
-                density="compact"
-                variant="outlined"
-                class="mb-4"
-              ></v-text-field>
-
-              <v-list lines="two">
-                <v-list-item
-                  v-for="child in filteredChildren"
-                  :key="child.id"
-                  :to="`/entities/${typeSlug}/${child.slug}`"
-                  class="mb-1"
-                  rounded
-                >
-                  <template v-slot:prepend>
-                    <v-avatar :color="entityType?.color || 'primary'" size="40">
-                      <v-icon :icon="entityType?.icon || 'mdi-folder'" color="white" size="small"></v-icon>
-                    </v-avatar>
-                  </template>
-                  <v-list-item-title class="font-weight-medium">{{ child.name }}</v-list-item-title>
-                  <v-list-item-subtitle>
-                    <span v-if="child.external_id" class="mr-3">
-                      <v-icon size="x-small" class="mr-1">mdi-identifier</v-icon>
-                      {{ child.external_id }}
-                    </span>
-                    <span v-if="child.facet_count" class="mr-3">
-                      <v-icon size="x-small" class="mr-1">mdi-tag</v-icon>
-                      {{ child.facet_count }} {{ t('entityDetail.stats.facetValues') }}
-                    </span>
-                    <span v-if="child.children_count">
-                      <v-icon size="x-small" class="mr-1">mdi-file-tree</v-icon>
-                      {{ child.children_count }} {{ t('entityDetail.children.subEntities', 'Untergeordnete') }}
-                    </span>
-                  </v-list-item-subtitle>
-                  <template v-slot:append>
-                    <v-icon>mdi-chevron-right</v-icon>
-                  </template>
-                </v-list-item>
-              </v-list>
-
-              <!-- Pagination -->
-              <div v-if="childrenTotalPages > 1" class="d-flex justify-center mt-4">
-                <v-pagination
-                  v-model="childrenPage"
-                  :length="childrenTotalPages"
-                  :total-visible="5"
-                  @update:model-value="loadChildren"
-                ></v-pagination>
-              </div>
-            </template>
-          </v-card-text>
-        </v-card>
-      </v-window-item>
     </v-window>
 
     <!-- Add Facet Dialog -->
@@ -1952,6 +2014,7 @@ import FacetEnrichmentReview from '@/components/FacetEnrichmentReview.vue'
 import DynamicSchemaForm from '@/components/DynamicSchemaForm.vue'
 import EntityAttachmentsTab from '@/components/entity/EntityAttachmentsTab.vue'
 import FavoriteButton from '@/components/FavoriteButton.vue'
+import FacetHistoryChart from '@/components/facets/FacetHistoryChart.vue'
 
 const { t } = useI18n()
 const { flags } = useFeatureFlags()
@@ -2236,6 +2299,24 @@ const hasAttributes = computed(() =>
   entity.value?.core_attributes && Object.keys(entity.value.core_attributes).length > 0
 )
 
+/// Total connections count: relations + children + parent
+const totalConnectionsCount = computed(() => {
+  const relationCount = entity.value?.relation_count || 0
+  // Use children_count from API response (always available), fall back to loaded childrenCount
+  const childCount = entity.value?.children_count || childrenCount.value || 0
+  const hasParent = entity.value?.parent_id ? 1 : 0
+  return relationCount + childCount + hasParent
+})
+
+// Total properties count: facet values + core attributes
+const totalPropertiesCount = computed(() => {
+  const facetCount = entity.value?.facet_count || 0
+  const coreAttrCount = entity.value?.core_attributes
+    ? Object.keys(entity.value.core_attributes).length
+    : 0
+  return facetCount + coreAttrCount
+})
+
 // Filter facet types applicable to current entity type
 const applicableFacetTypes = computed(() => {
   const entityTypeSlug = entityType.value?.slug
@@ -2352,6 +2433,11 @@ async function loadEntityData() {
 
     // Load attachment count (non-blocking)
     loadAttachmentCount()
+
+    // If connections tab is active, load children
+    if (activeTab.value === 'connections') {
+      loadChildren()
+    }
   } catch (e) {
     console.error('Failed to load entity', e)
     showError(t('entityDetail.messages.loadError'))
@@ -3331,6 +3417,16 @@ function navigateToRelatedEntity(rel: any) {
   })
 }
 
+async function navigateToParent() {
+  if (!entity.value?.parent_id || !entity.value?.parent_slug) return
+
+  // The parent should be of the same entity type (hierarchical)
+  router.push({
+    name: 'entity-detail',
+    params: { typeSlug: typeSlug.value, entitySlug: entity.value.parent_slug },
+  })
+}
+
 function goToSources() {
   // Note: DataSources are no longer directly linked to Entities via location_name.
   // Navigate to sources view without filter - users can filter by category.
@@ -3602,7 +3698,7 @@ function copyToClipboard(text: string) {
 // =============================================================================
 
 async function checkPysisProcesses() {
-  if (!entity.value || entityType.value?.slug !== 'municipality') {
+  if (!entity.value || !entityType.value?.supports_pysis) {
     hasPysisProcesses.value = false
     return
   }
@@ -3833,7 +3929,7 @@ watch(activeTab, (tab) => {
   if (tab === 'documents' && documents.value.length === 0) {
     loadDocuments()
   }
-  if (tab === 'children' && !childrenLoaded.value) {
+  if (tab === 'connections' && !childrenLoaded.value) {
     loadChildren()
   }
 })
@@ -3844,6 +3940,13 @@ watch([typeSlug, entitySlug], () => {
   bulkMode.value = false
   selectedFacetIds.value = []
   facetSearchQuery.value = ''
+  // Reset children/relations for new entity
+  childrenLoaded.value = false
+  children.value = []
+  childrenCount.value = 0
+  childrenPage.value = 1
+  relationsLoaded.value = false
+  relations.value = []
   loadEntityData()
 })
 
@@ -3874,5 +3977,89 @@ onMounted(() => {
 
 .bg-primary-lighten-5 {
   background-color: rgba(var(--v-theme-primary), 0.1);
+}
+
+/* Hierarchy Tree Visualization */
+.hierarchy-tree {
+  text-align: center;
+}
+
+.tree-level {
+  position: relative;
+}
+
+.tree-connector {
+  width: 2px;
+  background: rgb(var(--v-theme-primary));
+  margin: 0 auto;
+}
+
+.tree-connector-vertical {
+  height: 24px;
+}
+
+.tree-connector-down-from-current {
+  height: 32px;
+}
+
+.tree-node {
+  transition: all 0.2s ease;
+}
+
+.tree-node:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.tree-node-current {
+  border-radius: 12px;
+}
+
+.tree-children-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.tree-node-child {
+  border-radius: 8px;
+}
+
+.relations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.relation-card {
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.relation-card:hover {
+  border-color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.04);
+}
+
+/* Dark mode adjustments for tree view */
+.v-theme--dark .tree-node-child,
+.v-theme--dark .tree-node-parent {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.v-theme--dark .tree-node-child:hover,
+.v-theme--dark .tree-node-parent:hover {
+  border-color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.08);
+}
+
+.v-theme--dark .relation-card {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.v-theme--dark .relation-card:hover {
+  background: rgba(var(--v-theme-primary), 0.08);
 }
 </style>

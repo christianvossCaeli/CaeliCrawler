@@ -72,7 +72,7 @@
         <p class="text-body-2">{{ t('help.auditLog.actionTypes.loginDesc') }}</p>
       </v-col>
       <v-col cols="12" md="4">
-        <v-chip color="grey" class="mb-2">
+        <v-chip class="mb-2">
           <v-icon start>mdi-logout</v-icon>
           {{ t('help.auditLog.actionTypes.logout') }}
         </v-chip>
@@ -108,7 +108,7 @@
 
     <v-list density="compact" class="mb-4">
       <v-list-item
-        v-for="(feature, idx) in (t('help.auditLog.entityHistory.features', { returnObjects: true }) as unknown as string[])"
+        v-for="(feature, idx) in (tm('help.auditLog.entityHistory.features') as string[])"
         :key="idx"
         prepend-icon="mdi-check"
       >
@@ -180,5 +180,5 @@
 import { useI18n } from 'vue-i18n'
 import HelpCard from './HelpCard.vue'
 
-const { t } = useI18n()
+const { t, tm } = useI18n()
 </script>

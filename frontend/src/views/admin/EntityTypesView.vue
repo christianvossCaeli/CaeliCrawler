@@ -277,6 +277,15 @@
 
                       <template v-slot:append>
                         <v-chip
+                          v-if="!facet.applicable_entity_type_slugs?.length"
+                          size="x-small"
+                          color="info"
+                          variant="tonal"
+                          class="mr-2"
+                        >
+                          {{ t('admin.entityTypes.form.appliesToAll') }}
+                        </v-chip>
+                        <v-chip
                           v-if="facet.is_system"
                           size="x-small"
                           color="warning"
@@ -454,6 +463,7 @@ const activeTab = ref('basic')
 const selectedFacetIds = ref<string[]>([])
 const facetSearch = ref('')
 const originalFacetIds = ref<string[]>([])
+const originalGlobalFacetIds = ref<string[]>([]) // Facets that originally had empty array (applies to all)
 
 const form = ref({
   name: '',
@@ -576,6 +586,7 @@ function openCreateDialog() {
   facetSearch.value = ''
   selectedFacetIds.value = []
   originalFacetIds.value = []
+  originalGlobalFacetIds.value = []
   form.value = {
     name: '',
     name_plural: '',
@@ -595,17 +606,25 @@ function openEditDialog(item: any) {
   activeTab.value = 'basic'
   facetSearch.value = ''
 
-  // Get facets that are assigned to this entity type
-  const assignedFacetIds = facetTypes.value
+  // Get facets that have empty array (applies to all entity types)
+  const globalFacetIds = facetTypes.value
+    .filter(ft => !ft.applicable_entity_type_slugs?.length)
+    .map(ft => ft.id)
+
+  // Get facets that are explicitly assigned to this entity type
+  const explicitlyAssignedFacetIds = facetTypes.value
     .filter(ft => {
-      // If empty array, it applies to all - but we don't select it by default
       if (!ft.applicable_entity_type_slugs?.length) return false
       return ft.applicable_entity_type_slugs.includes(item.slug)
     })
     .map(ft => ft.id)
 
-  selectedFacetIds.value = [...assignedFacetIds]
-  originalFacetIds.value = [...assignedFacetIds]
+  // Both global and explicitly assigned facets should appear as selected
+  const allAssignedFacetIds = [...new Set([...globalFacetIds, ...explicitlyAssignedFacetIds])]
+
+  selectedFacetIds.value = [...allAssignedFacetIds]
+  originalFacetIds.value = [...allAssignedFacetIds]
+  originalGlobalFacetIds.value = [...globalFacetIds] // Track which were originally global
 
   form.value = {
     name: item.name,
@@ -664,9 +683,13 @@ async function save() {
 
 // Update facet assignments for this entity type
 async function updateFacetAssignments(entityTypeSlug: string) {
-  // Find which facets need to be updated
-  const addedFacetIds = selectedFacetIds.value.filter(id => !originalFacetIds.value.includes(id))
-  const removedFacetIds = originalFacetIds.value.filter(id => !selectedFacetIds.value.includes(id))
+  // Determine changes - but exclude global facets that remained unchanged
+  const addedFacetIds = selectedFacetIds.value.filter(id =>
+    !originalFacetIds.value.includes(id)
+  )
+  const removedFacetIds = originalFacetIds.value.filter(id =>
+    !selectedFacetIds.value.includes(id)
+  )
 
   // Add entity type to newly selected facets
   for (const facetId of addedFacetIds) {
@@ -683,7 +706,24 @@ async function updateFacetAssignments(entityTypeSlug: string) {
   // Remove entity type from deselected facets
   for (const facetId of removedFacetIds) {
     const facet = facetTypes.value.find(f => f.id === facetId)
-    if (facet && facet.applicable_entity_type_slugs?.length) {
+    if (!facet) continue
+
+    // Check if this was originally a global facet (empty array = applies to all)
+    const wasGlobal = originalGlobalFacetIds.value.includes(facetId)
+
+    if (wasGlobal) {
+      // Global facet is being removed from this entity type
+      // We need to explicitly assign it to ALL OTHER entity types
+      const allOtherSlugs = entityTypes.value
+        .map(et => et.slug)
+        .filter(slug => slug !== entityTypeSlug)
+
+      await facetApi.updateFacetType(facetId, {
+        ...facet,
+        applicable_entity_type_slugs: allOtherSlugs,
+      })
+    } else if (facet.applicable_entity_type_slugs?.length) {
+      // Non-global facet - just remove this entity type from the list
       const newSlugs = facet.applicable_entity_type_slugs.filter((s: string) => s !== entityTypeSlug)
       await facetApi.updateFacetType(facetId, {
         ...facet,

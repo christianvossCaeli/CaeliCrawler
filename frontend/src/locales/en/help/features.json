@@ -658,7 +658,7 @@
         "none": "None",
         "noneDesc": "No authentication (only recommended for internal endpoints)",
         "bearer": "Bearer Token",
-        "bearerDesc": "Authorization: Bearer <token>",
+        "bearerDesc": "Authorization: Bearer [token]",
         "apiKey": "API Key",
         "apiKeyDesc": "Custom header with API key",
         "basicAuth": "Basic Auth",
@@ -780,13 +780,13 @@
         "title": "Available Slash Commands",
         "help": "/help [topic]",
         "helpDesc": "Show help, optionally for a specific topic",
-        "search": "/search <query>",
+        "search": "/search [query]",
         "searchDesc": "Search entities",
-        "create": "/create <details>",
+        "create": "/create [details]",
         "createDesc": "Create new record (redirects to Smart Query)",
         "summary": "/summary",
         "summaryDesc": "Summarize current entity",
-        "navigate": "/navigate <entity>",
+        "navigate": "/navigate [entity]",
         "navigateDesc": "Navigate to an entity"
       },
       "exampleQueries": {
@@ -1069,7 +1069,7 @@
         "title": "Schema Definition",
         "description": "For structured facet types, you can define a JSON schema:",
         "example": "Example for Pain Point:",
-        "exampleSchema": "{ \"type\": \"object\", \"properties\": { \"severity\": { \"type\": \"string\", \"enum\": [\"low\", \"medium\", \"high\"] }, \"category\": { \"type\": \"string\" }, \"details\": { \"type\": \"string\" } } }",
+        "exampleSchema": "type: object with properties: severity (string, enum: low/medium/high), category (string), details (string)",
         "tip": "Tip: The AI uses the schema to extract structured data."
       },
       "aiExtraction": {
@@ -1416,11 +1416,48 @@
         "example3": "'Import DAX companies as data sources'",
         "note": "The difference to CREATE_CATEGORY_SETUP: DISCOVER_SOURCES searches the internet for NEW sources, while CREATE_CATEGORY_SETUP uses existing DataSources."
       },
+      "kiFirstApproach": {
+        "title": "AI-First Approach (V2)",
+        "description": "The new AI-First approach follows this flow:",
+        "step1": "Template Check",
+        "step1Desc": "Saved API templates are checked via keyword matching",
+        "step2": "AI API Suggestions",
+        "step2Desc": "The AI generates matching API endpoints based on its knowledge",
+        "step3": "Validation",
+        "step3Desc": "Suggested APIs are automatically tested (HTTP request, JSON parsing)",
+        "step4": "Data Extraction",
+        "step4Desc": "Valid APIs directly deliver structured data with automatic field mapping",
+        "step5": "Fallback",
+        "step5Desc": "Web search is only started if no APIs work"
+      },
+      "apiTemplates": {
+        "title": "API Templates",
+        "description": "Successful API discoveries can be saved as templates:",
+        "saveTemplate": "Save as Template",
+        "saveTemplateDesc": "After successful validation, you can click 'Save as Template'",
+        "keywords": "Keywords",
+        "keywordsDesc": "Define keywords that will automatically activate this template in future searches",
+        "reuse": "Reuse",
+        "reuseDesc": "Saved templates are checked before AI generation - faster and more reliable",
+        "management": "Management",
+        "managementDesc": "Admins can manage templates under Administration → API Templates"
+      },
+      "resultTypes": {
+        "title": "Result Types",
+        "apiSources": "API Sources",
+        "apiSourcesDesc": "Data directly from validated APIs (e.g., OpenLigaDB) - structured and reliable",
+        "webSources": "Web Sources",
+        "webSourcesDesc": "Found websites as fallback when no APIs work",
+        "apiSuggestions": "API Suggestions",
+        "apiSuggestionsDesc": "All AI-generated suggestions with validation status"
+      },
       "tips": {
         "title": "Tips",
         "specific": "Be specific - 'Municipalities in NRW' yields better results than 'Municipalities'",
         "checkTags": "Review the generated tags before import and adjust if needed",
-        "categories": "Select appropriate categories to directly assign the imported sources"
+        "categories": "Select appropriate categories to directly assign the imported sources",
+        "saveTemplates": "Save successful API discoveries as templates for faster future searches",
+        "useApis": "API sources are more reliable than web sources - prioritize them when importing"
       }
     },
     "dataSourceTags": {

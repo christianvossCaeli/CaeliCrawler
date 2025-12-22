@@ -31,9 +31,12 @@ class EntityBase(BaseModel):
     # Core attributes (type-specific)
     core_attributes: Dict[str, Any] = Field(default_factory=dict, description="Type-specific attributes")
 
-    # Geo-coordinates (optional)
+    # Geo-coordinates (optional, for point locations)
     latitude: Optional[float] = Field(None, ge=-90, le=90)
     longitude: Optional[float] = Field(None, ge=-180, le=180)
+
+    # GeoJSON geometry (optional, for complex shapes)
+    geometry: Optional[Dict[str, Any]] = Field(None, description="GeoJSON geometry for boundaries/regions")
 
     is_active: bool = Field(default=True, description="Whether entity is active")
 
@@ -84,6 +87,7 @@ class EntityUpdate(BaseModel):
     core_attributes: Optional[Dict[str, Any]] = None
     latitude: Optional[float] = Field(None, ge=-90, le=90)
     longitude: Optional[float] = Field(None, ge=-180, le=180)
+    geometry: Optional[Dict[str, Any]] = Field(None, description="GeoJSON geometry for boundaries/regions")
     is_active: Optional[bool] = None
 
     # Ownership (optional)
@@ -135,6 +139,7 @@ class EntityResponse(EntityBase):
     entity_type_name: Optional[str] = Field(None, description="Entity type display name")
     entity_type_slug: Optional[str] = Field(None, description="Entity type slug")
     parent_name: Optional[str] = Field(None, description="Parent entity name")
+    parent_slug: Optional[str] = Field(None, description="Parent entity slug")
 
     # Computed fields
     facet_count: int = Field(default=0, description="Number of facet values")
@@ -246,3 +251,20 @@ class EntityExternalDataResponse(BaseModel):
     external_id: Optional[str] = None
     raw_data: Optional[Dict[str, Any]] = None
     last_synced_at: Optional[datetime] = None
+
+
+class GeoJSONFeature(BaseModel):
+    """GeoJSON Feature for entity map display."""
+
+    type: str = "Feature"
+    geometry: Dict[str, Any]
+    properties: Dict[str, Any]
+
+
+class GeoJSONFeatureCollection(BaseModel):
+    """GeoJSON FeatureCollection for entity map display."""
+
+    type: str = "FeatureCollection"
+    features: List[GeoJSONFeature]
+    total_with_coords: int = Field(0, description="Total entities with coordinates")
+    total_without_coords: int = Field(0, description="Total entities without coordinates")

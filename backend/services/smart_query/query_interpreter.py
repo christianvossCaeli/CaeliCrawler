@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from .prompts import WRITE_INTERPRETATION_PROMPT
+from .prompts import build_dynamic_write_prompt
 from .utils import clean_json_response
 
 logger = structlog.get_logger()
@@ -84,8 +84,8 @@ Verwende `relation_chain` für Abfragen über mehrere Beziehungsebenen:
    → primary_entity_type: "event"
    → relation_chain: [{{"type": "attends", "direction": "target", "position_filter": ["Bürgermeister"]}}]
 
-3. "Gemeinden mit Mitarbeitern die Events besucht haben"
-   → primary_entity_type: "municipality"
+3. "Gebietskörperschaften mit Mitarbeitern die Events besucht haben"
+   → primary_entity_type: "territorial_entity"
    → relation_chain: [
        {{"type": "works_for", "direction": "target"}},
        {{"type": "attends", "direction": "source"}}
@@ -275,6 +275,72 @@ async def load_facet_and_entity_types(session: AsyncSession) -> tuple[List[Dict]
     return facet_types, entity_types
 
 
+async def load_all_types_for_write(session: AsyncSession) -> tuple[List[Dict], List[Dict], List[Dict], List[Dict]]:
+    """Load all types needed for write command interpretation.
+
+    Returns:
+        Tuple of (entity_types, facet_types, relation_types, categories)
+    """
+    from app.models import FacetType, EntityType, RelationType, Category
+
+    # Load entity types with full details
+    entity_result = await session.execute(
+        select(EntityType).where(EntityType.is_active.is_(True)).order_by(EntityType.display_order)
+    )
+    entity_types = [
+        {
+            "slug": et.slug,
+            "name": et.name,
+            "description": et.description,
+            "supports_hierarchy": et.supports_hierarchy,
+            "attribute_schema": et.attribute_schema,
+        }
+        for et in entity_result.scalars().all()
+    ]
+
+    # Load facet types with applicable entity types
+    facet_result = await session.execute(
+        select(FacetType).where(FacetType.is_active.is_(True)).order_by(FacetType.display_order)
+    )
+    facet_types = [
+        {
+            "slug": ft.slug,
+            "name": ft.name,
+            "description": ft.description,
+            "applicable_entity_type_slugs": ft.applicable_entity_type_slugs or [],
+        }
+        for ft in facet_result.scalars().all()
+    ]
+
+    # Load relation types
+    relation_result = await session.execute(
+        select(RelationType).where(RelationType.is_active.is_(True))
+    )
+    relation_types = [
+        {
+            "slug": rt.slug,
+            "name": rt.name,
+            "description": rt.description,
+        }
+        for rt in relation_result.scalars().all()
+    ]
+
+    # Load categories
+    category_result = await session.execute(
+        select(Category).where(Category.is_active.is_(True))
+    )
+    categories = [
+        {
+            "slug": cat.slug,
+            "name": cat.name,
+            "description": cat.description,
+        }
+        for cat in category_result.scalars().all()
+    ]
+
+    return entity_types, facet_types, relation_types, categories
+
+
 async def interpret_query(question: str, session: Optional[AsyncSession] = None) -> Dict[str, Any]:
     """Use AI to interpret natural language query into structured query parameters.
 
@@ -330,30 +396,57 @@ async def interpret_query(question: str, session: Optional[AsyncSession] = None)
         raise RuntimeError(f"KI-Service Fehler: Query-Interpretation fehlgeschlagen - {str(e)}")
 
 
-async def interpret_write_command(question: str) -> Dict[str, Any]:
+async def interpret_write_command(question: str, session: Optional[AsyncSession] = None) -> Dict[str, Any]:
     """Use AI to interpret if the question is a write command.
 
+    Args:
+        question: The natural language command
+        session: Database session for dynamic prompt generation (required)
+
     Raises:
-        ValueError: If Azure OpenAI is not configured
+        ValueError: If Azure OpenAI is not configured or session is missing
         RuntimeError: If command interpretation fails
     """
     client = get_openai_client()
 
+    if not session:
+        raise ValueError("Database session is required for write command interpretation")
+
     try:
+        # Load all types from database for dynamic prompt
+        entity_types, facet_types, relation_types, categories = await load_all_types_for_write(session)
+
+        # Build dynamic prompt
+        prompt = build_dynamic_write_prompt(
+            entity_types=entity_types,
+            facet_types=facet_types,
+            relation_types=relation_types,
+            categories=categories,
+            query=question,
+        )
+
+        logger.debug(
+            "Using dynamic write prompt",
+            entity_count=len(entity_types),
+            facet_count=len(facet_types),
+            relation_count=len(relation_types),
+            category_count=len(categories),
+        )
+
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[
                 {
                     "role": "system",
-                    "content": "Du bist ein präziser Command-Interpreter. Antworte nur mit JSON.",
+                    "content": "Du bist ein intelligenter Command-Interpreter. Analysiere Anfragen und erstelle passende Operationen. Antworte nur mit JSON.",
                 },
                 {
                     "role": "user",
-                    "content": WRITE_INTERPRETATION_PROMPT.format(query=question),
+                    "content": prompt,
                 },
             ],
-            temperature=0.1,
-            max_tokens=1500,
+            temperature=0.2,  # Slightly higher for more creative interpretations
+            max_tokens=2000,  # More tokens for complex combined operations
         )
 
         content = response.choices[0].message.content.strip()

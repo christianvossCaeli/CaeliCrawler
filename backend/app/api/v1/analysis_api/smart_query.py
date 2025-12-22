@@ -16,13 +16,13 @@ router = APIRouter()
 
 class SmartQueryRequest(BaseModel):
     """Request for smart query endpoint."""
-    question: str = Field(..., min_length=3, max_length=500, description="Natural language question or command")
+    question: str = Field(..., min_length=3, max_length=2000, description="Natural language question or command")
     allow_write: bool = Field(default=False, description="Allow write operations (create entities, facets, relations)")
 
 
 class SmartWriteRequest(BaseModel):
     """Request for smart write endpoint with preview support."""
-    question: str = Field(..., min_length=3, max_length=500, description="Natural language command")
+    question: str = Field(..., min_length=3, max_length=2000, description="Natural language command")
     preview_only: bool = Field(default=True, description="If true, only return preview without executing")
     confirmed: bool = Field(default=False, description="If true and preview_only=false, execute the command")
 
@@ -85,8 +85,8 @@ async def smart_write_endpoint(
     """
     from services.smart_query import interpret_write_command, execute_write_command
 
-    # First, interpret the command
-    command = await interpret_write_command(request.question)
+    # First, interpret the command (now uses dynamic prompt with DB data)
+    command = await interpret_write_command(request.question, session)
 
     if not command or command.get("operation", "none") == "none":
         return {

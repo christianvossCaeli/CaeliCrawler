@@ -753,7 +753,7 @@ Regeln:
 def convert_extractions_to_facets(
     min_confidence: float = 0.5,
     batch_size: int = 100,
-    entity_type_slug: str = "municipality",
+    entity_type_slug: str = "territorial_entity",
 ):
     """
     Convert existing ExtractedData to FacetValues in the Entity-Facet system.
@@ -764,7 +764,7 @@ def convert_extractions_to_facets(
     Args:
         min_confidence: Minimum confidence score for extractions to process
         batch_size: Number of extractions to process per batch
-        entity_type_slug: Entity type to create (default: municipality)
+        entity_type_slug: Entity type to create (default: territorial_entity)
     """
     import asyncio
     asyncio.run(_convert_extractions_async(min_confidence, batch_size, entity_type_slug))

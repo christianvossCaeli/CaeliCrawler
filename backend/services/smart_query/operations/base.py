@@ -64,7 +64,7 @@ class WriteOperation(ABC):
                 command: Dict[str, Any],
                 user_id: Optional[UUID] = None,
             ) -> OperationResult:
-                entity_type = command.get("entity_type", "municipality")
+                entity_type = command.get("entity_type", "territorial_entity")
                 entity_data = command.get("entity_data", {})
                 # ... implementation ...
                 return OperationResult(

@@ -21,6 +21,8 @@ from app.database import get_session
 from app.core.deps import require_editor
 from app.core.rate_limit import check_rate_limit
 from app.core.security_logging import security_logger
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 from app.models import Category, DataSource, DataSourceCategory, User, SourceType
 from app.api.admin.sources import validate_crawler_url
 from services.ai_source_discovery import (
@@ -276,7 +278,25 @@ async def import_discovered_sources(
                 "error": str(e),
             })
 
-    await session.commit()
+    # Audit log for AI discovery import
+    if imported > 0:
+        async with AuditContext(session, user, http_request) as audit:
+            audit.track_action(
+                action=AuditAction.IMPORT,
+                entity_type="DataSource",
+                entity_name="AI Discovery Import",
+                changes={
+                    "operation": "ai_discovery_import",
+                    "imported": imported,
+                    "skipped": skipped,
+                    "errors": len(errors),
+                    "categories": [c.name for c in categories],
+                    "sample_sources": [s.name for s in request.sources[:5]],
+                },
+            )
+            await session.commit()
+    else:
+        await session.commit()
 
     return ImportResult(
         imported=imported,

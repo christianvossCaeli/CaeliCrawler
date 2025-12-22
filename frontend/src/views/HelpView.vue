@@ -78,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 // Import all help section components
@@ -113,7 +113,7 @@ import {
 const { t } = useI18n()
 const activeSection = ref('intro')
 
-const sections = [
+const sections = computed(() => [
   { id: 'intro', title: t('help.sections.intro'), icon: 'mdi-information' },
   { id: 'quickstart', title: t('help.sections.quickstart'), icon: 'mdi-rocket-launch' },
   { id: 'dashboard', title: t('help.sections.dashboard'), icon: 'mdi-view-dashboard' },
@@ -139,7 +139,7 @@ const sections = [
   { id: 'tips', title: t('help.sections.tips'), icon: 'mdi-lightbulb' },
   { id: 'security', title: t('help.sections.security'), icon: 'mdi-shield-lock' },
   { id: 'troubleshooting', title: t('help.sections.troubleshooting'), icon: 'mdi-wrench' },
-]
+])
 
 const scrollTo = (id: string) => {
   const element = document.getElementById(id)
@@ -164,7 +164,7 @@ onMounted(() => {
     { threshold: 0.3, rootMargin: '-100px 0px -50% 0px' }
   )
 
-  sections.forEach((section) => {
+  sections.value.forEach((section) => {
     const element = document.getElementById(section.id)
     if (element) observer?.observe(element)
   })

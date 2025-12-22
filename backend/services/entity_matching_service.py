@@ -13,7 +13,7 @@ IMPORTANT: All entity creation MUST go through this service to ensure:
 Usage:
     service = EntityMatchingService(session)
     entity = await service.get_or_create_entity(
-        entity_type_slug="municipality",
+        entity_type_slug="territorial_entity",
         name="München",
         country="DE",
     )
@@ -77,7 +77,7 @@ class EntityMatchingService:
         combined with the unique constraint on (entity_type_id, name_normalized).
 
         Args:
-            entity_type_slug: The entity type slug (e.g., "municipality", "person")
+            entity_type_slug: The entity type slug (e.g., "territorial_entity", "person")
             name: The entity name
             country: ISO 3166-1 alpha-2 country code (default: "DE")
             external_id: Optional external ID for API imports
@@ -102,7 +102,7 @@ class EntityMatchingService:
 
         # 2. Clean municipality names (removes "Council", "City of" etc.)
         # This prevents creating duplicates like "Aberdeen" and "Aberdeen City Council"
-        if entity_type_slug == "municipality":
+        if entity_type_slug in ("territorial_entity", "municipality"):
             original_name = name
             name = clean_municipality_name(name, country=country)
             if name != original_name:

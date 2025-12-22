@@ -7,13 +7,15 @@ from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.core.deps import require_editor, require_admin
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 from app.models import DataSource, Document, Category, SourceStatus, SourceType, DataSourceCategory, User
 from app.schemas.data_source import (
     CategoryLink,
@@ -322,8 +324,9 @@ async def list_sources(
 @router.post("", response_model=DataSourceResponse, status_code=201)
 async def create_source(
     data: DataSourceCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """
     Create a new data source.
@@ -374,26 +377,43 @@ async def create_source(
             detail=f"A source with URL '{data.base_url}' already exists",
         )
 
-    source = DataSource(
-        category_id=primary_category_id,  # Legacy field
-        name=data.name,
-        source_type=data.source_type,
-        base_url=data.base_url,
-        api_endpoint=data.api_endpoint,
-        crawl_config=data.crawl_config.model_dump() if data.crawl_config else {},
-        auth_config=data.auth_config,
-        extra_data=data.extra_data,
-        priority=data.priority,
-        tags=data.tags,
-    )
-    session.add(source)
-    await session.flush()  # Get ID
+    async with AuditContext(session, current_user, request) as audit:
+        source = DataSource(
+            category_id=primary_category_id,  # Legacy field
+            name=data.name,
+            source_type=data.source_type,
+            base_url=data.base_url,
+            api_endpoint=data.api_endpoint,
+            crawl_config=data.crawl_config.model_dump() if data.crawl_config else {},
+            auth_config=data.auth_config,
+            extra_data=data.extra_data,
+            priority=data.priority,
+            tags=data.tags,
+        )
+        session.add(source)
+        await session.flush()  # Get ID
 
-    # Create N:M category links
-    await sync_source_categories(session, source, category_ids, primary_category_id)
+        # Create N:M category links
+        await sync_source_categories(session, source, category_ids, primary_category_id)
 
-    await session.commit()
-    await session.refresh(source)
+        # Audit log
+        audit.track_action(
+            action=AuditAction.CREATE,
+            entity_type="DataSource",
+            entity_id=source.id,
+            entity_name=source.name,
+            changes={
+                "name": source.name,
+                "base_url": source.base_url,
+                "source_type": source.source_type.value if source.source_type else None,
+                "tags": source.tags or [],
+                "category_ids": [str(c) for c in category_ids],
+                "priority": source.priority,
+            },
+        )
+
+        await session.commit()
+        await session.refresh(source)
 
     # Load categories for response
     categories = await get_categories_for_source(session, source.id)
@@ -503,8 +523,9 @@ async def get_source(
 async def update_source(
     source_id: UUID,
     data: DataSourceUpdate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """
     Update a data source.
@@ -514,6 +535,16 @@ async def update_source(
     source = await session.get(DataSource, source_id)
     if not source:
         raise NotFoundError("Data Source", str(source_id))
+
+    # Capture old state for audit
+    old_data = {
+        "name": source.name,
+        "base_url": source.base_url,
+        "source_type": source.source_type.value if source.source_type else None,
+        "status": source.status.value if source.status else None,
+        "tags": source.tags or [],
+        "priority": source.priority,
+    }
 
     update_data = data.model_dump(exclude_unset=True)
 
@@ -534,28 +565,42 @@ async def update_source(
                 detail=f"Invalid API endpoint URL: {error_msg}",
             )
 
-    # Handle N:M category updates
-    category_ids = update_data.pop("category_ids", None)
-    primary_category_id = update_data.pop("primary_category_id", None)
+    async with AuditContext(session, current_user, request) as audit:
+        # Handle N:M category updates
+        category_ids = update_data.pop("category_ids", None)
+        primary_category_id = update_data.pop("primary_category_id", None)
 
-    if category_ids is not None:
-        # Verify all categories exist
-        for cat_id in category_ids:
-            category = await session.get(Category, cat_id)
-            if not category:
-                raise NotFoundError("Category", str(cat_id))
+        if category_ids is not None:
+            # Verify all categories exist
+            for cat_id in category_ids:
+                category = await session.get(Category, cat_id)
+                if not category:
+                    raise NotFoundError("Category", str(cat_id))
 
-        await sync_source_categories(session, source, category_ids, primary_category_id)
+            await sync_source_categories(session, source, category_ids, primary_category_id)
 
-    # Handle crawl_config specially
-    if "crawl_config" in update_data and update_data["crawl_config"]:
-        update_data["crawl_config"] = update_data["crawl_config"].model_dump()
+        # Handle crawl_config specially
+        if "crawl_config" in update_data and update_data["crawl_config"]:
+            update_data["crawl_config"] = update_data["crawl_config"].model_dump()
 
-    for field, value in update_data.items():
-        setattr(source, field, value)
+        for field, value in update_data.items():
+            setattr(source, field, value)
 
-    await session.commit()
-    await session.refresh(source)
+        # Capture new state
+        new_data = {
+            "name": source.name,
+            "base_url": source.base_url,
+            "source_type": source.source_type.value if source.source_type else None,
+            "status": source.status.value if source.status else None,
+            "tags": source.tags or [],
+            "priority": source.priority,
+        }
+
+        # Track update with diff
+        audit.track_update(source, old_data, new_data)
+
+        await session.commit()
+        await session.refresh(source)
 
     # Load categories for response
     categories = await get_categories_for_source(session, source.id)
@@ -566,17 +611,45 @@ async def update_source(
 @router.delete("/{source_id}", response_model=MessageResponse)
 async def delete_source(
     source_id: UUID,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Delete a data source and all related data."""
     source = await session.get(DataSource, source_id)
     if not source:
         raise NotFoundError("Data Source", str(source_id))
 
+    # Get document count for audit
+    doc_count = (await session.execute(
+        select(func.count()).where(Document.source_id == source.id)
+    )).scalar()
+
+    # Load categories for audit
+    categories = await get_categories_for_source(session, source.id)
+
     name = source.name
-    await session.delete(source)
-    await session.commit()
+    base_url = source.base_url
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="DataSource",
+            entity_id=source.id,
+            entity_name=name,
+            changes={
+                "deleted": True,
+                "name": name,
+                "base_url": base_url,
+                "source_type": source.source_type.value if source.source_type else None,
+                "tags": source.tags or [],
+                "document_count": doc_count,
+                "categories": [c.name for c in categories],
+            },
+        )
+
+        await session.delete(source)
+        await session.commit()
 
     return MessageResponse(message=f"Data source '{name}' deleted successfully")
 
@@ -584,8 +657,9 @@ async def delete_source(
 @router.post("/bulk-import", response_model=DataSourceBulkImportResult)
 async def bulk_import_sources(
     data: DataSourceBulkImport,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """
     Bulk import data sources from a list with N:M category support and tags.
@@ -609,6 +683,7 @@ async def bulk_import_sources(
     imported = 0
     skipped = 0
     errors = []
+    imported_names = []
 
     for item in data.sources:
         try:
@@ -655,6 +730,8 @@ async def bulk_import_sources(
                 session.add(assoc)
 
             imported += 1
+            if len(imported_names) < 10:
+                imported_names.append(source.name)
 
         except Exception as e:
             errors.append({
@@ -662,7 +739,27 @@ async def bulk_import_sources(
                 "error": str(e),
             })
 
-    await session.commit()
+    # Audit log for bulk operation
+    if imported > 0:
+        async with AuditContext(session, current_user, request) as audit:
+            audit.track_action(
+                action=AuditAction.IMPORT,
+                entity_type="DataSource",
+                entity_name="Bulk Import",
+                changes={
+                    "operation": "bulk_import",
+                    "imported": imported,
+                    "skipped": skipped,
+                    "errors": len(errors),
+                    "categories": [c.name for c in categories],
+                    "default_tags": data.default_tags,
+                    "sample_sources": imported_names,
+                },
+            )
+
+            await session.commit()
+    else:
+        await session.commit()
 
     return DataSourceBulkImportResult(
         imported=imported,

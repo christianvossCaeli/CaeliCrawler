@@ -5,6 +5,7 @@
     "entities": "Entities",
     "overview": "Übersicht",
     "entries": "Einträge",
+    "connections": "Verknüpfungen",
     "tabs": {
       "general": "Allgemein",
       "attributes": "Eigenschaften",
@@ -75,6 +76,18 @@
       "cards": "Kartenansicht",
       "map": "Kartenansicht (Geo)"
     },
+    "mapView": {
+      "loading": "Lade Kartendaten...",
+      "onMap": "auf der Karte",
+      "withCoordinates": "mit Koordinaten",
+      "withoutCoordinates": "ohne Koordinaten",
+      "clusterLegend": "Cluster-Legende",
+      "clickToZoom": "Klicken zum Vergrößern",
+      "noGeoData": "Keine Geodaten verfügbar",
+      "noGeoDataHint": "Für diese Entities sind keine Koordinaten hinterlegt.",
+      "regions": "Regionen",
+      "boundaries": "Grenzen / Gebiete"
+    },
     "filters": {
       "search": "In Eigenschaften suchen...",
       "type": "Entity-Typ",
@@ -130,6 +143,24 @@
       "facetAdded": "Facet erfolgreich hinzugefügt",
       "facetRemoved": "Facet erfolgreich entfernt",
       "noteAdded": "Notiz erfolgreich hinzugefügt"
+    },
+    "history": {
+      "title": "Verlauf",
+      "noData": "Keine Verlaufsdaten vorhanden",
+      "addDataPoint": "Datenpunkt hinzufügen",
+      "value": "Wert",
+      "recordedAt": "Erfasst am",
+      "track": "Track",
+      "note": "Notiz",
+      "current": "Aktuell",
+      "change": "Änderung",
+      "minimum": "Minimum",
+      "maximum": "Maximum",
+      "trend": {
+        "up": "Steigend",
+        "down": "Fallend",
+        "stable": "Stabil"
+      }
     }
   },
   "entityTypes": {
@@ -170,7 +201,9 @@
     "export": "Exportieren",
     "stats": {
       "facetValues": "Facet-Werte",
+      "properties": "Eigenschaften",
       "relations": "Verknüpfungen",
+      "connections": "Verknüpfungen",
       "verified": "Verifiziert",
       "dataSources": "Datenquellen"
     },
@@ -184,9 +217,14 @@
     },
     "verifiedLabel": "Verifiziert",
     "verifyAction": "Verifizieren",
+    "enrichCompleted": "Anreicherung abgeschlossen",
+    "enrichFailed": "Anreicherung fehlgeschlagen",
+    "enrichRunning": "Anreicherung läuft",
+    "processing": "Verarbeite",
     "tabs": {
       "properties": "Eigenschaften",
       "relations": "Verknüpfungen",
+      "connections": "Verknüpfungen",
       "dataSources": "Datenquellen",
       "documents": "Dokumente",
       "pysis": "PySis",
@@ -199,6 +237,12 @@
       "subEntities": "Untergeordnete",
       "loadError": "Fehler beim Laden der untergeordneten Entities"
     },
+    "connections": {
+      "parent": "Übergeordnet",
+      "children": "Untergeordnete",
+      "otherRelations": "Weitere Verknüpfungen"
+    },
+    "loadingConnections": "Lade Verknüpfungen...",
     "searchProperties": "In Eigenschaften suchen...",
     "verified": "verifiziert",
     "source": "Quelle",
@@ -222,6 +266,8 @@
       "checkDataSources": "Datenquellen prüfen",
       "noRelations": "Keine Verknüpfungen vorhanden",
       "noRelationsDesc": "Verknüpfungen zeigen Beziehungen zu anderen Entities wie Personen, Organisationen oder Veranstaltungen.",
+      "noConnections": "Keine Verknüpfungen vorhanden",
+      "noConnectionsDesc": "Verknüpfungen zeigen Beziehungen zu anderen Entities wie Personen, Organisationen oder Veranstaltungen.",
       "noDataSources": "Keine Datenquellen verknüpft",
       "noDataSourcesDesc": "Datenquellen sind Webseiten oder APIs, die automatisch gecrawlt werden, um relevante Informationen zu extrahieren.",
       "noNotes": "Noch keine Notizen vorhanden"
@@ -267,7 +313,7 @@
       "noEntitiesFound": "Keine Entities gefunden",
       "typeToSearch": "Mind. 2 Zeichen eingeben zum Suchen",
       "relationAttributes": "Attribute (JSON, optional)",
-      "relationAttributesHint": "z.B. {\"since\": \"2024\", \"role\": \"Partner\"}"
+      "relationAttributesHint": "z.B. since: 2024, role: Partner"
     },
     "messages": {
       "entityNotFound": "Entity nicht gefunden",

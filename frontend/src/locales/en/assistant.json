@@ -8,6 +8,7 @@
     "copy": "Copy",
     "copied": "Copied!",
     "clear": "Restart",
+    "createNew": "New conversation",
     "modeRead": "Read mode",
     "modeWrite": "Write mode",
     "modeToggle": "Toggle mode",

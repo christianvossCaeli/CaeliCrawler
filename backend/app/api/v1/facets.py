@@ -4,19 +4,31 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_session
 from app.models import (
-    FacetType, FacetValue, Entity, EntityType, Category, Document,
-    TimeFilter,
+    FacetType, FacetValue, FacetValueHistory, Entity, EntityType, Category, Document,
+    TimeFilter, AnalysisTemplate,
 )
 from app.models.facet_value import FacetValueSourceType
+from app.schemas.facet_value_history import (
+    HistoryDataPointCreate,
+    HistoryDataPointUpdate,
+    HistoryDataPointResponse,
+    HistoryBulkImport,
+    HistoryBulkImportResponse,
+    EntityHistoryResponse,
+    AggregatedHistoryResponse,
+)
+from services.facet_history_service import FacetHistoryService
 from app.models.user import User
 from app.core.deps import get_current_user, require_editor
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 from app.schemas.facet_type import (
     FacetTypeCreate,
     FacetTypeUpdate,
@@ -38,6 +50,7 @@ from app.schemas.facet_value import (
 )
 from app.schemas.common import MessageResponse
 from app.core.exceptions import NotFoundError, ConflictError
+from app.core.validators import validate_entity_type_slugs
 from app.core.cache import facet_type_cache
 from app.utils.text import build_text_representation
 
@@ -117,7 +130,9 @@ async def list_facet_types(
 @router.post("/types", response_model=FacetTypeResponse, status_code=201)
 async def create_facet_type(
     data: FacetTypeCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
 ):
     """Create a new facet type using the unified write executor."""
     from services.smart_query.write_executor import execute_facet_type_create
@@ -153,7 +168,23 @@ async def create_facet_type(
             detail=result.get("message", "Unknown error"),
         )
 
-    await session.commit()
+    # Audit log
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.CREATE,
+            entity_type="FacetType",
+            entity_id=result["facet_type_id"],
+            entity_name=data.name,
+            changes={
+                "name": data.name,
+                "slug": data.slug or facet_type_data["slug"],
+                "value_type": data.value_type,
+                "is_time_based": data.is_time_based,
+                "ai_extraction_enabled": data.ai_extraction_enabled,
+                "applicable_entity_type_slugs": data.applicable_entity_type_slugs,
+            },
+        )
+        await session.commit()
 
     # Fetch the created facet type
     facet_type = await session.get(FacetType, result["facet_type_id"])
@@ -328,22 +359,51 @@ Generiere ein JSON mit folgender Struktur:
 async def update_facet_type(
     facet_type_id: UUID,
     data: FacetTypeUpdate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
 ):
     """Update a facet type."""
     facet_type = await session.get(FacetType, facet_type_id)
     if not facet_type:
         raise NotFoundError("FacetType", str(facet_type_id))
 
+    # Validate applicable_entity_type_slugs if being updated
+    if data.applicable_entity_type_slugs is not None and data.applicable_entity_type_slugs:
+        _, invalid_slugs = await validate_entity_type_slugs(session, data.applicable_entity_type_slugs)
+        if invalid_slugs:
+            raise ConflictError(
+                "Invalid entity type slugs",
+                detail=f"The following entity type slugs do not exist: {', '.join(sorted(invalid_slugs))}",
+            )
+
     old_slug = facet_type.slug
 
-    # Update fields
-    update_data = data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(facet_type, field, value)
+    # Capture old state
+    old_data = {
+        "name": facet_type.name,
+        "slug": facet_type.slug,
+        "is_active": facet_type.is_active,
+        "ai_extraction_enabled": facet_type.ai_extraction_enabled,
+    }
 
-    await session.commit()
-    await session.refresh(facet_type)
+    async with AuditContext(session, current_user, request) as audit:
+        # Update fields
+        update_data = data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(facet_type, field, value)
+
+        new_data = {
+            "name": facet_type.name,
+            "slug": facet_type.slug,
+            "is_active": facet_type.is_active,
+            "ai_extraction_enabled": facet_type.ai_extraction_enabled,
+        }
+
+        audit.track_update(facet_type, old_data, new_data)
+
+        await session.commit()
+        await session.refresh(facet_type)
 
     # Invalidate cache for old and new slugs
     facet_type_cache.delete(f"facet_type:slug:{old_slug}")
@@ -356,7 +416,9 @@ async def update_facet_type(
 @router.delete("/types/{facet_type_id}", response_model=MessageResponse)
 async def delete_facet_type(
     facet_type_id: UUID,
+    request: Request,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
 ):
     """Delete a facet type."""
     facet_type = await session.get(FacetType, facet_type_id)
@@ -383,14 +445,41 @@ async def delete_facet_type(
     # Store slug for cache invalidation before deletion
     slug = facet_type.slug
 
-    await session.delete(facet_type)
-    await session.commit()
+    # Clean up AnalysisTemplate facet_config references to this facet type
+    analysis_templates = await session.execute(select(AnalysisTemplate))
+    for template in analysis_templates.scalars():
+        if template.facet_config:
+            original_config = template.facet_config
+            cleaned_config = [
+                fc for fc in original_config
+                if fc.get("facet_type_slug") != slug
+            ]
+            if len(cleaned_config) != len(original_config):
+                template.facet_config = cleaned_config
+
+    facet_type_name = facet_type.name
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="FacetType",
+            entity_id=facet_type_id,
+            entity_name=facet_type_name,
+            changes={
+                "deleted": True,
+                "name": facet_type_name,
+                "slug": slug,
+            },
+        )
+
+        await session.delete(facet_type)
+        await session.commit()
 
     # Invalidate cache
     facet_type_cache.delete(f"facet_type:slug:{slug}")
     facet_type_cache.delete(f"facet_type:id:{facet_type_id}")
 
-    return MessageResponse(message=f"Facet type '{facet_type.name}' deleted successfully")
+    return MessageResponse(message=f"Facet type '{facet_type_name}' deleted successfully")
 
 
 # ============================================================================
@@ -511,6 +600,7 @@ async def list_facet_values(
 @router.post("/values", response_model=FacetValueResponse, status_code=201)
 async def create_facet_value(
     data: FacetValueCreate,
+    request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
@@ -539,25 +629,41 @@ async def create_facet_value(
     # Use provided text_representation or generate from value
     text_repr = data.text_representation or build_text_representation(data.value)
 
-    facet_value = FacetValue(
-        entity_id=data.entity_id,
-        facet_type_id=data.facet_type_id,
-        category_id=data.category_id,
-        value=data.value,
-        text_representation=text_repr,
-        event_date=data.event_date,
-        valid_from=data.valid_from,
-        valid_until=data.valid_until,
-        source_type=FacetValueSourceType(data.source_type.value) if data.source_type else FacetValueSourceType.MANUAL,
-        source_document_id=data.source_document_id,
-        source_url=data.source_url,
-        confidence_score=data.confidence_score,
-        ai_model_used=data.ai_model_used,
-        is_active=data.is_active,
-    )
-    session.add(facet_value)
-    await session.commit()
-    await session.refresh(facet_value)
+    async with AuditContext(session, current_user, request) as audit:
+        facet_value = FacetValue(
+            entity_id=data.entity_id,
+            facet_type_id=data.facet_type_id,
+            category_id=data.category_id,
+            value=data.value,
+            text_representation=text_repr,
+            event_date=data.event_date,
+            valid_from=data.valid_from,
+            valid_until=data.valid_until,
+            source_type=FacetValueSourceType(data.source_type.value) if data.source_type else FacetValueSourceType.MANUAL,
+            source_document_id=data.source_document_id,
+            source_url=data.source_url,
+            confidence_score=data.confidence_score,
+            ai_model_used=data.ai_model_used,
+            is_active=data.is_active,
+        )
+        session.add(facet_value)
+        await session.flush()
+
+        audit.track_action(
+            action=AuditAction.CREATE,
+            entity_type="FacetValue",
+            entity_id=facet_value.id,
+            entity_name=f"{facet_type.name} for {entity.name}",
+            changes={
+                "entity_name": entity.name,
+                "facet_type": facet_type.name,
+                "text_representation": text_repr[:100] if text_repr else None,
+                "source_type": data.source_type.value if data.source_type else "manual",
+            },
+        )
+
+        await session.commit()
+        await session.refresh(facet_value)
 
     item = FacetValueResponse.model_validate(facet_value)
     item.entity_name = entity.name
@@ -597,6 +703,7 @@ async def get_facet_value(
 async def update_facet_value(
     facet_value_id: UUID,
     data: FacetValueUpdate,
+    request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
@@ -605,18 +712,27 @@ async def update_facet_value(
     if not fv:
         raise NotFoundError("FacetValue", str(facet_value_id))
 
-    # Update fields
-    update_data = data.model_dump(exclude_unset=True)
+    async with AuditContext(session, current_user, request) as audit:
+        # Update fields
+        update_data = data.model_dump(exclude_unset=True)
 
-    # Rebuild text representation if value changes
-    if "value" in update_data:
-        update_data["text_representation"] = build_text_representation(update_data["value"])
+        # Rebuild text representation if value changes
+        if "value" in update_data:
+            update_data["text_representation"] = build_text_representation(update_data["value"])
 
-    for field, value in update_data.items():
-        setattr(fv, field, value)
+        for field, value in update_data.items():
+            setattr(fv, field, value)
 
-    await session.commit()
-    await session.refresh(fv)
+        audit.track_action(
+            action=AuditAction.UPDATE,
+            entity_type="FacetValue",
+            entity_id=fv.id,
+            entity_name=fv.text_representation[:50] if fv.text_representation else str(fv.id),
+            changes={"updated_fields": list(update_data.keys())},
+        )
+
+        await session.commit()
+        await session.refresh(fv)
 
     # Enrich response with related entity info
     entity = await session.get(Entity, fv.entity_id)
@@ -679,6 +795,7 @@ async def verify_facet_value(
 @router.delete("/values/{facet_value_id}", response_model=MessageResponse)
 async def delete_facet_value(
     facet_value_id: UUID,
+    request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
@@ -687,8 +804,19 @@ async def delete_facet_value(
     if not fv:
         raise NotFoundError("FacetValue", str(facet_value_id))
 
-    await session.delete(fv)
-    await session.commit()
+    fv_name = fv.text_representation[:50] if fv.text_representation else str(facet_value_id)
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="FacetValue",
+            entity_id=facet_value_id,
+            entity_name=fv_name,
+            changes={"deleted": True},
+        )
+
+        await session.delete(fv)
+        await session.commit()
 
     return MessageResponse(message="Facet value deleted successfully")
 
@@ -838,6 +966,7 @@ async def get_entity_facets_summary(
             facet_type_name=facet_type.name,
             facet_type_icon=facet_type.icon,
             facet_type_color=facet_type.color,
+            facet_type_value_type=facet_type.value_type.value if hasattr(facet_type.value_type, 'value') else facet_type.value_type,
             display_order=facet_type.display_order or 0,
             value_count=len(type_values),
             verified_count=type_verified_count,
@@ -981,3 +1110,251 @@ async def search_facet_values(
         query=q,
         search_time_ms=round(search_time_ms, 2),
     )
+
+
+# ============================================================================
+# History Endpoints (Time-Series Data)
+# ============================================================================
+
+
+@router.get("/entity/{entity_id}/history/{facet_type_id}", response_model=EntityHistoryResponse)
+async def get_entity_history(
+    entity_id: UUID,
+    facet_type_id: UUID,
+    from_date: Optional[datetime] = Query(default=None, description="Start date filter"),
+    to_date: Optional[datetime] = Query(default=None, description="End date filter"),
+    tracks: Optional[List[str]] = Query(default=None, description="Filter by track keys"),
+    limit: int = Query(default=1000, ge=1, le=10000, description="Max points to return"),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Get history data for an entity+facet combination.
+
+    Returns time-series data with statistics and trend information.
+    Supports filtering by date range and track keys.
+    """
+    service = FacetHistoryService(session)
+
+    try:
+        return await service.get_history(
+            entity_id=entity_id,
+            facet_type_id=facet_type_id,
+            from_date=from_date,
+            to_date=to_date,
+            track_keys=tracks,
+            limit=limit,
+        )
+    except ValueError as e:
+        raise NotFoundError("Entity or FacetType", str(e))
+
+
+@router.get("/entity/{entity_id}/history/{facet_type_id}/aggregated", response_model=AggregatedHistoryResponse)
+async def get_entity_history_aggregated(
+    entity_id: UUID,
+    facet_type_id: UUID,
+    interval: str = Query(default="month", pattern="^(day|week|month|quarter|year)$"),
+    method: str = Query(default="avg", pattern="^(avg|sum|min|max)$"),
+    from_date: Optional[datetime] = Query(default=None),
+    to_date: Optional[datetime] = Query(default=None),
+    tracks: Optional[List[str]] = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Get aggregated history data.
+
+    Aggregates data points by time interval (day, week, month, quarter, year)
+    using the specified method (avg, sum, min, max).
+    """
+    service = FacetHistoryService(session)
+
+    try:
+        return await service.aggregate_history(
+            entity_id=entity_id,
+            facet_type_id=facet_type_id,
+            interval=interval,
+            method=method,
+            from_date=from_date,
+            to_date=to_date,
+            track_keys=tracks,
+        )
+    except ValueError as e:
+        raise NotFoundError("Entity or FacetType", str(e))
+
+
+@router.post("/entity/{entity_id}/history/{facet_type_id}", response_model=HistoryDataPointResponse, status_code=201)
+async def add_history_data_point(
+    entity_id: UUID,
+    facet_type_id: UUID,
+    data: HistoryDataPointCreate,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """
+    Add a single data point to the history.
+
+    Requires Editor role.
+    """
+    service = FacetHistoryService(session)
+
+    try:
+        async with AuditContext(session, current_user, request) as audit:
+            data_point = await service.add_data_point(
+                entity_id=entity_id,
+                facet_type_id=facet_type_id,
+                recorded_at=data.recorded_at,
+                value=data.value,
+                track_key=data.track_key,
+                value_label=data.value_label,
+                annotations=data.annotations,
+                source_type=data.source_type,
+                source_url=data.source_url,
+                confidence_score=data.confidence_score,
+            )
+
+            audit.track_action(
+                action=AuditAction.CREATE,
+                entity_type="FacetValueHistory",
+                entity_id=data_point.id,
+                entity_name=f"History point at {data.recorded_at}",
+                changes={
+                    "entity_id": str(entity_id),
+                    "facet_type_id": str(facet_type_id),
+                    "track_key": data.track_key,
+                    "value": data.value,
+                    "recorded_at": data.recorded_at.isoformat(),
+                },
+            )
+
+            await session.commit()
+            await session.refresh(data_point)
+
+        return HistoryDataPointResponse.model_validate(data_point)
+
+    except ValueError as e:
+        raise ConflictError("Invalid data", detail=str(e))
+
+
+@router.post("/entity/{entity_id}/history/{facet_type_id}/bulk", response_model=HistoryBulkImportResponse)
+async def add_history_data_points_bulk(
+    entity_id: UUID,
+    facet_type_id: UUID,
+    data: HistoryBulkImport,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """
+    Bulk import multiple history data points.
+
+    Requires Editor role. Optionally skips duplicates.
+    """
+    service = FacetHistoryService(session)
+
+    try:
+        async with AuditContext(session, current_user, request) as audit:
+            result = await service.add_data_points_bulk(
+                entity_id=entity_id,
+                facet_type_id=facet_type_id,
+                data_points=data.data_points,
+                skip_duplicates=data.skip_duplicates,
+            )
+
+            audit.track_action(
+                action=AuditAction.CREATE,
+                entity_type="FacetValueHistory",
+                entity_id=entity_id,  # Using entity_id as reference
+                entity_name=f"Bulk import: {result.created} points",
+                changes={
+                    "entity_id": str(entity_id),
+                    "facet_type_id": str(facet_type_id),
+                    "created": result.created,
+                    "skipped": result.skipped,
+                },
+            )
+
+            await session.commit()
+
+        return result
+
+    except ValueError as e:
+        raise ConflictError("Invalid data", detail=str(e))
+
+
+@router.put("/entity/{entity_id}/history/{facet_type_id}/{point_id}", response_model=HistoryDataPointResponse)
+async def update_history_data_point(
+    entity_id: UUID,
+    facet_type_id: UUID,
+    point_id: UUID,
+    data: HistoryDataPointUpdate,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """
+    Update a history data point.
+
+    Requires Editor role.
+    """
+    service = FacetHistoryService(session)
+
+    async with AuditContext(session, current_user, request) as audit:
+        data_point = await service.update_data_point(
+            data_point_id=point_id,
+            value=data.value,
+            value_label=data.value_label,
+            annotations=data.annotations,
+            human_verified=data.human_verified,
+            verified_by=current_user.email if data.human_verified else None,
+        )
+
+        if not data_point:
+            raise NotFoundError("HistoryDataPoint", str(point_id))
+
+        audit.track_action(
+            action=AuditAction.UPDATE,
+            entity_type="FacetValueHistory",
+            entity_id=point_id,
+            entity_name=f"History point at {data_point.recorded_at}",
+            changes=data.model_dump(exclude_unset=True),
+        )
+
+        await session.commit()
+        await session.refresh(data_point)
+
+    return HistoryDataPointResponse.model_validate(data_point)
+
+
+@router.delete("/entity/{entity_id}/history/{facet_type_id}/{point_id}", response_model=MessageResponse)
+async def delete_history_data_point(
+    entity_id: UUID,
+    facet_type_id: UUID,
+    point_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """
+    Delete a single history data point.
+
+    Requires Editor role.
+    """
+    service = FacetHistoryService(session)
+
+    async with AuditContext(session, current_user, request) as audit:
+        deleted = await service.delete_data_point(point_id)
+
+        if not deleted:
+            raise NotFoundError("HistoryDataPoint", str(point_id))
+
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="FacetValueHistory",
+            entity_id=point_id,
+            entity_name=f"History point {point_id}",
+            changes={"deleted": True},
+        )
+
+        await session.commit()
+
+    return MessageResponse(message="History data point deleted successfully")

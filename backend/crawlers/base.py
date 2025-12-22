@@ -154,8 +154,13 @@ def get_crawler_for_source(source: "DataSource") -> BaseCrawler:
     from crawlers.website_crawler import WebsiteCrawler
     from crawlers.news_crawler import NewsCrawler
     from crawlers.api_crawler import APICrawler
+    from crawlers.entity_api_crawler import EntityAPICrawler
 
     crawl_config = source.crawl_config or {}
+
+    # REST_API and SPARQL_API use EntityAPICrawler for Entity updates
+    if source.source_type in (SourceType.REST_API, SourceType.SPARQL_API):
+        return EntityAPICrawler()
 
     # For CUSTOM_API, check if it's a known API type
     if source.source_type == SourceType.CUSTOM_API:

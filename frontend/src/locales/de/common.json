@@ -1,5 +1,6 @@
 {
   "common": {
+    "command": "Befehl",
     "save": "Speichern",
     "cancel": "Abbrechen",
     "delete": "Löschen",
@@ -67,6 +68,7 @@
     "total": "Gesamt",
     "new": "Neu",
     "error": "Fehler",
+    "unknownError": "Ein unbekannter Fehler ist aufgetreten",
     "success": "Erfolg",
     "warning": "Warnung",
     "info": "Information",

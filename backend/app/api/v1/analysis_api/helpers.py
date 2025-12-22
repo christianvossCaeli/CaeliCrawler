@@ -26,7 +26,8 @@ def operation_to_german(op: str) -> str:
 def entity_type_to_german(et: str) -> str:
     """Convert entity type to German."""
     return {
-        "municipality": "Gemeinde",
+        "territorial_entity": "Gebietskörperschaft",
+        "municipality": "Gemeinde",  # Backwards compatibility
         "person": "Person",
         "organization": "Organisation",
         "event": "Veranstaltung",

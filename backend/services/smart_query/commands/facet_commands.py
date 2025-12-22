@@ -87,22 +87,37 @@ class CreateFacetTypeCommand(BaseCommand):
                 message=f"Facet-Typ mit Name '{name}' oder Slug '{slug}' existiert bereits"
             )
 
+        # Determine value_type
+        value_type = facet_type_data.get("value_type") or "structured"
+
+        # Special handling for HISTORY value type
+        is_time_based = facet_type_data.get("is_time_based", False)
+        time_field_path = facet_type_data.get("time_field_path")
+        deduplication_fields = facet_type_data.get("deduplication_fields")
+
+        if value_type == "history":
+            # History facets are always time-based
+            is_time_based = True
+            time_field_path = time_field_path or "recorded_at"
+            # Disable deduplication for history - each data point is unique
+            deduplication_fields = None
+
         # Create FacetType with all supported fields
         facet_type = FacetType(
             name=name,
             name_plural=facet_type_data.get("name_plural") or (f"{name}s" if not name.endswith("s") else name),
             slug=slug,
             description=facet_type_data.get("description") or f"Facet-Typ: {name}",
-            icon=facet_type_data.get("icon") or "mdi-tag",
+            icon=facet_type_data.get("icon") or ("mdi-chart-line" if value_type == "history" else "mdi-tag"),
             color=facet_type_data.get("color") or "#2196F3",
-            value_type=facet_type_data.get("value_type") or "structured",
+            value_type=value_type,
             value_schema=facet_type_data.get("value_schema"),
             applicable_entity_type_slugs=facet_type_data.get("applicable_entity_type_slugs") or [],
             display_order=facet_type_data.get("display_order"),
             aggregation_method=facet_type_data.get("aggregation_method"),
-            deduplication_fields=facet_type_data.get("deduplication_fields"),
-            is_time_based=facet_type_data.get("is_time_based", False),
-            time_field_path=facet_type_data.get("time_field_path"),
+            deduplication_fields=deduplication_fields,
+            is_time_based=is_time_based,
+            time_field_path=time_field_path,
             default_time_filter=facet_type_data.get("default_time_filter"),
             ai_extraction_enabled=facet_type_data.get("ai_extraction_enabled", True),
             ai_extraction_prompt=facet_type_data.get("ai_extraction_prompt") or f"Extrahiere {name} aus dem Dokument.",
@@ -292,4 +307,117 @@ class AssignFacetTypeCommand(BaseCommand):
 
         return CommandResult.success_result(
             message=f"Facet-Typ '{facet_type.name}' zugewiesen an: {', '.join(target_slugs)}",
+        )
+
+
+@default_registry.register("add_history_point")
+class AddHistoryDataPointCommand(BaseCommand):
+    """Command to add a data point to a history-type facet."""
+
+    async def validate(self) -> Optional[str]:
+        """Validate history data point data."""
+        point_data = self.data.get("history_point_data", {})
+
+        if not point_data.get("entity_id") and not point_data.get("entity_name"):
+            return "Entity-ID oder Entity-Name erforderlich"
+
+        if not point_data.get("facet_type"):
+            return "Facet-Typ erforderlich"
+
+        if point_data.get("value") is None:
+            return "Wert (value) erforderlich"
+
+        return None
+
+    async def execute(self) -> CommandResult:
+        """Add the history data point."""
+        from datetime import datetime
+        from services.smart_query.entity_operations import find_entity_by_name
+        from services.facet_history_service import FacetHistoryService
+
+        point_data = self.data.get("history_point_data", {})
+        entity_id = point_data.get("entity_id")
+        entity_name = point_data.get("entity_name")
+        facet_type_slug = point_data.get("facet_type")
+        value = point_data.get("value")
+        recorded_at = point_data.get("recorded_at")
+        track_key = point_data.get("track_key", "default")
+        note = point_data.get("note")
+
+        # Find entity
+        entity = None
+        if entity_id:
+            entity = await self.session.get(Entity, UUID(str(entity_id)))
+        elif entity_name:
+            entity = await find_entity_by_name(self.session, entity_name)
+
+        if not entity:
+            return CommandResult.failure(
+                message=f"Entity nicht gefunden: {entity_name or entity_id}"
+            )
+
+        # Find FacetType
+        result = await self.session.execute(
+            select(FacetType).where(FacetType.slug == facet_type_slug)
+        )
+        facet_type = result.scalar_one_or_none()
+
+        if not facet_type:
+            return CommandResult.failure(
+                message=f"Facet-Typ '{facet_type_slug}' nicht gefunden"
+            )
+
+        if facet_type.value_type.value != "history":
+            return CommandResult.failure(
+                message=f"Facet-Typ '{facet_type_slug}' ist kein History-Typ (aktuell: {facet_type.value_type.value})"
+            )
+
+        # Parse recorded_at if provided, otherwise use current time
+        if recorded_at:
+            if isinstance(recorded_at, str):
+                try:
+                    recorded_at = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
+                except ValueError:
+                    return CommandResult.failure(
+                        message=f"Ungültiges Datumsformat: {recorded_at}"
+                    )
+        else:
+            recorded_at = datetime.utcnow()
+
+        # Build annotations
+        annotations = {}
+        if note:
+            annotations["note"] = note
+
+        # Add the data point using the service
+        service = FacetHistoryService(self.session)
+        data_point = await service.add_data_point(
+            entity_id=entity.id,
+            facet_type_id=facet_type.id,
+            value=float(value),
+            recorded_at=recorded_at,
+            track_key=track_key,
+            annotations=annotations,
+            source_type="MANUAL",
+        )
+
+        logger.info(
+            "History data point added via Command",
+            entity_id=str(entity.id),
+            entity_name=entity.name,
+            facet_type=facet_type_slug,
+            value=value,
+            recorded_at=str(recorded_at),
+        )
+
+        return CommandResult.success_result(
+            message=f"Datenpunkt für '{entity.name}' hinzugefügt: {value} am {recorded_at.strftime('%d.%m.%Y')}",
+            created_items=[{
+                "type": "history_data_point",
+                "id": str(data_point.id),
+                "entity_id": str(entity.id),
+                "facet_type": facet_type_slug,
+                "value": value,
+                "recorded_at": recorded_at.isoformat(),
+            }],
         )

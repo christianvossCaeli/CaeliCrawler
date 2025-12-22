@@ -110,7 +110,7 @@ async def test_generate_facet_schema(admin_client: AsyncClient):
             "name": "Kontakt",
             "name_plural": "Kontakte",
             "description": "Contact information with email and phone",
-            "applicable_entity_types": ["municipality"],
+            "applicable_entity_types": ["territorial_entity"],
         }
     )
     # Accept 200 or 400/422 if AI service not available

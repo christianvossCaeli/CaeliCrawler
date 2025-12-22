@@ -325,7 +325,130 @@ EXTRAHIERE IM JSON-FORMAT:
     },
 
     # -------------------------------------------------------------------------
-    # 6. LEAD-QUALIFIZIERUNG WINDENERGIE (Meta-Kategorie)
+    # 6. UK WIND ENERGY
+    # -------------------------------------------------------------------------
+    {
+        "name": "UK Wind Planning Applications",
+        "slug": "uk-wind-planning",
+        "description": "Planning applications and council decisions for wind energy projects in the UK",
+        "purpose": """Monitoring UK municipal decisions on wind energy:
+- Planning applications for wind farms
+- Council decisions and consultations
+- Environmental impact assessments
+- Community engagement""",
+        "search_terms": [
+            "wind farm", "wind energy", "wind turbine", "planning application",
+            "renewable energy", "onshore wind", "offshore wind",
+            "environmental impact", "community benefit", "planning permission",
+            "local plan", "energy strategy"
+        ],
+        "ai_extraction_prompt": """Analyse this UK planning document for wind energy sales intelligence.
+
+EXTRACT IN JSON FORMAT:
+{
+  "is_relevant": true/false,
+  "council": "Name of the council/authority",
+  "document_type": "Planning Application|Decision Notice|Consultation|Report",
+  "document_date": "YYYY-MM-DD",
+
+  "pain_points": [
+    {
+      "type": "Community Opposition|Environmental|Visual Impact|Noise|Heritage",
+      "description": "Description of the issue",
+      "severity": "high|medium|low"
+    }
+  ],
+
+  "positive_signals": [
+    {
+      "type": "Planning Approval|Community Support|Climate Policy|Economic Benefits",
+      "description": "Description of the positive signal"
+    }
+  ],
+
+  "decision_makers": [
+    {
+      "name": "Name",
+      "role": "Councillor|Planning Officer|Mayor",
+      "stance": "supportive|neutral|opposed"
+    }
+  ],
+
+  "project_details": {
+    "capacity_mw": null,
+    "turbine_count": null,
+    "status": "Pre-Application|Application|Approved|Refused|Appeal"
+  },
+
+  "summary": "Brief summary of the document"
+}""",
+        "schedule_cron": "0 7 * * *",
+    },
+
+    # -------------------------------------------------------------------------
+    # 7. ÖSTERREICH WINDENERGIE
+    # -------------------------------------------------------------------------
+    {
+        "name": "Windenergie Österreich",
+        "slug": "at-windenergie",
+        "description": "UVP-Verfahren und Genehmigungen für Windkraftprojekte in Österreich",
+        "purpose": """Monitoring österreichischer Windenergie-Entwicklungen:
+- UVP-Verfahren und Bescheide
+- Landesregierungs-Entscheidungen
+- Bürgerbeteiligung und Einsprüche
+- Flächenwidmungen""",
+        "search_terms": [
+            "Windkraft", "Windenergie", "Windpark", "Windrad",
+            "UVP", "Umweltverträglichkeitsprüfung", "Genehmigung",
+            "Flächenwidmung", "Raumordnung", "Ökostromanlagen",
+            "Energiewende", "Bürgerwindpark", "Repowering"
+        ],
+        "ai_extraction_prompt": """Analysiere dieses österreichische Dokument für Windenergie Sales Intelligence.
+
+EXTRAHIERE IM JSON-FORMAT:
+{
+  "is_relevant": true/false,
+  "bundesland": "Name des Bundeslandes",
+  "gemeinde": "Name der Gemeinde",
+  "document_type": "UVP-Bescheid|Genehmigung|Stellungnahme|Antrag",
+  "document_date": "YYYY-MM-DD",
+
+  "pain_points": [
+    {
+      "type": "Bürgerprotest|Naturschutz|Landschaftsschutz|Vogelschutz|Lärm",
+      "description": "Beschreibung des Problems",
+      "severity": "hoch|mittel|niedrig"
+    }
+  ],
+
+  "positive_signals": [
+    {
+      "type": "Genehmigung|Interesse|Bürgerbeteiligung|Klimastrategie",
+      "description": "Beschreibung des positiven Signals"
+    }
+  ],
+
+  "decision_makers": [
+    {
+      "name": "Name",
+      "role": "Bürgermeister|Landesrat|Umweltanwalt",
+      "stance": "positiv|neutral|negativ"
+    }
+  ],
+
+  "project_details": {
+    "capacity_mw": null,
+    "turbine_count": null,
+    "status": "Antrag|Prüfung|Genehmigt|Abgelehnt"
+  },
+
+  "summary": "Kurze Zusammenfassung"
+}""",
+        "schedule_cron": "0 7 * * *",
+    },
+
+    # -------------------------------------------------------------------------
+    # 8. LEAD-QUALIFIZIERUNG WINDENERGIE (Meta-Kategorie)
     # -------------------------------------------------------------------------
     {
         "name": "Lead-Qualifizierung Windenergie",
@@ -411,480 +534,19 @@ EXTRAHIERE IM JSON-FORMAT:
 
 
 # =============================================================================
-# DATENQUELLEN - Pro Kategorie
+# DATENQUELLEN - Werden via Smart Query dynamisch hinzugefügt
 # =============================================================================
+# Die Datenquellen werden nicht mehr hardcoded, sondern via Smart Query
+# basierend auf den Category-Eigenschaften (search_terms, purpose) gefunden.
 
 DATA_SOURCES = {
-    # -------------------------------------------------------------------------
-    # Ratsinformationen NRW (OParl)
-    # -------------------------------------------------------------------------
-    "ratsinformationen-nrw": [
-        {
-            "name": "Stadt Münster - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://oparl.stadt-muenster.de/system",
-            "api_endpoint": "https://oparl.stadt-muenster.de/system",
-            "country": "DE",
-            "location_name": "Münster",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 100,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "einwohner": 317000,
-                "region": "Münsterland"
-            },
-            "priority": 10,
-        },
-        {
-            "name": "Stadt Köln - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://sdnetrim.kdvz-frechen.de/rim4550/webservice/oparl/v1/system",
-            "api_endpoint": "https://sdnetrim.kdvz-frechen.de/rim4550/webservice/oparl/v1/system",
-            "country": "DE",
-            "location_name": "Köln",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 200,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "einwohner": 1084000,
-                "region": "Köln/Bonn"
-            },
-            "priority": 10,
-        },
-        {
-            "name": "Stadt Düsseldorf - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://oparl.duesseldorf.de/oparl/v1.1/system",
-            "api_endpoint": "https://oparl.duesseldorf.de/oparl/v1.1/system",
-            "country": "DE",
-            "location_name": "Düsseldorf",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 200,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "einwohner": 621877,
-                "region": "Düsseldorf"
-            },
-            "priority": 10,
-        },
-        {
-            "name": "Stadt Bonn - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://oparl.bonn.de/oparl/v1.1/system",
-            "api_endpoint": "https://oparl.bonn.de/oparl/v1.1/system",
-            "country": "DE",
-            "location_name": "Bonn",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 100,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "einwohner": 336465,
-                "region": "Köln/Bonn"
-            },
-            "priority": 10,
-        },
-        {
-            "name": "Stadt Dortmund - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://sdnetrim.kdvz-frechen.de/rim4571/webservice/oparl/v1/system",
-            "api_endpoint": "https://sdnetrim.kdvz-frechen.de/rim4571/webservice/oparl/v1/system",
-            "country": "DE",
-            "location_name": "Dortmund",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 150,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "einwohner": 593317,
-                "region": "Ruhrgebiet"
-            },
-            "priority": 10,
-        },
-        {
-            "name": "Stadt Essen - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://oparl.essen.de/oparl/v1.1/system",
-            "api_endpoint": "https://oparl.essen.de/oparl/v1.1/system",
-            "country": "DE",
-            "location_name": "Essen",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 150,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "einwohner": 579432,
-                "region": "Ruhrgebiet"
-            },
-            "priority": 10,
-        },
-        {
-            "name": "Stadt Duisburg - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://oparl.duisburg.de/oparl/v1/system",
-            "api_endpoint": "https://oparl.duisburg.de/oparl/v1/system",
-            "country": "DE",
-            "location_name": "Duisburg",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 150,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "einwohner": 504795,
-                "region": "Ruhrgebiet"
-            },
-            "priority": 10,
-        },
-        {
-            "name": "Stadt Bochum - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://oparl.bochum.de/oparl/v1.1/system",
-            "api_endpoint": "https://oparl.bochum.de/oparl/v1.1/system",
-            "country": "DE",
-            "location_name": "Bochum",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 100,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "einwohner": 365587,
-                "region": "Ruhrgebiet"
-            },
-            "priority": 10,
-        },
-        {
-            "name": "Stadt Wuppertal - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://oparl.wuppertal.de/oparl/v1/system",
-            "api_endpoint": "https://oparl.wuppertal.de/oparl/v1/system",
-            "country": "DE",
-            "location_name": "Wuppertal",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 100,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "einwohner": 359012,
-                "region": "Bergisches Land"
-            },
-            "priority": 10,
-        },
-        {
-            "name": "Stadt Bielefeld - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://oparl.bielefeld.de/oparl/v1.1/system",
-            "api_endpoint": "https://oparl.bielefeld.de/oparl/v1.1/system",
-            "country": "DE",
-            "location_name": "Bielefeld",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 100,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "einwohner": 336352,
-                "region": "Ostwestfalen-Lippe"
-            },
-            "priority": 10,
-        },
-        {
-            "name": "Stadt Gelsenkirchen - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://oparl.gelsenkirchen.de/oparl/v1/system",
-            "api_endpoint": "https://oparl.gelsenkirchen.de/oparl/v1/system",
-            "country": "DE",
-            "location_name": "Gelsenkirchen",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 100,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "einwohner": 262528,
-                "region": "Ruhrgebiet"
-            },
-            "priority": 9,
-        },
-        {
-            "name": "Stadt Aachen - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://ratsinfo.aachen.de/bi/oparl/1.0/system.asp",
-            "api_endpoint": "https://ratsinfo.aachen.de/bi/oparl/1.0/system.asp",
-            "country": "DE",
-            "location_name": "Aachen",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 100,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "einwohner": 249070,
-                "region": "Städteregion Aachen"
-            },
-            "priority": 9,
-        },
-        {
-            "name": "Kreis Steinfurt - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://sdnetrim.kdvz-frechen.de/rim4000/webservice/oparl/v1/system",
-            "api_endpoint": "https://sdnetrim.kdvz-frechen.de/rim4000/webservice/oparl/v1/system",
-            "country": "DE",
-            "location_name": "Steinfurt",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 100,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "kreis": True,
-                "region": "Münsterland"
-            },
-            "priority": 8,
-        },
-        {
-            "name": "Kreis Borken - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://sdnetrim.kdvz-frechen.de/rim4501/webservice/oparl/v1/system",
-            "api_endpoint": "https://sdnetrim.kdvz-frechen.de/rim4501/webservice/oparl/v1/system",
-            "country": "DE",
-            "location_name": "Borken",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 100,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "kreis": True,
-                "region": "Münsterland"
-            },
-            "priority": 8,
-        },
-        {
-            "name": "Kreis Warendorf - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://sdnetrim.kdvz-frechen.de/rim4003/webservice/oparl/v1/system",
-            "api_endpoint": "https://sdnetrim.kdvz-frechen.de/rim4003/webservice/oparl/v1/system",
-            "country": "DE",
-            "location_name": "Warendorf",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 100,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "kreis": True,
-                "region": "Münsterland"
-            },
-            "priority": 8,
-        },
-        {
-            "name": "Kreis Coesfeld - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://sdnetrim.kdvz-frechen.de/rim4002/webservice/oparl/v1/system",
-            "api_endpoint": "https://sdnetrim.kdvz-frechen.de/rim4002/webservice/oparl/v1/system",
-            "country": "DE",
-            "location_name": "Coesfeld",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 100,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "kreis": True,
-                "region": "Münsterland"
-            },
-            "priority": 8,
-        },
-        {
-            "name": "Kreis Paderborn - Ratsinformation",
-            "source_type": SourceType.OPARL_API,
-            "base_url": "https://sdnetrim.kdvz-frechen.de/rim4064/webservice/oparl/v1/system",
-            "api_endpoint": "https://sdnetrim.kdvz-frechen.de/rim4064/webservice/oparl/v1/system",
-            "country": "DE",
-            "location_name": "Paderborn",
-            "admin_level_1": "Nordrhein-Westfalen",
-            "crawl_config": {
-                "max_pages": 100,
-                "filter_keywords": ["Wind", "Energie", "Klima", "Flächennutzung"],
-            },
-            "extra_data": {
-                "kreis": True,
-                "region": "Ostwestfalen-Lippe"
-            },
-            "priority": 8,
-        },
-    ],
-
-    # -------------------------------------------------------------------------
-    # Kommunale News (RSS Feeds)
-    # -------------------------------------------------------------------------
-    "kommunale-news": [
-        {
-            "name": "Bundesregierung - Energie & Klima",
-            "source_type": SourceType.RSS,
-            "base_url": "https://www.bundesregierung.de/breg-de/themen/klimaschutz",
-            "api_endpoint": "https://www.bundesregierung.de/breg-de/service/rss/992814-992814",
-            "crawl_config": {
-                "filter_keywords": ["Wind", "Energie", "Erneuerbar"],
-            },
-            "extra_data": {"type": "Bundesregierung", "scope": "national"},
-            "priority": 8,
-        },
-        {
-            "name": "BMWK - Pressemitteilungen",
-            "source_type": SourceType.RSS,
-            "base_url": "https://www.bmwk.de/",
-            "api_endpoint": "https://www.bmwk.de/SiteGlobals/Functions/RSSFeed/DE/RSSNewsfeed/Pressemitteilungen/RSSNewsfeed.xml",
-            "crawl_config": {
-                "filter_keywords": ["Wind", "Energie", "Erneuerbar", "Strom"],
-            },
-            "extra_data": {"type": "Ministerium", "scope": "national"},
-            "priority": 9,
-        },
-    ],
-
-    # -------------------------------------------------------------------------
-    # Parlamentarische Anfragen (DIP Bundestag)
-    # -------------------------------------------------------------------------
-    "parlamentarische-anfragen": [
-        {
-            "name": "Bundestag - Kleine Anfragen Windenergie",
-            "source_type": SourceType.CUSTOM_API,
-            "base_url": "https://search.dip.bundestag.de/api/v1/vorgang?f.vorgangstyp=Kleine%20Anfrage",
-            "api_endpoint": "https://search.dip.bundestag.de/api/v1/vorgang",
-            "crawl_config": {
-                "api_type": "dip_bundestag",
-                "wahlperiode": 20,
-                "vorgangstyp": "Kleine Anfrage",
-                "search_query": "Windenergie OR Windkraft",
-                "max_results": 500,
-            },
-            "extra_data": {"document_type": "Kleine Anfrage"},
-            "priority": 10,
-        },
-        {
-            "name": "Bundestag - Drucksachen Erneuerbare Energien",
-            "source_type": SourceType.CUSTOM_API,
-            "base_url": "https://search.dip.bundestag.de/api/v1/drucksache",
-            "api_endpoint": "https://search.dip.bundestag.de/api/v1/drucksache",
-            "crawl_config": {
-                "api_type": "dip_bundestag",
-                "wahlperiode": 20,
-                "search_query": "Erneuerbare Energien Windkraft",
-                "max_results": 300,
-            },
-            "extra_data": {"document_type": "Drucksache"},
-            "priority": 8,
-        },
-    ],
-
-    # -------------------------------------------------------------------------
-    # IFG-Anfragen (FragDenStaat)
-    # -------------------------------------------------------------------------
-    "ifg-anfragen": [
-        {
-            "name": "FragDenStaat - Windkraft Genehmigungen",
-            "source_type": SourceType.CUSTOM_API,
-            "base_url": "https://fragdenstaat.de/api/v1/request/?q=Windkraft+Genehmigung",
-            "api_endpoint": "https://fragdenstaat.de/api/v1/request/",
-            "crawl_config": {
-                "api_type": "fragdenstaat",
-                "search_query": "Windkraft Genehmigung",
-                "max_results": 300,
-            },
-            "extra_data": {"topic": "Genehmigungen"},
-            "priority": 10,
-        },
-        {
-            "name": "FragDenStaat - BImSchG Verfahren",
-            "source_type": SourceType.CUSTOM_API,
-            "base_url": "https://fragdenstaat.de/api/v1/request/?q=BImSchG+Windenergie",
-            "api_endpoint": "https://fragdenstaat.de/api/v1/request/",
-            "crawl_config": {
-                "api_type": "fragdenstaat",
-                "search_query": "BImSchG Windenergie",
-                "max_results": 200,
-            },
-            "extra_data": {"topic": "BImSchG"},
-            "priority": 8,
-        },
-        {
-            "name": "FragDenStaat - Erfolgreiche Energie-Anfragen",
-            "source_type": SourceType.CUSTOM_API,
-            "base_url": "https://fragdenstaat.de/api/v1/request/?q=Windenergie&status=resolved",
-            "api_endpoint": "https://fragdenstaat.de/api/v1/request/",
-            "crawl_config": {
-                "api_type": "fragdenstaat",
-                "search_query": "Windenergie",
-                "status": "resolved",
-                "max_results": 200,
-            },
-            "extra_data": {"topic": "Windenergie", "filter": "erfolgreich"},
-            "priority": 7,
-        },
-    ],
-
-    # -------------------------------------------------------------------------
-    # Standortdaten (GovData)
-    # -------------------------------------------------------------------------
-    "standortdaten": [
-        {
-            "name": "GovData - Windenergie Potenzialflächen",
-            "source_type": SourceType.CUSTOM_API,
-            "base_url": "https://ckan.govdata.de/api/3/action/package_search?q=Windenergie+Potenzial",
-            "api_endpoint": "https://ckan.govdata.de/api/3/action/package_search",
-            "crawl_config": {
-                "api_type": "govdata",
-                "search_query": "Windenergie Potenzial Fläche",
-                "max_results": 200,
-            },
-            "extra_data": {"category": "Potenzialflächen"},
-            "priority": 10,
-        },
-        {
-            "name": "GovData - Schutzgebiete",
-            "source_type": SourceType.CUSTOM_API,
-            "base_url": "https://ckan.govdata.de/api/3/action/package_search?q=Naturschutzgebiet+Landschaftsschutz",
-            "api_endpoint": "https://ckan.govdata.de/api/3/action/package_search",
-            "crawl_config": {
-                "api_type": "govdata",
-                "search_query": "Naturschutzgebiet Landschaftsschutz Vogelschutz",
-                "groups": ["umwelt", "geo"],
-                "max_results": 300,
-            },
-            "extra_data": {"category": "Schutzgebiete"},
-            "priority": 9,
-        },
-        {
-            "name": "GovData - Bestandsanlagen Wind",
-            "source_type": SourceType.CUSTOM_API,
-            "base_url": "https://ckan.govdata.de/api/3/action/package_search?q=Windkraftanlage+Standort",
-            "api_endpoint": "https://ckan.govdata.de/api/3/action/package_search",
-            "crawl_config": {
-                "api_type": "govdata",
-                "search_query": "Windkraftanlage Windrad Standort",
-                "groups": ["energie"],
-                "max_results": 200,
-            },
-            "extra_data": {"category": "Bestandsanlagen"},
-            "priority": 8,
-        },
-    ],
-
-    # Lead-Qualifizierung hat keine direkten Datenquellen
-    # (wird aus anderen Kategorien aggregiert)
+    "ratsinformationen-nrw": [],
+    "kommunale-news": [],
+    "parlamentarische-anfragen": [],
+    "ifg-anfragen": [],
+    "standortdaten": [],
+    "uk-wind-planning": [],
+    "at-windenergie": [],
     "lead-qualifizierung": [],
 }
 
@@ -914,6 +576,7 @@ async def seed_database():
                 existing_cat.search_terms = cat_data["search_terms"]
                 existing_cat.ai_extraction_prompt = cat_data["ai_extraction_prompt"]
                 existing_cat.schedule_cron = cat_data["schedule_cron"]
+                existing_cat.is_public = True  # Always visible in frontend
                 categories_updated += 1
                 category = existing_cat
                 print(f"  🔄 Kategorie aktualisiert: {cat_data['name']}")
@@ -928,6 +591,7 @@ async def seed_database():
                     ai_extraction_prompt=cat_data["ai_extraction_prompt"],
                     schedule_cron=cat_data["schedule_cron"],
                     is_active=True,
+                    is_public=True,  # Always visible in frontend
                 )
                 session.add(category)
                 await session.flush()
@@ -974,12 +638,18 @@ async def seed_database():
     print(f"   🔄 {categories_updated} Kategorien aktualisiert")
     print(f"   🔗 {sources_created} Datenquellen erstellt")
     print("\n📊 Kategorien-Übersicht:")
-    print("   • Ratsinformationen NRW - Kommunale Beschlüsse (OParl)")
-    print("   • Kommunale News - Pressemitteilungen & Ankündigungen")
-    print("   • Parlamentarische Anfragen - Bundestag/Landtage")
-    print("   • IFG-Anfragen - Behördliche Einblicke")
-    print("   • Standortdaten - Potenzialflächen & Restriktionen")
-    print("   • Lead-Qualifizierung - Aggregierte Bewertung")
+    print("   🇩🇪 Deutschland:")
+    print("      • Ratsinformationen NRW - Kommunale Beschlüsse (OParl)")
+    print("      • Kommunale News - Pressemitteilungen & Ankündigungen")
+    print("      • Parlamentarische Anfragen - Bundestag/Landtage")
+    print("      • IFG-Anfragen - Behördliche Einblicke")
+    print("      • Standortdaten - Potenzialflächen & Restriktionen")
+    print("   🇬🇧 UK:")
+    print("      • UK Wind Planning Applications - Planning & Council Decisions")
+    print("   🇦🇹 Österreich:")
+    print("      • Windenergie Österreich - UVP-Verfahren & Genehmigungen")
+    print("   📊 Meta:")
+    print("      • Lead-Qualifizierung - Aggregierte Bewertung")
 
 
 async def main():

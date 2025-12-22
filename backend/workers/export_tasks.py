@@ -132,7 +132,7 @@ async def _execute_async_export(
     include_facets = export_data.get("include_facets", True)
     filename = export_data.get("filename", f"export_{job_id}")
 
-    entity_type_slug = query_filter.get("entity_type", "municipality")
+    entity_type_slug = query_filter.get("entity_type", "territorial_entity")
     location_filter = query_filter.get("location_filter")
     facet_type_slugs = query_filter.get("facet_types", [])
     position_keywords = query_filter.get("position_keywords", [])

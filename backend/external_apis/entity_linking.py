@@ -103,10 +103,13 @@ class EntityLinkingService:
         if not location_hints:
             return None
 
-        # Get municipality entity type
-        municipality_type = await self._get_entity_type("municipality")
+        # Get territorial entity type (formerly municipality)
+        municipality_type = await self._get_entity_type("territorial_entity")
         if not municipality_type:
-            logger.warning("municipality_entity_type_not_found")
+            # Fallback to old slug for backwards compatibility
+            municipality_type = await self._get_entity_type("municipality")
+        if not municipality_type:
+            logger.warning("territorial_entity_type_not_found")
             return None
 
         # Try each hint with different matching strategies
@@ -360,14 +363,14 @@ Gemeindename:"""
         Returns:
             Dictionary mapping entity type slugs to lists of linked entity IDs.
         """
-        link_types = link_types or ["municipality"]
+        link_types = link_types or ["territorial_entity"]
         results: Dict[str, List[UUID]] = {}
 
         for entity_type_slug in link_types:
             linked_ids = []
 
-            if entity_type_slug == "municipality":
-                # Use specialized municipality finder
+            if entity_type_slug in ("territorial_entity", "municipality"):
+                # Use specialized territorial entity finder
                 municipality = await self.find_municipality_for_location(
                     location_hints
                 )

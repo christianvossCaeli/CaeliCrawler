@@ -33,7 +33,7 @@ class ExternalAPIConfigBase(BaseModel):
     mark_missing_inactive: bool = True
     inactive_after_days: int = Field(default=7, ge=1, le=365)
     ai_linking_enabled: bool = True
-    link_to_entity_types: List[str] = Field(default_factory=lambda: ["municipality"])
+    link_to_entity_types: List[str] = Field(default_factory=lambda: ["territorial_entity"])
 
 
 class ExternalAPIConfigCreate(ExternalAPIConfigBase):

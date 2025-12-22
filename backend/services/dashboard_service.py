@@ -202,22 +202,38 @@ class DashboardService:
         )
 
     async def _get_entity_stats(self) -> EntityStats:
-        """Get entity statistics."""
+        """Get entity statistics.
+
+        Only counts entities belonging to ACTIVE EntityTypes to match
+        what users see in the EntitiesView.
+        """
         try:
-            # Total count
-            result = await self.db.execute(select(func.count(Entity.id)))
+            # Get active entity type IDs first
+            active_et_result = await self.db.execute(
+                select(EntityType.id).where(EntityType.is_active.is_(True))
+            )
+            active_et_ids = [row[0] for row in active_et_result.fetchall()]
+
+            # Total count (only from active entity types)
+            result = await self.db.execute(
+                select(func.count(Entity.id))
+                .where(Entity.entity_type_id.in_(active_et_ids))
+            )
             total = result.scalar() or 0
 
-            # Active count
+            # Active count (entities that are active AND belong to active entity types)
             result = await self.db.execute(
-                select(func.count(Entity.id)).where(Entity.is_active.is_(True))
+                select(func.count(Entity.id))
+                .where(Entity.is_active.is_(True))
+                .where(Entity.entity_type_id.in_(active_et_ids))
             )
             active = result.scalar() or 0
 
-            # By type
+            # By type (only active entity types)
             result = await self.db.execute(
                 select(EntityType.name, func.count(Entity.id))
                 .join(Entity, Entity.entity_type_id == EntityType.id)
+                .where(EntityType.is_active.is_(True))
                 .group_by(EntityType.id, EntityType.name)
             )
             by_type = {row[0]: row[1] for row in result.all()}
@@ -598,11 +614,12 @@ class DashboardService:
             )
 
     async def _get_entity_distribution_chart(self) -> ChartDataResponse:
-        """Get entity distribution by type."""
+        """Get entity distribution by type (only active entity types)."""
         try:
             result = await self.db.execute(
                 select(EntityType.name, func.count(Entity.id))
                 .join(Entity, Entity.entity_type_id == EntityType.id)
+                .where(EntityType.is_active.is_(True))
                 .group_by(EntityType.id, EntityType.name)
                 .order_by(desc(func.count(Entity.id)))
                 .limit(10)

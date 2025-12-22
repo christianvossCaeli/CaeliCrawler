@@ -53,8 +53,8 @@
           <h4 class="mb-2"><v-icon color="success" size="small">mdi-check</v-icon> {{ t('help.categories.urlFilters.includeTitle') }}</h4>
           <p class="text-body-2 mb-2">{{ t('help.categories.urlFilters.includeDesc') }}</p>
           <v-chip-group>
-            <v-chip size="small" color="grey" variant="outlined">/ratsinformation/</v-chip>
-            <v-chip size="small" color="grey" variant="outlined">/beschluesse/</v-chip>
+            <v-chip size="small" variant="outlined">/ratsinformation/</v-chip>
+            <v-chip size="small" variant="outlined">/beschluesse/</v-chip>
           </v-chip-group>
 
           <v-alert type="warning" variant="tonal" density="compact" class="mt-3" :text="t('help.categories.urlFilters.recommendation')" />
@@ -64,7 +64,7 @@
       <v-expansion-panel :title="t('help.categories.aiPrompt.title')">
         <v-expansion-panel-text>
           <p class="mb-2">{{ t('help.categories.aiPrompt.description') }}</p>
-          <v-code class="pa-3 d-block text-caption text-pre-wrap">Analysiere das Dokument und extrahiere:
+          <pre class="pa-3 d-block text-caption bg-grey-lighten-4 rounded" style="white-space: pre-wrap; font-family: monospace;">Analysiere das Dokument und extrahiere:
 {
   "topic": "Hauptthema",
   "summary": "Zusammenfassung",
@@ -74,7 +74,7 @@
   "positive_signals": ["Positive Signale/Chancen"],
   "decision_makers": [{"person": "Name", "role": "Position"}],
   "sentiment": "positiv/neutral/negativ"
-}</v-code>
+}</pre>
         </v-expansion-panel-text>
       </v-expansion-panel>
     </v-expansion-panels>

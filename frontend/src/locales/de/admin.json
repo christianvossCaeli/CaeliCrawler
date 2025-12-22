@@ -147,7 +147,8 @@
         "noFacetsFound": "Keine Facets gefunden",
         "facetsSelected": "Facets ausgewählt",
         "deselectAll": "Alle abwählen",
-        "selectAll": "Alle auswählen"
+        "selectAll": "Alle auswählen",
+        "appliesToAll": "Alle Typen"
       },
       "columns": {
         "name": "Name",
@@ -228,7 +229,7 @@
         "timeFieldPath": "Zeitfeld-Pfad",
         "timeFieldPathPlaceholder": "z.B. event_date",
         "valueSchema": "Wert-Schema (JSON)",
-        "valueSchemePlaceholder": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"name\": { \"type\": \"string\" }\n  }\n}",
+        "valueSchemePlaceholder": "JSON-Schema für Wertestruktur eingeben...",
         "schemaInfo": "Das JSON-Schema definiert die Struktur der Werte für diesen Facet-Typ",
         "invalidJson": "Ungültiges JSON",
         "deduplicationFields": "Deduplizierungsfelder",
@@ -300,7 +301,7 @@
         "documentationUrlPlaceholder": "https://docs.example.com",
         "authRequired": "Authentifizierung erforderlich",
         "fieldMapping": "Feld-Mapping (JSON)",
-        "fieldMappingPlaceholder": "{\n  \"sourceName\": \"name\",\n  \"sourceUrl\": \"url\"\n}",
+        "fieldMappingPlaceholder": "JSON Feld-Mapping eingeben...",
         "fieldMappingHint": "Mapping von API-Feldern zu Standard-Feldern",
         "keywords": "Schlüsselwörter",
         "keywordsHint": "Wörter für automatisches Matching bei Suchanfragen",

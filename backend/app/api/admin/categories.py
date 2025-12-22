@@ -15,7 +15,7 @@ API Endpoints:
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, or_
@@ -26,6 +26,8 @@ from app.database import get_session
 from app.models import Category, DataSource, Document
 from app.models.data_source_category import DataSourceCategory
 from app.models.user import User
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 from app.schemas.category import (
     CategoryCreate,
     CategoryUpdate,
@@ -220,6 +222,7 @@ async def list_categories(
 )
 async def create_category(
     data: CategoryCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_editor),
 ):
@@ -265,28 +268,49 @@ async def create_category(
             detail=f"A category with name '{data.name}' or slug '{slug}' already exists",
         )
 
-    category = Category(
-        name=data.name,
-        slug=slug,
-        description=data.description,
-        purpose=data.purpose,
-        search_terms=data.search_terms,
-        document_types=data.document_types,
-        url_include_patterns=data.url_include_patterns,
-        url_exclude_patterns=data.url_exclude_patterns,
-        languages=data.languages,
-        ai_extraction_prompt=data.ai_extraction_prompt,
-        extraction_handler=data.extraction_handler,
-        schedule_cron=data.schedule_cron,
-        is_active=data.is_active,
-        is_public=data.is_public,
-        target_entity_type_id=data.target_entity_type_id,
-        created_by_id=current_user.id if current_user else None,
-        owner_id=current_user.id if current_user else None,
-    )
-    session.add(category)
-    await session.commit()
-    await session.refresh(category)
+    async with AuditContext(session, current_user, request) as audit:
+        category = Category(
+            name=data.name,
+            slug=slug,
+            description=data.description,
+            purpose=data.purpose,
+            search_terms=data.search_terms,
+            document_types=data.document_types,
+            url_include_patterns=data.url_include_patterns,
+            url_exclude_patterns=data.url_exclude_patterns,
+            languages=data.languages,
+            ai_extraction_prompt=data.ai_extraction_prompt,
+            extraction_handler=data.extraction_handler,
+            schedule_cron=data.schedule_cron,
+            is_active=data.is_active,
+            is_public=data.is_public,
+            target_entity_type_id=data.target_entity_type_id,
+            created_by_id=current_user.id if current_user else None,
+            owner_id=current_user.id if current_user else None,
+        )
+        session.add(category)
+        await session.flush()  # Get ID before audit
+
+        # Audit log with detailed info
+        audit.track_action(
+            action=AuditAction.CREATE,
+            entity_type="Category",
+            entity_id=category.id,
+            entity_name=category.name,
+            changes={
+                "name": category.name,
+                "slug": category.slug,
+                "purpose": category.purpose,
+                "is_public": category.is_public,
+                "is_active": category.is_active,
+                "languages": category.languages,
+                "search_terms": category.search_terms[:5] if category.search_terms else [],
+                "extraction_handler": category.extraction_handler,
+            },
+        )
+
+        await session.commit()
+        await session.refresh(category)
 
     return CategoryResponse.model_validate(category)
 
@@ -370,8 +394,9 @@ async def get_category(
 async def update_category(
     category_id: UUID,
     data: CategoryUpdate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """
     Update an existing category.
@@ -411,13 +436,45 @@ async def update_category(
                 detail=f"A category with name '{data.name}' already exists",
             )
 
-    # Update fields
-    update_data = data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(category, field, value)
+    # Capture old state for audit
+    old_data = {
+        "name": category.name,
+        "slug": category.slug,
+        "description": category.description,
+        "purpose": category.purpose,
+        "is_active": category.is_active,
+        "is_public": category.is_public,
+        "languages": category.languages,
+        "search_terms": category.search_terms,
+        "schedule_cron": category.schedule_cron,
+        "extraction_handler": category.extraction_handler,
+    }
 
-    await session.commit()
-    await session.refresh(category)
+    async with AuditContext(session, current_user, request) as audit:
+        # Update fields
+        update_data = data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(category, field, value)
+
+        # Capture new state
+        new_data = {
+            "name": category.name,
+            "slug": category.slug,
+            "description": category.description,
+            "purpose": category.purpose,
+            "is_active": category.is_active,
+            "is_public": category.is_public,
+            "languages": category.languages,
+            "search_terms": category.search_terms,
+            "schedule_cron": category.schedule_cron,
+            "extraction_handler": category.extraction_handler,
+        }
+
+        # Track update with diff
+        audit.track_update(category, old_data, new_data)
+
+        await session.commit()
+        await session.refresh(category)
 
     return CategoryResponse.model_validate(category)
 
@@ -440,8 +497,9 @@ async def update_category(
 )
 async def delete_category(
     category_id: UUID,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """
     Delete a category and all related data.
@@ -458,10 +516,36 @@ async def delete_category(
     if not category:
         raise NotFoundError("Category", str(category_id))
 
-    await session.delete(category)
-    await session.commit()
+    # Get counts for audit before deletion
+    source_count = (await session.execute(
+        select(func.count()).where(DataSourceCategory.category_id == category.id)
+    )).scalar()
+    doc_count = (await session.execute(
+        select(func.count()).where(Document.category_id == category.id)
+    )).scalar()
 
-    return MessageResponse(message=f"Category '{category.name}' deleted successfully")
+    category_name = category.name
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="Category",
+            entity_id=category.id,
+            entity_name=category_name,
+            changes={
+                "deleted": True,
+                "name": category_name,
+                "slug": category.slug,
+                "purpose": category.purpose,
+                "source_count": source_count,
+                "document_count": doc_count,
+            },
+        )
+
+        await session.delete(category)
+        await session.commit()
+
+    return MessageResponse(message=f"Category '{category_name}' deleted successfully")
 
 
 @router.get(
@@ -849,9 +933,10 @@ class AssignSourcesByTagsResponse(BaseModel):
 )
 async def assign_sources_by_tags(
     category_id: UUID,
-    request: AssignSourcesByTagsRequest,
+    assign_request: AssignSourcesByTagsRequest,
+    http_request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """
     Bulk-assign DataSources to a category based on tags.
@@ -886,13 +971,13 @@ async def assign_sources_by_tags(
     # Build query for sources matching tags
     query = select(DataSource)
 
-    if request.match_mode == "all":
+    if assign_request.match_mode == "all":
         # AND logic: source must have ALL tags
-        for tag in request.tags:
+        for tag in assign_request.tags:
             query = query.where(DataSource.tags.contains([tag]))
     else:
         # OR logic: source must have at least one tag
-        tag_conditions = [DataSource.tags.contains([tag]) for tag in request.tags]
+        tag_conditions = [DataSource.tags.contains([tag]) for tag in assign_request.tags]
         query = query.where(or_(*tag_conditions))
 
     result = await session.execute(query)
@@ -908,40 +993,63 @@ async def assign_sources_by_tags(
     assigned = 0
     already_assigned = 0
     removed = 0
+    assigned_source_names = []
 
-    # Handle replace mode - remove existing assignments first
-    if request.mode == "replace":
-        delete_result = await session.execute(
-            select(DataSourceCategory)
-            .where(DataSourceCategory.category_id == category_id)
-        )
-        existing_links = delete_result.scalars().all()
-        for link in existing_links:
-            await session.delete(link)
-            removed += 1
-        existing_source_ids = set()
+    async with AuditContext(session, current_user, http_request) as audit:
+        # Handle replace mode - remove existing assignments first
+        if assign_request.mode == "replace":
+            delete_result = await session.execute(
+                select(DataSourceCategory)
+                .where(DataSourceCategory.category_id == category_id)
+            )
+            existing_links = delete_result.scalars().all()
+            for link in existing_links:
+                await session.delete(link)
+                removed += 1
+            existing_source_ids = set()
 
-    # Assign matching sources
-    for source in matching_sources:
-        if source.id in existing_source_ids:
-            already_assigned += 1
-            continue
+        # Assign matching sources
+        for source in matching_sources:
+            if source.id in existing_source_ids:
+                already_assigned += 1
+                continue
 
-        # Check if this is the first category for the source
-        existing_cats_count = (await session.execute(
-            select(func.count())
-            .where(DataSourceCategory.data_source_id == source.id)
-        )).scalar()
+            # Check if this is the first category for the source
+            existing_cats_count = (await session.execute(
+                select(func.count())
+                .where(DataSourceCategory.data_source_id == source.id)
+            )).scalar()
 
-        link = DataSourceCategory(
-            data_source_id=source.id,
-            category_id=category_id,
-            is_primary=(existing_cats_count == 0),  # Primary if first category
-        )
-        session.add(link)
-        assigned += 1
+            link = DataSourceCategory(
+                data_source_id=source.id,
+                category_id=category_id,
+                is_primary=(existing_cats_count == 0),  # Primary if first category
+            )
+            session.add(link)
+            assigned += 1
+            if len(assigned_source_names) < 10:
+                assigned_source_names.append(source.name)
 
-    await session.commit()
+        # Audit log for bulk operation
+        if assigned > 0 or removed > 0:
+            audit.track_action(
+                action=AuditAction.UPDATE,
+                entity_type="Category",
+                entity_id=category_id,
+                entity_name=category.name,
+                changes={
+                    "operation": "assign_sources_by_tags",
+                    "tags": assign_request.tags,
+                    "match_mode": assign_request.match_mode,
+                    "mode": assign_request.mode,
+                    "assigned": assigned,
+                    "removed": removed,
+                    "already_assigned": already_assigned,
+                    "sample_sources": assigned_source_names,
+                },
+            )
+
+        await session.commit()
 
     # Get total count in category
     total_in_category = (await session.execute(

@@ -13,13 +13,15 @@ Features:
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.core.deps import require_editor
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 from app.models import Category, User
 from app.api.admin.sources import validate_crawler_url
 
@@ -236,9 +238,10 @@ async def preview_api_import(
 
 @router.post("/execute", response_model=ApiImportExecuteResponse)
 async def execute_api_import(
-    request: ApiImportExecuteRequest,
+    data: ApiImportExecuteRequest,
+    http_request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_editor),
+    current_user: User = Depends(require_editor),
 ):
     """
     Execute an API import and create DataSources.
@@ -253,7 +256,7 @@ async def execute_api_import(
 
     # Verify all categories exist
     categories = []
-    for cat_id in request.category_ids:
+    for cat_id in data.category_ids:
         category = await session.get(Category, cat_id)
         if not category:
             raise HTTPException(
@@ -265,11 +268,11 @@ async def execute_api_import(
     try:
         # Fetch all items from API
         items = await fetch_all_from_api(
-            api_type=request.api_type,
-            api_url=request.api_url,
-            params=request.params,
-            field_mapping=request.field_mapping,
-            max_items=request.max_items,
+            api_type=data.api_type,
+            api_url=data.api_url,
+            params=data.params,
+            field_mapping=data.field_mapping,
+            max_items=data.max_items,
         )
     except Exception as e:
         raise HTTPException(
@@ -302,7 +305,7 @@ async def execute_api_import(
                 continue
 
             # Check for duplicate
-            if request.skip_duplicates:
+            if data.skip_duplicates:
                 existing = await session.execute(
                     select(DataSource).where(DataSource.base_url == base_url)
                 )
@@ -312,7 +315,7 @@ async def execute_api_import(
 
             # Combine tags
             item_tags = item.get("tags", []) if isinstance(item.get("tags"), list) else []
-            combined_tags = list(set(request.default_tags + item_tags))
+            combined_tags = list(set(data.default_tags + item_tags))
 
             # Determine source type
             source_type_str = item.get("source_type", "WEBSITE")
@@ -349,7 +352,24 @@ async def execute_api_import(
                 "error": str(e),
             })
 
-    await session.commit()
+    # Audit log for API import
+    category_names = [c.name for c in categories]
+    async with AuditContext(session, current_user, http_request) as audit:
+        audit.track_action(
+            action=AuditAction.IMPORT,
+            entity_type="DataSource",
+            entity_name=f"API Import ({data.api_type})",
+            changes={
+                "api_type": data.api_type,
+                "api_url": data.api_url,
+                "imported": imported,
+                "skipped": skipped,
+                "errors_count": len(errors),
+                "categories": category_names,
+                "default_tags": data.default_tags,
+            },
+        )
+        await session.commit()
 
     return ApiImportExecuteResponse(
         imported=imported,

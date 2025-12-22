@@ -13,6 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_session
 from app.core.deps import require_admin
 from app.core.rate_limit import check_rate_limit
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 from app.models import User
 from app.schemas.external_api import (
     ExternalAPIConfigCreate,
@@ -69,8 +71,9 @@ async def list_external_api_configs(
 @router.post("", response_model=ExternalAPIConfigResponse, status_code=201)
 async def create_external_api_config(
     data: ExternalAPIConfigCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Create a new external API configuration."""
     import uuid
@@ -99,9 +102,26 @@ async def create_external_api_config(
         data_source_id=data.data_source_id,
     )
 
-    session.add(config)
-    await session.commit()
-    await session.refresh(config)
+    async with AuditContext(session, current_user, request) as audit:
+        session.add(config)
+        await session.flush()
+
+        audit.track_action(
+            action=AuditAction.CREATE,
+            entity_type="ExternalAPIConfig",
+            entity_id=config.id,
+            entity_name=config.name,
+            changes={
+                "name": config.name,
+                "api_type": config.api_type,
+                "api_base_url": config.api_base_url,
+                "entity_type_slug": config.entity_type_slug,
+                "sync_enabled": config.sync_enabled,
+            },
+        )
+
+        await session.commit()
+        await session.refresh(config)
 
     return ExternalAPIConfigResponse.model_validate(config)
 
@@ -164,21 +184,41 @@ async def get_external_api_config(
 async def update_external_api_config(
     config_id: UUID,
     data: ExternalAPIConfigUpdate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Update an external API configuration."""
     config = await session.get(ExternalAPIConfig, config_id)
     if not config:
         raise HTTPException(status_code=404, detail="Configuration not found")
 
+    # Capture old state for audit
+    old_data = {
+        "name": config.name,
+        "api_base_url": config.api_base_url,
+        "sync_enabled": config.sync_enabled,
+        "is_active": config.is_active,
+    }
+
     # Update only provided fields
     update_data = data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(config, field, value)
 
-    await session.commit()
-    await session.refresh(config)
+    async with AuditContext(session, current_user, request) as audit:
+        for field, value in update_data.items():
+            setattr(config, field, value)
+
+        new_data = {
+            "name": config.name,
+            "api_base_url": config.api_base_url,
+            "sync_enabled": config.sync_enabled,
+            "is_active": config.is_active,
+        }
+
+        audit.track_update(config, old_data, new_data)
+
+        await session.commit()
+        await session.refresh(config)
 
     return ExternalAPIConfigResponse.model_validate(config)
 
@@ -186,8 +226,9 @@ async def update_external_api_config(
 @router.delete("/{config_id}", response_model=MessageResponse)
 async def delete_external_api_config(
     config_id: UUID,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Delete an external API configuration.
 
@@ -200,8 +241,23 @@ async def delete_external_api_config(
         raise HTTPException(status_code=404, detail="Configuration not found")
 
     name = config.name
-    await session.delete(config)
-    await session.commit()
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="ExternalAPIConfig",
+            entity_id=config_id,
+            entity_name=name,
+            changes={
+                "deleted": True,
+                "name": name,
+                "api_type": config.api_type,
+                "api_base_url": config.api_base_url,
+            },
+        )
+
+        await session.delete(config)
+        await session.commit()
 
     return MessageResponse(message=f"External API configuration '{name}' deleted successfully")
 
@@ -233,6 +289,21 @@ async def trigger_sync(
     from workers.external_api_tasks import sync_external_api
 
     task = sync_external_api.delay(str(config_id))
+
+    async with AuditContext(session, current_user, http_request) as audit:
+        audit.track_action(
+            action=AuditAction.IMPORT,
+            entity_type="ExternalAPISync",
+            entity_id=config_id,
+            entity_name=config.name,
+            changes={
+                "action": "trigger_sync",
+                "config_name": config.name,
+                "api_type": config.api_type,
+                "task_id": task.id,
+            },
+        )
+        await session.commit()
 
     return TriggerSyncResponse(
         message="Sync triggered successfully",
@@ -396,8 +467,9 @@ async def get_sync_record(
 async def delete_sync_record(
     config_id: UUID,
     record_id: UUID,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Delete a single sync record.
 
@@ -409,8 +481,27 @@ async def delete_sync_record(
         raise HTTPException(status_code=404, detail="Sync record not found")
 
     external_id = record.external_id
-    await session.delete(record)
-    await session.commit()
+
+    # Get config name for audit
+    config = await session.get(ExternalAPIConfig, config_id)
+    config_name = config.name if config else str(config_id)
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="SyncRecord",
+            entity_id=record_id,
+            entity_name=external_id,
+            changes={
+                "deleted": True,
+                "external_id": external_id,
+                "config_name": config_name,
+                "sync_status": record.sync_status,
+            },
+        )
+
+        await session.delete(record)
+        await session.commit()
 
     return MessageResponse(message=f"Sync record '{external_id}' deleted successfully")
 

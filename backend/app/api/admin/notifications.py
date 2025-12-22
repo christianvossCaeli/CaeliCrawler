@@ -5,12 +5,14 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 from app.models.notification import (
     Notification,
     NotificationChannel,
@@ -503,6 +505,7 @@ async def list_rules(
 @router.post("/rules", response_model=NotificationRuleResponse, status_code=201)
 async def create_rule(
     data: NotificationRuleCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -528,9 +531,26 @@ async def create_rule(
         digest_frequency=data.digest_frequency,
         is_active=data.is_active,
     )
-    session.add(rule)
-    await session.commit()
-    await session.refresh(rule)
+
+    async with AuditContext(session, current_user, request) as audit:
+        session.add(rule)
+        await session.flush()
+
+        audit.track_action(
+            action=AuditAction.CREATE,
+            entity_type="NotificationRule",
+            entity_id=rule.id,
+            entity_name=rule.name,
+            changes={
+                "name": rule.name,
+                "event_type": rule.event_type.value,
+                "channel": rule.channel.value,
+                "is_active": rule.is_active,
+            },
+        )
+
+        await session.commit()
+        await session.refresh(rule)
 
     return NotificationRuleResponse.model_validate(rule)
 
@@ -556,6 +576,7 @@ async def get_rule(
 async def update_rule(
     rule_id: UUID,
     data: NotificationRuleUpdate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -574,12 +595,27 @@ async def update_rule(
             detail="Invalid digest frequency. Must be 'hourly', 'daily', or 'weekly'",
         )
 
-    update_data = data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(rule, field, value)
+    # Capture old state for audit
+    old_data = {
+        "name": rule.name,
+        "is_active": rule.is_active,
+    }
 
-    await session.commit()
-    await session.refresh(rule)
+    update_data = data.model_dump(exclude_unset=True)
+
+    async with AuditContext(session, current_user, request) as audit:
+        for field, value in update_data.items():
+            setattr(rule, field, value)
+
+        new_data = {
+            "name": rule.name,
+            "is_active": rule.is_active,
+        }
+
+        audit.track_update(rule, old_data, new_data)
+
+        await session.commit()
+        await session.refresh(rule)
 
     return NotificationRuleResponse.model_validate(rule)
 
@@ -587,6 +623,7 @@ async def update_rule(
 @router.delete("/rules/{rule_id}", response_model=MessageResponse)
 async def delete_rule(
     rule_id: UUID,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -598,8 +635,24 @@ async def delete_rule(
     if not rule or rule.user_id != current_user.id:
         raise NotFoundError("Notification rule", str(rule_id))
 
-    await session.delete(rule)
-    await session.commit()
+    name = rule.name
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="NotificationRule",
+            entity_id=rule_id,
+            entity_name=name,
+            changes={
+                "deleted": True,
+                "name": name,
+                "event_type": rule.event_type.value,
+                "channel": rule.channel.value,
+            },
+        )
+
+        await session.delete(rule)
+        await session.commit()
 
     return MessageResponse(message="Rule deleted")
 

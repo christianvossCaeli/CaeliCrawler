@@ -4,7 +4,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
@@ -21,7 +21,15 @@ async def get_analysis_stats(
     category_id: Optional[UUID] = Query(default=None),
     session: AsyncSession = Depends(get_session),
 ):
-    """Get overall analysis statistics."""
+    """Get overall analysis statistics, optionally filtered by entity type."""
+    # Get entity type ID if slug is provided
+    entity_type_id = None
+    if entity_type_slug:
+        et_result = await session.execute(
+            select(EntityType.id).where(EntityType.slug == entity_type_slug)
+        )
+        entity_type_id = et_result.scalar()
+
     # Entity counts by type
     et_query = select(
         EntityType.slug,
@@ -42,6 +50,12 @@ async def get_analysis_stats(
     if category_id:
         ft_query = ft_query.where(FacetValue.category_id == category_id)
 
+    # Filter facets by entity type if specified
+    if entity_type_id:
+        ft_query = ft_query.join(Entity, FacetValue.entity_id == Entity.id).where(
+            Entity.entity_type_id == entity_type_id
+        )
+
     ft_query = ft_query.group_by(FacetType.id)
     ft_result = await session.execute(ft_query)
     facet_counts = {row.slug: {"name": row.name, "count": row.count} for row in ft_result.fetchall()}
@@ -56,19 +70,68 @@ async def get_analysis_stats(
     rt_result = await session.execute(rt_query)
     relation_counts = {row.slug: {"name": row.name, "count": row.count} for row in rt_result.fetchall()}
 
-    # Overall stats
-    total_entities = (await session.execute(select(func.count(Entity.id)))).scalar()
-    total_facets = (await session.execute(select(func.count(FacetValue.id)))).scalar()
-    total_relations = (await session.execute(select(func.count(EntityRelation.id)))).scalar()
-    verified_facets = (await session.execute(
-        select(func.count(FacetValue.id)).where(FacetValue.human_verified.is_(True))
-    )).scalar()
+    # Overall stats - filtered by entity type if specified
+    if entity_type_id:
+        # Filtered stats for specific entity type
+        total_entities = (await session.execute(
+            select(func.count(Entity.id)).where(Entity.entity_type_id == entity_type_id)
+        )).scalar()
+
+        # Facets for entities of this type
+        total_facets = (await session.execute(
+            select(func.count(FacetValue.id))
+            .join(Entity, FacetValue.entity_id == Entity.id)
+            .where(Entity.entity_type_id == entity_type_id)
+        )).scalar()
+
+        # Relations where source OR target is of this entity type
+        total_relations = (await session.execute(
+            select(func.count(EntityRelation.id))
+            .join(Entity, or_(
+                EntityRelation.source_entity_id == Entity.id,
+                EntityRelation.target_entity_id == Entity.id
+            ))
+            .where(Entity.entity_type_id == entity_type_id)
+        )).scalar()
+
+        verified_facets = (await session.execute(
+            select(func.count(FacetValue.id))
+            .join(Entity, FacetValue.entity_id == Entity.id)
+            .where(
+                Entity.entity_type_id == entity_type_id,
+                FacetValue.human_verified.is_(True)
+            )
+        )).scalar()
+
+        # Hierarchy links for this entity type (entities with parent)
+        total_hierarchy_links = (await session.execute(
+            select(func.count(Entity.id)).where(
+                Entity.entity_type_id == entity_type_id,
+                Entity.parent_id.isnot(None)
+            )
+        )).scalar()
+    else:
+        # Global stats (no filter)
+        total_entities = (await session.execute(select(func.count(Entity.id)))).scalar()
+        total_facets = (await session.execute(select(func.count(FacetValue.id)))).scalar()
+        total_relations = (await session.execute(select(func.count(EntityRelation.id)))).scalar()
+        verified_facets = (await session.execute(
+            select(func.count(FacetValue.id)).where(FacetValue.human_verified.is_(True))
+        )).scalar()
+        total_hierarchy_links = (await session.execute(
+            select(func.count(Entity.id)).where(Entity.parent_id.isnot(None))
+        )).scalar()
+
+    # Total connections = explicit relations + hierarchy links
+    total_connections = total_relations + total_hierarchy_links
 
     return {
         "overview": {
             "total_entities": total_entities,
             "total_facet_values": total_facets,
             "total_relations": total_relations,
+            "total_hierarchy_links": total_hierarchy_links,
+            "total_connections": total_connections,
             "verified_facet_values": verified_facets,
             "verification_rate": round(verified_facets / total_facets, 2) if total_facets > 0 else 0,
         },

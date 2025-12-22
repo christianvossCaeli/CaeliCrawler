@@ -47,17 +47,30 @@
       "commandsTitle": "Beispiel-Kommandos",
       "read": {
         "futureEvents": "Zeige mir auf welche kuenftige Events wichtige Entscheider-Personen von Gemeinden gehen",
+        "futureEventsTitle": "Zukünftige Events",
         "mayorsOnEvents": "Welche Buergermeister sprechen auf Events?",
+        "mayorsOnEventsTitle": "Bürgermeister auf Events",
         "allPainPoints": "Zeige mir alle Pain Points von Gemeinden",
-        "gummersbachPainPoints": "Zeige mir Pain Points von Gummersbach"
+        "allPainPointsTitle": "Alle Pain Points",
+        "gummersbachPainPoints": "Zeige mir Pain Points von Gummersbach",
+        "gummersbachPainPointsTitle": "Pain Points Gummersbach"
       },
       "write": {
         "createPerson": "Erstelle eine Person Max Mueller, Buergermeister",
+        "createPersonTitle": "Person erstellen",
         "addPainPoint": "Fuege einen Pain Point fuer Muenster hinzu: Personalmangel in der IT",
+        "addPainPointTitle": "Pain Point hinzufügen",
         "findEvents": "Finde alle Events auf denen Entscheider aus NRW teilnehmen",
+        "findEventsTitle": "Events finden",
         "startCrawls": "Starte Crawls fuer alle Gummersbach Datenquellen",
-        "createCategory": "Erstelle Category fuer Windkraft in Bayern und starte sofort einen Crawl"
+        "startCrawlsTitle": "Crawls starten",
+        "createCategory": "Erstelle Category fuer Windkraft in Bayern und starte sofort einen Crawl",
+        "createCategoryTitle": "Kategorie erstellen"
       }
+    },
+    "loading": {
+      "analyzing": "Analysiere deine Anfrage...",
+      "pleaseWait": "Bitte warte einen Moment"
     },
     "generation": {
       "running": "KI-Generierung läuft...",
@@ -106,8 +119,10 @@
     "read": {
       "aiInterpretation": "KI-Interpretation",
       "resultsCount": "{count} Ergebnisse",
+      "resultsFound": "Ergebnisse gefunden",
       "grouping": "Gruppierung",
       "attendees": "Teilnehmer ({count})",
+      "attendeesLabel": "Teilnehmer",
       "moreItems": "+{count} weitere",
       "noResults": "Keine Ergebnisse gefunden",
       "noResultsHint": "Versuche eine andere Formulierung oder pruefe ob die entsprechenden Daten vorhanden sind.",

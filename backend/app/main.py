@@ -203,6 +203,7 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         return {
             "entityLevelFacets": settings.feature_entity_level_facets,
             "pysisFieldTemplates": settings.feature_pysis_field_templates,
+            "entityHierarchyEnabled": True,  # Enable entity hierarchy features
         }
 
     # Root endpoint

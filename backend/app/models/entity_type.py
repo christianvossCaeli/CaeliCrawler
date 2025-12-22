@@ -90,6 +90,12 @@ class EntityType(Base):
         nullable=False,
         comment="Has hierarchical structure (like Location)",
     )
+    supports_pysis: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="Supports PySis data enrichment (German municipalities)",
+    )
     hierarchy_config: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         JSONB,
         nullable=True,

@@ -119,7 +119,7 @@
       </thead>
       <tbody>
         <tr>
-          <td><v-chip size="small" color="grey">{{ t('help.attachments.status.pending') }}</v-chip></td>
+          <td><v-chip size="small">{{ t('help.attachments.status.pending') }}</v-chip></td>
           <td>{{ t('help.attachments.status.pendingDesc') }}</td>
         </tr>
         <tr>

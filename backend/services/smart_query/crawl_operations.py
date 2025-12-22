@@ -4,10 +4,10 @@ from typing import Any, Dict, List, Set
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select, or_, func
+from sqlalchemy import select, or_, func, cast, Float
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import DataSource, DataSourceCategory, Category
+from app.models import DataSource, DataSourceCategory, Category, Entity
 
 logger = structlog.get_logger()
 
@@ -190,39 +190,182 @@ async def find_matching_data_sources(
 async def find_sources_for_crawl(
     session: AsyncSession,
     crawl_data: Dict[str, Any],
-    limit: int = 100,
+    limit: int = 1000,
 ) -> List[DataSource]:
-    """Find data sources matching crawl criteria."""
-    filter_type = crawl_data.get("filter_type", "category")
-    category_slug = crawl_data.get("category_slug")
+    """Find data sources matching crawl criteria.
+
+    Supports multiple filter strategies that can be combined:
+
+    1. source_ids: Explicit list of DataSource IDs
+    2. category_slug: Filter by category
+    3. search: Name search
+    4. tags: Filter by tags (entity_type, region, etc.) - uses AND logic
+    5. entity_type: Filter by entity type tag (e.g., "territorial-entity", "windpark")
+    6. admin_level_1: Filter by region/Bundesland (e.g., "Bayern", "NRW")
+    7. entity_filters: Advanced entity-based filtering
+
+    Multiple filters are combined with AND logic.
+
+    Examples:
+        # All sources in Bayern
+        {"admin_level_1": "Bayern"}
+
+        # All Gemeinden in Bayern
+        {"admin_level_1": "Bayern", "tags": ["kommunal"]}
+
+        # All territorial entities in NRW for a specific category
+        {"entity_type": "territorial-entity", "admin_level_1": "NRW",
+         "category_slug": "kommunale-news-windenergie"}
+    """
     source_ids = crawl_data.get("source_ids", [])
+    category_slug = crawl_data.get("category_slug")
     search = crawl_data.get("search")
 
+    # New generic filters
+    tags = crawl_data.get("tags", [])
+    entity_type = crawl_data.get("entity_type")
+    admin_level_1 = crawl_data.get("admin_level_1")
+    entity_filters = crawl_data.get("entity_filters", {})
+
+    # Build base query
     query = select(DataSource).where(DataSource.status != "ERROR")
+    conditions = []
 
+    # Strategy 1: Explicit source IDs (highest priority, returns immediately)
     if source_ids:
-        # Explicit source IDs
         query = query.where(DataSource.id.in_([UUID(sid) for sid in source_ids]))
+        result = await session.execute(query.limit(limit))
+        return list(result.scalars().all())
 
-    elif filter_type == "category" and category_slug:
-        # Filter by category
+    # Strategy 2: Category filter
+    if category_slug:
         cat_result = await session.execute(
             select(Category).where(Category.slug == category_slug)
         )
         category = cat_result.scalar_one_or_none()
         if category:
+            # Need to join with category table
             query = (
                 query
                 .join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id)
                 .where(DataSourceCategory.category_id == category.id)
             )
 
-    elif filter_type == "search" and search:
-        # Search by name
-        query = query.where(DataSource.name.ilike(f"%{search}%"))
+    # Strategy 3: Name search
+    if search:
+        conditions.append(DataSource.name.ilike(f"%{search}%"))
+
+    # Strategy 4: Entity type filter (tag-based)
+    if entity_type:
+        entity_type_slug = entity_type.lower().replace(" ", "-")
+        conditions.append(DataSource.tags.contains([entity_type_slug]))
+
+    # Strategy 5: Admin level 1 / Region filter
+    if admin_level_1:
+        # Expand to include aliases (e.g., "Bayern" -> ["bayern", "by"])
+        region_tags = expand_tag(admin_level_1)
+        # Any of the region tags must match
+        region_conditions = [DataSource.tags.contains([tag]) for tag in region_tags]
+        if region_conditions:
+            conditions.append(or_(*region_conditions))
+
+    # Strategy 6: Additional tags (AND logic - all must be present)
+    if tags:
+        for tag in tags:
+            expanded = expand_tag(tag)
+            # For each tag group, any alias can match
+            tag_conditions = [DataSource.tags.contains([t]) for t in expanded]
+            if tag_conditions:
+                conditions.append(or_(*tag_conditions))
+
+    # Strategy 7: Advanced entity filters (via Entity join)
+    entity_id_filter = None
+    if entity_filters:
+        # Build entity query for filtering
+        entity_conditions = []
+
+        # Filter by parent entity name (for hierarchical filtering)
+        parent_name = entity_filters.get("parent_name")
+        if parent_name:
+            # Find parent entity first
+            parent_query = select(Entity.id).where(
+                Entity.name.ilike(f"%{parent_name}%")
+            )
+            parent_result = await session.execute(parent_query)
+            parent_ids = [row[0] for row in parent_result.fetchall()]
+            if parent_ids:
+                entity_conditions.append(Entity.parent_id.in_(parent_ids))
+
+        # Filter by hierarchy level
+        hierarchy_level = entity_filters.get("hierarchy_level")
+        if hierarchy_level is not None:
+            entity_conditions.append(Entity.hierarchy_level == hierarchy_level)
+
+        # Filter by core_attributes (e.g., population, area)
+        core_attr_filters = entity_filters.get("core_attributes", {})
+        for attr_name, attr_filter in core_attr_filters.items():
+            # Support operators: lt, lte, gt, gte, eq
+            json_path = Entity.core_attributes[attr_name].astext
+            if isinstance(attr_filter, dict):
+                for op, value in attr_filter.items():
+                    if op == "lt":
+                        entity_conditions.append(cast(json_path, Float) < value)
+                    elif op == "lte":
+                        entity_conditions.append(cast(json_path, Float) <= value)
+                    elif op == "gt":
+                        entity_conditions.append(cast(json_path, Float) > value)
+                    elif op == "gte":
+                        entity_conditions.append(cast(json_path, Float) >= value)
+                    elif op == "eq":
+                        entity_conditions.append(cast(json_path, Float) == value)
+            else:
+                # Direct value = equality
+                entity_conditions.append(cast(json_path, Float) == attr_filter)
+
+        # If we have entity conditions, get matching entity IDs
+        if entity_conditions:
+            entity_query = select(Entity.id).where(*entity_conditions)
+            entity_result = await session.execute(entity_query)
+            matching_entity_ids = [str(row[0]) for row in entity_result.fetchall()]
+
+            if matching_entity_ids:
+                entity_id_filter = matching_entity_ids
+                logger.info(f"Entity filter matched {len(matching_entity_ids)} entities")
+            else:
+                # No matching entities = no results
+                logger.info("Entity filter matched 0 entities")
+                return []
+
+    # Apply entity_id filter via extra_data JSONB
+    if entity_id_filter:
+        # Filter DataSources where extra_data->>'entity_id' is in our list
+        entity_id_conditions = [
+            DataSource.extra_data["entity_id"].astext == eid
+            for eid in entity_id_filter[:1000]  # Limit to prevent huge OR
+        ]
+        if entity_id_conditions:
+            conditions.append(or_(*entity_id_conditions))
+
+    # Apply all conditions
+    if conditions:
+        query = query.where(*conditions)
+
+    logger.info(
+        "Finding sources for crawl",
+        category_slug=category_slug,
+        entity_type=entity_type,
+        admin_level_1=admin_level_1,
+        tags=tags,
+        search=search,
+        entity_filters=entity_filters,
+    )
 
     result = await session.execute(query.limit(limit))
-    return list(result.scalars().all())
+    sources = list(result.scalars().all())
+
+    logger.info(f"Found {len(sources)} sources matching criteria")
+
+    return sources
 
 
 async def execute_crawl_command(

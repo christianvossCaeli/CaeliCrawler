@@ -728,7 +728,7 @@ async def batch_action(
 
     ## Target Filter
     Filter entities by various criteria:
-    - `entity_type`: Type of entity (e.g., "municipality")
+    - `entity_type`: Type of entity (e.g., "territorial_entity")
     - `location.admin_level_1`: State/region filter
     - `has_facet`: Filter by existing facet
 

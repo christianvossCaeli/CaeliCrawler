@@ -251,6 +251,51 @@
           "meaning": "Error occurred",
           "action": "Check error, try again"
         }
+      },
+      "crawlerFindsNoDocuments": {
+        "title": "Crawler finds no documents",
+        "causes": "Possible causes:",
+        "causesList": [
+          "Exclude patterns (blacklist) filtering too much",
+          "Include patterns (whitelist) too restrictive (if set)",
+          "Documents are behind JavaScript",
+          "Site blocks crawler (User-Agent)"
+        ],
+        "solutions": "Solutions:",
+        "solutionsList": [
+          "Check blacklist and remove patterns if needed",
+          "Clear whitelist (recommended) - AI filters relevant content",
+          "Enable JavaScript rendering",
+          "Increase max depth"
+        ]
+      },
+      "aiAnalysisNoResults": {
+        "title": "AI analysis returns no results",
+        "causes": "Possible causes:",
+        "causesList": [
+          "Keyword filter too strict",
+          "Documents contain no relevant content",
+          "Prompt not suitable"
+        ],
+        "solutions": "Solutions:",
+        "solutionsList": [
+          "Expand keywords",
+          "Use 'Analyze filtered'",
+          "Optimize prompt"
+        ]
+      },
+      "documentsStayPending": {
+        "title": "Documents stay in 'Pending'",
+        "causes": "Possible causes:",
+        "causesList": [
+          "Worker not active",
+          "Queue overloaded"
+        ],
+        "solutions": "Solutions:",
+        "solutionsList": [
+          "Check worker status in Crawler",
+          "Click 'Process pending' manually"
+        ]
       }
     },
     "apiGroups": {

@@ -104,7 +104,7 @@
                 <v-select
                   v-model="asyncExportOptions.entity_type"
                   :items="entityTypeItems"
-                  :label="t('entities.entityTypes.entityType')"
+                  :label="t('entityTypes.entityType')"
                   density="comfortable"
                 />
               </v-col>

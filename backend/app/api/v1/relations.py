@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,8 @@ from app.models import (
 )
 from app.models.user import User
 from app.core.deps import get_current_user, get_current_user_optional, require_editor
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 from app.schemas.relation import (
     RelationTypeCreate,
     RelationTypeUpdate,
@@ -128,6 +130,7 @@ async def list_relation_types(
 @router.post("/types", response_model=RelationTypeResponse, status_code=201)
 async def create_relation_type(
     data: RelationTypeCreate,
+    request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
@@ -156,24 +159,41 @@ async def create_relation_type(
             detail=f"A relation type with name '{data.name}' or slug '{slug}' already exists",
         )
 
-    relation_type = RelationType(
-        name=data.name,
-        slug=slug,
-        name_inverse=data.name_inverse,
-        description=data.description,
-        source_entity_type_id=data.source_entity_type_id,
-        target_entity_type_id=data.target_entity_type_id,
-        cardinality=data.cardinality,
-        attribute_schema=data.attribute_schema,
-        icon=data.icon,
-        color=data.color,
-        display_order=data.display_order,
-        is_active=data.is_active,
-        is_system=False,
-    )
-    session.add(relation_type)
-    await session.commit()
-    await session.refresh(relation_type)
+    async with AuditContext(session, current_user, request) as audit:
+        relation_type = RelationType(
+            name=data.name,
+            slug=slug,
+            name_inverse=data.name_inverse,
+            description=data.description,
+            source_entity_type_id=data.source_entity_type_id,
+            target_entity_type_id=data.target_entity_type_id,
+            cardinality=data.cardinality,
+            attribute_schema=data.attribute_schema,
+            icon=data.icon,
+            color=data.color,
+            display_order=data.display_order,
+            is_active=data.is_active,
+            is_system=False,
+        )
+        session.add(relation_type)
+        await session.flush()
+
+        audit.track_action(
+            action=AuditAction.CREATE,
+            entity_type="RelationType",
+            entity_id=relation_type.id,
+            entity_name=relation_type.name,
+            changes={
+                "name": relation_type.name,
+                "slug": slug,
+                "source_entity_type": source_et.name,
+                "target_entity_type": target_et.name,
+                "cardinality": data.cardinality,
+            },
+        )
+
+        await session.commit()
+        await session.refresh(relation_type)
 
     item = RelationTypeResponse.model_validate(relation_type)
     item.source_entity_type_name = source_et.name
@@ -247,6 +267,7 @@ async def get_relation_type_by_slug(
 async def update_relation_type(
     relation_type_id: UUID,
     data: RelationTypeUpdate,
+    request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
@@ -255,13 +276,19 @@ async def update_relation_type(
     if not rt:
         raise NotFoundError("RelationType", str(relation_type_id))
 
-    # Update fields
-    update_data = data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(rt, field, value)
+    old_data = {"name": rt.name, "slug": rt.slug, "is_active": rt.is_active}
 
-    await session.commit()
-    await session.refresh(rt)
+    async with AuditContext(session, current_user, request) as audit:
+        # Update fields
+        update_data = data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(rt, field, value)
+
+        new_data = {"name": rt.name, "slug": rt.slug, "is_active": rt.is_active}
+        audit.track_update(rt, old_data, new_data)
+
+        await session.commit()
+        await session.refresh(rt)
 
     return RelationTypeResponse.model_validate(rt)
 
@@ -269,6 +296,7 @@ async def update_relation_type(
 @router.delete("/types/{relation_type_id}", response_model=MessageResponse)
 async def delete_relation_type(
     relation_type_id: UUID,
+    request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
@@ -294,10 +322,20 @@ async def delete_relation_type(
             detail=f"Relation type '{rt.name}' has {relation_count} relations. Delete them first.",
         )
 
-    await session.delete(rt)
-    await session.commit()
+    rt_name = rt.name
 
-    return MessageResponse(message=f"Relation type '{rt.name}' deleted successfully")
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="RelationType",
+            entity_id=relation_type_id,
+            entity_name=rt_name,
+            changes={"deleted": True, "name": rt_name, "slug": rt.slug},
+        )
+        await session.delete(rt)
+        await session.commit()
+
+    return MessageResponse(message=f"Relation type '{rt_name}' deleted successfully")
 
 
 # ============================================================================
@@ -430,6 +468,7 @@ async def list_entity_relations(
 @router.post("", response_model=EntityRelationResponse, status_code=201)
 async def create_entity_relation(
     data: EntityRelationCreate,
+    request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
@@ -479,22 +518,37 @@ async def create_entity_relation(
             detail=f"A relation of this type already exists between these entities",
         )
 
-    relation = EntityRelation(
-        relation_type_id=data.relation_type_id,
-        source_entity_id=data.source_entity_id,
-        target_entity_id=data.target_entity_id,
-        attributes=data.attributes or {},
-        valid_from=data.valid_from,
-        valid_until=data.valid_until,
-        source_document_id=data.source_document_id,
-        source_url=data.source_url,
-        confidence_score=data.confidence_score,
-        ai_model_used=data.ai_model_used,
-        is_active=data.is_active,
-    )
-    session.add(relation)
-    await session.commit()
-    await session.refresh(relation)
+    async with AuditContext(session, current_user, request) as audit:
+        relation = EntityRelation(
+            relation_type_id=data.relation_type_id,
+            source_entity_id=data.source_entity_id,
+            target_entity_id=data.target_entity_id,
+            attributes=data.attributes or {},
+            valid_from=data.valid_from,
+            valid_until=data.valid_until,
+            source_document_id=data.source_document_id,
+            source_url=data.source_url,
+            confidence_score=data.confidence_score,
+            ai_model_used=data.ai_model_used,
+            is_active=data.is_active,
+        )
+        session.add(relation)
+        await session.flush()
+
+        audit.track_action(
+            action=AuditAction.CREATE,
+            entity_type="EntityRelation",
+            entity_id=relation.id,
+            entity_name=f"{source.name} -> {target.name}",
+            changes={
+                "relation_type": rt.name,
+                "source_entity": source.name,
+                "target_entity": target.name,
+            },
+        )
+
+        await session.commit()
+        await session.refresh(relation)
 
     source_et = await session.get(EntityType, source.entity_type_id)
     target_et = await session.get(EntityType, target.entity_type_id)
@@ -547,6 +601,7 @@ async def get_entity_relation(
 async def update_entity_relation(
     relation_id: UUID,
     data: EntityRelationUpdate,
+    request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
@@ -555,13 +610,21 @@ async def update_entity_relation(
     if not rel:
         raise NotFoundError("EntityRelation", str(relation_id))
 
-    # Update fields
-    update_data = data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(rel, field, value)
+    async with AuditContext(session, current_user, request) as audit:
+        # Update fields
+        update_data = data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(rel, field, value)
 
-    await session.commit()
-    await session.refresh(rel)
+        audit.track_action(
+            action=AuditAction.UPDATE,
+            entity_type="EntityRelation",
+            entity_id=rel.id,
+            changes={"updated_fields": list(update_data.keys())},
+        )
+
+        await session.commit()
+        await session.refresh(rel)
 
     return EntityRelationResponse.model_validate(rel)
 
@@ -592,6 +655,7 @@ async def verify_entity_relation(
 @router.delete("/{relation_id}", response_model=MessageResponse)
 async def delete_entity_relation(
     relation_id: UUID,
+    request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
@@ -600,8 +664,15 @@ async def delete_entity_relation(
     if not rel:
         raise NotFoundError("EntityRelation", str(relation_id))
 
-    await session.delete(rel)
-    await session.commit()
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="EntityRelation",
+            entity_id=relation_id,
+            changes={"deleted": True},
+        )
+        await session.delete(rel)
+        await session.commit()
 
     return MessageResponse(message="Entity relation deleted successfully")
 

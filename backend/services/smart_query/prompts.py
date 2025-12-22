@@ -1,649 +1,356 @@
 """AI Prompts for Smart Query Service.
 
-Note: Query interpretation prompts are now generated dynamically in
-query_interpreter.py:build_dynamic_query_prompt() to include current
-facet and entity types from the database.
+All prompts are generated dynamically using data from the database.
+This ensures the AI always has current information about available
+entity types, facet types, relations, and categories.
 """
 
-WRITE_INTERPRETATION_PROMPT = """Du bist ein Command-Interpreter für ein Entity-Facet-System.
-Analysiere ob der Benutzer Daten ERSTELLEN oder ÄNDERN möchte.
+from typing import Any, Dict, List
 
-## Verfügbare Entity Types (Kategorien):
-- municipality: Gemeinden/Städte/Landkreise (DE: Gemeinde, Stadt, Kommune)
-- person: Personen (DE: Person, Kontakt, Ansprechpartner)
-- organization: Organisationen (DE: Organisation, Unternehmen, Verband)
-- event: Veranstaltungen (DE: Event, Messe, Konferenz)
 
-## Verfügbare Facet Types:
-- pain_point: Probleme/Herausforderungen (DE: Problem, Herausforderung, Hindernis)
-- positive_signal: Chancen/positive Signale (DE: Chance, Potenzial, Interesse)
-- contact: Kontaktperson (DE: Kontakt, Ansprechpartner)
-- event_attendance: Event-Teilnahme (DE: nimmt teil, besucht)
-- summary: Zusammenfassung
+def build_dynamic_write_prompt(
+    entity_types: List[Dict[str, Any]],
+    facet_types: List[Dict[str, Any]],
+    relation_types: List[Dict[str, Any]],
+    categories: List[Dict[str, Any]],
+    query: str,
+) -> str:
+    """Build the write interpretation prompt dynamically with current database state.
 
-## Verfügbare Relations:
-- works_for: Person arbeitet für Municipality/Organization
-- attends: Person nimmt teil an Event
-- located_in: Event findet statt in Municipality
-- member_of: Person ist Mitglied von Organization
+    This replaces the old static WRITE_INTERPRETATION_PROMPT with a dynamic version
+    that loads all available types from the database.
+    """
+
+    # Build entity types section
+    entity_lines = []
+    for et in entity_types:
+        attrs = ""
+        schema = et.get("attribute_schema") or {}
+        if isinstance(schema, dict) and schema.get("properties"):
+            attr_names = list(schema["properties"].keys())[:5]
+            attrs = f" (Attribute: {', '.join(attr_names)})"
+        hierarchy = " [hierarchisch]" if et.get("supports_hierarchy") else ""
+        entity_lines.append(f"- {et['slug']}: {et.get('description') or et['name']}{hierarchy}{attrs}")
+    entity_section = "\n".join(entity_lines) if entity_lines else "- (keine Entity-Typen definiert)"
+
+    # Build facet types section
+    facet_lines = []
+    for ft in facet_types:
+        applicable = ""
+        if ft.get("applicable_entity_type_slugs"):
+            applicable = f" [für: {', '.join(ft['applicable_entity_type_slugs'])}]"
+        facet_lines.append(f"- {ft['slug']}: {ft.get('description') or ft['name']}{applicable}")
+    facet_section = "\n".join(facet_lines) if facet_lines else "- (keine Facet-Typen definiert)"
+
+    # Build relation types section
+    relation_lines = []
+    for rt in relation_types:
+        relation_lines.append(f"- {rt['slug']}: {rt.get('description') or rt['name']}")
+    relation_section = "\n".join(relation_lines) if relation_lines else "- (keine Relations definiert)"
+
+    # Build categories section
+    category_lines = []
+    for cat in categories:
+        category_lines.append(f"- {cat['slug']}: {cat.get('description') or cat['name']}")
+    category_section = "\n".join(category_lines) if category_lines else "- (keine Kategorien definiert)"
+
+    return f"""Du bist ein intelligenter Command-Interpreter für ein Entity-Facet-System.
+Analysiere die Benutzeranfrage und entscheide selbstständig, welche Operationen ausgeführt werden sollen.
+
+## Aktuell verfügbare Entity Types:
+{entity_section}
+
+## Aktuell verfügbare Facet Types:
+{facet_section}
+
+## Aktuell verfügbare Relations:
+{relation_section}
+
+## Bestehende Kategorien (Analysethemen):
+{category_section}
 
 ## Verfügbare Operationen:
-- create_entity: Einzelne Entity erstellen
 - create_entity_type: Neuen Entity-Typ erstellen
+- create_entity: Einzelne Entity erstellen
 - create_facet: Facet zu Entity hinzufügen
 - create_relation: Relation zwischen Entities erstellen
-- create_category_setup: KOMPLEXE OPERATION - Erstellt EntityType + Category + verknüpft DataSources
-- start_crawl: Crawls für DataSources starten
-- discover_sources: KI-gesteuerte Suche nach Datenquellen im Internet (z.B. "Finde alle Bundesliga-Vereine", "Suche nach Gemeinden in NRW")
-- analyze_pysis_for_facets: PySis-Felder analysieren und Facets erstellen
-- enrich_facets_from_pysis: Bestehende Facets mit PySis-Daten anreichern
-- update_entity: Entity aktualisieren
-- create_facet_type: Neuen Facet-Typ erstellen (z.B. "Erstelle einen Facet-Typ für Kontaktdaten")
+- create_facet_type: Neuen Facet-Typ erstellen
 - assign_facet_type: Facet-Typ einem Entity-Typ zuweisen
-- batch_operation: Massenoperation auf mehreren Entities (z.B. "Füge allen Gemeinden in NRW einen Pain Point hinzu")
-- delete_entity: Entity löschen (Soft-Delete, kann rückgängig gemacht werden)
-- delete_facet: Einzelnes Facet von Entity löschen
-- batch_delete: Massen-Löschung von Entities oder Facets
-- export_query_result: Query-Ergebnis exportieren als CSV, JSON oder Excel
-- undo_change: Letzte Änderung rückgängig machen
-- get_change_history: Änderungshistorie anzeigen
-- combined: Mehrere Operationen in einem Befehl
+- add_history_point: Datenpunkt zu History-Facet hinzufügen (für Zeitreihen-Daten)
+- fetch_and_create_from_api: Daten aus externen APIs importieren (Wikidata SPARQL, REST APIs)
+- create_category_setup: Neue Kategorie mit DataSources erstellen
+- start_crawl: Crawls starten (unterstützt Filter nach Entity-Type, Region, Tags)
+- combined: Mehrere Operationen kombinieren
 
-## Befehle erkennen:
-- "Erstelle", "Anlegen", "Neue/r/s", "Füge hinzu" → CREATE
-- "Aktualisiere", "Ändere", "Setze" → UPDATE
-- "Verknüpfe", "Verbinde" → CREATE_RELATION
-- "Neuen Entity-Typ", "Neuen Typ" → CREATE_ENTITY_TYPE (nur für reine Typ-Definition ohne Crawling)
-- "Erstelle eine Kategorie für...", "Neue Kategorie für...", "Kategorie für...", "Finde alle...", "Suche nach...", "Überwache...", "Crawle..." → CREATE_CATEGORY_SETUP (mit oder ohne geografische Einschränkung, für Themen die gecrawlt werden sollen wie PlayStation News, Kryptokurse, IT-Jobs, Wetter, etc.)
-- "Starte Crawl", "Crawle", "Führe Crawl aus" → START_CRAWL
-- "Finde Datenquellen", "Suche Datenquellen", "Entdecke Quellen", "Importiere alle X", "Finde alle X im Internet", "Suche im Web nach X" → DISCOVER_SOURCES
-- "Analysiere PySis", "PySis zu Facets", "Extrahiere aus PySis" → ANALYZE_PYSIS_FOR_FACETS
-- "Reichere Facets an", "Befülle Facets", "Ergänze Facets mit PySis" → ENRICH_FACETS_FROM_PYSIS
-- "Neuen Facet-Typ", "Erstelle Facet-Typ", "Neuer Facet für" → CREATE_FACET_TYPE
-- "Weise Facet-Typ zu", "Facet-Typ zuweisen", "Facet aktivieren für" → ASSIGN_FACET_TYPE
-- "Füge ALLEN...", "Bei allen...", "Für alle..." + Massenangabe → BATCH_OPERATION
-- "Lösche", "Entferne", "Delete", "Remove" (einzelne Entity) → DELETE_ENTITY
-- "Lösche den Facet", "Entferne das Facet", "Facet löschen" → DELETE_FACET
-- "Lösche alle", "Entferne alle", "Lösche bei allen" + Massenangabe → BATCH_DELETE
-- "Exportiere", "Export", "Als CSV", "Als Excel", "Herunterladen" → EXPORT_QUERY_RESULT
-- "Rückgängig", "UNDO", "Zurücksetzen", "Wiederherstellen" → UNDO_CHANGE
-- "Änderungshistorie", "Änderungen anzeigen", "Was wurde geändert" → GET_CHANGE_HISTORY
-- Kombinierte Befehle mit "und dann", "danach", "anschließend" → COMBINED
-
-## UNDO-OPERATIONEN erkennen:
-Trigger-Phrasen für Rückgängig-Machen:
-- "Mach die letzte Änderung rückgängig"
-- "UNDO die Änderung an Gemeinde X"
-- "Setze die Entity Y zurück"
-- "Stelle den vorherigen Zustand wieder her"
-- "Zeige mir die Änderungshistorie von Entity X"
-
-## DISCOVER_SOURCES erkennen (KI-gesteuerte Datenquellen-Suche):
-Trigger-Phrasen für Datenquellen-Suche im Internet:
-- "Finde alle deutschen Bundesliga-Vereine"
-- "Suche nach Gemeinden in NRW"
-- "Entdecke alle Universitäten in Deutschland"
-- "Importiere alle DAX-Unternehmen"
-- "Finde Datenquellen für Windparks"
-- "Suche im Web nach Gemeinden in Bayern"
-- "Durchsuche das Internet nach..."
-
-WICHTIG: Diese Operation unterscheidet sich von CREATE_CATEGORY_SETUP:
-- DISCOVER_SOURCES: Sucht im Internet nach neuen Datenquellen die noch nicht im System sind
-- CREATE_CATEGORY_SETUP: Erstellt eine Kategorie um BESTEHENDE DataSources zu crawlen
-
-## EXPORT-OPERATIONEN erkennen:
-Trigger-Phrasen für Exports:
-- "Exportiere alle Gemeinden in NRW als CSV"
-- "Download Bürgermeister als Excel"
-- "Exportiere die Ergebnisse als JSON"
-- "Erstelle einen CSV-Export von Personen mit Pain Points"
-- "Gib mir die Daten als Excel-Datei"
-
-## DELETE-OPERATIONEN erkennen:
-Trigger-Phrasen für Löschungen (VORSICHT - requires_confirmation=true!):
-### Einzelne Entity:
-- "Lösche die Gemeinde X"
-- "Entferne die Person Y"
-- "Delete Entity Z"
-### Einzelnes Facet:
-- "Lösche den Pain Point von Gemeinde X"
-- "Entferne das Facet Y von Person Z"
-- "Lösche die Event-Teilnahme von..."
-### Massen-Löschung:
-- "Lösche alle Pain Points von Gemeinden in NRW"
-- "Entferne alle Event-Teilnahmen älter als 2023"
-- "Lösche alle inaktiven Entities"
-
-## BATCH_OPERATION erkennen:
-Trigger-Phrasen für Massenoperationen:
-- "Füge allen Gemeinden in NRW einen Pain Point hinzu"
-- "Setze bei allen Personen die Position auf 'Kontakt'"
-- "Lösche alle Facets vom Typ X bei Gemeinden in Bayern"
-- "Verknüpfe alle Personen mit Event Y"
-Wichtig: Muss mehrere Entities betreffen (nicht nur eine!)
-
-## CREATE_CATEGORY_SETUP erkennen:
-Trigger-Phrasen (kombiniert mit geografischer Einschränkung):
-- "Finde bitte alle Events...", "Suche alle Veranstaltungen...", "Überwache Events..."
-- Geografische Keywords: "in NRW", "aus Bayern", "von Gemeinden in...", "aus Nordrhein-Westfalen"
-- Thematischer Fokus: "Events", "Entscheider", "Veranstaltungen", "Konferenzen"
-
-## Geografische Aliase:
-- NRW, Nordrhein Westfalen → Nordrhein-Westfalen
-- BW, Baden Württemberg → Baden-Württemberg
-- BY, Freistaat Bayern → Bayern
-- SH → Schleswig-Holstein
-- NDS → Niedersachsen
-- HE → Hessen
-- RP → Rheinland-Pfalz
-- SL → Saarland
-- BE → Berlin
-- BB → Brandenburg
-- MV → Mecklenburg-Vorpommern
-- SN → Sachsen
-- ST → Sachsen-Anhalt
-- TH → Thüringen
-- HH → Hamburg
-- HB → Bremen
-
-## DataSource Tags:
-DataSources werden über Tags kategorisiert und gefiltert:
-### Geografische Tags (Bundesländer):
-- nrw, bayern, baden-wuerttemberg, hessen, niedersachsen, schleswig-holstein
-- rheinland-pfalz, saarland, berlin, brandenburg, mecklenburg-vorpommern
-- sachsen, sachsen-anhalt, thueringen, hamburg, bremen
-### Länder-Tags:
-- de (Deutschland), at (Österreich), ch (Schweiz), uk (Großbritannien)
-### Typ-Tags:
-- kommunal (Gemeinden/Städte), landkreis, landesebene, bundesebene
-- oparl (OParl-API), ratsinformation
-### Themen-Tags:
-- windkraft, solar, bauen, verkehr, umwelt
-
-Bei CREATE_CATEGORY_SETUP: suggested_tags werden aus geographic_filter und Kontext abgeleitet.
-Beispiel: "Gemeinden in NRW" → suggested_tags: ["nrw", "kommunal"]
-
-Analysiere die Anfrage und gib JSON zurück:
+## Start Crawl Operation:
+Starte Crawls für DataSources mit flexiblen Filtern:
 {{
-  "operation": "create_entity|create_entity_type|create_facet|create_relation|create_category_setup|start_crawl|discover_sources|analyze_pysis_for_facets|enrich_facets_from_pysis|update_entity|create_facet_type|assign_facet_type|batch_operation|delete_entity|delete_facet|batch_delete|export_query_result|undo_change|get_change_history|combined|none",
-  "entity_type": "municipality|person|organization|event",
-  "entity_data": {{
-    "name": "Name der Entity",
-    "core_attributes": {{"position": "...", "email": "..."}},
-    "external_id": "optional"
-  }},
-  "entity_type_data": {{
-    "name": "Name des Entity-Typs (z.B. 'Windpark')",
-    "name_plural": "Plural-Form (z.B. 'Windparks')",
-    "description": "Beschreibung",
-    "icon": "mdi-wind-turbine",
-    "color": "#4CAF50",
-    "is_primary": true,
-    "supports_hierarchy": false
-  }},
-  "facet_data": {{
-    "facet_type": "pain_point|positive_signal|contact|summary",
-    "target_entity_name": "Name der Ziel-Entity (z.B. Gemeinde)",
-    "value": {{"description": "...", "severity": "high|medium|low"}},
-    "text_representation": "Kurze Textdarstellung"
-  }},
-  "relation_data": {{
-    "relation_type": "works_for|attends|located_in|member_of",
-    "source_entity_name": "Name der Quell-Entity",
-    "source_entity_type": "person|event",
-    "target_entity_name": "Name der Ziel-Entity",
-    "target_entity_type": "municipality|organization|event"
-  }},
-  "category_setup_data": {{
-    "name": "Vorgeschlagener Name (z.B. 'Event-Besuche NRW')",
-    "purpose": "Zweck/Beschreibung",
-    "user_intent": "Original-Intent des Users",
-    "search_focus": "event_attendance|pain_points|contacts|general",
-    "search_terms": ["Begriff1", "Begriff2"],
-    "geographic_filter": {{
-      "admin_level_1": "Nordrhein-Westfalen",
-      "admin_level_1_alias": "NRW",
-      "country": "DE"
-    }},
-    "time_focus": "future_only|past_only|all",
-    "target_entity_types": ["person", "event"],
-    "extraction_handler": "event|default",
-    "suggested_facets": ["event_attendance", "contact"],
-    "suggested_tags": ["nrw", "kommunal"]
-  }},
+  "operation": "start_crawl",
   "crawl_command_data": {{
-    "filter_type": "location|category|source_ids|entity_name",
-    "location_name": "Ortsname (z.B. Gummersbach)",
-    "admin_level_1": "Bundesland (z.B. Nordrhein-Westfalen)",
-    "category_slug": "kategorie-slug",
-    "source_ids": [],
-    "include_all_categories": true
-  }},
-  "discover_sources_data": {{
-    "prompt": "Natürlichsprachiger Suchauftrag (z.B. 'Alle deutschen Bundesliga-Vereine', 'Gemeinden in NRW')",
-    "max_results": 50,
-    "search_depth": "quick|standard|deep",
-    "auto_import": false,
-    "category_ids": []
-  }},
-  "pysis_data": {{
-    "entity_name": "Name der Entity (z.B. 'Gummersbach')",
-    "entity_id": "optional - Entity-UUID falls bekannt",
-    "facet_type_id": "optional - nur diesen FacetType anreichern",
-    "overwrite": false,
-    "include_empty": false
-  }},
-  "update_data": {{
-    "entity_name": "Name der zu aktualisierenden Entity",
-    "entity_id": "optional - Entity-UUID falls bekannt",
-    "updates": {{
-      "name": "Neuer Name",
-      "core_attributes": {{"key": "value"}}
-    }}
-  }},
-  "facet_type_data": {{
-    "name": "Name des Facet-Typs (z.B. 'Kontaktdaten')",
-    "name_plural": "Plural (z.B. 'Kontaktdaten')",
-    "description": "Beschreibung was dieser Facet-Typ erfasst",
-    "icon": "mdi-account-card-details",
-    "color": "#2196F3",
-    "value_type": "structured|text|number|boolean|date",
-    "applicable_entity_type_slugs": ["municipality", "person"],
-    "ai_extraction_enabled": true,
-    "ai_extraction_prompt": "Extrahiere Kontaktdaten aus dem Dokument..."
-  }},
-  "assign_facet_type_data": {{
-    "facet_type_slug": "pain_point",
-    "target_entity_type_slugs": ["municipality", "organization"]
-  }},
-  "batch_operation_data": {{
-    "action_type": "add_facet|update_field|add_relation|remove_facet",
-    "target_filter": {{
-      "entity_type": "municipality|person|organization|event",
-      "location_filter": "NRW|Bayern|...",
-      "additional_filters": {{"position": "Bürgermeister"}}
+    "category_slug": "kommunale-news-windenergie",  // Optional: Kategorie-Filter
+    "entity_type": "territorial-entity",            // Optional: Entity-Type
+    "admin_level_1": "Bayern",                      // Optional: Region/Bundesland
+    "tags": ["kommunal"],                           // Optional: Zusätzliche Tags (AND)
+    "entity_filters": {{                            // Optional: Erweiterte Entity-Filter
+      "hierarchy_level": 2,                         // 1=Root, 2=Children
+      "parent_name": "Bayern",                      // Parent-Entity Name
+      "core_attributes": {{                         // Filter auf Entity-Eigenschaften
+        "population": {{"lt": 100000}},             // Einwohner < 100.000
+        "area_km2": {{"gt": 50}}                    // Fläche > 50 km²
+      }}
     }},
-    "action_data": {{
-      "facet_type": "pain_point (für add_facet/remove_facet)",
-      "facet_value": {{"description": "...", "severity": "high"}},
-      "field_name": "position (für update_field)",
-      "field_value": "neuer Wert",
-      "relation_type": "works_for (für add_relation)",
-      "relation_target": "Ziel-Entity Name"
-    }},
-    "dry_run": true
-  }},
-  "delete_entity_data": {{
-    "entity_name": "Name der zu löschenden Entity",
-    "entity_id": "optional - Entity-UUID falls bekannt",
-    "entity_type": "municipality|person|organization|event",
-    "reason": "Begründung für die Löschung (optional)",
-    "requires_confirmation": true
-  }},
-  "delete_facet_data": {{
-    "entity_name": "Name der Entity, deren Facet gelöscht werden soll",
-    "entity_id": "optional - Entity-UUID falls bekannt",
-    "facet_type": "pain_point|positive_signal|contact|event_attendance|summary",
-    "facet_id": "optional - Facet-UUID für spezifisches Facet",
-    "facet_description": "Beschreibung des zu löschenden Facets (für Identifikation)",
-    "delete_all_of_type": false,
-    "requires_confirmation": true
-  }},
-  "batch_delete_data": {{
-    "delete_type": "entities|facets",
-    "target_filter": {{
-      "entity_type": "municipality|person|organization|event",
-      "location_filter": "NRW|Bayern|...",
-      "facet_type": "pain_point (nur für facets)",
-      "date_before": "2023-01-01 (optional - für alte Facets)",
-      "additional_filters": {{"is_active": false}}
-    }},
-    "reason": "Begründung für die Massen-Löschung",
-    "dry_run": true,
-    "requires_confirmation": true
-  }},
-  "export_data": {{
-    "format": "csv|json|excel",
-    "query_filter": {{
-      "entity_type": "municipality|person|organization|event",
-      "location_filter": "NRW|Bayern|...",
-      "facet_types": ["pain_point", "contact"],
-      "position_keywords": ["Bürgermeister"],
-      "country": "DE"
-    }},
-    "include_facets": true,
-    "include_relations": true,
-    "fields": ["name", "position", "email", "facets"],
-    "filename": "export_gemeinden_nrw"
-  }},
-  "undo_data": {{
-    "entity_name": "Name der Entity deren Änderung rückgängig gemacht werden soll",
-    "entity_id": "optional - Entity-UUID falls bekannt",
-    "entity_type": "Entity|FacetValue",
-    "undo_type": "last (standard, letzte Änderung)"
-  }},
-  "history_data": {{
-    "entity_name": "Name der Entity deren Historie angezeigt werden soll",
-    "entity_id": "optional - Entity-UUID falls bekannt",
-    "entity_type": "Entity|FacetValue",
-    "limit": 10
-  }},
-  "combined_operations": [
-    {{"operation": "create_category_setup", "category_setup_data": {{...}}}},
-    {{"operation": "start_crawl", "crawl_command_data": {{...}}}}
-  ],
-  "explanation": "Was wird erstellt/geändert"
+    "limit": 100                                    // Max. Anzahl Sources
+  }}
 }}
 
-Wenn es KEINE Schreib-Operation ist, setze "operation": "none".
+Filter-Operatoren für core_attributes: lt, lte, gt, gte, eq
 
-## Icons (Material Design Icons - mdi-*):
-- Windenergie: mdi-wind-turbine
-- Solar: mdi-solar-power
-- Gebäude: mdi-office-building
-- Projekt: mdi-clipboard-list
-- Dokument: mdi-file-document
-- Firma: mdi-domain
-- Land: mdi-earth
-- Technologie: mdi-cog
-- Event: mdi-calendar
-- Person: mdi-account
+Beispiele:
+- "Crawle alle Gemeinden in Bayern" → admin_level_1="Bayern", tags=["kommunal"]
+- "Crawle nur NRW Kommunen" → admin_level_1="NRW", tags=["kommunal"]
+- "Starte Crawl für alle Windpark-Quellen" → entity_type="windpark"
+- "Crawle Gemeinden unter 50.000 Einwohnern" → entity_filters.core_attributes.population={{"lt": 50000}}
+- "Crawle große Gemeinden in Hessen" → admin_level_1="Hessen", entity_filters.core_attributes.population={{"gt": 100000}}
 
-## Farben (Hex):
-- Grün: #4CAF50
-- Blau: #2196F3
-- Orange: #FF9800
-- Rot: #F44336
-- Lila: #9C27B0
+## History-Facets (Zeitreihen-Daten):
+Für Verläufe wie Aktienkurse, Einwohnerzahlen, Haushaltsdaten:
+- Erstelle Facet-Typ mit value_type="history"
+- Nutze add_history_point zum Hinzufügen von Datenpunkten:
+{{
+  "operation": "add_history_point",
+  "history_point_data": {{
+    "entity_name": "Entity-Name",
+    "facet_type": "facet-typ-slug",
+    "value": 12345.67,
+    "recorded_at": "2024-01-15T00:00:00",
+    "track_key": "default",
+    "note": "Optional: Notiz zum Datenpunkt"
+  }}
+}}
+
+## Externe APIs (fetch_and_create_from_api):
+- SPARQL: api_config.type="sparql" mit query und country
+- REST: api_config.type="rest" mit template für vordefinierte APIs
+
+## KRITISCH - Reihenfolge bei "combined" Operationen:
+Bei combined MUSS diese Reihenfolge eingehalten werden:
+1. **ERST create_entity_type** - Alle benötigten Entity-Types erstellen
+2. **DANN fetch_and_create_from_api** - Daten importieren (erst Bundesländer mit level=1, dann Gemeinden mit level=2)
+3. **ZULETZT assign_facet_type** - Facet-Types den Entity-Types zuweisen
+
+## Entity Types:
+- Prüfe ZUERST ob ein passender Entity-Type oben gelistet ist
+- WENN KEINER EXISTIERT für Gebietskörperschaften → create_entity_type mit supports_hierarchy=true!
+- Verschiedene Datenarten (z.B. Orte vs. Projekte vs. Unternehmen) brauchen EIGENE Entity-Types
+
+## Hierarchische Entity-Types [hierarchisch]:
+- Unterstützen ALLE Ebenen in EINEM Typ (Land → Bundesland → Gemeinde → Ortsteil)
+- NIEMALS separate Entity-Types für verschiedene Hierarchie-Ebenen!
+- Hierarchie über parent_id und hierarchy_level (1=oberste Ebene, 2=darunter, etc.)
+- Bei Import: Erst Level 1, dann Level 2 mit parent_field
+
+## Facet Types:
+Nutze BESTEHENDE - weise sie mit "assign_facet_type" zu (NACH den Entity-Types!)
+
+## Kategorien:
+Verknüpfe mit BESTEHENDEN Kategorien über category_slugs in fetch_and_create_from_api
+
+## Hierarchie-Import Beispiel:
+Für "Importiere deutsche Gemeinden" bei LEEREM System (kein Entity-Type vorhanden):
+1. ZUERST: create_entity_type für "territorial-entity" mit supports_hierarchy=true
+2. DANN: fetch_and_create_from_api für Bundesländer mit hierarchy_level=1
+3. DANN: fetch_and_create_from_api für Gemeinden mit hierarchy_level=2, parent_field="bundeslandLabel"
+
+Bei BESTEHENDEM hierarchischem Entity-Type [hierarchisch]:
+1. Erst Bundesländer importieren mit hierarchy_level=1
+2. Dann Gemeinden importieren mit hierarchy_level=2 und parent_field="bundeslandLabel"
+
+## Antwortformat (JSON):
+{{
+  "operation": "combined|create_entity_type|fetch_and_create_from_api|...",
+  "combined_operations": [
+    // Bei combined: Array von Operationen in der richtigen Reihenfolge
+  ],
+  "explanation": "Kurze Erklärung was gemacht wird"
+}}
+
+## Für fetch_and_create_from_api:
+{{
+  "operation": "fetch_and_create_from_api",
+  "fetch_and_create_data": {{
+    "api_config": {{
+      "type": "sparql|rest",
+      "query": "gemeinden|bundeslaender|councils (für SPARQL)",
+      "template": "<template_name> (für REST - siehe verfügbare Templates)",
+      "country": "DE|AT|GB"
+    }},
+    "entity_type": "slug des Entity-Types",
+    "create_entity_type": true,  // true wenn Entity-Type noch nicht existiert
+    "entity_type_config": {{     // NUR wenn create_entity_type=true
+      "name": "Entity-Type Name",
+      "name_plural": "Pluralform",
+      "slug": "entity-type-slug",
+      "supports_hierarchy": true|false,
+      "is_public": true
+    }},
+    "hierarchy_level": 1|2|...,  // Hierarchie-Ebene (optional)
+    "parent_field": "<api_field>",  // API-Feld für Parent-Lookup (optional)
+    "match_to_gemeinde": true,  // Cross-Entity-Type Matching aktivieren (optional)
+    "category_slugs": ["kategorie-slug"],
+    "create_data_sources": true
+  }}
+}}
+
+## Hierarchischer Import (territorial-entity):
+- Oberste Ebene: hierarchy_level=1, kein parent_field (z.B. Bundesländer, Regionen)
+- Untergeordnete Ebene: hierarchy_level=2, parent_field="<parentFieldName>" (z.B. Gemeinden → Bundesland)
+- Die API-Felder für parent_field variieren je nach Datenquelle
+
+## Cross-Entity-Type Matching:
+- Für Entity-Types die zu anderen Typen gehören (z.B. Projekte → Orte)
+- Nutze match_to_gemeinde=true oder match_to_parent mit passendem parent_entity_type
+- Erstellt automatisch Relation "befindet_sich_in" zur passenden Parent-Entity
+- Der Entity-Name wird analysiert um den zugehörigen Ort zu finden
 
 Benutzeranfrage: {query}
 
-Antworte NUR mit validem JSON."""
+Antworte NUR mit validem JSON. Sei kreativ und intelligent bei der Interpretation."""
 
 
-AI_ENTITY_TYPE_PROMPT = """Du generierst eine EntityType-Konfiguration basierend auf einer Benutzeranfrage.
+# =============================================================================
+# AI Generation Prompts (used by ai_generation.py for specific tasks)
+# These are minimal and task-focused, not prescriptive
+# =============================================================================
 
-## Benutzeranfrage:
-{user_intent}
+AI_ENTITY_TYPE_PROMPT = """Generiere eine EntityType-Konfiguration.
 
-## Geografischer Fokus:
-{geographic_context}
+Benutzeranfrage: {user_intent}
+Geografischer Fokus: {geographic_context}
 
-## Aufgabe:
-Analysiere die Anfrage und erstelle eine passende EntityType-Konfiguration.
-
-## Ausgabe (JSON):
+Erstelle eine passende EntityType-Konfiguration als JSON:
 {{
-  "name": "Kurzer, prägnanter Name (z.B. 'Event-Besuche NRW')",
+  "name": "Kurzer Name",
   "name_plural": "Pluralform",
-  "description": "Ausführliche Beschreibung was dieser Typ repräsentiert",
-  "icon": "Material Design Icon (mdi-calendar, mdi-account, mdi-office-building, mdi-lightbulb, mdi-alert, mdi-handshake)",
-  "color": "Hex-Farbe (#2196F3=blau, #4CAF50=grün, #FF9800=orange, #9C27B0=lila)",
-  "attribute_schema": {{
-    "type": "object",
-    "properties": {{
-      "field_name": {{"type": "string", "description": "Beschreibung"}}
-    }},
-    "required": ["wichtigstes_feld"]
-  }},
-  "search_focus": "event_attendance|pain_points|contacts|opportunities|general"
+  "description": "Beschreibung",
+  "icon": "mdi-icon-name",
+  "color": "#HexColor",
+  "attribute_schema": {{ "type": "object", "properties": {{ ... }} }},
+  "search_focus": "event_attendance|pain_points|contacts|general"
 }}
 
 Antworte NUR mit validem JSON."""
 
 
-AI_CATEGORY_PROMPT = """Du generierst eine Category-Konfiguration für Web-Crawling und KI-Extraktion.
+AI_CATEGORY_PROMPT = """Generiere eine Category-Konfiguration für Web-Crawling.
 
-## Benutzeranfrage:
-{user_intent}
+Benutzeranfrage: {user_intent}
+EntityType: {entity_type_name} - {entity_type_description}
+Geografischer Kontext: {geographic_context}
 
-## EntityType:
-Name: {entity_type_name}
-Beschreibung: {entity_type_description}
-
-## Geografischer Kontext:
-{geographic_context}
-
-## Aufgabe:
-Erstelle eine Category-Konfiguration mit einem detaillierten KI-Extraktions-Prompt.
-
-## Ausgabe (JSON):
+Erstelle eine Category-Konfiguration als JSON:
 {{
-  "purpose": "Kurze Zweckbeschreibung für die Category",
-  "search_terms": ["Begriff1", "Begriff2", "Begriff3", "..."],
+  "purpose": "Kurze Zweckbeschreibung",
+  "search_terms": ["Begriff1", "Begriff2", ...],
   "extraction_handler": "event|default",
-  "ai_extraction_prompt": "Detaillierter mehrzeiliger Prompt für die KI-Extraktion...\\n\\nMit Anweisungen...\\n\\nUnd Beispielen...",
+  "ai_extraction_prompt": "Detaillierter Prompt für KI-Extraktion...",
   "suggested_tags": ["tag1", "tag2"]
 }}
 
-## Wichtig für search_terms:
-- Erweitere abstrakte Begriffe: "Entscheider" → "Bürgermeister", "Landrat", "Dezernent", etc.
-- Füge relevante Synonyme hinzu
-- Mindestens 10-15 konkrete Suchbegriffe
-- In der Sprache der Zieldokumente (meist Deutsch)
-
-## Wichtig für ai_extraction_prompt:
-- Sehr detailliert (200-500 Wörter)
-- Klare Struktur mit ## Überschriften
-- Konkrete Beispiele was extrahiert werden soll
-- Bezug zum EntityType "{entity_type_name}"
-- Output-Format spezifizieren (JSON-Struktur)
-
-## Wichtig für suggested_tags:
-Tags werden verwendet um passende DataSources der Category zuzuordnen.
-Verfügbare Tag-Kategorien:
-- Bundesländer: nrw, bayern, baden-wuerttemberg, hessen, niedersachsen, etc.
-- Länder: de, at, ch, uk
-- Typ: kommunal, landkreis, landesebene, oparl, ratsinformation
-- Themen: windkraft, solar, bauen, verkehr, umwelt
-
-Leite Tags aus dem geografischen Kontext und Thema ab:
-- "Gemeinden in NRW" → ["nrw", "kommunal"]
-- "OParl-Daten aus Bayern" → ["bayern", "oparl"]
-- "Windkraft-Projekte in Deutschland" → ["de", "kommunal", "windkraft"]
-
 Antworte NUR mit validem JSON."""
 
 
-AI_CRAWL_CONFIG_PROMPT = """Du generierst URL-Filter-Konfiguration für einen Web-Crawler.
+AI_CRAWL_CONFIG_PROMPT = """Generiere URL-Filter für einen Web-Crawler.
 
-## Benutzeranfrage:
-{user_intent}
+Benutzeranfrage: {user_intent}
+Suchfokus: {search_focus}
+Search Terms: {search_terms}
 
-## Suchfokus:
-{search_focus}
-
-## Search Terms:
-{search_terms}
-
-## Aufgabe:
-Erstelle AUSSCHLIESSLICH Exclude-Patterns (Blacklist) um irrelevante Seiten auszufiltern.
-WICHTIG: Keine Include-Patterns (Whitelist) verwenden! Die KI-gestützte Inhaltsanalyse
-filtert relevante Dokumente - der Crawler soll ALLE Seiten besuchen (außer den ausgeschlossenen).
-
-## Ausgabe (JSON):
+Erstelle AUSSCHLIESSLICH Exclude-Patterns (Blacklist) als JSON:
 {{
   "url_include_patterns": [],
-  "url_exclude_patterns": [
-    "/impressum",
-    "/datenschutz",
-    "/privacy",
-    "/pattern_to_exclude"
-  ],
-  "reasoning": "Kurze Begründung für die gewählten Exclude-Patterns"
+  "url_exclude_patterns": ["/impressum", "/datenschutz", ...],
+  "reasoning": "Begründung"
 }}
 
-## Exclude-Patterns (Blacklist):
-Standard-Ausschlüsse (immer inkludieren):
-- /impressum, /datenschutz, /privacy, /kontakt, /contact
-- /login, /logout, /register, /admin/, /api/, /wp-admin
-- /sitemap, /feed/, /rss, /print/, /suche, /search
-- /archiv.*, /warenkorb, /cart, /checkout
-- \\?page=, \\?sort=, \\?filter= (Pagination/Sortierung)
-- /cdn/, /static/, /assets/, /media/
-
-Zusätzliche kontextspezifische Ausschlüsse basierend auf dem Suchfokus hinzufügen.
-
-WICHTIG: url_include_patterns MUSS ein leeres Array [] sein!
+WICHTIG: url_include_patterns MUSS leer sein!
 
 Antworte NUR mit validem JSON."""
 
 
-AI_FACET_TYPES_PROMPT = """Du generierst FacetType-Vorschläge für ein Entity-Daten-System.
+AI_FACET_TYPES_PROMPT = """Generiere FacetType-Vorschläge.
 
-## Benutzeranfrage:
-{user_intent}
+Benutzeranfrage: {user_intent}
+EntityType: {entity_type_name} - {entity_type_description}
 
-## EntityType:
-Name: {entity_type_name}
-Beschreibung: {entity_type_description}
+FacetTypes sind dynamische Beobachtungen die über Zeit gesammelt werden (News, Pain Points, Kontakte, Events).
 
-## Was sind FacetTypes?
-FacetTypes definieren strukturierte Informationen, die über Zeit zu Entities gesammelt werden:
-- Beobachtungen aus verschiedenen Quellen (Dokumente, Web-Crawler)
-- Zeit-basierte Daten mit event_date
-- Mehrere Werte pro Entity möglich
-- Mit Quellenangabe und Confidence Score
-
-## Unterschied zu core_attributes:
-- core_attributes: Statische Grunddaten (Name, Adresse, Gründungsjahr)
-- FacetTypes: Dynamische Beobachtungen (News-Erwähnungen, Pain Points, Kontakte, Events)
-
-## Aufgabe:
-Generiere 2-4 passende FacetTypes für diese Kategorie.
-Wähle aus Standard-FacetTypes oder erstelle neue, themenspezifische.
-
-## Standard-FacetTypes (wenn passend verwenden):
-- pain_point: Probleme, Herausforderungen, negative Entwicklungen
-- positive_signal: Chancen, positive Entwicklungen, Erfolge
-- contact: Ansprechpartner, Kontaktpersonen
-- news_mention: Erwähnungen in Nachrichten/Medien
-- event_attendance: Event-Teilnahmen, Veranstaltungen
-
-## Ausgabe (JSON):
+Generiere 2-4 passende FacetTypes als JSON:
 {{
   "facet_types": [
     {{
-      "name": "Name des FacetTypes",
-      "slug": "slug_lowercase_underscore",
-      "name_plural": "Plural-Name",
-      "description": "Kurze Beschreibung wofür dieser FacetType verwendet wird",
+      "name": "Name",
+      "slug": "slug_lowercase",
+      "name_plural": "Plural",
+      "description": "Beschreibung",
       "value_type": "object",
-      "value_schema": {{
-        "type": "object",
-        "properties": {{
-          "description": {{"type": "string", "description": "Textbeschreibung"}},
-          "category": {{"type": "string", "description": "Kategorie/Typ"}}
-        }}
-      }},
-      "icon": "mdi-icon-name",
+      "icon": "mdi-icon",
       "color": "#HexColor",
       "is_time_based": true,
-      "ai_extraction_prompt": "Extrahiere X aus dem Dokument. Achte auf Y und Z."
+      "ai_extraction_prompt": "Prompt für Extraktion..."
     }}
   ],
-  "reasoning": "Begründung für die Auswahl der FacetTypes"
+  "reasoning": "Begründung"
 }}
-
-## Icon-Auswahl (Material Design Icons):
-- Pain Points: mdi-alert-circle (rot)
-- Positive Signale: mdi-thumb-up (grün)
-- Kontakte: mdi-account (blau)
-- News: mdi-newspaper (orange)
-- Events: mdi-calendar (lila)
-- Finanzen: mdi-currency-eur (grün)
-- Technologie: mdi-chip (blau)
-- Sport: mdi-soccer (grün)
 
 Antworte NUR mit validem JSON."""
 
 
-AI_SEED_ENTITIES_PROMPT = """Du generierst eine Liste von bekannten Entities für ein Datenerfassungssystem.
+AI_SEED_ENTITIES_PROMPT = """Generiere eine Liste bekannter Entities.
 
-## Benutzeranfrage:
-{user_intent}
+Benutzeranfrage: {user_intent}
+EntityType: {entity_type_name} - {entity_type_description}
+Attribute Schema: {attribute_schema}
+Geografischer Kontext: {geographic_context}
 
-## EntityType:
-Name: {entity_type_name}
-Beschreibung: {entity_type_description}
-
-## Attribute Schema:
-{attribute_schema}
-
-## Geografischer Kontext:
-{geographic_context}
-
-## Aufgabe:
-Generiere eine Liste von BEKANNTEN, REALEN Entities basierend auf deinem Wissen.
-Diese dienen als Seed-Daten, die später durch Crawling angereichert werden.
-
-## WICHTIG:
-- NUR bekannte, verifizierbare Entities nennen
-- Lieber weniger aber korrekte Daten als Vermutungen
-- Bei großen Listen (z.B. alle Gemeinden in NRW): Beschränke auf die wichtigsten ~50
-- Attribute nur ausfüllen wenn SICHER bekannt
-
-## Beispiele:
-- "Bundesliga-Vereine" → Alle 18 aktuellen Erstliga-Vereine
-- "DAX Unternehmen" → Alle 40 DAX-Unternehmen
-- "Gemeinden in NRW" → Die 50 größten Städte/Gemeinden
-
-## Ausgabe (JSON):
+Generiere BEKANNTE, REALE Entities als JSON:
 {{
   "entities": [
     {{
-      "name": "Name der Entity",
-      "external_id": "Optional: Offizielle ID (z.B. AGS für Gemeinden)",
-      "core_attributes": {{
-        "attribute1": "Wert (nur wenn sicher bekannt)",
-        "attribute2": "Wert"
-      }},
-      "latitude": null,
-      "longitude": null,
-      "admin_level_1": "Bundesland/Region (wenn relevant)",
-      "country": "DE",
-      "relations": [
-        {{
-          "relation_type": "located_in",
-          "target_name": "Name der Ziel-Entity (z.B. Stadt/Gemeinde)",
-          "target_type": "municipality"
-        }}
-      ]
+      "name": "Name",
+      "external_id": "Optional ID",
+      "core_attributes": {{ ... }},
+      "admin_level_1": "Bundesland/Region",
+      "country": "DE"
     }}
   ],
   "total_known": 18,
   "is_complete_list": true,
-  "reasoning": "Begründung warum diese Entities gewählt wurden",
-  "data_quality_note": "Hinweis zur Datenqualität",
-  "hierarchy": {{
-    "use_hierarchy": false,
-    "parent_entity_type": null,
-    "parent_name": null,
-    "hierarchy_reasoning": "Begründung ob Hierarchie sinnvoll ist"
-  }}
+  "reasoning": "Begründung"
 }}
 
-## Relations (Beziehungen):
-Füge sinnvolle Relationen hinzu wenn die Ziel-Entity bekannt ist:
-- located_in: Für geografische Zuordnung (Verein → Stadt, Unternehmen → Stadt)
-- member_of: Für Mitgliedschaften (Person → Organisation)
-- works_for: Für Arbeitsverhältnisse
+Antworte NUR mit validem JSON."""
 
-## Hierarchie:
-Prüfe ob eine hierarchische Struktur sinnvoll ist:
-- "Gemeinden in NRW" → use_hierarchy: true, parent_name: "Nordrhein-Westfalen", parent_entity_type: "municipality"
-- "Städte in Hessen" → use_hierarchy: true, parent_name: "Hessen", parent_entity_type: "municipality"
-- "Kreisfreie Städte in Hessen" → use_hierarchy: true, parent_name: "Hessen", parent_entity_type: "municipality"
-- "Bundesliga-Vereine" → use_hierarchy: false (keine natürliche Hierarchie)
-- "DAX Unternehmen" → use_hierarchy: false
 
-WICHTIG: Bei geografisch eingeschränkten Anfragen (z.B. "in Hessen", "in Bayern", "in NRW")
-MUSS use_hierarchy: true gesetzt werden und parent_name MUSS das Bundesland sein!
+AI_API_RESPONSE_ANALYSIS_PROMPT = """Analysiere diese API-Antwort und erstelle ein Mapping.
 
-## Datenqualität:
-- is_complete_list: true wenn ALLE bekannten Entities enthalten sind (z.B. 18 Bundesliga-Vereine)
-- is_complete_list: false wenn nur eine Auswahl (z.B. 50 von 396 NRW-Gemeinden)
-- total_known: Geschätzte Gesamtzahl bekannter Entities
+User-Intent: {user_intent}
+API-Typ: {api_type}
+Ziel Entity-Typ: {target_entity_type}
+
+API-Sample ({sample_size} Einträge):
+```json
+{api_sample}
+```
+
+Erstelle ein JSON mit:
+- field_mapping: API-Felder → Entity-Felder
+- additional_mappings: Weitere Felder → core_attributes
+- parent_config: Hierarchie wenn erkennbar
+- entity_type_suggestion: Vorschlag für neuen EntityType
 
 Antworte NUR mit validem JSON."""
+
+
+# Legacy prompt - deprecated, use build_dynamic_write_prompt() instead
+WRITE_INTERPRETATION_PROMPT = """DEPRECATED: Use build_dynamic_write_prompt() instead.
+Benutzeranfrage: {query}"""

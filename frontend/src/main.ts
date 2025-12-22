@@ -9,6 +9,7 @@ import './styles/global.css'
 import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
+import * as labsComponents from 'vuetify/labs/components'
 import '@mdi/font/css/materialdesignicons.css'
 import { de, en } from 'vuetify/locale'
 
@@ -16,7 +17,10 @@ import { de, en } from 'vuetify/locale'
 import i18n, { getLocale } from './locales'
 
 const vuetify = createVuetify({
-  components,
+  components: {
+    ...components,
+    ...labsComponents,
+  },
   directives,
   locale: {
     locale: getLocale(),

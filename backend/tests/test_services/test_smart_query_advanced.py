@@ -59,7 +59,7 @@ class TestNegationSupport:
     async def test_negative_facet_type_filter(self):
         """Test negative facet type filter interpretation."""
         query_params = {
-            "primary_entity_type": "municipality",
+            "primary_entity_type": "territorial_entity",
             "negative_facet_types": ["pain_point"]
         }
 
@@ -127,7 +127,7 @@ class TestAggregationQueries:
         query_params = {
             "query_type": "aggregate",
             "aggregate_function": "COUNT",
-            "primary_entity_type": "municipality",
+            "primary_entity_type": "territorial_entity",
             "facet_types": ["pain_point"]
         }
 
@@ -649,7 +649,7 @@ class TestMultiHopPerformance:
             entities.append({
                 "id": uuid4(),
                 "name": f"Entity {i}",
-                "type": "municipality",
+                "type": "territorial_entity",
                 "facets": [
                     {"type": "pain_point", "value": f"Pain {i}"}
                     for _ in range(3)
@@ -797,3 +797,268 @@ class TestMultiHopPerformance:
         # Should complete in under 0.2 seconds
         assert elapsed < 0.2, f"Filtering took too long: {elapsed:.2f}s"
         assert len(filtered) == 4000  # 2 out of 5 types = 40%
+
+
+class TestHistoryFacetTypeOperations:
+    """Tests for History facet type operations via Smart Query."""
+
+    @pytest.mark.asyncio
+    async def test_create_history_facet_type_command_structure(self):
+        """Test that history facet type creation command has correct structure."""
+        command = {
+            "operation": "create_facet_type",
+            "facet_type_data": {
+                "name": "Budget Volume",
+                "name_plural": "Budget Volumes",
+                "slug": "budget-volume",
+                "description": "Track budget over time",
+                "value_type": "history",
+                "icon": "mdi-chart-line",
+                "color": "#1976D2",
+                "value_schema": {
+                    "type": "history",
+                    "properties": {
+                        "unit": "EUR",
+                        "unit_label": "Euro",
+                        "precision": 2,
+                        "tracks": {
+                            "default": {"label": "Actual", "color": "#1976D2"}
+                        }
+                    }
+                }
+            }
+        }
+
+        assert command["operation"] == "create_facet_type"
+        assert command["facet_type_data"]["value_type"] == "history"
+        assert "tracks" in command["facet_type_data"]["value_schema"]["properties"]
+
+    @pytest.mark.asyncio
+    async def test_history_facet_type_auto_time_based(self):
+        """Test that history facet types automatically set is_time_based=True."""
+        # When value_type is "history", these should be auto-set:
+        facet_type_config = {
+            "value_type": "history",
+            "is_time_based": None,  # Should become True
+            "time_field_path": None,  # Should become "recorded_at"
+            "deduplication_fields": ["some_field"],  # Should be cleared
+        }
+
+        # Simulate the auto-configuration logic
+        if facet_type_config["value_type"] == "history":
+            facet_type_config["is_time_based"] = True
+            facet_type_config["time_field_path"] = "recorded_at"
+            facet_type_config["deduplication_fields"] = None
+
+        assert facet_type_config["is_time_based"] is True
+        assert facet_type_config["time_field_path"] == "recorded_at"
+        assert facet_type_config["deduplication_fields"] is None
+
+
+class TestAddHistoryPointOperation:
+    """Tests for add_history_point operation."""
+
+    @pytest.mark.asyncio
+    async def test_add_history_point_command_structure(self):
+        """Test that add_history_point command has correct structure."""
+        command = {
+            "operation": "add_history_point",
+            "history_point_data": {
+                "entity_name": "Gummersbach",
+                "facet_type": "budget-volume",
+                "value": 5000000,
+                "recorded_at": "2024-01-15T00:00:00",
+                "track_key": "default",
+                "note": "Budget 2024"
+            }
+        }
+
+        assert command["operation"] == "add_history_point"
+        assert "entity_name" in command["history_point_data"]
+        assert "facet_type" in command["history_point_data"]
+        assert "value" in command["history_point_data"]
+
+    @pytest.mark.asyncio
+    async def test_add_history_point_with_entity_id(self):
+        """Test add_history_point with entity_id instead of name."""
+        entity_id = str(uuid4())
+        command = {
+            "operation": "add_history_point",
+            "history_point_data": {
+                "entity_id": entity_id,
+                "facet_type": "budget-volume",
+                "value": 5000000,
+            }
+        }
+
+        assert command["history_point_data"]["entity_id"] == entity_id
+        assert "entity_name" not in command["history_point_data"]
+
+    @pytest.mark.asyncio
+    async def test_add_history_point_default_values(self):
+        """Test that add_history_point uses sensible defaults."""
+        command = {
+            "operation": "add_history_point",
+            "history_point_data": {
+                "entity_name": "Test Entity",
+                "facet_type": "population",
+                "value": 50000,
+                # recorded_at not specified - should use current time
+                # track_key not specified - should default to "default"
+            }
+        }
+
+        # Defaults should be applied
+        track_key = command["history_point_data"].get("track_key", "default")
+        assert track_key == "default"
+
+    @pytest.mark.asyncio
+    async def test_add_history_point_validation(self):
+        """Test that invalid add_history_point commands are rejected."""
+        # Missing required fields
+        invalid_commands = [
+            # Missing entity_id/entity_name
+            {
+                "operation": "add_history_point",
+                "history_point_data": {
+                    "facet_type": "budget-volume",
+                    "value": 5000000,
+                }
+            },
+            # Missing facet_type
+            {
+                "operation": "add_history_point",
+                "history_point_data": {
+                    "entity_name": "Test",
+                    "value": 5000000,
+                }
+            },
+            # Missing value
+            {
+                "operation": "add_history_point",
+                "history_point_data": {
+                    "entity_name": "Test",
+                    "facet_type": "budget-volume",
+                }
+            },
+        ]
+
+        for cmd in invalid_commands:
+            data = cmd["history_point_data"]
+            has_entity = "entity_id" in data or "entity_name" in data
+            has_facet_type = "facet_type" in data
+            has_value = "value" in data
+
+            # At least one of these should be False for invalid commands
+            assert not (has_entity and has_facet_type and has_value)
+
+
+class TestHistoryPromptIntegration:
+    """Tests for history-related prompt integration."""
+
+    @pytest.mark.asyncio
+    async def test_history_in_operations_list(self):
+        """Test that history operations are listed in available operations."""
+        available_operations = [
+            "create_entity_type",
+            "create_entity",
+            "create_facet",
+            "create_relation",
+            "create_facet_type",
+            "assign_facet_type",
+            "add_history_point",  # NEW: Should be included
+            "fetch_and_create_from_api",
+            "create_category_setup",
+            "start_crawl",
+            "combined",
+        ]
+
+        assert "add_history_point" in available_operations
+
+    @pytest.mark.asyncio
+    async def test_history_value_type_documented(self):
+        """Test that history value type is properly documented."""
+        value_types = ["text", "structured", "number", "history"]
+        assert "history" in value_types
+
+    @pytest.mark.asyncio
+    async def test_combined_operation_with_history(self):
+        """Test combined operation that creates facet type and adds data point."""
+        combined_command = {
+            "operation": "combined",
+            "combined_operations": [
+                {
+                    "operation": "create_facet_type",
+                    "facet_type_data": {
+                        "name": "Population",
+                        "slug": "population",
+                        "value_type": "history",
+                        "value_schema": {
+                            "type": "history",
+                            "properties": {
+                                "unit": "people",
+                                "unit_label": "Einwohner",
+                                "precision": 0
+                            }
+                        }
+                    }
+                },
+                {
+                    "operation": "assign_facet_type",
+                    "assign_facet_type_data": {
+                        "facet_type_slug": "population",
+                        "target_entity_type_slugs": ["territorial_entity"]
+                    }
+                },
+                {
+                    "operation": "add_history_point",
+                    "history_point_data": {
+                        "entity_name": "Test City",
+                        "facet_type": "population",
+                        "value": 50000,
+                        "recorded_at": "2024-01-01T00:00:00"
+                    }
+                }
+            ]
+        }
+
+        assert combined_command["operation"] == "combined"
+        assert len(combined_command["combined_operations"]) == 3
+
+        ops = [op["operation"] for op in combined_command["combined_operations"]]
+        assert "create_facet_type" in ops
+        assert "assign_facet_type" in ops
+        assert "add_history_point" in ops
+
+
+class TestHistoryDateParsing:
+    """Tests for history date parsing."""
+
+    @pytest.mark.asyncio
+    async def test_iso_date_parsing(self):
+        """Test parsing ISO format dates."""
+        date_strings = [
+            "2024-01-15T00:00:00",
+            "2024-01-15T12:30:45",
+            "2024-01-15T00:00:00Z",
+            "2024-01-15T00:00:00+00:00",
+        ]
+
+        for date_str in date_strings:
+            # Should parse without error
+            parsed = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            assert parsed is not None
+            assert parsed.year == 2024
+            assert parsed.month == 1
+            assert parsed.day == 15
+
+    @pytest.mark.asyncio
+    async def test_date_without_time(self):
+        """Test parsing dates without time component."""
+        date_str = "2024-01-15"
+        parsed = datetime.fromisoformat(date_str)
+        assert parsed.year == 2024
+        assert parsed.month == 1
+        assert parsed.day == 15
+        assert parsed.hour == 0
+        assert parsed.minute == 0

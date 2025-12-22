@@ -16,6 +16,8 @@ from app.core.security import get_password_hash
 from app.core.exceptions import NotFoundError, ConflictError
 from app.core.password_policy import validate_password, default_policy
 from app.core.rate_limit import check_rate_limit
+from app.core.audit import AuditContext
+from app.models.audit_log import AuditAction
 
 router = APIRouter()
 
@@ -176,18 +178,35 @@ async def create_user(
             "; ".join(validation.errors) if validation.errors else default_policy.get_requirements_text(),
         )
 
-    # Create user
-    user = User(
-        email=data.email,
-        password_hash=get_password_hash(data.password),
-        full_name=data.full_name,
-        role=data.role,
-        is_active=data.is_active,
-        is_superuser=data.is_superuser,
-    )
-    session.add(user)
-    await session.commit()
-    await session.refresh(user)
+    # Create user with audit
+    async with AuditContext(session, current_user, request) as audit:
+        user = User(
+            email=data.email,
+            password_hash=get_password_hash(data.password),
+            full_name=data.full_name,
+            role=data.role,
+            is_active=data.is_active,
+            is_superuser=data.is_superuser,
+        )
+        session.add(user)
+        await session.flush()
+
+        audit.track_action(
+            action=AuditAction.USER_CREATE,
+            entity_type="User",
+            entity_id=user.id,
+            entity_name=user.email,
+            changes={
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role.value,
+                "is_active": user.is_active,
+                "is_superuser": user.is_superuser,
+            },
+        )
+
+        await session.commit()
+        await session.refresh(user)
 
     return UserResponse.model_validate(user)
 
@@ -252,13 +271,34 @@ async def update_user(
                 "You cannot deactivate your own account",
             )
 
-    # Update fields
-    update_data = data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(user, field, value)
+    # Capture old state for audit
+    old_data = {
+        "email": user.email,
+        "full_name": user.full_name,
+        "role": user.role.value if user.role else None,
+        "is_active": user.is_active,
+        "is_superuser": user.is_superuser,
+    }
 
-    await session.commit()
-    await session.refresh(user)
+    async with AuditContext(session, current_user, request) as audit:
+        # Update fields
+        update_data = data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(user, field, value)
+
+        # Capture new state
+        new_data = {
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role.value if user.role else None,
+            "is_active": user.is_active,
+            "is_superuser": user.is_superuser,
+        }
+
+        audit.track_update(user, old_data, new_data)
+
+        await session.commit()
+        await session.refresh(user)
 
     return UserResponse.model_validate(user)
 
@@ -289,18 +329,36 @@ async def delete_user(
             "You cannot delete your own account",
         )
 
-    await session.delete(user)
-    await session.commit()
+    user_email = user.email
+    user_name = user.full_name
 
-    return MessageResponse(message=f"User {user.email} deleted successfully")
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.USER_DELETE,
+            entity_type="User",
+            entity_id=user.id,
+            entity_name=user_email,
+            changes={
+                "deleted": True,
+                "email": user_email,
+                "full_name": user_name,
+                "role": user.role.value if user.role else None,
+            },
+        )
+
+        await session.delete(user)
+        await session.commit()
+
+    return MessageResponse(message=f"User {user_email} deleted successfully")
 
 
 @router.post("/{user_id}/reset-password", response_model=MessageResponse)
 async def reset_user_password(
     user_id: UUID,
     data: PasswordResetRequest,
+    request: Request,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """
     Reset a user's password.
@@ -325,7 +383,20 @@ async def reset_user_password(
             "; ".join(validation.errors) if validation.errors else default_policy.get_requirements_text(),
         )
 
-    user.password_hash = get_password_hash(data.new_password)
-    await session.commit()
+    async with AuditContext(session, current_user, request) as audit:
+        user.password_hash = get_password_hash(data.new_password)
+
+        audit.track_action(
+            action=AuditAction.PASSWORD_RESET,
+            entity_type="User",
+            entity_id=user.id,
+            entity_name=user.email,
+            changes={
+                "password_reset": True,
+                "admin_initiated": True,
+            },
+        )
+
+        await session.commit()
 
     return MessageResponse(message=f"Password for {user.email} reset successfully")

@@ -47,17 +47,30 @@
       "commandsTitle": "Example Commands",
       "read": {
         "futureEvents": "Show me which future events important decision-makers from municipalities are attending",
+        "futureEventsTitle": "Future Events",
         "mayorsOnEvents": "Which mayors are speaking at events?",
+        "mayorsOnEventsTitle": "Mayors at Events",
         "allPainPoints": "Show me all pain points from municipalities",
-        "gummersbachPainPoints": "Show me pain points from Gummersbach"
+        "allPainPointsTitle": "All Pain Points",
+        "gummersbachPainPoints": "Show me pain points from Gummersbach",
+        "gummersbachPainPointsTitle": "Pain Points Gummersbach"
       },
       "write": {
         "createPerson": "Create a person Max Mueller, mayor",
+        "createPersonTitle": "Create Person",
         "addPainPoint": "Add a pain point for Muenster: IT staffing shortage",
+        "addPainPointTitle": "Add Pain Point",
         "findEvents": "Find all events attended by decision-makers from NRW",
+        "findEventsTitle": "Find Events",
         "startCrawls": "Start crawls for all Gummersbach data sources",
-        "createCategory": "Create category for wind energy in Bavaria and start a crawl immediately"
+        "startCrawlsTitle": "Start Crawls",
+        "createCategory": "Create category for wind energy in Bavaria and start a crawl immediately",
+        "createCategoryTitle": "Create Category"
       }
+    },
+    "loading": {
+      "analyzing": "Analyzing your request...",
+      "pleaseWait": "Please wait a moment"
     },
     "generation": {
       "running": "AI generation running...",
@@ -106,8 +119,10 @@
     "read": {
       "aiInterpretation": "AI Interpretation",
       "resultsCount": "{count} Results",
+      "resultsFound": "Results found",
       "grouping": "Grouping",
       "attendees": "Attendees ({count})",
+      "attendeesLabel": "Attendees",
       "moreItems": "+{count} more",
       "noResults": "No Results Found",
       "noResultsHint": "Try a different wording or check if the relevant data is available.",

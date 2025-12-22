@@ -74,18 +74,18 @@
 
     <h3 class="text-h6 mb-3">{{ t('help.dashboard.crawler_dialog_title') }}</h3>
     <v-table density="compact">
-      <thead><tr><th>{{ t('help.dashboard.crawler_dialog.table.filter') }}</th><th>{{ t('help.dashboard.crawler_dialog.table.description') }}</th></tr></thead>
+      <thead><tr><th>{{ t('help.dashboard.crawlerDialog.table.filter') }}</th><th>{{ t('help.dashboard.crawlerDialog.table.description') }}</th></tr></thead>
       <tbody>
-        <tr><td><strong>{{ t('help.dashboard.crawler_dialog.filters.category.name') }}</strong></td><td>{{ t('help.dashboard.crawler_dialog.filters.category.description') }}</td></tr>
-        <tr><td><strong>{{ t('help.dashboard.crawler_dialog.filters.country.name') }}</strong></td><td>{{ t('help.dashboard.crawler_dialog.filters.country.description') }}</td></tr>
-        <tr><td><strong>{{ t('help.dashboard.crawler_dialog.filters.search.name') }}</strong></td><td>{{ t('help.dashboard.crawler_dialog.filters.search.description') }}</td></tr>
-        <tr><td><strong>{{ t('help.dashboard.crawler_dialog.filters.max_count.name') }}</strong></td><td>{{ t('help.dashboard.crawler_dialog.filters.max_count.description') }}</td></tr>
-        <tr><td><strong>{{ t('help.dashboard.crawler_dialog.filters.status.name') }}</strong></td><td>{{ t('help.dashboard.crawler_dialog.filters.status.description') }}</td></tr>
-        <tr><td><strong>{{ t('help.dashboard.crawler_dialog.filters.source_type.name') }}</strong></td><td>{{ t('help.dashboard.crawler_dialog.filters.source_type.description') }}</td></tr>
+        <tr><td><strong>{{ t('help.dashboard.crawlerDialog.filters.category.name') }}</strong></td><td>{{ t('help.dashboard.crawlerDialog.filters.category.description') }}</td></tr>
+        <tr><td><strong>{{ t('help.dashboard.crawlerDialog.filters.country.name') }}</strong></td><td>{{ t('help.dashboard.crawlerDialog.filters.country.description') }}</td></tr>
+        <tr><td><strong>{{ t('help.dashboard.crawlerDialog.filters.search.name') }}</strong></td><td>{{ t('help.dashboard.crawlerDialog.filters.search.description') }}</td></tr>
+        <tr><td><strong>{{ t('help.dashboard.crawlerDialog.filters.max_count.name') }}</strong></td><td>{{ t('help.dashboard.crawlerDialog.filters.max_count.description') }}</td></tr>
+        <tr><td><strong>{{ t('help.dashboard.crawlerDialog.filters.status.name') }}</strong></td><td>{{ t('help.dashboard.crawlerDialog.filters.status.description') }}</td></tr>
+        <tr><td><strong>{{ t('help.dashboard.crawlerDialog.filters.source_type.name') }}</strong></td><td>{{ t('help.dashboard.crawlerDialog.filters.source_type.description') }}</td></tr>
       </tbody>
     </v-table>
     <v-alert type="warning" variant="tonal" density="compact" class="mt-3">
-      <v-icon>mdi-alert</v-icon> {{ t('help.dashboard.crawler_dialog.warning') }}
+      <v-icon>mdi-alert</v-icon> {{ t('help.dashboard.crawlerDialog.warning') }}
     </v-alert>
   </HelpCard>
 </template>

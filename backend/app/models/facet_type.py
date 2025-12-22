@@ -25,6 +25,7 @@ class ValueType(str, enum.Enum):
     REFERENCE = "reference"  # Reference to another entity
     NUMBER = "number"  # Numeric value (integer or float)
     BOOLEAN = "boolean"  # Boolean value (true/false)
+    HISTORY = "history"  # Time-series data for charts (e.g., stock prices, population)
 
 
 class AggregationMethod(str, enum.Enum):
