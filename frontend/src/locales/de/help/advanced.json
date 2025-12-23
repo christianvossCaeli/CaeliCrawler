@@ -39,6 +39,18 @@
         "maintainLocationsDesc": "Weisen Sie jeder Quelle einen Standort zu",
         "regularMaintenance": "Regelmäßige Pflege",
         "regularMaintenanceDesc": "Prüfen Sie fehlerhafte Quellen und URLs"
+      },
+      "fullTextSearch": {
+        "title": "Volltextsuche",
+        "description": "CaeliCrawler nutzt PostgreSQL-Volltextsuche mit deutscher Sprachunterstuetzung fuer optimale Suchergebnisse.",
+        "basicSearch": "Einfache Suche",
+        "basicSearchDesc": "Geben Sie Suchbegriffe ein - diese werden automatisch mit UND verknuepft",
+        "wildcards": "Wildcards",
+        "wildcardsDesc": "Nutzen Sie * fuer Praefixsuche (z.B. Wind* findet Windkraft, Windenergie)",
+        "ranking": "Relevanz-Ranking",
+        "rankingDesc": "Ergebnisse werden nach Relevanz sortiert basierend auf Wort-Haeufigkeit und Position",
+        "germanSupport": "Deutsche Sprachunterstuetzung",
+        "germanSupportDesc": "Stemming und Wortnormalisierung fuer deutsche Texte (z.B. findet 'Beschluesse' auch 'Beschluss')"
       }
     },
     "security": {

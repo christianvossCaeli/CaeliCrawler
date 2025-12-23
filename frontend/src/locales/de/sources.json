@@ -12,6 +12,9 @@
       "title": "Daten werden geladen",
       "subtitle": "Bitte warten..."
     },
+    "skeleton": {
+      "loading": "Datenquellen werden geladen..."
+    },
     "filters": {
       "category": "Kategorie",
       "status": "Status",
@@ -19,16 +22,30 @@
       "searchPlaceholder": "Name oder URL eingeben...",
       "noResults": "Keine Ergebnisse für",
       "typeToSearch": "Tippen zum Suchen...",
-      "clearAll": "Alle Filter zurücksetzen"
+      "clearAll": "Alle Filter zurücksetzen",
+      "clearAllTags": "Alle Schlagwörter-Filter zurücksetzen",
+      "clearAllFilters": "Alle aktiven Filter zurücksetzen",
+      "activeFilters": "Aktive Filter",
+      "removeCategory": "Kategorie-Filter entfernen: {name}",
+      "removeType": "Typ-Filter entfernen: {name}",
+      "removeStatus": "Status-Filter entfernen: {name}",
+      "removeTag": "Schlagwort-Filter entfernen: {name}"
     },
     "sidebar": {
+      "navigation": "Filter-Navigation",
       "categories": "Kategorien",
       "types": "Quellentyp",
       "status": "Status",
       "tags": "Schlagwörter",
       "all": "Alle",
       "expand": "Seitenleiste einblenden",
-      "collapse": "Seitenleiste ausblenden"
+      "collapse": "Seitenleiste ausblenden",
+      "itemCount": "{count} Einträge",
+      "tagsFilter": "Schlagwörter-Filter",
+      "tagWithCount": "{tag} ({count} Einträge)",
+      "showMoreTags": "{count} weitere Schlagwörter anzeigen",
+      "quickAccess": "Schnellzugriff Kategorien",
+      "selectCategory": "{name} auswählen ({count} Einträge)"
     },
     "status": {
       "active": "Aktiv",
@@ -64,7 +81,14 @@
       "renderJsHint": "Aktivieren für dynamische Websites, die JavaScript erfordern",
       "tags": "Schlagwörter",
       "tagsLabel": "Schlagwörter hinzufügen",
-      "tagsHint": "Schlagwörter für Filterung/Suche (z.B. Region, Thema, Quellentyp). Neue Schlagwörter können direkt eingegeben werden."
+      "tagsHint": "Schlagwörter für Filterung/Suche (z.B. Region, Thema, Quellentyp). Neue Schlagwörter können direkt eingegeben werden.",
+      "linkedEntity": "Verknüpfter Datensatz",
+      "linkedEntities": "Verknüpfte Datensätze",
+      "linkedEntityHint": "Optional: Verknüpfen Sie diese Datenquelle direkt mit einem Datensatz (z.B. einer Gemeinde oder Organisation).",
+      "linkedEntitiesHint": "Optional: Verknüpfen Sie diese Datenquelle mit einem oder mehreren Datensätzen. Mehrere Datensätze können ausgewählt werden.",
+      "searchEntity": "Datensatz suchen...",
+      "noEntitiesFound": "Keine Datensätze gefunden",
+      "typeToSearch": "Mind. 2 Zeichen eingeben"
     },
     "types": {
       "WEBSITE": "Website",
@@ -72,7 +96,34 @@
       "API": "API",
       "OPARL_API": "OParl API",
       "CUSTOM_API": "Benutzerdefinierte API",
+      "SHAREPOINT": "SharePoint",
       "NEWS": "Nachrichten"
+    },
+    "sharepoint": {
+      "config": "SharePoint-Konfiguration",
+      "siteUrl": "SharePoint Site-URL",
+      "siteUrlHint": "z.B. contoso.sharepoint.com:/sites/Documents",
+      "siteUrlRequired": "Site-URL ist erforderlich",
+      "driveName": "Dokumentbibliothek",
+      "driveNameHint": "Leer lassen für Standard-Bibliothek",
+      "folderPath": "Ordnerpfad",
+      "folderPathHint": "Optional: z.B. /Windprojekte",
+      "fileExtensions": "Dateitypen",
+      "fileExtensionsHint": "Welche Dateien gecrawlt werden sollen",
+      "maxFiles": "Max. Dateien",
+      "recursive": "Unterordner einschließen",
+      "excludePatterns": "Ausschlussmuster",
+      "excludePatternsHint": "Glob-Muster für Dateien die ignoriert werden sollen (z.B. ~$*, *.tmp)",
+      "filePaths": "Einzelne Dateien (optional)",
+      "filePathsHint": "Dateipfade, eine pro Zeile. z.B. /Dokumente/Report.pdf. Leer lassen für Ordner-Crawling.",
+      "testConnection": "Verbindung testen",
+      "connectionSuccess": "Verbindung erfolgreich",
+      "connectionFailed": "Verbindung fehlgeschlagen",
+      "connectionError": "Verbindungsfehler",
+      "authentication": "Authentifizierung",
+      "site": "Site",
+      "libraries": "Bibliotheken",
+      "errors": "Fehler"
     },
     "actions": {
       "create": "Neue Quelle",
@@ -82,7 +133,12 @@
       "delete": "Löschen",
       "startCrawl": "Datensammlung starten",
       "reset": "Zurücksetzen",
-      "test": "Verbindung testen"
+      "test": "Verbindung testen",
+      "rowActions": "Zeilen-Aktionen",
+      "editSource": "{name} bearbeiten",
+      "startCrawlFor": "Datensammlung für {name} starten",
+      "resetSource": "{name} zurücksetzen",
+      "deleteSource": "{name} löschen"
     },
     "columns": {
       "name": "Name",
@@ -127,7 +183,11 @@
       "testError": "Verbindung fehlgeschlagen",
       "bulkImportSuccess": "{imported} Quellen importiert, {skipped} übersprungen",
       "bulkImportError": "Fehler beim Massenimport",
-      "apiImportSuccess": "{count} Quellen von API importiert"
+      "apiImportSuccess": "{count} Quellen von API importiert",
+      "deleteWarning": "Diese Aktion kann nicht rückgängig gemacht werden. Die Datenquelle und alle zugehörigen Dokumente werden dauerhaft gelöscht.",
+      "documentsWillBeDeleted": "Dokumente werden gelöscht",
+      "typeToConfirm": "Geben Sie {text} zur Bestätigung ein",
+      "confirmMismatch": "Text stimmt nicht überein"
     },
     "apiImport": {
       "title": "API Import",
@@ -162,7 +222,11 @@
       "duplicates": "Duplikate",
       "errors": "Fehler",
       "moreEntries": "weitere Einträge",
-      "sourcesImport": "Quellen importieren"
+      "sourcesImport": "Quellen importieren",
+      "csvTooLarge": "CSV-Datei zu groß. Maximale Größe: {size}MB",
+      "csvTooManyLines": "Zu viele Zeilen. Maximum: {max} Zeilen",
+      "fileTooLarge": "Datei zu groß ({size} MB). Maximum: {max} MB",
+      "readError": "Datei konnte nicht gelesen werden"
     },
     "aiDiscovery": {
       "title": "KI-gesteuerte Suche",
@@ -239,6 +303,12 @@
       "saveFailed": "Fehler beim Speichern der Datenquelle",
       "loadFailed": "Fehler beim Laden der Datenquellen",
       "deleteFailed": "Fehler beim Löschen der Datenquelle"
+    },
+    "empty": {
+      "noSources": "Keine Datenquellen vorhanden",
+      "noFilterResults": "Keine Ergebnisse gefunden",
+      "createFirst": "Erstellen Sie Ihre erste Datenquelle, um Inhalte zu sammeln.",
+      "adjustFilters": "Versuchen Sie, die Filter anzupassen oder alle Filter zurückzusetzen."
     },
     "never": "Nie"
   }

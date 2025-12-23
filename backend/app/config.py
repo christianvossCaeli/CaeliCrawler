@@ -133,6 +133,12 @@ class Settings(BaseSettings):
     )
     caeli_auction_marketplace_api_auth: str = ""  # Base64-encoded Basic Auth credentials
 
+    # SharePoint Online Integration (Microsoft Graph API)
+    sharepoint_tenant_id: str = ""  # Azure AD Tenant ID
+    sharepoint_client_id: str = ""  # Azure AD App Registration Client ID
+    sharepoint_client_secret: str = ""  # Azure AD App Registration Client Secret
+    sharepoint_default_site_url: str = ""  # Default site, e.g. "contoso.sharepoint.com:/sites/Documents"
+
     # External API Settings
     external_api_default_sync_interval: int = 4  # hours
     external_api_max_retries: int = 3

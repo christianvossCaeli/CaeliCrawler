@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -21,6 +21,7 @@ from app.database import Base
 if TYPE_CHECKING:
     from app.models.document import Document
     from app.models.category import Category
+    from app.models.entity import Entity
 
 
 class ExtractedData(Base):
@@ -109,6 +110,23 @@ class ExtractedData(Base):
         nullable=True,
     )  # 0.0 - 1.0
 
+    # Entity references - AI-extracted entity references
+    entity_references: Mapped[Optional[List[Dict[str, Any]]]] = mapped_column(
+        JSONB,
+        nullable=True,
+        default=list,
+        comment="AI-extracted entity references: [{entity_type, entity_name, entity_id, role, confidence}]",
+    )
+
+    # Primary entity link (resolved from entity_references)
+    primary_entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("entities.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Primary entity referenced in this extraction",
+    )
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -128,6 +146,10 @@ class ExtractedData(Base):
         back_populates="extracted_data",
     )
     category: Mapped["Category"] = relationship("Category")
+    primary_entity: Mapped[Optional["Entity"]] = relationship(
+        "Entity",
+        foreign_keys=[primary_entity_id],
+    )
 
     @property
     def is_high_confidence(self) -> bool:

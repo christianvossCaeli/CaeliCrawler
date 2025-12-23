@@ -99,6 +99,38 @@ class CrawlConfig(BaseModel):
         description="API field used to identify existing entities (default: external_id from field_mapping)"
     )
 
+    # SharePoint settings (for SHAREPOINT source type)
+    site_url: Optional[str] = Field(
+        None,
+        description="SharePoint site URL (e.g., 'contoso.sharepoint.com:/sites/Documents')"
+    )
+    drive_name: Optional[str] = Field(
+        None,
+        description="Name of the document library (default: first available)"
+    )
+    folder_path: Optional[str] = Field(
+        None,
+        description="Path within the drive to crawl (default: root)"
+    )
+    file_extensions: List[str] = Field(
+        default_factory=lambda: [".pdf", ".docx", ".doc", ".xlsx", ".pptx"],
+        description="File extensions to include (e.g., ['.pdf', '.docx'])"
+    )
+    recursive: bool = Field(
+        default=True,
+        description="Whether to include files from subfolders"
+    )
+    exclude_patterns: List[str] = Field(
+        default_factory=lambda: ["~$*", "*.tmp", ".DS_Store"],
+        description="File patterns to exclude (glob syntax)"
+    )
+    max_files: int = Field(
+        default=1000,
+        ge=1,
+        le=10000,
+        description="Maximum number of files to crawl"
+    )
+
     model_config = {"extra": "allow"}  # Allow additional fields
 
 

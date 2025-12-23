@@ -14,6 +14,8 @@ from app.schemas.extracted_data import (
     ExtractedDataListResponse,
     ExtractedDataVerify,
     ExtractionStats,
+    DisplayFieldsConfig,
+    DisplayColumn,
 )
 from app.core.exceptions import NotFoundError
 from .loaders import bulk_load_documents_with_sources
@@ -178,3 +180,69 @@ async def verify_extraction(
     await session.refresh(extraction)
 
     return ExtractedDataResponse.model_validate(extraction)
+
+
+@router.get("/display-config/{category_id}", response_model=DisplayFieldsConfig)
+async def get_category_display_config(
+    category_id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Get display configuration for a category's results view.
+
+    Returns the configured columns for displaying extraction results.
+    If no custom configuration exists, returns a default configuration.
+    """
+    category = await session.get(Category, category_id)
+    if not category:
+        raise NotFoundError("Category", str(category_id))
+
+    # If category has custom display_fields config, use it
+    if category.display_fields and category.display_fields.get("columns"):
+        columns = [
+            DisplayColumn(**col)
+            for col in category.display_fields.get("columns", [])
+        ]
+        entity_ref_cols = category.display_fields.get("entity_reference_columns", [])
+        return DisplayFieldsConfig(
+            columns=columns,
+            entity_reference_columns=entity_ref_cols,
+        )
+
+    # Build default config based on category's entity_reference_config
+    columns = [
+        DisplayColumn(key="document", label="Dokument", type="document_link", width="220px"),
+    ]
+
+    # Add entity reference columns from config
+    entity_ref_cols = []
+    if category.entity_reference_config:
+        entity_types = category.entity_reference_config.get("entity_types", [])
+        for entity_type in entity_types:
+            # Map entity type to human-readable label
+            label_map = {
+                "territorial-entity": "Kommune",
+                "person": "Person",
+                "organization": "Organisation",
+            }
+            label = label_map.get(entity_type, entity_type.replace("-", " ").title())
+            columns.append(DisplayColumn(
+                key=f"entity_references.{entity_type}",
+                label=label,
+                type="entity_link",
+                width="150px",
+            ))
+            entity_ref_cols.append(entity_type)
+
+    # Add standard columns
+    columns.extend([
+        DisplayColumn(key="confidence_score", label="Konfidenz", type="confidence", width="110px"),
+        DisplayColumn(key="relevance_score", label="Relevanz", type="confidence", width="110px"),
+        DisplayColumn(key="human_verified", label="Geprüft", type="boolean", width="80px"),
+        DisplayColumn(key="created_at", label="Erfasst", type="date", width="100px"),
+    ])
+
+    return DisplayFieldsConfig(
+        columns=columns,
+        entity_reference_columns=entity_ref_cols,
+    )

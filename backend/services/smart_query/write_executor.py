@@ -36,6 +36,42 @@ from .crawl_operations import execute_crawl_command
 logger = structlog.get_logger()
 
 
+async def execute_batch_operation(
+    session: AsyncSession,
+    batch_data: Dict[str, Any],
+    dry_run: bool = True,
+) -> Dict[str, Any]:
+    """Execute a batch operation on multiple entities.
+
+    This is a convenience wrapper for the batch_operation handler.
+
+    Args:
+        session: Database session
+        batch_data: Contains action_type, target_filter, action_data
+        dry_run: If True, only preview changes without executing
+
+    Returns:
+        Dict with success, affected_count, preview, and message
+    """
+    from .operations import execute_operation
+
+    command = {
+        "operation": "batch_operation",
+        "batch_data": batch_data,
+        "dry_run": dry_run,
+    }
+
+    result = await execute_operation(session, command, user_id=None)
+
+    return {
+        "success": result.success,
+        "message": result.message,
+        "affected_count": result.data.get("affected_count", 0) if result.data else 0,
+        "preview": result.data.get("preview", []) if result.data else [],
+        "dry_run": result.data.get("dry_run", dry_run) if result.data else dry_run,
+    }
+
+
 async def save_operation_to_history(
     session: AsyncSession,
     user_id: UUID,

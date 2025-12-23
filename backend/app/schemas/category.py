@@ -19,7 +19,7 @@ Example usage:
 
 import re
 from datetime import datetime
-from typing import List, Literal, Optional, Set
+from typing import Any, Dict, List, Literal, Optional, Set
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -224,6 +224,18 @@ class CategoryBase(BaseModel):
         description="EntityType for extracted entities (e.g., 'event-besuche-nrw')",
     )
 
+    # Display configuration for results view
+    display_fields: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Configuration for result display columns: {columns: [{key, label, type, width}]}",
+    )
+
+    # Entity reference extraction configuration
+    entity_reference_config: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Config for entity reference extraction: {entity_types: ['territorial-entity']}",
+    )
+
 
 class CategoryCreate(CategoryBase):
     """Schema for creating a new category."""
@@ -255,6 +267,8 @@ class CategoryUpdate(BaseModel):
     is_active: Optional[bool] = None
     is_public: Optional[bool] = None
     target_entity_type_id: Optional[UUID] = None
+    display_fields: Optional[Dict[str, Any]] = None
+    entity_reference_config: Optional[Dict[str, Any]] = None
 
     @field_validator("url_include_patterns", "url_exclude_patterns", mode="before")
     @classmethod

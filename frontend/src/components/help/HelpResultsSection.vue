@@ -30,6 +30,23 @@
       </v-col>
     </v-row>
 
+    <h3 class="text-h6 mb-3">{{ t('help.results.bulkVerify.title') }}</h3>
+    <v-alert type="success" variant="tonal" class="mb-3">
+      <v-icon>mdi-check-all</v-icon>
+      {{ t('help.results.bulkVerify.description') }}
+    </v-alert>
+    <v-list density="compact" class="mb-4">
+      <v-list-item prepend-icon="mdi-checkbox-multiple-marked">
+        <v-list-item-title>{{ t('help.results.bulkVerify.step1') }}</v-list-item-title>
+      </v-list-item>
+      <v-list-item prepend-icon="mdi-check-decagram">
+        <v-list-item-title>{{ t('help.results.bulkVerify.step2') }}</v-list-item-title>
+      </v-list-item>
+      <v-list-item prepend-icon="mdi-shield-check">
+        <v-list-item-title>{{ t('help.results.bulkVerify.step3') }}</v-list-item-title>
+      </v-list-item>
+    </v-list>
+
     <h3 class="text-h6 mb-3">{{ t('help.results.availableFilters') }}</h3>
     <v-chip-group class="mb-4">
       <v-chip size="small" variant="outlined">{{ t('help.results.filters[0]') }}</v-chip>

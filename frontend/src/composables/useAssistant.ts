@@ -138,7 +138,7 @@ export interface QueryHistoryItem {
   query: string
   timestamp: Date
   resultCount: number
-  queryType: 'read' | 'write'
+  queryType: 'read' | 'write' | 'plan'
   isFavorite: boolean
   entityType?: string
   facetTypes?: string[]
@@ -168,7 +168,7 @@ export function useAssistant() {
   const streamingStatus = ref('')
   const messages = ref<ConversationMessage[]>([])
   const error = ref<string | null>(null)
-  const mode = ref<'read' | 'write'>('read')
+  const mode = ref<'read' | 'write' | 'plan'>('read')
   const suggestedActions = ref<SuggestedAction[]>([])
   const slashCommands = ref<SlashCommand[]>([])
   const hasUnread = ref(false)
@@ -299,7 +299,7 @@ export function useAssistant() {
   function addQueryToHistory(
     query: string,
     resultCount: number,
-    queryType: 'read' | 'write',
+    queryType: 'read' | 'write' | 'plan',
     metadata?: { entityType?: string; facetTypes?: string[] }
   ) {
     // Don't add duplicate consecutive queries
@@ -366,7 +366,7 @@ export function useAssistant() {
   // Get query history, optionally filtered
   function getQueryHistory(options?: {
     favoritesOnly?: boolean
-    queryType?: 'read' | 'write'
+    queryType?: 'read' | 'write' | 'plan'
     limit?: number
   }): QueryHistoryItem[] {
     let result = [...queryHistory.value]
@@ -457,11 +457,13 @@ export function useAssistant() {
       // Collect attachment IDs
       const attachmentIds = pendingAttachments.value.map(a => a.id)
 
+      // Convert 'plan' mode to undefined for API compatibility
+      const apiMode = mode.value === 'plan' ? undefined : mode.value
       const response = await assistantApi.chat({
         message: text.trim(),
         context: currentContext.value,
         conversation_history: buildConversationHistory(),
-        mode: mode.value,
+        mode: apiMode,
         language: lang,
         attachment_ids: attachmentIds.length > 0 ? attachmentIds : undefined
       })
@@ -567,11 +569,13 @@ export function useAssistant() {
       // Collect attachment IDs
       const attachmentIds = pendingAttachments.value.map(a => a.id)
 
+      // Convert 'plan' mode to undefined for API compatibility
+      const apiMode = mode.value === 'plan' ? undefined : mode.value
       const response = await assistantApi.chatStream({
         message: text.trim(),
         context: currentContext.value,
         conversation_history: buildConversationHistory(),
-        mode: mode.value,
+        mode: apiMode,
         language: lang,
         attachment_ids: attachmentIds.length > 0 ? attachmentIds : undefined
       })

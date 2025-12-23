@@ -64,8 +64,9 @@ withDefaults(defineProps<{
 
 .header-actions {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 .header-text {

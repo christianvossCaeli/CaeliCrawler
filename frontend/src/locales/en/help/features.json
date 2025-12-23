@@ -486,6 +486,13 @@
         "high": "70-100%",
         "highDesc": "High confidence",
         "highAction": "Usually reliable"
+      },
+      "bulkVerify": {
+        "title": "Bulk Verification",
+        "description": "Verify multiple AI results at once to speed up the quality assurance process.",
+        "step1": "Select multiple results via checkbox",
+        "step2": "Click 'Verify Selected' in the toolbar",
+        "step3": "All selected results are marked as verified"
       }
     },
     "export": {
@@ -1515,6 +1522,230 @@
         "sidebar": "The sidebar shows all available tags with counts",
         "click": "Click on a tag to filter",
         "combine": "Multiple tags can be combined"
+      }
+    },
+    "entityMapView": {
+      "title": "Map View",
+      "description": "Visualize entities with geographic coordinates on an interactive map.",
+      "overview": {
+        "title": "Overview",
+        "description": "The map view displays all entities with coordinates (points) or geometries (polygons) on a MapLibre-based map."
+      },
+      "features": {
+        "title": "Features",
+        "points": {
+          "title": "Point Entities",
+          "clustering": "Automatic clustering for many points",
+          "popup": "Click on a point for details",
+          "zoom": "Click on clusters to zoom in"
+        },
+        "polygons": {
+          "title": "Polygon Entities",
+          "regions": "Display of regions and boundaries",
+          "hover": "Highlighting on hover",
+          "styling": "Color coding by entity type"
+        }
+      },
+      "clustering": {
+        "title": "Cluster Legend",
+        "description": "Points are color-coded based on the number of entities:",
+        "entities": "entities"
+      },
+      "filters": {
+        "title": "Filters",
+        "table": {
+          "filter": "Filter",
+          "description": "Description"
+        },
+        "entityType": {
+          "name": "Entity Type",
+          "description": "Show only entities of a specific type"
+        },
+        "country": {
+          "name": "Country",
+          "description": "Filter by country"
+        },
+        "adminLevel1": {
+          "name": "State/Province",
+          "description": "Filter by state or region"
+        },
+        "adminLevel2": {
+          "name": "District",
+          "description": "Filter by district"
+        },
+        "search": {
+          "name": "Search",
+          "description": "Text search in entity names"
+        }
+      },
+      "interaction": {
+        "title": "Interaction",
+        "clickCluster": "Click cluster: Zoom in and expand cluster",
+        "clickEntity": "Click entity: Show popup with details",
+        "viewDetails": "Details button: Navigate to entity detail page",
+        "navigation": "Navigation controls: Zoom and rotation"
+      },
+      "darkMode": {
+        "title": "Dark Mode",
+        "description": "The map automatically adapts to the current color scheme and shows an adjusted color palette in dark mode."
+      }
+    },
+    "facetHistory": {
+      "title": "Facet History",
+      "description": "Track the temporal development of facet values for numeric or time-based metrics.",
+      "overview": {
+        "title": "Overview",
+        "description": "Facet history enables visualization of time-series data for any facet type."
+      },
+      "timeRanges": {
+        "title": "Time Ranges",
+        "description": "Select the time period to display:"
+      },
+      "statistics": {
+        "title": "Statistics",
+        "current": "Current",
+        "currentDesc": "Last recorded value",
+        "change": "Change",
+        "changeDesc": "Percentage change",
+        "minimum": "Minimum",
+        "minimumDesc": "Lowest value in period",
+        "maximum": "Maximum",
+        "maximumDesc": "Highest value in period"
+      },
+      "trends": {
+        "title": "Trend Indicators",
+        "table": {
+          "indicator": "Display",
+          "meaning": "Meaning"
+        },
+        "up": "Upward trend - Value has increased",
+        "down": "Downward trend - Value has decreased",
+        "neutral": "Stable - No significant change"
+      },
+      "actions": {
+        "title": "Actions",
+        "addDataPoint": "Add Data Point",
+        "addDataPointDesc": "Manually record a new value",
+        "export": "Export",
+        "exportDesc": "Download history as CSV",
+        "refresh": "Refresh",
+        "refreshDesc": "Reload data"
+      },
+      "tracks": {
+        "title": "Multi-Track Support",
+        "description": "You can manage multiple parallel data series (tracks) for the same facet type, e.g., different metrics or categories."
+      },
+      "addDialog": {
+        "title": "Data Point Dialog",
+        "value": "Value - The numeric value",
+        "timestamp": "Timestamp - Date and time of recording",
+        "track": "Track - Which data series the value belongs to",
+        "note": "Note - Optional annotation"
+      }
+    },
+    "apiTemplates": {
+      "title": "API Templates",
+      "description": "Manage reusable API templates for automatic data source discovery.",
+      "aiDiscoveryInfo": "API Templates enable AI-powered API discovery: The AI automatically detects matching APIs based on keywords and generates data sources.",
+      "apiTypes": {
+        "title": "API Types",
+        "rest": "REST APIs with JSON responses",
+        "graphql": "GraphQL queries",
+        "sparql": "Semantic SPARQL endpoints",
+        "oparl": "OParl council information systems"
+      },
+      "status": {
+        "title": "Status Workflow",
+        "table": {
+          "status": "Status",
+          "description": "Description"
+        },
+        "pending": "Newly created, not yet validated",
+        "active": "Validated and ready for use",
+        "inactive": "Deactivated, not being used",
+        "failed": "Validation failed"
+      },
+      "fields": {
+        "title": "Form Fields",
+        "name": "Name",
+        "nameDesc": "Unique name for the template",
+        "baseUrl": "Base URL",
+        "baseUrlDesc": "The base URL of the API",
+        "endpoint": "Endpoint",
+        "endpointDesc": "The specific API path",
+        "keywords": "Keywords",
+        "keywordsDesc": "Search terms for automatic matching",
+        "auth": "Authentication",
+        "authDesc": "API Key, OAuth, or none"
+      },
+      "actions": {
+        "title": "Actions",
+        "test": "Test",
+        "edit": "Edit",
+        "duplicate": "Duplicate",
+        "delete": "Delete"
+      },
+      "testing": {
+        "title": "Template Validation",
+        "description": "Test templates to ensure the API is accessible and returns the expected data."
+      }
+    },
+    "externalApis": {
+      "title": "External APIs",
+      "description": "Integrate external data sources via the pluggable API system.",
+      "concept": {
+        "title": "Concept",
+        "description": "The External API system enables bidirectional synchronization of data between CaeliCrawler and external services."
+      },
+      "features": {
+        "title": "Features",
+        "syncRecords": {
+          "title": "Sync Records",
+          "rawData": "Storage of raw data from the API",
+          "timestamps": "Timestamps for last synchronization",
+          "errorTracking": "Error tracking for sync issues"
+        },
+        "entityLinking": {
+          "title": "Entity Linking",
+          "bidirectional": "Bidirectional linking with local entities",
+          "externalIds": "External IDs for referencing",
+          "autoUpdate": "Automatic updates on changes"
+        }
+      },
+      "authentication": {
+        "title": "Authentication Methods",
+        "table": {
+          "method": "Method",
+          "description": "Description"
+        },
+        "apiKey": "Simple API key authentication in header or query",
+        "oauth": "OAuth 2.0 for secure authorization",
+        "basic": "HTTP Basic Auth with username and password",
+        "none": "None",
+        "noneDesc": "For public APIs without authentication"
+      },
+      "workflow": {
+        "title": "Integration Workflow",
+        "step1": {
+          "title": "Create API Template",
+          "description": "Define the API connection and authentication"
+        },
+        "step2": {
+          "title": "Synchronize Data",
+          "description": "Start the initial synchronization"
+        },
+        "step3": {
+          "title": "Link Entities",
+          "description": "Map external data to local entities"
+        },
+        "step4": {
+          "title": "Automatic Updates",
+          "description": "Configure regular synchronizations"
+        }
+      },
+      "viewingData": {
+        "title": "Viewing External Data",
+        "description": "In the entity detail view, you'll find all synchronized raw data from linked APIs under 'External Data'."
       }
     }
   }

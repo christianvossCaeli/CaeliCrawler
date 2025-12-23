@@ -9,20 +9,24 @@
       <template #actions>
         <div class="mode-toggle-block">
           <v-btn-toggle
-            v-model="writeMode"
+            v-model="currentMode"
             mandatory
             divided
             density="comfortable"
             class="mode-toggle"
             :disabled="previewData !== null"
           >
-            <v-btn :value="false" min-width="140">
-              <v-icon start :color="!writeMode ? 'primary' : undefined">mdi-magnify</v-icon>
+            <v-btn value="read" min-width="110">
+              <v-icon start :color="currentMode === 'read' ? 'primary' : undefined">mdi-magnify</v-icon>
               {{ t('smartQueryView.mode.read') }}
             </v-btn>
-            <v-btn :value="true" min-width="140">
-              <v-icon start :color="writeMode ? 'warning' : undefined">mdi-pencil-plus</v-icon>
+            <v-btn value="write" min-width="110">
+              <v-icon start :color="currentMode === 'write' ? 'warning' : undefined">mdi-pencil-plus</v-icon>
               {{ t('smartQueryView.mode.write') }}
+            </v-btn>
+            <v-btn value="plan" min-width="110">
+              <v-icon start :color="currentMode === 'plan' ? 'info' : undefined">mdi-lightbulb-on</v-icon>
+              {{ t('smartQueryView.mode.plan') }}
             </v-btn>
           </v-btn-toggle>
           <div class="mode-toggle-hint text-caption text-medium-emphasis">
@@ -168,8 +172,20 @@
       </div>
     </v-card>
 
-    <!-- Example Queries as Card Grid -->
-    <div v-if="!results && !previewData && !loading" class="examples-section mb-6">
+    <!-- Plan Mode Chat Interface -->
+    <v-card v-if="currentMode === 'plan'" class="plan-mode-card mb-6">
+      <PlanModeChat
+        :conversation="planConversation"
+        :loading="planLoading"
+        :generated-prompt="planGeneratedPrompt"
+        @send="(msg) => { question = msg; executePlanQuery() }"
+        @adopt-prompt="adoptPrompt"
+        @reset="handlePlanReset"
+      />
+    </v-card>
+
+    <!-- Example Queries as Card Grid (only for read/write modes) -->
+    <div v-if="!results && !previewData && !loading && currentMode !== 'plan'" class="examples-section mb-6">
       <div class="d-flex align-center mb-4">
         <v-icon class="mr-2" :color="writeMode ? 'warning' : 'primary'">mdi-lightbulb-outline</v-icon>
         <span class="text-subtitle-1 font-weight-medium">
@@ -810,12 +826,14 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { api, assistantApi } from '@/services/api'
 import { useSpeechRecognition } from '@/composables/useSpeechRecognition'
+import { usePlanMode } from '@/composables/usePlanMode'
 import { useQueryContextStore } from '@/stores/queryContext'
 import { useSmartQueryHistoryStore } from '@/stores/smartQueryHistory'
 import SmartQueryHistoryPanel from '@/components/smartquery/SmartQueryHistoryPanel.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { SmartQueryResult } from '@/components/smartquery/visualizations'
 import CompoundQueryResult from '@/components/smartquery/CompoundQueryResult.vue'
+import PlanModeChat from '@/components/smartquery/PlanModeChat.vue'
 
 // Types for attachments
 interface AttachmentInfo {
@@ -838,8 +856,23 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const results = ref<any>(null)
 const previewData = ref<any>(null)
-const writeMode = ref(false)
+// Query mode: 'read' | 'write' | 'plan'
+type QueryMode = 'read' | 'write' | 'plan'
+const currentMode = ref<QueryMode>('read')
 const fromAssistant = ref(false)
+
+// Plan mode composable
+const {
+  conversation: planConversation,
+  loading: planLoading,
+  error: planError,
+  generatedPrompt: planGeneratedPrompt,
+  executePlanQueryStream: executePlanModeQueryStream,
+  reset: resetPlanMode,
+} = usePlanMode()
+
+// Backwards compatibility computed
+const writeMode = computed(() => currentMode.value === 'write')
 
 // Attachment state
 const pendingAttachments = ref<AttachmentInfo[]>([])
@@ -1025,30 +1058,38 @@ function getStepColor(stepValue: number): string {
 // Input computed properties
 const getInputPlaceholder = computed(() => {
   if (isListening.value) return t('smartQueryView.input.placeholderListening')
-  return writeMode.value
+  if (currentMode.value === 'plan') return t('smartQueryView.plan.placeholder')
+  return currentMode.value === 'write'
     ? t('smartQueryView.input.placeholderWrite')
     : t('smartQueryView.input.placeholderRead')
 })
 
-const modeHint = computed(() =>
-  writeMode.value
-    ? t('smartQueryView.mode.writeHint', { shortcut: t('smartQueryView.mode.shortcut') })
-    : t('smartQueryView.mode.readHint', { shortcut: t('smartQueryView.mode.shortcut') })
-)
+const modeHint = computed(() => {
+  const shortcut = t('smartQueryView.mode.shortcut')
+  if (currentMode.value === 'plan') {
+    return t('smartQueryView.mode.planHint', { shortcut })
+  }
+  return currentMode.value === 'write'
+    ? t('smartQueryView.mode.writeHint', { shortcut })
+    : t('smartQueryView.mode.readHint', { shortcut })
+})
 
 const getSubmitButtonColor = computed(() => {
   if (pendingAttachments.value.length > 0) return 'info'
-  return writeMode.value ? 'warning' : 'primary'
+  if (currentMode.value === 'plan') return 'info'
+  return currentMode.value === 'write' ? 'warning' : 'primary'
 })
 
 const getSubmitButtonIcon = computed(() => {
   if (pendingAttachments.value.length > 0) return 'mdi-image-search'
-  return writeMode.value ? 'mdi-eye' : 'mdi-send'
+  if (currentMode.value === 'plan') return 'mdi-send'
+  return currentMode.value === 'write' ? 'mdi-eye' : 'mdi-send'
 })
 
 const getSubmitButtonText = computed(() => {
   if (pendingAttachments.value.length > 0) return t('smartQueryView.actions.analyzeImage')
-  return writeMode.value ? t('smartQueryView.actions.preview') : t('smartQueryView.actions.query')
+  if (currentMode.value === 'plan') return t('smartQueryView.actions.query')
+  return currentMode.value === 'write' ? t('smartQueryView.actions.preview') : t('smartQueryView.actions.query')
 })
 
 // ============================================================================
@@ -1126,7 +1167,48 @@ async function loadExamples() {
   }
 }
 
+/**
+ * Execute a plan mode query using the composable with streaming
+ */
+async function executePlanQuery() {
+  if (!question.value.trim()) return
+
+  const currentQuestion = question.value
+  question.value = '' // Clear input immediately for better UX
+
+  // Use streaming by default for better UX
+  const success = await executePlanModeQueryStream(currentQuestion)
+
+  if (!success && planError.value) {
+    error.value = planError.value
+  }
+}
+
+/**
+ * Adopt a generated prompt from plan mode into read/write mode
+ */
+function adoptPrompt(prompt: string, mode: 'read' | 'write') {
+  question.value = prompt
+  currentMode.value = mode
+  // Reset plan conversation when adopting
+  resetPlanMode()
+  results.value = null
+}
+
+/**
+ * Handle plan mode reset from UI
+ */
+function handlePlanReset() {
+  resetPlanMode()
+  question.value = ''
+}
+
 async function executeQuery() {
+  // Plan mode has its own execution logic
+  if (currentMode.value === 'plan') {
+    return executePlanQuery()
+  }
+
   // Allow query with just attachments (empty question)
   if (!question.value.trim() && pendingAttachments.value.length === 0) return
 
@@ -1270,13 +1352,13 @@ function handleVisualizationAction(action: string, params: Record<string, any>) 
     case 'setup_sync':
     case 'setup_api_sync':
       // Switch to write mode with a sync setup command
-      writeMode.value = true
+      currentMode.value = 'write'
       question.value = `Richte automatische Synchronisation ein für ${params.entity_type || 'Daten'}`
       break
 
     case 'save_to_entities':
       // Switch to write mode to save external data
-      writeMode.value = true
+      currentMode.value = 'write'
       question.value = `Speichere die externen Daten als Entities`
       break
 
@@ -1293,10 +1375,10 @@ function handleVisualizationAction(action: string, params: Record<string, any>) 
 /**
  * Handle rerun from history panel
  */
-function handleHistoryRerun(commandText: string, interpretation: Record<string, any>) {
+function handleHistoryRerun(commandText: string, _interpretation: Record<string, any>) {
   // Set the command text and switch to write mode
   question.value = commandText
-  writeMode.value = true
+  currentMode.value = 'write'
   showHistory.value = false
 
   // Execute the query
@@ -1447,7 +1529,7 @@ function initializeFromContext() {
   const assistantContext = queryContextStore.consumeContext()
   if (assistantContext) {
     question.value = assistantContext.query
-    writeMode.value = assistantContext.mode === 'write'
+    currentMode.value = assistantContext.mode === 'write' ? 'write' : 'read'
     fromAssistant.value = true
     return true
   }
@@ -1462,7 +1544,9 @@ function initializeFromContext() {
     fromAssistant.value = urlFrom === 'assistant'
   }
   if (urlMode === 'write') {
-    writeMode.value = true
+    currentMode.value = 'write'
+  } else if (urlMode === 'plan') {
+    currentMode.value = 'plan'
   }
 
   return !!urlQuery
@@ -1576,7 +1660,7 @@ onMounted(() => {
 
 .examples-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
   gap: 12px;
 }
 
@@ -1856,6 +1940,22 @@ onMounted(() => {
   to {
     opacity: 1;
     clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Plan Mode Card */
+.plan-mode-card {
+  border-radius: 16px !important;
+  border: 2px solid rgba(var(--v-theme-info), 0.2);
+  min-height: clamp(300px, 50vh, 400px);
+  overflow: hidden;
+}
+
+/* Mobile-specific adjustments for Plan Mode */
+@media (max-width: 600px) {
+  .plan-mode-card {
+    min-height: 280px;
+    border-radius: 12px !important;
   }
 }
 

@@ -182,9 +182,11 @@ async function initMap() {
     style: mapStyle.value,
     center: [10.4515, 51.1657], // Germany center
     zoom: 5,
-    attributionControl: true,
+    // Use empty object to enable attribution with default options (fixes MapLibre type issue)
+    attributionControl: {},
   })
 
+  // @ts-expect-error MapLibre types cause deep instantiation error
   // Add navigation controls
   map.value.addControl(new maplibregl.NavigationControl(), 'top-right')
   map.value.addControl(new maplibregl.ScaleControl(), 'bottom-right')
@@ -194,29 +196,6 @@ async function initMap() {
     await loadGeoData()
     setupMapInteractions()
   })
-}
-
-// Helper to get centroid of polygon for popup positioning
-function getPolygonCentroid(geometry: any): [number, number] {
-  if (geometry.type === 'Polygon') {
-    const coords = geometry.coordinates[0]
-    let x = 0, y = 0
-    for (const [lng, lat] of coords) {
-      x += lng
-      y += lat
-    }
-    return [x / coords.length, y / coords.length]
-  } else if (geometry.type === 'MultiPolygon') {
-    // Use first polygon's centroid
-    const coords = geometry.coordinates[0][0]
-    let x = 0, y = 0
-    for (const [lng, lat] of coords) {
-      x += lng
-      y += lat
-    }
-    return [x / coords.length, y / coords.length]
-  }
-  return [0, 0]
 }
 
 // Helper to extend bounds with any geometry type

@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="isOpen" max-width="1000" persistent scrollable>
+  <v-dialog v-model="isOpen" :max-width="DIALOG_SIZES.XL" persistent scrollable>
     <v-card>
       <v-card-title class="d-flex align-center pa-4 bg-info">
         <v-avatar color="info-darken-1" size="40" class="mr-3">
@@ -250,9 +250,20 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * ApiImportDialog - Import sources from external APIs
+ *
+ * Supports Wikidata SPARQL, OParl, and custom API imports.
+ */
 import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
+import { useSourceHelpers } from '@/composables/useSourceHelpers'
+import { useLogger } from '@/composables/useLogger'
+import { DIALOG_SIZES } from '@/config/sources'
+import type { CategoryResponse } from '@/types/category'
+
+const logger = useLogger('ApiImportDialog')
 
 interface ApiTemplate {
   id: string
@@ -260,7 +271,7 @@ interface ApiTemplate {
   description: string
   api_type: string
   default_url?: string
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
   default_tags: string[]
 }
 
@@ -269,31 +280,30 @@ interface PreviewItem {
   base_url: string
   source_type: string
   suggested_tags: string[]
-  extra_data: Record<string, any>
+  extra_data: Record<string, unknown>
   error?: string
 }
 
+// Props (non-model props only)
 interface Props {
-  modelValue: boolean
-  categories: any[]
+  categories: CategoryResponse[]
   availableTags: string[]
 }
 
-interface Emits {
-  (e: 'update:modelValue', value: boolean): void
-  (e: 'imported', count: number): void
-}
-
 const props = defineProps<Props>()
-const emit = defineEmits<Emits>()
+
+// defineModel() for two-way binding (Vue 3.4+)
+const isOpen = defineModel<boolean>({ default: false })
+
+// Emits (non-model emits only)
+const emit = defineEmits<{
+  (e: 'imported', count: number): void
+}>()
 
 const { t } = useI18n()
+const { getTagColor } = useSourceHelpers()
 
 // State
-const isOpen = computed({
-  get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value),
-})
 
 const templates = ref<ApiTemplate[]>([])
 const selectedTemplate = ref<string | null>(null)
@@ -354,7 +364,7 @@ const loadTemplates = async () => {
     const response = await adminApi.getApiImportTemplates()
     templates.value = response.data
   } catch (error) {
-    console.error('Failed to load templates:', error)
+    logger.error('Failed to load templates', error)
   }
 }
 
@@ -388,7 +398,7 @@ const onTemplateSelect = (templateId: string | null) => {
   defaultTags.value = [...template.default_tags]
 
   if (template.api_type === 'wikidata' && template.parameters.sparql_query) {
-    sparqlQuery.value = template.parameters.sparql_query
+    sparqlQuery.value = String(template.parameters.sparql_query)
   }
 }
 
@@ -398,7 +408,7 @@ const loadPreview = async () => {
   errorMessage.value = ''
 
   try {
-    const params: Record<string, any> = {}
+    const params: Record<string, string> = {}
     if (apiType.value === 'wikidata') {
       params.sparql_query = sparqlQuery.value
     }
@@ -421,7 +431,7 @@ const loadPreview = async () => {
       }
     }
   } catch (error) {
-    console.error('Failed to load preview:', error)
+    logger.error('Failed to load preview', error)
     errorMessage.value = t('sources.apiImport.previewError')
   } finally {
     loadingPreview.value = false
@@ -433,7 +443,7 @@ const executeImport = async () => {
   errorMessage.value = ''
 
   try {
-    const params: Record<string, any> = {}
+    const params: Record<string, string> = {}
     if (apiType.value === 'wikidata') {
       params.sparql_query = sparqlQuery.value
     }
@@ -451,7 +461,7 @@ const executeImport = async () => {
     emit('imported', response.data.imported)
     close()
   } catch (error) {
-    console.error('API import failed:', error)
+    logger.error('API import failed', error)
     errorMessage.value = t('sources.apiImport.importError')
   } finally {
     importing.value = false
@@ -460,23 +470,6 @@ const executeImport = async () => {
 
 const getAllTags = (item: PreviewItem): string[] => {
   return [...new Set([...defaultTags.value, ...(item.suggested_tags || [])])]
-}
-
-const getTagColor = (tag: string): string => {
-  const tagLower = tag?.toLowerCase() || ''
-  if (['nrw', 'bayern', 'berlin', 'niedersachsen', 'hessen', 'sachsen'].includes(tagLower)) {
-    return 'blue'
-  }
-  if (['de', 'at', 'ch', 'deutschland'].includes(tagLower)) {
-    return 'indigo'
-  }
-  if (['kommunal', 'gemeinde', 'stadt', 'landkreis'].includes(tagLower)) {
-    return 'green'
-  }
-  if (['oparl', 'wikidata'].includes(tagLower)) {
-    return 'purple'
-  }
-  return 'grey'
 }
 
 const close = () => {

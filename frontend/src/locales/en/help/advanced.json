@@ -39,6 +39,18 @@
         "maintainLocationsDesc": "Assign a location to each source",
         "regularMaintenance": "Regular Maintenance",
         "regularMaintenanceDesc": "Check faulty sources and URLs"
+      },
+      "fullTextSearch": {
+        "title": "Full-Text Search",
+        "description": "CaeliCrawler uses PostgreSQL full-text search with German language support for optimal search results.",
+        "basicSearch": "Basic Search",
+        "basicSearchDesc": "Enter search terms - they are automatically combined with AND",
+        "wildcards": "Wildcards",
+        "wildcardsDesc": "Use * for prefix search (e.g., Wind* finds wind power, wind energy)",
+        "ranking": "Relevance Ranking",
+        "rankingDesc": "Results are sorted by relevance based on word frequency and position",
+        "germanSupport": "German Language Support",
+        "germanSupportDesc": "Stemming and word normalization for German texts (e.g., finds 'Beschluesse' also 'Beschluss')"
       }
     },
     "security": {

@@ -9,31 +9,125 @@ export interface HelpSection {
   color?: string
 }
 
-export const helpSections: HelpSection[] = [
-  { id: 'intro', title: 'help.sections.intro', icon: 'mdi-information', color: 'primary' },
-  { id: 'quickstart', title: 'help.sections.quickstart', icon: 'mdi-rocket-launch', color: 'success' },
-  { id: 'smart-query', title: 'help.sections.smartQuery', icon: 'mdi-brain', color: 'purple' },
-  { id: 'dashboard', title: 'help.sections.dashboard', icon: 'mdi-view-dashboard', color: 'info' },
-  { id: 'categories', title: 'help.sections.categories', icon: 'mdi-folder-multiple', color: 'purple' },
-  { id: 'sources', title: 'help.sections.sources', icon: 'mdi-web', color: 'teal' },
-  { id: 'crawler', title: 'help.sections.crawler', icon: 'mdi-robot', color: 'cyan' },
-  { id: 'documents', title: 'help.sections.documents', icon: 'mdi-file-document-multiple', color: 'blue-grey' },
-  { id: 'municipalities', title: 'help.sections.municipalities', icon: 'mdi-city', color: 'indigo' },
-  { id: 'entity-facet', title: 'help.sections.entityFacet', icon: 'mdi-database', color: 'deep-purple' },
-  { id: 'attachments', title: 'help.sections.attachments', icon: 'mdi-paperclip', color: 'info' },
-  { id: 'results', title: 'help.sections.results', icon: 'mdi-chart-bar', color: 'orange' },
-  { id: 'export', title: 'help.sections.export', icon: 'mdi-export', color: 'deep-purple' },
-  { id: 'notifications', title: 'help.sections.notifications', icon: 'mdi-bell', color: 'orange-darken-2' },
-  { id: 'favorites', title: 'help.sections.favorites', icon: 'mdi-star', color: 'amber' },
-  { id: 'ai-assistant', title: 'help.sections.aiAssistant', icon: 'mdi-robot-happy', color: 'pink' },
-  { id: 'user-management', title: 'help.sections.userManagement', icon: 'mdi-account-group', color: 'blue' },
-  { id: 'audit-log', title: 'help.sections.auditLog', icon: 'mdi-history', color: 'brown' },
-  { id: 'facet-type-admin', title: 'help.sections.facetTypeAdmin', icon: 'mdi-tag-multiple', color: 'teal' },
-  { id: 'api', title: 'help.sections.api', icon: 'mdi-api', color: 'grey-darken-3' },
-  { id: 'tips', title: 'help.sections.tips', icon: 'mdi-lightbulb', color: 'amber' },
-  { id: 'security', title: 'help.sections.security', icon: 'mdi-shield-lock', color: 'purple' },
-  { id: 'troubleshooting', title: 'help.sections.troubleshooting', icon: 'mdi-wrench', color: 'red' },
+export interface HelpSectionGroup {
+  id: string
+  title: string
+  icon: string
+  color: string
+  sections: HelpSection[]
+}
+
+/**
+ * Grouped help sections for better navigation
+ */
+export const helpSectionGroups: HelpSectionGroup[] = [
+  {
+    id: 'getting-started',
+    title: 'help.groups.gettingStarted',
+    icon: 'mdi-rocket-launch',
+    color: 'success',
+    sections: [
+      { id: 'intro', title: 'help.sections.intro', icon: 'mdi-information', color: 'primary' },
+      { id: 'quickstart', title: 'help.sections.quickstart', icon: 'mdi-rocket-launch', color: 'success' },
+      { id: 'dashboard', title: 'help.sections.dashboard', icon: 'mdi-view-dashboard', color: 'info' },
+    ],
+  },
+  {
+    id: 'search-analysis',
+    title: 'help.groups.searchAnalysis',
+    icon: 'mdi-brain',
+    color: 'purple',
+    sections: [
+      { id: 'smart-query', title: 'help.sections.smartQuery', icon: 'mdi-brain', color: 'purple' },
+      { id: 'results', title: 'help.sections.results', icon: 'mdi-chart-bar', color: 'orange' },
+      { id: 'favorites', title: 'help.sections.favorites', icon: 'mdi-star', color: 'amber' },
+    ],
+  },
+  {
+    id: 'data-sources',
+    title: 'help.groups.dataSources',
+    icon: 'mdi-web',
+    color: 'teal',
+    sections: [
+      { id: 'categories', title: 'help.sections.categories', icon: 'mdi-folder-multiple', color: 'purple' },
+      { id: 'sources', title: 'help.sections.sources', icon: 'mdi-web', color: 'teal' },
+      { id: 'ai-source-discovery', title: 'help.sections.aiSourceDiscovery', icon: 'mdi-magnify-plus', color: 'amber' },
+      { id: 'data-source-tags', title: 'help.sections.dataSourceTags', icon: 'mdi-tag-multiple', color: 'cyan' },
+      { id: 'crawler', title: 'help.sections.crawler', icon: 'mdi-robot', color: 'cyan' },
+    ],
+  },
+  {
+    id: 'documents-data',
+    title: 'help.groups.documentsData',
+    icon: 'mdi-file-document-multiple',
+    color: 'blue-grey',
+    sections: [
+      { id: 'documents', title: 'help.sections.documents', icon: 'mdi-file-document-multiple', color: 'blue-grey' },
+      { id: 'attachments', title: 'help.sections.attachments', icon: 'mdi-paperclip', color: 'info' },
+      { id: 'municipalities', title: 'help.sections.municipalities', icon: 'mdi-city', color: 'indigo' },
+    ],
+  },
+  {
+    id: 'entities-facets',
+    title: 'help.groups.entitiesFacets',
+    icon: 'mdi-database',
+    color: 'deep-purple',
+    sections: [
+      { id: 'entity-facet', title: 'help.sections.entityFacet', icon: 'mdi-database', color: 'deep-purple' },
+      { id: 'entity-map', title: 'help.sections.entityMap', icon: 'mdi-map', color: 'success' },
+      { id: 'facet-history', title: 'help.sections.facetHistory', icon: 'mdi-chart-timeline', color: 'info' },
+      { id: 'facet-type-admin', title: 'help.sections.facetTypeAdmin', icon: 'mdi-tag-multiple', color: 'teal' },
+    ],
+  },
+  {
+    id: 'ai-automation',
+    title: 'help.groups.aiAutomation',
+    icon: 'mdi-robot-happy',
+    color: 'pink',
+    sections: [
+      { id: 'ai-assistant', title: 'help.sections.aiAssistant', icon: 'mdi-robot-happy', color: 'pink' },
+      { id: 'api-templates', title: 'help.sections.apiTemplates', icon: 'mdi-api', color: 'deep-purple' },
+      { id: 'external-apis', title: 'help.sections.externalApis', icon: 'mdi-cloud-sync', color: 'teal' },
+    ],
+  },
+  {
+    id: 'export-notifications',
+    title: 'help.groups.exportNotifications',
+    icon: 'mdi-export',
+    color: 'deep-purple',
+    sections: [
+      { id: 'export', title: 'help.sections.export', icon: 'mdi-export', color: 'deep-purple' },
+      { id: 'notifications', title: 'help.sections.notifications', icon: 'mdi-bell', color: 'orange-darken-2' },
+    ],
+  },
+  {
+    id: 'administration',
+    title: 'help.groups.administration',
+    icon: 'mdi-cog',
+    color: 'blue',
+    sections: [
+      { id: 'user-management', title: 'help.sections.userManagement', icon: 'mdi-account-group', color: 'blue' },
+      { id: 'audit-log', title: 'help.sections.auditLog', icon: 'mdi-history', color: 'brown' },
+      { id: 'security', title: 'help.sections.security', icon: 'mdi-shield-lock', color: 'purple' },
+    ],
+  },
+  {
+    id: 'developer',
+    title: 'help.groups.developer',
+    icon: 'mdi-code-tags',
+    color: 'grey-darken-1',
+    sections: [
+      { id: 'api', title: 'help.sections.api', icon: 'mdi-api', color: 'grey-darken-3' },
+      { id: 'tips', title: 'help.sections.tips', icon: 'mdi-lightbulb', color: 'amber' },
+      { id: 'troubleshooting', title: 'help.sections.troubleshooting', icon: 'mdi-wrench', color: 'red' },
+    ],
+  },
 ]
+
+/**
+ * Flat list of all sections (for backwards compatibility)
+ */
+export const helpSections: HelpSection[] = helpSectionGroups.flatMap((group) => group.sections)
 
 export interface ApiEndpoint {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE'

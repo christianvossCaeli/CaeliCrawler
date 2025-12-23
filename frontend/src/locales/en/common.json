@@ -93,6 +93,8 @@
     "entries": "entries",
     "noResults": "No results found",
     "searchPlaceholder": "Search...",
+    "showMore": "+{count} more",
+    "showLess": "Show less",
     "confirmDelete": "Are you sure you want to delete this item?",
     "confirmDeleteTitle": "Confirm deletion",
     "unsavedChanges": "You have unsaved changes. Do you really want to continue?",

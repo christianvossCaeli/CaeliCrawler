@@ -50,8 +50,11 @@ from .entity_operations import (
 from .query_interpreter import (
     interpret_query,
     interpret_write_command,
+    interpret_plan_query,
+    interpret_plan_query_stream,
     get_openai_client,
     detect_compound_query,
+    invalidate_types_cache,
 )
 from .query_executor import execute_smart_query
 from .visualization_selector import VisualizationSelector
@@ -311,15 +314,42 @@ async def smart_query(
     question: str,
     allow_write: bool = False,
     current_user_id: Optional[UUID] = None,
+    mode: Optional[str] = None,
+    conversation_history: Optional[List[Dict[str, str]]] = None,
 ) -> Dict[str, Any]:
     """
     Execute a natural language query against the Entity-Facet system.
 
-    1. Checks if this is a write command (if allow_write=True)
-    2. If write: interprets and executes the command
-    3. If read: interprets the question and executes the query
-    4. Returns structured results
+    1. If mode="plan": uses the Plan Mode assistant for interactive prompt help
+    2. Checks if this is a write command (if allow_write=True)
+    3. If write: interprets and executes the command
+    4. If read: interprets the question and executes the query
+    5. Returns structured results
+
+    Args:
+        session: Database session
+        question: Natural language query/command
+        allow_write: Whether to allow write operations
+        current_user_id: Optional user ID for tracking
+        mode: Optional mode override ("plan" for Plan Mode)
+        conversation_history: Optional conversation history for Plan Mode
     """
+    # Plan Mode - interactive assistant for prompt formulation
+    if mode == "plan":
+        logger.info(
+            "Plan mode query",
+            question=question[:100],
+            history_length=len(conversation_history) if conversation_history else 0,
+        )
+        result = await interpret_plan_query(
+            question=question,
+            session=session,
+            conversation_history=conversation_history,
+        )
+        result["original_question"] = question
+        result["mode"] = "plan"
+        return result
+
     # First, check if this is a write command
     if allow_write:
         write_command = await interpret_write_command(question, session)
@@ -418,6 +448,39 @@ async def smart_write(
     return await smart_query(session, command, allow_write=True, current_user_id=current_user_id)
 
 
+async def smart_plan(
+    session: AsyncSession,
+    question: str,
+    conversation_history: Optional[List[Dict[str, str]]] = None,
+) -> Dict[str, Any]:
+    """
+    Execute a Plan Mode query.
+
+    The Plan Mode is an interactive assistant that helps users formulate
+    the correct prompts for Smart Query. It uses Claude Opus and knows
+    both the code implementation and database contents.
+
+    Args:
+        session: Database session
+        question: User's question about how to use Smart Query
+        conversation_history: Previous messages in the conversation
+
+    Returns:
+        Dict with:
+        - success: Whether the request succeeded
+        - message: The assistant's response
+        - has_generated_prompt: Whether a ready prompt was generated
+        - generated_prompt: The generated prompt (if any)
+        - suggested_mode: "read" or "write" (if prompt generated)
+    """
+    return await smart_query(
+        session,
+        question,
+        mode="plan",
+        conversation_history=conversation_history,
+    )
+
+
 # Export all public symbols
 __all__ = [
     # Main service class
@@ -425,6 +488,7 @@ __all__ = [
     # Main functions
     "smart_query",
     "smart_write",
+    "smart_plan",
     # Geographic utilities
     "GERMAN_STATE_ALIASES",
     "resolve_geographic_alias",
@@ -444,8 +508,11 @@ __all__ = [
     # Query interpretation
     "interpret_query",
     "interpret_write_command",
+    "interpret_plan_query",
+    "interpret_plan_query_stream",
     "get_openai_client",
     "detect_compound_query",
+    "invalidate_types_cache",
     # Query execution
     "execute_smart_query",
     "execute_compound_query",

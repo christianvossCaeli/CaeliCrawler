@@ -36,6 +36,46 @@
       </tbody>
     </v-table>
 
+    <h3 class="text-h6 mt-4 mb-3">{{ t('help.documents.bulkOperations.title') }}</h3>
+    <v-alert type="info" variant="tonal" class="mb-3">
+      <v-icon>mdi-checkbox-multiple-marked</v-icon>
+      {{ t('help.documents.bulkOperations.description') }}
+    </v-alert>
+    <v-row class="mb-4">
+      <v-col cols="12" md="6">
+        <v-card variant="outlined" class="pa-3">
+          <div class="text-subtitle-2 mb-2">{{ t('help.documents.bulkOperations.selection.title') }}</div>
+          <v-list density="compact">
+            <v-list-item prepend-icon="mdi-checkbox-marked">
+              {{ t('help.documents.bulkOperations.selection.individual') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-checkbox-multiple-marked">
+              {{ t('help.documents.bulkOperations.selection.selectAll') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-filter-check">
+              {{ t('help.documents.bulkOperations.selection.filtered') }}
+            </v-list-item>
+          </v-list>
+        </v-card>
+      </v-col>
+      <v-col cols="12" md="6">
+        <v-card variant="outlined" class="pa-3">
+          <div class="text-subtitle-2 mb-2">{{ t('help.documents.bulkOperations.actions.title') }}</div>
+          <v-list density="compact">
+            <v-list-item prepend-icon="mdi-play-circle">
+              {{ t('help.documents.bulkOperations.actions.processSelected') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-brain">
+              {{ t('help.documents.bulkOperations.actions.analyzeSelected') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-delete">
+              {{ t('help.documents.bulkOperations.actions.deleteSelected') }}
+            </v-list-item>
+          </v-list>
+        </v-card>
+      </v-col>
+    </v-row>
+
     <h3 class="text-h6 mt-4 mb-3">{{ t('help.documents.availableFilters') }}</h3>
     <v-chip-group>
       <v-chip size="small" variant="outlined" v-for="(filter, index) in (tm('help.documents.filters') as string[])" :key="index">

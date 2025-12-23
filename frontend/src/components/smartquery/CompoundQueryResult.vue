@@ -15,7 +15,7 @@
     <!-- Visualization Grid -->
     <v-row class="visualization-grid" role="list">
       <v-col
-        v-for="(viz, index) in visualizations"
+        v-for="viz in visualizations"
         :key="viz.id"
         :cols="12"
         :md="getColSize(visualizations.length)"
@@ -94,7 +94,6 @@ import SuggestedActionsBar from './visualizations/common/SuggestedActionsBar.vue
 import {
   type VisualizationWithData,
   type SuggestedAction,
-  type VisualizationType,
   getVisualizationIcon,
 } from './visualizations/types'
 

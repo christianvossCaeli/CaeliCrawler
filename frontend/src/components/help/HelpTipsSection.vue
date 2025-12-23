@@ -57,6 +57,33 @@
           </v-list>
         </v-expansion-panel-text>
       </v-expansion-panel>
+
+      <v-expansion-panel :title="t('help.tips.fullTextSearch.title')">
+        <v-expansion-panel-text>
+          <v-alert type="info" variant="tonal" class="mb-3">
+            <v-icon>mdi-magnify</v-icon>
+            {{ t('help.tips.fullTextSearch.description') }}
+          </v-alert>
+          <v-list density="compact">
+            <v-list-item prepend-icon="mdi-text-search">
+              <v-list-item-title>{{ t('help.tips.fullTextSearch.basicSearch') }}</v-list-item-title>
+              <v-list-item-subtitle>{{ t('help.tips.fullTextSearch.basicSearchDesc') }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-star-outline">
+              <v-list-item-title>{{ t('help.tips.fullTextSearch.wildcards') }}</v-list-item-title>
+              <v-list-item-subtitle>{{ t('help.tips.fullTextSearch.wildcardsDesc') }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-sort-variant">
+              <v-list-item-title>{{ t('help.tips.fullTextSearch.ranking') }}</v-list-item-title>
+              <v-list-item-subtitle>{{ t('help.tips.fullTextSearch.rankingDesc') }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-translate">
+              <v-list-item-title>{{ t('help.tips.fullTextSearch.germanSupport') }}</v-list-item-title>
+              <v-list-item-subtitle>{{ t('help.tips.fullTextSearch.germanSupportDesc') }}</v-list-item-subtitle>
+            </v-list-item>
+          </v-list>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
     </v-expansion-panels>
   </HelpCard>
 </template>

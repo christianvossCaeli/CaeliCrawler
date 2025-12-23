@@ -24,22 +24,43 @@ export const adminApi = {
     mode?: 'add' | 'replace'
   }) => api.post(`/admin/categories/${categoryId}/assign-sources-by-tags`, data),
 
-  // Sources
-  getSources: (params?: any) => api.get('/admin/sources', { params }),
-  getSource: (id: string) => api.get(`/admin/sources/${id}`),
-  createSource: (data: any) => api.post('/admin/sources', data),
-  updateSource: (id: string, data: any) => api.put(`/admin/sources/${id}`, data),
+  // Sources (with proper types)
+  getSources: (params?: import('@/types/sources').DataSourceListParams) =>
+    api.get<import('@/types/sources').DataSourceListResponse>('/admin/sources', { params }),
+  getSource: (id: string) =>
+    api.get<import('@/types/sources').DataSourceResponse>(`/admin/sources/${id}`),
+  createSource: (data: import('@/types/sources').DataSourceCreate) =>
+    api.post<import('@/types/sources').DataSourceResponse>('/admin/sources', data),
+  updateSource: (id: string, data: import('@/types/sources').DataSourceUpdate) =>
+    api.put<import('@/types/sources').DataSourceResponse>(`/admin/sources/${id}`, data),
   deleteSource: (id: string) => api.delete(`/admin/sources/${id}`),
-  bulkImportSources: (data: any) => api.post('/admin/sources/bulk-import', data),
+  bulkImportSources: (data: import('@/types/sources').DataSourceBulkImport) =>
+    api.post<import('@/types/sources').DataSourceBulkImportResult>('/admin/sources/bulk-import', data),
   resetSource: (id: string) => api.post(`/admin/sources/${id}/reset`),
-  getSourceCounts: () => api.get('/admin/sources/meta/counts'),
-  getAvailableTags: () => api.get('/admin/sources/meta/tags'),
+  getSourceCounts: () =>
+    api.get<import('@/types/sources').SourceCountsResponse>('/admin/sources/meta/counts'),
+  getAvailableTags: () =>
+    api.get<import('@/types/sources').TagsResponse>('/admin/sources/meta/tags'),
   getSourcesByTags: (params: {
     tags: string[]
     match_mode?: 'all' | 'any'
     exclude_category_id?: string
     limit?: number
   }) => api.get('/admin/sources/by-tags', { params }),
+
+  // SharePoint
+  testSharePointConnection: (siteUrl?: string) =>
+    api.post('/admin/sharepoint/test-connection', null, { params: { site_url: siteUrl } }),
+  getSharePointStatus: () => api.get('/admin/sharepoint/status'),
+  getSharePointSites: (query?: string) =>
+    api.get('/admin/sharepoint/sites', { params: { query } }),
+  getSharePointDrives: (siteId: string) =>
+    api.get(`/admin/sharepoint/sites/${siteId}/drives`),
+  getSharePointFiles: (siteId: string, driveId: string, params?: {
+    folder_path?: string
+    recursive?: boolean
+    limit?: number
+  }) => api.get(`/admin/sharepoint/sites/${siteId}/drives/${driveId}/files`, { params }),
 
   // API Import
   getApiImportTemplates: () => api.get('/admin/api-import/templates'),
@@ -247,6 +268,9 @@ export const dataApi = {
   getExtractionStats: (params?: any) => api.get('/v1/data/stats', { params }),
   getExtractionLocations: () => api.get('/v1/data/locations'),
   getExtractionCountries: () => api.get('/v1/data/countries'),
+
+  // Display Configuration (dynamic columns per category)
+  getDisplayConfig: (categoryId: string) => api.get(`/v1/data/display-config/${categoryId}`),
 
   // Documents
   getDocuments: (params?: any) => api.get('/v1/data/documents', { params }),

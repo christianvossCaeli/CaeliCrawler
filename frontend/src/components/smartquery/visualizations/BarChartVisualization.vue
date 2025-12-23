@@ -118,13 +118,16 @@ const chartOptions = computed(() => ({
       },
     },
     y: {
+      type: 'linear' as const,
       title: {
         display: !!props.config?.y_axis?.label,
         text: props.config?.y_axis?.label || '',
       },
       beginAtZero: true,
       ticks: {
-        callback: (value: number) => value.toLocaleString('de-DE'),
+        callback: function(tickValue: string | number) {
+          return Number(tickValue).toLocaleString('de-DE')
+        },
       },
     },
   },

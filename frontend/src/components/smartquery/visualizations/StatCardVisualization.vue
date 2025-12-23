@@ -33,7 +33,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { VisualizationConfig, StatCard } from './types'
-import { getNestedValue } from './types'
 
 const props = defineProps<{
   data: Record<string, any>[]
@@ -55,7 +54,7 @@ const statCards = computed((): StatCard[] => {
     let unit: string | undefined
 
     if (item.facets) {
-      for (const [facetKey, facetValue] of Object.entries(item.facets)) {
+      for (const [, facetValue] of Object.entries(item.facets)) {
         if (typeof (facetValue as any)?.value === 'number') {
           value = (facetValue as any).value
           break

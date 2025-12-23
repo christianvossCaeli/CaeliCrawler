@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -93,6 +93,20 @@ class Category(Base):
         default="default",
         nullable=False,
         comment="Handler for processing extractions: 'default' or 'event'",
+    )
+
+    # Display configuration for results view
+    display_fields: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Configuration for result display columns: {columns: [{key, label, type, width}]}",
+    )
+
+    # Entity reference extraction configuration
+    entity_reference_config: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Config for entity reference extraction: {entity_types: ['territorial-entity', 'person']}",
     )
 
     # Scheduling (cron expression)

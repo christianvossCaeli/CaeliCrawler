@@ -212,18 +212,24 @@
           <v-chip size="small" color="primary" variant="tonal">{{ item.extraction_type }}</v-chip>
         </template>
 
-        <template v-slot:item.municipality="{ item }">
-          <v-chip
-            v-if="getMunicipality(item)"
-            size="small"
-            color="info"
-            variant="tonal"
-            @click="filterByMunicipality(getMunicipality(item))"
-            class="cursor-pointer"
-          >
-            {{ getMunicipality(item) }}
-          </v-chip>
-          <span v-else class="text-medium-emphasis">-</span>
+        <!-- Dynamic Entity Reference Columns -->
+        <template
+          v-for="entityType in entityReferenceColumns"
+          :key="`entity-${entityType}`"
+          v-slot:[`item.entity_references.${entityType}`]="{ item }"
+        >
+          <div class="entity-references">
+            <template v-for="(ref, idx) in getEntityReferencesByType(item, entityType)" :key="idx">
+              <div
+                class="entity-ref-text cursor-pointer text-info"
+                @click="filterByEntityReference(entityType, ref.entity_name)"
+                :title="ref.entity_name"
+              >
+                {{ ref.entity_name }}
+              </div>
+            </template>
+            <span v-if="!getEntityReferencesByType(item, entityType).length" class="text-medium-emphasis">-</span>
+          </div>
         </template>
 
         <template v-slot:item.confidence_score="{ item }">
@@ -287,17 +293,33 @@
 
           <!-- Extracted Content -->
           <template v-if="selectedResult.final_content || selectedResult.extracted_content">
+            <!-- Entity References (Dynamic) -->
+            <v-card v-if="selectedResult.entity_references?.length" variant="outlined" class="mb-4">
+              <v-card-title class="text-subtitle-1">
+                <v-icon size="small" class="mr-2">mdi-link-variant</v-icon>
+                {{ $t('results.detail.entityReferences') }}
+              </v-card-title>
+              <v-card-text>
+                <div class="d-flex flex-wrap ga-2">
+                  <v-chip
+                    v-for="(ref, idx) in selectedResult.entity_references"
+                    :key="idx"
+                    :color="getEntityTypeColor(ref.entity_type)"
+                    size="small"
+                    :to="ref.entity_id ? `/entities/${ref.entity_id}` : undefined"
+                  >
+                    <v-icon start size="x-small">{{ getEntityTypeIcon(ref.entity_type) }}</v-icon>
+                    {{ ref.entity_name }}
+                    <v-tooltip v-if="ref.role !== 'secondary'" activator="parent" location="top">
+                      {{ ref.role }} ({{ Math.round(ref.confidence * 100) }}%)
+                    </v-tooltip>
+                  </v-chip>
+                </div>
+              </v-card-text>
+            </v-card>
+
             <v-row class="mb-4">
-              <v-col cols="12" md="6">
-                <v-card variant="outlined" height="100%">
-                  <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-map-marker</v-icon>{{ $t('results.detail.municipality') }}</v-card-title>
-                  <v-card-text>
-                    <v-chip v-if="getMunicipality(selectedResult)" color="primary" size="large">{{ getMunicipality(selectedResult) }}</v-chip>
-                    <span v-else class="text-medium-emphasis">{{ $t('results.detail.notRecognized') }}</span>
-                  </v-card-text>
-                </v-card>
-              </v-col>
-              <v-col cols="12" md="6">
+              <v-col cols="12">
                 <v-card variant="outlined" height="100%">
                   <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-check-circle</v-icon>{{ $t('results.detail.relevance') }}</v-card-title>
                   <v-card-text>
@@ -592,15 +614,67 @@ const sortBy = ref<any[]>([{ key: 'created_at', order: 'desc' }])
 const detailsDialog = ref(false)
 const selectedResult = ref<any>(null)
 
-const headers = [
-  { title: t('results.columns.document'), key: 'document', sortable: false },
+// Dynamic headers - loaded from category's display_fields config
+const headers = ref<any[]>([])
+const entityReferenceColumns = ref<string[]>([])
+
+// Default headers when no category-specific config is available
+const defaultHeaders = [
+  { title: t('results.columns.document'), key: 'document', sortable: false, width: '220px' },
   { title: t('results.columns.type'), key: 'extraction_type', width: '140px', sortable: true },
-  { title: t('results.columns.municipality'), key: 'municipality', width: '130px', sortable: false },
   { title: t('results.columns.confidence'), key: 'confidence_score', width: '110px', sortable: true },
   { title: t('results.columns.verified'), key: 'human_verified', width: '90px', sortable: true },
   { title: t('results.columns.created'), key: 'created_at', width: '100px', sortable: true },
   { title: t('results.columns.actions'), key: 'actions', sortable: false, align: 'end' as const },
 ]
+
+// Load display config for the selected category
+const loadDisplayConfig = async (categoryId: string | null) => {
+  if (!categoryId) {
+    // No category selected - use default headers
+    headers.value = [...defaultHeaders]
+    entityReferenceColumns.value = []
+    return
+  }
+
+  try {
+    const response = await dataApi.getDisplayConfig(categoryId)
+    const config = response.data
+
+    // Build headers from config
+    const dynamicHeaders: any[] = []
+
+    for (const col of config.columns || []) {
+      const header: any = {
+        title: col.label,
+        key: col.key,
+        sortable: col.sortable !== false, // Default to sortable
+      }
+      if (col.width) header.width = col.width
+      if (col.key === 'actions') header.align = 'end'
+      dynamicHeaders.push(header)
+    }
+
+    // Always ensure actions column is present
+    if (!dynamicHeaders.find(h => h.key === 'actions')) {
+      dynamicHeaders.push({
+        title: t('results.columns.actions'),
+        key: 'actions',
+        sortable: false,
+        align: 'end' as const,
+      })
+    }
+
+    headers.value = dynamicHeaders
+    entityReferenceColumns.value = config.entity_reference_columns || []
+
+  } catch (error) {
+    console.error('Failed to load display config:', error)
+    // Fallback to default headers
+    headers.value = [...defaultHeaders]
+    entityReferenceColumns.value = []
+  }
+}
 
 const hasActiveFilters = computed(() =>
   searchQuery.value || locationFilter.value || extractionTypeFilter.value ||
@@ -648,9 +722,40 @@ const getPriorityColor = (priority: string) => {
   return colors[priority.toLowerCase()] || 'grey'
 }
 
-const getMunicipality = (item: any) => {
-  const content = item.final_content || item.extracted_content || {}
-  return content.municipality || null
+// Generic entity reference helpers
+const getEntityReferencesByType = (item: any, entityType: string): any[] => {
+  if (!item.entity_references || !Array.isArray(item.entity_references)) {
+    return []
+  }
+  return item.entity_references.filter((ref: any) => ref.entity_type === entityType)
+}
+
+const filterByEntityReference = (_entityType: string, entityName: string) => {
+  // Set filter to search for this entity (entityType reserved for future filtering)
+  searchQuery.value = entityName
+  page.value = 1
+  loadData()
+}
+
+// Entity type display helpers (configurable via category in future)
+const getEntityTypeColor = (entityType: string): string => {
+  const colors: Record<string, string> = {
+    'territorial-entity': 'primary',
+    'person': 'info',
+    'organization': 'secondary',
+    'event': 'warning',
+  }
+  return colors[entityType] || 'grey'
+}
+
+const getEntityTypeIcon = (entityType: string): string => {
+  const icons: Record<string, string> = {
+    'territorial-entity': 'mdi-map-marker',
+    'person': 'mdi-account',
+    'organization': 'mdi-domain',
+    'event': 'mdi-calendar',
+  }
+  return icons[entityType] || 'mdi-tag'
 }
 
 const getContent = (item: any) => {
@@ -662,10 +767,19 @@ const formatDate = (dateStr: string) => {
   return format(new Date(dateStr), 'dd.MM.yy HH:mm', { locale: de })
 }
 
+// Track last loaded category for display config
+let lastLoadedCategoryId: string | null = null
+
 // Data loading
 const loadData = async () => {
   loading.value = true
   try {
+    // Load display config if category changed
+    if (categoryFilter.value !== lastLoadedCategoryId) {
+      await loadDisplayConfig(categoryFilter.value)
+      lastLoadedCategoryId = categoryFilter.value
+    }
+
     const params: any = { page: page.value, per_page: perPage.value }
     if (searchQuery.value) params.search = searchQuery.value
     if (locationFilter.value) params.location_name = locationFilter.value
@@ -685,6 +799,7 @@ const loadData = async () => {
       dataApi.getExtractionStats({ category_id: categoryFilter.value }),
     ])
 
+    // Data comes with entity_references from API
     results.value = dataRes.data.items
     totalResults.value = dataRes.data.total
     stats.value = statsRes.data
@@ -749,11 +864,6 @@ const clearFilters = () => {
   loadData()
 }
 
-const filterByMunicipality = (municipality: string) => {
-  locationFilter.value = municipality
-  page.value = 1
-  loadData()
-}
 
 // Actions
 const showDetails = (item: any) => {
@@ -854,3 +964,38 @@ onMounted(async () => {
   await Promise.all([loadData(), loadFilters()])
 })
 </script>
+
+<style scoped>
+/* Generic entity reference cell styling */
+.entity-ref-text {
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+.entity-ref-text:hover {
+  text-decoration: underline;
+  color: rgb(var(--v-theme-info-darken-1));
+}
+
+.entity-references {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.json-viewer {
+  overflow-x: auto;
+  font-size: 0.75rem;
+  background: rgb(var(--v-theme-surface-variant));
+  max-height: 400px;
+  white-space: pre-wrap;
+}
+</style>

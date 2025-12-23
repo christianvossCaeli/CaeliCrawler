@@ -1591,7 +1591,7 @@ const navigateToSourcesFiltered = () => {
 const loadAvailableTags = async () => {
   try {
     const response = await adminApi.getAvailableTags()
-    availableTags.value = response.data.tags || []
+    availableTags.value = (response.data.tags || []).map(t => t.tag)
   } catch (error) {
     console.error('Failed to load available tags:', error)
     availableTags.value = []

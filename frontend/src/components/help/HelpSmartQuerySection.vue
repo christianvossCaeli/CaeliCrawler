@@ -56,6 +56,32 @@
         </v-col>
       </v-row>
 
+      <h3 class="text-h6 mb-3">{{ t('help.smartQuery.speechRecognition.title') }}</h3>
+      <v-card variant="outlined" class="mb-4" color="success">
+        <v-card-title class="text-subtitle-1">
+          <v-icon class="mr-2" color="success">mdi-microphone</v-icon>
+          {{ t('help.smartQuery.speechRecognition.voiceInput') }}
+        </v-card-title>
+        <v-card-text>
+          <p class="mb-3">{{ t('help.smartQuery.speechRecognition.description') }}</p>
+          <v-list density="compact">
+            <v-list-item prepend-icon="mdi-microphone">
+              {{ t('help.smartQuery.speechRecognition.howTo') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-text">
+              {{ t('help.smartQuery.speechRecognition.realtime') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-send">
+              {{ t('help.smartQuery.speechRecognition.submit') }}
+            </v-list-item>
+          </v-list>
+          <v-alert type="info" variant="tonal" density="compact" class="mt-3">
+            <v-icon>mdi-information</v-icon>
+            {{ t('help.smartQuery.speechRecognition.browserSupport') }}
+          </v-alert>
+        </v-card-text>
+      </v-card>
+
       <h3 class="text-h6 mb-3">{{ t('help.smartQuery.category_setup_title') }}</h3>
       <p class="mb-3">
         {{ t('help.smartQuery.category_setup_description') }}

@@ -176,7 +176,7 @@ const emit = defineEmits<{
   (e: 'updated'): void
 }>()
 
-const { t, locale } = useI18n()
+const { locale } = useI18n()
 const theme = useTheme()
 
 // Computed for dark mode
@@ -231,9 +231,9 @@ const availableTracks = computed(() => {
   if (!historyData.value?.tracks) {
     return [{ key: 'default', label: 'Standard' }]
   }
-  return historyData.value.tracks.map(t => ({
-    key: t.track_key,
-    label: t.label,
+  return historyData.value.tracks.map(track => ({
+    key: track.track_key,
+    label: track.label,
   }))
 })
 
@@ -253,13 +253,14 @@ const dateRange = computed(() => {
   }
 })
 
+// Chart data for time series (using type assertion for Chart.js time scale compatibility)
 const chartData = computed(() => {
   if (!historyData.value?.tracks?.length) return null
 
   const datasets = historyData.value.tracks.map((track: HistoryTrack) => ({
     label: track.label,
     data: track.data_points.map(dp => ({
-      x: new Date(dp.recorded_at),
+      x: new Date(dp.recorded_at).getTime(), // Use timestamp for Chart.js time scale
       y: dp.value,
     })),
     borderColor: track.color,
@@ -333,6 +334,7 @@ const chartOptions = computed(() => ({
       },
     },
     y: {
+      type: 'linear' as const,
       beginAtZero: false,
       title: {
         display: !!historyData.value?.unit_label,
@@ -344,7 +346,9 @@ const chartOptions = computed(() => ({
       },
       ticks: {
         color: chartColors.value.textColor,
-        callback: (value: number) => formatValue(value, true),
+        callback: function(tickValue: string | number) {
+          return formatValue(Number(tickValue), true)
+        },
       },
     },
   },

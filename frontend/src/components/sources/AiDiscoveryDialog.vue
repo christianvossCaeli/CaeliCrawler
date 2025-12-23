@@ -1,13 +1,14 @@
 <template>
   <v-dialog
     v-model="isOpen"
-    max-width="1200"
+    :max-width="DIALOG_SIZES.XL"
     persistent
     scrollable
     :aria-labelledby="'ai-discovery-dialog-title'"
     role="dialog"
   >
     <v-card>
+      <!-- Header -->
       <v-card-title class="d-flex align-center pa-4 bg-primary">
         <v-avatar color="primary-darken-1" size="40" class="mr-3" aria-hidden="true">
           <v-icon color="on-primary">mdi-robot</v-icon>
@@ -23,7 +24,6 @@
           @click="close"
           :disabled="isSearching"
           :aria-label="$t('common.close')"
-          :title="$t('common.close')"
         >
           <v-icon>mdi-close</v-icon>
         </v-btn>
@@ -43,136 +43,28 @@
           {{ errorMessage }}
         </v-alert>
 
-        <!-- Search Phase -->
-        <template v-if="phase === 'input'">
-          <!-- Prompt Input -->
-          <v-textarea
-            v-model="prompt"
-            :label="$t('sources.aiDiscovery.prompt')"
-            :placeholder="$t('sources.aiDiscovery.promptPlaceholder')"
-            variant="outlined"
-            rows="3"
-            prepend-inner-icon="mdi-magnify"
-            class="mb-4"
-            auto-grow
-          ></v-textarea>
-
-          <!-- Examples -->
-          <v-card variant="tonal" class="mb-4" color="info">
-            <v-card-title class="text-subtitle-2 pb-2">
-              <v-icon start size="small">mdi-lightbulb-outline</v-icon>
-              {{ $t('sources.aiDiscovery.examples') }}
-            </v-card-title>
-            <v-card-text class="pt-0">
-              <v-chip-group>
-                <v-chip
-                  v-for="example in examples"
-                  :key="example.prompt"
-                  size="small"
-                  variant="outlined"
-                  @click="prompt = example.prompt"
-                >
-                  {{ example.prompt }}
-                </v-chip>
-              </v-chip-group>
-            </v-card-text>
-          </v-card>
-
-          <!-- Search Options -->
-          <v-row>
-            <v-col cols="12" md="4">
-              <v-select
-                v-model="searchDepth"
-                :items="searchDepthOptions"
-                :label="$t('sources.aiDiscovery.searchDepth')"
-                variant="outlined"
-                density="comfortable"
-              >
-                <template v-slot:item="{ item, props }">
-                  <v-list-item v-bind="props">
-                    <template v-slot:prepend>
-                      <v-icon :color="item.raw.color">{{ item.raw.icon }}</v-icon>
-                    </template>
-                  </v-list-item>
-                </template>
-              </v-select>
-            </v-col>
-            <v-col cols="12" md="4">
-              <v-text-field
-                v-model.number="maxResults"
-                :label="$t('sources.aiDiscovery.maxResults')"
-                type="number"
-                variant="outlined"
-                density="comfortable"
-                :min="10"
-                :max="200"
-              ></v-text-field>
-            </v-col>
-            <v-col cols="12" md="4">
-              <v-switch
-                v-model="skipApiDiscovery"
-                :label="$t('sources.aiDiscovery.skipApiDiscovery')"
-                color="warning"
-                density="comfortable"
-                hide-details
-                class="mt-2"
-              ></v-switch>
-            </v-col>
-          </v-row>
-        </template>
+        <!-- Input Phase -->
+        <AiDiscoveryInputPhase
+          v-if="phase === 'input'"
+          v-model:prompt="prompt"
+          v-model:searchDepth="searchDepth"
+          v-model:maxResults="maxResults"
+          v-model:skipApiDiscovery="skipApiDiscovery"
+          :examples="examples"
+          :min-results="AI_DISCOVERY.MAX_RESULTS_MIN"
+          :max-results-limit="AI_DISCOVERY.MAX_RESULTS_MAX"
+        />
 
         <!-- Searching Phase -->
-        <template v-if="phase === 'searching'">
-          <v-card variant="outlined" class="pa-6 text-center">
-            <v-progress-circular
-              indeterminate
-              color="primary"
-              size="64"
-              class="mb-4"
-            ></v-progress-circular>
-            <div class="text-h6 mb-2">{{ $t('sources.aiDiscovery.searching') }}</div>
-            <v-list density="compact" class="text-left mx-auto" style="max-width: 400px">
-              <v-list-item v-for="(step, index) in searchSteps" :key="index">
-                <template v-slot:prepend>
-                  <v-icon
-                    :color="step.done ? 'success' : (step.active ? 'primary' : 'grey')"
-                    size="small"
-                  >
-                    {{ step.done ? 'mdi-check-circle' : (step.active ? 'mdi-loading mdi-spin' : 'mdi-circle-outline') }}
-                  </v-icon>
-                </template>
-                <v-list-item-title :class="{ 'text-grey': !step.active && !step.done }">
-                  {{ step.text }}
-                </v-list-item-title>
-              </v-list-item>
-            </v-list>
-          </v-card>
-        </template>
+        <AiDiscoverySearchingPhase
+          v-if="phase === 'searching'"
+          :steps="searchSteps"
+        />
 
         <!-- Results Phase -->
         <template v-if="phase === 'results'">
           <!-- Results Summary -->
-          <v-alert
-            v-if="discoveryResult"
-            :type="hasResults ? 'success' : 'warning'"
-            variant="tonal"
-            class="mb-4"
-          >
-            <template v-slot:prepend>
-              <v-icon>{{ hasResults ? 'mdi-check-circle' : 'mdi-alert' }}</v-icon>
-            </template>
-            <div class="d-flex align-center flex-wrap ga-2">
-              <span>{{ resultSummary }}</span>
-              <v-chip v-if="discoveryResult.from_template" size="small" color="info" variant="outlined">
-                <v-icon start size="small">mdi-bookmark</v-icon>
-                {{ $t('sources.aiDiscovery.fromTemplate') }}
-              </v-chip>
-              <v-chip v-if="discoveryResult.used_fallback" size="small" color="warning" variant="outlined">
-                <v-icon start size="small">mdi-web</v-icon>
-                {{ $t('sources.aiDiscovery.serpFallback') }}
-              </v-chip>
-            </div>
-          </v-alert>
+          <AiDiscoveryResultsSummary :result="discoveryResult" />
 
           <!-- Tabs for API vs Web Results -->
           <v-tabs v-model="resultsTab" class="mb-4" color="primary">
@@ -193,8 +85,8 @@
             <v-tab value="suggestions">
               <v-icon start>mdi-lightbulb</v-icon>
               {{ $t('sources.aiDiscovery.apiSuggestions') }}
-              <v-chip size="x-small" class="ml-2" v-if="discoveryResult?.api_suggestions?.length">
-                {{ discoveryResult.api_suggestions.length }}
+              <v-chip size="x-small" class="ml-2" v-if="discoveryResult?.api_validations?.length">
+                {{ discoveryResult.api_validations.length }}
               </v-chip>
             </v-tab>
           </v-tabs>
@@ -202,184 +94,26 @@
           <v-window v-model="resultsTab">
             <!-- API Sources Tab -->
             <v-window-item value="api">
-              <div v-if="discoveryResult?.api_sources?.length">
-                <v-card
-                  v-for="(source, index) in discoveryResult.api_sources"
-                  :key="index"
-                  variant="outlined"
-                  class="mb-4"
-                >
-                  <v-card-title class="d-flex align-center">
-                    <v-icon color="success" class="mr-2">mdi-api</v-icon>
-                    {{ source.api_name }}
-                    <v-chip size="small" color="primary" class="ml-2">{{ source.api_type }}</v-chip>
-                    <v-spacer />
-                    <v-chip color="success" size="small">
-                      {{ source.item_count }} {{ $t('sources.aiDiscovery.itemsFound') }}
-                    </v-chip>
-                  </v-card-title>
-                  <v-card-subtitle>{{ source.api_url }}</v-card-subtitle>
-                  <v-card-text>
-                    <!-- Tags -->
-                    <div class="mb-3">
-                      <v-chip
-                        v-for="tag in source.tags"
-                        :key="tag"
-                        size="small"
-                        variant="outlined"
-                        class="mr-1 mb-1"
-                      >
-                        {{ tag }}
-                      </v-chip>
-                    </div>
-
-                    <!-- Sample Data Preview -->
-                    <v-expansion-panels variant="accordion">
-                      <v-expansion-panel>
-                        <v-expansion-panel-title>
-                          <v-icon start size="small">mdi-table</v-icon>
-                          {{ $t('sources.aiDiscovery.sampleData') }} ({{ source.sample_items.length }})
-                        </v-expansion-panel-title>
-                        <v-expansion-panel-text>
-                          <v-table density="compact" class="text-body-2">
-                            <thead>
-                              <tr>
-                                <th v-for="key in Object.keys(source.sample_items[0] || {})" :key="key">
-                                  {{ key }}
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr v-for="(item, idx) in source.sample_items.slice(0, 5)" :key="idx">
-                                <td v-for="key in Object.keys(item)" :key="key">
-                                  {{ truncateValue(item[key]) }}
-                                </td>
-                              </tr>
-                            </tbody>
-                          </v-table>
-                        </v-expansion-panel-text>
-                      </v-expansion-panel>
-                    </v-expansion-panels>
-                  </v-card-text>
-                  <v-card-actions>
-                    <v-checkbox
-                      v-model="selectedApiSources"
-                      :value="index"
-                      :label="$t('sources.aiDiscovery.selectForImport')"
-                      density="compact"
-                      hide-details
-                    ></v-checkbox>
-                    <v-spacer />
-                    <v-btn
-                      variant="outlined"
-                      size="small"
-                      color="primary"
-                      @click="saveAsTemplate(source)"
-                    >
-                      <v-icon start size="small">mdi-bookmark-plus</v-icon>
-                      {{ $t('sources.aiDiscovery.saveAsTemplate') }}
-                    </v-btn>
-                  </v-card-actions>
-                </v-card>
-              </div>
-              <v-alert v-else type="info" variant="tonal">
-                {{ $t('sources.aiDiscovery.noApiSources') }}
-              </v-alert>
+              <AiDiscoveryApiResults
+                :sources="discoveryResult?.api_sources || []"
+                v-model:selectedIndices="selectedApiSources"
+                @save-template="saveAsTemplate"
+              />
             </v-window-item>
 
             <!-- Web Sources Tab -->
             <v-window-item value="web">
-              <v-card variant="outlined" v-if="discoveryResult?.web_sources?.length">
-                <v-data-table
-                  v-model="selectedWebSources"
-                  :headers="tableHeaders"
-                  :items="discoveryResult.web_sources"
-                  item-value="base_url"
-                  show-select
-                  density="compact"
-                  :items-per-page="10"
-                >
-                  <template v-slot:item.name="{ item }">
-                    <div class="font-weight-medium">{{ item.name }}</div>
-                  </template>
-                  <template v-slot:item.base_url="{ item }">
-                    <a
-                      :href="item.base_url"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="text-decoration-none"
-                    >
-                      {{ truncateUrl(item.base_url) }}
-                      <v-icon size="x-small" class="ml-1">mdi-open-in-new</v-icon>
-                    </a>
-                  </template>
-                  <template v-slot:item.tags="{ item }">
-                    <v-chip-group>
-                      <v-chip
-                        v-for="tag in item.tags.slice(0, 4)"
-                        :key="tag"
-                        size="x-small"
-                        variant="outlined"
-                      >
-                        {{ tag }}
-                      </v-chip>
-                      <v-chip v-if="item.tags.length > 4" size="x-small" variant="text">
-                        +{{ item.tags.length - 4 }}
-                      </v-chip>
-                    </v-chip-group>
-                  </template>
-                  <template v-slot:item.confidence="{ item }">
-                    <v-chip :color="getConfidenceColor(item.confidence)" size="x-small">
-                      {{ Math.round(item.confidence * 100) }}%
-                    </v-chip>
-                  </template>
-                </v-data-table>
-              </v-card>
-              <v-alert v-else type="info" variant="tonal">
-                {{ $t('sources.aiDiscovery.noWebSources') }}
-              </v-alert>
+              <AiDiscoveryWebResults
+                :sources="discoveryResult?.web_sources || []"
+                v-model:selectedUrls="selectedWebSources"
+              />
             </v-window-item>
 
-            <!-- API Suggestions Tab -->
+            <!-- API Validations Tab -->
             <v-window-item value="suggestions">
-              <div v-if="discoveryResult?.api_validations?.length">
-                <v-card
-                  v-for="(validation, index) in discoveryResult.api_validations"
-                  :key="index"
-                  variant="outlined"
-                  class="mb-3"
-                  :color="validation.is_valid ? 'success' : 'error'"
-                >
-                  <v-card-title class="d-flex align-center text-body-1">
-                    <v-icon :color="validation.is_valid ? 'success' : 'error'" class="mr-2">
-                      {{ validation.is_valid ? 'mdi-check-circle' : 'mdi-close-circle' }}
-                    </v-icon>
-                    {{ validation.api_name }}
-                    <v-spacer />
-                    <v-chip
-                      :color="validation.is_valid ? 'success' : 'error'"
-                      size="small"
-                      variant="outlined"
-                    >
-                      {{ validation.is_valid ? $t('sources.aiDiscovery.valid') : $t('sources.aiDiscovery.invalid') }}
-                    </v-chip>
-                  </v-card-title>
-                  <v-card-text class="text-body-2">
-                    <div v-if="validation.status_code" class="mb-1">
-                      <strong>Status:</strong> {{ validation.status_code }}
-                    </div>
-                    <div v-if="validation.item_count" class="mb-1">
-                      <strong>{{ $t('sources.aiDiscovery.itemCount') }}:</strong> {{ validation.item_count }}
-                    </div>
-                    <div v-if="validation.error_message" class="text-error">
-                      <strong>{{ $t('common.error') }}:</strong> {{ validation.error_message }}
-                    </div>
-                  </v-card-text>
-                </v-card>
-              </div>
-              <v-alert v-else type="info" variant="tonal">
-                {{ $t('sources.aiDiscovery.noSuggestions') }}
-              </v-alert>
+              <AiDiscoveryValidations
+                :validations="discoveryResult?.api_validations || []"
+              />
             </v-window-item>
           </v-window>
 
@@ -409,6 +143,7 @@
 
       <v-divider />
 
+      <!-- Footer Actions -->
       <v-card-actions class="pa-4">
         <v-btn variant="text" @click="close" :disabled="isSearching">
           {{ $t('common.cancel') }}
@@ -446,143 +181,69 @@
     </v-card>
 
     <!-- Save as Template Dialog -->
-    <v-dialog v-model="showTemplateDialog" max-width="500" persistent>
-      <v-card>
-        <v-card-title>
-          <v-icon start>mdi-bookmark-plus</v-icon>
-          {{ $t('sources.aiDiscovery.saveAsTemplate') }}
-        </v-card-title>
-        <v-card-text>
-          <v-text-field
-            v-model="templateForm.name"
-            :label="$t('common.name')"
-            variant="outlined"
-            class="mb-3"
-          ></v-text-field>
-          <v-textarea
-            v-model="templateForm.description"
-            :label="$t('common.description')"
-            variant="outlined"
-            rows="2"
-            class="mb-3"
-          ></v-textarea>
-          <v-combobox
-            v-model="templateForm.keywords"
-            :label="$t('sources.aiDiscovery.keywords')"
-            variant="outlined"
-            chips
-            multiple
-            closable-chips
-            :hint="$t('sources.aiDiscovery.keywordsHint')"
-          ></v-combobox>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showTemplateDialog = false">
-            {{ $t('common.cancel') }}
-          </v-btn>
-          <v-btn
-            color="primary"
-            variant="elevated"
-            :loading="isSavingTemplate"
-            :disabled="!templateForm.name"
-            @click="confirmSaveTemplate"
-          >
-            {{ $t('common.save') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <AiDiscoverySaveTemplateDialog
+      v-model="showTemplateDialog"
+      :form="templateForm"
+      :saving="isSavingTemplate"
+      @update:form="templateForm = $event"
+      @confirm="confirmSaveTemplate"
+    />
   </v-dialog>
 </template>
 
 <script setup lang="ts">
+/**
+ * AiDiscoveryDialog - AI-powered source discovery dialog
+ *
+ * Multi-phase dialog for discovering and importing data sources using AI.
+ * Supports API discovery, web scraping suggestions, and template matching.
+ *
+ * Uses modular sub-components for each phase:
+ * - AiDiscoveryInputPhase: Search input and options
+ * - AiDiscoverySearchingPhase: Progress indicator
+ * - AiDiscoveryResultsSummary: Results overview
+ * - AiDiscoveryApiResults: API sources display
+ * - AiDiscoveryWebResults: Web sources table
+ * - AiDiscoveryValidations: API validation results
+ * - AiDiscoverySaveTemplateDialog: Template save dialog
+ */
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
+import { useLogger } from '@/composables/useLogger'
+import { AI_DISCOVERY, DIALOG_SIZES } from '@/config/sources'
+import {
+  AiDiscoveryInputPhase,
+  AiDiscoverySearchingPhase,
+  AiDiscoveryResultsSummary,
+  AiDiscoveryApiResults,
+  AiDiscoveryWebResults,
+  AiDiscoveryValidations,
+  AiDiscoverySaveTemplateDialog,
+} from './ai-discovery'
+import type {
+  DiscoveryResultV2,
+  DiscoveryExample,
+  Category,
+  SearchStep,
+  ValidatedAPISource,
+  TemplateFormData,
+} from './ai-discovery/types'
 
-// ============================================================================
-// TypeScript Interfaces
-// ============================================================================
-
-interface DiscoverySource {
-  name: string
-  base_url: string
-  source_type: string
-  tags: string[]
-  metadata: Record<string, unknown>
-  confidence: number
-}
-
-interface APISuggestion {
-  api_name: string
-  base_url: string
-  endpoint: string
-  description: string
-  api_type: string
-  auth_required: boolean
-  confidence: number
-  documentation_url?: string
-}
-
-interface APIValidation {
-  api_name: string
-  is_valid: boolean
-  status_code?: number
-  item_count?: number
-  error_message?: string
-  field_mapping: Record<string, string>
-}
-
-interface ValidatedAPISource {
-  api_name: string
-  api_url: string
-  api_type: string
-  item_count: number
-  sample_items: Record<string, any>[]
-  tags: string[]
-  field_mapping: Record<string, string>
-}
-
-interface DiscoveryResultV2 {
-  api_sources: ValidatedAPISource[]
-  web_sources: DiscoverySource[]
-  api_suggestions: APISuggestion[]
-  api_validations: APIValidation[]
-  stats: Record<string, number>
-  warnings: string[]
-  used_fallback: boolean
-  from_template: boolean
-}
-
-interface DiscoveryExample {
-  prompt: string
-  description?: string
-  expected_tags?: string[]
-}
-
-interface Category {
-  id: string
-  name: string
-}
-
-interface SearchStep {
-  text: string
-  done: boolean
-  active: boolean
-}
+const logger = useLogger('AiDiscoveryDialog')
 
 // ============================================================================
 // Props & Emits
 // ============================================================================
 
 const props = defineProps<{
-  modelValue: boolean
   categories: Category[]
 }>()
 
+// defineModel() for two-way binding (Vue 3.4+)
+const isOpen = defineModel<boolean>({ default: false })
+
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
   (e: 'imported', count: number): void
 }>()
 
@@ -592,89 +253,77 @@ const { t } = useI18n()
 // State
 // ============================================================================
 
-const isOpen = computed({
-  get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value),
-})
-
+// Phase management
 const phase = ref<'input' | 'searching' | 'results'>('input')
+
+// Input state
 const prompt = ref('')
 const searchDepth = ref<'quick' | 'standard' | 'deep'>('standard')
-const maxResults = ref(50)
+const maxResults = ref(AI_DISCOVERY.MAX_RESULTS_DEFAULT)
 const skipApiDiscovery = ref(false)
+const examples = ref<DiscoveryExample[]>([])
+
+// Operation states
 const isSearching = ref(false)
 const isImporting = ref(false)
+const errorMessage = ref('')
+
+// Results state
 const discoveryResult = ref<DiscoveryResultV2 | null>(null)
 const selectedApiSources = ref<number[]>([])
 const selectedWebSources = ref<string[]>([])
 const categoryIds = ref<string[]>([])
-const examples = ref<DiscoveryExample[]>([])
-const errorMessage = ref('')
 const resultsTab = ref('api')
 
-// Cleanup state
-let isMounted = true
-let closeTimeoutId: ReturnType<typeof setTimeout> | null = null
+// Search progress
+const currentStepIndex = ref(0)
 
 // Template dialog
 const showTemplateDialog = ref(false)
 const isSavingTemplate = ref(false)
-const templateForm = ref({
+const templateForm = ref<TemplateFormData>({
   name: '',
   description: '',
-  keywords: [] as string[],
-  source: null as ValidatedAPISource | null,
+  keywords: [],
+  source: null,
 })
 
-const searchDepthOptions = [
-  { value: 'quick', title: t('sources.aiDiscovery.quick'), icon: 'mdi-speedometer', color: 'success' },
-  { value: 'standard', title: t('sources.aiDiscovery.standard'), icon: 'mdi-speedometer-medium', color: 'primary' },
-  { value: 'deep', title: t('sources.aiDiscovery.deep'), icon: 'mdi-speedometer-slow', color: 'warning' },
-]
-
-const searchSteps = ref<SearchStep[]>([
-  { text: t('sources.aiDiscovery.checkingTemplates'), done: false, active: true },
-  { text: t('sources.aiDiscovery.generatingApiSuggestions'), done: false, active: false },
-  { text: t('sources.aiDiscovery.validatingApis'), done: false, active: false },
-  { text: t('sources.aiDiscovery.extractingData'), done: false, active: false },
-])
-
-const tableHeaders = [
-  { title: 'Name', key: 'name', sortable: true },
-  { title: 'URL', key: 'base_url', sortable: true },
-  { title: 'Tags', key: 'tags', sortable: false },
-  { title: 'Confidence', key: 'confidence', sortable: true, width: '100px' },
-]
+// Cleanup
+let isMounted = true
+let closeTimeoutId: ReturnType<typeof setTimeout> | null = null
 
 // ============================================================================
 // Computed
 // ============================================================================
 
+/** Search steps with i18n reactivity */
+const searchSteps = computed<SearchStep[]>(() => {
+  const stepTexts = [
+    t('sources.aiDiscovery.checkingTemplates'),
+    t('sources.aiDiscovery.generatingApiSuggestions'),
+    t('sources.aiDiscovery.validatingApis'),
+    t('sources.aiDiscovery.extractingData'),
+  ]
+  return stepTexts.map((text, index) => ({
+    text,
+    done: index < currentStepIndex.value,
+    active: index === currentStepIndex.value,
+  }))
+})
+
+/** Whether results contain any sources */
 const hasResults = computed(() => {
   if (!discoveryResult.value) return false
-  return discoveryResult.value.api_sources.length > 0 || discoveryResult.value.web_sources.length > 0
+  return discoveryResult.value.api_sources.length > 0 ||
+         discoveryResult.value.web_sources.length > 0
 })
 
-const resultSummary = computed(() => {
-  if (!discoveryResult.value) return ''
-  const apiCount = discoveryResult.value.api_sources.length
-  const webCount = discoveryResult.value.web_sources.length
-  if (apiCount > 0 && webCount > 0) {
-    return t('sources.aiDiscovery.foundBoth', { api: apiCount, web: webCount })
-  }
-  if (apiCount > 0) {
-    return t('sources.aiDiscovery.foundApis', { count: apiCount })
-  }
-  if (webCount > 0) {
-    return t('sources.aiDiscovery.foundWeb', { count: webCount })
-  }
-  return t('sources.aiDiscovery.noResults')
-})
-
+/** Whether import is possible */
 const canImport = computed(() => {
   return selectedApiSources.value.length > 0 || selectedWebSources.value.length > 0
 })
 
+/** Import button text */
 const importButtonText = computed(() => {
   const total = selectedApiSources.value.length + selectedWebSources.value.length
   return `${total} ${t('sources.aiDiscovery.importSources')}`
@@ -684,6 +333,7 @@ const importButtonText = computed(() => {
 // Methods
 // ============================================================================
 
+/** Extract error message from various error types */
 const getErrorMessage = (error: unknown): string => {
   if (error && typeof error === 'object') {
     const err = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
@@ -692,11 +342,13 @@ const getErrorMessage = (error: unknown): string => {
   return t('common.unknownError')
 }
 
+/** Load example prompts from API */
 const loadExamples = async () => {
   try {
     const response = await adminApi.getAiDiscoveryExamples()
     examples.value = response.data as DiscoveryExample[]
   } catch {
+    // Fallback examples
     examples.value = [
       { prompt: 'Alle deutschen Bundesliga-Fußballvereine' },
       { prompt: 'Gemeinden in Sachsen' },
@@ -705,16 +357,17 @@ const loadExamples = async () => {
   }
 }
 
+/** Start the discovery process */
 const startDiscovery = async () => {
-  // Prevent double-click race condition
   if (isSearching.value) return
 
   errorMessage.value = ''
   isSearching.value = true
   phase.value = 'searching'
-  resetSearchSteps()
+  currentStepIndex.value = 0
 
   try {
+    // Simulate progress steps
     await simulateStep(0, 500)
     await simulateStep(1, 800)
     await simulateStep(2, 1000)
@@ -729,23 +382,17 @@ const startDiscovery = async () => {
     await simulateStep(3, 500)
     discoveryResult.value = response.data as DiscoveryResultV2
 
-    // Pre-select all API sources
+    // Pre-select all sources
     selectedApiSources.value = discoveryResult.value.api_sources.map((_, i) => i)
-    // Pre-select all web sources
     selectedWebSources.value = discoveryResult.value.web_sources.map((s) => s.base_url)
 
     // Set active tab based on results
-    if (discoveryResult.value.api_sources.length > 0) {
-      resultsTab.value = 'api'
-    } else if (discoveryResult.value.web_sources.length > 0) {
-      resultsTab.value = 'web'
-    } else {
-      resultsTab.value = 'suggestions'
-    }
+    resultsTab.value = discoveryResult.value.api_sources.length > 0 ? 'api' :
+                       discoveryResult.value.web_sources.length > 0 ? 'web' : 'suggestions'
 
     phase.value = 'results'
   } catch (error: unknown) {
-    console.error('Discovery failed:', error)
+    logger.error('Discovery failed', error)
     errorMessage.value = getErrorMessage(error)
     phase.value = 'input'
   } finally {
@@ -753,6 +400,7 @@ const startDiscovery = async () => {
   }
 }
 
+/** Import selected sources */
 const importSources = async () => {
   if (!discoveryResult.value) return
 
@@ -762,18 +410,29 @@ const importSources = async () => {
 
   try {
     // Import API sources
-    for (const index of selectedApiSources.value) {
-      const source = discoveryResult.value.api_sources[index]
-      const response = await adminApi.importApiData({
-        api_name: source.api_name,
-        api_url: source.api_url,
-        field_mapping: source.field_mapping,
-        items: source.sample_items, // In reality, would fetch full data
-        category_ids: categoryIds.value,
-        tags: source.tags,
-        skip_duplicates: true,
+    const apiImportResults = await Promise.allSettled(
+      selectedApiSources.value.map(async (index) => {
+        const source = discoveryResult.value!.api_sources[index]
+        if (!source) return { imported: 0 }
+
+        const response = await adminApi.importApiData({
+          api_name: source.api_name,
+          api_url: source.api_url,
+          field_mapping: source.field_mapping,
+          items: source.sample_items,
+          category_ids: categoryIds.value,
+          tags: source.tags,
+          skip_duplicates: true,
+        })
+        return response.data
       })
-      totalImported += response.data.imported
+    )
+
+    // Count successful API imports
+    for (const result of apiImportResults) {
+      if (result.status === 'fulfilled' && result.value?.imported) {
+        totalImported += result.value.imported
+      }
     }
 
     // Import web sources
@@ -781,24 +440,28 @@ const importSources = async () => {
       const sourcesToImport = discoveryResult.value.web_sources.filter(
         (s) => selectedWebSources.value.includes(s.base_url)
       )
-      const response = await adminApi.importDiscoveredSources({
-        sources: sourcesToImport,
-        category_ids: categoryIds.value,
-        skip_duplicates: true,
-      })
-      totalImported += response.data.imported
+
+      if (sourcesToImport.length > 0) {
+        const response = await adminApi.importDiscoveredSources({
+          sources: sourcesToImport,
+          category_ids: categoryIds.value,
+          skip_duplicates: true,
+        })
+        totalImported += response.data?.imported || 0
+      }
     }
 
     emit('imported', totalImported)
     close()
   } catch (error: unknown) {
-    console.error('Import failed:', error)
+    logger.error('Import failed', error)
     errorMessage.value = getErrorMessage(error)
   } finally {
     isImporting.value = false
   }
 }
 
+/** Open template save dialog */
 const saveAsTemplate = (source: ValidatedAPISource) => {
   templateForm.value = {
     name: source.api_name,
@@ -809,8 +472,8 @@ const saveAsTemplate = (source: ValidatedAPISource) => {
   showTemplateDialog.value = true
 }
 
+/** Extract keywords from text */
 const extractKeywords = (text: string): string[] => {
-  // Extract meaningful words as keywords
   const words = text.toLowerCase()
     .replace(/[^\wäöüß\s]/g, '')
     .split(/\s+/)
@@ -818,13 +481,13 @@ const extractKeywords = (text: string): string[] => {
   return [...new Set(words)]
 }
 
+/** Confirm and save template */
 const confirmSaveTemplate = async () => {
   if (!templateForm.value.source) return
 
   isSavingTemplate.value = true
   try {
     const source = templateForm.value.source
-    // Parse URL to get base_url and endpoint
     const url = new URL(source.api_url)
     const baseUrl = `${url.protocol}//${url.host}`
     const endpoint = url.pathname + url.search
@@ -844,55 +507,21 @@ const confirmSaveTemplate = async () => {
 
     showTemplateDialog.value = false
   } catch (error: unknown) {
-    console.error('Failed to save template:', error)
+    logger.error('Failed to save template', error)
     errorMessage.value = getErrorMessage(error)
   } finally {
     isSavingTemplate.value = false
   }
 }
 
-const resetSearchSteps = () => {
-  searchSteps.value.forEach((step, index) => {
-    step.done = false
-    step.active = index === 0
-  })
-}
-
+/** Simulate step progress */
 const simulateStep = async (stepIndex: number, delay: number) => {
   await new Promise((resolve) => setTimeout(resolve, delay))
-  if (stepIndex > 0) {
-    searchSteps.value[stepIndex - 1].done = true
-    searchSteps.value[stepIndex - 1].active = false
-  }
-  if (stepIndex < searchSteps.value.length) {
-    searchSteps.value[stepIndex].active = true
-  }
+  currentStepIndex.value = stepIndex
 }
 
-const truncateUrl = (url: string) => {
-  try {
-    const parsed = new URL(url)
-    return parsed.hostname + (parsed.pathname !== '/' ? parsed.pathname.slice(0, 20) + '...' : '')
-  } catch {
-    return url.slice(0, 40) + '...'
-  }
-}
-
-const truncateValue = (value: any): string => {
-  if (value === null || value === undefined) return '-'
-  const str = String(value)
-  return str.length > 50 ? str.slice(0, 47) + '...' : str
-}
-
-const getConfidenceColor = (confidence: number) => {
-  if (confidence >= 0.8) return 'success'
-  if (confidence >= 0.6) return 'primary'
-  if (confidence >= 0.4) return 'warning'
-  return 'error'
-}
-
+/** Close dialog and reset state */
 const close = () => {
-  // Stop any ongoing operations
   isSearching.value = false
   isOpen.value = false
   closeTimeoutId = setTimeout(() => {
@@ -905,20 +534,24 @@ const close = () => {
     categoryIds.value = []
     errorMessage.value = ''
     resultsTab.value = 'api'
+    currentStepIndex.value = 0
   }, 300)
 }
 
-// Cleanup on component unmount
+// ============================================================================
+// Lifecycle
+// ============================================================================
+
+onMounted(() => {
+  loadExamples()
+})
+
 onUnmounted(() => {
   isMounted = false
   if (closeTimeoutId) {
     clearTimeout(closeTimeoutId)
     closeTimeoutId = null
   }
-})
-
-onMounted(() => {
-  loadExamples()
 })
 
 watch(isOpen, (newValue) => {
@@ -928,9 +561,3 @@ watch(isOpen, (newValue) => {
   }
 })
 </script>
-
-<style scoped>
-:deep(.v-data-table) {
-  font-size: 0.875rem;
-}
-</style>

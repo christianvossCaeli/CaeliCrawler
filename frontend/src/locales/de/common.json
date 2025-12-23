@@ -93,6 +93,8 @@
     "entries": "Einträge",
     "noResults": "Keine Ergebnisse gefunden",
     "searchPlaceholder": "Suchen...",
+    "showMore": "+{count} weitere",
+    "showLess": "Weniger anzeigen",
     "confirmDelete": "Möchten Sie diesen Eintrag wirklich löschen?",
     "confirmDeleteTitle": "Löschen bestätigen",
     "unsavedChanges": "Sie haben ungespeicherte Änderungen. Möchten Sie wirklich fortfahren?",

@@ -89,12 +89,12 @@ const de = {
   ...deNotifications,
   ...deAdmin,
   // Merge help sub-modules using deep merge to preserve nested objects
-  help: deepMerge(
-    deHelpIntro.help || {},
-    deHelpViews.help || {},
-    deHelpFeatures.help || {},
-    deHelpAdvanced.help || {},
-    deHelpUi.help || {},
+  help: deepMerge<Record<string, unknown>>(
+    (deHelpIntro.help || {}) as Record<string, unknown>,
+    (deHelpViews.help || {}) as Record<string, unknown>,
+    (deHelpFeatures.help || {}) as Record<string, unknown>,
+    (deHelpAdvanced.help || {}) as Record<string, unknown>,
+    (deHelpUi.help || {}) as Record<string, unknown>,
   ),
   ...deAssistant,
   ...deMisc,
@@ -117,12 +117,12 @@ const en = {
   ...enNotifications,
   ...enAdmin,
   // Merge help sub-modules using deep merge to preserve nested objects
-  help: deepMerge(
-    enHelpIntro.help || {},
-    enHelpViews.help || {},
-    enHelpFeatures.help || {},
-    enHelpAdvanced.help || {},
-    enHelpUi.help || {},
+  help: deepMerge<Record<string, unknown>>(
+    (enHelpIntro.help || {}) as Record<string, unknown>,
+    (enHelpViews.help || {}) as Record<string, unknown>,
+    (enHelpFeatures.help || {}) as Record<string, unknown>,
+    (enHelpAdvanced.help || {}) as Record<string, unknown>,
+    (enHelpUi.help || {}) as Record<string, unknown>,
   ),
   ...enAssistant,
   ...enMisc,

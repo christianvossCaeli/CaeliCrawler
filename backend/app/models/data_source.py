@@ -39,6 +39,8 @@ class SourceType(str, enum.Enum):
     # API-basierte Datenquellen für Entity-Updates
     REST_API = "REST_API"      # REST APIs (z.B. Caeli Auction, externe Datenbanken)
     SPARQL_API = "SPARQL_API"  # SPARQL Endpoints (z.B. Wikidata, DBpedia)
+    # Cloud-Speicher
+    SHAREPOINT = "SHAREPOINT"  # SharePoint Online (Microsoft Graph API)
 
 
 class SourceStatus(str, enum.Enum):

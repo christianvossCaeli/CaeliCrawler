@@ -408,4 +408,136 @@ Content-Type: application/json
 
 ---
 
-**Letzte Aktualisierung:** 2025-12-21
+## Frontend Error Handling
+
+Die Frontend-Anwendung verwendet standardisierte Utilities fuer konsistente API-Fehlerbehandlung.
+
+### HTTP Status Konstanten
+
+```typescript
+import { HTTP_STATUS } from '@/types/sources'
+
+// Verfuegbare Konstanten:
+HTTP_STATUS.BAD_REQUEST          // 400
+HTTP_STATUS.UNAUTHORIZED         // 401
+HTTP_STATUS.FORBIDDEN            // 403
+HTTP_STATUS.NOT_FOUND            // 404
+HTTP_STATUS.CONFLICT             // 409
+HTTP_STATUS.UNPROCESSABLE_ENTITY // 422
+HTTP_STATUS.TOO_MANY_REQUESTS    // 429
+HTTP_STATUS.INTERNAL_SERVER_ERROR // 500
+HTTP_STATUS.BAD_GATEWAY          // 502
+HTTP_STATUS.SERVICE_UNAVAILABLE  // 503
+```
+
+### Error Type Guards
+
+```typescript
+import {
+  isApiError,
+  isHttpStatus,
+  isNetworkError,
+  isRetryableError,
+  getApiErrorMessage,
+  getFieldErrors
+} from '@/types/sources'
+
+try {
+  await api.saveData(payload)
+} catch (error) {
+  // Netzwerkfehler pruefen
+  if (isNetworkError(error)) {
+    showOfflineMessage()
+    return
+  }
+
+  // Spezifischen Status pruefen
+  if (isHttpStatus(error, HTTP_STATUS.CONFLICT)) {
+    showConflictDialog()
+    return
+  }
+
+  // Retry-faehige Fehler (5xx, 429, Netzwerk)
+  if (isRetryableError(error)) {
+    scheduleRetry()
+    return
+  }
+
+  // Benutzerfreundliche Fehlermeldung
+  errorMessage.value = getApiErrorMessage(error, 'Speichern fehlgeschlagen')
+
+  // Feld-Validierungsfehler extrahieren
+  const fieldErrors = getFieldErrors(error)
+  // { name: "Name ist erforderlich", email: "Ungueltige E-Mail" }
+}
+```
+
+### API Error Handler Utilities
+
+```typescript
+import {
+  withApiErrorHandling,
+  withLoadingState,
+  executeApiCall
+} from '@/utils/apiErrorHandler'
+
+// Nur Error-Handling
+const data = await withApiErrorHandling(
+  () => api.fetchData(),
+  { errorRef: error, fallbackMessage: 'Laden fehlgeschlagen' }
+)
+
+// Nur Loading-State
+await withLoadingState(() => api.fetchData(), loadingRef)
+
+// Kombiniert (haeufigster Fall)
+const result = await executeApiCall(
+  () => api.createSource(data),
+  {
+    errorRef: error,
+    loadingRef: saving,
+    fallbackMessage: 'Erstellen fehlgeschlagen'
+  }
+)
+```
+
+### CSV Parser Utility
+
+```typescript
+import { parseCsv, validateCsvInput, isValidUrl } from '@/utils/csvParser'
+
+// CSV validieren
+const validation = validateCsvInput(csvText)
+if (!validation.valid) {
+  showError(validation.error)
+  return
+}
+
+// CSV parsen
+const result = parseCsv(csvText, {
+  defaultTags: ['imported'],
+  existingUrls: existingSources.map(s => s.base_url),
+  skipDuplicates: true
+})
+
+// Ergebnis:
+// {
+//   items: BulkImportPreviewItem[],
+//   validCount: number,
+//   duplicateCount: number,
+//   errorCount: number,
+//   error?: string
+// }
+```
+
+### Dateien
+
+| Datei | Beschreibung |
+|-------|--------------|
+| `src/types/sources.ts` | API Error Types, HTTP_STATUS, Type Guards |
+| `src/utils/apiErrorHandler.ts` | withApiErrorHandling, withLoadingState, executeApiCall |
+| `src/utils/csvParser.ts` | CSV Parsing, URL Validation, Bulk Import |
+
+---
+
+**Letzte Aktualisierung:** 2025-12-23

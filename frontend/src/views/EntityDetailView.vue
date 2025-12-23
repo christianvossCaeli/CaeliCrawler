@@ -402,7 +402,7 @@
                   <!-- History Facet Type - Show Chart -->
                   <template v-if="facetGroup.facet_type_value_type === 'history'">
                     <FacetHistoryChart
-                      :entity-id="entity.id"
+                      :entity-id="entity?.id || ''"
                       :facet-type-id="facetGroup.facet_type_id"
                       :facet-type="facetGroup"
                       @updated="refreshFacetsSummary"
@@ -520,11 +520,11 @@
                         <v-chip
                           size="x-small"
                           variant="tonal"
-                          :color="getSourceTypeColor(sample.source_type)"
+                          :color="getFacetSourceColor(sample.source_type)"
                           class="cursor-pointer"
                           @click.stop="openSourceDetails(sample)"
                         >
-                          <v-icon start size="x-small">{{ getSourceTypeIcon(sample.source_type) }}</v-icon>
+                          <v-icon start size="x-small">{{ getFacetSourceIcon(sample.source_type) }}</v-icon>
                           {{ t('entityDetail.source') }}
                         </v-chip>
 
@@ -907,44 +907,96 @@
       <!-- Data Sources Tab -->
       <v-window-item value="sources">
         <v-card>
+          <v-card-title class="d-flex align-center">
+            <v-icon start>mdi-web</v-icon>
+            {{ t('entityDetail.tabs.dataSources') }}
+            <v-chip v-if="dataSources.length" size="small" class="ml-2">{{ dataSources.length }}</v-chip>
+            <v-spacer></v-spacer>
+            <v-btn variant="tonal" color="primary" size="small" @click="linkDataSourceDialog = true">
+              <v-icon start>mdi-link-plus</v-icon>
+              {{ t('entityDetail.linkDataSource') }}
+            </v-btn>
+          </v-card-title>
           <v-card-text>
             <div v-if="loadingDataSources" class="text-center pa-4">
               <v-progress-circular indeterminate></v-progress-circular>
             </div>
             <div v-else-if="dataSources.length">
-              <v-list>
+              <v-list lines="two">
                 <v-list-item
                   v-for="source in dataSources"
                   :key="source.id"
+                  class="mb-2"
                 >
                   <template v-slot:prepend>
-                    <v-icon :color="getSourceStatusColor(source.status)">
-                      {{ getSourceStatusIcon(source.status) }}
-                    </v-icon>
+                    <v-avatar :color="getSourceStatusColor(source.status)" size="40">
+                      <v-icon color="white">{{ getSourceTypeIcon(source.source_type) }}</v-icon>
+                    </v-avatar>
                   </template>
-                  <v-list-item-title>
+                  <v-list-item-title class="font-weight-medium">
                     {{ source.name }}
                     <v-chip v-if="source.hasRunningJob" size="x-small" color="info" class="ml-2">
                       {{ t('entityDetail.running') }}
                     </v-chip>
+                    <v-chip :color="getSourceStatusColor(source.status)" size="x-small" class="ml-1">
+                      {{ source.status }}
+                    </v-chip>
+                    <v-chip v-if="source.is_direct_link" size="x-small" color="primary" variant="outlined" class="ml-1">
+                      <v-icon start size="x-small">mdi-link</v-icon>
+                      {{ t('entityDetail.directLink') }}
+                    </v-chip>
                   </v-list-item-title>
                   <v-list-item-subtitle>
-                    <a :href="source.base_url" target="_blank" class="text-decoration-none">
+                    <a :href="source.base_url" target="_blank" class="text-decoration-none text-info">
+                      <v-icon size="x-small" class="mr-1">mdi-open-in-new</v-icon>
                       {{ source.base_url }}
                     </a>
+                    <span v-if="source.document_count" class="ml-3 text-medium-emphasis">
+                      <v-icon size="x-small">mdi-file-document</v-icon>
+                      {{ source.document_count }} {{ t('entityDetail.documentsCount') }}
+                    </span>
+                    <span v-if="source.last_crawl" class="ml-3 text-medium-emphasis">
+                      <v-icon size="x-small">mdi-clock-outline</v-icon>
+                      {{ formatDate(source.last_crawl) }}
+                    </span>
                   </v-list-item-subtitle>
                   <template v-slot:append>
-                    <v-btn
-                      v-if="!source.hasRunningJob"
-                      size="small"
-                      color="primary"
-                      variant="tonal"
-                      @click="startCrawl(source)"
-                      :loading="startingCrawl === source.id"
-                    >
-                      <v-icon start>mdi-play</v-icon>
-                      {{ t('entityDetail.crawl') }}
-                    </v-btn>
+                    <div class="d-flex ga-1">
+                      <v-btn
+                        icon="mdi-pencil"
+                        size="small"
+                        variant="tonal"
+                        :title="t('common.edit')"
+                        @click="openEditSourceDialog(source)"
+                      ></v-btn>
+                      <v-btn
+                        v-if="!source.hasRunningJob"
+                        icon="mdi-play"
+                        size="small"
+                        variant="tonal"
+                        color="success"
+                        :title="t('entityDetail.crawl')"
+                        @click="startCrawl(source)"
+                        :loading="startingCrawl === source.id"
+                      ></v-btn>
+                      <v-btn
+                        v-if="source.is_direct_link"
+                        icon="mdi-link-off"
+                        size="small"
+                        variant="tonal"
+                        color="warning"
+                        :title="t('entityDetail.unlinkSource')"
+                        @click="confirmUnlinkSource(source)"
+                      ></v-btn>
+                      <v-btn
+                        icon="mdi-delete"
+                        size="small"
+                        variant="tonal"
+                        color="error"
+                        :title="t('common.delete')"
+                        @click="confirmDeleteSource(source)"
+                      ></v-btn>
+                    </div>
                   </template>
                 </v-list-item>
               </v-list>
@@ -956,9 +1008,9 @@
               <p class="text-body-2 text-medium-emphasis mb-4">
                 {{ t('entityDetail.emptyState.noDataSourcesDesc') }}
               </p>
-              <v-btn variant="tonal" color="primary" @click="goToSources">
-                <v-icon start>mdi-plus</v-icon>
-                {{ t('entityDetail.addDataSource') }}
+              <v-btn variant="tonal" color="primary" @click="linkDataSourceDialog = true">
+                <v-icon start>mdi-link-plus</v-icon>
+                {{ t('entityDetail.linkDataSource') }}
               </v-btn>
             </div>
           </v-card-text>
@@ -1629,6 +1681,197 @@
       </v-card>
     </v-dialog>
 
+    <!-- Link Data Source Dialog -->
+    <v-dialog v-model="linkDataSourceDialog" max-width="600">
+      <v-card>
+        <v-card-title class="d-flex align-center pa-4 bg-primary">
+          <v-avatar color="primary-darken-1" size="40" class="mr-3">
+            <v-icon color="on-primary">mdi-link-plus</v-icon>
+          </v-avatar>
+          <div>
+            <div class="text-h6">{{ t('entityDetail.linkDataSourceTitle') }}</div>
+            <div class="text-caption opacity-80">{{ t('entityDetail.linkDataSourceSubtitle') }}</div>
+          </div>
+        </v-card-title>
+        <v-card-text class="pa-4">
+          <p class="text-body-2 text-medium-emphasis mb-4">{{ t('entityDetail.linkDataSourceDesc') }}</p>
+
+          <!-- Search existing sources -->
+          <v-autocomplete
+            v-model="selectedSourceToLink"
+            :items="availableSourcesForLink"
+            item-title="name"
+            item-value="id"
+            :label="t('entityDetail.searchExistingSource')"
+            :loading="searchingSourcesForLink"
+            :no-data-text="sourceSearchQuery?.length >= 2 ? t('entityDetail.noSourcesFound') : t('entityDetail.typeToSearchSources')"
+            variant="outlined"
+            prepend-inner-icon="mdi-magnify"
+            return-object
+            clearable
+            @update:search="searchSourcesForLink"
+          >
+            <template v-slot:item="{ props, item }">
+              <v-list-item v-bind="props">
+                <template v-slot:prepend>
+                  <v-icon :color="getSourceStatusColor(item.raw.status)">{{ getSourceTypeIcon(item.raw.source_type) }}</v-icon>
+                </template>
+                <v-list-item-subtitle>{{ item.raw.base_url }}</v-list-item-subtitle>
+              </v-list-item>
+            </template>
+          </v-autocomplete>
+
+          <v-divider class="my-4"></v-divider>
+
+          <div class="text-center">
+            <v-btn variant="text" color="primary" @click="goToSourcesWithEntity">
+              <v-icon start>mdi-plus</v-icon>
+              {{ t('entityDetail.createNewSourceForEntity') }}
+            </v-btn>
+          </div>
+        </v-card-text>
+        <v-card-actions class="pa-4">
+          <v-btn variant="tonal" @click="linkDataSourceDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-spacer></v-spacer>
+          <v-btn
+            variant="tonal"
+            color="primary"
+            :disabled="!selectedSourceToLink"
+            :loading="linkingSource"
+            @click="linkSourceToEntity"
+          >
+            <v-icon start>mdi-link</v-icon>
+            {{ t('entityDetail.linkSource') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Edit Data Source Dialog -->
+    <v-dialog v-model="editSourceDialog" max-width="800" persistent scrollable>
+      <v-card>
+        <v-card-title class="d-flex align-center pa-4 bg-primary">
+          <v-avatar color="primary-darken-1" size="40" class="mr-3">
+            <v-icon color="on-primary">mdi-database-edit</v-icon>
+          </v-avatar>
+          <div>
+            <div class="text-h6">{{ t('entityDetail.editSourceTitle') }}</div>
+            <div v-if="editingSource" class="text-caption opacity-80">{{ editingSource.name }}</div>
+          </div>
+        </v-card-title>
+        <v-card-text class="pa-4">
+          <v-form ref="sourceForm" v-model="sourceFormValid">
+            <v-text-field
+              v-model="sourceFormData.name"
+              :label="t('sources.form.name')"
+              :rules="[(v: string) => !!v || t('sources.validation.nameRequired')]"
+              variant="outlined"
+              prepend-inner-icon="mdi-database"
+              class="mb-3"
+            ></v-text-field>
+
+            <v-text-field
+              v-model="sourceFormData.base_url"
+              :label="t('sources.form.baseUrl')"
+              :rules="[(v: string) => !!v || t('sources.validation.urlRequired')]"
+              variant="outlined"
+              prepend-inner-icon="mdi-link"
+              class="mb-3"
+            ></v-text-field>
+
+            <v-row>
+              <v-col cols="6">
+                <v-number-input
+                  v-model="sourceFormData.crawl_config.max_depth"
+                  :label="t('sources.form.maxDepth')"
+                  :min="1"
+                  :max="10"
+                  variant="outlined"
+                  control-variant="stacked"
+                ></v-number-input>
+              </v-col>
+              <v-col cols="6">
+                <v-number-input
+                  v-model="sourceFormData.crawl_config.max_pages"
+                  :label="t('sources.form.maxPages')"
+                  :min="1"
+                  :max="10000"
+                  variant="outlined"
+                  control-variant="stacked"
+                ></v-number-input>
+              </v-col>
+            </v-row>
+
+            <v-switch
+              v-model="sourceFormData.crawl_config.render_javascript"
+              :label="t('sources.form.renderJs')"
+              color="primary"
+              class="mt-2"
+            ></v-switch>
+          </v-form>
+        </v-card-text>
+        <v-card-actions class="pa-4">
+          <v-btn variant="tonal" @click="editSourceDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-spacer></v-spacer>
+          <v-btn
+            variant="tonal"
+            color="primary"
+            :disabled="!sourceFormValid"
+            :loading="savingSource"
+            @click="saveEditedSource"
+          >
+            <v-icon start>mdi-check</v-icon>
+            {{ t('common.save') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Delete Source Confirmation -->
+    <v-dialog v-model="deleteSourceConfirm" max-width="450">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="error" class="mr-2">mdi-alert</v-icon>
+          {{ t('entityDetail.deleteSourceTitle') }}
+        </v-card-title>
+        <v-card-text>
+          <p>{{ t('entityDetail.deleteSourceConfirm') }}</p>
+          <p v-if="sourceToDelete" class="font-weight-medium mt-2">{{ sourceToDelete.name }}</p>
+          <v-alert type="warning" variant="tonal" density="compact" class="mt-3">
+            {{ t('entityDetail.deleteSourceWarning') }}
+          </v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="tonal" @click="deleteSourceConfirm = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="error" :loading="deletingSource" @click="deleteSource">
+            {{ t('common.delete') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Unlink Source Confirmation -->
+    <v-dialog v-model="unlinkSourceConfirm" max-width="400">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="warning" class="mr-2">mdi-link-off</v-icon>
+          {{ t('entityDetail.unlinkSourceTitle') }}
+        </v-card-title>
+        <v-card-text>
+          <p>{{ t('entityDetail.unlinkSourceConfirm') }}</p>
+          <p v-if="sourceToUnlink" class="font-weight-medium mt-2">{{ sourceToUnlink.name }}</p>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="tonal" @click="unlinkSourceConfirm = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn variant="tonal" color="warning" :loading="unlinkingSource" @click="unlinkSource">
+            {{ t('entityDetail.unlink') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Enrich from PySis Dialog -->
     <v-dialog v-model="showEnrichFromPysisDialog" max-width="500">
       <v-card>
@@ -1738,8 +1981,8 @@
     <v-dialog v-model="sourceDetailsDialog" max-width="600" scrollable>
       <v-card>
         <v-card-title class="d-flex align-center">
-          <v-icon start :color="getSourceTypeColor(selectedSourceFacet?.source_type)">
-            {{ getSourceTypeIcon(selectedSourceFacet?.source_type) }}
+          <v-icon start :color="getFacetSourceColor(selectedSourceFacet?.source_type)">
+            {{ getFacetSourceIcon(selectedSourceFacet?.source_type) }}
           </v-icon>
           {{ t('entityDetail.source') }}
           <v-spacer></v-spacer>
@@ -1749,11 +1992,11 @@
           <!-- Source Type Info -->
           <v-chip
             size="small"
-            :color="getSourceTypeColor(selectedSourceFacet.source_type)"
+            :color="getFacetSourceColor(selectedSourceFacet.source_type)"
             class="mb-4"
           >
-            <v-icon start size="small">{{ getSourceTypeIcon(selectedSourceFacet.source_type) }}</v-icon>
-            {{ getSourceTypeLabel(selectedSourceFacet.source_type) }}
+            <v-icon start size="small">{{ getFacetSourceIcon(selectedSourceFacet.source_type) }}</v-icon>
+            {{ getFacetSourceLabel(selectedSourceFacet.source_type) }}
           </v-chip>
 
           <!-- Document Source -->
@@ -2029,6 +2272,7 @@ interface FacetGroup {
   facet_type_name: string
   facet_type_icon: string
   facet_type_color: string
+  facet_type_value_type?: string
   value_count: number
   verified_count: number
   sample_values: FacetValue[]
@@ -2063,6 +2307,10 @@ interface DataSource {
   name: string
   base_url: string
   status: string
+  source_type?: string
+  is_direct_link?: boolean
+  document_count?: number
+  last_crawl?: string
   hasRunningJob?: boolean
 }
 
@@ -2128,6 +2376,33 @@ const childrenLoaded = ref(false)
 const loadingDataSources = ref(false)
 const loadingDocuments = ref(false)
 const startingCrawl = ref<string | null>(null)
+
+// Data Source Management State
+const linkDataSourceDialog = ref(false)
+const editSourceDialog = ref(false)
+const deleteSourceConfirm = ref(false)
+const unlinkSourceConfirm = ref(false)
+const selectedSourceToLink = ref<any>(null)
+const availableSourcesForLink = ref<any[]>([])
+const searchingSourcesForLink = ref(false)
+const sourceSearchQuery = ref('')
+const editingSource = ref<any>(null)
+const sourceToDelete = ref<any>(null)
+const sourceToUnlink = ref<any>(null)
+const sourceFormValid = ref(false)
+const savingSource = ref(false)
+const deletingSource = ref(false)
+const unlinkingSource = ref(false)
+const linkingSource = ref(false)
+const sourceFormData = ref({
+  name: '',
+  base_url: '',
+  crawl_config: {
+    max_depth: 3,
+    max_pages: 100,
+    render_javascript: false,
+  },
+})
 
 // Dialogs
 const addFacetDialog = ref(false)
@@ -2950,6 +3225,218 @@ async function loadAttachmentCount() {
   }
 }
 
+// ============================================================================
+// Data Source Management Functions
+// ============================================================================
+
+function getSourceTypeIcon(sourceType: string | undefined): string {
+  const icons: Record<string, string> = {
+    WEBSITE: 'mdi-web',
+    RSS: 'mdi-rss',
+    OPARL_API: 'mdi-api',
+    CUSTOM_API: 'mdi-code-json',
+    SHAREPOINT: 'mdi-microsoft-sharepoint',
+  }
+  return icons[sourceType || 'WEBSITE'] || 'mdi-database'
+}
+
+let sourceSearchTimeout: ReturnType<typeof setTimeout> | null = null
+
+async function searchSourcesForLink(query: string) {
+  sourceSearchQuery.value = query
+  if (!query || query.length < 2) {
+    availableSourcesForLink.value = []
+    return
+  }
+
+  if (sourceSearchTimeout) clearTimeout(sourceSearchTimeout)
+  sourceSearchTimeout = setTimeout(async () => {
+    searchingSourcesForLink.value = true
+    try {
+      const response = await adminApi.getSources({ search: query, per_page: 20 })
+      // Filter out already linked sources
+      const linkedIds = new Set(dataSources.value.map((s: any) => s.id))
+      availableSourcesForLink.value = (response.data.items || []).filter(
+        (s: any) => !linkedIds.has(s.id)
+      )
+    } catch (e) {
+      console.error('Failed to search sources:', e)
+      availableSourcesForLink.value = []
+    } finally {
+      searchingSourcesForLink.value = false
+    }
+  }, 300)
+}
+
+async function linkSourceToEntity() {
+  if (!selectedSourceToLink.value || !entity.value) return
+
+  linkingSource.value = true
+  try {
+    // Update the source's extra_data to add this entity to entity_ids (N:M)
+    const sourceId = selectedSourceToLink.value.id
+    const currentExtraData = selectedSourceToLink.value.extra_data || {}
+
+    // Support legacy entity_id and new entity_ids array
+    const existingEntityIds = currentExtraData.entity_ids ||
+      (currentExtraData.entity_id ? [currentExtraData.entity_id] : [])
+
+    // Add new entity if not already linked
+    const newEntityIds = existingEntityIds.includes(entity.value.id)
+      ? existingEntityIds
+      : [...existingEntityIds, entity.value.id]
+
+    await adminApi.updateSource(sourceId, {
+      extra_data: {
+        ...currentExtraData,
+        entity_ids: newEntityIds,
+        // Remove legacy field
+        entity_id: undefined,
+      },
+    })
+
+    showSuccess(t('entityDetail.messages.sourceLinkSuccess'))
+    linkDataSourceDialog.value = false
+    selectedSourceToLink.value = null
+
+    // Invalidate cache and reload
+    entityCache.delete(`datasources_${entity.value.id}`)
+    await loadDataSources()
+  } catch (e) {
+    console.error('Failed to link source:', e)
+    showError(t('entityDetail.messages.sourceLinkError'))
+  } finally {
+    linkingSource.value = false
+  }
+}
+
+function openEditSourceDialog(source: any) {
+  editingSource.value = source
+  sourceFormData.value = {
+    name: source.name || '',
+    base_url: source.base_url || '',
+    crawl_config: {
+      max_depth: source.crawl_config?.max_depth || 3,
+      max_pages: source.crawl_config?.max_pages || 100,
+      render_javascript: source.crawl_config?.render_javascript || false,
+    },
+  }
+  editSourceDialog.value = true
+}
+
+async function saveEditedSource() {
+  if (!editingSource.value) return
+
+  savingSource.value = true
+  try {
+    await adminApi.updateSource(editingSource.value.id, {
+      name: sourceFormData.value.name,
+      base_url: sourceFormData.value.base_url,
+      crawl_config: {
+        ...editingSource.value.crawl_config,
+        ...sourceFormData.value.crawl_config,
+      },
+    })
+
+    showSuccess(t('entityDetail.messages.sourceUpdateSuccess'))
+    editSourceDialog.value = false
+
+    // Invalidate cache and reload
+    if (entity.value) {
+      entityCache.delete(`datasources_${entity.value.id}`)
+    }
+    await loadDataSources()
+  } catch (e) {
+    console.error('Failed to update source:', e)
+    showError(t('entityDetail.messages.sourceUpdateError'))
+  } finally {
+    savingSource.value = false
+  }
+}
+
+function confirmDeleteSource(source: any) {
+  sourceToDelete.value = source
+  deleteSourceConfirm.value = true
+}
+
+async function deleteSource() {
+  if (!sourceToDelete.value) return
+
+  deletingSource.value = true
+  try {
+    await adminApi.deleteSource(sourceToDelete.value.id)
+
+    showSuccess(t('entityDetail.messages.sourceDeleteSuccess'))
+    deleteSourceConfirm.value = false
+    sourceToDelete.value = null
+
+    // Invalidate cache and reload
+    if (entity.value) {
+      entityCache.delete(`datasources_${entity.value.id}`)
+    }
+    await loadDataSources()
+  } catch (e) {
+    console.error('Failed to delete source:', e)
+    showError(t('entityDetail.messages.sourceDeleteError'))
+  } finally {
+    deletingSource.value = false
+  }
+}
+
+function confirmUnlinkSource(source: any) {
+  sourceToUnlink.value = source
+  unlinkSourceConfirm.value = true
+}
+
+async function unlinkSource() {
+  if (!sourceToUnlink.value || !entity.value) return
+
+  unlinkingSource.value = true
+  try {
+    // Remove this entity from entity_ids array (N:M)
+    const currentExtraData = sourceToUnlink.value.extra_data || {}
+
+    // Support both legacy entity_id and new entity_ids
+    let entityIds = currentExtraData.entity_ids ||
+      (currentExtraData.entity_id ? [currentExtraData.entity_id] : [])
+
+    // Remove current entity from the array
+    entityIds = entityIds.filter((id: string) => id !== entity.value!.id)
+
+    // Clean up legacy field and update
+    const { entity_id, ...restExtraData } = currentExtraData
+
+    await adminApi.updateSource(sourceToUnlink.value.id, {
+      extra_data: {
+        ...restExtraData,
+        entity_ids: entityIds,
+      },
+    })
+
+    showSuccess(t('entityDetail.messages.sourceUnlinkSuccess'))
+    unlinkSourceConfirm.value = false
+    sourceToUnlink.value = null
+
+    // Invalidate cache and reload
+    entityCache.delete(`datasources_${entity.value.id}`)
+    await loadDataSources()
+  } catch (e) {
+    console.error('Failed to unlink source:', e)
+    showError(t('entityDetail.messages.sourceUnlinkError'))
+  } finally {
+    unlinkingSource.value = false
+  }
+}
+
+function goToSourcesWithEntity() {
+  if (!entity.value) return
+  // Navigate to sources page with entity pre-selected
+  router.push({
+    name: 'sources',
+    query: { linkEntity: entity.value.id },
+  })
+}
+
 // Children (Untergeordnete Entities) functions
 async function loadChildren() {
   if (!entity.value) return
@@ -3130,6 +3617,15 @@ async function verifyFacet(facetValueId: string) {
     }
   } catch (e) {
     showError(t('entityDetail.messages.verifyError'))
+  }
+}
+
+/**
+ * Refresh the facets summary - called by child components when facet data changes
+ */
+async function refreshFacetsSummary() {
+  if (entity.value) {
+    facetsSummary.value = await store.fetchEntityFacetsSummary(entity.value.id)
   }
 }
 
@@ -3427,12 +3923,6 @@ async function navigateToParent() {
   })
 }
 
-function goToSources() {
-  // Note: DataSources are no longer directly linked to Entities via location_name.
-  // Navigate to sources view without filter - users can filter by category.
-  router.push({ path: '/sources' })
-}
-
 // Attribute key translation map (fallback)
 const attributeTranslations = computed<Record<string, string>>(() => ({
   population: t('entityDetail.attributes.population'),
@@ -3538,7 +4028,7 @@ function normalizeSourceType(sourceType: string | null | undefined): string {
   return (sourceType || 'DOCUMENT').toLowerCase().replace('_', '_')
 }
 
-function getSourceTypeColor(sourceType: string | null | undefined): string {
+function getFacetSourceColor(sourceType: string | null | undefined): string {
   const colors: Record<string, string> = {
     document: 'blue',
     manual: 'purple',
@@ -3550,7 +4040,7 @@ function getSourceTypeColor(sourceType: string | null | undefined): string {
   return colors[normalizeSourceType(sourceType)] || 'grey'
 }
 
-function getSourceTypeIcon(sourceType: string | null | undefined): string {
+function getFacetSourceIcon(sourceType: string | null | undefined): string {
   const icons: Record<string, string> = {
     document: 'mdi-file-document',
     manual: 'mdi-hand-pointing-right',
@@ -3562,7 +4052,7 @@ function getSourceTypeIcon(sourceType: string | null | undefined): string {
   return icons[normalizeSourceType(sourceType)] || 'mdi-file-document'
 }
 
-function getSourceTypeLabel(sourceType: string | null | undefined): string {
+function getFacetSourceLabel(sourceType: string | null | undefined): string {
   const labels: Record<string, string> = {
     document: t('entityDetail.sourceTypes.document'),
     manual: t('entityDetail.sourceTypes.manual'),
@@ -3582,16 +4072,6 @@ function getSourceStatusColor(status: string): string {
     PENDING: 'warning',
   }
   return colors[status] || 'grey'
-}
-
-function getSourceStatusIcon(status: string): string {
-  const icons: Record<string, string> = {
-    ACTIVE: 'mdi-check-circle',
-    INACTIVE: 'mdi-pause-circle',
-    ERROR: 'mdi-alert-circle',
-    PENDING: 'mdi-clock',
-  }
-  return icons[status] || 'mdi-help-circle'
 }
 
 // Structured Facet Value Helpers

@@ -396,10 +396,17 @@ def create_crawl_job(source_id: str, category_id: str, force: bool = False):
             await session.commit()
             await session.refresh(job)
 
-            # Start crawl task
-            crawl_source.delay(source_id, str(job.id))
+            # Start crawl task and save the Celery task ID
+            task_result = crawl_source.delay(source_id, str(job.id))
+            job.celery_task_id = task_result.id
+            await session.commit()
 
-            logger.info("Crawl job created", job_id=str(job.id), source_id=source_id)
+            logger.info(
+                "Crawl job created",
+                job_id=str(job.id),
+                source_id=source_id,
+                celery_task_id=task_result.id,
+            )
             return str(job.id)
 
     return _run_async(_create())

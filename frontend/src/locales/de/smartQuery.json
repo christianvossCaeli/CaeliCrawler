@@ -61,10 +61,32 @@
     "mode": {
       "read": "Lese-Modus",
       "write": "Schreib-Modus",
+      "plan": "Plan-Modus",
       "previewFirst": "Vorschau wird zuerst angezeigt",
       "readHint": "Lese: nur lesen/filtern - {shortcut} zum Abfragen",
       "writeHint": "Schreib: erstellt/ändert Daten - {shortcut} zur Vorschau",
+      "planHint": "Plan: Interaktive Hilfe beim Formulieren - {shortcut} zum Senden",
       "shortcut": "Ctrl/⌘+Enter"
+    },
+    "plan": {
+      "title": "Interaktiver Plan-Assistent",
+      "placeholder": "Beschreibe was du erreichen möchtest...",
+      "thinking": "Überlege...",
+      "generatedPrompt": "Fertiger Prompt",
+      "adoptToRead": "Im Lese-Modus ausführen",
+      "adoptToWrite": "Im Schreib-Modus ausführen",
+      "newConversation": "Neue Konversation",
+      "starterSuggestions": "Was möchtest du tun?",
+      "suggestions": {
+        "findEntities": "Ich möchte Gemeinden mit bestimmten Eigenschaften finden",
+        "createData": "Ich möchte neue Daten anlegen",
+        "queryRelations": "Ich möchte Beziehungen zwischen Daten abfragen",
+        "explainSyntax": "Erkläre mir die Abfrage-Syntax"
+      },
+      "welcome": {
+        "title": "Willkommen im Plan-Modus!",
+        "description": "Ich helfe dir, die perfekte Abfrage zu formulieren. Beschreibe einfach was du erreichen möchtest und ich erkläre dir Schritt für Schritt wie das funktioniert."
+      }
     },
     "actions": {
       "preview": "Vorschau",

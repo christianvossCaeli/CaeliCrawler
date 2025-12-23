@@ -22,7 +22,7 @@
                 :key="facetKey"
                 class="text-visualization__facet"
               >
-                <span class="text-medium-emphasis">{{ formatFacetKey(facetKey) }}:</span>
+                <span class="text-medium-emphasis">{{ formatFacetKey(String(facetKey)) }}:</span>
                 <span class="ml-1 font-weight-medium">{{ formatFacetValue(facetValue) }}</span>
               </div>
             </div>

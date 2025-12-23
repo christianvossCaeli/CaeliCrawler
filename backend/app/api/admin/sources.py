@@ -1,6 +1,7 @@
 """Admin API endpoints for data source management."""
 
 import ipaddress
+import re
 import socket
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
@@ -8,8 +9,10 @@ from urllib.parse import urlparse
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from pydantic import BaseModel
-from sqlalchemy import func, select
+from pydantic import BaseModel, field_validator
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
@@ -104,8 +107,8 @@ def validate_crawler_url(url: str, allow_http: bool = True) -> Tuple[bool, str]:
                 if ip_obj in blocked_range:
                     return False, f"URL resolves to blocked IP range (internal network)"
         except socket.gaierror:
-            # Can't resolve - allow for now, will fail at crawl time
-            pass
+            # TOCTOU Protection: Reject unresolvable URLs to prevent DNS rebinding attacks
+            return False, f"Cannot resolve hostname '{hostname}' - DNS lookup failed"
 
         return True, ""
 
@@ -167,6 +170,33 @@ async def get_categories_for_sources_bulk(
     return categories_by_source
 
 
+async def verify_categories_exist(
+    session: AsyncSession,
+    category_ids: List[UUID],
+) -> List[Category]:
+    """
+    Verify all categories exist in a single query (avoids N+1).
+
+    Returns list of Category objects.
+    Raises NotFoundError if any category doesn't exist.
+    """
+    if not category_ids:
+        return []
+
+    result = await session.execute(
+        select(Category).where(Category.id.in_(category_ids))
+    )
+    categories = result.scalars().all()
+
+    # Check if all requested categories were found
+    found_ids = {cat.id for cat in categories}
+    missing_ids = set(category_ids) - found_ids
+    if missing_ids:
+        raise NotFoundError("Category", str(list(missing_ids)[0]))
+
+    return list(categories)
+
+
 async def sync_source_categories(
     session: AsyncSession,
     source: DataSource,
@@ -174,17 +204,14 @@ async def sync_source_categories(
     primary_category_id: UUID | None = None,
 ) -> None:
     """Sync categories for a data source (replace existing)."""
-    # Delete existing links
+    from sqlalchemy import delete
+
+    # Bulk delete existing links (single query instead of N+1)
     await session.execute(
-        select(DataSourceCategory).where(
+        delete(DataSourceCategory).where(
             DataSourceCategory.data_source_id == source.id
         )
     )
-    existing = (await session.execute(
-        select(DataSourceCategory).where(DataSourceCategory.data_source_id == source.id)
-    )).scalars().all()
-    for link in existing:
-        await session.delete(link)
 
     # Create new links (N:M via junction table only)
     for i, cat_id in enumerate(category_ids):
@@ -237,24 +264,69 @@ def build_source_response(
     )
 
 
+# =============================================================================
+# Rate Limiting Configuration
+# =============================================================================
+
+def get_rate_limit_key(request: Request) -> str:
+    """Get rate limit key - prefer user ID over IP for authenticated requests."""
+    user = getattr(request.state, 'user', None)
+    if user and hasattr(user, 'id'):
+        return f"user:{user.id}"
+    return get_remote_address(request)
+
+limiter = Limiter(key_func=get_rate_limit_key)
+
+
+# =============================================================================
+# Tag Validation Constants
+# =============================================================================
+
+TAG_MAX_LENGTH = 50
+TAG_MAX_COUNT = 20
+TAG_PATTERN = re.compile(r'^[a-zA-Z0-9äöüÄÖÜß\-_\s]+$')
+
+
+def validate_tags(tags: Optional[List[str]]) -> List[str]:
+    """Validate and sanitize tags."""
+    if not tags:
+        return []
+
+    if len(tags) > TAG_MAX_COUNT:
+        raise ValueError(f"Maximum {TAG_MAX_COUNT} tags allowed")
+
+    validated = []
+    for tag in tags:
+        tag = tag.strip()
+        if not tag:
+            continue
+        if len(tag) > TAG_MAX_LENGTH:
+            raise ValueError(f"Tag '{tag[:20]}...' exceeds {TAG_MAX_LENGTH} characters")
+        if not TAG_PATTERN.match(tag):
+            raise ValueError(f"Tag '{tag}' contains invalid characters")
+        validated.append(tag.lower())
+
+    return list(set(validated))  # Remove duplicates
+
+
 router = APIRouter()
 
 
 @router.get("", response_model=DataSourceListResponse)
+@limiter.limit("60/minute")  # Read operations: higher limit
 async def list_sources(
+    request: Request,  # Required for slowapi
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=10000),
     category_id: Optional[UUID] = Query(default=None, description="Filter by category (N:M)"),
     status: Optional[SourceStatus] = Query(default=None),
     source_type: Optional[SourceType] = Query(default=None),
-    search: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(default=None, max_length=200),
     tags: Optional[List[str]] = Query(default=None, description="Filter by tags (OR logic)"),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
     """List all data sources with pagination and filters."""
-    from sqlalchemy import or_
-
     query = select(DataSource)
 
     # Filter by category via N:M junction table
@@ -270,9 +342,11 @@ async def list_sources(
     if source_type:
         query = query.where(DataSource.source_type == source_type)
     if search:
+        # Escape LIKE special characters to prevent SQL injection
+        escaped_search = search.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
         query = query.where(
-            DataSource.name.ilike(f"%{search}%") |
-            DataSource.base_url.ilike(f"%{search}%")
+            DataSource.name.ilike(f"%{escaped_search}%", escape='\\') |
+            DataSource.base_url.ilike(f"%{escaped_search}%", escape='\\')
         )
     # Filter by tags (OR logic - source must have at least one of the tags)
     if tags:
@@ -322,9 +396,10 @@ async def list_sources(
 
 
 @router.post("", response_model=DataSourceResponse, status_code=201)
+@limiter.limit("20/minute")  # Write operations: stricter limit
 async def create_source(
+    request: Request,  # Required for slowapi - must be first
     data: DataSourceCreate,
-    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_editor),
 ):
@@ -333,6 +408,16 @@ async def create_source(
 
     **Security**: URL is validated against SSRF attacks (internal networks blocked).
     """
+    # Validate tags (H1 fix)
+    try:
+        validated_tags = validate_tags(data.tags)
+        data.tags = validated_tags
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
     # SSRF Protection: Validate URL before creating source
     is_safe, error_msg = validate_crawler_url(data.base_url)
     if not is_safe:
@@ -358,11 +443,8 @@ async def create_source(
     if not category_ids:
         raise NotFoundError("Category", "No category specified")
 
-    # Verify all categories exist
-    for cat_id in category_ids:
-        category = await session.get(Category, cat_id)
-        if not category:
-            raise NotFoundError("Category", str(cat_id))
+    # Verify all categories exist (single query instead of N+1)
+    await verify_categories_exist(session, category_ids)
 
     # Primary category is the first one
     primary_category_id = category_ids[0]
@@ -434,7 +516,9 @@ class SourceBriefResponse(BaseModel):
 
 
 @router.get("/by-tags", response_model=List[SourceBriefResponse])
+@limiter.limit("30/minute")
 async def get_sources_by_tags(
+    request: Request,  # Required for slowapi
     tags: List[str] = Query(..., min_length=1, description="Tags to filter by"),
     match_mode: str = Query(default="all", regex="^(all|any)$", description="Match mode: 'all' (AND) or 'any' (OR)"),
     exclude_category_id: Optional[UUID] = Query(default=None, description="Exclude sources already in this category"),
@@ -499,7 +583,9 @@ async def get_sources_by_tags(
 
 
 @router.get("/{source_id}", response_model=DataSourceResponse)
+@limiter.limit("60/minute")
 async def get_source(
+    request: Request,  # Required for slowapi
     source_id: UUID,
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
@@ -520,10 +606,11 @@ async def get_source(
 
 
 @router.put("/{source_id}", response_model=DataSourceResponse)
+@limiter.limit("20/minute")  # Write operations: stricter limit
 async def update_source(
+    request: Request,  # Required for slowapi - must be first
     source_id: UUID,
     data: DataSourceUpdate,
-    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_editor),
 ):
@@ -532,6 +619,17 @@ async def update_source(
 
     **Security**: URL changes are validated against SSRF attacks.
     """
+    # Validate tags if provided (H1 fix)
+    if data.tags is not None:
+        try:
+            validated_tags = validate_tags(data.tags)
+            data.tags = validated_tags
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            )
+
     source = await session.get(DataSource, source_id)
     if not source:
         raise NotFoundError("Data Source", str(source_id))
@@ -571,12 +669,8 @@ async def update_source(
         primary_category_id = update_data.pop("primary_category_id", None)
 
         if category_ids is not None:
-            # Verify all categories exist
-            for cat_id in category_ids:
-                category = await session.get(Category, cat_id)
-                if not category:
-                    raise NotFoundError("Category", str(cat_id))
-
+            # Verify all categories exist (single query instead of N+1)
+            await verify_categories_exist(session, category_ids)
             await sync_source_categories(session, source, category_ids, primary_category_id)
 
         # Handle crawl_config specially
@@ -609,9 +703,10 @@ async def update_source(
 
 
 @router.delete("/{source_id}", response_model=MessageResponse)
+@limiter.limit("10/minute")  # Delete operations: very strict limit
 async def delete_source(
+    request: Request,  # Required for slowapi - must be first
     source_id: UUID,
-    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_admin),
 ):
@@ -655,9 +750,10 @@ async def delete_source(
 
 
 @router.post("/bulk-import", response_model=DataSourceBulkImportResult)
+@limiter.limit("5/minute")  # Bulk operations: very strict limit
 async def bulk_import_sources(
+    request: Request,  # Required for slowapi - must be first
     data: DataSourceBulkImport,
-    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_admin),
 ):
@@ -672,13 +768,27 @@ async def bulk_import_sources(
     - Per-source tags merged with default tags
     - CSV format support: Name;URL;SourceType;Tags
     """
-    # Verify all categories exist
-    categories = []
-    for cat_id in data.category_ids:
-        category = await session.get(Category, cat_id)
-        if not category:
-            raise NotFoundError("Category", str(cat_id))
-        categories.append(category)
+    # Validate default_tags (H1 fix)
+    try:
+        validated_default_tags = validate_tags(data.default_tags)
+        data.default_tags = validated_default_tags
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid default tags: {e}",
+        )
+
+    # Verify all categories exist (single query instead of N+1)
+    categories = await verify_categories_exist(session, data.category_ids)
+
+    # Pre-load existing URLs for duplicate check (single query instead of N+1)
+    existing_urls: set[str] = set()
+    if data.skip_duplicates:
+        import_urls = [item.base_url for item in data.sources]
+        existing_result = await session.execute(
+            select(DataSource.base_url).where(DataSource.base_url.in_(import_urls))
+        )
+        existing_urls = {row[0] for row in existing_result.all()}
 
     imported = 0
     skipped = 0
@@ -696,19 +806,21 @@ async def bulk_import_sources(
                 })
                 continue
 
-            # Check for duplicate by URL across all sources (not per-category)
-            if data.skip_duplicates:
-                existing = await session.execute(
-                    select(DataSource).where(
-                        DataSource.base_url == item.base_url,
-                    )
-                )
-                if existing.scalar():
-                    skipped += 1
-                    continue
+            # Check for duplicate by URL (using pre-loaded set)
+            if data.skip_duplicates and item.base_url in existing_urls:
+                skipped += 1
+                continue
 
-            # Combine default_tags with item-specific tags (no duplicates)
-            combined_tags = list(set(data.default_tags + item.tags))
+            # Validate and combine tags (H1 fix)
+            try:
+                validated_item_tags = validate_tags(item.tags)
+                combined_tags = list(set(data.default_tags + validated_item_tags))
+            except ValueError as e:
+                errors.append({
+                    "url": item.base_url,
+                    "error": f"Invalid tags: {e}",
+                })
+                continue
 
             source = DataSource(
                 name=item.name,
@@ -769,7 +881,9 @@ async def bulk_import_sources(
 
 
 @router.post("/{source_id}/reset", response_model=MessageResponse)
+@limiter.limit("20/minute")
 async def reset_source(
+    request: Request,  # Required for slowapi
     source_id: UUID,
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
@@ -787,7 +901,9 @@ async def reset_source(
 
 
 @router.get("/meta/counts", response_model=SourceCountsResponse)
+@limiter.limit("60/minute")
 async def get_source_counts(
+    request: Request,  # Required for slowapi
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
@@ -861,7 +977,9 @@ async def get_source_counts(
 
 
 @router.get("/meta/tags", response_model=TagsResponse)
+@limiter.limit("60/minute")
 async def get_available_tags(
+    request: Request,  # Required for slowapi
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):

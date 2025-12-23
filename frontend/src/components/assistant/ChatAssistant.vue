@@ -34,7 +34,7 @@
 
           <div class="chat-header__right">
             <!-- Mode Toggle -->
-            <div class="mode-toggle" role="group" :aria-label="t('assistant.modeToggle')">
+            <div class="mode-toggle mode-toggle--triple" role="group" :aria-label="t('assistant.modeToggle')">
               <button
                 :class="{ active: localMode === 'read' }"
                 @click="localMode = 'read'"
@@ -52,6 +52,15 @@
                 :aria-pressed="localMode === 'write'"
               >
                 <v-icon size="18">mdi-pencil</v-icon>
+              </button>
+              <button
+                :class="{ active: localMode === 'plan' }"
+                @click="localMode = 'plan'"
+                :title="t('assistant.modePlan')"
+                :aria-label="t('assistant.modePlan')"
+                :aria-pressed="localMode === 'plan'"
+              >
+                <v-icon size="18">mdi-lightbulb-on</v-icon>
               </button>
             </div>
 
@@ -212,7 +221,7 @@
         </div>
 
         <!-- Input -->
-        <div class="input-area" :class="{ 'input-area--write': localMode === 'write' }">
+        <div class="input-area">
           <!-- Attachment Button -->
           <button
             class="attachment-btn"
@@ -233,8 +242,8 @@
 
           <textarea
             v-model="inputText"
-            :placeholder="localMode === 'write' ? t('assistant.placeholderWrite') : t('assistant.placeholderRead')"
-            :rows="localMode === 'write' ? 4 : 1"
+            :placeholder="getPlaceholder"
+            rows="4"
             @keydown.enter.exact.prevent="sendMessage"
             @input="autoResize"
             @paste="handlePaste"
@@ -290,6 +299,17 @@ const messagesContainer = ref<HTMLElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const quickActionsExpanded = ref(true)
+
+const getPlaceholder = computed(() => {
+  switch (localMode.value) {
+    case 'plan':
+      return t('assistant.placeholderPlan')
+    case 'write':
+      return t('assistant.placeholderWrite')
+    default:
+      return t('assistant.placeholderRead')
+  }
+})
 
 const quickActions = computed(() => {
   const actions = []
@@ -525,8 +545,12 @@ watch(() => messages.value.length, async () => {
   color: rgb(var(--v-theme-on-primary));
 }
 
-.mode-toggle button:first-child {
+.mode-toggle button:not(:last-child) {
   border-right: 1px solid rgba(var(--v-theme-on-primary), 0.4);
+}
+
+.mode-toggle--triple button.active:nth-child(3) {
+  background: rgba(var(--v-theme-info), 0.3);
 }
 
 .header-btn {
@@ -844,20 +868,15 @@ watch(() => messages.value.length, async () => {
   flex: 1;
   padding: 10px 14px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.2);
-  border-radius: 20px;
+  border-radius: 12px;
   background: rgba(var(--v-theme-on-surface), 0.04);
   color: rgb(var(--v-theme-on-surface));
   font-size: 0.875rem;
   resize: none;
   outline: none;
-  max-height: 120px;
-  font-family: inherit;
-}
-
-.input-area--write textarea {
   min-height: 100px;
   max-height: 200px;
-  border-radius: 12px;
+  font-family: inherit;
 }
 
 .input-area textarea:focus {

@@ -1159,26 +1159,46 @@ async def get_entity_sources(
     """Get data sources linked to an entity.
 
     Finds DataSources via two paths:
-    1. Direct link: DataSource.extra_data->>'entity_id' = entity_id
+    1. Direct link: entity_id in DataSource.extra_data->>'entity_ids' array
+       OR legacy: DataSource.extra_data->>'entity_id' = entity_id
     2. Indirect: Entity -> FacetValues -> Documents -> DataSources
 
     Returns all unique DataSources for this entity.
     """
+    from sqlalchemy import or_
+
     # Verify entity exists
     entity = await session.get(Entity, entity_id)
     if not entity:
         raise NotFoundError("Entity", str(entity_id))
 
     all_source_ids = set()
+    direct_link_source_ids = set()
 
-    # Path 1: Direct link via extra_data->>'entity_id'
-    direct_sources_query = (
+    # Path 1: Direct link via extra_data
+    # Support both N:M (entity_ids array) and legacy (entity_id string)
+    entity_id_str = str(entity_id)
+
+    # Query for legacy entity_id (single value)
+    legacy_query = (
         select(DataSource.id)
-        .where(DataSource.extra_data["entity_id"].astext == str(entity_id))
+        .where(DataSource.extra_data["entity_id"].astext == entity_id_str)
     )
-    direct_result = await session.execute(direct_sources_query)
-    for row in direct_result.fetchall():
+    legacy_result = await session.execute(legacy_query)
+    for row in legacy_result.fetchall():
         all_source_ids.add(row[0])
+        direct_link_source_ids.add(row[0])
+
+    # Query for N:M entity_ids (array) - check if entity_id is in the array
+    # Use JSONB contains operator
+    array_query = (
+        select(DataSource.id)
+        .where(DataSource.extra_data["entity_ids"].contains([entity_id_str]))
+    )
+    array_result = await session.execute(array_query)
+    for row in array_result.fetchall():
+        all_source_ids.add(row[0])
+        direct_link_source_ids.add(row[0])
 
     # Path 2: Via FacetValues -> Documents -> DataSources
     source_doc_query = (
@@ -1235,8 +1255,8 @@ async def get_entity_sources(
     # Build response
     source_list = []
     for source in sources:
-        # Check if this is a direct link (from extra_data)
-        is_direct_link = source.extra_data and source.extra_data.get("entity_id") == str(entity_id)
+        # Check if this is a direct link (from direct_link_source_ids set)
+        is_direct_link = source.id in direct_link_source_ids
 
         source_list.append({
             "id": str(source.id),
@@ -1245,11 +1265,14 @@ async def get_entity_sources(
             "source_type": source.source_type,
             "status": source.status,
             "document_count": doc_counts_map.get(source.id, 0),
-            "is_primary": is_direct_link,  # Mark directly linked sources
+            "is_direct_link": is_direct_link,  # Mark directly linked sources (N:M)
+            "last_crawl": source.last_crawl.isoformat() if source.last_crawl else None,
+            "extra_data": source.extra_data,
+            "crawl_config": source.crawl_config,
         })
 
-    # Sort: primary sources first, then by document count
-    source_list.sort(key=lambda x: (not x.get("is_primary", False), -x["document_count"]))
+    # Sort: directly linked sources first, then by document count
+    source_list.sort(key=lambda x: (not x.get("is_direct_link", False), -x["document_count"]))
 
     return {
         "entity_id": str(entity_id),

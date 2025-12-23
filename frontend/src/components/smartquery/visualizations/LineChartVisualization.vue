@@ -65,7 +65,7 @@ const chartData = computed(() => {
       return {
         label: entity.entity_name || `Serie ${idx + 1}`,
         data: sortedHistory.map((point: any) => ({
-          x: new Date(point.recorded_at),
+          x: new Date(point.recorded_at).getTime(), // Use timestamp for Chart.js time scale
           y: point.value,
         })),
         borderColor: getDefaultColor(idx),
@@ -84,7 +84,7 @@ const chartData = computed(() => {
   if (series.length > 0) {
     const labels = props.data.map(item => {
       const val = getNestedValue(item, xKey)
-      return isTimeSeries ? new Date(val) : val
+      return isTimeSeries ? new Date(val).getTime() : val
     })
 
     const datasets = series.map((s, idx) => ({
@@ -121,7 +121,7 @@ const chartData = computed(() => {
 
   const labels = props.data.map(item => {
     const val = getNestedValue(item, xKey) || item.entity_name
-    return isTimeSeries && val ? new Date(val) : val
+    return isTimeSeries && val ? new Date(val).getTime() : val
   })
 
   const data = props.data.map(item => {
@@ -216,12 +216,15 @@ const chartOptions = computed(() => {
         },
       },
       y: {
+        type: 'linear' as const,
         title: {
           display: !!props.config?.y_axis?.label,
           text: props.config?.y_axis?.label || '',
         },
         ticks: {
-          callback: (value: number) => value.toLocaleString('de-DE'),
+          callback: function(tickValue: string | number) {
+            return Number(tickValue).toLocaleString('de-DE')
+          },
         },
       },
     },

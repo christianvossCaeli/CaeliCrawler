@@ -44,13 +44,19 @@ export { default as HelpUserManagementSection } from './HelpUserManagementSectio
 export { default as HelpAuditLogSection } from './HelpAuditLogSection.vue'
 export { default as HelpAiSourceDiscoverySection } from './HelpAiSourceDiscoverySection.vue'
 export { default as HelpDataSourceTagsSection } from './HelpDataSourceTagsSection.vue'
+export { default as HelpEntityMapViewSection } from './HelpEntityMapViewSection.vue'
+export { default as HelpFacetHistorySection } from './HelpFacetHistorySection.vue'
+export { default as HelpApiTemplatesSection } from './HelpApiTemplatesSection.vue'
+export { default as HelpExternalApisSection } from './HelpExternalApisSection.vue'
 
 // Data and types
 export {
   helpSections,
+  helpSectionGroups,
   apiGroups,
   methodColors,
   type HelpSection,
+  type HelpSectionGroup,
   type ApiEndpoint,
   type ApiGroup,
 } from './helpSections'

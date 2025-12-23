@@ -52,6 +52,52 @@
       </tbody>
     </v-table>
 
+    <h3 class="text-h6 mb-3">{{ t('help.export.scheduledExports.title') }}</h3>
+    <v-alert type="info" variant="tonal" class="mb-3">
+      <v-icon>mdi-calendar-clock</v-icon>
+      {{ t('help.export.scheduledExports.description') }}
+    </v-alert>
+    <v-row class="mb-4">
+      <v-col cols="12" md="6">
+        <v-card variant="outlined" class="pa-3">
+          <div class="text-subtitle-2 mb-2">{{ t('help.export.scheduledExports.targets.title') }}</div>
+          <v-list density="compact">
+            <v-list-item prepend-icon="mdi-email">
+              {{ t('help.export.scheduledExports.targets.email') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-server-network">
+              {{ t('help.export.scheduledExports.targets.ftp') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-cloud-upload">
+              {{ t('help.export.scheduledExports.targets.cloud') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-webhook">
+              {{ t('help.export.scheduledExports.targets.webhook') }}
+            </v-list-item>
+          </v-list>
+        </v-card>
+      </v-col>
+      <v-col cols="12" md="6">
+        <v-card variant="outlined" class="pa-3">
+          <div class="text-subtitle-2 mb-2">{{ t('help.export.scheduledExports.schedule.title') }}</div>
+          <v-list density="compact">
+            <v-list-item prepend-icon="mdi-clock-time-four">
+              {{ t('help.export.scheduledExports.schedule.daily') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-calendar-week">
+              {{ t('help.export.scheduledExports.schedule.weekly') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-calendar-month">
+              {{ t('help.export.scheduledExports.schedule.monthly') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-code-braces">
+              {{ t('help.export.scheduledExports.schedule.cron') }}
+            </v-list-item>
+          </v-list>
+        </v-card>
+      </v-col>
+    </v-row>
+
     <h3 class="text-h6 mb-3">{{ t('help.export.apiEndpoints.title') }}</h3>
     <v-table density="compact">
       <thead><tr><th>{{ t('common.endpoint') }}</th><th>{{ t('common.description') }}</th></tr></thead>

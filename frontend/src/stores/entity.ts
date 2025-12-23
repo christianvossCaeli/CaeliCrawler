@@ -23,6 +23,7 @@ export interface EntityType {
   color: string
   is_primary: boolean
   supports_hierarchy: boolean
+  supports_pysis: boolean
   hierarchy_config: Record<string, any> | null
   attribute_schema: Record<string, any> | null
   display_order: number
@@ -44,6 +45,7 @@ export interface Entity {
   external_id: string | null
   parent_id: string | null
   parent_name: string | null
+  parent_slug: string | null
   hierarchy_path: string
   hierarchy_level: number
   core_attributes: Record<string, any>
@@ -251,6 +253,7 @@ export interface FacetValueAggregated {
   facet_type_name: string
   facet_type_icon: string
   facet_type_color: string
+  facet_type_value_type: string
   value_count: number
   verified_count: number
   avg_confidence: number

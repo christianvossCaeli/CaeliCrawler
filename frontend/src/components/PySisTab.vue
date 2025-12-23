@@ -805,12 +805,6 @@ const loadAvailableProcesses = async () => {
   }
 }
 
-const onProcessMenuOpen = (isOpen: boolean) => {
-  if (isOpen && availableProcesses.value.length === 0) {
-    loadAvailableProcesses()
-  }
-}
-
 const selectProcess = async (process: any) => {
   selectedProcess.value = process
   await loadFields()

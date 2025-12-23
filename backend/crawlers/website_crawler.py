@@ -25,8 +25,9 @@ from services.relevance_checker import check_relevance
 
 logger = structlog.get_logger()
 
-# Module-level HTTP client for connection pooling (singleton pattern)
+# Module-level HTTP client storage with loop tracking
 _http_client: Optional[httpx.AsyncClient] = None
+_http_client_loop_id: Optional[int] = None
 
 
 async def get_shared_http_client() -> httpx.AsyncClient:
@@ -34,9 +35,33 @@ async def get_shared_http_client() -> httpx.AsyncClient:
 
     Uses a singleton pattern to reuse connections across crawl operations,
     improving performance by avoiding TCP handshake overhead.
+
+    IMPORTANT: Tracks the event loop ID and recreates the client if the loop
+    changes (e.g., when running in Celery tasks with new event loops).
     """
-    global _http_client
-    if _http_client is None or _http_client.is_closed:
+    global _http_client, _http_client_loop_id
+
+    try:
+        current_loop = asyncio.get_running_loop()
+        current_loop_id = id(current_loop)
+    except RuntimeError:
+        current_loop_id = None
+
+    # Check if we need to recreate the client (loop changed or client closed)
+    needs_recreation = (
+        _http_client is None
+        or _http_client.is_closed
+        or _http_client_loop_id != current_loop_id
+    )
+
+    if needs_recreation:
+        # Close old client if it exists and is on a different loop
+        if _http_client is not None and not _http_client.is_closed:
+            try:
+                await _http_client.aclose()
+            except Exception:
+                pass  # Ignore errors when closing stale client
+
         _http_client = httpx.AsyncClient(
             timeout=httpx.Timeout(30.0, connect=10.0),
             limits=httpx.Limits(
@@ -47,15 +72,18 @@ async def get_shared_http_client() -> httpx.AsyncClient:
             headers={"User-Agent": settings.crawler_user_agent},
             follow_redirects=True,
         )
+        _http_client_loop_id = current_loop_id
+
     return _http_client
 
 
 async def close_shared_http_client() -> None:
     """Close the shared HTTP client. Call during shutdown."""
-    global _http_client
+    global _http_client, _http_client_loop_id
     if _http_client is not None and not _http_client.is_closed:
         await _http_client.aclose()
         _http_client = None
+        _http_client_loop_id = None
 
 
 class WebsiteCrawler(BaseCrawler):

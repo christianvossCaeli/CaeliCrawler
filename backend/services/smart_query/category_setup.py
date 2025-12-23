@@ -394,6 +394,43 @@ async def create_category_setup_with_ai(
                         # Source exists, will be linked below
                         continue
 
+                    # Validate URL with HTTP check (follows redirects, checks for 404 etc.)
+                    from app.core.url_validator import validate_url_http
+                    is_valid, error_msg, final_url = await validate_url_http(
+                        source_data.base_url,
+                        follow_redirects=True,
+                        timeout=10.0,
+                    )
+
+                    if not is_valid:
+                        logger.warning(
+                            "Skipping invalid AI-discovered URL",
+                            url=source_data.base_url,
+                            error=error_msg,
+                        )
+                        result["warnings"].append(
+                            f"URL übersprungen ({error_msg}): {source_data.base_url[:50]}"
+                        )
+                        continue
+
+                    # Use the final URL after redirects
+                    validated_url = final_url or source_data.base_url
+
+                    # Check again if the final URL already exists
+                    if validated_url != source_data.base_url:
+                        existing_final = await session.execute(
+                            select(DataSource).where(
+                                DataSource.base_url == validated_url
+                            )
+                        )
+                        if existing_final.scalar():
+                            logger.info(
+                                "URL redirects to existing source",
+                                original=source_data.base_url,
+                                final=validated_url,
+                            )
+                            continue
+
                     # Create new DataSource from discovered source
                     from app.models.data_source import SourceType
                     # Determine source type
@@ -406,8 +443,8 @@ async def create_category_setup_with_ai(
 
                     new_source = DataSource(
                         id=uuid_module.uuid4(),
-                        name=source_data.name[:200] if source_data.name else f"AI-Discovered: {source_data.base_url[:50]}",
-                        base_url=source_data.base_url,
+                        name=source_data.name[:200] if source_data.name else f"AI-Discovered: {validated_url[:50]}",
+                        base_url=validated_url,  # Use validated/redirected URL
                         source_type=src_type,
                         tags=source_data.tags or [],
                         status=SourceStatus.PENDING,
@@ -416,6 +453,7 @@ async def create_category_setup_with_ai(
                             "ai_discovered": True,
                             "discovery_confidence": source_data.confidence,
                             "discovery_prompt": discovery_prompt[:500],
+                            "original_url": source_data.base_url if source_data.base_url != validated_url else None,
                         },
                     )
                     session.add(new_source)

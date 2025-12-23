@@ -151,7 +151,7 @@ export interface StartCrawlParams {
   /** Filter sources by status */
   status?: 'ACTIVE' | 'PENDING' | 'ERROR' | 'PAUSED';
   /** Filter sources by type */
-  source_type?: 'WEBSITE' | 'OPARL_API' | 'RSS' | 'CUSTOM_API';
+  source_type?: 'WEBSITE' | 'OPARL_API' | 'RSS' | 'CUSTOM_API' | 'SHAREPOINT';
   /** Maximum number of sources to crawl */
   limit?: number;
 }

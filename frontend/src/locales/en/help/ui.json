@@ -3,6 +3,20 @@
     "sidebar": {
       "title": "Contents"
     },
+    "toc": {
+      "title": "Contents"
+    },
+    "groups": {
+      "gettingStarted": "Getting Started",
+      "searchAnalysis": "Search & Analysis",
+      "dataSources": "Data Sources",
+      "documentsData": "Documents",
+      "entitiesFacets": "Entities & Facets",
+      "aiAutomation": "AI & Automation",
+      "exportNotifications": "Export & Notifications",
+      "administration": "Administration",
+      "developer": "Developer"
+    },
     "sections": {
       "intro": "Introduction",
       "quickstart": "Quick Start",
@@ -16,6 +30,8 @@
       "documents": "Documents",
       "municipalities": "Municipalities",
       "entityFacet": "Entity-Facet System",
+      "entityMap": "Map View",
+      "facetHistory": "Facet History",
       "attachments": "Attachments",
       "results": "Results",
       "export": "Export",
@@ -25,6 +41,8 @@
       "userManagement": "User Management",
       "auditLog": "Audit Log",
       "facetTypeAdmin": "Facet Type Admin",
+      "apiTemplates": "API Templates",
+      "externalApis": "External APIs",
       "api": "API Reference",
       "tips": "Tips",
       "security": "Security",

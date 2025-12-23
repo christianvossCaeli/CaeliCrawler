@@ -163,7 +163,6 @@ const props = defineProps<{
 // Constants
 // =============================================================================
 
-const MAP_HEIGHT = 450
 const DEFAULT_CENTER: [number, number] = [10.4515, 51.1657] // Germany center
 const DEFAULT_ZOOM = 5
 const FIT_BOUNDS_PADDING = 50
@@ -311,7 +310,8 @@ async function initMap() {
     style: mapStyle.value,
     center: DEFAULT_CENTER,
     zoom: DEFAULT_ZOOM,
-    attributionControl: true,
+    // Use empty object to enable attribution with default options (fixes MapLibre type issue)
+    attributionControl: {},
   })
 
   // Add navigation controls
@@ -333,28 +333,6 @@ async function initMap() {
     loadGeoData()
     setupMapInteractions()
   })
-}
-
-// Helper to get centroid of polygon for popup positioning
-function getPolygonCentroid(geometry: GeoJSON.Geometry): [number, number] {
-  if (geometry.type === 'Polygon') {
-    const coords = geometry.coordinates[0]
-    let x = 0, y = 0
-    for (const [lng, lat] of coords) {
-      x += lng
-      y += lat
-    }
-    return [x / coords.length, y / coords.length]
-  } else if (geometry.type === 'MultiPolygon') {
-    const coords = geometry.coordinates[0][0]
-    let x = 0, y = 0
-    for (const [lng, lat] of coords) {
-      x += lng
-      y += lat
-    }
-    return [x / coords.length, y / coords.length]
-  }
-  return [0, 0]
 }
 
 // Helper to extend bounds with any geometry type

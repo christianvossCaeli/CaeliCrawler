@@ -598,6 +598,145 @@
           "Konfidenz-Score pro Extraktion",
           "Verifizierungs-Status"
         ]
+      },
+      "bulkOperations": {
+        "title": "Massenoperationen",
+        "description": "Fuehren Sie Aktionen auf mehrere Dokumente gleichzeitig aus, um Zeit zu sparen.",
+        "selection": {
+          "title": "Auswahlmoeglichkeiten",
+          "individual": "Einzelne Dokumente per Checkbox auswaehlen",
+          "selectAll": "Alle auf der aktuellen Seite auswaehlen",
+          "filtered": "Alle gefilterten Dokumente auswaehlen"
+        },
+        "actions": {
+          "title": "Verfuegbare Aktionen",
+          "processSelected": "Ausgewaehlte verarbeiten",
+          "analyzeSelected": "Ausgewaehlte analysieren",
+          "deleteSelected": "Ausgewaehlte loeschen"
+        }
+      }
+    },
+    "smartQuery": {
+      "speechRecognition": {
+        "title": "Spracheingabe",
+        "voiceInput": "Voice Input",
+        "description": "Nutzen Sie die Spracheingabe, um Ihre Anfragen bequem per Mikrofon zu diktieren.",
+        "howTo": "Klicken Sie auf das Mikrofon-Symbol neben dem Eingabefeld",
+        "realtime": "Ihre Sprache wird in Echtzeit transkribiert und angezeigt",
+        "submit": "Klicken Sie erneut auf das Mikrofon oder druecken Sie Enter, um die Anfrage zu senden",
+        "browserSupport": "Die Spracherkennung wird von Chrome, Edge und Safari unterstuetzt. Firefox erfordert moeglicherweise zusaetzliche Einstellungen."
+      }
+    },
+    "dashboard": {
+      "widgetConfigurator": {
+        "title": "Widget-Konfigurator",
+        "description": "Passen Sie Ihr Dashboard individuell an, indem Sie Widgets hinzufuegen, entfernen oder neu anordnen.",
+        "availableWidgets": "Verfuegbare Widgets",
+        "moreWidgets": "Weitere Widgets",
+        "sizes": "Widget-Groessen (S/M/L/XL)",
+        "widgetDetailsTitle": "Widget-Details",
+        "widgets": {
+          "statsEntities": "Entity-Statistiken",
+          "statsFacets": "Facet-Statistiken",
+          "statsDocuments": "Dokument-Statistiken",
+          "statsCrawler": "Crawler-Status",
+          "activityFeed": "Aktivitaets-Feed",
+          "crawlerStatus": "Crawler-Live-Status",
+          "insights": "Daten-Einblicke",
+          "chartDistribution": "Verteilungs-Diagramme",
+          "systemHealth": "System-Gesundheit",
+          "favorites": "Favoriten"
+        },
+        "widgetDetails": {
+          "statsEntities": {
+            "title": "Entity-Statistiken",
+            "description": "Zeigt die Gesamtzahl der Entities, aufgeteilt nach aktiven und inaktiven Eintraegen.",
+            "data": "Gesamt, aktiv, inaktiv",
+            "refresh": "60 Sekunden",
+            "size": "S-M"
+          },
+          "statsFacets": {
+            "title": "Facet-Statistiken",
+            "description": "Zeigt die Anzahl der Facet-Werte mit Verifizierungsrate als Fortschrittsanzeige.",
+            "data": "Gesamt, verifiziert, Verifizierungsrate",
+            "refresh": "60 Sekunden",
+            "size": "S-M"
+          },
+          "statsDocuments": {
+            "title": "Dokument-Statistiken",
+            "description": "Zeigt den Verarbeitungsstatus aller gecrawlten Dokumente.",
+            "data": "Gesamt, verarbeitet, Verarbeitungsrate",
+            "refresh": "60 Sekunden",
+            "size": "S-M"
+          },
+          "statsCrawler": {
+            "title": "Crawler-Status",
+            "description": "Live-Status der Crawler-Jobs mit farblicher Kennzeichnung bei Aktivitaet.",
+            "data": "Laufend, abgeschlossen, fehlgeschlagen",
+            "refresh": "15 Sekunden",
+            "size": "S-M"
+          },
+          "activityFeed": {
+            "title": "Aktivitaets-Feed",
+            "description": "Chronologische Liste der letzten Systemaktivitaeten mit Zeitstempel und Benutzer.",
+            "data": "Aktionstyp, Entity, Zeit, Benutzer",
+            "refresh": "30 Sekunden",
+            "size": "M-XL"
+          },
+          "crawlerStatus": {
+            "title": "Crawler-Live-Status",
+            "description": "Detaillierte Ansicht laufender Crawler-Jobs mit Dokumentenzaehler und Worker-Status.",
+            "data": "Worker, Jobs, Dokumente pro Job",
+            "refresh": "10 Sekunden",
+            "size": "M-XL"
+          },
+          "insights": {
+            "title": "Daten-Einblicke",
+            "description": "Personalisierte Insights und Hinweise zu neuen Daten oder erforderlichen Aktionen.",
+            "data": "Neue Entities, Facets, Crawls, Aktionen",
+            "refresh": "60 Sekunden",
+            "size": "M-XL"
+          },
+          "chartDistribution": {
+            "title": "Verteilungs-Diagramm",
+            "description": "Visualisiert die Verteilung von Entities nach Typ als horizontales Balkendiagramm.",
+            "data": "Top 6 Entity-Typen mit Prozent",
+            "refresh": "120 Sekunden",
+            "size": "M-XL"
+          },
+          "systemHealth": {
+            "title": "System-Gesundheit",
+            "description": "Zeigt den allgemeinen Systemstatus mit KI-Tasks und Crawler-Statistiken.",
+            "data": "Health-Status, KI-Tasks, Crawler-Jobs, Konfidenz",
+            "refresh": "30 Sekunden",
+            "size": "M-XL"
+          },
+          "favorites": {
+            "title": "Favoriten",
+            "description": "Liste Ihrer favorisierten Entities mit schnellem Zugriff zur Detail-Ansicht.",
+            "data": "Entity-Name, Typ, Icon",
+            "refresh": "60 Sekunden",
+            "size": "S-XL"
+          }
+        }
+      }
+    },
+    "crawler": {
+      "presets": {
+        "title": "Crawler-Presets",
+        "description": "Speichern Sie haeufig verwendete Crawler-Konfigurationen als Presets fuer schnellen Zugriff.",
+        "features": {
+          "title": "Funktionen",
+          "save": "Konfigurationen als Preset speichern",
+          "favorites": "Presets als Favoriten markieren",
+          "quickStart": "Crawler mit einem Klick starten"
+        },
+        "config": {
+          "title": "Konfigurationsoptionen",
+          "category": "Kategorie-Filter",
+          "filters": "Land- und Status-Filter",
+          "limits": "Max. Anzahl und weitere Einschraenkungen"
+        }
       }
     }
   }

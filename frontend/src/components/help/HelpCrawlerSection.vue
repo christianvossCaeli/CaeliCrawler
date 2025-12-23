@@ -102,6 +102,46 @@
       {{ t('help.crawler.jobDetails.errorLog') }}
     </v-alert>
 
+    <h3 class="text-h6 mb-3">{{ t('help.crawler.presets.title') }}</h3>
+    <v-alert type="success" variant="tonal" class="mb-3">
+      <v-icon>mdi-lightning-bolt</v-icon>
+      {{ t('help.crawler.presets.description') }}
+    </v-alert>
+    <v-row class="mb-4">
+      <v-col cols="12" md="6">
+        <v-card variant="outlined" class="pa-3">
+          <div class="text-subtitle-2 mb-2">{{ t('help.crawler.presets.features.title') }}</div>
+          <v-list density="compact">
+            <v-list-item prepend-icon="mdi-content-save">
+              {{ t('help.crawler.presets.features.save') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-star">
+              {{ t('help.crawler.presets.features.favorites') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-play-circle">
+              {{ t('help.crawler.presets.features.quickStart') }}
+            </v-list-item>
+          </v-list>
+        </v-card>
+      </v-col>
+      <v-col cols="12" md="6">
+        <v-card variant="outlined" class="pa-3">
+          <div class="text-subtitle-2 mb-2">{{ t('help.crawler.presets.config.title') }}</div>
+          <v-list density="compact">
+            <v-list-item prepend-icon="mdi-folder">
+              {{ t('help.crawler.presets.config.category') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-filter">
+              {{ t('help.crawler.presets.config.filters') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-numeric">
+              {{ t('help.crawler.presets.config.limits') }}
+            </v-list-item>
+          </v-list>
+        </v-card>
+      </v-col>
+    </v-row>
+
     <h3 class="text-h6 mt-4 mb-3">{{ t('help.crawler.statusFilter') }}</h3>
     <v-btn-toggle class="mb-2" density="compact" variant="outlined">
       <v-btn size="small">{{ t('help.crawler.filterButtons.all') }}</v-btn>

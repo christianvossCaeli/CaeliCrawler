@@ -12,6 +12,9 @@
       "title": "Loading data",
       "subtitle": "Please wait..."
     },
+    "skeleton": {
+      "loading": "Loading data sources..."
+    },
     "filters": {
       "category": "Category",
       "status": "Status",
@@ -19,16 +22,30 @@
       "searchPlaceholder": "Enter name or URL...",
       "noResults": "No results for",
       "typeToSearch": "Type to search...",
-      "clearAll": "Clear all filters"
+      "clearAll": "Clear all filters",
+      "clearAllTags": "Clear all tag filters",
+      "clearAllFilters": "Clear all active filters",
+      "activeFilters": "Active filters",
+      "removeCategory": "Remove category filter: {name}",
+      "removeType": "Remove type filter: {name}",
+      "removeStatus": "Remove status filter: {name}",
+      "removeTag": "Remove tag filter: {name}"
     },
     "sidebar": {
+      "navigation": "Filter navigation",
       "categories": "Categories",
       "types": "Source Type",
       "status": "Status",
       "tags": "Tags",
       "all": "All",
       "expand": "Expand sidebar",
-      "collapse": "Collapse sidebar"
+      "collapse": "Collapse sidebar",
+      "itemCount": "{count} items",
+      "tagsFilter": "Tags filter",
+      "tagWithCount": "{tag} ({count} items)",
+      "showMoreTags": "Show {count} more tags",
+      "quickAccess": "Quick access categories",
+      "selectCategory": "Select {name} ({count} items)"
     },
     "status": {
       "active": "Active",
@@ -64,7 +81,14 @@
       "renderJsHint": "Enable for dynamic websites that require JavaScript",
       "tags": "Tags",
       "tagsLabel": "Add tags",
-      "tagsHint": "Tags for filtering/search (e.g., region, topic, source type). New tags can be entered directly."
+      "tagsHint": "Tags for filtering/search (e.g., region, topic, source type). New tags can be entered directly.",
+      "linkedEntity": "Linked Entity",
+      "linkedEntities": "Linked Entities",
+      "linkedEntityHint": "Optional: Link this data source directly to an entity (e.g., a municipality or organization).",
+      "linkedEntitiesHint": "Optional: Link this data source to one or more entities. Multiple entities can be selected.",
+      "searchEntity": "Search entity...",
+      "noEntitiesFound": "No entities found",
+      "typeToSearch": "Enter at least 2 characters"
     },
     "types": {
       "WEBSITE": "Website",
@@ -72,7 +96,34 @@
       "API": "API",
       "OPARL_API": "OParl API",
       "CUSTOM_API": "Custom API",
+      "SHAREPOINT": "SharePoint",
       "NEWS": "News"
+    },
+    "sharepoint": {
+      "config": "SharePoint Configuration",
+      "siteUrl": "SharePoint Site URL",
+      "siteUrlHint": "e.g. contoso.sharepoint.com:/sites/Documents",
+      "siteUrlRequired": "Site URL is required",
+      "driveName": "Document Library",
+      "driveNameHint": "Leave empty for default library",
+      "folderPath": "Folder Path",
+      "folderPathHint": "Optional: e.g. /WindProjects",
+      "fileExtensions": "File Types",
+      "fileExtensionsHint": "Which files to crawl",
+      "maxFiles": "Max. Files",
+      "recursive": "Include subfolders",
+      "excludePatterns": "Exclude Patterns",
+      "excludePatternsHint": "Glob patterns for files to ignore (e.g. ~$*, *.tmp)",
+      "filePaths": "Individual Files (optional)",
+      "filePathsHint": "File paths, one per line. e.g. /Documents/Report.pdf. Leave empty for folder crawling.",
+      "testConnection": "Test Connection",
+      "connectionSuccess": "Connection successful",
+      "connectionFailed": "Connection failed",
+      "connectionError": "Connection error",
+      "authentication": "Authentication",
+      "site": "Site",
+      "libraries": "Libraries",
+      "errors": "Errors"
     },
     "actions": {
       "create": "New Source",
@@ -82,7 +133,12 @@
       "delete": "Delete",
       "startCrawl": "Start Crawl",
       "reset": "Reset",
-      "test": "Test Connection"
+      "test": "Test Connection",
+      "rowActions": "Row actions",
+      "editSource": "Edit {name}",
+      "startCrawlFor": "Start crawl for {name}",
+      "resetSource": "Reset {name}",
+      "deleteSource": "Delete {name}"
     },
     "columns": {
       "name": "Name",
@@ -127,7 +183,11 @@
       "testError": "Connection failed",
       "bulkImportSuccess": "{imported} sources imported, {skipped} skipped",
       "bulkImportError": "Bulk import failed",
-      "apiImportSuccess": "{count} sources imported from API"
+      "apiImportSuccess": "{count} sources imported from API",
+      "deleteWarning": "This action cannot be undone. The data source and all associated documents will be permanently deleted.",
+      "documentsWillBeDeleted": "documents will be deleted",
+      "typeToConfirm": "Type {text} to confirm",
+      "confirmMismatch": "Text does not match"
     },
     "apiImport": {
       "title": "API Import",
@@ -162,7 +222,11 @@
       "duplicates": "duplicates",
       "errors": "errors",
       "moreEntries": "more entries",
-      "sourcesImport": "sources import"
+      "sourcesImport": "sources import",
+      "csvTooLarge": "CSV file too large. Maximum size: {size}MB",
+      "csvTooManyLines": "Too many lines. Maximum: {max} lines",
+      "fileTooLarge": "File too large ({size} MB). Maximum: {max} MB",
+      "readError": "Failed to read file"
     },
     "aiDiscovery": {
       "title": "AI-Powered Search",
@@ -239,6 +303,12 @@
       "saveFailed": "Failed to save data source",
       "loadFailed": "Failed to load data sources",
       "deleteFailed": "Failed to delete data source"
+    },
+    "empty": {
+      "noSources": "No data sources yet",
+      "noFilterResults": "No results found",
+      "createFirst": "Create your first data source to start collecting content.",
+      "adjustFilters": "Try adjusting your filters or clear all filters."
     },
     "never": "Never"
   }

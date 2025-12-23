@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from app.models.entity import Entity
     from app.models.facet_type import FacetType
     from app.models.pysis import PySisProcess
+    from app.models.category import Category
 
 logger = structlog.get_logger()
 
@@ -134,6 +135,11 @@ def analyze_document(self, document_id: str, skip_relevance_check: bool = False)
                     if source_admin_level_1:
                         content["source_admin_level_1"] = source_admin_level_1
 
+                    # Process entity references from AI extraction
+                    entity_references, primary_entity_id = await _process_entity_references(
+                        session, content, category
+                    )
+
                     # Save extracted data
                     extracted = ExtractedData(
                         document_id=document.id,
@@ -146,6 +152,8 @@ def analyze_document(self, document_id: str, skip_relevance_check: bool = False)
                         raw_ai_response=result.get("raw_response"),
                         tokens_used=result.get("tokens_used"),
                         relevance_score=result.get("relevance_score"),
+                        entity_references=entity_references,
+                        primary_entity_id=primary_entity_id,
                     )
                     session.add(extracted)
                     await session.flush()  # Get the extracted data ID
@@ -344,6 +352,239 @@ def _calculate_confidence(content: Dict[str, Any]) -> float:
 
     # Clamp to valid range [0.1, 0.98]
     return max(0.1, min(0.98, round(score, 2)))
+
+
+async def _process_entity_references(
+    session: "AsyncSession",
+    content: Dict[str, Any],
+    category: "Category",
+) -> tuple[List[Dict[str, Any]], Optional[UUID]]:
+    """
+    Process entity references from AI extraction content.
+
+    Fully config-driven: extracts entity references based on category's
+    entity_reference_config. No hard-coded field names.
+
+    entity_reference_config schema:
+    {
+        "entity_types": ["territorial-entity", "person"],
+        "field_mappings": {
+            "field_name": "entity-type-slug"
+        },
+        "array_field_mappings": {
+            "field_name": {
+                "entity_type": "entity-type-slug",
+                "name_fields": ["name", "person"],
+                "role_field": "role",
+                "default_role": "secondary"
+            }
+        }
+    }
+
+    Args:
+        session: Database session
+        content: AI extraction content
+        category: Category with entity_reference_config
+
+    Returns:
+        Tuple of (entity_references list, primary_entity_id or None)
+    """
+    entity_references = []
+    primary_entity_id = None
+
+    # Get full configuration from category
+    config = category.entity_reference_config
+    if not config:
+        # No config = no entity reference extraction
+        return [], None
+
+    # Which entity types to extract
+    entity_types = config.get("entity_types", [])
+    if not entity_types:
+        return [], None
+
+    # Field mappings: simple fields that contain entity names
+    # Example: {"municipality": "territorial-entity", "region": "territorial-entity"}
+    field_mappings = config.get("field_mappings", {})
+
+    # Array field mappings: fields that contain arrays of entity objects
+    # Example: {"decision_makers": {"entity_type": "person", "name_fields": ["name"]}}
+    array_field_mappings = config.get("array_field_mappings", {})
+
+    # Track which entity types have primary already assigned
+    primary_assigned_types = set()
+
+    # 1. Process simple field mappings
+    for field_name, entity_type in field_mappings.items():
+        if entity_type not in entity_types:
+            continue
+
+        field_value = content.get(field_name)
+        if not field_value:
+            continue
+
+        # Handle both string values and lists
+        values = field_value if isinstance(field_value, list) else [field_value]
+
+        for value in values:
+            if not isinstance(value, str):
+                continue
+            if value.lower() in ("", "unbekannt", "null", "none", "n/a"):
+                continue
+
+            # Determine role - first of each type is primary
+            is_primary = entity_type not in primary_assigned_types
+            role = "primary" if is_primary else "secondary"
+            if is_primary:
+                primary_assigned_types.add(entity_type)
+
+            # Resolve to existing entity
+            entity_id = await _resolve_entity(session, entity_type, value)
+
+            entity_references.append({
+                "entity_type": entity_type,
+                "entity_name": value,
+                "entity_id": str(entity_id) if entity_id else None,
+                "role": role,
+                "confidence": 0.85,
+            })
+
+            # Set primary_entity_id for first resolved entity
+            if entity_id and not primary_entity_id:
+                primary_entity_id = entity_id
+
+    # 2. Process array field mappings
+    for field_name, mapping in array_field_mappings.items():
+        entity_type = mapping.get("entity_type")
+        if not entity_type or entity_type not in entity_types:
+            continue
+
+        name_fields = mapping.get("name_fields", ["name"])
+        role_field = mapping.get("role_field", "role")
+        default_role = mapping.get("default_role", "secondary")
+
+        field_values = content.get(field_name)
+        if not isinstance(field_values, list):
+            continue
+
+        for item in field_values:
+            name = None
+
+            if isinstance(item, dict):
+                # Extract name from configured fields
+                for nf in name_fields:
+                    name = item.get(nf)
+                    if name:
+                        break
+                role = item.get(role_field, default_role)
+            elif isinstance(item, str):
+                name = item
+                role = default_role
+            else:
+                continue
+
+            if not name or (isinstance(name, str) and name.lower() in ("", "unbekannt", "null")):
+                continue
+
+            # Resolve entity
+            entity_id = await _resolve_entity(session, entity_type, name)
+
+            entity_references.append({
+                "entity_type": entity_type,
+                "entity_name": name,
+                "entity_id": str(entity_id) if entity_id else None,
+                "role": role,
+                "confidence": 0.7,
+            })
+
+    # 3. Process explicit entity_references from AI response (if AI was asked to return them)
+    ai_entity_refs = content.get("entity_references", [])
+    if isinstance(ai_entity_refs, list):
+        for ref in ai_entity_refs:
+            if not isinstance(ref, dict):
+                continue
+
+            entity_type = ref.get("entity_type") or ref.get("type")
+            entity_name = ref.get("entity_name") or ref.get("name")
+
+            if not entity_type or not entity_name:
+                continue
+            if entity_type not in entity_types:
+                continue
+
+            # Resolve entity
+            entity_id = await _resolve_entity(session, entity_type, entity_name)
+
+            role = ref.get("role", "secondary")
+
+            entity_references.append({
+                "entity_type": entity_type,
+                "entity_name": entity_name,
+                "entity_id": str(entity_id) if entity_id else None,
+                "role": role,
+                "confidence": ref.get("confidence", 0.7),
+            })
+
+            # Set primary if marked and we don't have one yet
+            if entity_id and not primary_entity_id and role == "primary":
+                primary_entity_id = entity_id
+
+    return entity_references, primary_entity_id
+
+
+async def _resolve_entity(
+    session: "AsyncSession",
+    entity_type_slug: str,
+    entity_name: str,
+) -> Optional[UUID]:
+    """
+    Resolve an entity name to its UUID.
+
+    Args:
+        session: Database session
+        entity_type_slug: Entity type slug
+        entity_name: Entity name to resolve
+
+    Returns:
+        Entity UUID if found, None otherwise
+    """
+    from app.models import Entity, EntityType
+    from app.utils.text import normalize_entity_name
+    from sqlalchemy import select
+
+    try:
+        # Get entity type
+        et_result = await session.execute(
+            select(EntityType).where(EntityType.slug == entity_type_slug)
+        )
+        entity_type = et_result.scalar_one_or_none()
+
+        if not entity_type:
+            return None
+
+        # Normalize name for matching
+        name_normalized = normalize_entity_name(entity_name, country="DE")
+
+        # Find entity by normalized name
+        entity_result = await session.execute(
+            select(Entity).where(
+                Entity.entity_type_id == entity_type.id,
+                Entity.name_normalized == name_normalized,
+                Entity.is_active.is_(True),
+            )
+        )
+        entity = entity_result.scalar_one_or_none()
+
+        return entity.id if entity else None
+
+    except Exception as e:
+        logger.warning(
+            "Failed to resolve entity",
+            entity_type=entity_type_slug,
+            entity_name=entity_name,
+            error=str(e),
+        )
+        return None
 
 
 async def _call_azure_openai(

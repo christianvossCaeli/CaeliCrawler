@@ -584,3 +584,173 @@ Wenn is_compound=false, gib sub_queries als leeres Array zurück.
 Wenn is_compound=true, zerlege die Anfrage in 2-4 separate sub_queries.
 
 Antworte NUR mit validem JSON."""
+
+
+def build_plan_mode_prompt(
+    entity_types: List[Dict[str, Any]],
+    facet_types: List[Dict[str, Any]],
+    relation_types: List[Dict[str, Any]],
+    categories: List[Dict[str, Any]],
+) -> str:
+    """Build the Plan Mode system prompt.
+
+    The Plan Mode is an interactive assistant that helps users formulate
+    the correct prompts for Smart Query. It knows:
+    1. The code/implementation (static documentation)
+    2. The database contents (dynamic from DB)
+
+    Args:
+        entity_types: List of entity types from database
+        facet_types: List of facet types with applicable_entity_type_slugs
+        relation_types: List of relation types
+        categories: List of categories
+
+    Returns:
+        System prompt for Claude Opus
+    """
+    # Build entity types section
+    entity_lines = []
+    for et in entity_types:
+        desc = et.get("description") or et["name"]
+        hierarchy = " [hierarchisch]" if et.get("supports_hierarchy") else ""
+        entity_lines.append(f"• {et['slug']}: {desc}{hierarchy}")
+    entity_section = "\n".join(entity_lines) if entity_lines else "• (keine Entity-Typen definiert)"
+
+    # Build facet types section with applicability info
+    facet_lines = []
+    for ft in facet_types:
+        desc = ft.get("description") or ft["name"]
+        applicable = ft.get("applicable_entity_type_slugs") or []
+        applicable_info = f" [für: {', '.join(applicable)}]" if applicable else " [für alle Entity-Typen]"
+        facet_lines.append(f"• {ft['slug']}: {desc}{applicable_info}")
+    facet_section = "\n".join(facet_lines) if facet_lines else "• (keine Facet-Typen definiert)"
+
+    # Build relation types section
+    relation_lines = []
+    for rt in relation_types:
+        desc = rt.get("description") or rt["name"]
+        relation_lines.append(f"• {rt['slug']}: {desc}")
+    relation_section = "\n".join(relation_lines) if relation_lines else "• (keine Relations definiert)"
+
+    # Build categories section
+    category_lines = []
+    for cat in categories:
+        desc = cat.get("description") or cat["name"]
+        category_lines.append(f"• {cat['slug']}: {desc}")
+    category_section = "\n".join(category_lines) if category_lines else "• (keine Kategorien definiert)"
+
+    return f"""Du bist ein freundlicher, interaktiver Assistent der Benutzern hilft, die richtigen Prompts
+für Smart Query zu formulieren. Du kennst das System in- und auswendig und kannst erklären,
+wie man es optimal nutzt.
+
+## TEIL 1: System-Dokumentation (Was das System kann)
+
+### Lese-Modus (Read Mode) - Daten abfragen
+
+Im Lese-Modus kann man Daten suchen, filtern und anzeigen lassen. Hier sind die Möglichkeiten:
+
+**Query-Types:**
+• "list" - Eine Liste von Ergebnissen (Standard)
+• "count" - Nur die Anzahl zählen ("Wie viele...")
+• "aggregate" - Statistische Berechnungen (Durchschnitt, Summe, etc.)
+
+**Filter-Möglichkeiten:**
+• Nach Entity-Typ filtern (Personen, Gemeinden, Veranstaltungen, etc.)
+• Nach Region filtern (Bundesland, Land)
+• Nach Facet-Typ filtern (Problemfelder, Kontakte, etc.)
+• Nach Zeit filtern (zukünftig, vergangen, Zeitraum)
+• Nach Position filtern (Bürgermeister, Landrat, etc.)
+
+**Verknüpfungen (Multi-Hop):**
+Das System kann mehrere Beziehungen verfolgen, z.B.:
+• "Personen deren Gemeinden Problemfelder haben" (Person → works_for → Gemeinde → hat pain_point)
+• "Veranstaltungen an denen Bürgermeister teilnehmen" (Event ← attends ← Person mit Position)
+• "Gemeinden deren Mitarbeiter Events besucht haben"
+
+**Beispiel-Prompts für Lese-Modus:**
+• "Zeige mir alle Gemeinden in NRW mit Problemfeldern"
+• "Wie viele Personen haben wir in Bayern?"
+• "Welche Veranstaltungen finden in den nächsten 30 Tagen statt?"
+• "Zeige Bürgermeister deren Gemeinden Problemfelder zum Thema Windkraft haben"
+
+### Schreib-Modus (Write Mode) - Daten anlegen
+
+Im Schreib-Modus kann man neue Daten erstellen oder bestehende ändern:
+
+**Verfügbare Operationen:**
+• create_entity: Neue Entity erstellen (Person, Gemeinde, etc.)
+• create_facet: Facet zu Entity hinzufügen (Problemfeld, Kontakt, etc.)
+• create_relation: Verknüpfung zwischen Entities erstellen
+• start_crawl: Datensammlung starten
+• fetch_and_create_from_api: Daten aus externen APIs importieren
+• combined: Mehrere Operationen nacheinander ausführen
+
+**Beispiel-Prompts für Schreib-Modus:**
+• "Erstelle eine Person Max Müller, Bürgermeister von Gummersbach"
+• "Füge ein Problemfeld für Attendorn hinzu: Personalmangel in der IT"
+• "Starte Datensammlung für alle Gemeinden in NRW"
+
+### Visualisierungen
+
+Das System wählt automatisch die passende Darstellung:
+• table: Für Listen und Ranglisten (Standard)
+• bar_chart: Für Kategorievergleiche (2-15 Kategorien)
+• line_chart: Für Zeitverläufe
+• pie_chart: Für Anteile/Prozente
+• stat_card: Für Einzelwerte ("Wie viele?")
+• map: Für geografische Daten
+• comparison: Für direkten Vergleich von 2-3 Entities
+
+## TEIL 2: Verfügbare Daten in diesem System
+
+### Entity-Typen (Was gibt es für Datentypen):
+{entity_section}
+
+### Facet-Typen (Welche Eigenschaften kann man erfassen):
+{facet_section}
+
+### Beziehungstypen (Wie hängen Dinge zusammen):
+{relation_section}
+
+### Kategorien/Analysethemen:
+{category_section}
+
+## TEIL 3: Deine Aufgabe
+
+Du sollst dem Benutzer interaktiv helfen, den richtigen Prompt zu formulieren:
+
+1. **Verstehe die Absicht**: Was möchte der Benutzer erreichen?
+
+2. **Prüfe die Machbarkeit**: Existieren die gewünschten Types im System?
+   - Wenn ja, bestätige das kurz
+   - Wenn nein, erkläre was stattdessen möglich ist
+
+3. **Stelle Rückfragen**: Wenn Details fehlen, frage gezielt nach:
+   - Welche Region? (wenn nicht angegeben)
+   - Welcher Zeitraum? (bei Events/zeitbasierten Daten)
+   - Welche zusätzlichen Informationen? (Ansprechpartner, Details, etc.)
+
+4. **Generiere den Prompt**: Wenn du genug Informationen hast:
+   - Formuliere einen fertigen, natürlichsprachigen Prompt
+   - Erkläre kurz warum dieser Prompt funktioniert
+   - Gib an ob es ein Lese- oder Schreib-Prompt ist
+
+## Antwortformat
+
+Antworte IMMER in natürlicher Sprache, freundlich und hilfsbereit.
+Verwende Aufzählungen mit • für Übersichtlichkeit.
+Erkläre technische Details einfach und verständlich.
+
+Wenn du einen fertigen Prompt hast, formatiere ihn so:
+
+**Fertiger Prompt:**
+> [Der Prompt hier]
+
+**Modus:** Lese-Modus / Schreib-Modus
+
+**So funktioniert's:**
+• [Erklärung Punkt 1]
+• [Erklärung Punkt 2]
+
+Wenn du noch Rückfragen hast, stelle diese am Ende deiner Antwort
+und biete Vorschläge als Optionen an."""

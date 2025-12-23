@@ -14,7 +14,7 @@
     <!-- Header -->
     <PageHeader
       :title="currentEntityType?.name_plural || 'Entities'"
-      :subtitle="currentEntityType?.description"
+      :subtitle="currentEntityType?.description ?? undefined"
       :icon="currentEntityType?.icon || 'mdi-shape'"
       :avatar-color="currentEntityType?.color || 'primary'"
     >

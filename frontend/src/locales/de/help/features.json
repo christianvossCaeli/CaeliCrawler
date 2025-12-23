@@ -486,6 +486,13 @@
         "high": "70-100%",
         "highDesc": "Hohe Sicherheit",
         "highAction": "Meist zuverlässig"
+      },
+      "bulkVerify": {
+        "title": "Massen-Verifizierung",
+        "description": "Verifizieren Sie mehrere KI-Ergebnisse gleichzeitig, um den Qualitaetssicherungsprozess zu beschleunigen.",
+        "step1": "Mehrere Ergebnisse per Checkbox auswaehlen",
+        "step2": "Klicken Sie auf 'Ausgewaehlte verifizieren' in der Toolbar",
+        "step3": "Alle ausgewaehlten Ergebnisse werden als verifiziert markiert"
       }
     },
     "export": {
@@ -546,6 +553,24 @@
           "Test-Request senden",
           "Ergebnis mit Status-Code anzeigen"
         ]
+      },
+      "scheduledExports": {
+        "title": "Geplante Exports",
+        "description": "Richten Sie automatische Exports ein, die regelmässig zu festgelegten Zeiten ausgefuehrt werden.",
+        "targets": {
+          "title": "Ziele",
+          "email": "E-Mail - Direkt in Ihr Postfach",
+          "ftp": "FTP/SFTP - Auf einen Server hochladen",
+          "cloud": "Cloud-Speicher - S3, Azure Blob, etc.",
+          "webhook": "Webhook - An einen HTTP-Endpunkt senden"
+        },
+        "schedule": {
+          "title": "Zeitplan",
+          "daily": "Taeglich - Jeden Tag zur festgelegten Zeit",
+          "weekly": "Woechentlich - An einem bestimmten Wochentag",
+          "monthly": "Monatlich - An einem bestimmten Tag im Monat",
+          "cron": "Cron-Expression - Fuer komplexe Zeitplaene"
+        }
       },
       "changesFeed": {
         "title": "Änderungs-Feed",
@@ -1515,6 +1540,230 @@
         "sidebar": "Die Sidebar zeigt alle verfügbaren Tags mit Anzahl",
         "click": "Klicken Sie auf einen Tag um zu filtern",
         "combine": "Mehrere Tags können kombiniert werden"
+      }
+    },
+    "entityMapView": {
+      "title": "Kartenansicht",
+      "description": "Visualisieren Sie Entities mit geografischen Koordinaten auf einer interaktiven Karte.",
+      "overview": {
+        "title": "Uebersicht",
+        "description": "Die Kartenansicht zeigt alle Entities mit Koordinaten (Punkte) oder Geometrien (Polygone) auf einer MapLibre-basierten Karte."
+      },
+      "features": {
+        "title": "Funktionen",
+        "points": {
+          "title": "Punkt-Entities",
+          "clustering": "Automatisches Clustering bei vielen Punkten",
+          "popup": "Klicken Sie auf einen Punkt fuer Details",
+          "zoom": "Klicken Sie auf Cluster zum Heranzoomen"
+        },
+        "polygons": {
+          "title": "Polygon-Entities",
+          "regions": "Anzeige von Regionen und Grenzen",
+          "hover": "Hervorhebung beim Ueberfahren",
+          "styling": "Farbcodierung nach Entity-Typ"
+        }
+      },
+      "clustering": {
+        "title": "Cluster-Legende",
+        "description": "Punkte werden basierend auf der Anzahl der Entities farblich unterschieden:",
+        "entities": "Entities"
+      },
+      "filters": {
+        "title": "Filter",
+        "table": {
+          "filter": "Filter",
+          "description": "Beschreibung"
+        },
+        "entityType": {
+          "name": "Entity-Typ",
+          "description": "Nur Entities eines bestimmten Typs anzeigen"
+        },
+        "country": {
+          "name": "Land",
+          "description": "Nach Land filtern"
+        },
+        "adminLevel1": {
+          "name": "Bundesland",
+          "description": "Nach Bundesland/Region filtern"
+        },
+        "adminLevel2": {
+          "name": "Landkreis",
+          "description": "Nach Landkreis/Bezirk filtern"
+        },
+        "search": {
+          "name": "Suche",
+          "description": "Textsuche in Entity-Namen"
+        }
+      },
+      "interaction": {
+        "title": "Interaktion",
+        "clickCluster": "Auf Cluster klicken: Heranzoomen und Cluster aufloesen",
+        "clickEntity": "Auf Entity klicken: Popup mit Details anzeigen",
+        "viewDetails": "Details-Button: Zur Entity-Detailseite navigieren",
+        "navigation": "Navigationselemente: Zoom- und Drehsteuerung"
+      },
+      "darkMode": {
+        "title": "Dark Mode",
+        "description": "Die Karte passt sich automatisch an das aktuelle Farbschema an und zeigt im Dark Mode eine angepasste Farbpalette."
+      }
+    },
+    "facetHistory": {
+      "title": "Facet-Historie",
+      "description": "Verfolgen Sie die zeitliche Entwicklung von Facet-Werten fuer numerische oder zeitbasierte Metriken.",
+      "overview": {
+        "title": "Uebersicht",
+        "description": "Die Facet-Historie ermoeglicht die Visualisierung von Zeitreihen-Daten fuer beliebige Facet-Typen."
+      },
+      "timeRanges": {
+        "title": "Zeitbereiche",
+        "description": "Waehlen Sie den anzuzeigenden Zeitraum:"
+      },
+      "statistics": {
+        "title": "Statistiken",
+        "current": "Aktuell",
+        "currentDesc": "Letzter erfasster Wert",
+        "change": "Aenderung",
+        "changeDesc": "Prozentuale Veraenderung",
+        "minimum": "Minimum",
+        "minimumDesc": "Niedrigster Wert im Zeitraum",
+        "maximum": "Maximum",
+        "maximumDesc": "Hoechster Wert im Zeitraum"
+      },
+      "trends": {
+        "title": "Trend-Indikatoren",
+        "table": {
+          "indicator": "Anzeige",
+          "meaning": "Bedeutung"
+        },
+        "up": "Aufwaertstrend - Wert ist gestiegen",
+        "down": "Abwaertstrend - Wert ist gefallen",
+        "neutral": "Stabil - Keine signifikante Aenderung"
+      },
+      "actions": {
+        "title": "Aktionen",
+        "addDataPoint": "Datenpunkt hinzufuegen",
+        "addDataPointDesc": "Manuell einen neuen Wert erfassen",
+        "export": "Exportieren",
+        "exportDesc": "Historie als CSV herunterladen",
+        "refresh": "Aktualisieren",
+        "refreshDesc": "Daten neu laden"
+      },
+      "tracks": {
+        "title": "Multi-Track-Unterstuetzung",
+        "description": "Sie koennen mehrere parallele Datenreihen (Tracks) fuer denselben Facet-Typ verwalten, z.B. verschiedene Metriken oder Kategorien."
+      },
+      "addDialog": {
+        "title": "Datenpunkt-Dialog",
+        "value": "Wert - Der numerische Wert",
+        "timestamp": "Zeitpunkt - Datum und Uhrzeit der Erfassung",
+        "track": "Track - Zu welcher Datenreihe gehoert der Wert",
+        "note": "Notiz - Optionale Anmerkung"
+      }
+    },
+    "apiTemplates": {
+      "title": "API-Templates",
+      "description": "Verwalten Sie wiederverwendbare API-Vorlagen fuer die automatische Datenquellenentdeckung.",
+      "aiDiscoveryInfo": "API-Templates ermöglichen KI-gestuetzte API-Entdeckung: Die KI erkennt automatisch passende APIs basierend auf Keywords und generiert Datenquellen.",
+      "apiTypes": {
+        "title": "API-Typen",
+        "rest": "REST APIs mit JSON-Antworten",
+        "graphql": "GraphQL-Abfragen",
+        "sparql": "Semantische SPARQL-Endpoints",
+        "oparl": "OParl-Ratsinformationssysteme"
+      },
+      "status": {
+        "title": "Status-Workflow",
+        "table": {
+          "status": "Status",
+          "description": "Beschreibung"
+        },
+        "pending": "Neu erstellt, noch nicht validiert",
+        "active": "Validiert und einsatzbereit",
+        "inactive": "Deaktiviert, wird nicht verwendet",
+        "failed": "Validierung fehlgeschlagen"
+      },
+      "fields": {
+        "title": "Formularfelder",
+        "name": "Name",
+        "nameDesc": "Eindeutiger Name fuer das Template",
+        "baseUrl": "Basis-URL",
+        "baseUrlDesc": "Die Basis-URL der API",
+        "endpoint": "Endpunkt",
+        "endpointDesc": "Der spezifische API-Pfad",
+        "keywords": "Keywords",
+        "keywordsDesc": "Suchbegriffe fuer die automatische Zuordnung",
+        "auth": "Authentifizierung",
+        "authDesc": "API-Key, OAuth oder keine"
+      },
+      "actions": {
+        "title": "Aktionen",
+        "test": "Testen",
+        "edit": "Bearbeiten",
+        "duplicate": "Duplizieren",
+        "delete": "Loeschen"
+      },
+      "testing": {
+        "title": "Template-Validierung",
+        "description": "Testen Sie Templates, um sicherzustellen, dass die API erreichbar ist und die erwarteten Daten liefert."
+      }
+    },
+    "externalApis": {
+      "title": "Externe APIs",
+      "description": "Integrieren Sie externe Datenquellen ueber das pluggable API-System.",
+      "concept": {
+        "title": "Konzept",
+        "description": "Das External-API-System ermoeglicht die bidirektionale Synchronisation von Daten zwischen CaeliCrawler und externen Diensten."
+      },
+      "features": {
+        "title": "Funktionen",
+        "syncRecords": {
+          "title": "Sync-Records",
+          "rawData": "Speicherung der Rohdaten aus der API",
+          "timestamps": "Zeitstempel fuer letzte Synchronisation",
+          "errorTracking": "Fehlerverfolgung bei Sync-Problemen"
+        },
+        "entityLinking": {
+          "title": "Entity-Verknuepfung",
+          "bidirectional": "Bidirektionale Verknuepfung mit lokalen Entities",
+          "externalIds": "Externe IDs fuer Referenzierung",
+          "autoUpdate": "Automatische Aktualisierung bei Aenderungen"
+        }
+      },
+      "authentication": {
+        "title": "Authentifizierungsmethoden",
+        "table": {
+          "method": "Methode",
+          "description": "Beschreibung"
+        },
+        "apiKey": "Einfache API-Key-Authentifizierung im Header oder Query",
+        "oauth": "OAuth 2.0 fuer sichere Autorisierung",
+        "basic": "HTTP Basic Auth mit Benutzername und Passwort",
+        "none": "Keine",
+        "noneDesc": "Fuer oeffentliche APIs ohne Authentifizierung"
+      },
+      "workflow": {
+        "title": "Integrations-Workflow",
+        "step1": {
+          "title": "API-Template erstellen",
+          "description": "Definieren Sie die API-Verbindung und Authentifizierung"
+        },
+        "step2": {
+          "title": "Daten synchronisieren",
+          "description": "Starten Sie die initiale Synchronisation"
+        },
+        "step3": {
+          "title": "Entities verknuepfen",
+          "description": "Ordnen Sie externe Daten lokalen Entities zu"
+        },
+        "step4": {
+          "title": "Automatische Updates",
+          "description": "Konfigurieren Sie regelmaessige Synchronisationen"
+        }
+      },
+      "viewingData": {
+        "title": "Externe Daten anzeigen",
+        "description": "In der Entity-Detailansicht finden Sie unter 'Externe Daten' alle synchronisierten Rohdaten aus verknuepften APIs."
       }
     }
   }

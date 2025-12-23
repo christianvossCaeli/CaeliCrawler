@@ -264,11 +264,11 @@ export function cronToHumanReadable(cronExpression: string, locale: string = 'de
   if (!parsed) return cronExpression
   if (validateCronExpression(cronExpression).isAdvanced) return cronExpression
   try {
+    // Note: cronstrue automatically detects 6-field expressions (with seconds)
     return cronstrue.toString(cronExpression, {
       locale: locale === 'de' ? 'de' : 'en',
       use24HourTimeFormat: true,
       verbose: false,
-      useSeconds: parsed.hasSeconds,
       throwExceptionOnParseError: true,
     })
   } catch {

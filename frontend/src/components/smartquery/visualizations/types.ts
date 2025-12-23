@@ -64,8 +64,10 @@ export interface StatCard {
 export interface ComparisonEntity {
   entity_id: string
   entity_name: string
+  entity_type?: string
   facets: Record<string, any>
   core_attributes: Record<string, any>
+  tags?: string[]
 }
 
 export interface VisualizationConfig {

@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -154,6 +155,57 @@ async def _extract_text_and_title(document) -> tuple[Optional[str], Optional[str
         return None, None
 
 
+def _is_valid_title(text: str) -> bool:
+    """Check if text is a valid title (contains enough alphanumeric chars).
+
+    A valid title must:
+    - Be at least 5 characters long
+    - Contain at least 50% alphanumeric characters (including German umlauts)
+
+    Args:
+        text: The text to validate
+
+    Returns:
+        True if the text is a valid title, False otherwise
+    """
+    if not text or len(text) < 5:
+        return False
+    # Count alphanumeric characters (including German umlauts)
+    alnum_count = sum(1 for c in text if c.isalnum() or c in 'äöüÄÖÜß')
+    # Require at least 50% alphanumeric content
+    return alnum_count / len(text) >= 0.5
+
+
+# Pre-compiled regex patterns for title extraction (compiled once at module load)
+_FILENAME_SEPARATOR_PATTERN = re.compile(r'[_-]+')
+_UUID_HEX_PATTERN = re.compile(r'\b[a-f0-9]{8,}\b', re.IGNORECASE)
+
+
+def _title_from_filename(file_path: str) -> Optional[str]:
+    """Extract a readable title from the filename.
+
+    Transforms a file path like '/path/to/my_document_abc123.pdf'
+    into a readable title like 'my document'.
+
+    Args:
+        file_path: Path to the file
+
+    Returns:
+        Extracted title or None if no valid title can be extracted
+    """
+    filename = Path(file_path).stem  # filename without extension
+    # Replace underscores and hyphens with spaces
+    title = _FILENAME_SEPARATOR_PATTERN.sub(' ', filename)
+    # Remove UUIDs and long hex strings
+    title = _UUID_HEX_PATTERN.sub('', title)
+    # Remove extra spaces and trim
+    title = ' '.join(title.split())
+
+    if _is_valid_title(title):
+        return title[:200]  # Truncate to reasonable length
+    return None
+
+
 async def _extract_pdf_text_and_title(file_path: str) -> tuple[str, Optional[str]]:
     """Extract text and title from PDF using PyMuPDF."""
     import fitz  # PyMuPDF
@@ -168,7 +220,7 @@ async def _extract_pdf_text_and_title(file_path: str) -> tuple[str, Optional[str
             title = metadata.get("title") or metadata.get("subject")
             if title:
                 title = title.strip()
-                if not title or title.lower() in ("untitled", "microsoft word"):
+                if not _is_valid_title(title) or title.lower() in ("untitled", "microsoft word"):
                     title = None
 
         # Extract text from all pages
@@ -180,9 +232,13 @@ async def _extract_pdf_text_and_title(file_path: str) -> tuple[str, Optional[str
             first_lines = text_parts[0].strip().split("\n")
             for line in first_lines[:3]:
                 line = line.strip()
-                if line and len(line) > 5 and len(line) < 200:
+                if _is_valid_title(line) and len(line) < 200:
                     title = line
                     break
+
+    # Last resort: try to get title from filename
+    if not title:
+        title = _title_from_filename(file_path)
 
     return "\n".join(text_parts), title
 

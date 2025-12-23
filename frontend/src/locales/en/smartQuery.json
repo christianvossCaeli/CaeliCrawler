@@ -61,10 +61,32 @@
     "mode": {
       "read": "Read Mode",
       "write": "Write Mode",
+      "plan": "Plan Mode",
       "previewFirst": "Preview will be shown first",
       "readHint": "Read: search only - {shortcut} to run",
       "writeHint": "Write: create or update - {shortcut} for preview",
+      "planHint": "Plan: Interactive help with formulating - {shortcut} to send",
       "shortcut": "Ctrl/⌘+Enter"
+    },
+    "plan": {
+      "title": "Interactive Plan Assistant",
+      "placeholder": "Describe what you want to achieve...",
+      "thinking": "Thinking...",
+      "generatedPrompt": "Generated Prompt",
+      "adoptToRead": "Execute in Read Mode",
+      "adoptToWrite": "Execute in Write Mode",
+      "newConversation": "New Conversation",
+      "starterSuggestions": "What would you like to do?",
+      "suggestions": {
+        "findEntities": "I want to find municipalities with specific properties",
+        "createData": "I want to create new data",
+        "queryRelations": "I want to query relationships between data",
+        "explainSyntax": "Explain the query syntax to me"
+      },
+      "welcome": {
+        "title": "Welcome to Plan Mode!",
+        "description": "I'll help you formulate the perfect query. Just describe what you want to achieve and I'll explain step by step how it works."
+      }
     },
     "actions": {
       "preview": "Preview",

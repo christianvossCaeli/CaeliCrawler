@@ -151,6 +151,81 @@ def validate_url(url: str) -> Tuple[bool, Optional[str]]:
     return True, None
 
 
+async def validate_url_http(
+    url: str,
+    follow_redirects: bool = True,
+    timeout: float = 10.0,
+) -> Tuple[bool, Optional[str], Optional[str]]:
+    """Validate URL by making an HTTP HEAD request.
+
+    Checks:
+    1. Basic URL validation (SSRF protection)
+    2. HTTP reachability
+    3. Follows redirects and returns final URL
+
+    Args:
+        url: The URL to validate
+        follow_redirects: Whether to follow redirects
+        timeout: Request timeout in seconds
+
+    Returns:
+        Tuple of (is_valid, error_message, final_url)
+        If valid: (True, None, "https://final-url.com/...")
+        If invalid: (False, "reason", None)
+    """
+    import httpx
+
+    # First do SSRF validation
+    is_valid, error = validate_url(url)
+    if not is_valid:
+        return False, error, None
+
+    try:
+        async with httpx.AsyncClient(
+            follow_redirects=follow_redirects,
+            timeout=timeout,
+        ) as client:
+            response = await client.head(url)
+
+            # Get the final URL after redirects
+            final_url = str(response.url)
+
+            # Check status code
+            if response.status_code == 404:
+                return False, f"URL returns 404 Not Found", None
+            elif response.status_code == 403:
+                return False, f"URL returns 403 Forbidden", None
+            elif response.status_code == 401:
+                return False, f"URL returns 401 Unauthorized", None
+            elif response.status_code >= 500:
+                return False, f"URL returns server error ({response.status_code})", None
+            elif response.status_code >= 400:
+                return False, f"URL returns client error ({response.status_code})", None
+
+            # Validate the final URL (after redirects)
+            if final_url != url:
+                is_valid_final, error_final = validate_url(final_url)
+                if not is_valid_final:
+                    return False, f"Redirect target is invalid: {error_final}", None
+
+                logger.info(
+                    "URL redirected",
+                    original_url=url,
+                    final_url=final_url,
+                )
+
+            return True, None, final_url
+
+    except httpx.ConnectTimeout:
+        return False, "Connection timeout", None
+    except httpx.ConnectError as e:
+        return False, f"Connection error: {str(e)[:50]}", None
+    except httpx.TooManyRedirects:
+        return False, "Too many redirects", None
+    except Exception as e:
+        return False, f"HTTP error: {type(e).__name__}: {str(e)[:50]}", None
+
+
 def validate_url_strict(url: str, allowed_domains: Optional[list] = None) -> Tuple[bool, Optional[str]]:
     """Strict URL validation with optional domain whitelist.
 

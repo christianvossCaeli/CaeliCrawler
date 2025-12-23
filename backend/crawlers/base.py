@@ -155,8 +155,13 @@ def get_crawler_for_source(source: "DataSource") -> BaseCrawler:
     from crawlers.news_crawler import NewsCrawler
     from crawlers.api_crawler import APICrawler
     from crawlers.entity_api_crawler import EntityAPICrawler
+    from crawlers.sharepoint_crawler import SharePointCrawler
 
     crawl_config = source.crawl_config or {}
+
+    # SharePoint uses SharePointCrawler
+    if source.source_type == SourceType.SHAREPOINT:
+        return SharePointCrawler()
 
     # REST_API and SPARQL_API use EntityAPICrawler for Entity updates
     if source.source_type in (SourceType.REST_API, SourceType.SPARQL_API):
