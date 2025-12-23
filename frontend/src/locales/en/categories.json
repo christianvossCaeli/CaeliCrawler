@@ -1,6 +1,7 @@
 {
   "categories": {
     "title": "Analysis Topics",
+    "subtitle": "Manage topics for automatic document analysis",
     "category": "Analysis Topic",
     "categories": "Analysis Topics",
     "tabs": {

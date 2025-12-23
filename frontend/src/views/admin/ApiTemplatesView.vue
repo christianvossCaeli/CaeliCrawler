@@ -1,60 +1,56 @@
 <template>
   <v-container fluid>
     <!-- Header -->
-    <v-row class="mb-4">
-      <v-col>
-        <h1 class="text-h4 font-weight-bold">
-          <v-icon start size="32">mdi-api</v-icon>
-          {{ t('admin.apiTemplates.title') }}
-        </h1>
-        <p class="text-body-2 text-medium-emphasis mt-1">
-          {{ t('admin.apiTemplates.subtitle') }}
-        </p>
-      </v-col>
-      <v-col cols="auto">
+    <PageHeader
+      :title="t('admin.apiTemplates.title')"
+      :subtitle="t('admin.apiTemplates.subtitle')"
+      icon="mdi-api"
+    >
+      <template #actions>
         <v-btn variant="tonal" color="primary" @click="openCreateDialog">
           <v-icon start>mdi-plus</v-icon>
           {{ t('admin.apiTemplates.actions.create') }}
         </v-btn>
-      </v-col>
-    </v-row>
+      </template>
+    </PageHeader>
 
     <!-- Filters -->
-    <v-row class="mb-4">
-      <v-col cols="12" md="4">
-        <v-text-field
-          v-model="search"
-          :label="t('common.search')"
-          prepend-inner-icon="mdi-magnify"
-          variant="outlined"
-          density="compact"
-          clearable
-          @update:model-value="debouncedFetch"
-        />
-      </v-col>
-      <v-col cols="12" md="3">
-        <v-select
-          v-model="statusFilter"
-          :label="t('admin.apiTemplates.filters.status')"
-          :items="statusOptions"
-          variant="outlined"
-          density="compact"
-          clearable
-          @update:model-value="fetchTemplates"
-        />
-      </v-col>
-      <v-col cols="12" md="3">
-        <v-select
-          v-model="apiTypeFilter"
-          :label="t('admin.apiTemplates.filters.apiType')"
-          :items="apiTypeOptions"
-          variant="outlined"
-          density="compact"
-          clearable
-          @update:model-value="fetchTemplates"
-        />
-      </v-col>
-    </v-row>
+    <v-card class="mb-4">
+      <v-card-text>
+        <v-row align="center">
+          <v-col cols="12" md="4">
+            <v-text-field
+              v-model="search"
+              :label="t('common.search')"
+              prepend-inner-icon="mdi-magnify"
+              clearable
+              hide-details
+              @update:model-value="debouncedFetch"
+            />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-select
+              v-model="statusFilter"
+              :label="t('admin.apiTemplates.filters.status')"
+              :items="statusOptions"
+              clearable
+              hide-details
+              @update:model-value="fetchTemplates"
+            />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-select
+              v-model="apiTypeFilter"
+              :label="t('admin.apiTemplates.filters.apiType')"
+              :items="apiTypeOptions"
+              clearable
+              hide-details
+              @update:model-value="fetchTemplates"
+            />
+          </v-col>
+        </v-row>
+      </v-card-text>
+    </v-card>
 
     <!-- Templates Table -->
     <v-card>
@@ -374,6 +370,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 // Debounce timeout for cleanup
 let debounceTimeoutId: ReturnType<typeof setTimeout> | null = null

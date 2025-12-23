@@ -4,6 +4,16 @@ Write Operations Framework.
 This module provides a command pattern implementation for Smart Query write operations.
 It allows for modular, testable, and maintainable operation handlers.
 
+Modules:
+- pysis_ops: PySis analyze, enrich, push operations
+- entity_ops: Entity update, delete operations
+- facet_ops: FacetType create, assign, delete, history operations
+- batch_ops: Batch operations on multiple entities
+- export_ops: Export, undo, history operations
+- api_import_ops: API fetch and create operations
+- category_ops: Category linking and relation type operations
+- discovery: Source discovery operations
+
 Usage:
     # Register operations
     from .base import register_operation
@@ -17,15 +27,6 @@ Usage:
     from .base import execute_operation
 
     result = await execute_operation(session, command, user_id)
-
-Migration Status:
-    - discover_sources: MIGRATED (discovery.py)
-    - create_entity: legacy (write_executor.py)
-    - create_facet: legacy (write_executor.py)
-    - create_relation: legacy (write_executor.py)
-    - create_entity_type: legacy (write_executor.py)
-    - create_category_setup: legacy (write_executor.py)
-    - ... (19 more operations in write_executor.py)
 """
 
 from .base import (
@@ -38,8 +39,15 @@ from .base import (
 )
 
 # Import operations to trigger registration
-# Add new operation imports here as they are migrated
-from . import discovery  # noqa: F401 - imported for registration side-effect
+# Each module uses @register_operation decorator
+from . import discovery  # noqa: F401
+from . import pysis_ops  # noqa: F401
+from . import entity_ops  # noqa: F401
+from . import facet_ops  # noqa: F401
+from . import batch_ops  # noqa: F401
+from . import export_ops  # noqa: F401
+from . import api_import_ops  # noqa: F401
+from . import category_ops  # noqa: F401
 
 __all__ = [
     "WriteOperation",

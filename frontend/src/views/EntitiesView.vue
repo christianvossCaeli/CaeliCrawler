@@ -12,17 +12,13 @@
     </v-overlay>
 
     <!-- Header -->
-    <div class="d-flex justify-space-between align-center mb-6">
-      <div class="d-flex align-center">
-        <v-icon v-if="currentEntityType" :icon="currentEntityType.icon" :color="currentEntityType.color" size="32" class="mr-3"></v-icon>
-        <div>
-          <h1 class="text-h4">{{ currentEntityType?.name_plural || 'Entities' }}</h1>
-          <div v-if="currentEntityType?.description" class="text-body-2 text-medium-emphasis">
-            {{ currentEntityType.description }}
-          </div>
-        </div>
-      </div>
-      <div class="d-flex ga-2">
+    <PageHeader
+      :title="currentEntityType?.name_plural || 'Entities'"
+      :subtitle="currentEntityType?.description"
+      :icon="currentEntityType?.icon || 'mdi-shape'"
+      :avatar-color="currentEntityType?.color || 'primary'"
+    >
+      <template #actions>
         <v-btn v-if="store.selectedTemplate" variant="outlined" @click="templateDialog = true">
           <v-icon start>mdi-view-dashboard</v-icon>
           {{ store.selectedTemplate.name }}
@@ -31,8 +27,8 @@
           <v-icon start>mdi-plus</v-icon>
           {{ t('entities.createNew') }}
         </v-btn>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Entity Type Tabs (if no specific type selected) -->
     <v-tabs v-if="!typeSlug" v-model="selectedTypeTab" color="primary" class="mb-4" show-arrows>
@@ -49,35 +45,35 @@
 
     <!-- Stats Cards -->
     <v-row class="mb-4">
-      <v-col cols="12" md="3">
-        <v-card class="stats-card">
-          <v-card-text class="text-center">
-            <div class="text-h4">{{ totalEntities }}</div>
-            <div class="text-subtitle-1">{{ currentEntityType?.name_plural || 'Entities' }}</div>
+      <v-col cols="6" sm="3">
+        <v-card variant="outlined">
+          <v-card-text class="text-center py-3">
+            <div class="text-h5 text-primary">{{ totalEntities }}</div>
+            <div class="text-caption">{{ currentEntityType?.name_plural || 'Entities' }}</div>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="12" md="3">
-        <v-card class="stats-card stats-card--primary">
-          <v-card-text class="text-center">
-            <div class="text-h4">{{ stats.total_facet_values || 0 }}</div>
-            <div class="text-subtitle-1">{{ t('entities.facetValues') }}</div>
+      <v-col cols="6" sm="3">
+        <v-card variant="outlined">
+          <v-card-text class="text-center py-3">
+            <div class="text-h5 text-info">{{ stats.total_facet_values || 0 }}</div>
+            <div class="text-caption">{{ t('entities.facetValues') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="12" md="3">
-        <v-card class="stats-card stats-card--success">
-          <v-card-text class="text-center">
-            <div class="text-h4">{{ stats.verified_count || 0 }}</div>
-            <div class="text-subtitle-1">{{ t('entities.verified') }}</div>
+      <v-col cols="6" sm="3">
+        <v-card variant="outlined">
+          <v-card-text class="text-center py-3">
+            <div class="text-h5 text-success">{{ stats.verified_count || 0 }}</div>
+            <div class="text-caption">{{ t('entities.verified') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="12" md="3">
-        <v-card class="stats-card stats-card--tertiary">
-          <v-card-text class="text-center">
-            <div class="text-h4">{{ stats.relation_count || 0 }}</div>
-            <div class="text-subtitle-1">{{ t('entities.relations') }}</div>
+      <v-col cols="6" sm="3">
+        <v-card variant="outlined">
+          <v-card-text class="text-center py-3">
+            <div class="text-h5">{{ stats.relation_count || 0 }}</div>
+            <div class="text-caption">{{ t('entities.relations') }}</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -791,6 +787,7 @@ import { adminApi, userApi, entityApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useFeatureFlags } from '@/composables/useFeatureFlags'
 import EntityMapView from '@/components/entities/EntityMapView.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 const { flags } = useFeatureFlags()

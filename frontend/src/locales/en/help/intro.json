@@ -1,6 +1,7 @@
 {
   "help": {
     "title": "User Manual",
+    "subtitle": "Documentation and guides for using the system",
     "intro": {
       "title": "Introduction",
       "whatIs": "What is CaeliCrawler?",

@@ -2,21 +2,17 @@
   <div class="entity-types-view">
     <v-container fluid>
       <!-- Header -->
-      <v-row class="mb-4">
-        <v-col>
-          <div class="d-flex align-center justify-space-between">
-            <div>
-              <h1 class="text-h4 mb-1">{{ t('admin.entityTypes.title') }}</h1>
-              <p class="text-body-2 text-medium-emphasis">
-                {{ t('admin.entityTypes.subtitle') }}
-              </p>
-            </div>
-            <v-btn variant="tonal" color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
-              {{ t('admin.entityTypes.actions.create') }}
-            </v-btn>
-          </div>
-        </v-col>
-      </v-row>
+      <PageHeader
+        :title="t('admin.entityTypes.title')"
+        :subtitle="t('admin.entityTypes.subtitle')"
+        icon="mdi-shape"
+      >
+        <template #actions>
+          <v-btn variant="tonal" color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
+            {{ t('admin.entityTypes.actions.create') }}
+          </v-btn>
+        </template>
+      </PageHeader>
 
       <!-- Entity Types Table -->
       <v-card>
@@ -364,6 +360,22 @@
                       </v-card>
                     </v-col>
                     <v-col cols="12" md="6">
+                      <v-card variant="outlined" class="pa-4">
+                        <v-switch
+                          v-model="form.supports_pysis"
+                          :label="t('admin.entityTypes.form.supportsPysis')"
+                          color="primary"
+                          hide-details
+                        ></v-switch>
+                        <div class="text-caption text-medium-emphasis mt-2">
+                          {{ t('admin.entityTypes.form.supportsPysisHint') }}
+                        </div>
+                      </v-card>
+                    </v-col>
+                  </v-row>
+
+                  <v-row class="mt-4">
+                    <v-col cols="12" md="6">
                       <v-number-input
                         v-model="form.display_order"
                         :label="t('admin.entityTypes.form.displayOrder')"
@@ -442,6 +454,7 @@ import { useI18n } from 'vue-i18n'
 import { entityApi, facetApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { getContrastColor } from '@/composables/useColorHelpers'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
@@ -473,6 +486,7 @@ const form = ref({
   color: 'success',
   is_primary: true,
   supports_hierarchy: false,
+  supports_pysis: false,
   is_active: true,
   display_order: 10,
 })
@@ -595,6 +609,7 @@ function openCreateDialog() {
     color: 'success',
     is_primary: true,
     supports_hierarchy: false,
+    supports_pysis: false,
     is_active: true,
     display_order: 10,
   }
@@ -634,6 +649,7 @@ function openEditDialog(item: any) {
     color: item.color || 'success',
     is_primary: item.is_primary ?? true,
     supports_hierarchy: item.supports_hierarchy ?? false,
+    supports_pysis: item.supports_pysis ?? false,
     is_active: item.is_active ?? true,
     display_order: item.display_order ?? 10,
   }

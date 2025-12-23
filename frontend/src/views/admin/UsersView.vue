@@ -1,60 +1,56 @@
 <template>
   <v-container fluid>
     <!-- Header -->
-    <v-row class="mb-4">
-      <v-col>
-        <h1 class="text-h4 font-weight-bold">
-          <v-icon start size="32">mdi-account-group</v-icon>
-          {{ t('admin.users.title') }}
-        </h1>
-        <p class="text-body-2 text-medium-emphasis mt-1">
-          {{ t('admin.users.subtitle') }}
-        </p>
-      </v-col>
-      <v-col cols="auto">
+    <PageHeader
+      :title="t('admin.users.title')"
+      :subtitle="t('admin.users.subtitle')"
+      icon="mdi-account-group"
+    >
+      <template #actions>
         <v-btn variant="tonal" color="primary" @click="openCreateDialog">
           <v-icon start>mdi-plus</v-icon>
           {{ t('admin.users.actions.create') }}
         </v-btn>
-      </v-col>
-    </v-row>
+      </template>
+    </PageHeader>
 
     <!-- Filters -->
-    <v-row class="mb-4">
-      <v-col cols="12" md="4">
-        <v-text-field
-          v-model="search"
-          :label="t('admin.users.filters.search')"
-          prepend-inner-icon="mdi-magnify"
-          variant="outlined"
-          density="compact"
-          clearable
-          @update:model-value="debouncedFetch"
-        />
-      </v-col>
-      <v-col cols="12" md="3">
-        <v-select
-          v-model="roleFilter"
-          :label="t('admin.users.filters.role')"
-          :items="roleOptions"
-          variant="outlined"
-          density="compact"
-          clearable
-          @update:model-value="fetchUsers"
-        />
-      </v-col>
-      <v-col cols="12" md="3">
-        <v-select
-          v-model="activeFilter"
-          :label="t('admin.users.filters.status')"
-          :items="activeOptions"
-          variant="outlined"
-          density="compact"
-          clearable
-          @update:model-value="fetchUsers"
-        />
-      </v-col>
-    </v-row>
+    <v-card class="mb-4">
+      <v-card-text>
+        <v-row align="center">
+          <v-col cols="12" md="4">
+            <v-text-field
+              v-model="search"
+              :label="t('admin.users.filters.search')"
+              prepend-inner-icon="mdi-magnify"
+              clearable
+              hide-details
+              @update:model-value="debouncedFetch"
+            />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-select
+              v-model="roleFilter"
+              :label="t('admin.users.filters.role')"
+              :items="roleOptions"
+              clearable
+              hide-details
+              @update:model-value="fetchUsers"
+            />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-select
+              v-model="activeFilter"
+              :label="t('admin.users.filters.status')"
+              :items="activeOptions"
+              clearable
+              hide-details
+              @update:model-value="fetchUsers"
+            />
+          </v-col>
+        </v-row>
+      </v-card-text>
+    </v-card>
 
     <!-- Users Table -->
     <v-card>
@@ -280,6 +276,7 @@ import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import { useAuthStore, type User } from '@/stores/auth'
 import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 const auth = useAuthStore()

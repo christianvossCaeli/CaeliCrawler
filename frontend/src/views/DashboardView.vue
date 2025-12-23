@@ -1,27 +1,30 @@
 <template>
   <div>
     <!-- Header with Customize Button -->
-    <div class="d-flex align-center mb-6">
-      <h1 class="text-h4">{{ $t('dashboard.title') }}</h1>
-      <v-spacer />
-      <v-btn
-        variant="tonal"
-        :color="dashboardStore.isEditing ? 'warning' : 'default'"
-        class="mr-2"
-        @click="toggleEditMode"
-      >
-        <v-icon :icon="dashboardStore.isEditing ? 'mdi-check' : 'mdi-pencil'" class="mr-2" />
-        {{ dashboardStore.isEditing ? $t('dashboard.finishEditing') : $t('dashboard.customize') }}
-      </v-btn>
-      <v-btn
-        variant="tonal"
-        color="warning"
-        @click="showStartCrawlerDialog = true"
-      >
-        <v-icon icon="mdi-play" class="mr-2" />
-        {{ $t('dashboard.quickActions.startCrawler') }}
-      </v-btn>
-    </div>
+    <PageHeader
+      :title="$t('dashboard.title')"
+      :subtitle="$t('dashboard.subtitle')"
+      icon="mdi-view-dashboard"
+    >
+      <template #actions>
+        <v-btn
+          variant="tonal"
+          :color="dashboardStore.isEditing ? 'warning' : 'default'"
+          @click="toggleEditMode"
+        >
+          <v-icon :icon="dashboardStore.isEditing ? 'mdi-check' : 'mdi-pencil'" class="mr-2" />
+          {{ dashboardStore.isEditing ? $t('dashboard.finishEditing') : $t('dashboard.customize') }}
+        </v-btn>
+        <v-btn
+          variant="tonal"
+          color="warning"
+          @click="showStartCrawlerDialog = true"
+        >
+          <v-icon icon="mdi-play" class="mr-2" />
+          {{ $t('dashboard.quickActions.startCrawler') }}
+        </v-btn>
+      </template>
+    </PageHeader>
 
     <!-- Crawl Presets Quick Actions -->
     <CrawlPresetQuickActions class="mb-4" />
@@ -192,6 +195,7 @@ import { useDashboardStore } from '@/stores/dashboard'
 import DashboardGrid from '@/widgets/DashboardGrid.vue'
 import WidgetConfigurator from '@/components/dashboard/WidgetConfigurator.vue'
 import CrawlPresetQuickActions from '@/components/crawler/CrawlPresetQuickActions.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 const dashboardStore = useDashboardStore()

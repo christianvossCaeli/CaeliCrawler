@@ -70,6 +70,8 @@ Analysiere die Benutzeranfrage und entscheide selbstständig, welche Operationen
 {category_section}
 
 ## Verfügbare Operationen:
+
+### Schreib-Operationen:
 - create_entity_type: Neuen Entity-Typ erstellen
 - create_entity: Einzelne Entity erstellen
 - create_facet: Facet zu Entity hinzufügen
@@ -80,7 +82,109 @@ Analysiere die Benutzeranfrage und entscheide selbstständig, welche Operationen
 - fetch_and_create_from_api: Daten aus externen APIs importieren (Wikidata SPARQL, REST APIs)
 - create_category_setup: Neue Kategorie mit DataSources erstellen
 - start_crawl: Crawls starten (unterstützt Filter nach Entity-Type, Region, Tags)
+- analyze_pysis: PySis-Daten analysieren und Facets daraus erstellen
+- enrich_facets_from_pysis: Bestehende Facets mit PySis-Daten anreichern
+- push_to_pysis: Facet-Werte zu PySis synchronisieren
+- setup_api_facet_sync: Automatische API-zu-Facet Synchronisation einrichten
+- trigger_api_sync: API-Sync manuell auslösen
 - combined: Mehrere Operationen kombinieren
+
+### Abfrage-Operationen:
+- query_data: Interne Entity/Facet-Daten abfragen (mit Visualisierung)
+- query_external: Externe API live abfragen (ohne Speicherung)
+- query_facet_history: Zeitreihen-Daten eines Facet-Typs abfragen
+
+## Daten-Abfrage Operationen:
+
+### query_data - Interne Daten abfragen:
+Wenn der Benutzer nach existierenden Daten fragt (z.B. "zeige mir...", "wie viele...", "liste..."):
+{{
+  "operation": "query_data",
+  "query_config": {{
+    "entity_type": "fussballverein",       // Erforderlich
+    "facet_types": ["tabellen-punkte"],    // Optional: Welche Facets
+    "filters": {{
+      "tags": ["bundesliga-1"],            // Optional: Tags
+      "admin_level_1": "Bayern"            // Optional: Region
+    }},
+    "time_range": {{                       // Optional: Für History-Facets
+      "latest_only": true                  // Nur neuester Wert
+    }},
+    "sort_by": "tabellen-punkte",          // Optional: Sortierung
+    "sort_order": "desc",
+    "limit": 20
+  }},
+  "visualization_hint": "table",           // Optional: table|bar_chart|line_chart|pie_chart|stat_card
+  "user_query": "Zeige die Bundesliga-Tabelle"
+}}
+
+### query_external - Live API-Abfrage:
+Für Live-Daten von externen APIs (ohne Speicherung):
+{{
+  "operation": "query_external",
+  "query_config": {{
+    "prompt": "Aktuelle Bundesliga Tabelle"  // KI findet passende API
+    // ODER: "api_url": "https://api.example.com/data"
+    // ODER: "api_template_id": "uuid-hier"
+  }},
+  "user_query": "Zeige mir live die aktuelle Tabelle"
+}}
+
+### query_facet_history - Zeitreihen abfragen:
+Für Verlaufsdaten über Zeit:
+{{
+  "operation": "query_facet_history",
+  "query_config": {{
+    "entity_type": "fussballverein",
+    "facet_type": "tabellen-punkte",
+    "entity_names": ["FC Bayern München"],  // Optional: Spezifische Entities
+    "from_date": "2024-01-01",
+    "to_date": "2024-12-31"
+  }},
+  "visualization_hint": "line_chart"
+}}
+
+### Wann welche Operation verwenden:
+- "Zeige mir die Tabelle" → query_data (interne Daten)
+- "Zeige mir LIVE die Tabelle" → query_external (externe API)
+- "Zeige den Punkteverlauf von Bayern" → query_facet_history (Zeitreihe)
+- "Sammle wöchentlich die Tabelle" → setup_api_facet_sync (Automatisierung)
+
+## PySis-Operationen:
+Für Entities mit PySis-Prozessen können folgende Operationen ausgeführt werden:
+
+### analyze_pysis - PySis-Daten analysieren:
+{{
+  "operation": "analyze_pysis",
+  "pysis_data": {{
+    "entity_name": "Gummersbach",  // Name der Entity
+    "overwrite_existing": false    // Bestehende Facets überschreiben?
+  }}
+}}
+
+### enrich_facets_from_pysis - Facets anreichern:
+{{
+  "operation": "enrich_facets_from_pysis",
+  "pysis_data": {{
+    "entity_name": "Gummersbach",
+    "overwrite_existing": false
+  }}
+}}
+
+### push_to_pysis - Zu PySis synchronisieren:
+{{
+  "operation": "push_to_pysis",
+  "pysis_data": {{
+    "entity_name": "Gummersbach",
+    "process_id": "optional-process-uuid"  // Optional: Spezifischer Prozess
+  }}
+}}
+
+Beispiele für PySis-Befehle:
+- "Analysiere PySis-Daten für Gummersbach" → analyze_pysis
+- "Reichere Facets von Köln mit PySis an" → enrich_facets_from_pysis
+- "Synchronisiere Gummersbach zu PySis" → push_to_pysis
+- "Aktualisiere PySis-Daten für alle Gemeinden in NRW" → combined mit mehreren analyze_pysis
 
 ## Start Crawl Operation:
 Starte Crawls für DataSources mit flexiblen Filtern:
@@ -354,3 +458,129 @@ Antworte NUR mit validem JSON."""
 # Legacy prompt - deprecated, use build_dynamic_write_prompt() instead
 WRITE_INTERPRETATION_PROMPT = """DEPRECATED: Use build_dynamic_write_prompt() instead.
 Benutzeranfrage: {query}"""
+
+
+# =============================================================================
+# Visualization Selection Prompt
+# =============================================================================
+
+VISUALIZATION_SELECTOR_PROMPT = """Analysiere die folgenden Daten und wähle das beste Visualisierungsformat.
+
+## Datenübersicht
+- Anzahl Datenpunkte: {count}
+- Datenfelder: {fields}
+- Hat Zeitdimension: {has_time}
+- Anzahl Kategorien/Entities: {category_count}
+- Numerische Felder: {numeric_fields}
+- User-Query: "{user_query}"
+
+## Datensample (erste 3 Einträge):
+```json
+{data_sample}
+```
+
+## Verfügbare Visualisierungstypen:
+- "table": Für Ranglisten, Vergleichstabellen (>3 Spalten, sortierbar)
+- "bar_chart": Für Kategorievergleiche (2-15 Kategorien, ein Wert pro Kategorie)
+- "line_chart": Für Zeitverläufe (hat Zeitdimension, zeigt Entwicklung)
+- "pie_chart": Für Anteile/Prozente (2-8 Kategorien, summieren zu 100%)
+- "stat_card": Für Einzelwerte oder KPIs (1-4 Werte)
+- "text": Für Zusammenfassungen oder wenn Charts nicht sinnvoll
+- "comparison": Für 2-3 Entities detailliert vergleichen
+
+## Entscheidungskriterien:
+1. Bei Ranglisten (Position, Punkte) → "table"
+2. Bei Zeitreihen → "line_chart"
+3. Bei Vergleichsfrage mit 2-3 Entities → "comparison"
+4. Bei Einzelwert-Frage ("Wie viele...?") → "stat_card"
+5. Bei Kategorien mit einem Wert → "bar_chart"
+6. Bei Anteilen/Prozenten → "pie_chart"
+
+## Antwortformat (JSON):
+{{
+  "visualization_type": "table|bar_chart|line_chart|pie_chart|stat_card|text|comparison",
+  "reasoning": "Kurze Begründung",
+  "title": "Vorgeschlagener Titel",
+  "subtitle": "Optional: Untertitel",
+  "columns": [  // NUR für table
+    {{"key": "feldname", "label": "Anzeigename", "type": "text|number|date"}}
+  ],
+  "sort_column": "feldname",  // NUR für table
+  "sort_order": "asc|desc",   // NUR für table
+  "x_axis": {{"key": "...", "label": "...", "type": "category|number|time"}},  // NUR für Charts
+  "y_axis": {{"key": "...", "label": "...", "type": "number"}},  // NUR für Charts
+  "series": [{{"key": "...", "label": "...", "color": "#..."}}],  // NUR für Charts
+  "cards": [{{"label": "...", "value_key": "...", "unit": "..."}}]  // NUR für stat_card
+}}
+
+Antworte NUR mit validem JSON."""
+
+
+def build_compound_query_prompt(
+    entity_types: List[Dict[str, Any]],
+    facet_types: List[Dict[str, Any]],
+    query: str,
+) -> str:
+    """Build prompt to detect and decompose compound queries (UND-Abfragen).
+
+    This prompt helps the AI identify when a user query contains multiple
+    distinct data requests that should be visualized separately.
+    """
+
+    # Build entity types section
+    entity_lines = [f"- {et['slug']}: {et.get('description') or et['name']}" for et in entity_types]
+    entity_section = "\n".join(entity_lines) if entity_lines else "- (keine)"
+
+    # Build facet types section
+    facet_lines = [f"- {ft['slug']}: {ft.get('description') or ft['name']}" for ft in facet_types]
+    facet_section = "\n".join(facet_lines) if facet_lines else "- (keine)"
+
+    return f"""Analysiere diese Benutzeranfrage und prüfe, ob sie mehrere separate Datenabfragen enthält.
+
+## Benutzeranfrage:
+"{query}"
+
+## Verfügbare Entity Types:
+{entity_section}
+
+## Verfügbare Facet Types:
+{facet_section}
+
+## Aufgabe:
+Erkenne ob die Anfrage mehrere UNTERSCHIEDLICHE Datensätze oder Visualisierungen anfordert.
+
+Signale für Compound Queries:
+- "UND" / "und" / "sowie" / "zusätzlich" / "außerdem" / "dazu"
+- "als auch" / "plus" / "and also"
+- Zwei unterschiedliche Datentypen werden genannt (z.B. "Tabelle" und "Verlauf")
+- Zwei verschiedene Entity-Typen oder Filterkriterien
+
+NICHT Compound:
+- Eine Abfrage mit mehreren Filterkriterien (z.B. "Personen aus NRW und Bayern")
+- Eine Abfrage mit mehreren Facet-Typen für dieselben Entities
+
+## Antwortformat (JSON):
+{{{{
+  "is_compound": true|false,
+  "reasoning": "Kurze Begründung",
+  "sub_queries": [
+    {{{{
+      "id": "unique-id-1",
+      "description": "Was diese Teil-Abfrage zeigt",
+      "query_config": {{{{
+        "entity_type": "entity_slug",
+        "facet_types": ["facet_slug"],
+        "filters": {{{{}}}},
+        "sort_by": "optional",
+        "sort_order": "asc|desc",
+        "limit": 10
+      }}}},
+      "visualization_hint": "table|bar_chart|line_chart|pie_chart|stat_card|map|comparison|null"
+    }}}}
+  ]
+}}}}
+
+Wenn is_compound=false, gib sub_queries als leeres Array zurück.
+Wenn is_compound=true, zerlege die Anfrage in 2-4 separate sub_queries.
+
+Antworte NUR mit validem JSON."""

@@ -441,6 +441,7 @@ async def execute_smart_query(
                     "text": fv.text_representation,
                     "event_date": fv.event_date.isoformat() if fv.event_date else None,
                     "confidence": fv.confidence_score,
+                    "source_type": fv.source_type.value if fv.source_type else None,
                 }
                 for fv in facet_values
             ]

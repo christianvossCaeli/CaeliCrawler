@@ -1,6 +1,7 @@
 {
   "documents": {
     "title": "Documents",
+    "subtitle": "Browse found and processed documents",
     "document": "Document",
     "documents": "Documents",
     "filters": {

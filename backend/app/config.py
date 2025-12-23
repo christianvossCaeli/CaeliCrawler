@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     debug: bool = False
     secret_key: str = Field(default="change-me-in-production")
     frontend_url: str = "https://app.caeli-wind.de"  # For email verification links
+    schedule_timezone: str = "Europe/Berlin"
 
     @model_validator(mode="after")
     def validate_production_settings(self) -> "Settings":

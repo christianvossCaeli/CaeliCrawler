@@ -1,6 +1,7 @@
 {
   "results": {
     "title": "Results",
+    "subtitle": "AI-extracted analysis results from processed documents",
     "aiExtractedData": "AI-extracted Data",
     "loading": {
       "title": "Loading data",

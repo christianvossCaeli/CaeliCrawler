@@ -1,28 +1,29 @@
 {
   "dashboard": {
-    "title": "Dashboard",
+    "title": "Übersicht",
+    "subtitle": "Aktuelle Statistiken und Aktivitäten im Überblick",
     "welcome": "Willkommen zurück",
     "customize": "Anpassen",
     "finishEditing": "Fertig",
     "resetToDefaults": "Zurücksetzen",
     "lastUpdated": "Zuletzt aktualisiert",
-    "noWidgets": "Keine Widgets aktiv",
-    "noWidgetsHint": "Klicken Sie auf 'Anpassen' um Widgets hinzuzufügen",
-    "unknownWidget": "Unbekanntes Widget: {type}",
+    "noWidgets": "Keine Kacheln aktiv",
+    "noWidgetsHint": "Klicken Sie auf 'Anpassen' um Kacheln hinzuzufügen",
+    "unknownWidget": "Unbekannte Kachel: {type}",
     "noActivity": "Keine Aktivitäten",
     "noRecentJobs": "Keine aktuellen Jobs",
     "noNewInsights": "Alles auf dem neuesten Stand",
-    "widgetsActive": "Widgets aktiv",
-    "dragToReorder": "Widgets per Drag & Drop oder mit den Pfeilen neu anordnen",
+    "widgetsActive": "Kacheln aktiv",
+    "dragToReorder": "Kacheln per Drag & Drop oder mit den Pfeilen neu anordnen",
     "preview": "Vorschau",
     "workers": "Workers",
     "running": "Laufend",
     "pending": "Wartend",
     "activeJobs": "Aktive Jobs",
     "recentJobs": "Letzte Jobs",
-    "aiTasks": "KI-Tasks",
-    "crawler": "Crawler",
-    "avgConfidence": "Durchschn. Konfidenz",
+    "aiTasks": "KI-Aufgaben",
+    "crawler": "Datensammler",
+    "avgConfidence": "Durchschn. Zuverlässigkeit",
     "health": {
       "healthy": "System OK",
       "active": "System aktiv",
@@ -37,15 +38,15 @@
     },
     "widgets": {
       "statsEntities": {
-        "name": "Entities",
-        "description": "Anzahl der Entities im System",
-        "total": "Entities gesamt"
+        "name": "Datensätze",
+        "description": "Anzahl der Datensätze im System",
+        "total": "Datensätze gesamt"
       },
       "statsFacets": {
-        "name": "Facetten",
-        "description": "Facetten-Werte und Verifizierungsrate",
-        "total": "Facetten gesamt",
-        "verified": "verifiziert"
+        "name": "Merkmale",
+        "description": "Merkmalswerte und Prüfungsrate",
+        "total": "Merkmale gesamt",
+        "verified": "geprüft"
       },
       "statsDocuments": {
         "name": "Dokumente",
@@ -54,47 +55,47 @@
         "processed": "verarbeitet"
       },
       "statsCrawler": {
-        "name": "Crawler",
-        "description": "Aktive und abgeschlossene Crawl-Jobs",
+        "name": "Datensammler",
+        "description": "Aktive und abgeschlossene Sammel-Jobs",
         "running": "Laufende Jobs"
       },
       "activityFeed": {
         "name": "Aktivitäten",
-        "description": "Letzte Änderungen und Events"
+        "description": "Letzte Änderungen und Ereignisse"
       },
       "crawlerStatus": {
-        "name": "Crawler Status",
-        "description": "Aktive und geplante Crawl-Jobs"
+        "name": "Datensammler Status",
+        "description": "Aktive und geplante Sammel-Jobs"
       },
       "insights": {
-        "name": "Insights",
+        "name": "Neuigkeiten",
         "description": "Neu seit Ihrem letzten Login"
       },
       "chartDistribution": {
-        "name": "Entity-Verteilung",
-        "description": "Verteilung nach Entity-Typ"
+        "name": "Datensatz-Verteilung",
+        "description": "Verteilung nach Datentyp"
       },
       "systemHealth": {
         "name": "System-Status",
-        "description": "KI-Tasks und System-Gesundheit"
+        "description": "KI-Aufgaben und System-Gesundheit"
       },
       "favorites": {
         "name": "Favoriten",
-        "description": "Ihre Lieblings-Entities für schnellen Zugriff"
+        "description": "Ihre Lieblings-Datensätze für schnellen Zugriff"
       }
     },
     "stats": {
       "categories": "Kategorien",
       "dataSources": "Datenquellen",
       "documents": "Dokumente",
-      "activeCrawlers": "Aktive Crawler",
+      "activeCrawlers": "Aktive Sammler",
       "newDocuments": "Neue Dokumente",
       "errors": "Fehler",
       "documentsNew": "neu",
       "documentsError": "Fehler"
     },
     "crawlerStatus": {
-      "title": "Crawler Status",
+      "title": "Datensammler Status",
       "activeWorkers": "Aktive Workers",
       "runningJobs": "Laufende Jobs",
       "pendingJobs": "Wartende Jobs",
@@ -112,12 +113,12 @@
       "title": "Schnellaktionen",
       "newCategory": "Neue Kategorie",
       "newDataSource": "Neue Datenquelle",
-      "startCrawler": "Crawler starten",
+      "startCrawler": "Datensammlung starten",
       "exportData": "Daten exportieren"
     },
     "startCrawlerDialog": {
-      "title": "Crawler starten",
-      "sourcesWillBeCrawled": "Datenquellen werden gecrawlt",
+      "title": "Datensammlung starten",
+      "sourcesWillBeCrawled": "Datenquellen werden gesammelt",
       "resetFilters": "Filter zurücksetzen",
       "category": "Kategorie",
       "country": "Land",

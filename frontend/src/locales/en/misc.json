@@ -31,6 +31,7 @@
     "noProcessesFound": "No processes found",
     "checkConnection": "Enter UUID manually or check PySis connection",
     "enterUUIDManually": "Enter UUID manually",
+    "processId": "PySis Process ID",
     "processIdManual": "PySis Process ID (manual)",
     "processIdPlaceholder": "e.g. 402bd7d6-b0b2-4524-a2b2-e1bc5ea2e591",
     "processIdHint": "The UUID of the process in PySis",

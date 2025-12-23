@@ -18,6 +18,11 @@
       "favorites": "Favorites",
       "empty": "No commands executed yet",
       "noFavorites": "No favorites yet",
+      "noResults": "No matching commands",
+      "searchPlaceholder": "Search commands",
+      "typeFilter": "Type",
+      "allTypes": "All types",
+      "wrapLines": "Wrap lines",
       "clear": "Clear history",
       "clearTitle": "Clear History",
       "clearConfirm": "Do you really want to clear the history? Favorites will be preserved.",
@@ -56,7 +61,10 @@
     "mode": {
       "read": "Read Mode",
       "write": "Write Mode",
-      "previewFirst": "Preview will be shown first"
+      "previewFirst": "Preview will be shown first",
+      "readHint": "Read: search only - {shortcut} to run",
+      "writeHint": "Write: create or update - {shortcut} for preview",
+      "shortcut": "Ctrl/⌘+Enter"
     },
     "actions": {
       "preview": "Preview",
@@ -86,7 +94,9 @@
         "startCrawls": "Start crawls for all Gummersbach data sources",
         "startCrawlsTitle": "Start Crawls",
         "createCategory": "Create category for wind energy in Bavaria and start a crawl immediately",
-        "createCategoryTitle": "Create Category"
+        "createCategoryTitle": "Create Category",
+        "analyzePysis": "Analyze PySis data for Gummersbach and create facets",
+        "analyzePysisTitle": "Analyze PySis"
       }
     },
     "loading": {
@@ -160,7 +170,61 @@
     },
     "errors": {
       "noWriteOperation": "No write operation detected",
-      "queryError": "Error during query"
+      "queryError": "Error during query",
+      "noVisualizationsTitle": "No visualizations available",
+      "noVisualizationsHint": "The compound query did not produce any visualizations. Please try rephrasing your query."
+    },
+    "sourceTypes": {
+      "document": "Document",
+      "manual": "Manual",
+      "aiAssistant": "AI Assistant",
+      "import": "Import",
+      "attachment": "Attachment",
+      "unknown": "Unknown"
     }
+  },
+  "result": {
+    "defaultTitle": "Query Result"
+  },
+  "visualization": {
+    "noData": "No data available",
+    "noVisualization": "No visualization available",
+    "columns": {
+      "name": "Name",
+      "region": "Region",
+      "tags": "Tags"
+    },
+    "map": {
+      "featuresOnMap": "features on map",
+      "loading": "Loading map data...",
+      "clusterLegend": "Cluster",
+      "regions": "Regions",
+      "boundaries": "Boundaries",
+      "noGeoData": "No geographic data available",
+      "unknownEntity": "Unknown",
+      "ariaLabel": "Map visualization showing geographic data",
+      "interactiveMap": "Interactive map - use mouse to pan and zoom"
+    }
+  },
+  "sourceInfo": {
+    "type": "Type",
+    "lastUpdated": "Last updated",
+    "freshness": "Data freshness",
+    "apiName": "API",
+    "liveApi": "Live API",
+    "facetHistory": "History data",
+    "internal": "Internal"
+  },
+  "suggestedActions": {
+    "label": "Actions:"
+  },
+  "comparison": {
+    "attributes": "Attributes",
+    "summary": "{entity} has the highest value for {facet}: {value}"
+  },
+  "compoundQuery": {
+    "results": "Combined Results",
+    "visualizationsCount": "{count} Visualizations",
+    "ariaLabel": "Combined query results with multiple visualizations"
   }
 }

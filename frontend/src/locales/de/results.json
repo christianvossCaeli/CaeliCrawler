@@ -1,6 +1,7 @@
 {
   "results": {
     "title": "Ergebnisse",
+    "subtitle": "KI-extrahierte Analyseergebnisse aus verarbeiteten Dokumenten",
     "aiExtractedData": "KI-extrahierte Daten",
     "loading": {
       "title": "Daten werden geladen",
@@ -8,37 +9,37 @@
     },
     "filters": {
       "fulltext": "Volltext-Suche",
-      "fulltextPlaceholder": "Summary, Pain Points, etc.",
+      "fulltextPlaceholder": "Zusammenfassung, Problemfelder, etc.",
       "location": "Standort",
       "analysisType": "Analyse-Typ",
       "category": "Kategorie",
-      "minConfidence": "Min. Confidence",
+      "minConfidence": "Min. Zuverlässigkeit",
       "dateFrom": "Von",
       "dateTo": "Bis",
       "resetFilters": "Filter zurücksetzen"
     },
     "stats": {
       "total": "Gesamt",
-      "verified": "Verifiziert",
-      "highConfidence": "High Confidence",
-      "avgConfidence": "Durchschn. Confidence"
+      "verified": "Geprüft",
+      "highConfidence": "Hohe Zuverlässigkeit",
+      "avgConfidence": "Durchschn. Zuverlässigkeit"
     },
     "columns": {
       "document": "Dokument",
       "type": "Typ",
       "municipality": "Gemeinde",
-      "confidence": "Confidence",
-      "verified": "Verifiziert",
+      "confidence": "Zuverlässigkeit",
+      "verified": "Geprüft",
       "created": "Erstellt",
       "actions": "Aktionen"
     },
     "actions": {
-      "bulkVerify": "verifizieren",
+      "bulkVerify": "als geprüft markieren",
       "csvExport": "CSV Export",
       "refresh": "Aktualisieren",
       "viewDetails": "Details anzeigen",
-      "verify": "Verifizieren",
-      "verified": "Verifiziert",
+      "verify": "Als geprüft markieren",
+      "verified": "Geprüft",
       "goToDocument": "Zum Dokument",
       "exportJson": "JSON exportieren"
     },
@@ -53,10 +54,10 @@
       "notRelevant": "Nicht relevant",
       "level": "Stufe",
       "summary": "Zusammenfassung",
-      "painPoints": "Pain Points",
-      "positiveSignals": "Positive Signale",
+      "painPoints": "Problemfelder",
+      "positiveSignals": "Chancen",
       "decisionMakers": "Entscheidungsträger",
-      "outreachRecommendation": "Outreach Empfehlung",
+      "outreachRecommendation": "Kontaktempfehlung",
       "priority": "Priorität",
       "reason": "Begründung",
       "rawData": "Rohdaten (JSON)",
@@ -68,13 +69,13 @@
       "url": "URL"
     },
     "messages": {
-      "verified": "Ergebnis verifiziert",
-      "bulkVerified": "Ergebnisse verifiziert",
+      "verified": "Ergebnis als geprüft markiert",
+      "bulkVerified": "Ergebnisse als geprüft markiert",
       "jsonExported": "JSON exportiert",
       "csvExported": "CSV exportiert",
       "copiedToClipboard": "In Zwischenablage kopiert",
-      "errorVerifying": "Fehler beim Verifizieren",
-      "errorBulkVerifying": "Fehler bei Bulk-Verifizierung",
+      "errorVerifying": "Fehler beim Markieren als geprüft",
+      "errorBulkVerifying": "Fehler bei der Massenmarkierung",
       "errorLoading": "Fehler beim Laden der Daten"
     },
     "never": "Nie",

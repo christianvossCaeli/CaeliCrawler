@@ -129,6 +129,7 @@
       "dayOfMonth": "Day of month",
       "customLabel": "Cron expression",
       "customHint": "5 or 6 fields (seconds optional)",
+      "timezone": "Time zone",
       "nextRun": "Next run",
       "invalid": "Invalid schedule expression",
       "previewUnavailable": "Preview not available for this expression"

@@ -1,6 +1,7 @@
 {
   "crawler": {
     "title": "Crawler Status",
+    "subtitle": "Live overview of all crawl jobs and their status",
     "status": "Status",
     "startCrawl": "Start Crawl",
     "stopAll": "Stop All",

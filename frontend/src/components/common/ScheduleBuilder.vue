@@ -210,13 +210,19 @@
     >
       {{ previewText }}
     </div>
+    <div
+      v-if="timezoneLabel"
+      class="text-caption text-medium-emphasis mt-1"
+    >
+      {{ timezoneLabel }}
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getCronPreview } from '@/utils/cron'
+import { DEFAULT_SCHEDULE_TIMEZONE, getCronPreview } from '@/utils/cron'
 
 type ScheduleMode = 'interval' | 'daily' | 'weekly' | 'monthly' | 'custom'
 type IntervalUnit = 'seconds' | 'minutes' | 'hours'
@@ -226,6 +232,7 @@ interface Props {
   disabled?: boolean
   showPreview?: boolean
   showAdvanced?: boolean
+  scheduleTimezone?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -233,6 +240,7 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false,
   showPreview: true,
   showAdvanced: true,
+  scheduleTimezone: DEFAULT_SCHEDULE_TIMEZONE,
 })
 
 const emit = defineEmits<{
@@ -302,7 +310,7 @@ const unitItems = computed(() => [
 const previewText = computed(() => {
   if (!props.showPreview || !props.modelValue) return ''
 
-  const preview = getCronPreview(props.modelValue, locale.value)
+  const preview = getCronPreview(props.modelValue, locale.value, props.scheduleTimezone)
   if (!preview.isValid) {
     return t('common.scheduleBuilder.invalid')
   }
@@ -312,10 +320,16 @@ const previewText = computed(() => {
     parts.push(preview.description)
   }
   if (preview.nextRun) {
-    parts.push(`${t('common.scheduleBuilder.nextRun')}: ${preview.nextRun}`)
+    const timezoneSuffix = props.scheduleTimezone ? ` (${props.scheduleTimezone})` : ''
+    parts.push(`${t('common.scheduleBuilder.nextRun')}: ${preview.nextRun}${timezoneSuffix}`)
   }
 
   return parts.length ? parts.join(' - ') : t('common.scheduleBuilder.previewUnavailable')
+})
+
+const timezoneLabel = computed(() => {
+  if (!props.scheduleTimezone) return ''
+  return `${t('common.scheduleBuilder.timezone')}: ${props.scheduleTimezone}`
 })
 
 const isSyncing = ref(false)

@@ -288,7 +288,7 @@ def check_scheduled_crawls():
     from app.database import get_celery_session_context
     from app.models import Category, DataSource, DataSourceCategory, SourceStatus
     from sqlalchemy import select
-    from app.utils.cron import croniter_for_expression
+    from app.utils.cron import croniter_for_expression, get_schedule_timezone
 
     async def _check():
         async with get_celery_session_context() as session:
@@ -299,40 +299,47 @@ def check_scheduled_crawls():
             categories = result.scalars().all()
 
             jobs_created = 0
-            now = datetime.now(timezone.utc)
+            schedule_tz = get_schedule_timezone()
+            now = datetime.now(schedule_tz)
 
             for category in categories:
-                # Check if category is due based on cron schedule
-                cron = croniter_for_expression(category.schedule_cron, now - timedelta(hours=1))
-                next_run = cron.get_next(datetime)
-
-                if next_run <= now:
-                    # Get sources via junction table (N:M relationship)
-                    source_result = await session.execute(
-                        select(DataSource)
-                        .join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id)
-                        .where(
-                            DataSourceCategory.category_id == category.id,
-                            DataSource.status.in_([SourceStatus.ACTIVE, SourceStatus.PENDING]),
-                        )
+                # Calculate last scheduled run time for this category
+                try:
+                    prev_run = croniter_for_expression(category.schedule_cron, now).get_prev(datetime)
+                except Exception as exc:
+                    logger.warning(
+                        "category_schedule_invalid",
+                        category_id=str(category.id),
+                        cron=category.schedule_cron,
+                        error=str(exc),
                     )
-                    sources = source_result.scalars().all()
+                    continue
 
-                    for source in sources:
-                        # Skip sources that have never been crawled
-                        # They must be started manually first
-                        if not source.last_crawl:
-                            continue
+                # Get sources via junction table (N:M relationship)
+                source_result = await session.execute(
+                    select(DataSource)
+                    .join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id)
+                    .where(
+                        DataSourceCategory.category_id == category.id,
+                        DataSource.status.in_([SourceStatus.ACTIVE, SourceStatus.PENDING]),
+                    )
+                )
+                sources = source_result.scalars().all()
 
-                        # Check if source was crawled recently (within cron interval)
-                        prev_run = croniter_for_expression(category.schedule_cron, source.last_crawl).get_prev(datetime)
-                        if source.last_crawl >= prev_run:
-                            continue  # Already crawled this period
+                for source in sources:
+                    # Skip sources that have never been crawled
+                    # They must be started manually first
+                    if not source.last_crawl:
+                        continue
 
-                        # Create crawl job
-                        from workers.crawl_tasks import create_crawl_job
-                        create_crawl_job.delay(str(source.id), str(category.id))
-                        jobs_created += 1
+                    # Check if source was crawled recently (within cron interval)
+                    if source.last_crawl >= prev_run:
+                        continue  # Already crawled this period
+
+                    # Create crawl job
+                    from workers.crawl_tasks import create_crawl_job
+                    create_crawl_job.delay(str(source.id), str(category.id))
+                    jobs_created += 1
 
             logger.info("Scheduled crawl check completed", jobs_created=jobs_created)
 

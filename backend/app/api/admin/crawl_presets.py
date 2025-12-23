@@ -29,7 +29,7 @@ from app.schemas.crawl_preset import (
     SCHEDULE_PRESETS,
 )
 from app.schemas.common import MessageResponse
-from app.utils.cron import croniter_for_expression, is_valid_cron_expression
+from app.utils.cron import croniter_for_expression, get_schedule_timezone, is_valid_cron_expression
 
 # Import crawl operations at module level to avoid repeated imports
 from services.smart_query.crawl_operations import find_sources_for_crawl, start_crawl_jobs
@@ -63,7 +63,8 @@ class FiltersPreviewResponse(BaseModel):
 
 def calculate_next_run(cron_expression: str) -> datetime:
     """Calculate the next run time from a cron expression."""
-    cron = croniter_for_expression(cron_expression, datetime.now(timezone.utc))
+    schedule_tz = get_schedule_timezone()
+    cron = croniter_for_expression(cron_expression, datetime.now(schedule_tz))
     return cron.get_next(datetime)
 
 

@@ -1,6 +1,7 @@
 {
   "notifications": {
     "title": "Benachrichtigungen",
+    "subtitle": "Automatische Benachrichtigungen bei wichtigen Ereignissen verwalten",
     "notification": "Benachrichtigung",
     "inbox": {
       "channel": "Kanal",

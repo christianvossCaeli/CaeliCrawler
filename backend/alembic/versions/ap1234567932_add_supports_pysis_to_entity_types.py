@@ -31,13 +31,6 @@ def upgrade() -> None:
         )
     )
 
-    # Set supports_pysis=true for territorial_entity (formerly municipality)
-    op.execute("""
-        UPDATE entity_types
-        SET supports_pysis = true
-        WHERE slug IN ('territorial_entity', 'municipality')
-    """)
-
 
 def downgrade() -> None:
     op.drop_column('entity_types', 'supports_pysis')

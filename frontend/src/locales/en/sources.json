@@ -1,6 +1,7 @@
 {
   "sources": {
     "title": "Data Sources",
+    "subtitle": "Manage websites, APIs and RSS feeds as data sources",
     "source": "Data Source",
     "sources": "Data Sources",
     "tabs": {

@@ -1,6 +1,7 @@
 {
   "notifications": {
     "title": "Notifications",
+    "subtitle": "Manage automatic notifications for important events",
     "notification": "Notification",
     "inbox": {
       "channel": "Channel",

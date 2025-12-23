@@ -2,25 +2,21 @@
   <div class="facet-types-view">
     <v-container fluid>
       <!-- Header -->
-      <v-row class="mb-4">
-        <v-col>
-          <div class="d-flex align-center justify-space-between">
-            <div>
-              <h1 class="text-h4 mb-1">{{ t('admin.facetTypes.title') }}</h1>
-              <p class="text-body-2 text-medium-emphasis">
-                {{ t('admin.facetTypes.subtitle') }}
-              </p>
-            </div>
-            <v-btn variant="tonal" color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
-              {{ t('admin.facetTypes.actions.create') }}
-            </v-btn>
-          </div>
-        </v-col>
-      </v-row>
+      <PageHeader
+        :title="t('admin.facetTypes.title')"
+        :subtitle="t('admin.facetTypes.subtitle')"
+        icon="mdi-tag-multiple"
+      >
+        <template #actions>
+          <v-btn variant="tonal" color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
+            {{ t('admin.facetTypes.actions.create') }}
+          </v-btn>
+        </template>
+      </PageHeader>
 
       <!-- Filters -->
       <v-card class="mb-4">
-        <v-card-text class="pt-5 pb-3">
+        <v-card-text>
           <v-row align="center">
             <v-col cols="12" md="4">
               <v-text-field
@@ -29,8 +25,6 @@
                 prepend-inner-icon="mdi-magnify"
                 clearable
                 hide-details
-                density="compact"
-                variant="outlined"
                 @update:model-value="debouncedSearch"
               ></v-text-field>
             </v-col>
@@ -41,8 +35,6 @@
                 :label="t('admin.facetTypes.filters.entityType')"
                 clearable
                 hide-details
-                density="compact"
-                variant="outlined"
                 @update:model-value="loadFacetTypes"
               ></v-select>
             </v-col>
@@ -53,8 +45,6 @@
                 :label="t('common.status')"
                 clearable
                 hide-details
-                density="compact"
-                variant="outlined"
                 @update:model-value="loadFacetTypes"
               ></v-select>
             </v-col>
@@ -508,6 +498,7 @@ import { useI18n } from 'vue-i18n'
 import { facetApi, entityApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { getContrastColor } from '@/composables/useColorHelpers'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()

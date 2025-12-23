@@ -138,6 +138,8 @@
         "isPrimaryHint": "Displayed in main navigation",
         "supportsHierarchy": "Hierarchical",
         "supportsHierarchyHint": "Supports parent-child relationships",
+        "supportsPysis": "PySis Integration",
+        "supportsPysisHint": "Enables PySis integration for entities of this type",
         "displayOrder": "Display Order",
         "displayOrderHint": "Smaller numbers are displayed first",
         "isActiveHint": "Inactive types are no longer displayed",

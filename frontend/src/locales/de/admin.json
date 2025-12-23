@@ -70,8 +70,8 @@
         "resource": "Ressource",
         "dateFrom": "Von",
         "dateTo": "Bis",
-        "entityType": "Entity-Typ",
-        "entityTypePlaceholder": "z.B. Category, User"
+        "entityType": "Datentyp",
+        "entityTypePlaceholder": "z.B. Analysethema, Benutzer"
       },
       "columns": {
         "timestamp": "Zeitpunkt",
@@ -80,7 +80,7 @@
         "resource": "Ressource",
         "details": "Details",
         "ip": "IP-Adresse",
-        "entity": "Entity",
+        "entity": "Datensatz",
         "changes": "Änderungen"
       },
       "actions": {
@@ -113,12 +113,12 @@
       }
     },
     "entityTypes": {
-      "title": "Entity-Typen",
-      "subtitle": "Kategorien für Entitäten verwalten (z.B. Gemeinden, Personen, Organisationen)",
+      "title": "Datentypen",
+      "subtitle": "Kategorien für Datensätze verwalten (z.B. Gemeinden, Personen, Organisationen)",
       "tabs": {
         "basic": "Allgemein",
         "appearance": "Darstellung",
-        "facets": "Facets",
+        "facets": "Merkmale",
         "settings": "Einstellungen"
       },
       "form": {
@@ -128,8 +128,8 @@
         "namePlural": "Plural",
         "namePluralPlaceholder": "z.B. Windparks",
         "description": "Beschreibung",
-        "descriptionPlaceholder": "Kurze Beschreibung des Entity-Typs",
-        "icon": "Icon",
+        "descriptionPlaceholder": "Kurze Beschreibung des Datentyps",
+        "icon": "Symbol",
         "iconPlaceholder": "mdi-wind-turbine",
         "iconHint": "Verwende Material Design Icons (mdi-*). Siehe materialdesignicons.com",
         "color": "Farbe",
@@ -137,61 +137,63 @@
         "isPrimary": "Primärer Typ",
         "isPrimaryHint": "Wird in der Hauptnavigation angezeigt",
         "supportsHierarchy": "Hierarchisch",
-        "supportsHierarchyHint": "Unterstützt Parent-Child Beziehungen",
+        "supportsHierarchyHint": "Unterstützt Über-/Unterordnung",
+        "supportsPysis": "PySis-Anbindung",
+        "supportsPysisHint": "Aktiviert die PySis-Integration für Datensätze dieses Typs",
         "displayOrder": "Anzeigereihenfolge",
         "displayOrderHint": "Kleinere Zahlen werden zuerst angezeigt",
         "isActiveHint": "Inaktive Typen werden nicht mehr angezeigt",
         "preview": "Vorschau",
-        "iconSuggestions": "Icon-Vorschläge",
-        "facetsInfo": "Wähle die Facet-Typen aus, die für diesen Entity-Typ verfügbar sein sollen. Facets mit leerem Entity-Type-Filter gelten für alle Typen.",
-        "noFacetsFound": "Keine Facets gefunden",
-        "facetsSelected": "Facets ausgewählt",
+        "iconSuggestions": "Symbol-Vorschläge",
+        "facetsInfo": "Wähle die Merkmalstypen aus, die für diesen Datentyp verfügbar sein sollen. Merkmale mit leerem Datentyp-Filter gelten für alle Typen.",
+        "noFacetsFound": "Keine Merkmale gefunden",
+        "facetsSelected": "Merkmale ausgewählt",
         "deselectAll": "Alle abwählen",
         "selectAll": "Alle auswählen",
         "appliesToAll": "Alle Typen"
       },
       "columns": {
         "name": "Name",
-        "slug": "Slug",
+        "slug": "Kurzname",
         "color": "Farbe",
-        "entities": "Entities",
+        "entities": "Datensätze",
         "system": "System",
         "active": "Aktiv"
       },
       "actions": {
-        "create": "Neuer Entity-Typ",
+        "create": "Neuer Datentyp",
         "edit": "Bearbeiten",
         "delete": "Löschen"
       },
       "dialog": {
-        "createTitle": "Neuer Entity-Typ",
-        "editTitle": "Entity-Typ bearbeiten",
-        "deleteTitle": "Entity-Typ löschen?",
+        "createTitle": "Neuer Datentyp",
+        "editTitle": "Datentyp bearbeiten",
+        "deleteTitle": "Datentyp löschen?",
         "deleteConfirm": "Möchtest du {name} wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
       },
       "messages": {
-        "created": "Entity-Typ erstellt",
-        "updated": "Entity-Typ aktualisiert",
+        "created": "Datentyp erstellt",
+        "updated": "Datentyp aktualisiert",
         "deleted": "\"{name}\" gelöscht",
-        "loadError": "Fehler beim Laden der Entity-Typen",
+        "loadError": "Fehler beim Laden der Datentypen",
         "saveError": "Fehler beim Speichern",
         "deleteError": "Fehler beim Löschen"
       },
       "systemType": "System-Typ",
       "cannotDeleteSystem": "System-Typ kann nicht gelöscht werden",
-      "hasEntities": "Hat noch Entities",
-      "facets": "Facets",
-      "facetsHint": "Facet-Typen, die für diesen Entity-Typ verfügbar sind"
+      "hasEntities": "Hat noch Datensätze",
+      "facets": "Merkmale",
+      "facetsHint": "Merkmalstypen, die für diesen Datentyp verfügbar sind"
     },
     "facetTypes": {
-      "title": "Facet-Typen",
-      "subtitle": "Attribute und Eigenschaften für Entity-Typen verwalten",
+      "title": "Merkmalstypen",
+      "subtitle": "Eigenschaften und Attribute für Datentypen verwalten",
       "allTypes": "Alle Typen",
       "systemType": "System-Typ",
       "cannotDeleteSystem": "System-Typ kann nicht gelöscht werden",
       "hasValues": "Hat noch Werte",
       "filters": {
-        "entityType": "Entity-Typ"
+        "entityType": "Datentyp"
       },
       "tabs": {
         "basic": "Allgemein",
@@ -201,7 +203,7 @@
       },
       "columns": {
         "name": "Name",
-        "entityTypes": "Entity-Typen",
+        "entityTypes": "Datentypen",
         "valueType": "Werttyp",
         "values": "Werte",
         "ai": "KI",
@@ -215,14 +217,14 @@
         "namePlural": "Plural",
         "namePluralPlaceholder": "z.B. Kontakte",
         "description": "Beschreibung",
-        "icon": "Icon",
+        "icon": "Symbol",
         "iconPlaceholder": "mdi-account",
         "iconHint": "Material Design Icon Name (mdi-*)",
         "color": "Farbe",
-        "applicableEntityTypes": "Gültig für Entity-Typen",
-        "applicableEntityTypesHint": "Leer = gilt für alle Entity-Typen",
+        "applicableEntityTypes": "Gültig für Datentypen",
+        "applicableEntityTypesHint": "Leer = gilt für alle Datentypen",
         "valueType": "Werttyp",
-        "aggregationMethod": "Aggregationsmethode",
+        "aggregationMethod": "Zusammenfassungsmethode",
         "displayOrder": "Anzeigereihenfolge",
         "isTimeBased": "Zeitbasiert",
         "isTimeBasedHint": "Hat einen Datums-/Zeitbezug",
@@ -230,36 +232,36 @@
         "timeFieldPathPlaceholder": "z.B. event_date",
         "valueSchema": "Wert-Schema (JSON)",
         "valueSchemePlaceholder": "JSON-Schema für Wertestruktur eingeben...",
-        "schemaInfo": "Das JSON-Schema definiert die Struktur der Werte für diesen Facet-Typ",
+        "schemaInfo": "Das JSON-Schema definiert die Struktur der Werte für diesen Merkmalstyp",
         "invalidJson": "Ungültiges JSON",
-        "deduplicationFields": "Deduplizierungsfelder",
+        "deduplicationFields": "Duplikaterkennungsfelder",
         "deduplicationFieldsHint": "Felder, die für die Duplikaterkennung verwendet werden",
         "aiExtractionEnabled": "KI-Extraktion aktiviert",
         "aiExtractionEnabledHint": "Automatische Extraktion durch KI aus Dokumenten",
-        "aiExtractionPrompt": "KI-Extraktions-Prompt",
+        "aiExtractionPrompt": "KI-Extraktions-Anweisung",
         "aiExtractionPromptPlaceholder": "Extrahiere folgende Informationen aus dem Dokument...",
         "preview": "Vorschau",
-        "iconSuggestions": "Icon-Vorschläge",
-        "aiPromptInfo": "Der KI-Prompt wird verwendet, um relevante Informationen aus Dokumenten zu extrahieren.",
+        "iconSuggestions": "Symbol-Vorschläge",
+        "aiPromptInfo": "Die KI-Anweisung wird verwendet, um relevante Informationen aus Dokumenten zu extrahieren.",
         "aiDisabledInfo": "Die KI-Extraktion ist deaktiviert. Aktiviere sie, um automatisch Daten aus Dokumenten zu extrahieren.",
         "aiSchemaGenerator": "KI-Assistent",
-        "aiSchemaGeneratorHint": "Generiere Schema, Prompt und Einstellungen automatisch basierend auf Name und Beschreibung",
+        "aiSchemaGeneratorHint": "Generiere Schema, Anweisung und Einstellungen automatisch basierend auf Name und Beschreibung",
         "generateSchema": "Generieren"
       },
       "actions": {
-        "create": "Neuer Facet-Typ"
+        "create": "Neuer Merkmalstyp"
       },
       "dialog": {
-        "createTitle": "Neuer Facet-Typ",
-        "editTitle": "Facet-Typ bearbeiten",
-        "deleteTitle": "Facet-Typ löschen?",
+        "createTitle": "Neuer Merkmalstyp",
+        "editTitle": "Merkmalstyp bearbeiten",
+        "deleteTitle": "Merkmalstyp löschen?",
         "deleteConfirm": "Möchtest du {name} wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
       },
       "messages": {
-        "created": "Facet-Typ erstellt",
-        "updated": "Facet-Typ aktualisiert",
+        "created": "Merkmalstyp erstellt",
+        "updated": "Merkmalstyp aktualisiert",
         "deleted": "\"{name}\" gelöscht",
-        "loadError": "Fehler beim Laden der Facet-Typen",
+        "loadError": "Fehler beim Laden der Merkmalstypen",
         "saveError": "Fehler beim Speichern",
         "deleteError": "Fehler beim Löschen",
         "schemaGenerated": "Schema und Einstellungen wurden generiert",
@@ -268,7 +270,7 @@
     },
     "apiTemplates": {
       "title": "API-Vorlagen",
-      "subtitle": "Wiederverwendbare API-Konfigurationen für die KI-Discovery verwalten",
+      "subtitle": "Wiederverwendbare API-Konfigurationen für die KI-Suche verwalten",
       "filters": {
         "search": "Suche",
         "status": "Status",
@@ -300,13 +302,13 @@
         "documentationUrl": "Dokumentations-URL",
         "documentationUrlPlaceholder": "https://docs.example.com",
         "authRequired": "Authentifizierung erforderlich",
-        "fieldMapping": "Feld-Mapping (JSON)",
-        "fieldMappingPlaceholder": "JSON Feld-Mapping eingeben...",
-        "fieldMappingHint": "Mapping von API-Feldern zu Standard-Feldern",
+        "fieldMapping": "Feld-Zuordnung (JSON)",
+        "fieldMappingPlaceholder": "JSON Feld-Zuordnung eingeben...",
+        "fieldMappingHint": "Zuordnung von API-Feldern zu Standard-Feldern",
         "keywords": "Schlüsselwörter",
         "keywordsHint": "Wörter für automatisches Matching bei Suchanfragen",
-        "defaultTags": "Standard-Tags",
-        "defaultTagsHint": "Tags, die automatisch hinzugefügt werden"
+        "defaultTags": "Standard-Schlagwörter",
+        "defaultTagsHint": "Schlagwörter, die automatisch hinzugefügt werden"
       },
       "status": {
         "ACTIVE": "Aktiv",
@@ -338,7 +340,7 @@
       },
       "tabs": {
         "basic": "Allgemein",
-        "mapping": "Feld-Mapping",
+        "mapping": "Feld-Zuordnung",
         "keywords": "Schlüsselwörter"
       },
       "test": {
@@ -368,7 +370,7 @@
       },
       "never": "Nie",
       "noTemplates": "Keine API-Vorlagen vorhanden",
-      "noTemplatesHint": "Erstelle eine neue Vorlage oder speichere eine aus der KI-Discovery",
+      "noTemplatesHint": "Erstelle eine neue Vorlage oder speichere eine aus der KI-Suche",
       "lastUsed": "Zuletzt verwendet: {date}",
       "neverUsed": "Noch nie verwendet",
       "items": "Einträge",
@@ -379,24 +381,24 @@
       "sampleData": "Beispieldaten"
     },
     "crawlPresets": {
-      "title": "Crawl-Presets",
-      "create": "Neues Preset",
-      "edit": "Preset bearbeiten",
-      "delete": "Preset löschen",
+      "title": "Sammel-Vorlagen",
+      "create": "Neue Vorlage",
+      "edit": "Vorlage bearbeiten",
+      "delete": "Vorlage löschen",
       "execute": "Jetzt ausführen",
       "preview": "Vorschau",
       "all": "Alle",
       "favorites": "Favoriten",
       "scheduled": "Geplant",
-      "empty": "Keine Presets vorhanden",
-      "emptyHint": "Speichere Filter-Konfigurationen als Presets für schnelle Wiederholung",
-      "createFirst": "Erstes Preset erstellen",
+      "empty": "Keine Vorlagen vorhanden",
+      "emptyHint": "Speichere Filter-Konfigurationen als Vorlagen für schnelle Wiederholung",
+      "createFirst": "Erste Vorlage erstellen",
       "name": "Name",
       "description": "Beschreibung",
       "filters": "Filter-Konfiguration",
-      "entityType": "Entity-Typ",
+      "entityType": "Datentyp",
       "adminLevel1": "Region/Bundesland",
-      "tags": "Tags",
+      "tags": "Schlagwörter",
       "tagsHint": "Eingabe mit Enter bestätigen",
       "sourceType": "Quellen-Typ",
       "limit": "Limit",
@@ -404,25 +406,25 @@
       "loadingPreview": "Lade Vorschau...",
       "quickStart": "Schnellstart",
       "noFavoritesYet": "Keine Favoriten",
-      "noFavoritesHint": "Markiere Presets als Favoriten für schnellen Zugriff",
+      "noFavoritesHint": "Markiere Vorlagen als Favoriten für schnellen Zugriff",
       "usedTimes": "{count}x verwendet",
-      "scheduledCount": "{count} geplante Crawls aktiv",
+      "scheduledCount": "{count} geplante Sammlungen aktiv",
       "justNow": "Gerade eben",
       "minutesAgo": "Vor {n} Min.",
       "hoursAgo": "Vor {n} Std.",
       "daysAgo": "Vor {n} Tagen",
       "addedToFavorites": "Zu Favoriten hinzugefügt",
       "removedFromFavorites": "Aus Favoriten entfernt",
-      "deleteConfirm": "Möchten Sie das Preset \"{name}\" wirklich löschen?",
+      "deleteConfirm": "Möchten Sie die Vorlage \"{name}\" wirklich löschen?",
       "schedule": {
         "title": "Zeitplan",
         "enabled": "Automatische Ausführung"
       },
       "messages": {
-        "created": "Preset erstellt",
-        "updated": "Preset aktualisiert",
-        "deleted": "Preset gelöscht",
-        "executed": "{count} Crawl-Jobs gestartet",
+        "created": "Vorlage erstellt",
+        "updated": "Vorlage aktualisiert",
+        "deleted": "Vorlage gelöscht",
+        "executed": "{count} Sammel-Jobs gestartet",
         "executeFailed": "Ausführung fehlgeschlagen"
       }
     }

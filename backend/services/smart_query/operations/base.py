@@ -161,9 +161,8 @@ async def execute_operation(
     """
     Execute a write operation using the registered handler.
 
-    This is the main entry point for the command pattern.
-    Falls back to the legacy execute_write_command for
-    operations not yet migrated to the new pattern.
+    This function only handles operations that have registered handlers.
+    For unregistered operations, the caller (write_executor) handles them directly.
 
     Args:
         session: Database session
@@ -185,45 +184,39 @@ async def execute_operation(
     # Check if operation has a registered handler
     operation_class = OPERATIONS_REGISTRY.get(operation_name)
 
-    if operation_class:
-        # Use new command pattern
-        handler = operation_class()
-
-        # Validate command
-        validation_error = handler.validate(command)
-        if validation_error:
-            return OperationResult(
-                success=False,
-                message=validation_error,
-                operation=operation_name,
-            )
-
-        try:
-            result = await handler.execute(session, command, user_id)
-            result.operation = operation_name
-            return result
-        except Exception as e:
-            logger.error(
-                "Write operation failed",
-                operation=operation_name,
-                error=str(e),
-                exc_info=True,
-            )
-            return OperationResult(
-                success=False,
-                message=f"Operation fehlgeschlagen: {str(e)}",
-                operation=operation_name,
-                error=str(e),
-            )
-    else:
-        # Fall back to legacy executor for unmigrated operations
-        from ..write_executor import execute_write_command
-
-        legacy_result = await execute_write_command(session, command, user_id)
+    if not operation_class:
         return OperationResult(
-            success=legacy_result.get("success", False),
-            message=legacy_result.get("message", ""),
+            success=False,
+            message=f"Keine registrierte Operation: {operation_name}",
             operation=operation_name,
-            created_items=legacy_result.get("created_items", []),
-            data=legacy_result.get("data"),
+        )
+
+    # Use command pattern handler
+    handler = operation_class()
+
+    # Validate command
+    validation_error = handler.validate(command)
+    if validation_error:
+        return OperationResult(
+            success=False,
+            message=validation_error,
+            operation=operation_name,
+        )
+
+    try:
+        result = await handler.execute(session, command, user_id)
+        result.operation = operation_name
+        return result
+    except Exception as e:
+        logger.error(
+            "Write operation failed",
+            operation=operation_name,
+            error=str(e),
+            exc_info=True,
+        )
+        return OperationResult(
+            success=False,
+            message=f"Operation fehlgeschlagen: {str(e)}",
+            operation=operation_name,
+            error=str(e),
         )

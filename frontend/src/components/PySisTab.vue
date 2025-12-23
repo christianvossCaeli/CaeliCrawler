@@ -211,50 +211,9 @@
       <v-card>
         <v-card-title>{{ t('pysis.addProcess') }}</v-card-title>
         <v-card-text class="pt-4">
-          <v-autocomplete
-            v-model="newProcess.pysis_process_id"
-            :items="availableProcesses"
-            :item-title="(item: any) => item.name || item.titel || item.id"
-            item-value="id"
-            :label="t('pysis.selectProcess')"
-            :loading="loadingAvailableProcesses"
-            :placeholder="t('pysis.searchProcess')"
-            clearable
-            class="mb-3"
-            @update:menu="onProcessMenuOpen"
-          >
-            <template v-slot:item="{ item, props }">
-              <v-list-item v-bind="props">
-                <v-list-item-subtitle>
-                  ID: {{ item.raw.id }}
-                </v-list-item-subtitle>
-              </v-list-item>
-            </template>
-            <template v-slot:no-data>
-              <v-list-item v-if="loadingAvailableProcesses">
-                <v-list-item-title>{{ t('pysis.loadingProcesses') }}</v-list-item-title>
-              </v-list-item>
-              <v-list-item v-else>
-                <v-list-item-title>{{ t('pysis.noProcessesFound') }}</v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ t('pysis.checkConnection') }}
-                </v-list-item-subtitle>
-              </v-list-item>
-            </template>
-            <template v-slot:append-item>
-              <v-divider class="my-2"></v-divider>
-              <v-list-item @click="showManualInput = true">
-                <v-list-item-title class="text-primary">
-                  <v-icon start>mdi-pencil</v-icon>
-                  {{ t('pysis.enterUUIDManually') }}
-                </v-list-item-title>
-              </v-list-item>
-            </template>
-          </v-autocomplete>
           <v-text-field
-            v-if="showManualInput || availableProcesses.length === 0"
             v-model="newProcess.pysis_process_id"
-            :label="t('pysis.processIdManual')"
+            :label="t('pysis.processId')"
             :placeholder="t('pysis.processIdPlaceholder')"
             :hint="t('pysis.processIdHint')"
             persistent-hint

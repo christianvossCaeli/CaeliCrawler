@@ -1,9 +1,20 @@
 """Cron expression utilities shared across API and worker tasks."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, tzinfo
 from typing import Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from croniter import croniter
+
+from app.config import settings
+
+
+def get_schedule_timezone() -> tzinfo:
+    """Resolve the configured schedule timezone."""
+    try:
+        return ZoneInfo(settings.schedule_timezone)
+    except (ZoneInfoNotFoundError, ValueError):
+        return timezone.utc
 
 
 def _split_cron_expression(expression: str) -> list[str]:
@@ -27,7 +38,13 @@ def croniter_for_expression(
 ) -> croniter:
     """Create a croniter instance for a cron expression."""
     parts = _split_cron_expression(expression)
-    base_time = base_time or datetime.now(timezone.utc)
+    schedule_tz = get_schedule_timezone()
+    if base_time is None:
+        base_time = datetime.now(schedule_tz)
+    elif base_time.tzinfo is None:
+        base_time = base_time.replace(tzinfo=schedule_tz)
+    else:
+        base_time = base_time.astimezone(schedule_tz)
     return croniter(expression, base_time, second_at_beginning=len(parts) == 6)
 
 

@@ -13,11 +13,11 @@ import { crawlPresetsApi } from '@/services/api'
 export interface CrawlPresetFilters {
   category_id?: string
   tags?: string[]
-  entity_type?: string
-  admin_level_1?: string
+  entity_type?: string[]  // Multi-select: array of entity type slugs
+  admin_level_1?: string  // Deprecated - use tags instead
   entity_filters?: Record<string, any>
   country?: string
-  source_type?: string
+  source_type?: string[]  // Multi-select: array of source types
   status?: string
   search?: string
   limit?: number
@@ -84,17 +84,10 @@ export interface CrawlPresetUpdate {
   status?: 'active' | 'archived'
 }
 
-export interface SchedulePreset {
-  label: string
-  cron: string
-  description: string
-}
-
 export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
   // State
   const presets = ref<CrawlPreset[]>([])
   const favoriteIds = ref<Set<string>>(new Set())
-  const schedulePresets = ref<SchedulePreset[]>([])
   const isLoading = ref(false)
   const total = ref(0)
   const page = ref(1)
@@ -158,24 +151,6 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
       error.value = 'Failed to load presets'
     } finally {
       isLoading.value = false
-    }
-  }
-
-  /**
-   * Load schedule presets (common cron expressions)
-   */
-  async function loadSchedulePresets(): Promise<void> {
-    try {
-      const response = await crawlPresetsApi.getSchedulePresets()
-      schedulePresets.value = response.data
-    } catch (e) {
-      console.error('Failed to load schedule presets:', e)
-      // Use fallback defaults
-      schedulePresets.value = [
-        { label: 'daily', cron: '0 6 * * *', description: 'Daily at 6:00 AM' },
-        { label: 'weekly_monday', cron: '0 8 * * 1', description: 'Weekly on Monday at 8:00 AM' },
-        { label: 'monthly', cron: '0 0 1 * *', description: 'Monthly on the 1st at midnight' },
-      ]
     }
   }
 
@@ -382,7 +357,6 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
     // State
     presets,
     favoriteIds,
-    schedulePresets,
     isLoading,
     total,
     page,
@@ -399,7 +373,6 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
     isFavorited,
     getPresetById,
     loadPresets,
-    loadSchedulePresets,
     createPreset,
     updatePreset,
     deletePreset,

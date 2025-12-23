@@ -19,6 +19,7 @@
     "adminLevel1": "Region/State",
     "tags": "Tags",
     "tagsHint": "Press Enter to add tags",
+    "tagsHintSelect": "Select tags from the list",
     "sourceType": "Source Type",
     "limit": "Limit",
     "sourcesMatched": "sources matched",

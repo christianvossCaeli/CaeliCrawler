@@ -1,16 +1,22 @@
 <template>
   <div>
-    <div class="d-flex justify-space-between align-center mb-6">
-      <h1 class="text-h4">{{ $t('categories.title') }} ({{ filteredCategories.length }})</h1>
-      <v-btn variant="tonal" color="primary" @click="openCreateDialog">
-        <v-icon left>mdi-plus</v-icon>{{ $t('categories.actions.create') }}
-      </v-btn>
-    </div>
+    <PageHeader
+      :title="$t('categories.title')"
+      :subtitle="$t('categories.subtitle')"
+      icon="mdi-folder-multiple"
+      :count="filteredCategories.length"
+    >
+      <template #actions>
+        <v-btn variant="tonal" color="primary" @click="openCreateDialog">
+          <v-icon left>mdi-plus</v-icon>{{ $t('categories.actions.create') }}
+        </v-btn>
+      </template>
+    </PageHeader>
 
     <!-- Filters -->
     <v-card class="mb-4">
       <v-card-text>
-        <v-row>
+        <v-row align="center">
           <v-col cols="12" md="4">
             <v-text-field
               v-model="categoryFilters.search"
@@ -1043,6 +1049,7 @@ import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
 import { getContrastColor } from '@/composables/useColorHelpers'
 import ScheduleBuilder from '@/components/common/ScheduleBuilder.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 const router = useRouter()

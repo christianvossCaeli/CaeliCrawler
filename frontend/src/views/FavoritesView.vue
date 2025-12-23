@@ -1,17 +1,12 @@
 <template>
   <v-container fluid>
     <!-- Header -->
-    <div class="d-flex justify-space-between align-center mb-6">
-      <div class="d-flex align-center">
-        <v-icon icon="mdi-star" color="amber-darken-2" size="32" class="mr-3"></v-icon>
-        <div>
-          <h1 class="text-h4">{{ t('favorites.title') }}</h1>
-          <div class="text-body-2 text-medium-emphasis">
-            {{ t('favorites.subtitle', { count: total }) }}
-          </div>
-        </div>
-      </div>
-    </div>
+    <PageHeader
+      :title="t('favorites.title')"
+      :subtitle="t('favorites.subtitle', { count: total })"
+      icon="mdi-star"
+      avatar-color="amber-darken-2"
+    />
 
     <!-- Filters -->
     <v-card class="mb-4">
@@ -173,6 +168,7 @@ import { useI18n } from 'vue-i18n'
 import { useFavoritesStore, type Favorite } from '@/stores/favorites'
 import { useEntityStore } from '@/stores/entity'
 import { useSnackbar } from '@/composables/useSnackbar'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 const router = useRouter()

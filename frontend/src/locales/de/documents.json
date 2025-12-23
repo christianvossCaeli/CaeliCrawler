@@ -1,6 +1,7 @@
 {
   "documents": {
     "title": "Dokumente",
+    "subtitle": "Gefundene und verarbeitete Dokumente durchsuchen",
     "document": "Dokument",
     "documents": "Dokumente",
     "filters": {
@@ -32,7 +33,7 @@
       "openOriginal": "Original öffnen",
       "viewDetails": "Details anzeigen",
       "reprocess": "Erneut verarbeiten",
-      "processAll": "Alle Pending",
+      "processAll": "Alle Wartenden",
       "stop": "Stoppen",
       "exportCsv": "CSV Export"
     },
@@ -53,7 +54,7 @@
       "discovered": "Entdeckt",
       "processed": "Verarbeitet",
       "showInResults": "In Ergebnissen anzeigen",
-      "confidence": "Confidence"
+      "confidence": "Zuverlässigkeit"
     },
     "stats": {
       "total": "Gesamt",

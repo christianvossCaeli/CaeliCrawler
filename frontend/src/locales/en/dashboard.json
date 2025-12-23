@@ -1,6 +1,7 @@
 {
   "dashboard": {
     "title": "Dashboard",
+    "subtitle": "Current statistics and activities at a glance",
     "welcome": "Welcome back",
     "customize": "Customize",
     "finishEditing": "Done",

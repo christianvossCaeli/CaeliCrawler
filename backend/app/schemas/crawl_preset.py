@@ -25,8 +25,8 @@ class CrawlPresetFilters(BaseModel):
     tags: Optional[List[str]] = Field(None, description="Filter by tags (e.g., ['nrw', 'bayern'])")
 
     # Entity-based filters
-    entity_type: Optional[str] = Field(None, description="Filter by entity type slug")
-    admin_level_1: Optional[str] = Field(None, description="Filter by admin level 1 (e.g., Bundesland)")
+    entity_type: Optional[List[str]] = Field(None, description="Filter by entity type slugs (multi-select)")
+    admin_level_1: Optional[str] = Field(None, description="Filter by admin level 1 (e.g., Bundesland) - deprecated, use tags")
     entity_filters: Optional[Dict[str, Any]] = Field(
         None,
         description="Entity-specific filters including core_attributes operators"
@@ -34,7 +34,7 @@ class CrawlPresetFilters(BaseModel):
 
     # Standard source filters
     country: Optional[str] = Field(None, description="Filter by country code (DE, GB, etc.)")
-    source_type: Optional[str] = Field(None, description="Filter by source type (WEBSITE, OPARL_API, RSS)")
+    source_type: Optional[List[str]] = Field(None, description="Filter by source types (WEBSITE, OPARL_API, RSS, etc.)")
     status: Optional[str] = Field(None, description="Filter by source status (ACTIVE, PENDING, ERROR)")
     search: Optional[str] = Field(None, description="Filter by name or URL search term")
 

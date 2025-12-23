@@ -1,6 +1,6 @@
 {
   "smartQuery": {
-    "title": "Smart Query",
+    "title": "Intelligente Suche",
     "subtitle": "Stellen Sie Fragen in natürlicher Sprache",
     "input": {
       "placeholder": "z.B. 'Zeige mir alle Gemeinden mit Windkraft-Diskussionen'",
@@ -18,6 +18,11 @@
       "favorites": "Favoriten",
       "empty": "Noch keine Befehle ausgeführt",
       "noFavorites": "Noch keine Favoriten",
+      "noResults": "Keine passenden Befehle",
+      "searchPlaceholder": "Befehle suchen",
+      "typeFilter": "Typ",
+      "allTypes": "Alle Typen",
+      "wrapLines": "Mehrzeilig",
       "clear": "Verlauf löschen",
       "clearTitle": "Verlauf löschen",
       "clearConfirm": "Möchten Sie den Verlauf wirklich löschen? Favoriten bleiben erhalten.",
@@ -40,14 +45,14 @@
     "createError": "Fehler beim Erstellen"
   },
   "smartQueryView": {
-    "title": "Smart Query",
-    "subtitle": "Stelle Fragen in natuerlicher Sprache oder erstelle Daten per Kommando",
+    "title": "Intelligente Suche",
+    "subtitle": "Stelle Fragen in natürlicher Sprache oder erstelle Daten per Kommando",
     "input": {
       "labelRead": "Deine Frage",
       "labelWrite": "Dein Kommando",
       "placeholderListening": "Sprich jetzt...",
-      "placeholderRead": "z.B. Zeige mir alle Pain Points von Gemeinden",
-      "placeholderWrite": "z.B. Erstelle eine Person Max Mueller, Buergermeister von Gummersbach"
+      "placeholderRead": "z.B. Zeige mir alle Problemfelder von Gemeinden",
+      "placeholderWrite": "z.B. Erstelle eine Person Max Müller, Bürgermeister von Gummersbach"
     },
     "voice": {
       "startRecording": "Spracheingabe starten",
@@ -56,7 +61,10 @@
     "mode": {
       "read": "Lese-Modus",
       "write": "Schreib-Modus",
-      "previewFirst": "Vorschau wird zuerst angezeigt"
+      "previewFirst": "Vorschau wird zuerst angezeigt",
+      "readHint": "Lese: nur lesen/filtern - {shortcut} zum Abfragen",
+      "writeHint": "Schreib: erstellt/ändert Daten - {shortcut} zur Vorschau",
+      "shortcut": "Ctrl/⌘+Enter"
     },
     "actions": {
       "preview": "Vorschau",
@@ -67,26 +75,28 @@
       "questionsTitle": "Beispiel-Fragen",
       "commandsTitle": "Beispiel-Kommandos",
       "read": {
-        "futureEvents": "Zeige mir auf welche kuenftige Events wichtige Entscheider-Personen von Gemeinden gehen",
-        "futureEventsTitle": "Zukünftige Events",
-        "mayorsOnEvents": "Welche Buergermeister sprechen auf Events?",
-        "mayorsOnEventsTitle": "Bürgermeister auf Events",
-        "allPainPoints": "Zeige mir alle Pain Points von Gemeinden",
-        "allPainPointsTitle": "Alle Pain Points",
-        "gummersbachPainPoints": "Zeige mir Pain Points von Gummersbach",
-        "gummersbachPainPointsTitle": "Pain Points Gummersbach"
+        "futureEvents": "Zeige mir auf welche künftigen Veranstaltungen wichtige Entscheider-Personen von Gemeinden gehen",
+        "futureEventsTitle": "Zukünftige Veranstaltungen",
+        "mayorsOnEvents": "Welche Bürgermeister sprechen auf Veranstaltungen?",
+        "mayorsOnEventsTitle": "Bürgermeister auf Veranstaltungen",
+        "allPainPoints": "Zeige mir alle Problemfelder von Gemeinden",
+        "allPainPointsTitle": "Alle Problemfelder",
+        "gummersbachPainPoints": "Zeige mir Problemfelder von Gummersbach",
+        "gummersbachPainPointsTitle": "Problemfelder Gummersbach"
       },
       "write": {
-        "createPerson": "Erstelle eine Person Max Mueller, Buergermeister",
+        "createPerson": "Erstelle eine Person Max Müller, Bürgermeister",
         "createPersonTitle": "Person erstellen",
-        "addPainPoint": "Fuege einen Pain Point fuer Muenster hinzu: Personalmangel in der IT",
-        "addPainPointTitle": "Pain Point hinzufügen",
-        "findEvents": "Finde alle Events auf denen Entscheider aus NRW teilnehmen",
-        "findEventsTitle": "Events finden",
-        "startCrawls": "Starte Crawls fuer alle Gummersbach Datenquellen",
-        "startCrawlsTitle": "Crawls starten",
-        "createCategory": "Erstelle Category fuer Windkraft in Bayern und starte sofort einen Crawl",
-        "createCategoryTitle": "Kategorie erstellen"
+        "addPainPoint": "Füge ein Problemfeld für Münster hinzu: Personalmangel in der IT",
+        "addPainPointTitle": "Problemfeld hinzufügen",
+        "findEvents": "Finde alle Veranstaltungen auf denen Entscheider aus NRW teilnehmen",
+        "findEventsTitle": "Veranstaltungen finden",
+        "startCrawls": "Starte Datensammlungen für alle Gummersbach Datenquellen",
+        "startCrawlsTitle": "Datensammlungen starten",
+        "createCategory": "Erstelle ein Analysethema für Windkraft in Bayern und starte sofort eine Datensammlung",
+        "createCategoryTitle": "Analysethema erstellen",
+        "analyzePysis": "Analysiere PySis-Daten für Gummersbach und erstelle Facets",
+        "analyzePysisTitle": "PySis analysieren"
       }
     },
     "loading": {
@@ -96,42 +106,42 @@
     "generation": {
       "running": "KI-Generierung läuft...",
       "processing": "Verarbeite...",
-      "step1": "Generiere EntityType-Schema und Konfiguration...",
-      "step2": "Erstelle Category mit AI-Prompt und Suchbegriffen...",
-      "step3": "Optimiere Crawl-Konfiguration und URL-Patterns...",
+      "step1": "Generiere Datentyp-Schema und Konfiguration...",
+      "step2": "Erstelle Analysethema mit KI-Anweisung und Suchbegriffen...",
+      "step3": "Optimiere Sammel-Konfiguration und URL-Muster...",
       "step4": "Verknüpfe Datenquellen und finalisiere Setup...",
       "stepperTitles": {
-        "entityType": "EntityType",
-        "category": "Category",
-        "crawlConfig": "Crawl-Config"
+        "entityType": "Datentyp",
+        "category": "Analysethema",
+        "crawlConfig": "Sammel-Konfig."
       },
       "stepperSubtitles": {
         "entityType": "Schema & Konfiguration",
-        "category": "AI-Prompt & Search Terms",
-        "crawlConfig": "URL-Patterns"
+        "category": "KI-Anweisung & Suchbegriffe",
+        "crawlConfig": "URL-Muster"
       }
     },
     "preview": {
-      "title": "Vorschau - Bitte bestaetigen",
+      "title": "Vorschau - Bitte bestätigen",
       "technicalDetails": "Technische Details",
-      "confirmAndCreate": "Bestaetigen & Erstellen"
+      "confirmAndCreate": "Bestätigen & Erstellen"
     },
     "results": {
       "successfullyCreated": "Erfolgreich erstellt",
       "createdItems": "Erstellte Elemente:",
-      "crawlDetails": "Crawl-Details",
+      "crawlDetails": "Sammel-Details",
       "dataSources": "{count} Datenquellen",
       "jobsStarted": "{count} Jobs gestartet",
-      "dataSourcesLink": "Datenquellen-Verknuepfung",
-      "dataSourcesLinked": "{count} Datenquellen verknuepft",
+      "dataSourcesLink": "Datenquellen-Verknüpfung",
+      "dataSourcesLinked": "{count} Datenquellen verknüpft",
       "aiGenerationSteps": "KI-Generierungsschritte",
       "step": "Schritt {current}/{total}",
       "aiSearchTerms": "KI-generierte Suchbegriffe",
-      "urlPatternConfig": "URL-Pattern-Konfiguration",
-      "includePatterns": "Include-Patterns:",
-      "excludePatterns": "Exclude-Patterns:",
-      "aiExtractionPrompt": "KI-generierter Extraktions-Prompt",
-      "executedOperations": "Ausgefuehrte Operationen",
+      "urlPatternConfig": "URL-Muster-Konfiguration",
+      "includePatterns": "Erlaubte Muster:",
+      "excludePatterns": "Ausgeschlossene Muster:",
+      "aiExtractionPrompt": "KI-generierte Extraktions-Anweisung",
+      "executedOperations": "Ausgeführte Operationen",
       "interpretation": "Interpretation",
       "newCommand": "Neues Kommando",
       "newQuery": "Neue Abfrage",
@@ -146,12 +156,12 @@
       "attendeesLabel": "Teilnehmer",
       "moreItems": "+{count} weitere",
       "noResults": "Keine Ergebnisse gefunden",
-      "noResultsHint": "Versuche eine andere Formulierung oder pruefe ob die entsprechenden Daten vorhanden sind.",
+      "noResultsHint": "Versuche eine andere Formulierung oder prüfe ob die entsprechenden Daten vorhanden sind.",
       "dateUnknown": "Datum unbekannt",
       "locationUnknown": "Ort unbekannt",
       "noDetails": "Keine Details",
-      "entity": "Entity",
-      "facet": "Facet"
+      "entity": "Datensatz",
+      "facet": "Merkmal"
     },
     "assistant": {
       "elementsCreated": "{count} Elemente erstellt",
@@ -160,7 +170,61 @@
     },
     "errors": {
       "noWriteOperation": "Keine Schreib-Operation erkannt",
-      "queryError": "Fehler bei der Abfrage"
+      "queryError": "Fehler bei der Abfrage",
+      "noVisualizationsTitle": "Keine Visualisierungen verfügbar",
+      "noVisualizationsHint": "Die kombinierte Abfrage hat keine Visualisierungen erzeugt. Bitte formulieren Sie Ihre Anfrage neu."
+    },
+    "sourceTypes": {
+      "document": "Dokument",
+      "manual": "Manuell",
+      "aiAssistant": "KI-Assistent",
+      "import": "Import",
+      "attachment": "Anhang",
+      "unknown": "Unbekannt"
     }
+  },
+  "result": {
+    "defaultTitle": "Abfrageergebnis"
+  },
+  "visualization": {
+    "noData": "Keine Daten vorhanden",
+    "noVisualization": "Keine Visualisierung verfügbar",
+    "columns": {
+      "name": "Name",
+      "region": "Region",
+      "tags": "Tags"
+    },
+    "map": {
+      "featuresOnMap": "Objekte auf der Karte",
+      "loading": "Lade Kartendaten...",
+      "clusterLegend": "Cluster",
+      "regions": "Regionen",
+      "boundaries": "Grenzen",
+      "noGeoData": "Keine geografischen Daten verfügbar",
+      "unknownEntity": "Unbekannt",
+      "ariaLabel": "Kartenvisualisierung mit geografischen Daten",
+      "interactiveMap": "Interaktive Karte - mit Maus verschieben und zoomen"
+    }
+  },
+  "sourceInfo": {
+    "type": "Typ",
+    "lastUpdated": "Zuletzt aktualisiert",
+    "freshness": "Datenalter",
+    "apiName": "API",
+    "liveApi": "Live API",
+    "facetHistory": "Verlaufsdaten",
+    "internal": "Intern"
+  },
+  "suggestedActions": {
+    "label": "Aktionen:"
+  },
+  "comparison": {
+    "attributes": "Attribute",
+    "summary": "{entity} hat den höchsten Wert für {facet}: {value}"
+  },
+  "compoundQuery": {
+    "results": "Kombinierte Ergebnisse",
+    "visualizationsCount": "{count} Visualisierungen",
+    "ariaLabel": "Kombinierte Abfrageergebnisse mit mehreren Visualisierungen"
   }
 }

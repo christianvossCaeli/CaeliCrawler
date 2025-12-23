@@ -21,8 +21,9 @@ Usage:
     from services.smart_query import SmartQueryService, smart_query, smart_write
 """
 
-from typing import Any, Dict, Optional
-from uuid import UUID
+import asyncio
+from typing import Any, Dict, List, Optional
+from uuid import UUID, uuid4
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,8 +51,10 @@ from .query_interpreter import (
     interpret_query,
     interpret_write_command,
     get_openai_client,
+    detect_compound_query,
 )
 from .query_executor import execute_smart_query
+from .visualization_selector import VisualizationSelector
 from .ai_generation import (
     ai_generate_entity_type_config,
     ai_generate_category_config,
@@ -72,6 +75,186 @@ from .write_executor import (
 )
 
 logger = structlog.get_logger()
+
+
+# Maximum number of sub-queries allowed in a compound query
+MAX_COMPOUND_SUB_QUERIES = 5
+
+
+async def _execute_single_sub_query(
+    session: AsyncSession,
+    sub_query: Dict[str, Any],
+    viz_selector: VisualizationSelector,
+) -> Dict[str, Any]:
+    """
+    Execute a single sub-query and return visualization data.
+
+    This is an internal helper for parallel execution.
+
+    Args:
+        session: Database session
+        sub_query: Sub-query configuration from compound detection
+        viz_selector: Shared visualization selector instance
+
+    Returns:
+        Dict containing visualization config and data
+    """
+    query_id = sub_query.get("id") or str(uuid4())[:8]
+    description = sub_query.get("description", "Query")
+    query_config = sub_query.get("query_config", {})
+    viz_hint = sub_query.get("visualization_hint")
+
+    try:
+        logger.info(
+            "Executing sub-query",
+            id=query_id,
+            description=description,
+            entity_type=query_config.get("entity_type"),
+        )
+
+        # Execute the sub-query
+        result = await execute_smart_query(session, query_config)
+        items = result.get("items", [])
+
+        # Select visualization
+        viz_config = await viz_selector.select_visualization(
+            data=items,
+            user_query=description,
+            facet_types=query_config.get("facet_types", []),
+            user_hint=viz_hint,
+        )
+
+        return {
+            "id": query_id,
+            "title": viz_config.title or description,
+            "visualization": viz_config.model_dump() if hasattr(viz_config, 'model_dump') else viz_config.dict(),
+            "data": items,
+            "source_info": {
+                "type": "internal",
+                "last_updated": None,
+            },
+            "explanation": f"{len(items)} results found",
+            "success": True,
+        }
+
+    except Exception as e:
+        logger.error(
+            "Sub-query execution failed",
+            id=query_id,
+            error=str(e),
+            exc_info=True,
+        )
+        return {
+            "id": query_id,
+            "title": description,
+            "visualization": {
+                "type": "text",
+                "title": "Error",
+                "text_content": f"Query failed: {str(e)}",
+            },
+            "data": [],
+            "source_info": None,
+            "explanation": f"Error: {str(e)}",
+            "success": False,
+        }
+
+
+async def execute_compound_query(
+    session: AsyncSession,
+    compound_detection: Dict[str, Any],
+    original_question: str,
+) -> Dict[str, Any]:
+    """
+    Execute a compound query by running multiple sub-queries in parallel.
+
+    Compound queries allow users to request multiple distinct datasets
+    in a single natural language query (e.g., "show table AND chart").
+
+    Best Practices Applied:
+    - Parallel Execution: Sub-queries run concurrently via asyncio.gather()
+    - Fail-Safe: Individual failures don't block other sub-queries
+    - Rate Limiting: Max sub-queries capped to prevent resource exhaustion
+
+    Args:
+        session: Database session
+        compound_detection: Result from detect_compound_query() containing:
+            - sub_queries: List of query configurations
+            - reasoning: AI explanation for the decomposition
+        original_question: The original user question
+
+    Returns:
+        CompoundQueryResponse-compatible dict with:
+        - success: Overall operation success
+        - is_compound: True (marker for frontend)
+        - visualizations: List of visualization configs with data
+        - explanation: AI reasoning
+        - suggested_actions: Follow-up suggestions
+    """
+    sub_queries = compound_detection.get("sub_queries", [])
+
+    # Validate and limit sub-queries
+    if not sub_queries:
+        logger.warning("Compound query has no sub-queries")
+        return {
+            "success": False,
+            "is_compound": True,
+            "visualizations": [],
+            "explanation": "No sub-queries detected",
+            "suggested_actions": [],
+            "original_question": original_question,
+            "mode": "read",
+            "error": "No sub-queries found in compound detection",
+        }
+
+    if len(sub_queries) > MAX_COMPOUND_SUB_QUERIES:
+        logger.warning(
+            "Too many sub-queries, limiting",
+            requested=len(sub_queries),
+            max_allowed=MAX_COMPOUND_SUB_QUERIES,
+        )
+        sub_queries = sub_queries[:MAX_COMPOUND_SUB_QUERIES]
+
+    # Create shared visualization selector
+    viz_selector = VisualizationSelector()
+
+    # Execute all sub-queries in parallel
+    logger.info(
+        "Executing compound query",
+        sub_query_count=len(sub_queries),
+        question=original_question[:100],
+    )
+
+    tasks = [
+        _execute_single_sub_query(session, sq, viz_selector)
+        for sq in sub_queries
+    ]
+
+    visualizations = await asyncio.gather(*tasks)
+
+    # Count successes for overall status
+    success_count = sum(1 for v in visualizations if v.get("success", False))
+    overall_success = success_count > 0
+
+    # Remove internal success flag from visualizations
+    for viz in visualizations:
+        viz.pop("success", None)
+
+    logger.info(
+        "Compound query complete",
+        total_sub_queries=len(sub_queries),
+        successful=success_count,
+        failed=len(sub_queries) - success_count,
+    )
+
+    return {
+        "success": overall_success,
+        "is_compound": True,
+        "visualizations": list(visualizations),
+        "explanation": compound_detection.get("reasoning"),
+        "suggested_actions": [],
+        "original_question": original_question,
+        "mode": "read",
+    }
 
 
 class SmartQueryService:
@@ -152,7 +335,26 @@ async def smart_query(
             result["interpretation"] = write_command
             return result
 
-    # Fall through to read query - pass session for dynamic prompt generation
+    # Check if this is a compound query (multiple visualizations requested)
+    try:
+        compound_detection = await detect_compound_query(question, session=session)
+
+        if compound_detection.get("is_compound") and compound_detection.get("sub_queries"):
+            logger.info(
+                "Compound query detected",
+                question=question[:100],
+                sub_query_count=len(compound_detection.get("sub_queries", [])),
+                reasoning=compound_detection.get("reasoning", "")[:100],
+            )
+            return await execute_compound_query(session, compound_detection, question)
+
+    except Exception as e:
+        logger.warning(
+            "Compound query detection failed, falling back to single query",
+            error=str(e),
+        )
+
+    # Fall through to single read query - pass session for dynamic prompt generation
     query_params = await interpret_query(question, session=session)
 
     if not query_params:
@@ -173,10 +375,32 @@ async def smart_query(
         interpretation=query_params,
     )
 
-    # Execute the query
+    # Execute the single query
     results = await execute_smart_query(session, query_params)
+
+    # Apply visualization selection for single queries too
+    viz_selector = VisualizationSelector()
+    items = results.get("items", [])
+    facet_types = query_params.get("facet_types", [])
+
+    try:
+        viz_config = await viz_selector.select_visualization(
+            data=items,
+            user_query=question,
+            facet_types=facet_types,
+        )
+        results["visualization"] = viz_config.model_dump() if hasattr(viz_config, 'model_dump') else viz_config.dict()
+    except Exception as e:
+        logger.warning("Visualization selection failed", error=str(e))
+        # Default to table visualization
+        results["visualization"] = {
+            "type": "table",
+            "title": "Ergebnis",
+        }
+
     results["original_question"] = question
     results["mode"] = "read"
+    results["is_compound"] = False
 
     return results
 
@@ -221,8 +445,12 @@ __all__ = [
     "interpret_query",
     "interpret_write_command",
     "get_openai_client",
+    "detect_compound_query",
     # Query execution
     "execute_smart_query",
+    "execute_compound_query",
+    # Visualization
+    "VisualizationSelector",
     # AI generation
     "ai_generate_entity_type_config",
     "ai_generate_category_config",

@@ -19,6 +19,7 @@
     "adminLevel1": "Region/Bundesland",
     "tags": "Tags",
     "tagsHint": "Eingabe mit Enter bestätigen",
+    "tagsHintSelect": "Tags aus der Liste auswählen",
     "sourceType": "Quellen-Typ",
     "limit": "Limit",
     "sourcesMatched": "Quellen gefunden",

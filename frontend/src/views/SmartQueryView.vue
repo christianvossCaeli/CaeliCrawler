@@ -1,36 +1,34 @@
 <template>
   <div class="smart-query-view">
     <!-- Modern Header with Mode Toggle -->
-    <div class="smart-query-header mb-6">
-      <div class="header-content d-flex align-center">
-        <v-avatar color="primary" size="56" class="mr-4 header-avatar">
-          <v-icon size="32" color="white">mdi-brain</v-icon>
-        </v-avatar>
-        <div>
-          <h1 class="text-h4 font-weight-bold">{{ t('smartQueryView.title') }}</h1>
-          <p class="text-body-2 text-medium-emphasis mb-0">
-            {{ t('smartQueryView.subtitle') }}
-          </p>
+    <PageHeader
+      :title="t('smartQueryView.title')"
+      :subtitle="t('smartQueryView.subtitle')"
+      icon="mdi-brain"
+    >
+      <template #actions>
+        <div class="mode-toggle-block">
+          <v-btn-toggle
+            v-model="writeMode"
+            mandatory
+            divided
+            density="comfortable"
+            class="mode-toggle"
+            :disabled="previewData !== null"
+          >
+            <v-btn :value="false" min-width="140">
+              <v-icon start :color="!writeMode ? 'primary' : undefined">mdi-magnify</v-icon>
+              {{ t('smartQueryView.mode.read') }}
+            </v-btn>
+            <v-btn :value="true" min-width="140">
+              <v-icon start :color="writeMode ? 'warning' : undefined">mdi-pencil-plus</v-icon>
+              {{ t('smartQueryView.mode.write') }}
+            </v-btn>
+          </v-btn-toggle>
+          <div class="mode-toggle-hint text-caption text-medium-emphasis">
+            {{ modeHint }}
+          </div>
         </div>
-      </div>
-      <div class="d-flex align-center ga-3">
-        <v-btn-toggle
-          v-model="writeMode"
-          mandatory
-          divided
-          density="comfortable"
-          class="mode-toggle"
-          :disabled="previewData !== null"
-        >
-          <v-btn :value="false" min-width="140">
-            <v-icon start :color="!writeMode ? 'primary' : undefined">mdi-magnify</v-icon>
-            {{ t('smartQueryView.mode.read') }}
-          </v-btn>
-          <v-btn :value="true" min-width="140">
-            <v-icon start :color="writeMode ? 'warning' : undefined">mdi-pencil-plus</v-icon>
-            {{ t('smartQueryView.mode.write') }}
-          </v-btn>
-        </v-btn-toggle>
 
         <!-- History Toggle Button -->
         <v-btn
@@ -52,8 +50,8 @@
             {{ t('smartQuery.history.title') }}
           </v-tooltip>
         </v-btn>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Chat-Style Input Card -->
     <v-card class="input-card mb-6" :class="{ 'input-card--active': question.trim() || pendingAttachments.length > 0 }">
@@ -188,20 +186,22 @@
           hover
           variant="outlined"
         >
-          <v-card-text class="d-flex align-center pa-4">
-            <v-avatar
-              :color="writeMode ? 'warning' : 'primary'"
-              size="44"
-              class="mr-3 example-avatar"
-              variant="tonal"
-            >
-              <v-icon size="22">{{ example.icon }}</v-icon>
-            </v-avatar>
-            <div class="flex-grow-1 overflow-hidden">
-              <div class="text-body-2 font-weight-medium text-truncate">{{ example.title }}</div>
-              <div class="text-caption text-medium-emphasis text-truncate">{{ example.question }}</div>
+          <v-card-text class="example-card-content pa-4">
+            <div class="example-main">
+              <v-avatar
+                :color="writeMode ? 'warning' : 'primary'"
+                size="44"
+                class="example-avatar"
+                variant="tonal"
+              >
+                <v-icon size="22">{{ example.icon }}</v-icon>
+              </v-avatar>
+              <div class="example-text-block">
+                <div class="text-body-2 font-weight-medium example-title">{{ example.title }}</div>
+                <div class="text-caption text-medium-emphasis example-question">{{ example.question }}</div>
+              </div>
             </div>
-            <v-icon size="18" class="ml-2 example-arrow" color="grey">mdi-arrow-right</v-icon>
+            <v-icon size="18" class="example-arrow" color="grey">mdi-arrow-right</v-icon>
           </v-card-text>
         </v-card>
       </div>
@@ -535,8 +535,60 @@
       </v-card>
     </template>
 
-    <!-- Read Results -->
-    <template v-if="results?.mode === 'read' || (!results?.mode && results && !previewData)">
+    <!-- Compound Query Results (multiple visualizations) -->
+    <transition name="compound-result" appear>
+      <div v-if="results?.is_compound" class="compound-results-wrapper">
+        <!-- Successful compound query with visualizations -->
+        <template v-if="results?.visualizations?.length > 0">
+          <v-card class="mb-4 content-reveal">
+            <CompoundQueryResult
+              :visualizations="results.visualizations"
+              :explanation="results.explanation"
+              :suggested-actions="results.suggested_actions || []"
+              @action="handleVisualizationAction"
+            />
+          </v-card>
+        </template>
+
+        <!-- Compound query with no visualizations (edge case / error) -->
+        <template v-else>
+          <v-alert type="warning" variant="tonal" class="mb-4">
+            <v-alert-title>{{ t('smartQueryView.errors.noVisualizationsTitle') }}</v-alert-title>
+            {{ results.error || results.explanation || t('smartQueryView.errors.noVisualizationsHint') }}
+          </v-alert>
+        </template>
+
+        <div class="d-flex justify-center">
+          <v-btn variant="tonal" @click="resetAll">
+            <v-icon start>mdi-refresh</v-icon>
+            {{ t('smartQueryView.results.newQuery') }}
+          </v-btn>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Visualization Results (single query with visualization) -->
+    <template v-else-if="results?.visualization && !results?.is_compound && results?.mode === 'read'">
+      <v-card class="mb-4">
+        <SmartQueryResult
+          :data="results.items || results.data || []"
+          :visualization="results.visualization"
+          :explanation="results.explanation"
+          :source-info="results.source_info"
+          :suggested-actions="results.suggested_actions || []"
+          @action="handleVisualizationAction"
+        />
+      </v-card>
+      <v-card-actions class="justify-center">
+        <v-btn variant="tonal" @click="resetAll">
+          <v-icon start>mdi-refresh</v-icon>
+          {{ t('smartQueryView.results.newQuery') }}
+        </v-btn>
+      </v-card-actions>
+    </template>
+
+    <!-- Legacy Read Results (without visualization - for backwards compatibility) -->
+    <template v-else-if="results?.mode === 'read' && !results?.visualization && !results?.is_compound">
       <!-- Compact Interpretation Bar -->
       <div class="interpretation-bar mb-4 pa-4 d-flex align-center flex-wrap ga-2">
         <v-icon size="20" class="mr-2" color="primary">mdi-brain</v-icon>
@@ -686,9 +738,13 @@
                         :key="fv.id"
                         size="x-small"
                         variant="tonal"
-                        color="secondary"
+                        :color="getSourceTypeColor(fv.source_type)"
                       >
+                        <v-icon v-if="fv.source_type" start size="10">{{ getSourceTypeIcon(fv.source_type) }}</v-icon>
                         {{ fv.text?.substring(0, 40) }}{{ fv.text?.length > 40 ? '...' : '' }}
+                        <v-tooltip activator="parent" location="top">
+                          {{ fv.text }} ({{ getSourceTypeLabel(fv.source_type) }})
+                        </v-tooltip>
                       </v-chip>
                       <v-chip v-if="values.length > 3" size="x-small" variant="text" color="primary">
                         +{{ values.length - 3 }}
@@ -757,6 +813,9 @@ import { useSpeechRecognition } from '@/composables/useSpeechRecognition'
 import { useQueryContextStore } from '@/stores/queryContext'
 import { useSmartQueryHistoryStore } from '@/stores/smartQueryHistory'
 import SmartQueryHistoryPanel from '@/components/smartquery/SmartQueryHistoryPanel.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import { SmartQueryResult } from '@/components/smartquery/visualizations'
+import CompoundQueryResult from '@/components/smartquery/CompoundQueryResult.vue'
 
 // Types for attachments
 interface AttachmentInfo {
@@ -971,6 +1030,12 @@ const getInputPlaceholder = computed(() => {
     : t('smartQueryView.input.placeholderRead')
 })
 
+const modeHint = computed(() =>
+  writeMode.value
+    ? t('smartQueryView.mode.writeHint', { shortcut: t('smartQueryView.mode.shortcut') })
+    : t('smartQueryView.mode.readHint', { shortcut: t('smartQueryView.mode.shortcut') })
+)
+
 const getSubmitButtonColor = computed(() => {
   if (pendingAttachments.value.length > 0) return 'info'
   return writeMode.value ? 'warning' : 'primary'
@@ -1036,6 +1101,11 @@ const writeExamples = ref([
     question: t('smartQueryView.examples.write.createCategory'),
     icon: 'mdi-folder-plus',
     title: t('smartQueryView.examples.write.createCategoryTitle')
+  },
+  {
+    question: t('smartQueryView.examples.write.analyzePysis'),
+    icon: 'mdi-database-sync',
+    title: t('smartQueryView.examples.write.analyzePysisTitle')
   },
 ])
 
@@ -1190,6 +1260,37 @@ function resetAll() {
 }
 
 /**
+ * Handle actions from visualization component
+ */
+function handleVisualizationAction(action: string, params: Record<string, any>) {
+  console.log('Visualization action:', action, params)
+
+  // Handle specific actions
+  switch (action) {
+    case 'setup_sync':
+    case 'setup_api_sync':
+      // Switch to write mode with a sync setup command
+      writeMode.value = true
+      question.value = `Richte automatische Synchronisation ein für ${params.entity_type || 'Daten'}`
+      break
+
+    case 'save_to_entities':
+      // Switch to write mode to save external data
+      writeMode.value = true
+      question.value = `Speichere die externen Daten als Entities`
+      break
+
+    case 'change_visualization':
+      // Could open a dialog to change visualization type
+      break
+
+    default:
+      // Other actions can be handled here
+      break
+  }
+}
+
+/**
  * Handle rerun from history panel
  */
 function handleHistoryRerun(commandText: string, interpretation: Record<string, any>) {
@@ -1233,6 +1334,45 @@ function getEntityTypeColor(type: string): string {
     organization: 'purple',
   }
   return colors[type] || 'grey'
+}
+
+function getSourceTypeColor(sourceType?: string): string {
+  const colors: Record<string, string> = {
+    PYSIS: 'info',
+    DOCUMENT: 'secondary',
+    MANUAL: 'success',
+    SMART_QUERY: 'warning',
+    AI_ASSISTANT: 'purple',
+    IMPORT: 'blue-grey',
+    ATTACHMENT: 'teal',
+  }
+  return colors[sourceType || ''] || 'secondary'
+}
+
+function getSourceTypeIcon(sourceType?: string): string {
+  const icons: Record<string, string> = {
+    PYSIS: 'mdi-database-sync',
+    DOCUMENT: 'mdi-file-document',
+    MANUAL: 'mdi-account-edit',
+    SMART_QUERY: 'mdi-brain',
+    AI_ASSISTANT: 'mdi-robot',
+    IMPORT: 'mdi-import',
+    ATTACHMENT: 'mdi-paperclip',
+  }
+  return icons[sourceType || ''] || 'mdi-tag'
+}
+
+function getSourceTypeLabel(sourceType?: string): string {
+  const labels: Record<string, string> = {
+    PYSIS: 'PySis',
+    DOCUMENT: t('smartQueryView.sourceTypes.document'),
+    MANUAL: t('smartQueryView.sourceTypes.manual'),
+    SMART_QUERY: 'Smart Query',
+    AI_ASSISTANT: t('smartQueryView.sourceTypes.aiAssistant'),
+    IMPORT: t('smartQueryView.sourceTypes.import'),
+    ATTACHMENT: t('smartQueryView.sourceTypes.attachment'),
+  }
+  return labels[sourceType || ''] || sourceType || t('smartQueryView.sourceTypes.unknown')
 }
 
 function getItemTypeIcon(type: string): string {
@@ -1361,6 +1501,24 @@ onMounted(() => {
   box-shadow: 0 4px 12px rgba(var(--v-theme-primary), 0.2);
 }
 
+.header-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.mode-toggle-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.mode-toggle-hint {
+  max-width: 320px;
+  line-height: 1.35;
+}
+
 .mode-toggle {
   border-radius: 12px !important;
   overflow: hidden;
@@ -1372,6 +1530,9 @@ onMounted(() => {
   overflow: hidden;
   transition: box-shadow 0.3s ease, border-color 0.3s ease;
   border: 2px solid transparent;
+  position: sticky;
+  top: calc(var(--v-layout-top, 0px) + 12px);
+  z-index: 5;
 }
 
 .input-card--active {
@@ -1423,6 +1584,8 @@ onMounted(() => {
   cursor: pointer;
   transition: all 0.2s ease;
   border-radius: 12px !important;
+  display: flex;
+  align-items: center;
 }
 
 .example-card:hover {
@@ -1434,8 +1597,35 @@ onMounted(() => {
   border-color: rgba(var(--v-theme-warning), 0.4) !important;
 }
 
+.example-card-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-right: 40px;
+  flex: 1 1 auto;
+  width: 100%;
+}
+
+.example-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+}
+
 .example-avatar {
   transition: transform 0.2s ease;
+}
+
+.example-text-block {
+  min-width: 0;
+}
+
+.example-title,
+.example-question {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .example-card:hover .example-avatar {
@@ -1443,14 +1633,17 @@ onMounted(() => {
 }
 
 .example-arrow {
+  position: absolute;
+  right: 16px;
+  top: 50%;
   opacity: 0;
-  transform: translateX(-4px);
+  transform: translateY(-50%) translateX(-4px);
   transition: all 0.2s ease;
 }
 
 .example-card:hover .example-arrow {
   opacity: 1;
-  transform: translateX(0);
+  transform: translateY(-50%) translateX(0);
 }
 
 /* Loading Section */
@@ -1596,6 +1789,76 @@ onMounted(() => {
   transition: transform 0.3s ease;
 }
 
+/* Compound Query Result Transitions */
+.compound-result-enter-active,
+.compound-result-leave-active {
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.compound-result-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.compound-result-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* Staggered fade-in for visualization cards */
+@keyframes fadeInStagger {
+  from {
+    opacity: 0;
+    transform: translateY(15px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.visualization-stagger-enter {
+  animation: fadeInStagger 0.35s ease-out backwards;
+}
+
+/* Enhanced loading skeleton pulse */
+@keyframes skeletonPulse {
+  0%, 100% {
+    background-position: 200% 0;
+  }
+  50% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton-loading {
+  background: linear-gradient(
+    90deg,
+    rgba(var(--v-theme-surface-variant), 0.3) 25%,
+    rgba(var(--v-theme-surface-variant), 0.6) 50%,
+    rgba(var(--v-theme-surface-variant), 0.3) 75%
+  );
+  background-size: 400% 100%;
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* Smooth content reveal */
+.content-reveal {
+  animation: contentReveal 0.4s ease-out;
+}
+
+@keyframes contentReveal {
+  from {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .smart-query-header {
@@ -1606,6 +1869,19 @@ onMounted(() => {
 
   .header-content {
     flex-direction: column;
+  }
+
+  .header-actions {
+    align-items: center;
+  }
+
+  .mode-toggle-block {
+    align-items: center;
+    text-align: center;
+  }
+
+  .mode-toggle-hint {
+    max-width: 100%;
   }
 
   .header-avatar {

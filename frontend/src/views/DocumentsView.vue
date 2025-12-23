@@ -9,62 +9,62 @@
       </v-card>
     </v-overlay>
 
-    <div class="d-flex align-center mb-6">
-      <h1 class="text-h4">{{ $t('documents.title') }}</h1>
-      <v-spacer></v-spacer>
-      <!-- Bulk Actions -->
-      <v-btn
-        v-if="selectedDocuments.length > 0"
-        color="primary"
-        variant="outlined"
-        prepend-icon="mdi-play"
-        class="mr-2"
-        :loading="bulkProcessing"
-        @click="bulkProcess"
-      >
-        {{ selectedDocuments.length }} {{ $t('documents.bulkActions.processSelected') }}
-      </v-btn>
-      <v-btn
-        v-if="selectedDocuments.length > 0"
-        color="info"
-        variant="outlined"
-        prepend-icon="mdi-brain"
-        class="mr-2"
-        :loading="bulkAnalyzing"
-        @click="bulkAnalyze"
-      >
-        {{ selectedDocuments.length }} {{ $t('documents.bulkActions.analyzeSelected') }}
-      </v-btn>
-      <v-btn
-        v-if="stats.processing > 0"
-        color="error"
-        variant="outlined"
-        prepend-icon="mdi-stop"
-        class="mr-2"
-        :loading="stoppingAll"
-        @click="stopAllProcessing"
-      >
-        {{ $t('documents.actions.stop') }}
-      </v-btn>
-      <v-btn
-        v-if="stats.pending > 0 && selectedDocuments.length === 0"
-        color="primary"
-        prepend-icon="mdi-play"
-        class="mr-2"
-        :loading="processingAll"
-        @click="processAllPending"
-      >
-        {{ $t('documents.actions.processAll') }} ({{ stats.pending }})
-      </v-btn>
-      <v-btn
-        color="success"
-        variant="outlined"
-        prepend-icon="mdi-download"
-        @click="exportCsv"
-      >
-        {{ $t('documents.actions.exportCsv') }}
-      </v-btn>
-    </div>
+    <PageHeader
+      :title="$t('documents.title')"
+      :subtitle="$t('documents.subtitle')"
+      icon="mdi-file-document-multiple"
+    >
+      <template #actions>
+        <!-- Bulk Actions -->
+        <v-btn
+          v-if="selectedDocuments.length > 0"
+          color="primary"
+          variant="outlined"
+          prepend-icon="mdi-play"
+          :loading="bulkProcessing"
+          @click="bulkProcess"
+        >
+          {{ selectedDocuments.length }} {{ $t('documents.bulkActions.processSelected') }}
+        </v-btn>
+        <v-btn
+          v-if="selectedDocuments.length > 0"
+          color="info"
+          variant="outlined"
+          prepend-icon="mdi-brain"
+          :loading="bulkAnalyzing"
+          @click="bulkAnalyze"
+        >
+          {{ selectedDocuments.length }} {{ $t('documents.bulkActions.analyzeSelected') }}
+        </v-btn>
+        <v-btn
+          v-if="stats.processing > 0"
+          color="error"
+          variant="outlined"
+          prepend-icon="mdi-stop"
+          :loading="stoppingAll"
+          @click="stopAllProcessing"
+        >
+          {{ $t('documents.actions.stop') }}
+        </v-btn>
+        <v-btn
+          v-if="stats.pending > 0 && selectedDocuments.length === 0"
+          color="primary"
+          prepend-icon="mdi-play"
+          :loading="processingAll"
+          @click="processAllPending"
+        >
+          {{ $t('documents.actions.processAll') }} ({{ stats.pending }})
+        </v-btn>
+        <v-btn
+          color="success"
+          variant="outlined"
+          prepend-icon="mdi-download"
+          @click="exportCsv"
+        >
+          {{ $t('documents.actions.exportCsv') }}
+        </v-btn>
+      </template>
+    </PageHeader>
 
     <!-- Statistics Bar -->
     <v-row class="mb-4">
@@ -157,14 +157,12 @@
     <!-- Filters -->
     <v-card class="mb-4">
       <v-card-text>
-        <v-row>
+        <v-row align="center">
           <v-col cols="12" md="3">
             <v-text-field
               v-model="searchQuery"
               prepend-inner-icon="mdi-magnify"
               :label="$t('documents.filters.search')"
-              variant="outlined"
-              density="compact"
               clearable
               hide-details
               @update:model-value="debouncedLoadData"
@@ -175,8 +173,6 @@
               v-model="locationFilter"
               :items="locations"
               :label="$t('documents.filters.location')"
-              variant="outlined"
-              density="compact"
               clearable
               hide-details
               @update:model-value="loadData"
@@ -187,8 +183,6 @@
               v-model="typeFilter"
               :items="documentTypes"
               :label="$t('documents.filters.type')"
-              variant="outlined"
-              density="compact"
               clearable
               hide-details
               @update:model-value="loadData"
@@ -201,8 +195,6 @@
               item-title="name"
               item-value="id"
               :label="$t('documents.filters.category')"
-              variant="outlined"
-              density="compact"
               clearable
               hide-details
               @update:model-value="loadData"
@@ -213,8 +205,6 @@
               v-model="dateFrom"
               type="date"
               :label="$t('documents.filters.dateFrom')"
-              variant="outlined"
-              density="compact"
               clearable
               hide-details
               @update:model-value="loadData"
@@ -225,15 +215,13 @@
               v-model="dateTo"
               type="date"
               :label="$t('documents.filters.dateTo')"
-              variant="outlined"
-              density="compact"
               clearable
               hide-details
               @update:model-value="loadData"
             />
           </v-col>
         </v-row>
-        <v-row v-if="hasActiveFilters" class="mt-0">
+        <v-row v-if="hasActiveFilters" class="mt-2">
           <v-col cols="12">
             <v-btn variant="tonal" color="primary" size="small" @click="clearFilters">
               <v-icon size="small" class="mr-1">mdi-filter-off</v-icon>
@@ -419,6 +407,7 @@ import { dataApi, adminApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()

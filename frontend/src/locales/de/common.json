@@ -51,7 +51,7 @@
     "description": "Beschreibung",
     "type": "Typ",
     "status": "Status",
-    "confidence": "Konfidenz",
+    "confidence": "Zuverlässigkeit",
     "field": "Feld",
     "method": "Methode",
     "importType": "Import-Typ",
@@ -111,7 +111,7 @@
         "daily": "Täglich",
         "weekly": "Wöchentlich",
         "monthly": "Monatlich",
-        "custom": "Erweitert (Cron)"
+        "custom": "Erweitert"
       },
       "intervalValue": "Intervall",
       "unit": "Einheit",
@@ -127,24 +127,25 @@
       },
       "dayOfWeek": "Wochentag",
       "dayOfMonth": "Tag im Monat",
-      "customLabel": "Cron-Ausdruck",
+      "customLabel": "Zeitplan-Ausdruck",
       "customHint": "5 oder 6 Felder (Sekunden optional)",
+      "timezone": "Zeitzone",
       "nextRun": "Nächster Lauf",
       "invalid": "Ungültiger Zeitplan",
       "previewUnavailable": "Vorschau für diesen Ausdruck nicht verfügbar"
     }
   },
   "nav": {
-    "dashboard": "Dashboard",
-    "entities": "Entities",
-    "entityTypes": "Entity-Typen",
-    "facetTypes": "Facet-Typen",
+    "dashboard": "Übersicht",
+    "entities": "Datensätze",
+    "entityTypes": "Datentypen",
+    "facetTypes": "Merkmalstypen",
     "categories": "Analysethemen",
     "dataSources": "Datenquellen",
-    "crawlerStatus": "Crawler Status",
+    "crawlerStatus": "Datensammler",
     "documents": "Dokumente",
     "results": "Ergebnisse",
-    "smartQuery": "Smart Query",
+    "smartQuery": "Intelligente Suche",
     "export": "Export",
     "favorites": "Favoriten",
     "notifications": "Benachrichtigungen",
@@ -194,13 +195,13 @@
     "theme": "Design",
     "themeLight": "Hell",
     "themeDark": "Dunkel",
-    "themeToggle": "Theme wechseln",
+    "themeToggle": "Design wechseln",
     "reloadPage": "Seite neu laden",
     "userMenu": "Benutzermenü"
   },
   "roles": {
     "ADMIN": "Administrator",
-    "EDITOR": "Editor",
+    "EDITOR": "Bearbeiter",
     "VIEWER": "Betrachter"
   },
   "status": {
@@ -251,7 +252,7 @@
     "number": "Bitte geben Sie eine Zahl ein"
   },
   "dynamicForm": {
-    "noSchema": "Kein Schema für diesen Facet-Typ definiert. Bitte einen Textwert eingeben.",
+    "noSchema": "Kein Schema für diesen Merkmalstyp definiert. Bitte einen Textwert eingeben.",
     "arrayHint": "Mehrere Werte eingeben, mit Enter bestätigen",
     "unknownType": "Unbekannter Feldtyp: {type}"
   }

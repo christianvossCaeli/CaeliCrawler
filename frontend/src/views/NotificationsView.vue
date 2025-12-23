@@ -1,9 +1,13 @@
 <template>
   <v-container fluid>
+    <PageHeader
+      :title="t('notifications.title')"
+      :subtitle="t('notifications.subtitle')"
+      icon="mdi-bell"
+    />
+
     <v-row>
       <v-col cols="12">
-        <h1 class="text-h4 mb-4">{{ t('notifications.title') }}</h1>
-
         <v-tabs v-model="activeTab" color="primary" class="mb-4">
           <v-tab value="inbox">
             <v-icon start>mdi-inbox</v-icon>
@@ -52,6 +56,7 @@ import { useNotifications } from '@/composables/useNotifications'
 import NotificationInbox from '@/components/notifications/NotificationInbox.vue'
 import NotificationRules from '@/components/notifications/NotificationRules.vue'
 import NotificationSettings from '@/components/notifications/NotificationSettings.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 const route = useRoute()

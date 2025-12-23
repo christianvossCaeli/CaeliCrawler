@@ -265,7 +265,13 @@ async function downloadJob(jobId: string, format: string) {
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `export.${format}`
+    const normalizedFormat = format.toLowerCase()
+    const extensionMap: Record<string, string> = {
+      json: 'json',
+      csv: 'csv',
+      excel: 'xlsx',
+    }
+    a.download = `export.${extensionMap[normalizedFormat] || normalizedFormat}`
     document.body.appendChild(a)
     a.click()
     window.URL.revokeObjectURL(url)
@@ -308,7 +314,6 @@ defineExpose({ refreshJobs })
 
 <style scoped>
 .export-progress-panel {
-  min-width: 320px;
-  max-width: 400px;
+  width: 100%;
 }
 </style>

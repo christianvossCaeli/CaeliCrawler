@@ -28,6 +28,15 @@ from .facet_commands import (
     CreateFacetTypeCommand,
     DeleteFacetCommand,
 )
+from .api_sync_commands import (
+    SetupAPIFacetSyncCommand,
+    TriggerAPISyncCommand,
+)
+from .query_commands import (
+    QueryDataCommand,
+    QueryExternalCommand,
+    QueryFacetHistoryCommand,
+)
 
 __all__ = [
     "BaseCommand",
@@ -39,4 +48,9 @@ __all__ = [
     "CreateFacetCommand",
     "CreateFacetTypeCommand",
     "DeleteFacetCommand",
+    "SetupAPIFacetSyncCommand",
+    "TriggerAPISyncCommand",
+    "QueryDataCommand",
+    "QueryExternalCommand",
+    "QueryFacetHistoryCommand",
 ]

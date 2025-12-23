@@ -46,28 +46,59 @@
       </button>
     </div>
 
-    <!-- Loading State -->
-    <div v-if="historyStore.isLoading" class="smart-query-history-panel__loading">
-      <v-progress-circular indeterminate size="24" />
+    <!-- Search + Filters -->
+    <div class="smart-query-history-panel__controls">
+      <v-text-field
+        v-model="searchQuery"
+        density="compact"
+        variant="outlined"
+        hide-details
+        clearable
+        :placeholder="t('smartQuery.history.searchPlaceholder')"
+        prepend-inner-icon="mdi-magnify"
+        class="history-search"
+      />
+      <v-select
+        v-model="operationFilter"
+        :items="operationFilterOptions"
+        item-title="title"
+        item-value="value"
+        density="compact"
+        variant="outlined"
+        hide-details
+        :label="t('smartQuery.history.typeFilter')"
+        class="history-filter"
+      />
+      <v-btn
+        icon
+        variant="text"
+        size="small"
+        :color="wrapQueries ? 'primary' : undefined"
+        :title="t('smartQuery.history.wrapLines')"
+        @click="wrapQueries = !wrapQueries"
+      >
+        <v-icon size="18">mdi-format-line-spacing</v-icon>
+      </v-btn>
     </div>
 
     <!-- History List -->
-    <div v-else class="smart-query-history-panel__list">
+    <div class="smart-query-history-panel__list">
+      <div v-if="historyStore.isLoading" class="smart-query-history-panel__loading-overlay">
+        <v-progress-circular indeterminate size="24" />
+      </div>
       <div
-        v-if="filteredHistory.length === 0"
+        v-if="filteredHistory.length === 0 && !historyStore.isLoading"
         class="smart-query-history-panel__empty"
       >
         <v-icon size="large" color="grey-lighten-1">mdi-history</v-icon>
-        <p>{{ filter === 'favorites'
-          ? t('smartQuery.history.noFavorites')
-          : t('smartQuery.history.empty')
-        }}</p>
+        <p>{{ emptyMessage }}</p>
       </div>
 
       <div
         v-for="item in filteredHistory"
         :key="item.id"
         class="history-item"
+        :class="{ 'history-item--wrap': wrapQueries }"
         @click="handleRerun(item)"
       >
         <div class="history-item__content">
@@ -176,16 +207,24 @@ const emit = defineEmits<{
 
 const filter = ref<'all' | 'favorites'>('all')
 const showClearDialog = ref(false)
+const searchQuery = ref('')
+const operationFilter = ref('all')
+const wrapQueries = ref(false)
 
 const filteredHistory = computed(() => {
+  const searchValue = searchQuery.value.trim().toLowerCase()
   const sorted = [...historyStore.history].sort((a, b) =>
     new Date(b.last_executed_at).getTime() - new Date(a.last_executed_at).getTime()
   )
 
-  if (filter.value === 'favorites') {
-    return sorted.filter(item => item.is_favorite)
-  }
   return sorted
+    .filter(item => filter.value !== 'favorites' || item.is_favorite)
+    .filter(item => operationFilter.value === 'all' || item.operation_type === operationFilter.value)
+    .filter(item => {
+      if (!searchValue) return true
+      const target = (item.display_name || item.command_text || '').toLowerCase()
+      return target.includes(searchValue)
+    })
 })
 
 // Operation type labels and colors
@@ -202,6 +241,26 @@ const operationLabels: Record<string, string> = {
   other: 'Other',
 }
 
+const operationFilterOptions = computed(() => {
+  const baseOptions = Object.keys(operationLabels).map((type) => ({
+    value: type,
+    title: operationLabels[type],
+  }))
+  const extraTypes = [...new Set(historyStore.history.map(item => item.operation_type))]
+    .filter((type) => !operationLabels[type])
+    .sort()
+  const extraOptions = extraTypes.map((type) => ({
+    value: type,
+    title: type,
+  }))
+
+  return [
+    { value: 'all', title: t('smartQuery.history.allTypes') },
+    ...baseOptions,
+    ...extraOptions,
+  ]
+})
+
 const operationColors: Record<string, string> = {
   start_crawl: 'blue',
   create_category_setup: 'purple',
@@ -214,6 +273,16 @@ const operationColors: Record<string, string> = {
   combined: 'grey',
   other: 'grey',
 }
+
+const emptyMessage = computed(() => {
+  if (filter.value === 'favorites' && !searchQuery.value.trim() && operationFilter.value === 'all') {
+    return t('smartQuery.history.noFavorites')
+  }
+  if (searchQuery.value.trim() || operationFilter.value !== 'all') {
+    return t('smartQuery.history.noResults')
+  }
+  return t('smartQuery.history.empty')
+})
 
 function getOperationLabel(type: string): string {
   return operationLabels[type] || type
@@ -343,17 +412,20 @@ onMounted(() => {
     }
   }
 
-  &__loading {
+  &__controls {
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 32px;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   }
 
   &__list {
     flex: 1;
     overflow-y: auto;
     padding: 8px;
+    position: relative;
   }
 
   &__empty {
@@ -370,6 +442,26 @@ onMounted(() => {
       font-size: 0.8rem;
     }
   }
+
+  &__loading-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--v-theme-surface), 0.6);
+    z-index: 1;
+  }
+}
+
+.history-search {
+  flex: 1 1 200px;
+  min-width: 180px;
+}
+
+.history-filter {
+  flex: 0 1 160px;
+  min-width: 140px;
 }
 
 .history-item {
@@ -400,6 +492,14 @@ onMounted(() => {
     overflow: hidden;
     text-overflow: ellipsis;
     margin-bottom: 4px;
+  }
+
+  &--wrap .history-item__query {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
   }
 
   &__meta {

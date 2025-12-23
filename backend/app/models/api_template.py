@@ -112,12 +112,28 @@ class APITemplate(Base):
         comment="Authentication configuration (type, header name, etc.)",
     )
 
-    # Field mapping
+    # Field mapping (for Entity fields)
     field_mapping: Mapped[Dict[str, str]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
         comment="Mapping from API fields to standard fields (e.g., teamName -> name)",
+    )
+
+    # Facet mapping (for scheduled API-to-Facet sync)
+    facet_mapping: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB,
+        default=dict,
+        nullable=False,
+        comment="Mapping from API fields to Facet types. Format: { 'api_field': { 'facet_type_slug': '...', 'is_history': true } }",
+    )
+
+    # Entity matching configuration (for Facet sync)
+    entity_matching: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB,
+        default=dict,
+        nullable=False,
+        comment="How to match API records to entities. Format: { 'match_by': 'name|external_id', 'api_field': 'teamName', 'entity_type_slug': '...' }",
     )
 
     # Keywords for matching user prompts
@@ -157,6 +173,39 @@ class APITemplate(Base):
         Integer,
         nullable=True,
         comment="Number of items found in last validation",
+    )
+
+    # Scheduling for API-to-Facet sync
+    schedule_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="Whether scheduled syncing is enabled",
+    )
+    schedule_cron: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Cron expression for scheduled sync (e.g., '0 6 * * 1' = Monday 6 AM)",
+    )
+    next_run_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Next scheduled sync execution time",
+    )
+    last_sync_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Last successful facet sync timestamp",
+    )
+    last_sync_status: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Status of last sync: 'success', 'partial', 'failed'",
+    )
+    last_sync_stats: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Statistics from last sync (records_fetched, entities_matched, facets_updated)",
     )
 
     # Usage tracking

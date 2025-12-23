@@ -9,36 +9,39 @@
       </v-card>
     </v-overlay>
 
-    <div class="d-flex align-center mb-6">
-      <h1 class="text-h4">{{ $t('crawler.title') }}</h1>
-      <v-spacer></v-spacer>
-      <v-btn
-        color="primary"
-        variant="tonal"
-        prepend-icon="mdi-content-save-cog"
-        class="mr-2"
-        @click="presetsDrawer = true"
-      >
-        {{ $t('crawlPresets.title') }}
-        <v-badge
-          v-if="presetsStore.favoriteCount > 0"
-          :content="presetsStore.favoriteCount"
-          color="warning"
-          offset-x="-8"
-          offset-y="-8"
-        />
-      </v-btn>
-      <v-btn
-        v-if="status.running_jobs > 0 || status.pending_jobs > 0"
-        color="error"
-        variant="outlined"
-        prepend-icon="mdi-stop"
-        :loading="stoppingAll"
-        @click="stopAllCrawlers"
-      >
-        {{ $t('crawler.stopAll') }}
-      </v-btn>
-    </div>
+    <PageHeader
+      :title="$t('crawler.title')"
+      :subtitle="$t('crawler.subtitle')"
+      icon="mdi-spider-web"
+    >
+      <template #actions>
+        <v-btn
+          color="primary"
+          variant="tonal"
+          prepend-icon="mdi-content-save-cog"
+          @click="presetsDrawer = true"
+        >
+          {{ $t('crawlPresets.title') }}
+          <v-badge
+            v-if="presetsStore.favoriteCount > 0"
+            :content="presetsStore.favoriteCount"
+            color="warning"
+            offset-x="-8"
+            offset-y="-8"
+          />
+        </v-btn>
+        <v-btn
+          v-if="status.running_jobs > 0 || status.pending_jobs > 0"
+          color="error"
+          variant="outlined"
+          prepend-icon="mdi-stop"
+          :loading="stoppingAll"
+          @click="stopAllCrawlers"
+        >
+          {{ $t('crawler.stopAll') }}
+        </v-btn>
+      </template>
+    </PageHeader>
 
     <!-- Presets Drawer -->
     <v-navigation-drawer
@@ -408,6 +411,7 @@ import { useSnackbar } from '@/composables/useSnackbar'
 import { useCrawlPresetsStore } from '@/stores/crawlPresets'
 import { useAuthStore } from '@/stores/auth'
 import CrawlPresetsTab from '@/components/crawler/CrawlPresetsTab.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 interface LogEntry {
   status: string

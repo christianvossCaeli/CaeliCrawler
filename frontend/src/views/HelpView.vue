@@ -1,9 +1,10 @@
 <template>
   <div>
-    <h1 class="text-h4 mb-6">
-      <v-icon class="mr-2">mdi-help-circle</v-icon>
-      {{ t('help.title') }}
-    </h1>
+    <PageHeader
+      :title="t('help.title')"
+      :subtitle="t('help.subtitle')"
+      icon="mdi-help-circle"
+    />
 
     <!-- Quick Navigation -->
     <v-card class="mb-6">
@@ -80,6 +81,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 // Import all help section components
 import {

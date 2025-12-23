@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 import structlog
-from app.utils.cron import croniter_for_expression
+from app.utils.cron import croniter_for_expression, get_schedule_timezone
 
 from workers.celery_app import celery_app
 
@@ -18,7 +18,8 @@ logger = structlog.get_logger(__name__)
 
 def calculate_next_run(cron_expression: str) -> datetime:
     """Calculate the next run time from a cron expression."""
-    cron = croniter_for_expression(cron_expression, datetime.now(timezone.utc))
+    schedule_tz = get_schedule_timezone()
+    cron = croniter_for_expression(cron_expression, datetime.now(schedule_tz))
     return cron.get_next(datetime)
 
 
@@ -36,28 +37,47 @@ def check_scheduled_presets():
 
     async def _check_and_execute():
         async with get_celery_session_context() as session:
-            now = datetime.now(timezone.utc)
+            schedule_tz = get_schedule_timezone()
+            now = datetime.now(schedule_tz)
 
             # Get all presets due for execution
             result = await session.execute(
-                select(CrawlPreset).where(
+                select(CrawlPreset)
+                .where(
                     CrawlPreset.schedule_enabled.is_(True),
                     CrawlPreset.status == PresetStatus.ACTIVE,
                     CrawlPreset.next_run_at <= now,
                 )
+                .with_for_update(skip_locked=True)
             )
             presets = result.scalars().all()
 
-            triggered = 0
+            if not presets:
+                logger.info("crawl_preset_schedule_check_completed", total_due=0, triggered=0)
+                return
+
+            trigger_presets = []
             for preset in presets:
-                # Trigger async execution task
+                if not preset.schedule_cron:
+                    continue
+                try:
+                    preset.next_run_at = calculate_next_run(preset.schedule_cron)
+                    trigger_presets.append(preset)
+                except Exception as exc:
+                    logger.warning(
+                        "crawl_preset_schedule_invalid",
+                        preset_id=str(preset.id),
+                        preset_name=preset.name,
+                        cron=preset.schedule_cron,
+                        error=str(exc),
+                    )
+
+            await session.commit()
+
+            triggered = 0
+            for preset in trigger_presets:
                 execute_crawl_preset.delay(str(preset.id))
                 triggered += 1
-
-                # Update next_run_at immediately to prevent duplicate triggers
-                if preset.schedule_cron:
-                    preset.next_run_at = calculate_next_run(preset.schedule_cron)
-                    await session.commit()
 
                 logger.info(
                     "crawl_preset_scheduled_execution_triggered",

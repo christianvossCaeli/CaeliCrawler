@@ -194,9 +194,10 @@ async def find_sources_for_crawl(
 
     # New generic filters
     tags = crawl_data.get("tags", [])
-    entity_type = crawl_data.get("entity_type")
+    entity_types = crawl_data.get("entity_type", [])
     admin_level_1 = crawl_data.get("admin_level_1")
     entity_filters = crawl_data.get("entity_filters", {})
+    source_types = crawl_data.get("source_type", [])
 
     # Build base query
     query = select(DataSource).where(DataSource.status != "ERROR")
@@ -226,10 +227,20 @@ async def find_sources_for_crawl(
     if search:
         conditions.append(DataSource.name.ilike(f"%{search}%"))
 
-    # Strategy 4: Entity type filter (tag-based)
-    if entity_type:
-        entity_type_slug = entity_type.lower().replace(" ", "-")
-        conditions.append(DataSource.tags.contains([entity_type_slug]))
+    # Strategy 4: Entity type filter (tag-based, supports multi-select)
+    if entity_types:
+        # Backwards compatibility: convert string to list
+        if isinstance(entity_types, str):
+            entity_types = [entity_types] if entity_types else []
+
+        if entity_types:
+            # OR logic: source must have at least one of the entity types
+            entity_type_conditions = []
+            for et in entity_types:
+                entity_type_slug = et.lower().replace(" ", "-")
+                entity_type_conditions.append(DataSource.tags.contains([entity_type_slug]))
+            if entity_type_conditions:
+                conditions.append(or_(*entity_type_conditions))
 
     # Strategy 5: Admin level 1 / Region filter
     if admin_level_1:
@@ -249,7 +260,25 @@ async def find_sources_for_crawl(
             if tag_conditions:
                 conditions.append(or_(*tag_conditions))
 
-    # Strategy 7: Advanced entity filters (via Entity join)
+    # Strategy 7: Source type filter (multi-select)
+    if source_types:
+        # Backwards compatibility: convert string to list
+        if isinstance(source_types, str):
+            source_types = [source_types] if source_types else []
+
+        if source_types:
+            from app.models.data_source import SourceType
+            valid_types = []
+            for st in source_types:
+                try:
+                    valid_types.append(SourceType(st.upper()))
+                except ValueError:
+                    logger.warning(f"Invalid source_type filter value: {st}")
+
+            if valid_types:
+                conditions.append(DataSource.source_type.in_(valid_types))
+
+    # Strategy 8: Advanced entity filters (via Entity join)
     entity_id_filter = None
     if entity_filters:
         # Build entity query for filtering
@@ -324,9 +353,10 @@ async def find_sources_for_crawl(
     logger.info(
         "Finding sources for crawl",
         category_slug=category_slug,
-        entity_type=entity_type,
+        entity_types=entity_types,
         admin_level_1=admin_level_1,
         tags=tags,
+        source_types=source_types,
         search=search,
         entity_filters=entity_filters,
     )

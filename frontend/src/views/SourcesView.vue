@@ -28,17 +28,19 @@
 
     <!-- Main Content -->
     <div class="sources-main flex-grow-1">
-      <div class="d-flex justify-space-between align-center mb-6">
-        <div class="d-flex align-center">
+      <PageHeader
+        :title="$t('sources.title')"
+        :subtitle="$t('sources.subtitle')"
+        icon="mdi-database"
+        :count="totalSources"
+      >
+        <template #actions>
           <v-btn
             icon="mdi-menu"
             variant="text"
-            class="d-md-none mr-2"
+            class="d-md-none"
             @click="sidebarOpen = !sidebarOpen"
           />
-          <h1 class="text-h4">{{ $t('sources.title') }} ({{ totalSources.toLocaleString() }})</h1>
-        </div>
-        <div class="d-flex gap-2">
           <!-- Import Dropdown Menu -->
           <v-menu>
             <template v-slot:activator="{ props }">
@@ -77,8 +79,8 @@
           <v-btn variant="tonal" color="primary" @click="openCreateDialog">
             <v-icon start>mdi-plus</v-icon>{{ $t('sources.actions.create') }}
           </v-btn>
-        </div>
-      </div>
+        </template>
+      </PageHeader>
 
       <!-- Active Filters Display -->
       <div class="d-flex flex-wrap gap-2 mb-4" v-if="hasActiveFilters">
@@ -140,7 +142,6 @@
                 :label="$t('sources.filters.search')"
                 prepend-inner-icon="mdi-magnify"
                 clearable
-                density="compact"
                 hide-details
                 @update:model-value="debouncedLoadSources"
               ></v-text-field>
@@ -863,6 +864,7 @@ import SourcesSidebar from '@/components/sources/SourcesSidebar.vue'
 import ApiImportDialog from '@/components/sources/ApiImportDialog.vue'
 import AiDiscoveryDialog from '@/components/sources/AiDiscoveryDialog.vue'
 import { useSourceHelpers } from '@/composables/useSourceHelpers'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const {
   getTypeColor,

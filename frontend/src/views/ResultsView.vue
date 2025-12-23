@@ -9,41 +9,42 @@
       </v-card>
     </v-overlay>
 
-    <div class="d-flex align-center mb-6">
-      <h1 class="text-h4">{{ $t('results.title') }}</h1>
-      <v-chip class="ml-3" color="primary" variant="tonal">{{ $t('results.aiExtractedData') }}</v-chip>
-      <v-spacer></v-spacer>
-      <!-- Bulk Actions -->
-      <v-btn
-        v-if="selectedResults.length > 0"
-        color="success"
-        variant="outlined"
-        prepend-icon="mdi-check-all"
-        class="mr-2"
-        :loading="bulkVerifying"
-        @click="bulkVerify"
-      >
-        {{ selectedResults.length }} {{ $t('results.actions.bulkVerify') }}
-      </v-btn>
-      <v-btn
-        color="success"
-        variant="outlined"
-        prepend-icon="mdi-download"
-        class="mr-2"
-        @click="exportCsv"
-      >
-        {{ $t('results.actions.csvExport') }}
-      </v-btn>
-      <v-btn
-        color="primary"
-        variant="outlined"
-        prepend-icon="mdi-refresh"
-        :loading="loading"
-        @click="loadData"
-      >
-        {{ $t('results.actions.refresh') }}
-      </v-btn>
-    </div>
+    <PageHeader
+      :title="$t('results.title')"
+      :subtitle="$t('results.subtitle')"
+      icon="mdi-chart-box"
+    >
+      <template #actions>
+        <!-- Bulk Actions -->
+        <v-btn
+          v-if="selectedResults.length > 0"
+          color="success"
+          variant="outlined"
+          prepend-icon="mdi-check-all"
+          :loading="bulkVerifying"
+          @click="bulkVerify"
+        >
+          {{ selectedResults.length }} {{ $t('results.actions.bulkVerify') }}
+        </v-btn>
+        <v-btn
+          color="success"
+          variant="outlined"
+          prepend-icon="mdi-download"
+          @click="exportCsv"
+        >
+          {{ $t('results.actions.csvExport') }}
+        </v-btn>
+        <v-btn
+          color="primary"
+          variant="outlined"
+          prepend-icon="mdi-refresh"
+          :loading="loading"
+          @click="loadData"
+        >
+          {{ $t('results.actions.refresh') }}
+        </v-btn>
+      </template>
+    </PageHeader>
 
     <!-- Statistics Bar -->
     <v-row class="mb-4">
@@ -89,14 +90,12 @@
     <!-- Filters -->
     <v-card class="mb-4">
       <v-card-text>
-        <v-row>
+        <v-row align="center">
           <v-col cols="12" md="3">
             <v-text-field
               v-model="searchQuery"
               prepend-inner-icon="mdi-magnify"
               :label="$t('results.filters.fulltext')"
-              variant="outlined"
-              density="compact"
               clearable
               hide-details
               :placeholder="$t('results.filters.fulltextPlaceholder')"
@@ -108,8 +107,6 @@
               v-model="locationFilter"
               :items="locations"
               :label="$t('results.filters.location')"
-              variant="outlined"
-              density="compact"
               clearable
               hide-details
               @update:model-value="loadData"
@@ -120,8 +117,6 @@
               v-model="extractionTypeFilter"
               :items="extractionTypes"
               :label="$t('results.filters.analysisType')"
-              variant="outlined"
-              density="compact"
               clearable
               hide-details
               @update:model-value="loadData"
@@ -134,8 +129,6 @@
               item-title="name"
               item-value="id"
               :label="$t('results.filters.category')"
-              variant="outlined"
-              density="compact"
               clearable
               hide-details
               @update:model-value="loadData"
@@ -156,14 +149,12 @@
             </v-slider>
           </v-col>
         </v-row>
-        <v-row class="mt-0">
+        <v-row align="center" class="mt-2">
           <v-col cols="6" md="2">
             <v-text-field
               v-model="dateFrom"
               type="date"
               :label="$t('results.filters.dateFrom')"
-              variant="outlined"
-              density="compact"
               clearable
               hide-details
               @update:model-value="loadData"
@@ -174,8 +165,6 @@
               v-model="dateTo"
               type="date"
               :label="$t('results.filters.dateTo')"
-              variant="outlined"
-              density="compact"
               clearable
               hide-details
               @update:model-value="loadData"
@@ -556,6 +545,7 @@ import { dataApi, adminApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 

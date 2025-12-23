@@ -34,6 +34,7 @@ celery_app = Celery(
         "workers.export_tasks",
         "workers.api_template_tasks",
         "workers.crawl_preset_tasks",
+        "workers.api_facet_sync_tasks",
     ],
 )
 
@@ -43,7 +44,7 @@ celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
-    timezone="Europe/Berlin",
+    timezone=settings.schedule_timezone,
     enable_utc=True,
 
     # Task execution settings
@@ -68,6 +69,7 @@ celery_app.conf.update(
         "workers.export_tasks.*": {"queue": "processing"},
         "workers.api_template_tasks.*": {"queue": "processing"},
         "workers.crawl_preset_tasks.*": {"queue": "crawl"},
+        "workers.api_facet_sync_tasks.*": {"queue": "processing"},
     },
 
     # Default queue
@@ -135,6 +137,11 @@ celery_app.conf.update(
         "cleanup-archived-presets": {
             "task": "workers.crawl_preset_tasks.cleanup_archived_presets",
             "schedule": crontab(hour=4, minute=30, day_of_week=0),  # Weekly on Sunday at 4:30 AM
+        },
+        # API Facet Sync scheduling
+        "check-scheduled-api-syncs": {
+            "task": "workers.api_facet_sync_tasks.check_scheduled_api_syncs",
+            "schedule": crontab(minute="*"),  # Every minute
         },
     },
 )

@@ -9,13 +9,30 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from .prompts import build_dynamic_write_prompt
+from .prompts import build_dynamic_write_prompt, build_compound_query_prompt
 from .utils import clean_json_response
 
 logger = structlog.get_logger()
 
+# =============================================================================
+# Constants
+# =============================================================================
+
 # Azure OpenAI client - initialized lazily
 _client = None
+
+# AI Model Parameters
+AI_TEMPERATURE_LOW = 0.1  # For precise, deterministic responses
+AI_TEMPERATURE_MEDIUM = 0.2  # For creative but still consistent responses
+
+# Token limits for different operations
+MAX_TOKENS_QUERY = 1000
+MAX_TOKENS_WRITE = 2000
+MAX_TOKENS_COMPOUND = 1500
+
+# Query validation limits
+MAX_QUERY_LENGTH = 2000  # Maximum characters in a query
+MIN_QUERY_LENGTH = 3  # Minimum characters in a query
 
 
 def get_openai_client() -> AzureOpenAI:
@@ -341,6 +358,25 @@ async def load_all_types_for_write(session: AsyncSession) -> tuple[List[Dict], L
     return entity_types, facet_types, relation_types, categories
 
 
+def _validate_query_input(question: str) -> None:
+    """Validate query input for length and content.
+
+    Args:
+        question: The query string to validate
+
+    Raises:
+        ValueError: If query is invalid
+    """
+    if not question or not question.strip():
+        raise ValueError("Query cannot be empty")
+
+    query_length = len(question)
+    if query_length < MIN_QUERY_LENGTH:
+        raise ValueError(f"Query too short (min {MIN_QUERY_LENGTH} characters)")
+    if query_length > MAX_QUERY_LENGTH:
+        raise ValueError(f"Query too long (max {MAX_QUERY_LENGTH} characters)")
+
+
 async def interpret_query(question: str, session: Optional[AsyncSession] = None) -> Dict[str, Any]:
     """Use AI to interpret natural language query into structured query parameters.
 
@@ -349,9 +385,12 @@ async def interpret_query(question: str, session: Optional[AsyncSession] = None)
         session: Database session for dynamic prompt generation
 
     Raises:
-        ValueError: If Azure OpenAI is not configured
+        ValueError: If Azure OpenAI is not configured or query is invalid
         RuntimeError: If query interpretation fails
     """
+    # Validate input
+    _validate_query_input(question)
+
     client = get_openai_client()
 
     try:
@@ -375,8 +414,8 @@ async def interpret_query(question: str, session: Optional[AsyncSession] = None)
                     "content": prompt,
                 },
             ],
-            temperature=0.1,
-            max_tokens=1000,
+            temperature=AI_TEMPERATURE_LOW,
+            max_tokens=MAX_TOKENS_QUERY,
         )
 
         content = response.choices[0].message.content.strip()
@@ -404,9 +443,12 @@ async def interpret_write_command(question: str, session: Optional[AsyncSession]
         session: Database session for dynamic prompt generation (required)
 
     Raises:
-        ValueError: If Azure OpenAI is not configured or session is missing
+        ValueError: If Azure OpenAI is not configured, session is missing, or query is invalid
         RuntimeError: If command interpretation fails
     """
+    # Validate input
+    _validate_query_input(question)
+
     client = get_openai_client()
 
     if not session:
@@ -445,8 +487,8 @@ async def interpret_write_command(question: str, session: Optional[AsyncSession]
                     "content": prompt,
                 },
             ],
-            temperature=0.2,  # Slightly higher for more creative interpretations
-            max_tokens=2000,  # More tokens for complex combined operations
+            temperature=AI_TEMPERATURE_MEDIUM,  # Slightly higher for more creative interpretations
+            max_tokens=MAX_TOKENS_WRITE,  # More tokens for complex combined operations
         )
 
         content = response.choices[0].message.content.strip()
@@ -461,3 +503,91 @@ async def interpret_write_command(question: str, session: Optional[AsyncSession]
     except Exception as e:
         logger.error("Failed to interpret write command", error=str(e))
         raise RuntimeError(f"KI-Service Fehler: Command-Interpretation fehlgeschlagen - {str(e)}")
+
+
+async def detect_compound_query(question: str, session: Optional[AsyncSession] = None) -> Dict[str, Any]:
+    """Use AI to detect if the query is a compound query (UND-Abfrage).
+
+    A compound query requests multiple distinct datasets or visualizations
+    that should be displayed separately (e.g., "show table AND line chart").
+
+    Args:
+        question: The natural language query
+        session: Database session for loading types
+
+    Returns:
+        Dict with:
+        - is_compound: bool - whether this is a compound query
+        - reasoning: str - explanation for the decision
+        - sub_queries: List[Dict] - decomposed sub-queries if compound
+
+    Raises:
+        ValueError: If Azure OpenAI is not configured, session is missing, or query is invalid
+        RuntimeError: If detection fails
+    """
+    # Validate input
+    _validate_query_input(question)
+
+    client = get_openai_client()
+
+    if not session:
+        raise ValueError("Database session is required for compound query detection")
+
+    try:
+        # Load types for context
+        facet_types, entity_types = await load_facet_and_entity_types(session)
+
+        # Build prompt (imported at module level)
+        prompt = build_compound_query_prompt(
+            entity_types=entity_types,
+            facet_types=facet_types,
+            query=question,
+        )
+
+        logger.debug(
+            "Detecting compound query",
+            question=question[:100],
+            entity_count=len(entity_types),
+            facet_count=len(facet_types),
+        )
+
+        response = client.chat.completions.create(
+            model=settings.azure_openai_deployment_name,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Du analysierst Benutzeranfragen und erkennst ob sie mehrere separate Datenabfragen enthalten. Antworte nur mit JSON.",
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            temperature=AI_TEMPERATURE_LOW,
+            max_tokens=MAX_TOKENS_COMPOUND,
+        )
+
+        content = response.choices[0].message.content.strip()
+        content = clean_json_response(content)
+
+        parsed = json.loads(content)
+
+        logger.info(
+            "Compound query detection complete",
+            is_compound=parsed.get("is_compound"),
+            sub_query_count=len(parsed.get("sub_queries", [])),
+            reasoning=parsed.get("reasoning", "")[:100],
+        )
+
+        return parsed
+
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error("Failed to detect compound query", error=str(e), exc_info=True)
+        # Return non-compound as fallback
+        return {
+            "is_compound": False,
+            "reasoning": f"Detection failed: {str(e)}",
+            "sub_queries": [],
+        }

@@ -1,17 +1,11 @@
 <template>
   <v-container fluid>
     <!-- Header -->
-    <v-row class="mb-4">
-      <v-col>
-        <h1 class="text-h4 font-weight-bold">
-          <v-icon start size="32">mdi-history</v-icon>
-          {{ t('admin.auditLog.title') }}
-        </h1>
-        <p class="text-body-2 text-medium-emphasis mt-1">
-          {{ t('admin.auditLog.subtitle') }}
-        </p>
-      </v-col>
-    </v-row>
+    <PageHeader
+      :title="t('admin.auditLog.title')"
+      :subtitle="t('admin.auditLog.subtitle')"
+      icon="mdi-history"
+    />
 
     <!-- Stats Cards -->
     <v-row class="mb-4" v-if="stats">
@@ -70,52 +64,52 @@
     </v-row>
 
     <!-- Filters -->
-    <v-row class="mb-4">
-      <v-col cols="12" md="3">
-        <v-select
-          v-model="actionFilter"
-          :label="t('admin.auditLog.filters.action')"
-          :items="actionOptions"
-          variant="outlined"
-          density="compact"
-          clearable
-          @update:model-value="fetchLogs"
-        />
-      </v-col>
-      <v-col cols="12" md="3">
-        <v-text-field
-          v-model="entityTypeFilter"
-          :label="t('admin.auditLog.filters.entityType')"
-          variant="outlined"
-          density="compact"
-          clearable
-          :placeholder="t('admin.auditLog.filters.entityTypePlaceholder')"
-          @update:model-value="debouncedFetch"
-        />
-      </v-col>
-      <v-col cols="12" md="3">
-        <v-text-field
-          v-model="startDate"
-          :label="t('common.from')"
-          type="date"
-          variant="outlined"
-          density="compact"
-          clearable
-          @update:model-value="fetchLogs"
-        />
-      </v-col>
-      <v-col cols="12" md="3">
-        <v-text-field
-          v-model="endDate"
-          :label="t('common.to')"
-          type="date"
-          variant="outlined"
-          density="compact"
-          clearable
-          @update:model-value="fetchLogs"
-        />
-      </v-col>
-    </v-row>
+    <v-card class="mb-4">
+      <v-card-text>
+        <v-row align="center">
+          <v-col cols="12" md="3">
+            <v-select
+              v-model="actionFilter"
+              :label="t('admin.auditLog.filters.action')"
+              :items="actionOptions"
+              clearable
+              hide-details
+              @update:model-value="fetchLogs"
+            />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-text-field
+              v-model="entityTypeFilter"
+              :label="t('admin.auditLog.filters.entityType')"
+              clearable
+              hide-details
+              :placeholder="t('admin.auditLog.filters.entityTypePlaceholder')"
+              @update:model-value="debouncedFetch"
+            />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-text-field
+              v-model="startDate"
+              :label="t('common.from')"
+              type="date"
+              clearable
+              hide-details
+              @update:model-value="fetchLogs"
+            />
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-text-field
+              v-model="endDate"
+              :label="t('common.to')"
+              type="date"
+              clearable
+              hide-details
+              @update:model-value="fetchLogs"
+            />
+          </v-col>
+        </v-row>
+      </v-card-text>
+    </v-card>
 
     <!-- Audit Log Table -->
     <v-card>
@@ -222,6 +216,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
 
