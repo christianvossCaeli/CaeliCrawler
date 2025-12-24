@@ -1,175 +1,43 @@
 """
-Similarity matching utilities for entity deduplication.
+Embedding-based similarity matching for entity deduplication.
 
-Provides fuzzy name matching to detect similar entities that might be
-duplicates despite slight spelling variations.
+Uses OpenAI text-embedding-3-large vectors with pgvector for efficient
+semantic similarity search. This approach is:
+- Language-agnostic (works for any language)
+- Entity-type-agnostic (works for persons, organizations, places, etc.)
+- Handles synonyms and variations automatically
 
-Example variations that would match:
-- "München" vs "Muenchen" (umlaut variations)
-- "Stadt München" vs "München" (prefix variations)
-- "Cologne" vs "Köln" (same city, different names - would NOT match by default)
+Examples of variations that would match:
+- "Dr. Hans Müller" vs "Hans Müller" (title variations)
+- "Deutsche Bank AG" vs "Deutsche Bank" (legal suffixes)
+- "Microsoft Corporation" vs "Microsoft Corp." (abbreviations)
+- "Regionalverband Ruhr" vs "Metropole Ruhr" (synonyms)
 """
 
-import re
+import os
 import uuid
-from difflib import SequenceMatcher
-from typing import Any, List, Optional, Tuple, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
-from sqlalchemy import select, func, text
+import structlog
+from sqlalchemy import select, literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 if TYPE_CHECKING:
     from app.models import Entity
 
-# Constants for similarity matching
-MIN_SUBSTRING_LENGTH = 3
-SUBSTRING_SIMILARITY_BOOST = 0.85
-DEFAULT_SIMILARITY_THRESHOLD = 0.85
-MAX_CANDIDATES_FOR_COMPARISON = 500  # Limit memory usage
+logger = structlog.get_logger(__name__)
 
-# Common German location prefixes to remove for comparison
-GERMAN_PREFIXES = (
-    "stadt ",
-    "gemeinde ",
-    "markt ",
-    "marktgemeinde ",
-    "landkreis ",
-    "kreis ",
-    "samtgemeinde ",
-    "verbandsgemeinde ",
-    "ortsgemeinde ",
-)
+# Configuration via environment variables
+DEFAULT_SIMILARITY_THRESHOLD = float(os.getenv("ENTITY_SIMILARITY_THRESHOLD", "0.85"))
+EMBEDDING_DIMENSIONS = 1536  # text-embedding-3-large with dimension reduction
 
-# Common suffixes to remove
-GERMAN_SUFFIXES = (" stadt", " gemeinde", " (stadt)", " (gemeinde)")
-
-# Character replacements for normalization
-CHARACTER_REPLACEMENTS = {
-    "ä": "ae",
-    "ö": "oe",
-    "ü": "ue",
-    "ß": "ss",
-    "é": "e",
-    "è": "e",
-    "ê": "e",
-    "ë": "e",
-    "à": "a",
-    "á": "a",
-    "â": "a",
-    "ç": "c",
-    "ñ": "n",
+# Monitoring counters (can be exposed via metrics endpoint)
+_similarity_stats = {
+    "searches": 0,
+    "matches_found": 0,
+    "embeddings_generated": 0,
+    "cache_hits": 0,
 }
-
-
-def calculate_name_similarity(name1: str, name2: str) -> float:
-    """
-    Calculate similarity between two entity names.
-
-    Uses a combination of:
-    1. Substring matching (boost if one contains the other)
-    2. SequenceMatcher ratio (for general string similarity)
-    3. Normalized comparison (handles umlauts, prefixes)
-
-    Args:
-        name1: First name to compare
-        name2: Second name to compare
-
-    Returns:
-        Similarity score between 0.0 (no match) and 1.0 (exact match)
-
-    Examples:
-        >>> calculate_name_similarity("München", "München")
-        1.0
-        >>> calculate_name_similarity("München", "Muenchen")
-        0.9  # High similarity due to umlaut normalization
-        >>> calculate_name_similarity("Stadt München", "München")
-        0.85  # High similarity due to prefix removal
-        >>> calculate_name_similarity("Berlin", "Hamburg")
-        0.3  # Low similarity - different cities
-    """
-    # Handle empty strings
-    if not name1 or not name2:
-        return 0.0
-
-    if len(name1) < 2 or len(name2) < 2:
-        return 0.0
-
-    # Normalize for comparison
-    n1 = _normalize_for_comparison(name1)
-    n2 = _normalize_for_comparison(name2)
-
-    # Handle empty after normalization
-    if not n1 or not n2:
-        return 0.0
-
-    # Exact match after normalization
-    if n1 == n2:
-        return 1.0
-
-    # Calculate base similarity using SequenceMatcher
-    ratio = SequenceMatcher(None, n1, n2).ratio()
-
-    # Boost if one is substring of other (after normalization)
-    if len(n1) > MIN_SUBSTRING_LENGTH and len(n2) > MIN_SUBSTRING_LENGTH:
-        if n1 in n2 or n2 in n1:
-            ratio = max(ratio, SUBSTRING_SIMILARITY_BOOST)
-
-    # Word-based Jaccard similarity for multi-word names
-    words1 = set(n1.split())
-    words2 = set(n2.split())
-
-    if words1 and words2:
-        intersection = len(words1 & words2)
-        union = len(words1 | words2)
-        if union > 0:
-            jaccard = intersection / union
-            # Use max of SequenceMatcher and Jaccard
-            ratio = max(ratio, jaccard)
-
-    return round(ratio, 3)
-
-
-def _normalize_for_comparison(name: str) -> str:
-    """
-    Normalize name for similarity comparison.
-
-    More aggressive than the standard normalize_entity_name to catch
-    more variations when doing fuzzy matching.
-
-    Args:
-        name: Name to normalize
-
-    Returns:
-        Normalized name for comparison
-    """
-    if not name:
-        return ""
-
-    result = name.strip().lower()
-
-    # Remove common German location prefixes
-    for prefix in GERMAN_PREFIXES:
-        if result.startswith(prefix):
-            result = result[len(prefix):]
-            break  # Only remove one prefix
-
-    # Remove common suffixes
-    for suffix in GERMAN_SUFFIXES:
-        if result.endswith(suffix):
-            result = result[: -len(suffix)]
-            break  # Only remove one suffix
-
-    # Replace German umlauts with ASCII equivalents
-    for old, new in CHARACTER_REPLACEMENTS.items():
-        result = result.replace(old, new)
-
-    # Remove special characters but keep spaces
-    result = re.sub(r"[^a-z0-9\s]", "", result)
-
-    # Normalize whitespace
-    result = " ".join(result.split())
-
-    return result.strip()
 
 
 async def find_similar_entities(
@@ -178,15 +46,13 @@ async def find_similar_entities(
     name: str,
     threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
     limit: int = 5,
+    embedding: Optional[List[float]] = None,
 ) -> List[Tuple["Entity", float]]:
     """
-    Find entities with similar names using optimized database queries.
+    Find entities with similar names using embedding-based similarity.
 
-    This function uses a two-phase approach:
-    1. Pre-filter candidates using database LIKE queries on normalized name
-    2. Calculate exact similarity only for candidates
-
-    This avoids loading ALL entities into memory.
+    Uses pgvector's native cosine distance operator for efficient database-level
+    filtering and sorting. This scales to millions of entities.
 
     Args:
         session: Database session
@@ -194,109 +60,284 @@ async def find_similar_entities(
         name: Name to find similar entities for
         threshold: Minimum similarity score (0.0 - 1.0)
         limit: Maximum number of matches to return
+        embedding: Pre-computed embedding (if available, saves API call)
 
     Returns:
         List of (Entity, similarity_score) tuples, sorted by score descending
     """
     from app.models import Entity
-    from app.utils.text import normalize_entity_name
+
+    _similarity_stats["searches"] += 1
 
     if not name or len(name) < 2:
         return []
 
-    # Normalize the search name
-    normalized_search = normalize_entity_name(name, country="DE")
-    comparison_normalized = _normalize_for_comparison(name)
+    # If no embedding provided, generate one
+    if embedding is None:
+        embedding = await generate_entity_embedding(name)
+        _similarity_stats["embeddings_generated"] += 1
 
-    # Phase 1: Get candidates using database pre-filtering
-    # Use multiple strategies to find potential matches
-    candidates: List[Entity] = []
+    if embedding is None:
+        logger.warning("Could not generate embedding for similarity search", name=name)
+        return []
 
-    # Strategy 1: Exact normalized name match
-    exact_result = await session.execute(
-        select(Entity).where(
+    # Use pgvector's native cosine distance for efficient DB-level filtering
+    # cosine_distance returns 0 for identical vectors, 2 for opposite vectors
+    # We convert: similarity = 1 - distance
+    # Filter: distance <= (1 - threshold)
+    max_distance = 1.0 - threshold
+
+    # Build query using pgvector's cosine_distance method
+    # This uses the HNSW index for fast approximate nearest neighbor search
+    distance_expr = Entity.name_embedding.cosine_distance(embedding)
+
+    result = await session.execute(
+        select(Entity, (literal(1.0) - distance_expr).label("similarity"))
+        .where(
             Entity.entity_type_id == entity_type_id,
             Entity.is_active.is_(True),
-            Entity.name_normalized == normalized_search,
+            Entity.name_embedding.isnot(None),
+            distance_expr <= max_distance,  # Filter by threshold in DB
         )
+        .order_by(distance_expr)  # Sort by similarity in DB
+        .limit(limit)
     )
-    exact_match = exact_result.scalar_one_or_none()
-    if exact_match:
-        return [(exact_match, 1.0)]
 
-    # Strategy 2: Prefix-based search (first 3+ chars of normalized name)
-    if len(normalized_search) >= 3:
-        prefix = normalized_search[:3]
-        prefix_result = await session.execute(
-            select(Entity)
-            .where(
-                Entity.entity_type_id == entity_type_id,
-                Entity.is_active.is_(True),
-                Entity.name_normalized.startswith(prefix),
-            )
-            .limit(MAX_CANDIDATES_FOR_COMPARISON)
-        )
-        candidates.extend(prefix_result.scalars().all())
-
-    # Strategy 3: Contains search for longer names
-    if len(normalized_search) >= 5:
-        # Escape LIKE special characters
-        escaped_search = (
-            normalized_search.replace("%", r"\%").replace("_", r"\_")
-        )
-        contains_result = await session.execute(
-            select(Entity)
-            .where(
-                Entity.entity_type_id == entity_type_id,
-                Entity.is_active.is_(True),
-                Entity.name_normalized.contains(escaped_search[2:5]),
-            )
-            .limit(MAX_CANDIDATES_FOR_COMPARISON)
-        )
-        for entity in contains_result.scalars().all():
-            if entity not in candidates:
-                candidates.append(entity)
-
-    # Strategy 4: If still no candidates, get entities with similar length
-    if not candidates and len(normalized_search) >= 3:
-        length_result = await session.execute(
-            select(Entity)
-            .where(
-                Entity.entity_type_id == entity_type_id,
-                Entity.is_active.is_(True),
-                func.length(Entity.name_normalized).between(
-                    len(normalized_search) - 3,
-                    len(normalized_search) + 3,
-                ),
-            )
-            .limit(MAX_CANDIDATES_FOR_COMPARISON)
-        )
-        candidates.extend(length_result.scalars().all())
-
-    # Phase 2: Calculate exact similarity for candidates
     matches: List[Tuple[Entity, float]] = []
+    for row in result:
+        entity = row[0]
+        similarity = float(row[1])
+        matches.append((entity, similarity))
+        _similarity_stats["matches_found"] += 1
 
-    seen_ids = set()
-    for entity in candidates:
-        if entity.id in seen_ids:
-            continue
-        seen_ids.add(entity.id)
+        logger.info(
+            "Found similar entity",
+            search_name=name,
+            matched_name=entity.name,
+            matched_id=str(entity.id),
+            similarity=round(similarity, 3),
+            threshold=threshold,
+        )
 
-        similarity = calculate_name_similarity(name, entity.name)
-        if similarity >= threshold:
-            matches.append((entity, similarity))
+    if not matches:
+        logger.debug(
+            "No similar entities found",
+            search_name=name,
+            entity_type_id=str(entity_type_id),
+            threshold=threshold,
+        )
 
-    # Sort by similarity descending
-    matches.sort(key=lambda x: x[1], reverse=True)
-
-    return matches[:limit]
+    return matches
 
 
-def is_likely_duplicate(
-    name1: str, name2: str, strict_threshold: float = 0.9
+def get_similarity_stats() -> dict:
+    """
+    Get current similarity matching statistics.
+
+    Returns:
+        Dictionary with search/match/embedding counts
+    """
+    return _similarity_stats.copy()
+
+
+def reset_similarity_stats() -> None:
+    """Reset similarity matching statistics."""
+    global _similarity_stats
+    _similarity_stats = {
+        "searches": 0,
+        "matches_found": 0,
+        "embeddings_generated": 0,
+        "cache_hits": 0,
+    }
+
+
+def _cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
+    """Calculate cosine similarity between two vectors (fallback/utility)."""
+    if len(vec1) != len(vec2):
+        return 0.0
+
+    dot_product = sum(a * b for a, b in zip(vec1, vec2))
+    norm1 = sum(a * a for a in vec1) ** 0.5
+    norm2 = sum(b * b for b in vec2) ** 0.5
+
+    if norm1 == 0 or norm2 == 0:
+        return 0.0
+
+    return dot_product / (norm1 * norm2)
+
+
+async def generate_entity_embedding(name: str) -> Optional[List[float]]:
+    """
+    Generate embedding for an entity name.
+
+    Uses the AI service to generate text embeddings.
+
+    Args:
+        name: Entity name to embed
+
+    Returns:
+        Embedding vector or None if generation failed
+    """
+    from services.ai_service import AIService
+
+    if not name or len(name) < 2:
+        return None
+
+    try:
+        ai_service = AIService()
+        embedding = await ai_service.generate_embedding(name)
+        return embedding
+    except Exception as e:
+        logger.error("Failed to generate embedding", name=name, error=str(e))
+        return None
+
+
+async def update_entity_embedding(
+    session: AsyncSession,
+    entity_id: uuid.UUID,
+    embedding: Optional[List[float]] = None,
+    name: Optional[str] = None,
 ) -> bool:
     """
+    Update an entity's name embedding.
+
+    Args:
+        session: Database session
+        entity_id: Entity ID to update
+        embedding: Pre-computed embedding (if None, will generate from name)
+        name: Entity name (required if embedding is None)
+
+    Returns:
+        True if update successful, False otherwise
+    """
+    from app.models import Entity
+
+    try:
+        entity = await session.get(Entity, entity_id)
+        if not entity:
+            logger.warning("Entity not found for embedding update", entity_id=str(entity_id))
+            return False
+
+        if embedding is None:
+            name_to_embed = name or entity.name
+            embedding = await generate_entity_embedding(name_to_embed)
+
+        if embedding is None:
+            logger.warning("Could not generate embedding", entity_id=str(entity_id))
+            return False
+
+        # Update via ORM - pgvector handles the conversion
+        entity.name_embedding = embedding
+        await session.flush()
+
+        logger.debug("Updated entity embedding", entity_id=str(entity_id), name=entity.name)
+        return True
+
+    except Exception as e:
+        logger.error("Failed to update entity embedding", entity_id=str(entity_id), error=str(e))
+        return False
+
+
+async def batch_update_embeddings(
+    session: AsyncSession,
+    entity_type_id: Optional[uuid.UUID] = None,
+    batch_size: int = 100,
+    only_missing: bool = True,
+) -> int:
+    """
+    Batch update embeddings for multiple entities.
+
+    Args:
+        session: Database session
+        entity_type_id: Optional filter by entity type
+        batch_size: Number of embeddings to generate per API call
+        only_missing: Only update entities without embeddings
+
+    Returns:
+        Number of entities updated
+    """
+    from app.models import Entity
+    from services.ai_service import AIService
+
+    query = select(Entity).where(Entity.is_active.is_(True))
+
+    if entity_type_id:
+        query = query.where(Entity.entity_type_id == entity_type_id)
+
+    if only_missing:
+        query = query.where(Entity.name_embedding.is_(None))
+
+    result = await session.execute(query)
+    entities = result.scalars().all()
+
+    if not entities:
+        logger.info("No entities need embedding updates")
+        return 0
+
+    logger.info(f"Updating embeddings for {len(entities)} entities")
+
+    ai_service = AIService()
+    updated_count = 0
+
+    # Process in batches
+    for i in range(0, len(entities), batch_size):
+        batch = entities[i : i + batch_size]
+        names = [e.name for e in batch]
+
+        try:
+            embeddings = await ai_service.generate_embeddings(names)
+
+            for entity, embedding in zip(batch, embeddings):
+                entity.name_embedding = embedding
+                updated_count += 1
+
+            await session.commit()
+            logger.info(f"Updated batch {i // batch_size + 1}, total: {updated_count}")
+
+        except Exception as e:
+            logger.error(f"Failed to update batch {i // batch_size + 1}", error=str(e))
+            await session.rollback()
+
+    return updated_count
+
+
+def calculate_name_similarity(name1: str, name2: str) -> float:
+    """
+    Calculate similarity between two entity names.
+
+    DEPRECATED: This is a legacy function for backwards compatibility.
+    Use embedding-based similarity via find_similar_entities() instead.
+
+    This synchronous function uses simple string comparison as a fallback.
+
+    Args:
+        name1: First name to compare
+        name2: Second name to compare
+
+    Returns:
+        Similarity score between 0.0 and 1.0
+    """
+    from difflib import SequenceMatcher
+
+    if not name1 or not name2:
+        return 0.0
+
+    # Simple lowercase comparison
+    n1 = name1.lower().strip()
+    n2 = name2.lower().strip()
+
+    if n1 == n2:
+        return 1.0
+
+    # Use SequenceMatcher as fallback
+    return SequenceMatcher(None, n1, n2).ratio()
+
+
+def is_likely_duplicate(name1: str, name2: str, strict_threshold: float = 0.9) -> bool:
+    """
     Quick check if two names are likely duplicates.
+
+    DEPRECATED: Use embedding-based similarity for accurate results.
 
     Args:
         name1: First name
@@ -307,32 +348,3 @@ def is_likely_duplicate(
         True if names are likely duplicates
     """
     return calculate_name_similarity(name1, name2) >= strict_threshold
-
-
-def get_normalized_variants(name: str) -> List[str]:
-    """
-    Generate normalized variants of a name for searching.
-
-    Useful for building search queries that might match the name.
-
-    Args:
-        name: Original name
-
-    Returns:
-        List of normalized variant strings
-    """
-    from app.utils.text import normalize_entity_name
-
-    variants = set()
-
-    # Standard normalization
-    variants.add(normalize_entity_name(name, country="DE"))
-
-    # Comparison normalization (with prefix/suffix removal)
-    variants.add(_normalize_for_comparison(name))
-
-    # Without spaces
-    no_spaces = normalize_entity_name(name, country="DE").replace(" ", "")
-    variants.add(no_spaces)
-
-    return list(variants)

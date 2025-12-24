@@ -37,7 +37,7 @@ class ConversationMessage(BaseModel):
 
 class SmartQueryRequest(BaseModel):
     """Request for smart query endpoint."""
-    question: str = Field(..., min_length=1, max_length=2000, description="Natural language question or command")
+    question: str = Field(..., min_length=1, max_length=10000, description="Natural language question or command")
     allow_write: bool = Field(default=False, description="Allow write operations (create entities, facets, relations)")
     mode: Optional[str] = Field(default=None, description="Optional mode override: 'plan' for Plan Mode assistant")
     conversation_history: Optional[List[ConversationMessage]] = Field(
@@ -108,7 +108,7 @@ async def smart_query_endpoint(
 
 class SmartQueryStreamRequest(BaseModel):
     """Request for streaming smart query (Plan Mode only)."""
-    question: str = Field(..., min_length=1, max_length=2000, description="User's message")
+    question: str = Field(..., min_length=1, max_length=10000, description="User's message")
     conversation_history: Optional[List[ConversationMessage]] = Field(
         default=None,
         description="Conversation history for Plan Mode"

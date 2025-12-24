@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.models.user import User, UserRole
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, decode_sse_ticket
 from app.core.token_blacklist import is_token_blacklisted
 
 # HTTP Bearer token security scheme
@@ -143,28 +143,94 @@ async def get_current_user_from_token(
     return user
 
 
+async def get_current_user_from_sse_ticket(
+    ticket: str,
+    session: AsyncSession,
+) -> User:
+    """
+    Validate an SSE ticket and return the user.
+
+    SSE tickets are short-lived tokens specifically for SSE connections.
+    They expire quickly and can only be used for SSE, not regular API calls.
+
+    Args:
+        ticket: The SSE ticket string
+        session: Database session
+
+    Returns:
+        User object
+
+    Raises:
+        HTTPException: 401 if ticket is invalid or expired
+    """
+    payload = decode_sse_ticket(ticket)
+
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired SSE ticket",
+        )
+
+    try:
+        user_id = UUID(payload["sub"])
+    except (KeyError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid ticket payload",
+        )
+
+    user = await session.get(User, user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is deactivated",
+        )
+
+    return user
+
+
 async def get_current_user_sse(
-    token: Optional[str] = Query(default=None, description="JWT token for SSE auth"),
+    ticket: Optional[str] = Query(default=None, alias="ticket", description="SSE ticket for secure SSE auth"),
+    token: Optional[str] = Query(default=None, description="JWT token for SSE auth (deprecated, use ticket)"),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
     session: AsyncSession = Depends(get_session),
 ) -> User:
     """
-    Get current user from either Bearer header or query parameter.
+    Get current user from Bearer header, SSE ticket, or query parameter token.
 
     SSE (EventSource) cannot send custom headers, so this dependency
-    accepts the token as a query parameter as fallback.
+    accepts authentication via multiple methods:
+
+    1. Bearer header (preferred for non-SSE)
+    2. SSE ticket query param (preferred for SSE - short-lived, secure)
+    3. Token query param (deprecated - exposes main token in URLs)
+
+    Security Note:
+    The 'ticket' parameter is the recommended approach for SSE. It uses
+    short-lived tokens that expire in 30 seconds, minimizing exposure risk.
     """
-    # Try Bearer header first
+    # Try Bearer header first (for testing/non-browser clients)
     if credentials:
         return await get_current_user(credentials, session)
 
-    # Fallback to query parameter (for SSE)
+    # Try SSE ticket (preferred for browser SSE connections)
+    if ticket:
+        return await get_current_user_from_sse_ticket(ticket, session)
+
+    # Fallback to query parameter token (deprecated but supported)
     if token:
         return await get_current_user_from_token(token, session)
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Authentication required",
+        detail="Authentication required. Use 'ticket' parameter with SSE ticket.",
     )
 
 

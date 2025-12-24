@@ -54,7 +54,12 @@
         <div class="d-flex align-center mb-4">
           <h2 class="text-h5">{{ $t('crawlPresets.title') }}</h2>
           <v-spacer />
-          <v-btn icon variant="text" @click="presetsDrawer = false">
+          <v-btn
+            icon
+            variant="text"
+            :aria-label="$t('common.closePanel')"
+            @click="presetsDrawer = false"
+          >
             <v-icon>mdi-close</v-icon>
           </v-btn>
         </div>
@@ -139,6 +144,7 @@
                   variant="tonal"
                   @click.stop="cancelAiTask(task)"
                   :title="$t('crawler.cancel')"
+                  :aria-label="$t('common.stopTask')"
                 ></v-btn>
               </div>
             </template>
@@ -193,6 +199,7 @@
                   variant="tonal"
                   @click.stop="cancelJob(rj)"
                   :title="$t('crawler.cancel')"
+                  :aria-label="$t('common.stopTask')"
                 ></v-btn>
               </div>
             </v-expansion-panel-title>
@@ -293,6 +300,7 @@
               variant="tonal"
               color="error"
               :title="$t('common.cancel')"
+              :aria-label="$t('common.stopTask')"
               @click="cancelJob(item)"
             ></v-btn>
             <v-btn
@@ -300,6 +308,7 @@
               size="small"
               variant="tonal"
               :title="$t('common.details')"
+              :aria-label="$t('common.showDetails')"
               @click="showJobDetails(item)"
             ></v-btn>
           </div>
@@ -654,16 +663,37 @@ const doStopAllCrawlers = async () => {
 }
 
 // SSE connection for real-time updates
-const connectSSE = () => {
+const connectSSE = async () => {
   if (eventSource) {
     eventSource.close()
   }
 
   const baseUrl = import.meta.env.VITE_API_URL || ''
-  // EventSource cannot send headers, so we pass the token as query parameter
-  const token = authStore.token
-  const url = token
-    ? `${baseUrl}/api/admin/crawler/events?token=${encodeURIComponent(token)}`
+
+  // Security: Get a short-lived SSE ticket instead of using the main token
+  // This prevents the access token from being exposed in URLs and server logs
+  let ticketParam = ''
+  try {
+    const response = await fetch(`${baseUrl}/api/auth/sse-ticket`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+    if (response.ok) {
+      const data = await response.json()
+      ticketParam = `ticket=${encodeURIComponent(data.ticket)}`
+    } else {
+      // Fallback: SSE without authentication (will fail if auth required)
+      console.warn('Failed to get SSE ticket, SSE may not work')
+    }
+  } catch (error) {
+    console.warn('Error getting SSE ticket:', error)
+  }
+
+  const url = ticketParam
+    ? `${baseUrl}/api/admin/crawler/events?${ticketParam}`
     : `${baseUrl}/api/admin/crawler/events`
   eventSource = new EventSource(url)
 

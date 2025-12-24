@@ -75,7 +75,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, type Component } from 'vue'
+import { computed, defineAsyncComponent, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type {
   VisualizationConfig,
@@ -84,15 +84,42 @@ import type {
   VisualizationType,
 } from './types'
 
+// =============================================================================
 // Visualization Components
+// =============================================================================
+
+// Always loaded (lightweight, commonly used)
 import TableVisualization from './TableVisualization.vue'
-import BarChartVisualization from './BarChartVisualization.vue'
-import LineChartVisualization from './LineChartVisualization.vue'
-import PieChartVisualization from './PieChartVisualization.vue'
 import StatCardVisualization from './StatCardVisualization.vue'
 import TextVisualization from './TextVisualization.vue'
-import ComparisonVisualization from './ComparisonVisualization.vue'
-import MapVisualization from './MapVisualization.vue'
+
+// Lazy-loaded (heavy, chart.js dependency)
+const BarChartVisualization = defineAsyncComponent({
+  loader: () => import('./BarChartVisualization.vue'),
+  delay: 100,
+})
+
+const LineChartVisualization = defineAsyncComponent({
+  loader: () => import('./LineChartVisualization.vue'),
+  delay: 100,
+})
+
+const PieChartVisualization = defineAsyncComponent({
+  loader: () => import('./PieChartVisualization.vue'),
+  delay: 100,
+})
+
+const ComparisonVisualization = defineAsyncComponent({
+  loader: () => import('./ComparisonVisualization.vue'),
+  delay: 100,
+})
+
+// Lazy-loaded (heavy, maplibre-gl dependency ~1MB)
+const MapVisualization = defineAsyncComponent({
+  loader: () => import('./MapVisualization.vue'),
+  delay: 200,
+  timeout: 15000,
+})
 
 // Common Components
 import SourceInfoChip from './common/SourceInfoChip.vue'

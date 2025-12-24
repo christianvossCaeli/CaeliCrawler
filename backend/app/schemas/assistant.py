@@ -21,6 +21,7 @@ class IntentType(str, Enum):
     FACET_MANAGEMENT = "facet_management"  # Create, modify, or assign facet types
     CONTEXT_ACTION = "context_action"  # Action on current entity (PySis, crawl, etc.)
     SOURCE_MANAGEMENT = "source_management"  # DataSource and Tag management
+    DISCUSSION = "discussion"  # General discussion, requirements analysis, planning
 
 
 class ViewMode(str, Enum):
@@ -72,7 +73,7 @@ class AttachmentUploadResponse(BaseModel):
 class AssistantChatRequest(BaseModel):
     """Request to the assistant chat endpoint."""
 
-    message: str = Field(..., min_length=1, max_length=2000, description="User's message")
+    message: str = Field(..., min_length=1, max_length=10000, description="User's message")
     context: AssistantContext = Field(..., description="Current app context")
     conversation_history: List[ConversationMessage] = Field(
         default_factory=list,
@@ -192,6 +193,16 @@ class ErrorResponseData(BaseModel):
     error_code: Optional[str] = None
 
 
+class DiscussionResponse(BaseModel):
+    """Response for discussion/analysis of documents, requirements, or general conversation."""
+
+    type: Literal["discussion"] = "discussion"
+    message: str = Field(..., description="AI response to the discussion/document")
+    analysis_type: Optional[str] = Field(None, description="Type of analysis: requirements, planning, document, general")
+    key_points: List[str] = Field(default_factory=list, description="Key points extracted from the discussion")
+    recommendations: List[str] = Field(default_factory=list, description="Recommendations or next steps")
+
+
 class SuggestedAction(BaseModel):
     """A suggested action the user can take."""
 
@@ -210,6 +221,7 @@ AssistantResponseData = Union[
     RedirectResponse,
     HelpResponse,
     ErrorResponseData,
+    DiscussionResponse,
     "BatchActionChatResponse",
     "FacetManagementResponse",
     "ContextActionResponse",

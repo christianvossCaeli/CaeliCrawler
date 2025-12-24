@@ -20,8 +20,10 @@ from app.core.security import (
     create_tokens_for_session,
     hash_refresh_token,
     verify_refresh_token,
+    create_sse_ticket,
     MAX_SESSIONS_PER_USER,
     REFRESH_TOKEN_EXPIRE_DAYS,
+    SSE_TICKET_EXPIRE_SECONDS,
 )
 from app.core.deps import get_current_user, get_current_session_id
 from app.core.rate_limit import check_rate_limit, get_rate_limiter
@@ -162,6 +164,13 @@ class EmailVerificationStatusResponse(BaseModel):
     message: str
 
 
+class SSETicketResponse(BaseModel):
+    """SSE ticket response for secure EventSource connections."""
+
+    ticket: str
+    expires_in: int = Field(description="Ticket expiry in seconds")
+
+
 # =============================================================================
 # Endpoints
 # =============================================================================
@@ -295,6 +304,44 @@ async def get_me(
     Requires valid JWT token in Authorization header.
     """
     return UserResponse.model_validate(current_user)
+
+
+@router.post("/sse-ticket", response_model=SSETicketResponse)
+async def get_sse_ticket(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get a short-lived SSE ticket for secure EventSource connections.
+
+    This endpoint should be called immediately before establishing an
+    EventSource connection. The ticket is valid for only 30 seconds and
+    can only be used for SSE authentication.
+
+    **Security Benefits**:
+    - The main access token is never exposed in URLs or server logs
+    - Tickets are single-use and expire quickly
+    - Tickets cannot be used for regular API calls
+
+    **Usage**:
+    1. Call this endpoint with your access token in the Authorization header
+    2. Use the returned ticket in the SSE URL: `/api/.../events?ticket={ticket}`
+    3. Establish the EventSource connection within 30 seconds
+
+    ```javascript
+    // Example usage
+    const response = await fetch('/api/auth/sse-ticket', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    const { ticket } = await response.json();
+    const eventSource = new EventSource(`/api/admin/crawler/events?ticket=${ticket}`);
+    ```
+    """
+    ticket = create_sse_ticket(current_user.id, current_user.role.value)
+    return SSETicketResponse(
+        ticket=ticket,
+        expires_in=SSE_TICKET_EXPIRE_SECONDS,
+    )
 
 
 @router.post("/change-password", response_model=MessageResponse)

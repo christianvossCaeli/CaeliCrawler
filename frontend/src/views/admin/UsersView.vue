@@ -275,6 +275,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import { useAuthStore, type User } from '@/stores/auth'
+import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 
@@ -367,12 +368,11 @@ function formatDate(date: string): string {
   })
 }
 
-// Debounce search
-let searchTimeout: ReturnType<typeof setTimeout>
-function debouncedFetch() {
-  clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => fetchUsers(), 300)
-}
+// Debounce search - uses composable with automatic cleanup
+const { debouncedFn: debouncedFetch } = useDebounce(
+  () => fetchUsers(),
+  { delay: DEBOUNCE_DELAYS.SEARCH }
+)
 
 // API calls
 async function fetchUsers() {

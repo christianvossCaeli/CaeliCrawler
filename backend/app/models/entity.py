@@ -17,6 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pgvector.sqlalchemy import Vector
 
 from app.database import Base
 
@@ -80,6 +81,11 @@ class Entity(Base):
         nullable=False,
         index=True,
         comment="Normalized name for search (lowercase, no special chars)",
+    )
+    name_embedding: Mapped[Optional[List[float]]] = mapped_column(
+        Vector(1536),
+        nullable=True,
+        comment="Embedding vector for semantic similarity search (text-embedding-3-large, 1536 dims)",
     )
     slug: Mapped[str] = mapped_column(
         String(500),

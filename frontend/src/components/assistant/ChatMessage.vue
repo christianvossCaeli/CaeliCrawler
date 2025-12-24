@@ -115,6 +115,47 @@
         </v-chip>
       </div>
 
+      <!-- Discussion Response - Key Points & Recommendations -->
+      <div v-if="message.response_type === 'discussion'" class="mt-3">
+        <!-- Analysis Type Badge -->
+        <v-chip
+          v-if="message.response_data?.analysis_type"
+          size="small"
+          variant="tonal"
+          :color="getAnalysisTypeColor(message.response_data.analysis_type)"
+          class="mb-2"
+        >
+          <v-icon start size="small">{{ getAnalysisTypeIcon(message.response_data.analysis_type) }}</v-icon>
+          {{ getAnalysisTypeLabel(message.response_data.analysis_type) }}
+        </v-chip>
+
+        <!-- Key Points -->
+        <div v-if="message.response_data?.key_points?.length" class="discussion-section mb-2">
+          <div class="text-caption text-medium-emphasis mb-1">
+            <v-icon size="small" class="mr-1">mdi-lightbulb-outline</v-icon>
+            {{ t('assistant.keyPoints') }}
+          </div>
+          <ul class="discussion-list">
+            <li v-for="(point, idx) in message.response_data.key_points" :key="idx">
+              {{ point }}
+            </li>
+          </ul>
+        </div>
+
+        <!-- Recommendations -->
+        <div v-if="message.response_data?.recommendations?.length" class="discussion-section">
+          <div class="text-caption text-medium-emphasis mb-1">
+            <v-icon size="small" class="mr-1">mdi-clipboard-check-outline</v-icon>
+            {{ t('assistant.recommendations') }}
+          </div>
+          <ul class="discussion-list">
+            <li v-for="(rec, idx) in message.response_data.recommendations" :key="idx">
+              {{ rec }}
+            </li>
+          </ul>
+        </div>
+      </div>
+
       <!-- Footer: Timestamp + Actions -->
       <div class="chat-message__footer">
         <span class="chat-message__time">{{ formatTime(message.timestamp) }}</span>
@@ -223,6 +264,37 @@ function formatTime(date: Date): string {
     minute: '2-digit'
   })
 }
+
+// Discussion response helpers
+function getAnalysisTypeColor(type: string): string {
+  const colors: Record<string, string> = {
+    requirements: 'purple',
+    planning: 'blue',
+    document: 'teal',
+    general: 'grey'
+  }
+  return colors[type] || 'grey'
+}
+
+function getAnalysisTypeIcon(type: string): string {
+  const icons: Record<string, string> = {
+    requirements: 'mdi-clipboard-list',
+    planning: 'mdi-calendar-check',
+    document: 'mdi-file-document',
+    general: 'mdi-chat'
+  }
+  return icons[type] || 'mdi-chat'
+}
+
+function getAnalysisTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    requirements: t('assistant.analysisType.requirements'),
+    planning: t('assistant.analysisType.planning'),
+    document: t('assistant.analysisType.document'),
+    general: t('assistant.analysisType.general')
+  }
+  return labels[type] || type
+}
 </script>
 
 <style scoped>
@@ -325,5 +397,22 @@ function formatTime(date: Date): string {
 
 .chat-message:hover .chat-message__copy-btn {
   opacity: 1;
+}
+
+/* Discussion response styles */
+.discussion-section {
+  padding: 8px;
+  background: rgba(var(--v-theme-surface-variant), 0.3);
+  border-radius: 8px;
+}
+
+.discussion-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 0.85rem;
+}
+
+.discussion-list li {
+  margin-bottom: 4px;
 }
 </style>

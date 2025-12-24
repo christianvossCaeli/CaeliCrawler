@@ -20,6 +20,13 @@ from openai import AsyncAzureOpenAI
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.utils.security import (
+    sanitize_for_prompt,
+    escape_for_json_prompt,
+    SecurityConstants,
+    should_block_request,
+    log_security_event,
+)
 
 logger = structlog.get_logger()
 
@@ -235,6 +242,7 @@ class AIService:
         self,
         texts: List[str],
         batch_size: int = 100,
+        dimensions: int = 1536,
     ) -> List[List[float]]:
         """
         Generate embeddings for a list of texts.
@@ -242,6 +250,9 @@ class AIService:
         Args:
             texts: List of texts to embed
             batch_size: Number of texts to process at once
+            dimensions: Number of dimensions for the embedding (default: 1536)
+                        text-embedding-3-large supports up to 3072, but pgvector
+                        indexes are limited to 2000 dimensions.
 
         Returns:
             List of embedding vectors
@@ -256,6 +267,7 @@ class AIService:
                 response = await client.embeddings.create(
                     model=self.embeddings_deployment,
                     input=batch,
+                    dimensions=dimensions,
                 )
 
                 batch_embeddings = [item.embedding for item in response.data]
@@ -265,6 +277,7 @@ class AIService:
                     "Generated embeddings",
                     batch_size=len(batch),
                     total=len(all_embeddings),
+                    dimensions=dimensions,
                 )
             except Exception as e:
                 self.logger.error("Embeddings generation failed", error=str(e))
@@ -272,9 +285,9 @@ class AIService:
 
         return all_embeddings
 
-    async def generate_embedding(self, text: str) -> List[float]:
+    async def generate_embedding(self, text: str, dimensions: int = 1536) -> List[float]:
         """Generate embedding for a single text."""
-        embeddings = await self.generate_embeddings([text])
+        embeddings = await self.generate_embeddings([text], dimensions=dimensions)
         return embeddings[0]
 
     def _estimate_tokens(self, text: str) -> int:
@@ -476,17 +489,37 @@ DOKUMENT:
         """
         Custom analysis with user-defined prompt.
 
+        Security: Both prompt and text are sanitized to prevent prompt injection.
+
         Args:
             text: Document text
             prompt: Custom extraction prompt
             output_model: Pydantic model for structured output
             system_context: Optional system context
+
+        Raises:
+            ValueError: If prompt contains high-risk injection patterns
         """
+        # Sanitize the custom prompt
+        prompt_result = sanitize_for_prompt(prompt, max_length=SecurityConstants.MAX_PROMPT_LENGTH)
+        if should_block_request(prompt_result.risk_level):
+            log_security_event(
+                event_type="custom_prompt_injection_blocked",
+                risk_level=prompt_result.risk_level,
+                details={
+                    "detected_risks": prompt_result.detected_risks,
+                    "prompt_preview": prompt[:100] if prompt else "",
+                },
+            )
+            raise ValueError("Sicherheitsprüfung fehlgeschlagen: Der Prompt enthält unzulässige Anweisungen.")
+
+        safe_prompt = prompt_result.sanitized_text
+
         system_prompt = system_context or """Du bist ein Experte für die Analyse deutscher Dokumente.
 Befolge die Anweisungen des Nutzers genau.
 Antworte immer auf Deutsch."""
 
-        user_prompt = f"""{prompt}
+        user_prompt = f"""{safe_prompt}
 
 DOKUMENT:
 {self._truncate_text(text)}"""

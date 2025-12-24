@@ -7,10 +7,9 @@
  * - useAsyncOperation: Async state management with loading/error states
  * - useColorHelpers: Color manipulation and contrast utilities
  * - useLogger: Structured logging utility
+ * - useDebounce: Debouncing utilities
  *
  * ## Sources Management
- * - useSourcesCrud: CRUD operations for data sources
- * - useSourcesFilters: Filter state for sources list
  * - useSourceHelpers: Source formatting and display utilities
  * - useEntitySearch: Entity search with debouncing for N:M linking
  * - useBulkImport: CSV bulk import functionality
@@ -37,8 +36,6 @@ export {
 export { usePySisHelpers } from './usePySisHelpers'
 export { useAssistant } from './useAssistant'
 export { useColorHelpers, isLightColor, getContrastColor } from './useColorHelpers'
-export { useSourcesCrud, type ActionLoadingStates, type UseSourcesCrudOptions } from './useSourcesCrud'
-export { useSourcesFilters, type UseSourcesFiltersOptions } from './useSourcesFilters'
 export { useSourceHelpers } from './useSourceHelpers'
 export { useErrorHandler, type ApiError, type ErrorHandlerOptions, ERROR_MESSAGES } from './useErrorHandler'
 export {
@@ -94,3 +91,14 @@ export {
   type SharePointTestResult,
   type UseSharePointConfigOptions,
 } from './useSharePointConfig'
+export {
+  useTableExport,
+  type ExportColumn,
+  type ExportOptions,
+} from './useTableExport'
+export {
+  createLazyComponent,
+  useLazyDialogs,
+  useLazyVisualizations,
+  type LazyComponentOptions,
+} from './useLazyComponent'

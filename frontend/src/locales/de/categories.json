@@ -143,7 +143,11 @@
       "reanalyzeStarted": "Neu-Analyse gestartet",
       "reanalyzeError": "Fehler beim Starten der Neu-Analyse",
       "sourcesLoadError": "Fehler beim Laden der Datenquellen",
-      "saveError": "Fehler beim Speichern"
+      "saveError": "Fehler beim Speichern",
+      "loadError": "Fehler beim Laden der Analysethemen",
+      "deleteError": "Fehler beim Löschen des Analysethemas",
+      "aiPreviewError": "Fehler bei der KI-Vorschau",
+      "tagsLoadError": "Fehler beim Laden der verfügbaren Schlagwörter"
     },
     "aiPreview": {
       "title": "KI-Setup Vorschläge",

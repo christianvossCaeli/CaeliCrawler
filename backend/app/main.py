@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import structlog
@@ -178,6 +179,42 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
                 "error": exc.message,
                 "detail": exc.detail,
                 "code": exc.code,
+            },
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        """Return user-friendly validation error messages."""
+        errors = exc.errors()
+        messages = []
+
+        for error in errors:
+            field = " -> ".join(str(loc) for loc in error.get("loc", ["unknown"]))
+            error_type = error.get("type", "unknown")
+            msg = error.get("msg", "Invalid value")
+
+            # Translate common error types to German
+            if error_type == "string_too_long":
+                ctx = error.get("ctx", {})
+                max_length = ctx.get("max_length", "?")
+                messages.append(f"Feld '{field}': Text zu lang (max. {max_length} Zeichen)")
+            elif error_type == "string_too_short":
+                ctx = error.get("ctx", {})
+                min_length = ctx.get("min_length", "?")
+                messages.append(f"Feld '{field}': Text zu kurz (min. {min_length} Zeichen)")
+            elif error_type == "missing":
+                messages.append(f"Feld '{field}': Pflichtfeld fehlt")
+            elif error_type == "value_error":
+                messages.append(f"Feld '{field}': Ungültiger Wert - {msg}")
+            else:
+                messages.append(f"Feld '{field}': {msg}")
+
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "Validierungsfehler",
+                "detail": "; ".join(messages),
+                "errors": errors,
             },
         )
 

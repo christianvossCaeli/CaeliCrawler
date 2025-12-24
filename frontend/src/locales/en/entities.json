@@ -373,7 +373,16 @@
       "relationUpdated": "Relation updated",
       "relationDeleted": "Relation deleted",
       "relationSaveError": "Error saving relation",
-      "invalidJson": "Invalid JSON format"
+      "invalidJson": "Invalid JSON format",
+      "externalDataLoadError": "Error loading external data",
+      "relationsLoadError": "Error loading relations",
+      "dataSourcesLoadError": "Error loading data sources",
+      "documentsLoadError": "Error loading documents",
+      "sourceSearchError": "Error searching data sources",
+      "facetDetailsLoadError": "Error loading facet details",
+      "relationTypesLoadError": "Error loading relation types",
+      "entitySearchError": "Error searching entities",
+      "taskPollError": "Error checking task status"
     },
     "enrichFromPysis": "Enrich from PySis",
     "enrichFromPysisTitle": "Enrich Facets with PySis Data",

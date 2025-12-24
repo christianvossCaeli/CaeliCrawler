@@ -201,6 +201,13 @@ RATE_LIMITS = {
 
     # External API Sync (external API calls)
     "external_api_sync": {"max_requests": 10, "window_seconds": 60},  # 10 per minute
+
+    # Assistant Chat (expensive: LLM calls)
+    "assistant_chat": {"max_requests": 30, "window_seconds": 60},  # 30 per minute
+    "assistant_stream": {"max_requests": 30, "window_seconds": 60},  # 30 per minute
+    "assistant_upload": {"max_requests": 20, "window_seconds": 60},  # 20 per minute
+    "assistant_execute": {"max_requests": 20, "window_seconds": 60},  # 20 per minute
+    "assistant_batch": {"max_requests": 5, "window_seconds": 60},  # 5 per minute (heavy)
 }
 
 

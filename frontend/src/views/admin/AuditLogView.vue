@@ -216,6 +216,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
+import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
@@ -323,12 +324,11 @@ function formatValue(value: any): string {
   return String(value)
 }
 
-// Debounce
-let searchTimeout: ReturnType<typeof setTimeout>
-function debouncedFetch() {
-  clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => fetchLogs(), 300)
-}
+// Debounce search - uses composable with automatic cleanup
+const { debouncedFn: debouncedFetch } = useDebounce(
+  () => fetchLogs(),
+  { delay: DEBOUNCE_DELAYS.SEARCH }
+)
 
 function showChanges(log: AuditLog) {
   selectedLog.value = log

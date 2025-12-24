@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class EntityReference(BaseModel):
@@ -45,6 +45,14 @@ class ExtractedDataResponse(BaseModel):
     # Entity references (new generic system)
     entity_references: List[EntityReference] = Field(default_factory=list)
     primary_entity_id: Optional[UUID] = None
+
+    @field_validator("entity_references", mode="before")
+    @classmethod
+    def convert_none_to_empty_list(cls, v):
+        """Convert None to empty list for entity_references."""
+        if v is None:
+            return []
+        return v
 
     # Computed fields for display
     final_content: Dict[str, Any] = Field(default_factory=dict)

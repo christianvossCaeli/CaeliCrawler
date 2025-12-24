@@ -28,7 +28,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Entity, EntityType
-from app.utils.text import normalize_entity_name, create_slug, clean_municipality_name
+from app.utils.text import normalize_entity_name, create_slug
 
 logger = structlog.get_logger()
 
@@ -100,24 +100,13 @@ class EntityMatchingService:
             logger.warning("Entity type not found", slug=entity_type_slug)
             return None
 
-        # 2. Clean municipality names (removes "Council", "City of" etc.)
-        # This prevents creating duplicates like "Aberdeen" and "Aberdeen City Council"
-        if entity_type_slug in ("territorial_entity", "municipality"):
-            original_name = name
-            name = clean_municipality_name(name, country=country)
-            if name != original_name:
-                logger.debug(
-                    "Cleaned municipality name",
-                    original=original_name,
-                    cleaned=name,
-                    country=country,
-                )
-
-        # 3. Normalize name consistently
+        # 2. Normalize name consistently
+        # Note: We use embedding-based similarity for fuzzy matching,
+        # so no entity-type-specific cleaning is needed here.
         name_normalized = normalize_entity_name(name, country=country)
         slug = create_slug(name, country=country)
 
-        # 4. Try external_id match first (if provided)
+        # 3. Try external_id match first (if provided)
         if external_id:
             entity = await self._find_by_external_id(entity_type.id, external_id)
             if entity:
@@ -128,7 +117,7 @@ class EntityMatchingService:
                 )
                 return entity
 
-        # 5. Try exact normalized name match
+        # 4. Try exact normalized name match
         entity = await self._find_by_normalized_name(entity_type.id, name_normalized)
         if entity:
             logger.debug(
@@ -139,21 +128,22 @@ class EntityMatchingService:
             )
             return entity
 
-        # 6. Try similarity match (if threshold < 1.0)
+        # 5. Try embedding-based similarity match (if threshold < 1.0)
+        # This uses semantic embeddings for entity-type-agnostic matching
         if similarity_threshold < 1.0:
             similar_entity = await self._find_similar_entity(
                 entity_type.id, name, similarity_threshold
             )
             if similar_entity:
                 logger.info(
-                    "Found similar entity",
+                    "Found similar entity via embedding",
                     entity_id=str(similar_entity.id),
                     search_name=name,
                     matched_name=similar_entity.name,
                 )
                 return similar_entity
 
-        # 7. Create new entity (race-condition-safe)
+        # 6. Create new entity (race-condition-safe, with embedding)
         return await self._create_entity_safe(
             entity_type=entity_type,
             name=name,
@@ -342,10 +332,11 @@ class EntityMatchingService:
         owner_id: Optional[uuid.UUID] = None,
     ) -> Optional[Entity]:
         """
-        Create entity with race-condition safety.
+        Create entity with race-condition safety and embedding generation.
 
         Uses IntegrityError handling to catch concurrent creation attempts.
         If a concurrent creation is detected, fetches the existing entity.
+        Also generates and stores the name embedding for similarity matching.
         """
         # Build hierarchy path
         hierarchy_path = f"/{slug}"
@@ -387,6 +378,10 @@ class EntityMatchingService:
                 name=name,
                 entity_type=entity_type.slug,
             )
+
+            # Generate and store embedding for similarity matching
+            await self._generate_entity_embedding(entity)
+
             return entity
         except IntegrityError as e:
             # Concurrent creation detected - fetch existing entity
@@ -402,3 +397,33 @@ class EntityMatchingService:
                 )
             # Re-raise other integrity errors
             raise
+
+    async def _generate_entity_embedding(self, entity: Entity) -> None:
+        """
+        Generate and store embedding for an entity.
+
+        This is called after entity creation to enable similarity matching.
+        Failures are logged but don't prevent entity creation.
+        """
+        try:
+            from app.utils.similarity import update_entity_embedding
+
+            success = await update_entity_embedding(
+                self.session,
+                entity.id,
+                name=entity.name,
+            )
+            if success:
+                logger.debug(
+                    "Generated embedding for new entity",
+                    entity_id=str(entity.id),
+                    name=entity.name,
+                )
+        except Exception as e:
+            # Log but don't fail - embedding can be generated later
+            logger.warning(
+                "Failed to generate embedding for entity",
+                entity_id=str(entity.id),
+                name=entity.name,
+                error=str(e),
+            )

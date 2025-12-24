@@ -373,7 +373,16 @@
       "relationUpdated": "Verknüpfung aktualisiert",
       "relationDeleted": "Verknüpfung gelöscht",
       "relationSaveError": "Fehler beim Speichern der Verknüpfung",
-      "invalidJson": "Ungültiges JSON-Format"
+      "invalidJson": "Ungültiges JSON-Format",
+      "externalDataLoadError": "Fehler beim Laden externer Daten",
+      "relationsLoadError": "Fehler beim Laden der Verknüpfungen",
+      "dataSourcesLoadError": "Fehler beim Laden der Datenquellen",
+      "documentsLoadError": "Fehler beim Laden der Dokumente",
+      "sourceSearchError": "Fehler bei der Datenquellensuche",
+      "facetDetailsLoadError": "Fehler beim Laden der Merkmal-Details",
+      "relationTypesLoadError": "Fehler beim Laden der Verknüpfungstypen",
+      "entitySearchError": "Fehler bei der Datensatzsuche",
+      "taskPollError": "Fehler beim Abfragen des Aufgabenstatus"
     },
     "enrichFromPysis": "Aus PySis anreichern",
     "enrichFromPysisTitle": "Merkmale mit PySis-Daten anreichern",

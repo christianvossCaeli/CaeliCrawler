@@ -23,6 +23,14 @@ from app.models import (
 )
 from app.models.pysis import PySisProcess
 from app.utils.validation import AssistantConstants, validate_uuid
+from app.utils.security import (
+    SecurityConstants,
+    SecurityRiskLevel,
+    sanitize_for_prompt,
+    validate_message_length,
+    should_block_request,
+    log_security_event,
+)
 from app.schemas.assistant import (
     AssistantContext,
     AssistantChatResponse,
@@ -47,6 +55,7 @@ from app.schemas.assistant import (
     FacetManagementAction,
     FacetTypePreview,
     ContextActionResponse,
+    DiscussionResponse,
     SLASH_COMMANDS,
 )
 from services.smart_query import SmartQueryService
@@ -59,6 +68,14 @@ from services.smart_query.geographic_utils import (
 from services.pysis_facet_service import PySisFacetService
 from services.translations import Translator
 
+# Import prompts, utils, and handlers from the assistant module
+from services.assistant.prompts import (
+    INTENT_CLASSIFICATION_PROMPT,
+    RESPONSE_GENERATION_PROMPT,
+)
+from services.assistant.utils import format_entity_link
+from services.assistant.context_actions import handle_context_action
+
 logger = structlog.get_logger()
 
 # Azure OpenAI client
@@ -69,132 +86,6 @@ if settings.azure_openai_api_key:
         api_version=settings.azure_openai_api_version,
         azure_endpoint=settings.azure_openai_endpoint,
     )
-
-
-INTENT_CLASSIFICATION_PROMPT = """Du bist ein Intent-Classifier für einen Chat-Assistenten in einer Entity-Management-App.
-
-## Kontext der aktuellen Seite:
-- Route: {current_route}
-- Entity-Typ: {entity_type}
-- Entity-Name: {entity_name}
-- View-Mode: {view_mode}
-
-## Verfügbare Intents:
-1. QUERY - Benutzer stellt eine Frage/Suche (z.B. "Zeige Pain Points", "Welche Events gibt es?")
-2. CONTEXT_QUERY - Frage bezieht sich auf aktuelle Entity (z.B. "Was sind die Details?", "Zeig mir mehr")
-3. INLINE_EDIT - Einfache Änderung an aktueller Entity (z.B. "Ändere den Namen zu X", "Setze Position auf Y")
-4. COMPLEX_WRITE - Komplexe Erstellung (z.B. "Erstelle neue Category", "Lege neuen EntityType an")
-5. NAVIGATION - Benutzer will zu einer anderen Seite (z.B. "Geh zu Gummersbach", "Zeig mir Max Mueller")
-6. SUMMARIZE - Benutzer will Zusammenfassung (z.B. "Fasse zusammen", "Gib mir einen Überblick")
-7. HELP - Benutzer braucht Hilfe (z.B. "Wie funktioniert das?", "Was kann ich hier tun?")
-8. BATCH_ACTION - Benutzer will Massenoperation durchführen (z.B. "Füge allen Gemeinden in NRW Pain Point hinzu", "Aktualisiere alle Entities vom Typ X")
-9. FACET_MANAGEMENT - Benutzer will Facet-Typen erstellen, zuweisen oder verwalten (z.B. "Erstelle einen neuen Facet-Typ", "Welche Facets gibt es für Gemeinden?")
-10. CONTEXT_ACTION - Benutzer will Aktion auf aktueller Entity ausführen (z.B. "Analysiere PySis", "Reichere Facets an", "Zeig PySis-Status", "Starte Crawl für diese Gemeinde")
-11. SOURCE_MANAGEMENT - Benutzer will Datenquellen verwalten, Tags abfragen oder Quellen suchen/importieren (z.B. "Welche Tags gibt es?", "Zeige Quellen mit Tag nrw", "Finde Datenquellen für Bundesliga")
-
-## Context Actions (für Intent CONTEXT_ACTION):
-- show_pysis_status: PySis-Status anzeigen
-- analyze_pysis: PySis-Analyse VORSCHAU anzeigen (noch nicht ausführen)
-- analyze_pysis_execute: PySis-Analyse AUSFÜHREN (bei Bestätigung wie "Ja, starte", "Ja, analysieren")
-- enrich_facets: Facet-Anreicherung aus PySis VORSCHAU anzeigen (noch nicht ausführen)
-- enrich_facets_execute: Facet-Anreicherung aus PySis AUSFÜHREN (bei Bestätigung)
-  - Mit overwrite=true wenn "überschreiben" erwähnt wird
-- analyze_entity_data: Datenbasierte Facet-Analyse starten (z.B. "Analysiere die Verknüpfungen", "Schreibe Pain Points basierend auf den Relationen", "Reichere aus Dokumenten an")
-  - Analysiert Relationen, Dokumente, Extraktionen und PySis-Daten
-  - context_action_data kann enthalten: source_types (Liste: pysis, relations, documents, extractions)
-- start_crawl: Crawl starten
-- create_facet: Facet-Wert zur aktuellen Entity hinzufügen (z.B. "Füge Pain Point hinzu", "Neues Positive Signal")
-  - context_action_data sollte enthalten: facet_type (pain_point|positive_signal|contact|summary), description, optional: severity, type
-- show_entity_history: Verlaufsdaten anzeigen (z.B. "Zeige den Verlauf", "Wie ist der Haushaltsverlauf?")
-  - context_action_data kann enthalten: facet_type_slug (History-Facet-Typ)
-- add_history_point: Datenpunkt zu History-Facet hinzufügen (z.B. "Füge Haushaltsvolumen 5 Mio für 2024 hinzu")
-  - context_action_data sollte enthalten: facet_type_slug, value, recorded_at (optional), track_key (optional), note (optional)
-
-## Source Management Actions (für Intent SOURCE_MANAGEMENT):
-- list_tags: Alle verfügbaren Tags anzeigen (z.B. "Welche Tags gibt es?", "Zeig alle Tags")
-- list_sources_by_tag: Quellen nach Tag filtern (z.B. "Quellen mit Tag nrw", "Zeige kommunale Datenquellen")
-  - source_action_data sollte enthalten: tags (Liste), match_mode (all|any)
-- suggest_tags: Tags für einen Kontext vorschlagen (z.B. "Welche Tags passen zu Gemeinden in Bayern?")
-  - source_action_data sollte enthalten: context (z.B. "Gemeinden Bayern")
-- discover_sources: KI-gesteuerte Quellensuche (z.B. "Finde Datenquellen für Bundesliga-Vereine", "Suche Webseiten von Universitäten")
-  - source_action_data sollte enthalten: prompt (Suchbegriff), search_depth (quick|standard|deep)
-
-## DataSource Tags (Referenz):
-Tags kategorisieren Datenquellen für effiziente Filterung und Kategorie-Zuordnung:
-- Bundesländer: nrw, bayern, baden-wuerttemberg, hessen, niedersachsen, schleswig-holstein, etc.
-- Länder: de (Deutschland), at (Österreich), ch (Schweiz)
-- Typen: kommunal, landkreis, landesebene, oparl, ratsinformation
-- Themen: windkraft, solar, bauen, verkehr, umwelt
-
-WICHTIG bei Bestätigungen:
-- "Ja, starte die PySis-Analyse" → context_action: "analyze_pysis_execute"
-- "Ja, starte die Facet-Anreicherung" → context_action: "enrich_facets_execute"
-- "Ja, anreichern und bestehende überschreiben" → context_action: "enrich_facets_execute", context_action_data: {{"overwrite": true}}
-- "Ja, analysiere die Daten" / "Ja, extrahiere Facets" → context_action: "analyze_entity_data"
-- "Abbrechen" → intent: "CONTEXT_QUERY" (einfach ignorieren)
-
-WICHTIG für Entity-Daten-Analyse:
-- Prompts wie "schreibe Pain Points anhand der Verknüpfungen" → context_action: "analyze_entity_data", source_types: ["relations"]
-- "analysiere die Dokumente für neue Facets" → context_action: "analyze_entity_data", source_types: ["documents", "extractions"]
-- "reichere Facets aus allen Daten an" → context_action: "analyze_entity_data" (alle Quellen)
-
-## Slash Commands:
-- /help - Hilfe anzeigen
-- /search <query> - Suchen
-- /create <type> <details> - Erstellen (→ COMPLEX_WRITE)
-- /summary - Zusammenfassung (→ SUMMARIZE)
-- /navigate <entity> - Navigation
-
-Analysiere die Nachricht und gib JSON zurück:
-{{
-  "intent": "QUERY|CONTEXT_QUERY|INLINE_EDIT|COMPLEX_WRITE|NAVIGATION|SUMMARIZE|HELP|BATCH_ACTION|FACET_MANAGEMENT|CONTEXT_ACTION|SOURCE_MANAGEMENT",
-  "confidence": 0.0-1.0,
-  "extracted_data": {{
-    "query_text": "optional: der Suchtext",
-    "target_entity": "optional: Ziel-Entity Name",
-    "target_type": "optional: entity type",
-    "field_to_edit": "optional: welches Feld ändern",
-    "new_value": "optional: neuer Wert",
-    "help_topic": "optional: Hilfe-Thema",
-    "batch_action_type": "optional: add_facet|update_field|add_relation|remove_facet",
-    "batch_target_filter": "optional: Filter für Ziel-Entities (z.B. entity_type, location)",
-    "batch_action_data": "optional: Daten für die Aktion (z.B. facet_type, value)",
-    "facet_action": "optional: create_facet_type|assign_facet_type|list_facet_types|suggest_facet_types",
-    "facet_name": "optional: Name des neuen Facet-Typs",
-    "facet_description": "optional: Beschreibung",
-    "target_entity_types": "optional: Liste von Entity-Typ-Slugs für Zuweisung",
-    "context_action": "optional: analyze_pysis|enrich_facets|show_pysis_status|start_crawl|update_entity|create_facet|analyze_entity_data|show_entity_history|add_history_point",
-    "context_action_data": "optional: zusätzliche Parameter für die Aktion (z.B. source_types für analyze_entity_data)",
-    "source_action": "optional: list_tags|list_sources_by_tag|suggest_tags|discover_sources",
-    "source_action_data": "optional: Parameter für Source-Aktionen (z.B. tags, match_mode, context, prompt, search_depth)"
-  }},
-  "reasoning": "Kurze Begründung"
-}}
-
-Benutzer-Nachricht: {message}
-"""
-
-RESPONSE_GENERATION_PROMPT = """Du bist ein freundlicher Assistent. Formuliere eine natürliche deutsche Antwort basierend auf den Daten.
-
-Kontext:
-- Aktuelle Seite: {context}
-- Intent: {intent}
-- Ergebnis-Daten: {data}
-
-Regeln:
-- Antworte auf Deutsch
-- Sei prägnant aber hilfreich
-- Nutze die konkreten Daten in deiner Antwort
-- Bei vielen Ergebnissen, fasse zusammen
-- Schlage Follow-up Fragen vor wenn sinnvoll
-
-Generiere eine Antwort-Nachricht (max 200 Wörter):
-"""
-
-
-def format_entity_link(entity_type: str, slug: str, name: str) -> str:
-    """Format an entity reference as a clickable link: [[type:slug:name]]."""
-    return f"[[{entity_type}:{slug}:{name}]]"
 
 
 class AssistantService:
@@ -244,6 +135,47 @@ class AssistantService:
         """
         # Initialize translator for this request
         self.tr = Translator(language)
+
+        # === Security: Input validation and sanitization ===
+        # Step 1: Validate message length
+        is_valid, error_msg = validate_message_length(
+            message, SecurityConstants.MAX_MESSAGE_LENGTH
+        )
+        if not is_valid:
+            return AssistantChatResponse(
+                message=error_msg,
+                response_data=ErrorResponseData(
+                    message=error_msg,
+                    error_code="message_too_long"
+                ),
+                suggested_actions=[],
+            )
+
+        # Step 2: Sanitize input and check for injection patterns
+        sanitization_result = sanitize_for_prompt(message)
+
+        # Step 3: Block requests with high-risk injection patterns
+        if should_block_request(sanitization_result.risk_level):
+            log_security_event(
+                event_type="prompt_injection_blocked",
+                risk_level=sanitization_result.risk_level,
+                details={
+                    "detected_risks": sanitization_result.detected_risks,
+                    "message_preview": message[:100] if message else "",
+                },
+            )
+            return AssistantChatResponse(
+                message=self.tr.t("security_blocked") if hasattr(self.tr, 't') else
+                    "Ihre Anfrage konnte aus Sicherheitsgründen nicht verarbeitet werden.",
+                response_data=ErrorResponseData(
+                    message="Sicherheitsprüfung fehlgeschlagen",
+                    error_code="security_blocked"
+                ),
+                suggested_actions=[],
+            )
+
+        # Use sanitized message for further processing
+        message = sanitization_result.sanitized_text
 
         # Handle image attachments with Vision API
         if attachments:
@@ -343,6 +275,10 @@ class AssistantService:
                         response_data, suggested_actions = await self._handle_context_action(
                             message, context, intent_data
                         )
+            elif intent == IntentType.DISCUSSION:
+                response_data, suggested_actions = await self._handle_discussion(
+                    message, context, intent_data
+                )
             else:
                 response_data = ErrorResponseData(
                     message=self.tr.t("unknown_intent"),
@@ -1766,6 +1702,130 @@ Regeln:
                 error_code="batch_error"
             ), []
 
+    async def _handle_discussion(
+        self,
+        message: str,
+        context: AssistantContext,
+        intent_data: Dict[str, Any]
+    ) -> Tuple[AssistantResponseData, List[SuggestedAction]]:
+        """Handle discussion, document analysis, requirements, or general conversation.
+
+        This handler is used when the user shares documents, requirements, emails,
+        or wants to discuss/plan something that isn't a direct database query.
+        """
+        suggested_actions: List[SuggestedAction] = []
+
+        if not client:
+            return ErrorResponseData(
+                message="KI-Service nicht verfügbar für Diskussionen.",
+                error_code="ai_not_available"
+            ), []
+
+        # Build context about the app for the AI
+        app_context = f"""
+Du bist ein hilfreicher Assistent in einer Entity-Management-App (CaeliCrawler).
+
+Die App verwaltet:
+- Entities (z.B. Gemeinden, Personen, Organisationen) mit verschiedenen Typen
+- Facets (Eigenschaften wie Pain Points, Positive Signals, Kontakte, Haushaltsvolumen)
+- Relations (Beziehungen zwischen Entities)
+- Datenquellen für Crawler (Webseiten, APIs, SharePoint)
+- Kategorien für die Datensammlung
+
+Aktueller Kontext:
+- Route: {context.current_route}
+- Entity: {context.current_entity_name or 'keine'} (Typ: {context.current_entity_type or 'keine'})
+
+Der Benutzer teilt ein Dokument, Anforderungen oder möchte diskutieren.
+Analysiere den Text und gib eine hilfreiche Antwort. Wenn es um Features geht,
+erkläre was bereits existiert und was noch implementiert werden müsste.
+"""
+
+        try:
+            response = client.chat.completions.create(
+                model=settings.azure_openai_deployment_name,
+                messages=[
+                    {"role": "system", "content": app_context},
+                    {"role": "user", "content": message}
+                ],
+                temperature=0.7,
+                max_tokens=2000,
+            )
+
+            ai_response = response.choices[0].message.content
+
+            # Try to extract key points and recommendations
+            key_points = []
+            recommendations = []
+
+            # Simple extraction based on common patterns
+            lines = ai_response.split('\n')
+            in_key_points = False
+            in_recommendations = False
+
+            for line in lines:
+                line_lower = line.lower().strip()
+                if 'kernpunkte' in line_lower or 'key points' in line_lower or 'hauptpunkte' in line_lower:
+                    in_key_points = True
+                    in_recommendations = False
+                    continue
+                elif 'empfehlung' in line_lower or 'recommendation' in line_lower or 'nächste schritte' in line_lower:
+                    in_recommendations = True
+                    in_key_points = False
+                    continue
+                elif line.startswith('#'):
+                    in_key_points = False
+                    in_recommendations = False
+
+                if in_key_points and line.strip().startswith(('-', '•', '*', '1', '2', '3', '4', '5')):
+                    key_points.append(line.strip().lstrip('-•* 0123456789.'))
+                elif in_recommendations and line.strip().startswith(('-', '•', '*', '1', '2', '3', '4', '5')):
+                    recommendations.append(line.strip().lstrip('-•* 0123456789.'))
+
+            # Determine analysis type
+            analysis_type = "general"
+            message_lower = message.lower()
+            if 'anforderung' in message_lower or 'requirement' in message_lower:
+                analysis_type = "requirements"
+            elif 'plan' in message_lower or 'vorgehen' in message_lower:
+                analysis_type = "planning"
+            elif len(message) > 500:
+                analysis_type = "document"
+
+            # Suggest relevant actions
+            if 'crawler' in message_lower or 'datenquelle' in message_lower:
+                suggested_actions.append(SuggestedAction(
+                    label="Datenquellen anzeigen",
+                    action="navigate",
+                    value="/admin/sources"
+                ))
+            if 'kategorie' in message_lower or 'category' in message_lower:
+                suggested_actions.append(SuggestedAction(
+                    label="Kategorien verwalten",
+                    action="navigate",
+                    value="/admin/categories"
+                ))
+            if 'smart query' in message_lower or 'plan modus' in message_lower:
+                suggested_actions.append(SuggestedAction(
+                    label="Smart Query öffnen",
+                    action="navigate",
+                    value="/smart-query"
+                ))
+
+            return DiscussionResponse(
+                message=ai_response,
+                analysis_type=analysis_type,
+                key_points=key_points[:5],  # Limit to 5
+                recommendations=recommendations[:5]
+            ), suggested_actions
+
+        except Exception as e:
+            logger.error("discussion_error", error=str(e))
+            return ErrorResponseData(
+                message=f"Fehler bei der Analyse: {str(e)}",
+                error_code="discussion_error"
+            ), []
+
     async def _handle_context_action(
         self,
         message: str,
@@ -1774,638 +1834,10 @@ Regeln:
     ) -> Tuple[AssistantResponseData, List[SuggestedAction]]:
         """Handle context-aware action on current entity.
 
-        Actions follow a two-step process:
-        1. Preview: Shows what would happen and asks for confirmation
-        2. Execute: Performs the action after confirmation
-
-        Actions ending with '_execute' skip the preview and run immediately.
+        Delegates to the extracted handle_context_action function.
+        See services/assistant/context_actions.py for implementation.
         """
-        extracted = intent_data.get("extracted_data", {})
-        action = extracted.get("context_action", "show_pysis_status")
-        action_data = extracted.get("context_action_data", {})
-
-        entity_id = context.current_entity_id
-        entity_name = context.current_entity_name or "Entity"
-
-        try:
-            service = PySisFacetService(self.db)
-
-            if action == "show_pysis_status":
-                # Show PySis status for current entity
-                status = await service.get_pysis_status(UUID(entity_id))
-
-                if not status.get("has_pysis"):
-                    return ContextActionResponse(
-                        message=f"**{entity_name}** hat keine verknüpften PySis-Prozesse.",
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        success=True
-                    ), []
-
-                # Format status message
-                processes = status.get("processes", [])
-                total_fields = status.get("total_fields", 0)
-                msg = f"**PySis-Status für {entity_name}:**\n\n"
-                msg += f"- {len(processes)} Prozess(e)\n"
-                msg += f"- {total_fields} Felder\n"
-
-                for p in processes[:3]:
-                    summary = p.get("fields_summary", {})
-                    msg += f"\n**{p.get('name', 'Prozess')}:** {summary.get('with_values', 0)}/{summary.get('total', 0)} Felder mit Werten"
-
-                return ContextActionResponse(
-                    message=msg,
-                    action=action,
-                    entity_id=entity_id,
-                    entity_name=entity_name,
-                    status=status,
-                    success=True
-                ), [
-                    SuggestedAction(label="PySis analysieren", action="query", value="Analysiere PySis für Facets"),
-                    SuggestedAction(label="Facets anreichern", action="query", value="Reichere Facets mit PySis an"),
-                ]
-
-            # ==========================================
-            # ANALYZE PYSIS - Preview (Step 1)
-            # ==========================================
-            elif action == "analyze_pysis":
-                preview = await service.get_operation_preview(UUID(entity_id), "analyze")
-
-                if not preview.get("can_execute"):
-                    return ContextActionResponse(
-                        message=f"**Analyse nicht möglich:**\n{preview.get('message', 'Keine Daten verfügbar')}",
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        preview=preview,
-                        requires_confirmation=False,
-                        success=False
-                    ), []
-
-                # Build detailed preview message
-                msg = f"**PySis-Analyse für {entity_name}**\n\n"
-                msg += f"📊 **Was wird analysiert:**\n"
-                msg += f"- {preview.get('fields_with_values', 0)} PySis-Felder mit Werten\n"
-                msg += f"- {preview.get('facet_types_count', 0)} Facet-Typen werden geprüft\n\n"
-
-                facet_types = preview.get("facet_types", [])
-                if facet_types:
-                    msg += f"**Facet-Typen:**\n"
-                    for ft in facet_types[:5]:
-                        msg += f"- {ft.get('name')}\n"
-                    if len(facet_types) > 5:
-                        msg += f"- ... und {len(facet_types) - 5} weitere\n"
-
-                msg += f"\n⚠️ **Möchtest du die Analyse starten?**"
-
-                return ContextActionResponse(
-                    message=msg,
-                    action=action,
-                    entity_id=entity_id,
-                    entity_name=entity_name,
-                    preview=preview,
-                    requires_confirmation=True,
-                    success=True
-                ), [
-                    SuggestedAction(label="✅ Ja, analysieren", action="query", value="Ja, starte die PySis-Analyse"),
-                    SuggestedAction(label="❌ Abbrechen", action="query", value="Abbrechen"),
-                ]
-
-            # ==========================================
-            # ANALYZE PYSIS - Execute (Step 2)
-            # ==========================================
-            elif action == "analyze_pysis_execute":
-                preview = await service.get_operation_preview(UUID(entity_id), "analyze")
-
-                if not preview.get("can_execute"):
-                    return ContextActionResponse(
-                        message=preview.get("message", "Analyse nicht möglich"),
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        success=False
-                    ), []
-
-                # Execute the analysis
-                task = await service.analyze_for_facets(UUID(entity_id))
-
-                msg = f"✅ **PySis-Analyse für {entity_name} gestartet!**\n\n"
-                msg += f"- Task-ID: `{task.id}`\n"
-                msg += f"- {preview.get('fields_with_values', 0)} Felder werden analysiert\n"
-                msg += f"\nDie Ergebnisse erscheinen in den Facets der Entity."
-
-                return ContextActionResponse(
-                    message=msg,
-                    action=action,
-                    entity_id=entity_id,
-                    entity_name=entity_name,
-                    task_id=str(task.id),
-                    preview=preview,
-                    success=True
-                ), [
-                    SuggestedAction(label="Status prüfen", action="query", value="Zeige PySis-Status"),
-                ]
-
-            # ==========================================
-            # ENRICH FACETS - Preview (Step 1)
-            # ==========================================
-            elif action == "enrich_facets":
-                preview = await service.get_operation_preview(UUID(entity_id), "enrich")
-
-                if not preview.get("can_execute"):
-                    return ContextActionResponse(
-                        message=f"**Anreicherung nicht möglich:**\n{preview.get('message', 'Keine Daten verfügbar')}",
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        preview=preview,
-                        requires_confirmation=False,
-                        success=False
-                    ), []
-
-                # Build detailed preview message
-                msg = f"**Facet-Anreicherung für {entity_name}**\n\n"
-                msg += f"📊 **Was wird angereichert:**\n"
-                msg += f"- {preview.get('facet_values_count', 0)} bestehende Facets\n"
-                msg += f"- mit {preview.get('fields_with_values', 0)} PySis-Feldern\n\n"
-
-                facets_by_type = preview.get("facets_by_type", [])
-                if facets_by_type:
-                    msg += f"**Facets nach Typ:**\n"
-                    for ft in facets_by_type:
-                        msg += f"- {ft.get('name')}: {ft.get('count')} Einträge\n"
-
-                msg += f"\n⚠️ **Hinweis:** Bestehende Werte werden NICHT überschrieben.\n"
-                msg += f"\n**Möchtest du die Anreicherung starten?**"
-
-                return ContextActionResponse(
-                    message=msg,
-                    action=action,
-                    entity_id=entity_id,
-                    entity_name=entity_name,
-                    preview=preview,
-                    requires_confirmation=True,
-                    success=True
-                ), [
-                    SuggestedAction(label="✅ Ja, anreichern", action="query", value="Ja, starte die Facet-Anreicherung"),
-                    SuggestedAction(label="🔄 Mit Überschreiben", action="query", value="Ja, anreichern und bestehende überschreiben"),
-                    SuggestedAction(label="❌ Abbrechen", action="query", value="Abbrechen"),
-                ]
-
-            # ==========================================
-            # ENRICH FACETS - Execute (Step 2)
-            # ==========================================
-            elif action == "enrich_facets_execute":
-                preview = await service.get_operation_preview(UUID(entity_id), "enrich")
-
-                if not preview.get("can_execute"):
-                    return ContextActionResponse(
-                        message=preview.get("message", "Anreicherung nicht möglich"),
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        success=False
-                    ), []
-
-                # Check if overwrite was requested
-                overwrite = action_data.get("overwrite", False) if isinstance(action_data, dict) else False
-
-                # Execute the enrichment
-                task = await service.enrich_facets_from_pysis(UUID(entity_id), overwrite=overwrite)
-
-                msg = f"✅ **Facet-Anreicherung für {entity_name} gestartet!**\n\n"
-                msg += f"- Task-ID: `{task.id}`\n"
-                msg += f"- {preview.get('facet_values_count', 0)} Facets werden angereichert\n"
-                if overwrite:
-                    msg += f"- ⚠️ Bestehende Werte werden überschrieben\n"
-                msg += f"\nDie Ergebnisse erscheinen in den Facets der Entity."
-
-                return ContextActionResponse(
-                    message=msg,
-                    action=action,
-                    entity_id=entity_id,
-                    entity_name=entity_name,
-                    task_id=str(task.id),
-                    preview=preview,
-                    success=True
-                ), [
-                    SuggestedAction(label="Status prüfen", action="query", value="Zeige PySis-Status"),
-                ]
-
-            elif action == "start_crawl":
-                # Start crawl for current entity's data sources
-                return ContextActionResponse(
-                    message=f"Crawl für {entity_name} starten - Feature in Entwicklung.",
-                    action=action,
-                    entity_id=entity_id,
-                    entity_name=entity_name,
-                    success=False
-                ), []
-
-            # ==========================================
-            # CREATE FACET - Add facet value to entity
-            # ==========================================
-            elif action == "create_facet":
-                # Extract facet data from action_data
-                facet_type_slug = action_data.get("facet_type") if isinstance(action_data, dict) else None
-                description = action_data.get("description", "") if isinstance(action_data, dict) else ""
-                severity = action_data.get("severity") if isinstance(action_data, dict) else None
-                facet_sub_type = action_data.get("type") if isinstance(action_data, dict) else None
-
-                if not facet_type_slug:
-                    return ContextActionResponse(
-                        message="Bitte gib einen Facet-Typ an (z.B. pain_point, positive_signal, contact).",
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        success=False
-                    ), [
-                        SuggestedAction(label="Pain Point", action="query", value="Füge Pain Point hinzu: "),
-                        SuggestedAction(label="Positive Signal", action="query", value="Füge Positive Signal hinzu: "),
-                        SuggestedAction(label="Kontakt", action="query", value="Füge Kontakt hinzu: "),
-                    ]
-
-                if not description:
-                    return ContextActionResponse(
-                        message=f"Bitte beschreibe den {facet_type_slug} der hinzugefügt werden soll.",
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        success=False
-                    ), []
-
-                # Find the facet type
-                facet_type_result = await self.db.execute(
-                    select(FacetType).where(FacetType.slug == facet_type_slug, FacetType.is_active.is_(True))
-                )
-                facet_type = facet_type_result.scalar_one_or_none()
-
-                if not facet_type:
-                    return ContextActionResponse(
-                        message=f"Facet-Typ '{facet_type_slug}' nicht gefunden. Verfügbare Typen: pain_point, positive_signal, contact, summary.",
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        success=False
-                    ), []
-
-                # Build the value based on facet type
-                value = {"description": description}
-                if severity and facet_type_slug == "pain_point":
-                    value["severity"] = severity
-                if facet_sub_type:
-                    value["type"] = facet_sub_type
-
-                # Create the facet value
-                from app.models.facet_value import FacetValueSourceType
-                facet_value = FacetValue(
-                    entity_id=UUID(entity_id),
-                    facet_type_id=facet_type.id,
-                    value=value,
-                    text_representation=description,
-                    source_type=FacetValueSourceType.AI_ASSISTANT,
-                    confidence_score=1.0,  # Manual creation = full confidence
-                    human_verified=True,
-                    is_active=True
-                )
-                self.db.add(facet_value)
-                await self.db.commit()
-                await self.db.refresh(facet_value)
-
-                msg = f"✅ **{facet_type.name} hinzugefügt!**\n\n"
-                msg += f"- **Entity:** {entity_name}\n"
-                msg += f"- **Beschreibung:** {description}\n"
-                if severity:
-                    msg += f"- **Schweregrad:** {severity}\n"
-                msg += f"\nDer Facet-Wert wurde erfolgreich erstellt."
-
-                return ContextActionResponse(
-                    message=msg,
-                    action=action,
-                    entity_id=entity_id,
-                    entity_name=entity_name,
-                    facet_value_id=str(facet_value.id),
-                    success=True
-                ), [
-                    SuggestedAction(label="Weiteren hinzufügen", action="query", value=f"Füge weiteren {facet_type.name} hinzu"),
-                    SuggestedAction(label="Facets anzeigen", action="query", value="Zeige alle Facets"),
-                ]
-
-            # ==========================================
-            # ANALYZE ENTITY DATA - Extract facets from entity data
-            # ==========================================
-            elif action == "analyze_entity_data":
-                from services.entity_data_facet_service import EntityDataFacetService
-
-                # Get source types from action_data
-                source_types = []
-                if isinstance(action_data, dict) and "source_types" in action_data:
-                    source_types = action_data.get("source_types", [])
-
-                # If no source types specified, use all available
-                if not source_types:
-                    source_types = ["pysis", "relations", "documents", "extractions"]
-
-                try:
-                    service = EntityDataFacetService(self.db)
-
-                    # Get available sources first
-                    sources_info = await service.get_enrichment_sources(UUID(entity_id))
-
-                    # Filter to only available sources
-                    available_sources = []
-                    if sources_info.get("pysis", {}).get("available") and "pysis" in source_types:
-                        available_sources.append("pysis")
-                    if sources_info.get("relations", {}).get("available") and "relations" in source_types:
-                        available_sources.append("relations")
-                    if sources_info.get("documents", {}).get("available") and "documents" in source_types:
-                        available_sources.append("documents")
-                    if sources_info.get("extractions", {}).get("available") and "extractions" in source_types:
-                        available_sources.append("extractions")
-
-                    if not available_sources:
-                        return ContextActionResponse(
-                            message=f"Keine Datenquellen für die Analyse von **{entity_name}** verfügbar.\n\n"
-                                    f"Verfügbare Quellen prüfen:\n"
-                                    f"- PySIS: {sources_info.get('pysis', {}).get('count', 0)} Felder\n"
-                                    f"- Relationen: {sources_info.get('relations', {}).get('count', 0)} Verknüpfungen\n"
-                                    f"- Dokumente: {sources_info.get('documents', {}).get('count', 0)} Dokumente\n"
-                                    f"- Extraktionen: {sources_info.get('extractions', {}).get('count', 0)} Einträge",
-                            action=action,
-                            entity_id=entity_id,
-                            entity_name=entity_name,
-                            success=False
-                        ), []
-
-                    # Start the analysis task
-                    task = await service.start_analysis(
-                        entity_id=UUID(entity_id),
-                        source_types=available_sources,
-                    )
-
-                    sources_text = ", ".join(available_sources)
-                    return ContextActionResponse(
-                        message=f"**Facet-Analyse gestartet für {entity_name}**\n\n"
-                                f"Analysiere: {sources_text}\n\n"
-                                f"Die Analyse läuft im Hintergrund. "
-                                f"Öffne die Entity-Seite, um den Fortschritt zu sehen und die Ergebnisse zu prüfen.\n\n"
-                                f"Task-ID: `{task.id}`",
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        success=True,
-                        task_id=str(task.id)
-                    ), [
-                        SuggestedAction(
-                            label="Zur Entity",
-                            action="navigate",
-                            value=f"entity/{entity_id}"
-                        ),
-                    ]
-
-                except Exception as e:
-                    logger.error("analyze_entity_data_error", error=str(e))
-                    return ContextActionResponse(
-                        message=f"Fehler beim Starten der Analyse: {str(e)}",
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        success=False
-                    ), []
-
-            # ==========================================
-            # SHOW ENTITY HISTORY - Display history data
-            # ==========================================
-            elif action == "show_entity_history":
-                from services.facet_history_service import FacetHistoryService
-
-                facet_type_slug = action_data.get("facet_type_slug") if isinstance(action_data, dict) else None
-
-                try:
-                    history_service = FacetHistoryService(self.db)
-
-                    # If facet_type_slug specified, show that specific history
-                    if facet_type_slug:
-                        ft_result = await self.db.execute(
-                            select(FacetType).where(FacetType.slug == facet_type_slug)
-                        )
-                        facet_type = ft_result.scalar_one_or_none()
-
-                        if not facet_type or facet_type.value_type.value != "history":
-                            return ContextActionResponse(
-                                message=f"Facet-Typ '{facet_type_slug}' ist kein History-Typ.",
-                                action=action,
-                                entity_id=entity_id,
-                                entity_name=entity_name,
-                                success=False
-                            ), []
-
-                        history = await history_service.get_history(
-                            entity_id=UUID(entity_id),
-                            facet_type_id=facet_type.id,
-                        )
-
-                        if not history.tracks:
-                            return ContextActionResponse(
-                                message=f"Keine Verlaufsdaten für **{facet_type.name}** bei **{entity_name}** vorhanden.",
-                                action=action,
-                                entity_id=entity_id,
-                                entity_name=entity_name,
-                                success=True
-                            ), [
-                                SuggestedAction(label="Datenpunkt hinzufügen", action="query", value=f"Füge Datenpunkt für {facet_type.name} hinzu"),
-                            ]
-
-                        # Format history stats
-                        msg = f"**{facet_type.name}-Verlauf für {entity_name}**\n\n"
-                        stats = history.statistics
-                        if stats:
-                            trend_emoji = "📈" if stats.trend == "up" else ("📉" if stats.trend == "down" else "➡️")
-                            msg += f"- **Aktueller Wert:** {stats.latest_value} {history.unit_label or ''}\n"
-                            msg += f"- **Trend:** {trend_emoji} {'+' if stats.change_percent and stats.change_percent > 0 else ''}{stats.change_percent or 0:.1f}%\n"
-                            msg += f"- **Minimum:** {stats.min_value} | **Maximum:** {stats.max_value}\n"
-                            msg += f"- **Datenpunkte:** {stats.total_points}\n"
-
-                        return ContextActionResponse(
-                            message=msg,
-                            action=action,
-                            entity_id=entity_id,
-                            entity_name=entity_name,
-                            success=True,
-                            preview={"history": history.model_dump() if hasattr(history, "model_dump") else None}
-                        ), [
-                            SuggestedAction(label="Datenpunkt hinzufügen", action="query", value=f"Füge Datenpunkt für {facet_type.name} hinzu"),
-                            SuggestedAction(label="Chart öffnen", action="navigate", value=f"entity/{entity_id}"),
-                        ]
-                    else:
-                        # List available history facet types
-                        ft_result = await self.db.execute(
-                            select(FacetType).where(FacetType.value_type == "history")
-                        )
-                        history_types = ft_result.scalars().all()
-
-                        if not history_types:
-                            return ContextActionResponse(
-                                message="Es gibt noch keine Facet-Typen vom Typ 'History'. Erstelle zuerst einen History-Facet-Typ.",
-                                action=action,
-                                entity_id=entity_id,
-                                entity_name=entity_name,
-                                success=False
-                            ), [
-                                SuggestedAction(label="History-Facet erstellen", action="query", value="Erstelle History-Facet-Typ für Haushaltsvolumen"),
-                            ]
-
-                        msg = f"**Verfügbare History-Facets für {entity_name}:**\n\n"
-                        for ft in history_types:
-                            msg += f"- **{ft.name}** (`{ft.slug}`)\n"
-
-                        return ContextActionResponse(
-                            message=msg,
-                            action=action,
-                            entity_id=entity_id,
-                            entity_name=entity_name,
-                            success=True
-                        ), [SuggestedAction(label=ft.name, action="query", value=f"Zeige {ft.name}-Verlauf") for ft in history_types[:3]]
-
-                except Exception as e:
-                    logger.error("show_entity_history_error", error=str(e))
-                    return ContextActionResponse(
-                        message=f"Fehler beim Laden der Verlaufsdaten: {str(e)}",
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        success=False
-                    ), []
-
-            # ==========================================
-            # ADD HISTORY POINT - Add data point to history facet
-            # ==========================================
-            elif action == "add_history_point":
-                from datetime import datetime
-                from services.facet_history_service import FacetHistoryService
-
-                facet_type_slug = action_data.get("facet_type_slug") if isinstance(action_data, dict) else None
-                value = action_data.get("value") if isinstance(action_data, dict) else None
-                recorded_at = action_data.get("recorded_at") if isinstance(action_data, dict) else None
-                track_key = action_data.get("track_key", "default") if isinstance(action_data, dict) else "default"
-                note = action_data.get("note") if isinstance(action_data, dict) else None
-
-                if not facet_type_slug:
-                    return ContextActionResponse(
-                        message="Bitte gib einen History-Facet-Typ an (z.B. haushaltsvolumen, einwohnerzahl).",
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        success=False
-                    ), []
-
-                if value is None:
-                    return ContextActionResponse(
-                        message="Bitte gib einen Wert an (z.B. 'Füge Haushaltsvolumen 5000000 hinzu').",
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        success=False
-                    ), []
-
-                # Find FacetType
-                ft_result = await self.db.execute(
-                    select(FacetType).where(FacetType.slug == facet_type_slug)
-                )
-                facet_type = ft_result.scalar_one_or_none()
-
-                if not facet_type:
-                    return ContextActionResponse(
-                        message=f"Facet-Typ '{facet_type_slug}' nicht gefunden.",
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        success=False
-                    ), []
-
-                if facet_type.value_type.value != "history":
-                    return ContextActionResponse(
-                        message=f"Facet-Typ '{facet_type.name}' ist kein History-Typ.",
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        success=False
-                    ), []
-
-                try:
-                    # Parse recorded_at
-                    if recorded_at:
-                        if isinstance(recorded_at, str):
-                            recorded_at = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
-                    else:
-                        recorded_at = datetime.utcnow()
-
-                    # Build annotations
-                    annotations = {}
-                    if note:
-                        annotations["note"] = note
-
-                    # Add data point
-                    history_service = FacetHistoryService(self.db)
-                    data_point = await history_service.add_data_point(
-                        entity_id=UUID(entity_id),
-                        facet_type_id=facet_type.id,
-                        value=float(value),
-                        recorded_at=recorded_at,
-                        track_key=track_key,
-                        annotations=annotations,
-                        source_type="AI_ASSISTANT",
-                    )
-
-                    # Get unit from facet type schema
-                    unit = ""
-                    if facet_type.value_schema and isinstance(facet_type.value_schema, dict):
-                        props = facet_type.value_schema.get("properties", {})
-                        unit = props.get("unit_label", props.get("unit", ""))
-
-                    msg = f"✅ **Datenpunkt hinzugefügt!**\n\n"
-                    msg += f"- **Entity:** {entity_name}\n"
-                    msg += f"- **Facet-Typ:** {facet_type.name}\n"
-                    msg += f"- **Wert:** {value} {unit}\n"
-                    msg += f"- **Datum:** {recorded_at.strftime('%d.%m.%Y')}\n"
-                    if note:
-                        msg += f"- **Notiz:** {note}\n"
-
-                    return ContextActionResponse(
-                        message=msg,
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        success=True,
-                        data_point_id=str(data_point.id)
-                    ), [
-                        SuggestedAction(label="Verlauf anzeigen", action="query", value=f"Zeige {facet_type.name}-Verlauf"),
-                        SuggestedAction(label="Weiteren hinzufügen", action="query", value=f"Füge weiteren {facet_type.name}-Datenpunkt hinzu"),
-                    ]
-
-                except Exception as e:
-                    logger.error("add_history_point_error", error=str(e))
-                    return ContextActionResponse(
-                        message=f"Fehler beim Hinzufügen des Datenpunkts: {str(e)}",
-                        action=action,
-                        entity_id=entity_id,
-                        entity_name=entity_name,
-                        success=False
-                    ), []
-
-            else:
-                return ErrorResponseData(
-                    message=f"Unbekannte Aktion: {action}",
-                    error_code="unknown_action"
-                ), []
-
-        except Exception as e:
-            logger.error("context_action_error", action=action, error=str(e))
-            return ErrorResponseData(
-                message=f"Fehler bei der Ausführung: {str(e)}",
-                error_code="context_action_error"
-            ), []
+        return await handle_context_action(self.db, message, context, intent_data)
 
     async def process_message_stream(
         self,
@@ -2661,6 +2093,20 @@ Regeln:
                                 "suggested_actions": [s.model_dump() for s in suggested_actions]
                             }
                         }
+
+            elif intent == IntentType.DISCUSSION:
+                yield {"type": "status", "message": "Analysiere Dokument..."}
+                response_data, suggested_actions = await self._handle_discussion(
+                    message, context, intent_data
+                )
+                yield {
+                    "type": "complete",
+                    "data": {
+                        "success": True,
+                        "response": response_data.model_dump() if hasattr(response_data, 'model_dump') else response_data,
+                        "suggested_actions": [s.model_dump() for s in suggested_actions]
+                    }
+                }
 
             else:
                 yield {

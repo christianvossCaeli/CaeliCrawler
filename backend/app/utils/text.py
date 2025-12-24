@@ -4,8 +4,14 @@ Text normalization utilities for consistent matching across the application.
 This module provides centralized text normalization functions to ensure
 consistent behavior when matching entity names, creating slugs, etc.
 
-IMPORTANT: All entity name normalization should use these functions to avoid
-duplicate entries caused by inconsistent normalization (e.g., "Köln" vs "Koln").
+For entity deduplication, we use embedding-based similarity matching
+(see app.utils.similarity) which is entity-type-agnostic and handles
+variations like titles, abbreviations, and synonyms automatically.
+
+The functions here are used for:
+- Exact name matching (normalize_entity_name)
+- URL slug generation (create_slug)
+- Full-text search preparation (normalize_for_search)
 """
 
 import re
@@ -173,60 +179,61 @@ def build_text_representation(value: Any) -> str:
     return ""
 
 
-def clean_municipality_name(name: str, country: str = "GB") -> str:
+def clean_municipality_name(name: str, country: str = "DE") -> str:
     """
-    Clean municipality names to remove institutional suffixes/prefixes.
+    Clean municipality names with minimal, generic rules.
 
-    For UK:
-    - "X Council" -> "X"
-    - "X City Council" -> "X"
-    - "City of X" -> "X"
-    - "Borough of X" -> "X"
+    DEPRECATED: This function is no longer used for entity deduplication.
+    We now use embedding-based similarity matching which handles variations
+    like "Aberdeen City Council" vs "Aberdeen" automatically without
+    entity-type-specific rules.
 
-    This prevents creating duplicate entities for the same place.
+    Only removes clearly redundant suffixes like parenthetical abbreviations
+    and trailing country/state names.
 
     Args:
         name: The municipality name
         country: ISO 3166-1 alpha-2 country code
 
     Returns:
-        Cleaned name without institutional suffixes
+        Cleaned name with minimal normalization
 
     Examples:
+        >>> clean_municipality_name("Regionalverband Ruhr (RVR)", "DE")
+        'Regionalverband Ruhr'
         >>> clean_municipality_name("Aberdeen City Council", "GB")
         'Aberdeen'
-        >>> clean_municipality_name("City of Edinburgh", "GB")
-        'Edinburgh'
-        >>> clean_municipality_name("Angus Council", "GB")
-        'Angus'
     """
-    if country != "GB":
-        return name
-
     original = name
 
-    # Remove common suffixes (order matters - longer patterns first)
-    patterns_to_remove = [
-        r'\s+City\s+Council$',      # "Aberdeen City Council" -> "Aberdeen"
-        r'\s+Borough\s+Council$',   # "X Borough Council" -> "X"
-        r'\s+District\s+Council$',  # "X District Council" -> "X"
-        r'\s+County\s+Council$',    # "X County Council" -> "X"
-        r'\s+Council$',             # "Angus Council" -> "Angus"
-    ]
+    # Universal: Remove parenthetical suffixes like "(RVR)", "(NRW)"
+    name = re.sub(r'\s*\([^)]*\)$', '', name)
 
-    for pattern in patterns_to_remove:
-        name = re.sub(pattern, '', name, flags=re.IGNORECASE)
+    if country in GERMAN_SPEAKING_COUNTRIES:
+        # Remove trailing country/state names after comma
+        name = re.sub(r',\s*(?:Deutschland|Germany)$', '', name, flags=re.IGNORECASE)
 
-    # Remove common prefixes
-    prefix_patterns = [
-        r'^City\s+of\s+',           # "City of Edinburgh" -> "Edinburgh"
-        r'^Borough\s+of\s+',        # "Borough of X" -> "X"
-        r'^County\s+of\s+',         # "County of X" -> "X"
-        r'^Royal\s+Borough\s+of\s+',  # "Royal Borough of X" -> "X"
-    ]
+    elif country == "GB":
+        # Remove common UK institutional suffixes
+        uk_suffix_patterns = [
+            r'\s+City\s+Council$',
+            r'\s+Borough\s+Council$',
+            r'\s+District\s+Council$',
+            r'\s+County\s+Council$',
+            r'\s+Council$',
+        ]
+        for pattern in uk_suffix_patterns:
+            name = re.sub(pattern, '', name, flags=re.IGNORECASE)
 
-    for pattern in prefix_patterns:
-        name = re.sub(pattern, '', name, flags=re.IGNORECASE)
+        # Remove UK prefixes
+        uk_prefix_patterns = [
+            r'^City\s+of\s+',
+            r'^Borough\s+of\s+',
+            r'^County\s+of\s+',
+            r'^Royal\s+Borough\s+of\s+',
+        ]
+        for pattern in uk_prefix_patterns:
+            name = re.sub(pattern, '', name, flags=re.IGNORECASE)
 
     name = name.strip()
     return name if name else original

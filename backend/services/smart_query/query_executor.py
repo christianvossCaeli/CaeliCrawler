@@ -82,15 +82,14 @@ async def execute_smart_query(
     if not entity_type:
         return results
 
-    # Get facet types
+    # Get facet types - bulk load instead of N+1 queries
     facet_type_map = {}
-    for ft_slug in facet_types:
+    if facet_types:
         ft_result = await session.execute(
-            select(FacetType).where(FacetType.slug == ft_slug)
+            select(FacetType).where(FacetType.slug.in_(facet_types))
         )
-        ft = ft_result.scalar_one_or_none()
-        if ft:
-            facet_type_map[ft_slug] = ft
+        for ft in ft_result.scalars().all():
+            facet_type_map[ft.slug] = ft
 
     # Build base entity query conditions
     base_conditions = [
@@ -147,15 +146,13 @@ async def execute_smart_query(
 
     # Handle negative facet types first (entities to EXCLUDE)
     if negative_facet_types:
-        # Load negative facet types
+        # Load negative facet types - bulk load instead of N+1 queries
         neg_facet_type_map = {}
-        for ft_slug in negative_facet_types:
-            ft_result = await session.execute(
-                select(FacetType).where(FacetType.slug == ft_slug)
-            )
-            ft = ft_result.scalar_one_or_none()
-            if ft:
-                neg_facet_type_map[ft_slug] = ft
+        neg_ft_result = await session.execute(
+            select(FacetType).where(FacetType.slug.in_(negative_facet_types))
+        )
+        for ft in neg_ft_result.scalars().all():
+            neg_facet_type_map[ft.slug] = ft
 
         if neg_facet_type_map:
             neg_facet_type_ids = [ft.id for ft in neg_facet_type_map.values()]

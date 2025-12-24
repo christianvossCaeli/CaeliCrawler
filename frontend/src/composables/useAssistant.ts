@@ -13,15 +13,18 @@ export interface AssistantContext {
   current_entity_name: string | null
   view_mode: 'dashboard' | 'list' | 'detail' | 'edit' | 'unknown'
   available_actions: string[]
+  // Index signature for compatibility with API types
+  [key: string]: unknown
 }
 
 export interface ConversationMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
   response_type?: string
-  response_data?: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  response_data?: any  // Using any for Vue template compatibility
 }
 
 export interface SuggestedAction {

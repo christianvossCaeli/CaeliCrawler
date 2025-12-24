@@ -1,7 +1,7 @@
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database with pgvector for embedding similarity
   postgres:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg17
     container_name: caelichrawler-postgres
     environment:
       POSTGRES_USER: caelichrawler

@@ -34,6 +34,7 @@
               icon="mdi-menu"
               variant="text"
               class="d-md-none"
+              :aria-label="$t('common.toggleMenu')"
               @click="sidebarOpen = !sidebarOpen"
             />
             <!-- Import Dropdown Menu -->
@@ -201,32 +202,50 @@
           </v-data-table-server>
         </v-card>
 
-        <!-- Create/Edit Dialog with Error Boundary -->
-        <ErrorBoundary @error="onDialogError" @reset="formDialog = false">
-          <SourceFormDialog
-            v-model="formDialog"
-            :edit-mode="store.editMode"
-            :form-data="store.formData"
-            :categories="store.categories"
-            :tag-suggestions="store.tagSuggestions"
-            :selected-entities="store.selectedEntities"
-            :saving="store.saving"
-            @update:form-data="store.formData = $event"
-            @update:selected-entities="store.selectedEntities = $event"
-            @save="saveSource"
-            @show-category-info="showCategoryInfo"
-          />
+        <!-- Create/Edit Dialog with Error Boundary (lazy-loaded) -->
+        <ErrorBoundary v-if="formDialog" @error="onDialogError" @reset="formDialog = false">
+          <Suspense>
+            <SourceFormDialog
+              v-model="formDialog"
+              :edit-mode="store.editMode"
+              :form-data="store.formData"
+              :categories="store.categories"
+              :tag-suggestions="store.tagSuggestions"
+              :selected-entities="store.selectedEntities"
+              :saving="store.saving"
+              @update:form-data="store.formData = $event"
+              @update:selected-entities="store.selectedEntities = $event"
+              @save="saveSource"
+              @show-category-info="showCategoryInfo"
+            />
+            <template #fallback>
+              <v-dialog :model-value="true" max-width="600" persistent>
+                <v-card class="d-flex align-center justify-center pa-8">
+                  <v-progress-circular indeterminate color="primary" size="48" />
+                </v-card>
+              </v-dialog>
+            </template>
+          </Suspense>
         </ErrorBoundary>
 
-        <!-- Bulk Import Dialog with Error Boundary -->
-        <ErrorBoundary @error="onDialogError" @reset="bulkDialog = false">
-          <SourcesBulkImportDialog
-            v-model="bulkDialog"
-            :categories="store.categories"
-            :tag-suggestions="store.tagSuggestions"
-            :existing-urls="existingUrls"
-            @import="handleBulkImport"
-          />
+        <!-- Bulk Import Dialog with Error Boundary (lazy-loaded) -->
+        <ErrorBoundary v-if="bulkDialog" @error="onDialogError" @reset="bulkDialog = false">
+          <Suspense>
+            <SourcesBulkImportDialog
+              v-model="bulkDialog"
+              :categories="store.categories"
+              :tag-suggestions="store.tagSuggestions"
+              :existing-urls="existingUrls"
+              @import="handleBulkImport"
+            />
+            <template #fallback>
+              <v-dialog :model-value="true" max-width="800" persistent>
+                <v-card class="d-flex align-center justify-center pa-8">
+                  <v-progress-circular indeterminate color="primary" size="48" />
+                </v-card>
+              </v-dialog>
+            </template>
+          </Suspense>
         </ErrorBoundary>
 
         <!-- Delete Dialog -->
@@ -237,23 +256,41 @@
           @confirm="handleDeleteSource"
         />
 
-        <!-- API Import Dialog with Error Boundary -->
-        <ErrorBoundary @error="onDialogError" @reset="apiImportDialog = false">
-          <ApiImportDialog
-            v-model="apiImportDialog"
-            :categories="store.categories"
-            :available-tags="store.tagSuggestions"
-            @imported="onApiImported"
-          />
+        <!-- API Import Dialog with Error Boundary (lazy-loaded) -->
+        <ErrorBoundary v-if="apiImportDialog" @error="onDialogError" @reset="apiImportDialog = false">
+          <Suspense>
+            <ApiImportDialog
+              v-model="apiImportDialog"
+              :categories="store.categories"
+              :available-tags="store.tagSuggestions"
+              @imported="onApiImported"
+            />
+            <template #fallback>
+              <v-dialog :model-value="true" max-width="900" persistent>
+                <v-card class="d-flex align-center justify-center pa-8">
+                  <v-progress-circular indeterminate color="primary" size="48" />
+                </v-card>
+              </v-dialog>
+            </template>
+          </Suspense>
         </ErrorBoundary>
 
-        <!-- AI Discovery Dialog with Error Boundary -->
-        <ErrorBoundary @error="onDialogError" @reset="aiDiscoveryDialog = false">
-          <AiDiscoveryDialog
-            v-model="aiDiscoveryDialog"
-            :categories="store.categories"
-            @imported="onAiDiscoveryImported"
-          />
+        <!-- AI Discovery Dialog with Error Boundary (lazy-loaded) -->
+        <ErrorBoundary v-if="aiDiscoveryDialog" @error="onDialogError" @reset="aiDiscoveryDialog = false">
+          <Suspense>
+            <AiDiscoveryDialog
+              v-model="aiDiscoveryDialog"
+              :categories="store.categories"
+              @imported="onAiDiscoveryImported"
+            />
+            <template #fallback>
+              <v-dialog :model-value="true" max-width="1200" persistent>
+                <v-card class="d-flex align-center justify-center pa-8">
+                  <v-progress-circular indeterminate color="primary" size="48" />
+                </v-card>
+              </v-dialog>
+            </template>
+          </Suspense>
         </ErrorBoundary>
 
         <!-- Category Info Dialog -->
@@ -278,19 +315,16 @@
  * Uses Pinia store for centralized state management.
  * Handles CRUD operations, filtering, bulk import, and AI discovery.
  */
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { useDebounceFn } from '@vueuse/core'
 import { useSourcesStore } from '@/stores/sources'
+// Always-visible components loaded synchronously
 import {
   SourcesSidebar,
-  ApiImportDialog,
-  AiDiscoveryDialog,
   SourcesDeleteDialog,
-  SourcesBulkImportDialog,
-  SourceFormDialog,
   SourcesSkeleton,
   CategoryInfoDialog,
   SourcesActiveFilters,
@@ -300,6 +334,30 @@ import { useSourceHelpers } from '@/composables/useSourceHelpers'
 import { PageHeader, ErrorBoundary } from '@/components/common'
 import { SEARCH, TABLE_HEADERS, ACTION_CLEANUP_DELAY } from '@/config/sources'
 import type { BulkImportState, DataSourceResponse, SourceType, SourceStatus } from '@/types/sources'
+
+// =============================================================================
+// Lazy-loaded Dialog Components (heavy, only loaded when needed)
+// =============================================================================
+
+const SourceFormDialog = defineAsyncComponent({
+  loader: () => import('@/components/sources/SourceFormDialog.vue'),
+  delay: 200,
+})
+
+const SourcesBulkImportDialog = defineAsyncComponent({
+  loader: () => import('@/components/sources/SourcesBulkImportDialog.vue'),
+  delay: 200,
+})
+
+const ApiImportDialog = defineAsyncComponent({
+  loader: () => import('@/components/sources/ApiImportDialog.vue'),
+  delay: 200,
+})
+
+const AiDiscoveryDialog = defineAsyncComponent({
+  loader: () => import('@/components/sources/AiDiscoveryDialog.vue'),
+  delay: 200,
+})
 
 // =============================================================================
 // Store & Composables

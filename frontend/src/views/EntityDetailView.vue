@@ -16,120 +16,21 @@
     </v-breadcrumbs>
 
     <!-- Entity Header -->
-    <v-card v-if="entity" class="mb-6">
-      <v-card-text>
-        <div class="d-flex align-center">
-          <v-icon :icon="entityType?.icon || 'mdi-folder'" :color="entityType?.color" size="48" class="mr-4"></v-icon>
-          <div class="flex-grow-1">
-            <div class="d-flex align-center mb-1">
-              <h1 class="text-h4 mr-3">{{ entity.name }}</h1>
-              <v-chip v-if="entity.external_id" size="small" variant="tonal" color="info">
-                <span class="text-caption font-weight-medium">ID:</span>
-                <span class="ml-1">{{ entity.external_id }}</span>
-              </v-chip>
-            </div>
-            <div v-if="entity.hierarchy_path" class="text-body-2 text-medium-emphasis">
-              {{ entity.hierarchy_path }}
-            </div>
-          </div>
-          <div class="d-flex ga-2">
-            <FavoriteButton
-              v-if="entity"
-              :entity-id="entity.id"
-              size="default"
-              variant="tonal"
-              show-tooltip
-            />
-            <v-btn variant="tonal" @click="notesDialog = true" :title="t('entityDetail.notes')">
-              <v-icon>mdi-note-text</v-icon>
-              <v-badge v-if="notes.length" :content="notes.length" color="primary" floating></v-badge>
-            </v-btn>
-            <v-btn variant="tonal" @click="exportDialog = true" :title="t('entityDetail.export')">
-              <v-icon>mdi-export</v-icon>
-            </v-btn>
-            <v-btn variant="outlined" @click="editDialog = true">
-              <v-icon start>mdi-pencil</v-icon>
-              {{ t('entityDetail.edit') }}
-            </v-btn>
-            <v-menu>
-              <template v-slot:activator="{ props }">
-                <v-btn variant="tonal" color="primary" v-bind="props">
-                  <v-icon start>mdi-plus</v-icon>
-                  {{ t('entityDetail.addFacet') }}
-                  <v-icon end>mdi-chevron-down</v-icon>
-                </v-btn>
-              </template>
-              <v-list>
-                <v-list-item
-                  v-for="facetGroup in facetsSummary?.facets_by_type || []"
-                  :key="facetGroup.facet_type_id"
-                  @click="openAddFacetValueDialog(facetGroup)"
-                >
-                  <template v-slot:prepend>
-                    <v-icon :icon="facetGroup.facet_type_icon" :color="facetGroup.facet_type_color" size="small"></v-icon>
-                  </template>
-                  <v-list-item-title>{{ facetGroup.facet_type_name }}</v-list-item-title>
-                  <template v-slot:append>
-                    <v-chip size="x-small" variant="text">{{ facetGroup.value_count }}</v-chip>
-                  </template>
-                </v-list-item>
-                <v-divider v-if="facetsSummary?.facets_by_type?.length" class="my-1"></v-divider>
-                <v-list-item @click="addFacetDialog = true">
-                  <template v-slot:prepend>
-                    <v-icon icon="mdi-tag-plus" color="grey" size="small"></v-icon>
-                  </template>
-                  <v-list-item-title class="text-medium-emphasis">{{ t('entities.facet.title') }}</v-list-item-title>
-                </v-list-item>
-              </v-list>
-            </v-menu>
-          </div>
-        </div>
-
-        <!-- Stats Row -->
-        <v-row class="mt-4">
-          <v-col cols="6" sm="3" md="2">
-            <div class="text-center">
-              <div class="text-h5">{{ totalPropertiesCount }}</div>
-              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.stats.properties', 'Eigenschaften') }}</div>
-            </div>
-          </v-col>
-          <v-col cols="6" sm="3" md="2">
-            <div class="text-center">
-              <div class="text-h5">{{ totalConnectionsCount }}</div>
-              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.stats.connections', 'Verknüpfungen') }}</div>
-            </div>
-          </v-col>
-          <v-col cols="6" sm="3" md="2">
-            <div class="text-center">
-              <div class="text-h5">{{ facetsSummary?.verified_count || 0 }}</div>
-              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.stats.verified') }}</div>
-            </div>
-          </v-col>
-          <v-col cols="6" sm="3" md="2">
-            <div class="text-center">
-              <div class="text-h5">{{ dataSources.length }}</div>
-              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.stats.dataSources') }}</div>
-            </div>
-          </v-col>
-          <v-col v-if="entity.latitude && entity.longitude" cols="12" sm="6" md="4">
-            <div class="text-center">
-              <v-chip size="small" color="info">
-                <v-icon start size="small">mdi-map-marker</v-icon>
-                {{ entity.latitude.toFixed(4) }}, {{ entity.longitude.toFixed(4) }}
-              </v-chip>
-            </div>
-          </v-col>
-        </v-row>
-
-        <!-- Core Attributes -->
-        <div v-if="hasAttributes" class="d-flex flex-wrap ga-1 mt-2">
-          <v-chip v-for="(value, key) in entity.core_attributes" :key="key" size="small" variant="tonal">
-            <strong class="mr-1">{{ formatAttributeKey(key) }}:</strong>
-            {{ formatAttributeValue(value) }}
-          </v-chip>
-        </div>
-      </v-card-text>
-    </v-card>
+    <EntityDetailHeader
+      v-if="entity"
+      :entity="entity"
+      :entity-type="entityType"
+      :facet-groups="facetsSummary?.facets_by_type || []"
+      :notes-count="notes.length"
+      :verified-count="facetsSummary?.verified_count || 0"
+      :data-sources-count="dataSources.length"
+      :children-count="childrenCount"
+      @open-notes="notesDialog = true"
+      @open-export="exportDialog = true"
+      @open-edit="editDialog = true"
+      @add-facet="addFacetDialog = true"
+      @add-facet-value="openAddFacetValueDialog"
+    />
 
     <!-- Tabs for Content -->
     <v-tabs v-model="activeTab" color="primary" class="mb-4">
@@ -700,347 +601,49 @@
 
       <!-- Relations Tab -->
       <v-window-item value="connections">
-        <v-card>
-          <v-card-text>
-            <!-- Loading State -->
-            <div v-if="loadingRelations || loadingChildren" class="text-center pa-8">
-              <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
-              <p class="mt-4 text-medium-emphasis">{{ t('entityDetail.loadingConnections', 'Lade Verknüpfungen...') }}</p>
-            </div>
-
-            <div v-else>
-              <!-- Hierarchy Tree Visualization -->
-              <div class="hierarchy-tree mb-6">
-                <!-- Parent (Übergeordnet) -->
-                <div v-if="entity?.parent_id" class="tree-level tree-parent">
-                  <div class="tree-connector tree-connector-down"></div>
-                  <v-card
-                    variant="outlined"
-                    class="tree-node tree-node-parent mx-auto"
-                    max-width="400"
-                    @click="navigateToParent"
-                    style="cursor: pointer;"
-                  >
-                    <v-card-text class="d-flex align-center pa-3">
-                      <v-avatar :color="entityType?.color || 'primary'" size="44" class="mr-3">
-                        <v-icon :icon="entityType?.icon || 'mdi-folder'" color="white"></v-icon>
-                      </v-avatar>
-                      <div class="flex-grow-1">
-                        <div class="text-overline text-medium-emphasis mb-0">
-                          {{ entityType?.hierarchy_config?.parent_label || t('entityDetail.connections.parent', 'Übergeordnet') }}
-                        </div>
-                        <div class="text-subtitle-1 font-weight-medium">{{ entity.parent_name || 'Übergeordnete Entity' }}</div>
-                      </div>
-                      <v-icon color="primary">mdi-arrow-up</v-icon>
-                    </v-card-text>
-                  </v-card>
-                </div>
-
-                <!-- Current Entity (Zentrum) -->
-                <div class="tree-level tree-current my-4">
-                  <div v-if="entity?.parent_id" class="tree-connector tree-connector-vertical"></div>
-                  <v-card
-                    variant="outlined"
-                    class="tree-node tree-node-current mx-auto elevation-2"
-                    max-width="450"
-                    :style="{ borderColor: entityType?.color || 'var(--v-theme-primary)', borderWidth: '2px' }"
-                  >
-                    <v-card-text class="d-flex align-center pa-4">
-                      <v-avatar :color="entityType?.color || 'primary'" size="52" class="mr-4">
-                        <v-icon :icon="entityType?.icon || 'mdi-folder'" color="white" size="28"></v-icon>
-                      </v-avatar>
-                      <div class="flex-grow-1">
-                        <div class="text-overline text-medium-emphasis mb-0">{{ entityType?.name || 'Entity' }}</div>
-                        <div class="text-h6 font-weight-bold">{{ entity?.name }}</div>
-                        <div v-if="entity?.external_id" class="text-caption text-medium-emphasis">{{ entity.external_id }}</div>
-                      </div>
-                      <v-chip :color="entityType?.color || 'primary'" variant="tonal" size="small" class="ml-2">
-                        <v-icon start size="x-small">mdi-sitemap</v-icon>
-                        {{ totalConnectionsCount }}
-                      </v-chip>
-                    </v-card-text>
-                  </v-card>
-                  <div v-if="childrenCount > 0 || relations.length > 0" class="tree-connector tree-connector-vertical tree-connector-down-from-current"></div>
-                </div>
-
-                <!-- Children (Untergeordnete) - Tree Branch Style -->
-                <div v-if="flags.entityHierarchyEnabled && entityType?.supports_hierarchy && childrenCount > 0" class="tree-level tree-children">
-                  <div class="d-flex justify-center mb-3">
-                    <v-chip color="success" variant="tonal" size="small">
-                      <v-icon start size="small">mdi-arrow-down</v-icon>
-                      {{ entityType?.hierarchy_config?.children_label || t('entityDetail.connections.children', 'Untergeordnete') }}
-                      ({{ childrenCount }})
-                    </v-chip>
-                  </div>
-
-                  <!-- Search for children -->
-                  <v-text-field
-                    v-if="children.length > 5"
-                    v-model="childrenSearchQuery"
-                    prepend-inner-icon="mdi-magnify"
-                    :label="t('common.search')"
-                    clearable
-                    hide-details
-                    density="compact"
-                    variant="outlined"
-                    class="mb-3 mx-auto"
-                    style="max-width: 400px;"
-                  ></v-text-field>
-
-                  <!-- Children Grid -->
-                  <div class="tree-children-grid">
-                    <v-card
-                      v-for="child in filteredChildren"
-                      :key="child.id"
-                      variant="outlined"
-                      class="tree-node tree-node-child"
-                      :to="`/entities/${typeSlug}/${child.slug}`"
-                    >
-                      <v-card-text class="d-flex align-center pa-3">
-                        <v-avatar :color="entityType?.color || 'success'" size="36" class="mr-3">
-                          <v-icon :icon="entityType?.icon || 'mdi-folder'" color="white" size="small"></v-icon>
-                        </v-avatar>
-                        <div class="flex-grow-1 overflow-hidden">
-                          <div class="text-subtitle-2 font-weight-medium text-truncate">{{ child.name }}</div>
-                          <div class="text-caption text-medium-emphasis">
-                            <span v-if="child.external_id">{{ child.external_id }}</span>
-                            <v-chip v-if="child.children_count" size="x-small" variant="text" class="ml-1 pa-0">
-                              <v-icon size="x-small">mdi-file-tree</v-icon>
-                              {{ child.children_count }}
-                            </v-chip>
-                          </div>
-                        </div>
-                        <v-icon size="small" color="grey">mdi-chevron-right</v-icon>
-                      </v-card-text>
-                    </v-card>
-                  </div>
-
-                  <!-- Pagination -->
-                  <div v-if="childrenTotalPages > 1" class="d-flex justify-center mt-4">
-                    <v-pagination
-                      v-model="childrenPage"
-                      :length="childrenTotalPages"
-                      :total-visible="5"
-                      density="compact"
-                      @update:model-value="loadChildren"
-                    ></v-pagination>
-                  </div>
-                </div>
-              </div>
-
-              <v-divider v-if="relations.length > 0" class="my-6"></v-divider>
-
-              <!-- Relations Section (Other Connections) -->
-              <div v-if="relations.length > 0" class="relations-section">
-                <div class="d-flex align-center justify-space-between mb-4">
-                  <div class="d-flex align-center">
-                    <v-icon color="info" size="small" class="mr-2">mdi-link-variant</v-icon>
-                    <span class="text-subtitle-1 font-weight-medium">{{ t('entityDetail.connections.otherRelations', 'Weitere Verknüpfungen') }}</span>
-                    <v-chip size="x-small" class="ml-2">{{ relations.length }}</v-chip>
-                  </div>
-                  <v-btn variant="tonal" color="primary" size="small" @click="openAddRelationDialog">
-                    <v-icon start size="small">mdi-link-plus</v-icon>
-                    {{ t('entityDetail.addRelation') }}
-                  </v-btn>
-                </div>
-
-                <div class="relations-grid">
-                  <v-card
-                    v-for="rel in relations"
-                    :key="rel.id"
-                    variant="outlined"
-                    class="relation-card"
-                    @click="navigateToRelatedEntity(rel)"
-                    style="cursor: pointer;"
-                  >
-                    <v-card-text class="d-flex align-center pa-3">
-                      <v-avatar :color="rel.relation_type_color || 'info'" size="36" class="mr-3">
-                        <v-icon color="white" size="small">mdi-link-variant</v-icon>
-                      </v-avatar>
-                      <div class="flex-grow-1 overflow-hidden">
-                        <div class="text-caption text-medium-emphasis">{{ rel.relation_type_name }}</div>
-                        <div class="text-subtitle-2 font-weight-medium text-truncate">
-                          {{ rel.source_entity_id === entity?.id ? rel.target_entity_name : rel.source_entity_name }}
-                        </div>
-                      </div>
-                      <div class="d-flex align-center ga-1">
-                        <v-chip v-if="rel.human_verified" size="x-small" color="success" variant="flat">
-                          <v-icon size="x-small">mdi-check</v-icon>
-                        </v-chip>
-                        <v-btn icon size="x-small" variant="text" @click.stop="editRelation(rel)">
-                          <v-icon size="x-small">mdi-pencil</v-icon>
-                        </v-btn>
-                        <v-btn icon size="x-small" variant="text" color="error" @click.stop="confirmDeleteRelation(rel)">
-                          <v-icon size="x-small">mdi-delete</v-icon>
-                        </v-btn>
-                      </div>
-                    </v-card-text>
-                  </v-card>
-                </div>
-              </div>
-
-              <!-- Add Relation Button (wenn keine Relations aber noch keine children angezeigt werden) -->
-              <div v-if="relations.length === 0 && childrenCount === 0 && !entity?.parent_id" class="text-center mt-4">
-                <v-btn variant="tonal" color="primary" @click="openAddRelationDialog">
-                  <v-icon start>mdi-link-plus</v-icon>
-                  {{ t('entityDetail.addRelation') }}
-                </v-btn>
-              </div>
-
-              <!-- Empty State when no connections at all -->
-              <div v-if="totalConnectionsCount === 0" class="text-center pa-8">
-                <v-icon size="80" color="grey-lighten-1" class="mb-4">mdi-sitemap</v-icon>
-                <h3 class="text-h6 mb-2">{{ t('entityDetail.emptyState.noConnections', 'Keine Verknüpfungen') }}</h3>
-                <p class="text-body-2 text-medium-emphasis mb-4">
-                  {{ t('entityDetail.emptyState.noConnectionsDesc', 'Diese Entity hat noch keine Verknüpfungen zu anderen Entities.') }}
-                </p>
-                <v-btn variant="tonal" color="primary" @click="openAddRelationDialog">
-                  <v-icon start>mdi-link-plus</v-icon>
-                  {{ t('entityDetail.addRelation') }}
-                </v-btn>
-              </div>
-            </div>
-          </v-card-text>
-        </v-card>
+        <EntityConnectionsTab
+          :entity="entity"
+          :entity-type="entityType"
+          :type-slug="typeSlug"
+          :relations="relations"
+          :children="children"
+          :children-count="childrenCount"
+          :children-page="childrenPage"
+          :children-total-pages="childrenTotalPages"
+          :children-search-query="childrenSearchQuery"
+          :loading-relations="loadingRelations"
+          :loading-children="loadingChildren"
+          :hierarchy-enabled="flags.entityHierarchyEnabled"
+          @add-relation="openAddRelationDialog"
+          @edit-relation="editRelation"
+          @delete-relation="confirmDeleteRelation"
+          @navigate-relation="navigateToRelatedEntity"
+          @load-children="loadChildren"
+          @update:children-page="childrenPage = $event"
+          @update:children-search-query="childrenSearchQuery = $event"
+        />
       </v-window-item>
 
       <!-- Data Sources Tab -->
       <v-window-item value="sources">
-        <v-card>
-          <v-card-title class="d-flex align-center">
-            <v-icon start>mdi-web</v-icon>
-            {{ t('entityDetail.tabs.dataSources') }}
-            <v-chip v-if="dataSources.length" size="small" class="ml-2">{{ dataSources.length }}</v-chip>
-            <v-spacer></v-spacer>
-            <v-btn variant="tonal" color="primary" size="small" @click="linkDataSourceDialog = true">
-              <v-icon start>mdi-link-plus</v-icon>
-              {{ t('entityDetail.linkDataSource') }}
-            </v-btn>
-          </v-card-title>
-          <v-card-text>
-            <div v-if="loadingDataSources" class="text-center pa-4">
-              <v-progress-circular indeterminate></v-progress-circular>
-            </div>
-            <div v-else-if="dataSources.length">
-              <v-list lines="two">
-                <v-list-item
-                  v-for="source in dataSources"
-                  :key="source.id"
-                  class="mb-2"
-                >
-                  <template v-slot:prepend>
-                    <v-avatar :color="getSourceStatusColor(source.status)" size="40">
-                      <v-icon color="white">{{ getSourceTypeIcon(source.source_type) }}</v-icon>
-                    </v-avatar>
-                  </template>
-                  <v-list-item-title class="font-weight-medium">
-                    {{ source.name }}
-                    <v-chip v-if="source.hasRunningJob" size="x-small" color="info" class="ml-2">
-                      {{ t('entityDetail.running') }}
-                    </v-chip>
-                    <v-chip :color="getSourceStatusColor(source.status)" size="x-small" class="ml-1">
-                      {{ source.status }}
-                    </v-chip>
-                    <v-chip v-if="source.is_direct_link" size="x-small" color="primary" variant="outlined" class="ml-1">
-                      <v-icon start size="x-small">mdi-link</v-icon>
-                      {{ t('entityDetail.directLink') }}
-                    </v-chip>
-                  </v-list-item-title>
-                  <v-list-item-subtitle>
-                    <a :href="source.base_url" target="_blank" class="text-decoration-none text-info">
-                      <v-icon size="x-small" class="mr-1">mdi-open-in-new</v-icon>
-                      {{ source.base_url }}
-                    </a>
-                    <span v-if="source.document_count" class="ml-3 text-medium-emphasis">
-                      <v-icon size="x-small">mdi-file-document</v-icon>
-                      {{ source.document_count }} {{ t('entityDetail.documentsCount') }}
-                    </span>
-                    <span v-if="source.last_crawl" class="ml-3 text-medium-emphasis">
-                      <v-icon size="x-small">mdi-clock-outline</v-icon>
-                      {{ formatDate(source.last_crawl) }}
-                    </span>
-                  </v-list-item-subtitle>
-                  <template v-slot:append>
-                    <div class="d-flex ga-1">
-                      <v-btn
-                        icon="mdi-pencil"
-                        size="small"
-                        variant="tonal"
-                        :title="t('common.edit')"
-                        @click="openEditSourceDialog(source)"
-                      ></v-btn>
-                      <v-btn
-                        v-if="!source.hasRunningJob"
-                        icon="mdi-play"
-                        size="small"
-                        variant="tonal"
-                        color="success"
-                        :title="t('entityDetail.crawl')"
-                        @click="startCrawl(source)"
-                        :loading="startingCrawl === source.id"
-                      ></v-btn>
-                      <v-btn
-                        v-if="source.is_direct_link"
-                        icon="mdi-link-off"
-                        size="small"
-                        variant="tonal"
-                        color="warning"
-                        :title="t('entityDetail.unlinkSource')"
-                        @click="confirmUnlinkSource(source)"
-                      ></v-btn>
-                      <v-btn
-                        icon="mdi-delete"
-                        size="small"
-                        variant="tonal"
-                        color="error"
-                        :title="t('common.delete')"
-                        @click="confirmDeleteSource(source)"
-                      ></v-btn>
-                    </div>
-                  </template>
-                </v-list-item>
-              </v-list>
-            </div>
-            <!-- Empty State for Data Sources -->
-            <div v-else class="text-center pa-8">
-              <v-icon size="80" color="grey-lighten-1" class="mb-4">mdi-web-off</v-icon>
-              <h3 class="text-h6 mb-2">{{ t('entityDetail.emptyState.noDataSources') }}</h3>
-              <p class="text-body-2 text-medium-emphasis mb-4">
-                {{ t('entityDetail.emptyState.noDataSourcesDesc') }}
-              </p>
-              <v-btn variant="tonal" color="primary" @click="linkDataSourceDialog = true">
-                <v-icon start>mdi-link-plus</v-icon>
-                {{ t('entityDetail.linkDataSource') }}
-              </v-btn>
-            </div>
-          </v-card-text>
-        </v-card>
+        <EntitySourcesTab
+          :data-sources="dataSources"
+          :loading="loadingDataSources"
+          :starting-crawl-id="startingCrawl"
+          @link-source="linkDataSourceDialog = true"
+          @edit-source="openEditSourceDialog"
+          @start-crawl="startCrawl"
+          @unlink-source="confirmUnlinkSource"
+          @delete-source="confirmDeleteSource"
+        />
       </v-window-item>
 
       <!-- Documents Tab -->
       <v-window-item value="documents">
-        <v-card>
-          <v-card-text>
-            <div v-if="loadingDocuments" class="text-center pa-4">
-              <v-progress-circular indeterminate></v-progress-circular>
-            </div>
-            <v-data-table
-              v-else
-              :headers="documentHeaders"
-              :items="documents"
-              :items-per-page="10"
-            >
-              <template v-slot:item.title="{ item }">
-                <a :href="item.url" target="_blank" class="text-decoration-none">
-                  {{ item.title || t('entityDetail.document') }}
-                </a>
-              </template>
-              <template v-slot:item.created_at="{ item }">
-                {{ formatDate(item.created_at) }}
-              </template>
-            </v-data-table>
-          </v-card-text>
-        </v-card>
+        <EntityDocumentsTab
+          :documents="documents"
+          :loading="loadingDocuments"
+        />
       </v-window-item>
 
       <!-- PySis Tab (only for municipalities) -->
@@ -1053,79 +656,7 @@
 
       <!-- External API Data Tab -->
       <v-window-item v-if="externalData?.has_external_data" value="api-data">
-        <v-card>
-          <v-card-title class="d-flex align-center">
-            <v-icon start color="primary">mdi-api</v-icon>
-            {{ t('entityDetail.apiData.title', 'Externe API-Daten') }}
-          </v-card-title>
-          <v-card-text>
-            <!-- Source Info -->
-            <v-alert type="info" variant="tonal" class="mb-4">
-              <div class="d-flex align-center">
-                <v-icon start>mdi-cloud-sync</v-icon>
-                <div>
-                  <strong>{{ externalData.external_source?.name }}</strong>
-                  <div class="text-caption">
-                    {{ t('entityDetail.apiData.externalId', 'Externe ID') }}: {{ externalData.sync_record?.external_id }}
-                    <span v-if="externalData.sync_record?.last_seen_at" class="ml-2">
-                      | {{ t('entityDetail.apiData.lastSync', 'Letzter Sync') }}: {{ formatDate(externalData.sync_record.last_seen_at) }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </v-alert>
-
-            <!-- Raw JSON Data -->
-            <v-expansion-panels>
-              <v-expansion-panel>
-                <v-expansion-panel-title>
-                  <v-icon start>mdi-code-json</v-icon>
-                  {{ t('entityDetail.apiData.rawResponse', 'Rohe API-Antwort') }}
-                </v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  <pre class="json-viewer pa-3 rounded">{{ JSON.stringify(externalData.raw_data, null, 2) }}</pre>
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-            </v-expansion-panels>
-
-            <!-- Field Overview -->
-            <v-card variant="outlined" class="mt-4">
-              <v-card-title class="text-subtitle-1">
-                <v-icon start size="small">mdi-format-list-bulleted</v-icon>
-                {{ t('entityDetail.apiData.fields', 'Verfügbare Felder') }}
-              </v-card-title>
-              <v-card-text>
-                <v-table density="compact">
-                  <thead>
-                    <tr>
-                      <th>{{ t('entityDetail.apiData.fieldName', 'Feldname') }}</th>
-                      <th>{{ t('entityDetail.apiData.fieldType', 'Typ') }}</th>
-                      <th>{{ t('entityDetail.apiData.fieldValue', 'Wert') }}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(value, key) in externalData.raw_data" :key="key">
-                      <td class="font-weight-medium">{{ key }}</td>
-                      <td>
-                        <v-chip size="x-small" :color="getFieldTypeColor(value)">
-                          {{ getFieldType(value) }}
-                        </v-chip>
-                      </td>
-                      <td class="text-truncate" style="max-width: 400px;">
-                        <template v-if="typeof value === 'object'">
-                          <v-chip size="x-small" variant="outlined">
-                            {{ Array.isArray(value) ? `Array[${value.length}]` : 'Object' }}
-                          </v-chip>
-                        </template>
-                        <template v-else>{{ formatFieldValue(value) }}</template>
-                      </td>
-                    </tr>
-                  </tbody>
-                </v-table>
-              </v-card-text>
-            </v-card>
-          </v-card-text>
-        </v-card>
+        <EntityApiDataTab :external-data="externalData" />
       </v-window-item>
 
       <!-- Attachments Tab -->
@@ -1141,336 +672,69 @@
     </v-window>
 
     <!-- Add Facet Dialog -->
-    <v-dialog v-model="addFacetDialog" max-width="700" scrollable>
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon start>mdi-plus-circle</v-icon>
-          {{ t('entityDetail.dialog.addFacet') }}
-        </v-card-title>
-        <v-card-text>
-          <v-form ref="addFacetForm" @submit.prevent="saveFacetValue">
-            <!-- Facet Type Selection -->
-            <v-select
-              v-model="newFacet.facet_type_id"
-              :items="applicableFacetTypes"
-              item-title="name"
-              item-value="id"
-              :label="t('entityDetail.dialog.facetType')"
-              :rules="[v => !!v || t('entityDetail.dialog.facetTypeRequired')]"
-              variant="outlined"
-              density="comfortable"
-              class="mb-4"
-              @update:model-value="onFacetTypeChange"
-            >
-              <template v-slot:item="{ item, props }">
-                <v-list-item v-bind="props">
-                  <template v-slot:prepend>
-                    <v-icon :icon="item.raw.icon" :color="item.raw.color" size="small"></v-icon>
-                  </template>
-                </v-list-item>
-              </template>
-              <template v-slot:selection="{ item }">
-                <v-icon :icon="item.raw.icon" :color="item.raw.color" size="small" class="mr-2"></v-icon>
-                {{ item.raw.name }}
-              </template>
-            </v-select>
-
-            <!-- Dynamic Schema Form (when facet type has a schema) -->
-            <template v-if="selectedFacetTypeForForm?.value_schema">
-              <v-divider class="mb-4"></v-divider>
-              <div class="text-subtitle-2 mb-3 text-medium-emphasis-darken-1">
-                {{ t('entityDetail.dialog.facetDetails') }}
-              </div>
-              <DynamicSchemaForm
-                v-model="newFacet.value"
-                :schema="selectedFacetTypeForForm.value_schema"
-              />
-            </template>
-
-            <!-- Simple text input (when no schema) -->
-            <template v-else-if="newFacet.facet_type_id">
-              <v-textarea
-                v-model="newFacet.text_representation"
-                :label="t('entityDetail.dialog.facetValue')"
-                :rules="[v => !!v || t('entityDetail.dialog.facetValueRequired')]"
-                rows="3"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-              ></v-textarea>
-            </template>
-
-            <v-divider class="my-4"></v-divider>
-
-            <!-- Source URL -->
-            <v-text-field
-              v-model="newFacet.source_url"
-              :label="t('entityDetail.dialog.sourceUrl')"
-              placeholder="https://..."
-              variant="outlined"
-              density="comfortable"
-              class="mb-3"
-              prepend-inner-icon="mdi-link"
-            ></v-text-field>
-
-            <!-- Confidence Score -->
-            <div class="d-flex align-center ga-4">
-              <span class="text-body-2">{{ t('entityDetail.dialog.confidence') }}:</span>
-              <v-slider
-                v-model="newFacet.confidence_score"
-                :min="0"
-                :max="1"
-                :step="0.1"
-                thumb-label
-                :color="getConfidenceColor(newFacet.confidence_score)"
-                hide-details
-                class="flex-grow-1"
-              ></v-slider>
-              <v-chip size="small" :color="getConfidenceColor(newFacet.confidence_score)">
-                {{ Math.round(newFacet.confidence_score * 100) }}%
-              </v-chip>
-            </div>
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="closeAddFacetDialog">{{ t('common.cancel') }}</v-btn>
-          <v-btn
-            color="primary"
-            :loading="savingFacet"
-            :disabled="!canSaveFacet"
-            @click="saveFacetValue"
-          >
-            <v-icon start>mdi-check</v-icon>
-            {{ t('common.save') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <AddFacetDialog
+      v-model="addFacetDialog"
+      :facet-type-id="newFacet.facet_type_id"
+      :facet-types="applicableFacetTypes"
+      :selected-facet-type="selectedFacetTypeForForm ?? null"
+      :value="newFacet.value"
+      :text-representation="newFacet.text_representation"
+      :source-url="newFacet.source_url"
+      :confidence-score="newFacet.confidence_score"
+      :saving="savingFacet"
+      @update:facet-type-id="onFacetTypeChange"
+      @update:value="newFacet.value = $event"
+      @update:text-representation="newFacet.text_representation = $event"
+      @update:source-url="newFacet.source_url = $event"
+      @update:confidence-score="newFacet.confidence_score = $event"
+      @save="saveFacetValue"
+      @close="closeAddFacetDialog"
+    />
 
     <!-- Facet Details Dialog -->
-    <v-dialog v-model="facetDetailsDialog" max-width="800" scrollable>
-      <v-card v-if="selectedFacetGroup">
-        <v-card-title class="d-flex align-center">
-          <v-icon :icon="selectedFacetGroup.facet_type_icon" :color="selectedFacetGroup.facet_type_color" class="mr-2"></v-icon>
-          {{ selectedFacetGroup.facet_type_name }}
-          <v-spacer></v-spacer>
-          <v-btn icon="mdi-close" variant="tonal" @click="facetDetailsDialog = false" :aria-label="t('common.close')"></v-btn>
-        </v-card-title>
-        <v-card-text>
-          <div class="d-flex flex-column ga-3">
-            <v-card
-              v-for="fv in facetDetails"
-              :key="fv.id"
-              variant="outlined"
-              class="pa-3"
-            >
-              <!-- Pain Point Display -->
-              <template v-if="selectedFacetGroup.facet_type_slug === 'pain_point'">
-                <div class="d-flex align-start ga-2">
-                  <v-icon color="error">mdi-alert-circle</v-icon>
-                  <div class="flex-grow-1">
-                    <div class="text-body-1">{{ getStructuredDescription(fv) }}</div>
-                    <div class="d-flex flex-wrap ga-2 mt-2">
-                      <v-chip v-if="getStructuredType(fv)" size="small" variant="outlined" color="error">
-                        {{ getStructuredType(fv) }}
-                      </v-chip>
-                      <v-chip
-                        v-if="getStructuredSeverity(fv)"
-                        size="small"
-                        :color="getSeverityColor(getStructuredSeverity(fv))"
-                      >
-                        <v-icon start size="x-small">{{ getSeverityIcon(getStructuredSeverity(fv)) }}</v-icon>
-                        {{ getStructuredSeverity(fv) }}
-                      </v-chip>
-                    </div>
-                    <div v-if="getStructuredQuote(fv)" class="mt-2 pa-2 rounded bg-surface-variant">
-                      <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
-                      <span class="text-body-2 font-italic">{{ getStructuredQuote(fv) }}</span>
-                    </div>
-                  </div>
-                </div>
-              </template>
-
-              <!-- Positive Signal Display -->
-              <template v-else-if="selectedFacetGroup.facet_type_slug === 'positive_signal'">
-                <div class="d-flex align-start ga-2">
-                  <v-icon color="success">mdi-lightbulb-on</v-icon>
-                  <div class="flex-grow-1">
-                    <div class="text-body-1">{{ getStructuredDescription(fv) }}</div>
-                    <div class="d-flex flex-wrap ga-2 mt-2">
-                      <v-chip v-if="getStructuredType(fv)" size="small" variant="outlined" color="success">
-                        {{ getStructuredType(fv) }}
-                      </v-chip>
-                    </div>
-                    <div v-if="getStructuredQuote(fv)" class="mt-2 pa-2 rounded bg-surface-variant">
-                      <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
-                      <span class="text-body-2 font-italic">{{ getStructuredQuote(fv) }}</span>
-                    </div>
-                  </div>
-                </div>
-              </template>
-
-              <!-- Contact Display -->
-              <template v-else-if="selectedFacetGroup.facet_type_slug === 'contact'">
-                <div class="d-flex align-start ga-2">
-                  <v-avatar color="primary" size="40">
-                    <v-icon color="on-primary">mdi-account</v-icon>
-                  </v-avatar>
-                  <div class="flex-grow-1">
-                    <div class="text-body-1 font-weight-medium">{{ getContactName(fv) }}</div>
-                    <div v-if="getContactRole(fv)" class="text-body-2 text-medium-emphasis">{{ getContactRole(fv) }}</div>
-                    <div class="d-flex flex-wrap ga-2 mt-2">
-                      <v-chip v-if="getContactEmail(fv)" size="small" variant="outlined" @click.stop="copyToClipboard(getContactEmail(fv)!)">
-                        <v-icon start size="small">mdi-email</v-icon>
-                        {{ getContactEmail(fv) }}
-                      </v-chip>
-                      <v-chip v-if="getContactPhone(fv)" size="small" variant="outlined">
-                        <v-icon start size="small">mdi-phone</v-icon>
-                        {{ getContactPhone(fv) }}
-                      </v-chip>
-                      <v-chip
-                        v-if="getContactSentiment(fv)"
-                        size="small"
-                        :color="getSentimentColor(getContactSentiment(fv))"
-                      >
-                        {{ getContactSentiment(fv) }}
-                      </v-chip>
-                    </div>
-                    <div v-if="getContactStatement(fv)" class="mt-2 pa-2 rounded bg-surface-variant">
-                      <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
-                      <span class="text-body-2 font-italic">{{ getContactStatement(fv) }}</span>
-                    </div>
-                  </div>
-                </div>
-              </template>
-
-              <!-- Default Display -->
-              <template v-else>
-                <div class="text-body-1">{{ fv.text_representation || formatFacetValue(fv) }}</div>
-              </template>
-
-              <!-- Meta Info (shown for all) -->
-              <v-divider class="my-3"></v-divider>
-              <div class="d-flex align-center ga-2 flex-wrap">
-                <v-progress-linear
-                  :model-value="(fv.confidence_score || 0) * 100"
-                  :color="getConfidenceColor(fv.confidence_score)"
-                  height="4"
-                  style="max-width: 80px;"
-                ></v-progress-linear>
-                <span class="text-caption">{{ Math.round((fv.confidence_score || 0) * 100) }}%</span>
-                <v-chip v-if="fv.human_verified" size="x-small" color="success">
-                  <v-icon start size="x-small">mdi-check</v-icon>
-                  {{ t('entityDetail.verified') }}
-                </v-chip>
-                <v-chip v-if="fv.source_url" size="x-small" variant="outlined" :href="fv.source_url" target="_blank" tag="a">
-                  <v-icon start size="x-small">mdi-link</v-icon>
-                  {{ t('entityDetail.source') }}
-                </v-chip>
-                <v-spacer></v-spacer>
-                <v-btn
-                  v-if="!fv.human_verified"
-                  size="small"
-                  color="success"
-                  variant="tonal"
-                  @click="verifyFacet(fv.id)"
-                >
-                  <v-icon start size="small">mdi-check</v-icon>
-                  {{ t('entityDetail.verify') }}
-                </v-btn>
-              </div>
-
-              <!-- Timestamps / History -->
-              <div v-if="fv.created_at || fv.updated_at" class="mt-2 d-flex align-center ga-3 text-caption text-medium-emphasis">
-                <span v-if="fv.created_at">
-                  <v-icon size="x-small" class="mr-1">mdi-clock-plus-outline</v-icon>
-                  {{ t('entityDetail.created') }}: {{ formatDate(fv.created_at) }}
-                </span>
-                <span v-if="fv.updated_at && fv.updated_at !== fv.created_at">
-                  <v-icon size="x-small" class="mr-1">mdi-clock-edit-outline</v-icon>
-                  {{ t('entityDetail.updated') }}: {{ formatDate(fv.updated_at) }}
-                </span>
-              </div>
-            </v-card>
-          </div>
-        </v-card-text>
-      </v-card>
-    </v-dialog>
+    <FacetDetailsDialog
+      v-model="facetDetailsDialog"
+      :facet-group="selectedFacetGroup"
+      :facet-values="facetDetails"
+      @verify="verifyFacet"
+      @copy-email="copyToClipboard"
+    />
 
     <!-- Edit Entity Dialog -->
-    <v-dialog v-model="editDialog" max-width="500">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon class="mr-2">mdi-pencil</v-icon>
-          {{ t('entityDetail.dialog.editEntity', { type: entityType?.name }) }}
-        </v-card-title>
-        <v-card-text>
-          <v-form @submit.prevent="saveEntity">
-            <v-text-field
-              v-model="editForm.name"
-              :label="t('entityDetail.dialog.name')"
-              :rules="[v => !!v || t('entityDetail.dialog.nameRequired')]"
-            ></v-text-field>
-            <v-text-field
-              v-model="editForm.external_id"
-              :label="t('entityDetail.dialog.externalId')"
-            ></v-text-field>
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="editDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="primary" :loading="savingEntity" @click="saveEntity">
-            {{ t('common.save') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <EntityEditDialog
+      v-model="editDialog"
+      :name="editForm.name"
+      :external-id="editForm.external_id"
+      :entity-type-name="entityType?.name"
+      :saving="savingEntity"
+      @update:name="editForm.name = $event"
+      @update:external-id="editForm.external_id = $event"
+      @save="saveEntity"
+    />
 
     <!-- Bulk Delete Confirmation Dialog -->
-    <v-dialog v-model="bulkDeleteConfirm" max-width="400">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon color="error" class="mr-2">mdi-alert</v-icon>
-          {{ t('entityDetail.dialog.deleteFacets') }}
-        </v-card-title>
-        <v-card-text>
-          <p>{{ t('entityDetail.dialog.deleteFacetsConfirm', { count: selectedFacetIds.length }) }}</p>
-          <p class="text-caption text-medium-emphasis mt-2">{{ t('entityDetail.dialog.cannotUndo') }}</p>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="bulkDeleteConfirm = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="error" :loading="bulkActionLoading" @click="bulkDelete">
-            <v-icon start>mdi-delete</v-icon>
-            {{ t('common.delete') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <ConfirmDialog
+      v-model="bulkDeleteConfirm"
+      :title="t('entityDetail.dialog.deleteFacets')"
+      :message="t('entityDetail.dialog.deleteFacetsConfirm', { count: selectedFacetIds.length })"
+      :subtitle="t('entityDetail.dialog.cannotUndo')"
+      :confirm-text="t('common.delete')"
+      confirm-icon="mdi-delete"
+      :loading="bulkActionLoading"
+      @confirm="bulkDelete"
+    />
 
     <!-- Single Facet Delete Confirmation Dialog -->
-    <v-dialog v-model="singleDeleteConfirm" max-width="400">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon color="error" class="mr-2">mdi-alert</v-icon>
-          {{ t('entityDetail.dialog.deleteFacets') }}
-        </v-card-title>
-        <v-card-text>
-          <p>{{ t('entityDetail.dialog.deleteFacetsConfirm', { count: 1 }) }}</p>
-          <p class="text-caption text-medium-emphasis mt-2">{{ t('entityDetail.dialog.cannotUndo') }}</p>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="singleDeleteConfirm = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="error" :loading="deletingFacet" @click="deleteSingleFacet">
-            <v-icon start>mdi-delete</v-icon>
-            {{ t('common.delete') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <ConfirmDialog
+      v-model="singleDeleteConfirm"
+      :title="t('entityDetail.dialog.deleteFacets')"
+      :message="t('entityDetail.dialog.deleteFacetsConfirm', { count: 1 })"
+      :subtitle="t('entityDetail.dialog.cannotUndo')"
+      :confirm-text="t('common.delete')"
+      confirm-icon="mdi-delete"
+      :loading="deletingFacet"
+      @confirm="deleteSingleFacet"
+    />
 
     <!-- Edit Facet Dialog -->
     <v-dialog v-model="editFacetDialog" max-width="800">
@@ -1505,247 +769,63 @@
     </v-dialog>
 
     <!-- Add/Edit Relation Dialog -->
-    <v-dialog v-model="addRelationDialog" max-width="600" scrollable>
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon start>{{ editingRelation ? 'mdi-pencil' : 'mdi-link-plus' }}</v-icon>
-          {{ editingRelation ? t('entityDetail.dialog.editRelation') : t('entityDetail.dialog.addRelation') }}
-        </v-card-title>
-        <v-card-text>
-          <v-form ref="relationForm" @submit.prevent="saveRelation">
-            <!-- Relation Type Selection -->
-            <v-select
-              v-model="newRelation.relation_type_id"
-              :items="relationTypes"
-              item-title="name"
-              item-value="id"
-              :label="t('entityDetail.dialog.relationType')"
-              :rules="[v => !!v || t('common.required')]"
-              variant="outlined"
-              density="comfortable"
-              class="mb-3"
-              :loading="loadingRelationTypes"
-            >
-              <template v-slot:item="{ item, props }">
-                <v-list-item v-bind="props">
-                  <template v-slot:prepend>
-                    <v-icon :color="item.raw.color || 'primary'">mdi-link-variant</v-icon>
-                  </template>
-                  <v-list-item-subtitle v-if="item.raw.description">
-                    {{ item.raw.description }}
-                  </v-list-item-subtitle>
-                </v-list-item>
-              </template>
-            </v-select>
-
-            <!-- Direction Selection -->
-            <v-radio-group
-              v-model="newRelation.direction"
-              :label="t('entityDetail.dialog.relationDirection')"
-              inline
-              class="mb-3"
-            >
-              <v-radio :label="t('entityDetail.dialog.outgoing')" value="outgoing"></v-radio>
-              <v-radio :label="t('entityDetail.dialog.incoming')" value="incoming"></v-radio>
-            </v-radio-group>
-
-            <!-- Target Entity Selection -->
-            <v-autocomplete
-              v-model="newRelation.target_entity_id"
-              :items="targetEntities"
-              item-title="name"
-              item-value="id"
-              :label="t('entityDetail.dialog.targetEntity')"
-              :rules="[v => !!v || t('common.required')]"
-              variant="outlined"
-              density="comfortable"
-              :loading="searchingEntities"
-              :search-input.sync="entitySearchQuery"
-              @update:search="searchEntities"
-              no-filter
-              class="mb-3"
-            >
-              <template v-slot:item="{ item, props }">
-                <v-list-item v-bind="props">
-                  <template v-slot:prepend>
-                    <v-icon color="grey">mdi-domain</v-icon>
-                  </template>
-                  <v-list-item-subtitle>
-                    {{ item.raw.entity_type_name }}
-                  </v-list-item-subtitle>
-                </v-list-item>
-              </template>
-              <template v-slot:no-data>
-                <v-list-item>
-                  <v-list-item-title>
-                    {{ entitySearchQuery?.length >= 2 ? t('entityDetail.dialog.noEntitiesFound') : t('entityDetail.dialog.typeToSearch') }}
-                  </v-list-item-title>
-                </v-list-item>
-              </template>
-            </v-autocomplete>
-
-            <!-- Optional Attributes (JSON) -->
-            <v-textarea
-              v-model="newRelation.attributes_json"
-              :label="t('entityDetail.dialog.relationAttributes')"
-              :hint="t('entityDetail.dialog.relationAttributesHint')"
-              persistent-hint
-              variant="outlined"
-              rows="2"
-              class="mb-3"
-            ></v-textarea>
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="closeRelationDialog">{{ t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="primary" :loading="savingRelation" @click="saveRelation">
-            {{ t('common.save') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <AddRelationDialog
+      v-model="addRelationDialog"
+      :editing="!!editingRelation"
+      :relation-type-id="newRelation.relation_type_id"
+      :direction="newRelation.direction"
+      :target-entity-id="newRelation.target_entity_id"
+      :attributes-json="newRelation.attributes_json"
+      :relation-types="relationTypes"
+      :target-entities="targetEntities"
+      :loading-relation-types="loadingRelationTypes"
+      :searching-entities="searchingEntities"
+      :search-query="entitySearchQuery"
+      :saving="savingRelation"
+      @update:relation-type-id="newRelation.relation_type_id = $event"
+      @update:direction="newRelation.direction = $event"
+      @update:target-entity-id="newRelation.target_entity_id = $event"
+      @update:attributes-json="newRelation.attributes_json = $event"
+      @save="saveRelation"
+      @close="closeRelationDialog"
+      @search="searchEntities"
+    />
 
     <!-- Delete Relation Confirmation -->
-    <v-dialog v-model="deleteRelationConfirm" max-width="400">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon color="error" class="mr-2">mdi-alert</v-icon>
-          {{ t('entityDetail.dialog.deleteRelation') }}
-        </v-card-title>
-        <v-card-text>
-          <p>{{ t('entityDetail.dialog.deleteRelationConfirm') }}</p>
-          <p v-if="relationToDelete" class="text-caption text-medium-emphasis mt-2">
-            {{ relationToDelete.relation_type_name }}: {{ relationToDelete.target_entity_name || relationToDelete.source_entity_name }}
-          </p>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="deleteRelationConfirm = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="error" :loading="deletingRelation" @click="deleteRelation">
-            {{ t('common.delete') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <ConfirmDialog
+      v-model="deleteRelationConfirm"
+      :title="t('entityDetail.dialog.deleteRelation')"
+      :message="t('entityDetail.dialog.deleteRelationConfirm')"
+      :subtitle="relationToDelete ? `${relationToDelete.relation_type_name}: ${relationToDelete.target_entity_name || relationToDelete.source_entity_name}` : undefined"
+      :confirm-text="t('common.delete')"
+      :loading="deletingRelation"
+      @confirm="deleteRelation"
+    />
 
     <!-- Export Dialog -->
-    <v-dialog v-model="exportDialog" max-width="500">
-      <v-card>
-        <v-card-title>
-          <v-icon start>mdi-export</v-icon>
-          {{ t('entityDetail.dialog.exportData') }}
-        </v-card-title>
-        <v-card-text>
-          <p class="mb-4">{{ t('entityDetail.dialog.selectExport') }}</p>
-
-          <v-select
-            v-model="exportFormat"
-            :items="exportFormats"
-            item-title="label"
-            item-value="value"
-            :label="t('entityDetail.dialog.format')"
-            variant="outlined"
-            class="mb-4"
-          ></v-select>
-
-          <v-checkbox
-            v-model="exportOptions.facets"
-            :label="t('entityDetail.dialog.exportProperties')"
-            hide-details
-          ></v-checkbox>
-          <v-checkbox
-            v-model="exportOptions.relations"
-            :label="t('entityDetail.dialog.exportRelations')"
-            hide-details
-          ></v-checkbox>
-          <v-checkbox
-            v-model="exportOptions.dataSources"
-            :label="t('entityDetail.dialog.exportDataSources')"
-            hide-details
-          ></v-checkbox>
-          <v-checkbox
-            v-model="exportOptions.notes"
-            :label="t('entityDetail.dialog.exportNotes')"
-            hide-details
-          ></v-checkbox>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="exportDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="primary" :loading="exporting" @click="exportData">
-            <v-icon start>mdi-download</v-icon>
-            {{ t('common.export') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <EntityExportDialog
+      v-model="exportDialog"
+      :format="exportFormat"
+      :options="exportOptions"
+      :exporting="exporting"
+      @update:format="exportFormat = $event"
+      @update:options="exportOptions = $event"
+      @export="exportData"
+    />
 
     <!-- Link Data Source Dialog -->
-    <v-dialog v-model="linkDataSourceDialog" max-width="600">
-      <v-card>
-        <v-card-title class="d-flex align-center pa-4 bg-primary">
-          <v-avatar color="primary-darken-1" size="40" class="mr-3">
-            <v-icon color="on-primary">mdi-link-plus</v-icon>
-          </v-avatar>
-          <div>
-            <div class="text-h6">{{ t('entityDetail.linkDataSourceTitle') }}</div>
-            <div class="text-caption opacity-80">{{ t('entityDetail.linkDataSourceSubtitle') }}</div>
-          </div>
-        </v-card-title>
-        <v-card-text class="pa-4">
-          <p class="text-body-2 text-medium-emphasis mb-4">{{ t('entityDetail.linkDataSourceDesc') }}</p>
-
-          <!-- Search existing sources -->
-          <v-autocomplete
-            v-model="selectedSourceToLink"
-            :items="availableSourcesForLink"
-            item-title="name"
-            item-value="id"
-            :label="t('entityDetail.searchExistingSource')"
-            :loading="searchingSourcesForLink"
-            :no-data-text="sourceSearchQuery?.length >= 2 ? t('entityDetail.noSourcesFound') : t('entityDetail.typeToSearchSources')"
-            variant="outlined"
-            prepend-inner-icon="mdi-magnify"
-            return-object
-            clearable
-            @update:search="searchSourcesForLink"
-          >
-            <template v-slot:item="{ props, item }">
-              <v-list-item v-bind="props">
-                <template v-slot:prepend>
-                  <v-icon :color="getSourceStatusColor(item.raw.status)">{{ getSourceTypeIcon(item.raw.source_type) }}</v-icon>
-                </template>
-                <v-list-item-subtitle>{{ item.raw.base_url }}</v-list-item-subtitle>
-              </v-list-item>
-            </template>
-          </v-autocomplete>
-
-          <v-divider class="my-4"></v-divider>
-
-          <div class="text-center">
-            <v-btn variant="text" color="primary" @click="goToSourcesWithEntity">
-              <v-icon start>mdi-plus</v-icon>
-              {{ t('entityDetail.createNewSourceForEntity') }}
-            </v-btn>
-          </div>
-        </v-card-text>
-        <v-card-actions class="pa-4">
-          <v-btn variant="tonal" @click="linkDataSourceDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-spacer></v-spacer>
-          <v-btn
-            variant="tonal"
-            color="primary"
-            :disabled="!selectedSourceToLink"
-            :loading="linkingSource"
-            @click="linkSourceToEntity"
-          >
-            <v-icon start>mdi-link</v-icon>
-            {{ t('entityDetail.linkSource') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <LinkDataSourceDialog
+      v-model="linkDataSourceDialog"
+      :selected-source="selectedSourceToLink"
+      :available-sources="availableSourcesForLink"
+      :searching="searchingSourcesForLink"
+      :search-query="sourceSearchQuery"
+      :linking="linkingSource"
+      @update:selected-source="selectedSourceToLink = $event"
+      @search="searchSourcesForLink"
+      @link="linkSourceToEntity"
+      @create-new="goToSourcesWithEntity"
+    />
 
     <!-- Edit Data Source Dialog -->
     <v-dialog v-model="editSourceDialog" max-width="800" persistent scrollable>
@@ -1852,25 +932,18 @@
     </v-dialog>
 
     <!-- Unlink Source Confirmation -->
-    <v-dialog v-model="unlinkSourceConfirm" max-width="400">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon color="warning" class="mr-2">mdi-link-off</v-icon>
-          {{ t('entityDetail.unlinkSourceTitle') }}
-        </v-card-title>
-        <v-card-text>
-          <p>{{ t('entityDetail.unlinkSourceConfirm') }}</p>
-          <p v-if="sourceToUnlink" class="font-weight-medium mt-2">{{ sourceToUnlink.name }}</p>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="unlinkSourceConfirm = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="warning" :loading="unlinkingSource" @click="unlinkSource">
-            {{ t('entityDetail.unlink') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <ConfirmDialog
+      v-model="unlinkSourceConfirm"
+      :title="t('entityDetail.unlinkSourceTitle')"
+      :message="t('entityDetail.unlinkSourceConfirm')"
+      :subtitle="sourceToUnlink?.name"
+      icon="mdi-link-off"
+      icon-color="warning"
+      confirm-color="warning"
+      :confirm-text="t('entityDetail.unlink')"
+      :loading="unlinkingSource"
+      @confirm="unlinkSource"
+    />
 
     <!-- Enrich from PySis Dialog -->
     <v-dialog v-model="showEnrichFromPysisDialog" max-width="500">
@@ -1978,240 +1051,21 @@
     </v-dialog>
 
     <!-- Source Details Dialog -->
-    <v-dialog v-model="sourceDetailsDialog" max-width="600" scrollable>
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon start :color="getFacetSourceColor(selectedSourceFacet?.source_type)">
-            {{ getFacetSourceIcon(selectedSourceFacet?.source_type) }}
-          </v-icon>
-          {{ t('entityDetail.source') }}
-          <v-spacer></v-spacer>
-          <v-btn icon="mdi-close" variant="tonal" @click="sourceDetailsDialog = false" :aria-label="t('common.close')"></v-btn>
-        </v-card-title>
-        <v-card-text v-if="selectedSourceFacet">
-          <!-- Source Type Info -->
-          <v-chip
-            size="small"
-            :color="getFacetSourceColor(selectedSourceFacet.source_type)"
-            class="mb-4"
-          >
-            <v-icon start size="small">{{ getFacetSourceIcon(selectedSourceFacet.source_type) }}</v-icon>
-            {{ getFacetSourceLabel(selectedSourceFacet.source_type) }}
-          </v-chip>
-
-          <!-- Document Source -->
-          <template v-if="selectedSourceFacet.source_type === 'DOCUMENT'">
-            <div v-if="selectedSourceFacet.document_title" class="mb-3">
-              <div class="text-caption text-medium-emphasis mb-1">{{ t('entityDetail.document') }}</div>
-              <div class="text-body-1">{{ selectedSourceFacet.document_title }}</div>
-            </div>
-            <div v-if="selectedSourceFacet.document_url" class="mb-3">
-              <v-btn
-                :href="selectedSourceFacet.document_url"
-                target="_blank"
-                color="primary"
-                variant="tonal"
-                size="small"
-              >
-                <v-icon start>mdi-file-document</v-icon>
-                {{ t('common.openDocument') }}
-              </v-btn>
-            </div>
-          </template>
-
-          <!-- PySis Source -->
-          <template v-else-if="selectedSourceFacet.source_type === 'PYSIS'">
-            <v-alert type="info" variant="tonal" density="compact" class="mb-3">
-              {{ t('entityDetail.sourceTypes.pysis') }}
-            </v-alert>
-
-            <!-- PySis Process Info -->
-            <div v-if="getPysisSourceInfo(selectedSourceFacet)" class="mb-3">
-              <div v-if="getPysisSourceInfo(selectedSourceFacet)?.processTitle" class="mb-2">
-                <div class="text-caption text-medium-emphasis">Prozess</div>
-                <div class="text-body-1">{{ getPysisSourceInfo(selectedSourceFacet)?.processTitle }}</div>
-              </div>
-              <div v-if="getPysisSourceInfo(selectedSourceFacet)?.processId" class="mb-2">
-                <div class="text-caption text-medium-emphasis">Prozess-ID</div>
-                <code class="text-body-2">{{ getPysisSourceInfo(selectedSourceFacet)?.processId }}</code>
-              </div>
-              <div v-if="getPysisSourceInfo(selectedSourceFacet)?.fieldNames?.length" class="mb-2">
-                <div class="text-caption text-medium-emphasis mb-1">Feldname(n)</div>
-                <div class="d-flex flex-wrap ga-1">
-                  <v-chip
-                    v-for="fieldName in getPysisSourceInfo(selectedSourceFacet)?.fieldNames || []"
-                    :key="fieldName"
-                    size="small"
-                    variant="outlined"
-                    color="secondary"
-                  >
-                    {{ fieldName }}
-                  </v-chip>
-                </div>
-              </div>
-            </div>
-
-            <!-- PySis Field Values -->
-            <div v-if="selectedSourceFacet.value?.pysis_fields" class="mb-3">
-              <div class="text-caption text-medium-emphasis mb-2">Feldwerte</div>
-              <v-list density="compact" class="bg-surface-variant rounded">
-                <v-list-item
-                  v-for="(fieldValue, fieldName) in selectedSourceFacet.value.pysis_fields"
-                  :key="fieldName"
-                >
-                  <v-list-item-title class="text-caption font-weight-medium">{{ fieldName }}</v-list-item-title>
-                  <v-list-item-subtitle>{{ fieldValue }}</v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
-            </div>
-          </template>
-
-          <!-- Manual Source -->
-          <template v-else-if="selectedSourceFacet.source_type === 'MANUAL'">
-            <v-alert type="success" variant="tonal" density="compact" class="mb-3">
-              {{ t('entityDetail.sourceTypes.manual') }}
-            </v-alert>
-            <div v-if="selectedSourceFacet.verified_by" class="text-body-2">
-              {{ t('common.createdBy') }}: {{ selectedSourceFacet.verified_by }}
-            </div>
-          </template>
-
-          <!-- Smart Query Source -->
-          <template v-else-if="selectedSourceFacet.source_type === 'SMART_QUERY'">
-            <v-alert type="info" variant="tonal" density="compact" class="mb-3">
-              {{ t('entityDetail.sourceTypes.smartQuery') }}
-            </v-alert>
-          </template>
-
-          <!-- AI Assistant Source -->
-          <template v-else-if="selectedSourceFacet.source_type === 'AI_ASSISTANT'">
-            <v-alert color="info" variant="tonal" density="compact" class="mb-3">
-              {{ t('entityDetail.sourceTypes.aiAssistant') }}
-            </v-alert>
-            <div v-if="selectedSourceFacet.ai_model_used" class="text-body-2 mb-2">
-              Model: {{ selectedSourceFacet.ai_model_used }}
-            </div>
-          </template>
-
-          <!-- Import Source -->
-          <template v-else-if="selectedSourceFacet.source_type === 'IMPORT'">
-            <v-alert type="warning" variant="tonal" density="compact" class="mb-3">
-              {{ t('entityDetail.sourceTypes.import') }}
-            </v-alert>
-          </template>
-
-          <!-- Source URL (shown for web URLs, excluding PySis which shows structured info above) -->
-          <div v-if="selectedSourceFacet.source_url && isValidWebUrl(selectedSourceFacet.source_url) && selectedSourceFacet.source_type !== 'PYSIS'" class="mt-4">
-            <div class="text-caption text-medium-emphasis mb-1">{{ t('entities.facet.sourceUrl') }}</div>
-            <v-btn
-              :href="selectedSourceFacet.source_url"
-              target="_blank"
-              color="primary"
-              variant="tonal"
-              size="small"
-              class="text-none"
-            >
-              <v-icon start size="small">mdi-open-in-new</v-icon>
-              {{ selectedSourceFacet.source_url }}
-            </v-btn>
-          </div>
-
-          <!-- Confidence & Dates -->
-          <v-divider class="my-4"></v-divider>
-          <div class="d-flex flex-wrap ga-4">
-            <div v-if="selectedSourceFacet.confidence_score != null">
-              <div class="text-caption text-medium-emphasis">{{ t('entities.facet.confidence') }}</div>
-              <div class="text-body-2">{{ Math.round(selectedSourceFacet.confidence_score * 100) }}%</div>
-            </div>
-            <div v-if="selectedSourceFacet.created_at">
-              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.created') }}</div>
-              <div class="text-body-2">{{ formatDate(selectedSourceFacet.created_at) }}</div>
-            </div>
-            <div v-if="selectedSourceFacet.human_verified">
-              <div class="text-caption text-medium-emphasis">{{ t('entityDetail.verifiedLabel') }}</div>
-              <div class="text-body-2">
-                <v-icon color="success" size="small">mdi-check-circle</v-icon>
-                {{ selectedSourceFacet.verified_at ? formatDate(selectedSourceFacet.verified_at) : 'Yes' }}
-              </div>
-            </div>
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="sourceDetailsDialog = false">{{ t('common.close') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <SourceDetailsDialog
+      v-model="sourceDetailsDialog"
+      :source-facet="selectedSourceFacet"
+    />
 
     <!-- Notes Dialog -->
-    <v-dialog v-model="notesDialog" max-width="700" scrollable>
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon start>mdi-note-text</v-icon>
-          {{ t('entityDetail.notes') }}
-          <v-spacer></v-spacer>
-          <v-btn icon="mdi-close" variant="tonal" @click="notesDialog = false" :aria-label="t('common.close')"></v-btn>
-        </v-card-title>
-        <v-card-text>
-          <!-- Add Note Form -->
-          <v-textarea
-            v-model="newNote"
-            :label="t('entityDetail.dialog.addNote')"
-            rows="3"
-            variant="outlined"
-            class="mb-4"
-          ></v-textarea>
-          <div class="d-flex justify-end mb-4">
-            <v-btn
-              color="primary"
-              :disabled="!newNote.trim()"
-              :loading="savingNote"
-              @click="saveNote"
-            >
-              <v-icon start>mdi-plus</v-icon>
-              {{ t('entityDetail.dialog.saveNote') }}
-            </v-btn>
-          </div>
-
-          <v-divider class="mb-4"></v-divider>
-
-          <!-- Notes List -->
-          <div v-if="notes.length">
-            <v-card
-              v-for="note in notes"
-              :key="note.id"
-              variant="outlined"
-              class="mb-3 pa-3"
-            >
-              <div class="d-flex align-start">
-                <v-avatar size="32" color="primary" class="mr-3">
-                  <v-icon size="small" color="on-primary">mdi-account</v-icon>
-                </v-avatar>
-                <div class="flex-grow-1">
-                  <div class="d-flex align-center mb-1">
-                    <span class="text-body-2 font-weight-medium">{{ note.author || t('entityDetail.systemAuthor') }}</span>
-                    <span class="text-caption text-medium-emphasis ml-2">{{ formatDate(note.created_at) }}</span>
-                    <v-spacer></v-spacer>
-                    <v-btn
-                      icon="mdi-delete"
-                      size="x-small"
-                      variant="tonal"
-                      color="error"
-                      @click="deleteNote(note.id)"
-                    ></v-btn>
-                  </div>
-                  <p class="text-body-2 mb-0 text-pre-wrap">{{ note.content }}</p>
-                </div>
-              </div>
-            </v-card>
-          </div>
-          <div v-else class="text-center pa-4 text-medium-emphasis">
-            <v-icon size="48" color="grey-lighten-2" class="mb-2">mdi-note-off-outline</v-icon>
-            <p>{{ t('entityDetail.emptyState.noNotes') }}</p>
-          </div>
-        </v-card-text>
-      </v-card>
-    </v-dialog>
+    <EntityNotesDialog
+      v-model="notesDialog"
+      :notes="notes"
+      :new-note="newNote"
+      :saving-note="savingNote"
+      @update:new-note="newNote = $event"
+      @save-note="saveNote"
+      @delete-note="deleteNote"
+    />
 
     <!-- Facet Enrichment Review Modal -->
     <FacetEnrichmentReview
@@ -2256,8 +1110,21 @@ import PySisTab from '@/components/PySisTab.vue'
 import FacetEnrichmentReview from '@/components/FacetEnrichmentReview.vue'
 import DynamicSchemaForm from '@/components/DynamicSchemaForm.vue'
 import EntityAttachmentsTab from '@/components/entity/EntityAttachmentsTab.vue'
-import FavoriteButton from '@/components/FavoriteButton.vue'
+import EntityDetailHeader from '@/components/entity/EntityDetailHeader.vue'
+import EntityConnectionsTab from '@/components/entity/EntityConnectionsTab.vue'
+import EntitySourcesTab from '@/components/entity/EntitySourcesTab.vue'
+import EntityApiDataTab from '@/components/entity/EntityApiDataTab.vue'
+import EntityNotesDialog from '@/components/entity/EntityNotesDialog.vue'
+import EntityExportDialog from '@/components/entity/EntityExportDialog.vue'
+import EntityDocumentsTab from '@/components/entity/EntityDocumentsTab.vue'
+import EntityEditDialog from '@/components/entity/EntityEditDialog.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import FacetHistoryChart from '@/components/facets/FacetHistoryChart.vue'
+import FacetDetailsDialog from '@/components/entity/FacetDetailsDialog.vue'
+import AddFacetDialog from '@/components/entity/AddFacetDialog.vue'
+import AddRelationDialog from '@/components/entity/AddRelationDialog.vue'
+import LinkDataSourceDialog from '@/components/entity/LinkDataSourceDialog.vue'
+import SourceDetailsDialog from '@/components/entity/SourceDetailsDialog.vue'
 
 const { t } = useI18n()
 const { flags } = useFeatureFlags()
@@ -2476,11 +1343,6 @@ const selectedSourceFacet = ref<any>(null)
 // Export
 const exportDialog = ref(false)
 const exportFormat = ref('csv')
-const exportFormats = computed(() => [
-  { label: t('entityDetail.formats.csvExcel'), value: 'csv' },
-  { label: t('entityDetail.formats.json'), value: 'json' },
-  { label: t('entityDetail.formats.pdfReport'), value: 'pdf' },
-])
 const exportOptions = ref({
   facets: true,
   relations: true,
@@ -2570,10 +1432,6 @@ const breadcrumbs = computed(() => [
   { title: entity.value?.name || '...', disabled: true },
 ])
 
-const hasAttributes = computed(() =>
-  entity.value?.core_attributes && Object.keys(entity.value.core_attributes).length > 0
-)
-
 /// Total connections count: relations + children + parent
 const totalConnectionsCount = computed(() => {
   const relationCount = entity.value?.relation_count || 0
@@ -2581,15 +1439,6 @@ const totalConnectionsCount = computed(() => {
   const childCount = entity.value?.children_count || childrenCount.value || 0
   const hasParent = entity.value?.parent_id ? 1 : 0
   return relationCount + childCount + hasParent
-})
-
-// Total properties count: facet values + core attributes
-const totalPropertiesCount = computed(() => {
-  const facetCount = entity.value?.facet_count || 0
-  const coreAttrCount = entity.value?.core_attributes
-    ? Object.keys(entity.value.core_attributes).length
-    : 0
-  return facetCount + coreAttrCount
 })
 
 // Filter facet types applicable to current entity type
@@ -2613,32 +1462,6 @@ const selectedFacetTypeForForm = computed(() => {
   return store.facetTypes.find(ft => ft.id === newFacet.value.facet_type_id)
 })
 
-// Check if the form can be saved
-const canSaveFacet = computed(() => {
-  if (!newFacet.value.facet_type_id) return false
-
-  const facetType = selectedFacetTypeForForm.value
-  if (!facetType) return false
-
-  // If facet type has a schema, check if required fields are filled
-  if (facetType.value_schema?.properties) {
-    const requiredFields = facetType.value_schema.required || []
-    for (const field of requiredFields) {
-      const value = newFacet.value.value[field]
-      if (value === undefined || value === null || value === '') {
-        return false
-      }
-    }
-    // At least one field should be filled
-    return Object.values(newFacet.value.value).some(v =>
-      v !== undefined && v !== null && v !== ''
-    )
-  }
-
-  // For simple text facets, check text_representation
-  return !!newFacet.value.text_representation
-})
-
 // Check if search has results
 const hasSearchResults = computed(() => {
   if (!facetSearchQuery.value) return true
@@ -2652,11 +1475,6 @@ const hasSearchResults = computed(() => {
   return false
 })
 
-const documentHeaders = computed(() => [
-  { title: t('entityDetail.documentHeaders.title'), key: 'title' },
-  { title: t('entityDetail.documentHeaders.type'), key: 'document_type' },
-  { title: t('entityDetail.documentHeaders.date'), key: 'created_at' },
-])
 
 // Methods
 async function loadEntityData() {
@@ -2729,39 +1547,8 @@ async function loadExternalData() {
   } catch (e) {
     console.error('Failed to load external data', e)
     externalData.value = null
+    showError(t('entityDetail.messages.externalDataLoadError'))
   }
-}
-
-// Helper functions for external data display
-function getFieldType(value: any): string {
-  if (value === null) return 'null'
-  if (Array.isArray(value)) return 'array'
-  if (typeof value === 'boolean') return 'boolean'
-  if (typeof value === 'number') return Number.isInteger(value) ? 'integer' : 'float'
-  if (typeof value === 'string') return 'string'
-  if (typeof value === 'object') return 'object'
-  return typeof value
-}
-
-function getFieldTypeColor(value: any): string {
-  const type = getFieldType(value)
-  switch (type) {
-    case 'string': return 'green'
-    case 'integer': return 'blue'
-    case 'float': return 'indigo'
-    case 'boolean': return 'orange'
-    case 'array': return 'purple'
-    case 'object': return 'teal'
-    case 'null': return 'grey'
-    default: return 'grey'
-  }
-}
-
-function formatFieldValue(value: any): string {
-  if (value === null) return 'null'
-  if (typeof value === 'boolean') return value ? 'true' : 'false'
-  if (typeof value === 'string' && value.length > 100) return value.substring(0, 100) + '...'
-  return String(value)
 }
 
 async function loadRelations() {
@@ -2788,6 +1575,7 @@ async function loadRelations() {
     setCachedData(cacheKey, relations.value)
   } catch (e) {
     console.error('Failed to load relations', e)
+    showError(t('entityDetail.messages.relationsLoadError'))
   } finally {
     loadingRelations.value = false
   }
@@ -3193,6 +1981,7 @@ async function loadDataSources() {
   } catch (e) {
     console.error('Failed to load data sources', e)
     dataSources.value = []
+    showError(t('entityDetail.messages.dataSourcesLoadError'))
   } finally {
     loadingDataSources.value = false
   }
@@ -3209,6 +1998,7 @@ async function loadDocuments() {
   } catch (e) {
     console.error('Failed to load documents', e)
     documents.value = []
+    showError(t('entityDetail.messages.documentsLoadError'))
   } finally {
     loadingDocuments.value = false
   }
@@ -3228,17 +2018,6 @@ async function loadAttachmentCount() {
 // ============================================================================
 // Data Source Management Functions
 // ============================================================================
-
-function getSourceTypeIcon(sourceType: string | undefined): string {
-  const icons: Record<string, string> = {
-    WEBSITE: 'mdi-web',
-    RSS: 'mdi-rss',
-    OPARL_API: 'mdi-api',
-    CUSTOM_API: 'mdi-code-json',
-    SHAREPOINT: 'mdi-microsoft-sharepoint',
-  }
-  return icons[sourceType || 'WEBSITE'] || 'mdi-database'
-}
 
 let sourceSearchTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -3262,6 +2041,7 @@ async function searchSourcesForLink(query: string) {
     } catch (e) {
       console.error('Failed to search sources:', e)
       availableSourcesForLink.value = []
+      showError(t('entityDetail.messages.sourceSearchError'))
     } finally {
       searchingSourcesForLink.value = false
     }
@@ -3455,21 +2235,11 @@ async function loadChildren() {
     console.error('Failed to load children', e)
     children.value = []
     childrenCount.value = 0
+    showError(t('entityDetail.children.loadError'))
   } finally {
     loadingChildren.value = false
   }
 }
-
-// Computed: Filtered children based on search query
-const filteredChildren = computed(() => {
-  if (!childrenSearchQuery.value) return children.value
-  const query = childrenSearchQuery.value.toLowerCase()
-  return children.value.filter(
-    (child) =>
-      child.name.toLowerCase().includes(query) ||
-      child.external_id?.toLowerCase().includes(query)
-  )
-})
 
 function toggleFacetExpand(slug: string) {
   const idx = expandedFacets.value.indexOf(slug)
@@ -3494,6 +2264,7 @@ async function openFacetDetails(facetGroup: any) {
   } catch (e) {
     console.error('Failed to load facet details', e)
     facetDetails.value = []
+    showError(t('entityDetail.messages.facetDetailsLoadError'))
   }
 }
 
@@ -3717,6 +2488,7 @@ async function loadRelationTypes() {
     relationTypes.value = response.data.items || response.data || []
   } catch (e) {
     console.error('Failed to load relation types', e)
+    showError(t('entityDetail.messages.relationTypesLoadError'))
   } finally {
     loadingRelationTypes.value = false
   }
@@ -3738,6 +2510,7 @@ async function searchEntities(query: string) {
   } catch (e) {
     console.error('Failed to search entities', e)
     targetEntities.value = []
+    showError(t('entityDetail.messages.entitySearchError'))
   } finally {
     searchingEntities.value = false
   }
@@ -3913,61 +2686,7 @@ function navigateToRelatedEntity(rel: any) {
   })
 }
 
-async function navigateToParent() {
-  if (!entity.value?.parent_id || !entity.value?.parent_slug) return
-
-  // The parent should be of the same entity type (hierarchical)
-  router.push({
-    name: 'entity-detail',
-    params: { typeSlug: typeSlug.value, entitySlug: entity.value.parent_slug },
-  })
-}
-
-// Attribute key translation map (fallback)
-const attributeTranslations = computed<Record<string, string>>(() => ({
-  population: t('entityDetail.attributes.population'),
-  area_km2: t('entityDetail.attributes.area'),
-  official_code: t('entityDetail.attributes.officialCode'),
-  locality_type: t('entityDetail.attributes.localityType'),
-  website: t('entityDetail.attributes.website'),
-  academic_title: t('entityDetail.attributes.academicTitle'),
-  first_name: t('entityDetail.attributes.firstName'),
-  last_name: t('entityDetail.attributes.lastName'),
-  email: t('entityDetail.attributes.email'),
-  phone: t('entityDetail.attributes.phone'),
-  role: t('entityDetail.attributes.role'),
-  org_type: t('entityDetail.attributes.orgType'),
-  address: t('entityDetail.attributes.address'),
-  event_date: t('entityDetail.attributes.eventDate'),
-  event_end_date: t('entityDetail.attributes.eventEndDate'),
-  location: t('entityDetail.attributes.location'),
-  organizer: t('entityDetail.attributes.organizer'),
-  event_type: t('entityDetail.attributes.eventType'),
-  description: t('entityDetail.attributes.description'),
-}))
-
 // Helpers
-function formatAttributeKey(key: string): string {
-  // First try to get title from entity type's attribute_schema
-  const schema = entityType.value?.attribute_schema
-  if (schema?.properties?.[key]?.title) {
-    return schema.properties[key].title
-  }
-  // Then try the translation map
-  if (attributeTranslations.value[key]) {
-    return attributeTranslations.value[key]
-  }
-  // Finally, fallback to basic formatting
-  return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-}
-
-function formatAttributeValue(value: any): string {
-  if (typeof value === 'number') {
-    return value.toLocaleString('de-DE')
-  }
-  return String(value)
-}
-
 function formatFacetValue(facet: any): string {
   if (facet.text_representation) return facet.text_representation
   if (typeof facet.value === 'string') return facet.value
@@ -3977,42 +2696,6 @@ function formatFacetValue(facet: any): string {
 
 function formatDate(dateStr: string): string {
   return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: de })
-}
-
-function isValidWebUrl(url: string): boolean {
-  if (!url) return false
-  return url.startsWith('http://') || url.startsWith('https://')
-}
-
-function getPysisSourceInfo(facet: any): { processId?: string; processTitle?: string; fieldNames?: string[] } | null {
-  if (!facet) return null
-
-  const info: { processId?: string; processTitle?: string; fieldNames?: string[] } = {}
-
-  // Extract process ID from source_url (pysis://process/{id}) if available
-  if (facet.source_url?.startsWith('pysis://process/')) {
-    info.processId = facet.source_url.replace('pysis://process/', '')
-  }
-
-  // Get process title and field names from value object if stored
-  if (facet.value?.pysis_process_title) {
-    info.processTitle = facet.value.pysis_process_title
-  }
-  if (facet.value?.pysis_process_id) {
-    info.processId = facet.value.pysis_process_id
-  }
-  if (facet.value?.pysis_field_names) {
-    info.fieldNames = Array.isArray(facet.value.pysis_field_names)
-      ? facet.value.pysis_field_names
-      : [facet.value.pysis_field_names]
-  }
-
-  // Extract field names from pysis_fields keys if available
-  if (!info.fieldNames && facet.value?.pysis_fields) {
-    info.fieldNames = Object.keys(facet.value.pysis_fields)
-  }
-
-  return Object.keys(info).length > 0 ? info : null
 }
 
 function getConfidenceColor(score: number | null): string {
@@ -4052,28 +2735,6 @@ function getFacetSourceIcon(sourceType: string | null | undefined): string {
   return icons[normalizeSourceType(sourceType)] || 'mdi-file-document'
 }
 
-function getFacetSourceLabel(sourceType: string | null | undefined): string {
-  const labels: Record<string, string> = {
-    document: t('entityDetail.sourceTypes.document'),
-    manual: t('entityDetail.sourceTypes.manual'),
-    pysis: t('entityDetail.sourceTypes.pysis'),
-    smart_query: t('entityDetail.sourceTypes.smartQuery'),
-    ai_assistant: t('entityDetail.sourceTypes.aiAssistant'),
-    import: t('entityDetail.sourceTypes.import'),
-  }
-  return labels[normalizeSourceType(sourceType)] || t('entityDetail.sourceTypes.document')
-}
-
-function getSourceStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    ACTIVE: 'success',
-    INACTIVE: 'grey',
-    ERROR: 'error',
-    PENDING: 'warning',
-  }
-  return colors[status] || 'grey'
-}
-
 // Structured Facet Value Helpers
 function getStructuredDescription(facet: any): string {
   // Try text_representation first
@@ -4110,15 +2771,6 @@ function getSeverityColor(severity: string | null): string {
   if (s === 'mittel' || s === 'medium') return 'warning'
   if (s === 'niedrig' || s === 'low') return 'success'
   return 'grey'
-}
-
-function getSeverityIcon(severity: string | null): string {
-  if (!severity) return 'mdi-minus'
-  const s = severity.toLowerCase()
-  if (s === 'hoch' || s === 'high') return 'mdi-alert'
-  if (s === 'mittel' || s === 'medium') return 'mdi-alert-circle-outline'
-  if (s === 'niedrig' || s === 'low') return 'mdi-information-outline'
-  return 'mdi-minus'
 }
 
 // Contact Helpers
@@ -4396,6 +3048,11 @@ async function onEnrichmentApplied(result: { created: number; updated: number })
 onUnmounted(() => {
   stopEnrichTaskPolling()
   stopEnrichmentTaskPolling()
+  // Clear any pending search timeout
+  if (sourceSearchTimeout) {
+    clearTimeout(sourceSearchTimeout)
+    sourceSearchTimeout = null
+  }
 })
 
 // Watch for tab changes to load data lazily

@@ -50,6 +50,14 @@
     "more": "+{count} more",
     "goTo": "Go to {name}",
     "openSmartQuery": "Open Smart Query",
+    "keyPoints": "Key Points",
+    "recommendations": "Recommendations",
+    "analysisType": {
+      "requirements": "Requirements Analysis",
+      "planning": "Planning",
+      "document": "Document Analysis",
+      "general": "Discussion"
+    },
     "dashboard": "Dashboard",
     "showDetailsFor": "Show details for {name}",
     "quickActions": "Quick Actions",

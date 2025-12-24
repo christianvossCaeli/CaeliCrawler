@@ -32,6 +32,8 @@ async def list_extracted_data(
     extraction_type: Optional[str] = Query(default=None),
     min_confidence: float = Query(default=0, ge=0, le=1, description="Minimum confidence score filter"),
     human_verified: Optional[bool] = Query(default=None),
+    sort_by: Optional[str] = Query(default="created_at", description="Field to sort by"),
+    sort_order: Optional[str] = Query(default="desc", description="Sort order: asc or desc"),
     session: AsyncSession = Depends(get_session),
 ):
     """List extracted data with filters."""
@@ -56,8 +58,22 @@ async def list_extracted_data(
     count_query = select(func.count()).select_from(query.subquery())
     total = (await session.execute(count_query)).scalar()
 
+    # Dynamic sorting
+    sortable_fields = {
+        "created_at": ExtractedData.created_at,
+        "confidence_score": ExtractedData.confidence_score,
+        "relevance_score": ExtractedData.relevance_score,
+        "extraction_type": ExtractedData.extraction_type,
+        "human_verified": ExtractedData.human_verified,
+    }
+    sort_column = sortable_fields.get(sort_by, ExtractedData.created_at)
+    if sort_order == "asc":
+        query = query.order_by(sort_column.asc().nulls_last())
+    else:
+        query = query.order_by(sort_column.desc().nulls_last())
+
     # Paginate
-    query = query.order_by(ExtractedData.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
+    query = query.offset((page - 1) * per_page).limit(per_page)
     result = await session.execute(query)
     extractions = result.scalars().all()
 
@@ -71,12 +87,33 @@ async def list_extracted_data(
         doc = docs_by_id.get(ext.document_id)
         source = doc.source if doc else None
 
-        item = ExtractedDataResponse.model_validate(ext)
-        item.final_content = ext.final_content
-        item.document_title = doc.title if doc else None
-        item.document_url = doc.original_url if doc else None
-        item.source_name = source.name if source else None
-        items.append(item)
+        # Build dict with all fields including computed ones
+        ext_dict = {
+            "id": ext.id,
+            "document_id": ext.document_id,
+            "category_id": ext.category_id,
+            "extraction_type": ext.extraction_type,
+            "extracted_content": ext.extracted_content,
+            "confidence_score": ext.confidence_score,
+            "ai_model_used": ext.ai_model_used,
+            "ai_prompt_version": ext.ai_prompt_version,
+            "tokens_used": ext.tokens_used,
+            "human_verified": ext.human_verified,
+            "human_corrections": ext.human_corrections,
+            "verified_by": ext.verified_by,
+            "verified_at": ext.verified_at,
+            "relevance_score": ext.relevance_score,
+            "created_at": ext.created_at,
+            "updated_at": ext.updated_at,
+            "entity_references": ext.entity_references,
+            "primary_entity_id": ext.primary_entity_id,
+            # Computed fields
+            "final_content": ext.final_content,
+            "document_title": doc.title if doc else None,
+            "document_url": doc.original_url if doc else None,
+            "source_name": source.name if source else None,
+        }
+        items.append(ExtractedDataResponse.model_validate(ext_dict))
 
     return ExtractedDataListResponse(
         items=items,

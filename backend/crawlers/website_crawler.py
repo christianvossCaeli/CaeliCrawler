@@ -19,6 +19,7 @@ from tenacity import (
 )
 
 from crawlers.base import BaseCrawler, CrawlResult
+from crawlers.robots_txt import RobotsTxtChecker
 from app.config import settings
 from app.services.crawler_progress import crawler_progress
 from services.relevance_checker import check_relevance
@@ -93,7 +94,13 @@ class WebsiteCrawler(BaseCrawler):
     Supports both static HTML pages and JavaScript-rendered pages (via Playwright).
     """
 
-    def __init__(self):
+    def __init__(self, respect_robots: bool = True):
+        """
+        Initialize the website crawler.
+
+        Args:
+            respect_robots: If True, respects robots.txt directives (default: True)
+        """
         super().__init__()
         self.visited_urls: Set[str] = set()
         self.document_urls: Set[str] = set()
@@ -101,8 +108,16 @@ class WebsiteCrawler(BaseCrawler):
         self.url_include_patterns: List[re.Pattern] = []
         self.url_exclude_patterns: List[re.Pattern] = []
         self.filtered_urls_count: int = 0
+        self.robots_blocked_count: int = 0
         self.capture_html_content: bool = True  # Enable HTML content capture by default
         self.html_min_relevance_score: float = 0.2  # Minimum relevance score to capture
+
+        # robots.txt compliance
+        self.respect_robots = respect_robots
+        self.robots_checker = RobotsTxtChecker(
+            user_agent=settings.crawler_user_agent,
+            respect_robots=respect_robots,
+        )
 
     @retry(
         stop=stop_after_attempt(3),
@@ -174,7 +189,10 @@ class WebsiteCrawler(BaseCrawler):
         """
         Check if URL should be crawled based on include/exclude patterns.
 
-        Returns True if URL passes all filters.
+        Note: This does NOT check robots.txt (async operation).
+        Use _should_crawl_url_full() for complete check including robots.txt.
+
+        Returns True if URL passes all pattern filters.
         """
         # Check exclude patterns first (blacklist)
         for pattern in self.url_exclude_patterns:
@@ -186,6 +204,27 @@ class WebsiteCrawler(BaseCrawler):
         if self.url_include_patterns:
             if not any(pattern.search(url) for pattern in self.url_include_patterns):
                 self.filtered_urls_count += 1
+                return False
+
+        return True
+
+    async def _should_crawl_url_full(self, url: str) -> bool:
+        """
+        Check if URL should be crawled based on all criteria including robots.txt.
+
+        This is the full async version that also checks robots.txt compliance.
+
+        Returns True if URL passes all filters AND robots.txt allows it.
+        """
+        # First check pattern filters (fast, synchronous)
+        if not self._should_crawl_url(url):
+            return False
+
+        # Then check robots.txt (async, may need network request)
+        if self.respect_robots:
+            if not await self.robots_checker.can_fetch(url):
+                self.robots_blocked_count += 1
+                self.logger.debug("url_blocked_by_robots_txt", url=url)
                 return False
 
         return True
@@ -271,10 +310,16 @@ class WebsiteCrawler(BaseCrawler):
         self.visited_urls = set()
         self.document_urls = set()
         self.html_documents = []
+        self.filtered_urls_count = 0
+        self.robots_blocked_count = 0
 
         # Config for HTML content capture
         self.capture_html_content = config.get("capture_html_content", True)
         self.html_min_relevance_score = config.get("html_min_relevance_score", 0.2)
+
+        # Config for robots.txt compliance (default: True for ethical crawling)
+        self.respect_robots = config.get("respect_robots", True)
+        self.robots_checker.respect_robots = self.respect_robots
 
         # Load category for URL patterns and document storage
         # Use job.category_id - each job crawls with its own category's patterns
@@ -404,6 +449,7 @@ class WebsiteCrawler(BaseCrawler):
                 "documents_found": len(self.document_urls),
                 "html_pages_captured": len(self.html_documents),
                 "urls_filtered": self.filtered_urls_count,
+                "urls_blocked_by_robots": self.robots_blocked_count,
             }
 
         except Exception as e:
@@ -444,9 +490,9 @@ class WebsiteCrawler(BaseCrawler):
             if depth > max_depth:
                 continue
 
-            # Check URL filter patterns (but always allow the start URL to discover links)
+            # Check URL filter patterns and robots.txt (but always allow the start URL to discover links)
             is_start_url = url == start_url
-            if not is_start_url and not self._should_crawl_url(url):
+            if not is_start_url and not await self._should_crawl_url_full(url):
                 await crawler_progress.log_url(job.id, url, status="filtered")
                 continue
 
@@ -496,6 +542,7 @@ class WebsiteCrawler(BaseCrawler):
                         continue
 
                     # Check URL filter patterns for non-document links
+                    # Note: robots.txt is checked when URL is dequeued, not here
                     if not self._should_crawl_url(full_url):
                         continue
 
@@ -548,9 +595,9 @@ class WebsiteCrawler(BaseCrawler):
                 if depth > max_depth:
                     continue
 
-                # Check URL filter patterns (but always allow the start URL to discover links)
+                # Check URL filter patterns and robots.txt (but always allow the start URL to discover links)
                 is_start_url = url == start_url
-                if not is_start_url and not self._should_crawl_url(url):
+                if not is_start_url and not await self._should_crawl_url_full(url):
                     continue
 
                 # Check if it's a document

@@ -18,6 +18,11 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60  # 1 hour (was 24 hours)
 REFRESH_TOKEN_EXPIRE_DAYS = 7  # 7 days for refresh tokens
 
+# SSE Ticket settings
+# Very short-lived tokens that can only be used for SSE connections
+# This prevents long-lived tokens from being exposed in URLs/logs
+SSE_TICKET_EXPIRE_SECONDS = 30  # 30 seconds - just enough to establish connection
+
 # Session settings
 MAX_SESSIONS_PER_USER = 5  # Maximum concurrent sessions per user
 
@@ -184,3 +189,64 @@ def create_tokens_for_session(
         "access_token_expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # seconds
         "refresh_token_expires_in": REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,  # seconds
     }
+
+
+# =============================================================================
+# SSE Ticket Functions
+# =============================================================================
+
+
+def create_sse_ticket(user_id: UUID, role: str) -> str:
+    """
+    Create a short-lived SSE ticket for establishing EventSource connections.
+
+    SSE tickets are designed to be used once and expire quickly. This prevents
+    the main access token from being exposed in URLs and server logs.
+
+    Security considerations:
+    - Very short expiration (30 seconds) - just enough to establish connection
+    - Token type "sse" prevents use as regular access token
+    - Should only be requested immediately before SSE connection
+
+    Args:
+        user_id: The user's UUID
+        role: The user's role
+
+    Returns:
+        Encoded JWT ticket string
+    """
+    expire = datetime.now(timezone.utc) + timedelta(seconds=SSE_TICKET_EXPIRE_SECONDS)
+    to_encode = {
+        "sub": str(user_id),
+        "role": role,
+        "exp": expire,
+        "type": "sse_ticket",  # Distinguishes from regular access tokens
+        "iat": datetime.now(timezone.utc),
+    }
+    return jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)
+
+
+def decode_sse_ticket(ticket: str) -> Optional[dict]:
+    """
+    Decode and validate an SSE ticket.
+
+    Validates that:
+    1. Token is properly signed and not expired
+    2. Token type is "sse_ticket" (not a regular access token)
+
+    Args:
+        ticket: The SSE ticket string
+
+    Returns:
+        Decoded payload dict or None if invalid
+    """
+    try:
+        payload = jwt.decode(ticket, settings.secret_key, algorithms=[ALGORITHM])
+
+        # Verify this is an SSE ticket, not a regular access token
+        if payload.get("type") != "sse_ticket":
+            return None
+
+        return payload
+    except JWTError:
+        return None

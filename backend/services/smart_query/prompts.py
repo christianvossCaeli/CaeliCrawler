@@ -3,9 +3,16 @@
 All prompts are generated dynamically using data from the database.
 This ensures the AI always has current information about available
 entity types, facet types, relations, and categories.
+
+Security Note:
+All user-provided data embedded in prompts is sanitized to prevent
+prompt injection attacks. Use escape_for_json_prompt() for any
+user-controlled values.
 """
 
 from typing import Any, Dict, List
+
+from app.utils.security import escape_for_json_prompt, sanitize_for_prompt
 
 
 def build_dynamic_write_prompt(
@@ -19,7 +26,12 @@ def build_dynamic_write_prompt(
 
     This replaces the old static WRITE_INTERPRETATION_PROMPT with a dynamic version
     that loads all available types from the database.
+
+    Security: The query is sanitized to prevent prompt injection attacks.
     """
+    # Sanitize user query to prevent prompt injection
+    sanitization_result = sanitize_for_prompt(query, max_length=2000)
+    safe_query = escape_for_json_prompt(sanitization_result.sanitized_text)
 
     # Build entity types section
     entity_lines = []
@@ -316,7 +328,7 @@ Bei BESTEHENDEM hierarchischem Entity-Type [hierarchisch]:
 - Erstellt automatisch Relation "befindet_sich_in" zur passenden Parent-Entity
 - Der Entity-Name wird analysiert um den zugehörigen Ort zu finden
 
-Benutzeranfrage: {query}
+Benutzeranfrage: {safe_query}
 
 Antworte NUR mit validem JSON. Sei kreativ und intelligent bei der Interpretation."""
 
@@ -525,7 +537,12 @@ def build_compound_query_prompt(
 
     This prompt helps the AI identify when a user query contains multiple
     distinct data requests that should be visualized separately.
+
+    Security: The query is sanitized to prevent prompt injection attacks.
     """
+    # Sanitize user query to prevent prompt injection
+    sanitization_result = sanitize_for_prompt(query, max_length=2000)
+    safe_query = escape_for_json_prompt(sanitization_result.sanitized_text)
 
     # Build entity types section
     entity_lines = [f"- {et['slug']}: {et.get('description') or et['name']}" for et in entity_types]
@@ -538,7 +555,7 @@ def build_compound_query_prompt(
     return f"""Analysiere diese Benutzeranfrage und prüfe, ob sie mehrere separate Datenabfragen enthält.
 
 ## Benutzeranfrage:
-"{query}"
+"{safe_query}"
 
 ## Verfügbare Entity Types:
 {entity_section}

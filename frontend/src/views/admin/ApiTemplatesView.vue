@@ -367,27 +367,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
+import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
-
-// Debounce timeout for cleanup
-let debounceTimeoutId: ReturnType<typeof setTimeout> | null = null
-
-// Simple debounce function with cleanup support
-function createDebouncedFn<T extends (...args: Parameters<T>) => ReturnType<T>>(
-  fn: T,
-  delay: number
-): (...args: Parameters<T>) => void {
-  return (...args: Parameters<T>) => {
-    if (debounceTimeoutId) clearTimeout(debounceTimeoutId)
-    debounceTimeoutId = setTimeout(() => {
-      debounceTimeoutId = null
-      fn(...args)
-    }, delay)
-  }
-}
 
 // ============================================================================
 // Types
@@ -546,7 +530,11 @@ const fetchTemplates = async () => {
   }
 }
 
-const debouncedFetch = createDebouncedFn(fetchTemplates, 300)
+// Debounce search - uses composable with automatic cleanup
+const { debouncedFn: debouncedFetch } = useDebounce(
+  () => fetchTemplates(),
+  { delay: DEBOUNCE_DELAYS.SEARCH }
+)
 
 const openCreateDialog = () => {
   editingTemplate.value = null
@@ -709,12 +697,5 @@ const getApiTypeColor = (type: string) => {
 onMounted(() => {
   fetchTemplates()
 })
-
-onUnmounted(() => {
-  // Clear debounce timeout to prevent stale callbacks
-  if (debounceTimeoutId) {
-    clearTimeout(debounceTimeoutId)
-    debounceTimeoutId = null
-  }
-})
+// Note: useDebounce handles cleanup automatically via onUnmounted
 </script>

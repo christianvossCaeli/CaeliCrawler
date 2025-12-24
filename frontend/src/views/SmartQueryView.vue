@@ -58,119 +58,31 @@
     </PageHeader>
 
     <!-- Chat-Style Input Card -->
-    <v-card class="input-card mb-6" :class="{ 'input-card--active': question.trim() || pendingAttachments.length > 0 }">
-      <!-- Attachment Preview inside card -->
-      <div v-if="pendingAttachments.length > 0" class="attachment-preview pa-3 pb-0">
-        <div class="d-flex flex-wrap ga-2">
-          <v-chip
-            v-for="attachment in pendingAttachments"
-            :key="attachment.id"
-            closable
-            @click:close="removeAttachment(attachment.id)"
-            color="primary"
-            variant="tonal"
-            size="small"
-          >
-            <v-avatar start size="20" v-if="attachment.preview">
-              <v-img :src="attachment.preview" />
-            </v-avatar>
-            <v-icon v-else start size="16">{{ getAttachmentIcon(attachment.contentType) }}</v-icon>
-            {{ attachment.filename }}
-          </v-chip>
-        </div>
-      </div>
-
-      <!-- Textarea -->
-      <v-textarea
-        v-model="question"
-        :placeholder="getInputPlaceholder"
-        rows="2"
-        auto-grow
-        max-rows="8"
-        variant="plain"
-        hide-details
-        class="input-textarea"
-        :disabled="previewData !== null"
-        @paste="handlePaste"
-        @keydown.enter.ctrl="executeQuery"
-        @keydown.enter.meta="executeQuery"
-      />
-
-      <!-- Interim transcript overlay -->
-      <div v-if="interimTranscript" class="interim-transcript px-4 pb-2">
-        <span class="text-caption text-medium-emphasis font-italic">
-          <v-icon size="12" class="mr-1">mdi-microphone</v-icon>
-          {{ interimTranscript }}
-        </span>
-      </div>
-
-      <v-divider />
-
-      <!-- Action Bar -->
-      <div class="input-actions">
-        <div class="action-buttons d-flex ga-1">
-          <!-- Attachment Button -->
-          <v-btn
-            icon
-            variant="text"
-            size="small"
-            :disabled="previewData !== null || loading || isUploading"
-            :loading="isUploading"
-            @click="triggerFileInput"
-          >
-            <v-icon size="20">mdi-paperclip</v-icon>
-            <v-tooltip activator="parent" location="top">
-              {{ t('assistant.attachFile') }}
-            </v-tooltip>
-          </v-btn>
-          <input
-            ref="fileInputRef"
-            type="file"
-            accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"
-            style="display: none"
-            @change="handleFileSelect"
-            multiple
-          />
-
-          <!-- Voice Button -->
-          <v-btn
-            v-if="hasMicrophone"
-            icon
-            variant="text"
-            size="small"
-            :color="isListening ? 'error' : undefined"
-            :class="{ 'voice-btn-listening': isListening }"
-            :disabled="previewData !== null || loading"
-            @click="handleVoiceInput"
-          >
-            <v-icon size="20">{{ isListening ? 'mdi-microphone-off' : 'mdi-microphone' }}</v-icon>
-            <v-tooltip activator="parent" location="top">
-              {{ isListening ? t('smartQueryView.voice.stopRecording') : t('smartQueryView.voice.startRecording') }}
-            </v-tooltip>
-          </v-btn>
-
-          <!-- Write Mode Indicator -->
-          <v-chip v-if="writeMode && !previewData" color="warning" size="x-small" variant="flat" class="ml-2">
-            <v-icon start size="12">mdi-eye</v-icon>
-            {{ t('smartQueryView.mode.previewFirst') }}
-          </v-chip>
-        </div>
-
-        <!-- Submit Button -->
-        <v-btn
-          v-if="!previewData"
-          :color="getSubmitButtonColor"
-          rounded="pill"
-          :loading="loading"
-          :disabled="!question.trim() && pendingAttachments.length === 0"
-          @click="executeQuery"
-          class="submit-btn"
-        >
-          <v-icon start>{{ getSubmitButtonIcon }}</v-icon>
-          {{ getSubmitButtonText }}
-        </v-btn>
-      </div>
-    </v-card>
+    <SmartQueryInputCard
+      v-model="question"
+      :attachments="pendingAttachments"
+      :mode="currentMode"
+      :disabled="previewData !== null"
+      :loading="loading"
+      :uploading="isUploading"
+      :is-listening="isListening"
+      :has-microphone="hasMicrophone"
+      :interim-transcript="interimTranscript"
+      class="mb-6"
+      @submit="executeQuery"
+      @paste="handlePaste"
+      @remove-attachment="removeAttachment"
+      @trigger-file-input="triggerFileInput"
+      @toggle-voice="handleVoiceInput"
+    />
+    <input
+      ref="fileInputRef"
+      type="file"
+      accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"
+      style="display: none"
+      @change="handleFileSelect"
+      multiple
+    />
 
     <!-- Plan Mode Chat Interface -->
     <v-card v-if="currentMode === 'plan'" class="plan-mode-card mb-6">
@@ -185,43 +97,13 @@
     </v-card>
 
     <!-- Example Queries as Card Grid (only for read/write modes) -->
-    <div v-if="!results && !previewData && !loading && currentMode !== 'plan'" class="examples-section mb-6">
-      <div class="d-flex align-center mb-4">
-        <v-icon class="mr-2" :color="writeMode ? 'warning' : 'primary'">mdi-lightbulb-outline</v-icon>
-        <span class="text-subtitle-1 font-weight-medium">
-          {{ writeMode ? t('smartQueryView.examples.commandsTitle') : t('smartQueryView.examples.questionsTitle') }}
-        </span>
-      </div>
-      <div class="examples-grid">
-        <v-card
-          v-for="example in currentExamplesWithMeta"
-          :key="example.question"
-          class="example-card"
-          :class="{ 'example-card--write': writeMode }"
-          @click="useExample(example.question)"
-          hover
-          variant="outlined"
-        >
-          <v-card-text class="example-card-content pa-4">
-            <div class="example-main">
-              <v-avatar
-                :color="writeMode ? 'warning' : 'primary'"
-                size="44"
-                class="example-avatar"
-                variant="tonal"
-              >
-                <v-icon size="22">{{ example.icon }}</v-icon>
-              </v-avatar>
-              <div class="example-text-block">
-                <div class="text-body-2 font-weight-medium example-title">{{ example.title }}</div>
-                <div class="text-caption text-medium-emphasis example-question">{{ example.question }}</div>
-              </div>
-            </div>
-            <v-icon size="18" class="example-arrow" color="grey">mdi-arrow-right</v-icon>
-          </v-card-text>
-        </v-card>
-      </div>
-    </div>
+    <SmartQueryExamples
+      v-if="!results && !previewData && !loading && currentMode !== 'plan'"
+      :examples="currentExamplesWithMeta"
+      :write-mode="writeMode"
+      class="mb-6"
+      @select="useExample"
+    />
 
     <!-- Error -->
     <v-alert v-if="error" type="error" class="mb-6" closable @click:close="error = null">
@@ -247,313 +129,34 @@
     </div>
 
     <!-- AI Generation Progress - Write Mode -->
-    <v-card v-if="loading && writeMode" class="mb-6 generation-card">
-      <v-card-text class="pa-6">
-        <div class="d-flex align-center mb-6">
-          <v-avatar color="warning" size="48" class="mr-4">
-            <v-icon size="24" class="generation-icon">mdi-robot</v-icon>
-          </v-avatar>
-          <div>
-            <div class="text-h6">{{ t('smartQueryView.generation.running') }}</div>
-            <div class="text-body-2 text-medium-emphasis">{{ t('smartQueryView.generation.processing') }}</div>
-          </div>
-        </div>
-
-        <!-- Timeline Steps -->
-        <v-timeline density="compact" side="end" class="generation-timeline">
-          <v-timeline-item
-            v-for="step in generationSteps"
-            :key="step.value"
-            :dot-color="getStepColor(step.value)"
-            size="small"
-          >
-            <template #icon>
-              <v-icon v-if="currentStep > step.value" size="16" color="white">mdi-check</v-icon>
-              <v-progress-circular
-                v-else-if="currentStep === step.value"
-                indeterminate
-                size="16"
-                width="2"
-                color="white"
-              />
-            </template>
-            <div class="d-flex align-center">
-              <div>
-                <div class="text-body-2 font-weight-medium" :class="{ 'text-medium-emphasis': currentStep < step.value }">
-                  {{ step.title }}
-                </div>
-                <div class="text-caption text-medium-emphasis">{{ step.subtitle }}</div>
-              </div>
-            </div>
-          </v-timeline-item>
-        </v-timeline>
-      </v-card-text>
-    </v-card>
+    <SmartQueryGenerationProgress
+      v-if="loading && writeMode"
+      :current-step="currentStep"
+      class="mb-6"
+    />
 
     <!-- Preview Mode (Write) -->
-    <template v-if="previewData">
-      <v-card class="mb-4" color="warning" variant="tonal">
-        <v-card-title>
-          <v-icon left>mdi-eye-check</v-icon>
-          {{ t('smartQueryView.preview.title') }}
-        </v-card-title>
-        <v-card-text>
-          <v-alert type="info" variant="tonal" class="mb-4">
-            <strong>{{ previewData.preview?.operation_de }}</strong>
-            <div class="mt-1">{{ previewData.preview?.description }}</div>
-          </v-alert>
-
-          <v-card variant="outlined" class="mb-4">
-            <v-card-title class="text-subtitle-1">
-              <v-icon left size="small">mdi-format-list-bulleted</v-icon>
-              {{ t('common.details') }}
-            </v-card-title>
-            <v-card-text>
-              <v-list density="compact" class="bg-transparent">
-                <v-list-item
-                  v-for="(detail, idx) in previewData.preview?.details || []"
-                  :key="idx"
-                  :title="detail"
-                >
-                  <template v-slot:prepend>
-                    <v-icon size="small" color="primary">mdi-check</v-icon>
-                  </template>
-                </v-list-item>
-              </v-list>
-            </v-card-text>
-          </v-card>
-
-          <!-- Technical Details -->
-          <v-expansion-panels variant="accordion">
-            <v-expansion-panel :title="t('smartQueryView.preview.technicalDetails')">
-              <v-expansion-panel-text>
-                <pre class="text-caption">{{ JSON.stringify(previewData.interpretation, null, 2) }}</pre>
-              </v-expansion-panel-text>
-            </v-expansion-panel>
-          </v-expansion-panels>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="tonal" @click="cancelPreview">
-            <v-icon start>mdi-close</v-icon>
-            {{ t('common.cancel') }}
-          </v-btn>
-          <v-btn color="success" variant="elevated" :loading="loading" @click="confirmWrite">
-            <v-icon start>mdi-check</v-icon>
-            {{ t('smartQueryView.preview.confirmAndCreate') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </template>
+    <SmartQueryPreview
+      v-if="previewData"
+      :preview="previewData.preview || {}"
+      :interpretation="previewData.interpretation || {}"
+      :loading="loading"
+      @cancel="cancelPreview"
+      @confirm="confirmWrite"
+    />
 
     <!-- Write Results -->
-    <template v-if="results?.mode === 'write'">
-      <v-card class="mb-4" :color="results.success ? 'success' : 'error'" variant="tonal">
-        <v-card-title>
-          <v-icon left>{{ results.success ? 'mdi-check-circle' : 'mdi-alert-circle' }}</v-icon>
-          {{ results.success ? t('smartQueryView.results.successfullyCreated') : t('common.error') }}
-        </v-card-title>
-        <v-card-text>
-          <div class="text-body-1 mb-3">{{ results.message }}</div>
-
-          <!-- Created Items -->
-          <template v-if="results.created_items?.length > 0">
-            <div class="text-subtitle-2 mb-2">{{ t('smartQueryView.results.createdItems') }}</div>
-            <v-list density="compact" class="bg-transparent">
-              <v-list-item
-                v-for="item in results.created_items"
-                :key="item.id"
-                :title="item.name || item.type"
-                :subtitle="`${item.type}${item.entity_type ? ' (' + item.entity_type + ')' : ''}${item.slug ? ' [' + item.slug + ']' : ''} - ID: ${item.id.substring(0, 8)}...`"
-              >
-                <template v-slot:prepend>
-                  <v-icon :color="getItemTypeColor(item.type)">
-                    {{ getItemTypeIcon(item.type) }}
-                  </v-icon>
-                </template>
-              </v-list-item>
-            </v-list>
-          </template>
-
-          <!-- Crawl Information -->
-          <template v-if="results.sources_count || results.crawl_jobs?.length > 0">
-            <v-divider class="my-3" />
-            <div class="text-subtitle-2 mb-2">
-              <v-icon left size="small">mdi-spider-web</v-icon>
-              {{ t('smartQueryView.results.crawlDetails') }}
-            </div>
-            <v-chip v-if="results.sources_count" class="mr-2 mb-2" color="info" size="small">
-              {{ t('smartQueryView.results.dataSources', { count: results.sources_count }) }}
-            </v-chip>
-            <v-chip v-if="results.crawl_jobs?.length" class="mr-2 mb-2" color="success" size="small">
-              {{ t('smartQueryView.results.jobsStarted', { count: results.crawl_jobs.length }) }}
-            </v-chip>
-          </template>
-
-          <!-- Linked Sources -->
-          <template v-if="results.linked_sources_count">
-            <v-divider class="my-3" />
-            <div class="text-subtitle-2 mb-2">
-              <v-icon left size="small">mdi-link-variant</v-icon>
-              {{ t('smartQueryView.results.dataSourcesLink') }}
-            </div>
-            <v-chip color="primary" size="small">
-              {{ t('smartQueryView.results.dataSourcesLinked', { count: results.linked_sources_count }) }}
-            </v-chip>
-          </template>
-
-          <!-- AI Generation Steps -->
-          <template v-if="results.steps?.length > 0">
-            <v-divider class="my-3" />
-            <div class="text-subtitle-2 mb-2">
-              <v-icon left size="small">mdi-robot</v-icon>
-              {{ t('smartQueryView.results.aiGenerationSteps') }}
-            </div>
-            <v-timeline density="compact" side="end">
-              <v-timeline-item
-                v-for="(step, idx) in results.steps"
-                :key="idx"
-                :dot-color="step.success !== false ? 'success' : 'error'"
-                size="x-small"
-              >
-                <div>
-                  <div class="d-flex align-center">
-                    <v-icon :color="step.success !== false ? 'success' : 'error'" size="small" class="mr-2">
-                      {{ step.success !== false ? 'mdi-check' : 'mdi-close' }}
-                    </v-icon>
-                    <span class="text-body-2 font-weight-medium">{{ t('smartQueryView.results.step', { current: step.step, total: step.total }) }}</span>
-                  </div>
-                  <div class="text-caption text-medium-emphasis ml-6">{{ step.message }}</div>
-                  <div v-if="step.result" class="text-caption text-success ml-6">{{ step.result }}</div>
-                </div>
-              </v-timeline-item>
-            </v-timeline>
-          </template>
-
-          <!-- AI-Generated Search Terms -->
-          <template v-if="results.search_terms?.length > 0">
-            <v-divider class="my-3" />
-            <div class="text-subtitle-2 mb-2">
-              <v-icon left size="small">mdi-magnify</v-icon>
-              {{ t('smartQueryView.results.aiSearchTerms') }}
-            </div>
-            <v-chip
-              v-for="term in results.search_terms"
-              :key="term"
-              size="small"
-              class="mr-1 mb-1"
-              color="info"
-              variant="outlined"
-            >
-              {{ term }}
-            </v-chip>
-          </template>
-
-          <!-- AI-Generated URL Patterns -->
-          <template v-if="results.url_patterns?.include?.length > 0 || results.url_patterns?.exclude?.length > 0">
-            <v-divider class="my-3" />
-            <div class="text-subtitle-2 mb-2">
-              <v-icon left size="small">mdi-web</v-icon>
-              {{ t('smartQueryView.results.urlPatternConfig') }}
-            </div>
-            <div v-if="results.url_patterns?.reasoning" class="text-caption text-medium-emphasis mb-3">
-              {{ results.url_patterns.reasoning }}
-            </div>
-            <div v-if="results.url_patterns?.include?.length > 0" class="mb-2">
-              <div class="text-caption text-success mb-1">{{ t('smartQueryView.results.includePatterns') }}</div>
-              <v-chip
-                v-for="pattern in results.url_patterns.include"
-                :key="pattern"
-                size="small"
-                class="mr-1 mb-1"
-                color="success"
-                variant="tonal"
-              >
-                <code>{{ pattern }}</code>
-              </v-chip>
-            </div>
-            <div v-if="results.url_patterns?.exclude?.length > 0">
-              <div class="text-caption text-error mb-1">{{ t('smartQueryView.results.excludePatterns') }}</div>
-              <v-chip
-                v-for="pattern in results.url_patterns.exclude"
-                :key="pattern"
-                size="small"
-                class="mr-1 mb-1"
-                color="error"
-                variant="tonal"
-              >
-                <code>{{ pattern }}</code>
-              </v-chip>
-            </div>
-          </template>
-
-          <!-- AI Extraction Prompt -->
-          <template v-if="results.ai_extraction_prompt">
-            <v-divider class="my-3" />
-            <v-expansion-panels variant="accordion">
-              <v-expansion-panel>
-                <v-expansion-panel-title>
-                  <v-icon left size="small" class="mr-2">mdi-brain</v-icon>
-                  {{ t('smartQueryView.results.aiExtractionPrompt') }}
-                </v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  <pre class="text-caption text-pre-wrap">{{ results.ai_extraction_prompt }}</pre>
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-            </v-expansion-panels>
-          </template>
-
-          <!-- Combined Operation Results -->
-          <template v-if="results.operation_results?.length > 0">
-            <v-divider class="my-3" />
-            <div class="text-subtitle-2 mb-2">
-              <v-icon left size="small">mdi-format-list-checks</v-icon>
-              {{ t('smartQueryView.results.executedOperations') }}
-            </div>
-            <v-list density="compact" class="bg-transparent">
-              <v-list-item
-                v-for="(opResult, idx) in results.operation_results"
-                :key="idx"
-                :title="opResult.operation"
-                :subtitle="opResult.message"
-              >
-                <template v-slot:prepend>
-                  <v-icon :color="opResult.success ? 'success' : 'error'" size="small">
-                    {{ opResult.success ? 'mdi-check' : 'mdi-close' }}
-                  </v-icon>
-                </template>
-              </v-list-item>
-            </v-list>
-          </template>
-
-          <!-- Interpretation -->
-          <v-expansion-panels variant="accordion" class="mt-3">
-            <v-expansion-panel :title="t('smartQueryView.results.interpretation')">
-              <v-expansion-panel-text>
-                <pre class="text-caption">{{ JSON.stringify(results.interpretation, null, 2) }}</pre>
-              </v-expansion-panel-text>
-            </v-expansion-panel>
-          </v-expansion-panels>
-        </v-card-text>
-        <v-card-actions>
-          <v-btn variant="tonal" @click="resetAll">{{ t('smartQueryView.results.newCommand') }}</v-btn>
-          <v-spacer />
-          <v-btn
-            v-if="fromAssistant"
-            color="primary"
-            variant="elevated"
-            @click="sendResultsToAssistant"
-          >
-            <v-icon start>mdi-arrow-left</v-icon>
-            {{ t('smartQueryView.results.backToAssistant') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </template>
+    <SmartQueryWriteResults
+      v-if="results?.mode === 'write'"
+      :results="results"
+      :show-back-to-assistant="fromAssistant"
+      @new-command="resetAll"
+      @back-to-assistant="sendResultsToAssistant"
+    />
 
     <!-- Compound Query Results (multiple visualizations) -->
-    <transition name="compound-result" appear>
-      <div v-if="results?.is_compound" class="compound-results-wrapper">
+    <transition v-if="results?.is_compound" name="compound-result" appear>
+      <div class="compound-results-wrapper">
         <!-- Successful compound query with visualizations -->
         <template v-if="results?.visualizations?.length > 0">
           <v-card class="mb-4 content-reveal">
@@ -834,6 +437,11 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import { SmartQueryResult } from '@/components/smartquery/visualizations'
 import CompoundQueryResult from '@/components/smartquery/CompoundQueryResult.vue'
 import PlanModeChat from '@/components/smartquery/PlanModeChat.vue'
+import SmartQueryInputCard from '@/components/smartquery/SmartQueryInputCard.vue'
+import SmartQueryExamples from '@/components/smartquery/SmartQueryExamples.vue'
+import SmartQueryGenerationProgress from '@/components/smartquery/SmartQueryGenerationProgress.vue'
+import SmartQueryPreview from '@/components/smartquery/SmartQueryPreview.vue'
+import SmartQueryWriteResults from '@/components/smartquery/SmartQueryWriteResults.vue'
 
 // Types for attachments
 interface AttachmentInfo {
@@ -1015,54 +623,9 @@ async function removeAttachment(attachmentId: string) {
   pendingAttachments.value = pendingAttachments.value.filter(a => a.id !== attachmentId)
 }
 
-function getAttachmentIcon(contentType: string): string {
-  if (contentType.startsWith('image/')) {
-    return 'mdi-image'
-  }
-  if (contentType === 'application/pdf') {
-    return 'mdi-file-pdf-box'
-  }
-  return 'mdi-file'
-}
-
 // ============================================================================
 // AI Generation Progress
 const currentStep = ref(1)
-
-// Generation steps for timeline
-const generationSteps = computed(() => [
-  {
-    value: 1,
-    title: t('smartQueryView.generation.stepperTitles.entityType'),
-    subtitle: t('smartQueryView.generation.stepperSubtitles.entityType')
-  },
-  {
-    value: 2,
-    title: t('smartQueryView.generation.stepperTitles.category'),
-    subtitle: t('smartQueryView.generation.stepperSubtitles.category')
-  },
-  {
-    value: 3,
-    title: t('smartQueryView.generation.stepperTitles.crawlConfig'),
-    subtitle: t('smartQueryView.generation.stepperSubtitles.crawlConfig')
-  }
-])
-
-function getStepColor(stepValue: number): string {
-  if (currentStep.value > stepValue) return 'success'
-  if (currentStep.value === stepValue) return 'warning'
-  return 'grey'
-}
-
-// ============================================================================
-// Input computed properties
-const getInputPlaceholder = computed(() => {
-  if (isListening.value) return t('smartQueryView.input.placeholderListening')
-  if (currentMode.value === 'plan') return t('smartQueryView.plan.placeholder')
-  return currentMode.value === 'write'
-    ? t('smartQueryView.input.placeholderWrite')
-    : t('smartQueryView.input.placeholderRead')
-})
 
 const modeHint = computed(() => {
   const shortcut = t('smartQueryView.mode.shortcut')
@@ -1072,24 +635,6 @@ const modeHint = computed(() => {
   return currentMode.value === 'write'
     ? t('smartQueryView.mode.writeHint', { shortcut })
     : t('smartQueryView.mode.readHint', { shortcut })
-})
-
-const getSubmitButtonColor = computed(() => {
-  if (pendingAttachments.value.length > 0) return 'info'
-  if (currentMode.value === 'plan') return 'info'
-  return currentMode.value === 'write' ? 'warning' : 'primary'
-})
-
-const getSubmitButtonIcon = computed(() => {
-  if (pendingAttachments.value.length > 0) return 'mdi-image-search'
-  if (currentMode.value === 'plan') return 'mdi-send'
-  return currentMode.value === 'write' ? 'mdi-eye' : 'mdi-send'
-})
-
-const getSubmitButtonText = computed(() => {
-  if (pendingAttachments.value.length > 0) return t('smartQueryView.actions.analyzeImage')
-  if (currentMode.value === 'plan') return t('smartQueryView.actions.query')
-  return currentMode.value === 'write' ? t('smartQueryView.actions.preview') : t('smartQueryView.actions.query')
 })
 
 // ============================================================================
@@ -1457,29 +1002,6 @@ function getSourceTypeLabel(sourceType?: string): string {
   return labels[sourceType || ''] || sourceType || t('smartQueryView.sourceTypes.unknown')
 }
 
-function getItemTypeIcon(type: string): string {
-  const icons: Record<string, string> = {
-    entity: 'mdi-shape',
-    entity_type: 'mdi-folder-multiple',
-    facet_value: 'mdi-tag',
-    relation: 'mdi-arrow-right-bold',
-    category: 'mdi-shape-outline',
-    crawl_job: 'mdi-spider-web',
-  }
-  return icons[type] || 'mdi-check'
-}
-
-function getItemTypeColor(type: string): string {
-  const colors: Record<string, string> = {
-    entity: 'primary',
-    entity_type: 'purple',
-    facet_value: 'secondary',
-    relation: 'info',
-    category: 'orange',
-    crawl_job: 'success',
-  }
-  return colors[type] || 'grey'
-}
 
 function getInitials(name: string): string {
   return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
@@ -1608,128 +1130,6 @@ onMounted(() => {
   overflow: hidden;
 }
 
-/* Input Card */
-.input-card {
-  border-radius: 16px !important;
-  overflow: hidden;
-  transition: box-shadow 0.3s ease, border-color 0.3s ease;
-  border: 2px solid transparent;
-  position: sticky;
-  top: calc(var(--v-layout-top, 0px) + 12px);
-  z-index: 5;
-}
-
-.input-card--active {
-  border-color: rgba(var(--v-theme-primary), 0.3);
-  box-shadow: 0 4px 20px rgba(var(--v-theme-primary), 0.1);
-}
-
-.input-textarea {
-  padding: 16px 20px 8px;
-}
-
-.input-textarea :deep(.v-field__input) {
-  font-size: 1rem;
-  line-height: 1.6;
-}
-
-.interim-transcript {
-  background: rgba(var(--v-theme-error), 0.05);
-  margin: 0 16px 8px;
-  padding: 8px 12px;
-  border-radius: 8px;
-}
-
-.input-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 16px;
-  background: rgba(var(--v-theme-surface-variant), 0.3);
-}
-
-.submit-btn {
-  padding-left: 20px;
-  padding-right: 20px;
-}
-
-/* Examples Section */
-.examples-section {
-  animation: fadeIn 0.3s ease;
-}
-
-.examples-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
-  gap: 12px;
-}
-
-.example-card {
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border-radius: 12px !important;
-  display: flex;
-  align-items: center;
-}
-
-.example-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(var(--v-theme-primary), 0.4) !important;
-}
-
-.example-card--write:hover {
-  border-color: rgba(var(--v-theme-warning), 0.4) !important;
-}
-
-.example-card-content {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-right: 40px;
-  flex: 1 1 auto;
-  width: 100%;
-}
-
-.example-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  max-width: 100%;
-}
-
-.example-avatar {
-  transition: transform 0.2s ease;
-}
-
-.example-text-block {
-  min-width: 0;
-}
-
-.example-title,
-.example-question {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.example-card:hover .example-avatar {
-  transform: scale(1.05);
-}
-
-.example-arrow {
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  opacity: 0;
-  transform: translateY(-50%) translateX(-4px);
-  transition: all 0.2s ease;
-}
-
-.example-card:hover .example-arrow {
-  opacity: 1;
-  transform: translateY(-50%) translateX(0);
-}
-
 /* Loading Section */
 .loading-card {
   border-radius: 16px !important;
@@ -1737,19 +1137,6 @@ onMounted(() => {
 
 .loading-animation {
   animation: pulse 1.5s ease-in-out infinite;
-}
-
-.generation-card {
-  border-radius: 16px !important;
-  border-left: 4px solid rgb(var(--v-theme-warning));
-}
-
-.generation-icon {
-  animation: rotate 2s linear infinite;
-}
-
-.generation-timeline {
-  margin-left: 8px;
 }
 
 /* Interpretation Bar */
@@ -1805,20 +1192,7 @@ onMounted(() => {
   border-radius: 16px !important;
 }
 
-/* Voice Button Animation */
-.voice-btn-listening {
-  animation: pulse-voice 1.5s ease-in-out infinite;
-}
-
 /* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
 
 @keyframes slideUp {
   from {
@@ -1837,26 +1211,6 @@ onMounted(() => {
   }
   50% {
     opacity: 0.6;
-  }
-}
-
-@keyframes pulse-voice {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.15);
-    opacity: 0.85;
-  }
-}
-
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
   }
 }
 

@@ -786,6 +786,7 @@ import { useEntityStore } from '@/stores/entity'
 import { adminApi, userApi, entityApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useFeatureFlags } from '@/composables/useFeatureFlags'
+import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import EntityMapView from '@/components/entities/EntityMapView.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 
@@ -963,12 +964,11 @@ const tableHeaders = computed(() => {
   return headers
 })
 
-// Debounce helper
-let searchTimeout: ReturnType<typeof setTimeout> | null = null
-const debouncedLoadEntities = () => {
-  if (searchTimeout) clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => loadEntities(), 300)
-}
+// Debounce search - uses composable with automatic cleanup
+const { debouncedFn: debouncedLoadEntities } = useDebounce(
+  () => loadEntities(),
+  { delay: DEBOUNCE_DELAYS.SEARCH }
+)
 
 // Methods
 async function loadEntities(page = currentPage.value) {

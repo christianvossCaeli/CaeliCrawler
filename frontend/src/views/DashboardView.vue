@@ -188,10 +188,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
 import { useDashboardStore } from '@/stores/dashboard'
+import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import DashboardGrid from '@/widgets/DashboardGrid.vue'
 import WidgetConfigurator from '@/components/dashboard/WidgetConfigurator.vue'
 import CrawlPresetQuickActions from '@/components/crawler/CrawlPresetQuickActions.vue'
@@ -255,11 +256,11 @@ const resetCrawlerFilters = () => {
   updateFilteredCount()
 }
 
-let filterTimeout: ReturnType<typeof setTimeout> | null = null
-const debouncedUpdateFilteredCount = () => {
-  if (filterTimeout) clearTimeout(filterTimeout)
-  filterTimeout = setTimeout(() => updateFilteredCount(), 300)
-}
+// Debounced filter count update - uses composable with automatic cleanup
+const { debouncedFn: debouncedUpdateFilteredCount } = useDebounce(
+  () => updateFilteredCount(),
+  { delay: DEBOUNCE_DELAYS.SEARCH }
+)
 
 const updateFilteredCount = async () => {
   try {
@@ -343,10 +344,5 @@ onMounted(async () => {
   loadTotalSources()
 })
 
-onUnmounted(() => {
-  if (filterTimeout) {
-    clearTimeout(filterTimeout)
-    filterTimeout = null
-  }
-})
+// useDebounce handles cleanup automatically via its own onUnmounted
 </script>

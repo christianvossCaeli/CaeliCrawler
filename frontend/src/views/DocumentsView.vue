@@ -407,6 +407,7 @@ import { dataApi, adminApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
@@ -570,11 +571,11 @@ const loadCategories = async () => {
   }
 }
 
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-const debouncedLoadData = () => {
-  if (debounceTimer) clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => loadData(), 300)
-}
+// Debounce search - uses composable with automatic cleanup
+const { debouncedFn: debouncedLoadData } = useDebounce(
+  () => loadData(),
+  { delay: DEBOUNCE_DELAYS.SEARCH }
+)
 
 // Filter actions
 const toggleStatusFilter = (status: string) => {

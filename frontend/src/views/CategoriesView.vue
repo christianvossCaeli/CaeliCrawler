@@ -557,483 +557,58 @@
     </v-dialog>
 
     <!-- Delete Confirmation -->
-    <v-dialog v-model="deleteDialog" max-width="400">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon color="error" class="mr-2">mdi-alert</v-icon>
-          {{ $t('categories.dialog.delete') }}
-        </v-card-title>
-        <v-card-text>
-          {{ $t('categories.dialog.deleteConfirm', { name: selectedCategory?.name }) }}
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="deleteDialog = false">{{ $t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="error" @click="deleteCategory">{{ $t('common.delete') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <ConfirmDialog
+      v-model="deleteDialog"
+      :title="$t('categories.dialog.delete')"
+      :message="$t('categories.dialog.deleteConfirm', { name: selectedCategory?.name })"
+      :confirm-text="$t('common.delete')"
+      @confirm="deleteCategory"
+    />
 
     <!-- Reanalyze Confirmation -->
-    <v-dialog v-model="reanalyzeDialog" max-width="500">
-      <v-card>
-        <v-card-title>{{ $t('categories.dialog.reanalyze') }}</v-card-title>
-        <v-card-text>
-          <p class="mb-4">
-            {{ $t('categories.dialog.reanalyzeConfirm', { name: selectedCategory?.name }) }}
-          </p>
-          <v-switch
-            v-model="reanalyzeAll"
-            :label="$t('categories.dialog.reanalyzeAll')"
-            color="warning"
-          ></v-switch>
-          <v-alert type="info" variant="tonal" class="mt-2">
-            {{ reanalyzeAll ? $t('categories.dialog.reanalyzeAllDocs') : $t('categories.dialog.reanalyzeOnlyLow') }} {{ $t('categories.dialog.reanalyzeInfo') }}
-          </v-alert>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="reanalyzeDialog = false">{{ $t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="warning" @click="reanalyzeDocuments">{{ $t('categories.actions.reanalyze') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <CategoryReanalyzeDialog
+      v-model="reanalyzeDialog"
+      :category-name="selectedCategory?.name || ''"
+      v-model:reanalyze-all="reanalyzeAll"
+      @confirm="reanalyzeDocuments"
+    />
 
     <!-- Sources for Category Dialog -->
-    <v-dialog v-model="sourcesDialog" max-width="900">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon class="mr-2">mdi-database-outline</v-icon>
-          {{ $t('categories.dialog.sourcesFor') }} {{ selectedCategoryForSources?.name }}
-          <v-chip color="primary" size="small" class="ml-2">
-            {{ categorySources.length }} {{ $t('categories.crawler.sourcesCount') }}
-          </v-chip>
-        </v-card-title>
-        <v-card-text>
-          <!-- Category Summary -->
-          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
-            <div class="text-body-2">{{ selectedCategoryForSources?.purpose }}</div>
-          </v-alert>
-
-          <!-- Search -->
-          <v-text-field
-            v-model="categorySourcesSearch"
-            :label="$t('categories.dialog.searchSources')"
-            prepend-inner-icon="mdi-magnify"
-            variant="outlined"
-            density="compact"
-            clearable
-            class="mb-4"
-          ></v-text-field>
-
-          <!-- Sources List -->
-          <v-list v-if="filteredCategorySources.length > 0" lines="two" class="sources-list">
-            <v-list-item
-              v-for="source in filteredCategorySources"
-              :key="source.id"
-              :title="source.name"
-              :subtitle="source.base_url"
-            >
-              <template v-slot:prepend>
-                <v-avatar :color="getStatusColor(source.status)" size="36">
-                  <v-icon size="small" :color="getContrastColor(getStatusColor(source.status))">{{ getSourceTypeIcon(source.source_type) }}</v-icon>
-                </v-avatar>
-              </template>
-              <template v-slot:append>
-                <div class="d-flex align-center">
-                  <v-chip size="x-small" class="mr-2" :color="getStatusColor(source.status)">
-                    {{ source.status }}
-                  </v-chip>
-                  <v-chip size="x-small" color="info" variant="outlined" class="mr-2">
-                    {{ source.document_count || 0 }} {{ $t('categories.dialog.docs') }}
-                  </v-chip>
-                  <v-btn
-                    icon="mdi-open-in-new"
-                    size="x-small"
-                    variant="tonal"
-                    :href="source.base_url"
-                    target="_blank"
-                    :title="$t('categories.dialog.openUrl')"
-                  ></v-btn>
-                </div>
-              </template>
-            </v-list-item>
-          </v-list>
-
-          <v-alert v-else type="warning" variant="tonal">
-            <span v-if="categorySourcesSearch">{{ $t('categories.dialog.noSourcesSearch') }} "{{ categorySourcesSearch }}"</span>
-            <span v-else>{{ $t('categories.dialog.noSources') }}</span>
-          </v-alert>
-
-          <!-- Statistics -->
-          <v-divider class="my-4"></v-divider>
-          <v-row>
-            <v-col cols="3">
-              <div class="text-center">
-                <div class="text-h5 text-primary">{{ categorySourcesStats.total }}</div>
-                <div class="text-caption">{{ $t('categories.stats.total') }}</div>
-              </div>
-            </v-col>
-            <v-col cols="3">
-              <div class="text-center">
-                <div class="text-h5 text-success">{{ categorySourcesStats.active }}</div>
-                <div class="text-caption">{{ $t('categories.stats.active') }}</div>
-              </div>
-            </v-col>
-            <v-col cols="3">
-              <div class="text-center">
-                <div class="text-h5 text-warning">{{ categorySourcesStats.pending }}</div>
-                <div class="text-caption">{{ $t('categories.stats.pending') }}</div>
-              </div>
-            </v-col>
-            <v-col cols="3">
-              <div class="text-center">
-                <div class="text-h5 text-error">{{ categorySourcesStats.error }}</div>
-                <div class="text-caption">{{ $t('categories.stats.error') }}</div>
-              </div>
-            </v-col>
-          </v-row>
-        </v-card-text>
-        <v-card-actions>
-          <v-btn
-            color="primary"
-            variant="tonal"
-            @click="navigateToSourcesFiltered"
-          >
-            <v-icon left>mdi-filter</v-icon>{{ $t('categories.dialog.showAllInSourcesView') }}
-          </v-btn>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="sourcesDialog = false">{{ $t('common.close') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <CategorySourcesDialog
+      v-model="sourcesDialog"
+      :category="selectedCategoryForSources"
+      :sources="categorySources"
+      :stats="categorySourcesStats"
+      @navigate-to-sources="navigateToSourcesFiltered"
+    />
 
     <!-- Start Crawler Dialog -->
-    <v-dialog v-model="crawlerDialog" max-width="650">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon class="mr-2">mdi-spider-web</v-icon>
-          {{ $t('categories.crawler.title') }} {{ selectedCategoryForCrawler?.name }}
-        </v-card-title>
-        <v-card-text>
-          <!-- Estimated count -->
-          <v-alert :type="crawlerFilteredCount > 100 ? 'warning' : 'info'" class="mb-4">
-            <div class="d-flex align-center justify-space-between">
-              <span>
-                <strong>{{ crawlerFilteredCount.toLocaleString() }}</strong> {{ $t('categories.crawler.estimatedCount') }}
-              </span>
-              <v-btn
-                v-if="hasCrawlerFilter"
-                size="small"
-                variant="tonal"
-                @click="resetCrawlerFilters"
-              >
-                {{ $t('categories.crawler.resetFilters') }}
-              </v-btn>
-            </div>
-          </v-alert>
-
-          <v-row>
-            <v-col cols="12" md="6">
-              <v-text-field
-                v-model="crawlerFilter.search"
-                :label="$t('categories.crawler.search')"
-                prepend-inner-icon="mdi-magnify"
-                clearable
-                density="comfortable"
-                :hint="$t('categories.crawler.searchHint')"
-                @update:model-value="debouncedUpdateCrawlerCount"
-              ></v-text-field>
-            </v-col>
-            <v-col cols="12" md="6">
-              <v-number-input
-                v-model="crawlerFilter.limit"
-                :label="$t('categories.crawler.maxLimit')"
-                :min="1"
-                :max="10000"
-                prepend-inner-icon="mdi-numeric"
-                clearable
-                density="comfortable"
-                :hint="$t('categories.crawler.limitHint')"
-                persistent-hint
-                control-variant="stacked"
-                @update:model-value="updateCrawlerFilteredCount"
-              ></v-number-input>
-            </v-col>
-          </v-row>
-
-          <v-row>
-            <v-col cols="12" md="6">
-              <v-select
-                v-model="crawlerFilter.status"
-                :items="[
-                  { value: 'ACTIVE', label: t('categories.sourceTypes.ACTIVE') },
-                  { value: 'PENDING', label: t('categories.sourceTypes.PENDING') },
-                  { value: 'ERROR', label: t('categories.sourceTypes.ERROR') },
-                ]"
-                item-title="label"
-                item-value="value"
-                :label="$t('categories.filters.status')"
-                clearable
-                density="comfortable"
-                @update:model-value="updateCrawlerFilteredCount"
-              ></v-select>
-            </v-col>
-            <v-col cols="12" md="6">
-              <v-select
-                v-model="crawlerFilter.source_type"
-                :items="[
-                  { value: 'WEBSITE', label: t('categories.sourceTypes.WEBSITE') },
-                  { value: 'OPARL_API', label: t('categories.sourceTypes.OPARL_API') },
-                  { value: 'RSS', label: t('categories.sourceTypes.RSS') },
-                ]"
-                item-title="label"
-                item-value="value"
-                :label="$t('categories.crawler.typeFilter')"
-                clearable
-                density="comfortable"
-                @update:model-value="updateCrawlerFilteredCount"
-              ></v-select>
-            </v-col>
-          </v-row>
-
-          <v-divider class="my-4"></v-divider>
-
-          <!-- URL Patterns Info -->
-          <v-alert
-            v-if="selectedCategoryForCrawler?.url_include_patterns?.length || selectedCategoryForCrawler?.url_exclude_patterns?.length"
-            type="success"
-            variant="tonal"
-            density="compact"
-            class="mb-2"
-          >
-            <v-icon start>mdi-filter-check</v-icon>
-            {{ $t('categories.crawler.filterActive') }} {{ selectedCategoryForCrawler?.url_include_patterns?.length || 0 }} {{ $t('categories.crawler.includeCount') }}, {{ selectedCategoryForCrawler?.url_exclude_patterns?.length || 0 }} {{ $t('categories.crawler.excludeCount') }}
-          </v-alert>
-          <v-alert
-            v-else
-            type="warning"
-            variant="tonal"
-            density="compact"
-            class="mb-2"
-          >
-            <v-icon start>mdi-alert</v-icon>
-            {{ $t('categories.crawler.noFiltersWarning') }}
-          </v-alert>
-
-          <v-alert v-if="crawlerFilteredCount > 500" type="error" variant="tonal" density="compact">
-            <v-icon>mdi-alert</v-icon>
-            {{ $t('categories.crawler.tooManySources') }}
-          </v-alert>
-        </v-card-text>
-        <v-card-actions>
-          <v-chip size="small" variant="tonal">
-            {{ crawlerFilteredCount.toLocaleString() }} {{ $t('categories.crawler.sourcesCount') }}
-          </v-chip>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="crawlerDialog = false">{{ $t('common.cancel') }}</v-btn>
-          <v-btn
-            color="warning"
-            :loading="startingCrawler"
-            :disabled="crawlerFilteredCount === 0"
-            @click="startFilteredCrawl"
-          >
-            <v-icon left>mdi-play</v-icon>{{ $t('categories.crawler.start') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <CategoryCrawlerDialog
+      v-model="crawlerDialog"
+      :category="selectedCategoryForCrawler"
+      :filter="crawlerFilter"
+      :filtered-count="crawlerFilteredCount"
+      :starting="startingCrawler"
+      @update:filter="handleCrawlerFilterUpdate"
+      @reset-filters="resetCrawlerFilters"
+      @start="startFilteredCrawl"
+    />
 
     <!-- AI Setup Preview Dialog -->
-    <v-dialog v-model="aiPreviewDialog" max-width="900" persistent scrollable>
-      <v-card>
-        <v-card-title class="d-flex align-center pa-4 bg-info">
-          <v-avatar color="info-darken-1" size="40" class="mr-3">
-            <v-icon color="on-info">mdi-robot</v-icon>
-          </v-avatar>
-          <div>
-            <div class="text-h6">{{ $t('categories.aiPreview.title') }}</div>
-            <div class="text-caption opacity-80">{{ $t('categories.aiPreview.subtitle') }}</div>
-          </div>
-        </v-card-title>
-
-        <v-card-text v-if="aiPreviewLoading" class="pa-6 text-center">
-          <v-progress-circular indeterminate color="info" size="64" class="mb-4"></v-progress-circular>
-          <div class="text-h6">{{ $t('categories.aiPreview.generating') }}</div>
-          <div class="text-body-2 text-medium-emphasis">{{ $t('categories.aiPreview.generatingHint') }}</div>
-        </v-card-text>
-
-        <v-card-text v-else-if="aiPreviewData" class="pa-6">
-          <!-- EntityType Section -->
-          <v-card variant="outlined" class="mb-4">
-            <v-card-title class="text-subtitle-1 pb-2">
-              <v-icon start color="primary">mdi-shape</v-icon>
-              {{ $t('categories.aiPreview.entityType') }}
-            </v-card-title>
-            <v-card-text>
-              <v-radio-group v-model="selectedEntityTypeOption" hide-details>
-                <v-radio value="new" :label="$t('categories.aiPreview.createNew')">
-                  <template v-slot:label>
-                    <div>
-                      <span class="font-weight-medium">{{ $t('categories.aiPreview.createNew') }}: </span>
-                      <v-chip size="small" color="success" class="ml-1">{{ aiPreviewData.suggested_entity_type.name }}</v-chip>
-                      <span class="text-caption text-medium-emphasis ml-2">{{ aiPreviewData.suggested_entity_type.description }}</span>
-                    </div>
-                  </template>
-                </v-radio>
-                <v-radio
-                  v-for="et in aiPreviewData.existing_entity_types.slice(0, 5)"
-                  :key="et.id"
-                  :value="et.id"
-                >
-                  <template v-slot:label>
-                    <div>
-                      <span class="font-weight-medium">{{ $t('categories.aiPreview.useExisting') }}: </span>
-                      <v-chip size="small" color="primary" class="ml-1">{{ et.name }}</v-chip>
-                      <span class="text-caption text-medium-emphasis ml-2">{{ et.description }}</span>
-                    </div>
-                  </template>
-                </v-radio>
-              </v-radio-group>
-            </v-card-text>
-          </v-card>
-
-          <!-- FacetTypes Section -->
-          <v-card variant="outlined" class="mb-4">
-            <v-card-title class="text-subtitle-1 pb-2">
-              <v-icon start color="secondary">mdi-tag-multiple</v-icon>
-              {{ $t('categories.aiPreview.facetTypes') }}
-            </v-card-title>
-            <v-card-text>
-              <p class="text-body-2 text-medium-emphasis mb-3">{{ $t('categories.aiPreview.facetTypesHint') }}</p>
-              <v-checkbox
-                v-for="(ft, index) in aiPreviewData.suggested_facet_types"
-                :key="ft.slug"
-                v-model="selectedFacetTypes[index]"
-                hide-details
-                density="compact"
-              >
-                <template v-slot:label>
-                  <div class="d-flex align-center">
-                    <v-icon :color="ft.color" size="small" class="mr-2">{{ ft.icon }}</v-icon>
-                    <span class="font-weight-medium">{{ ft.name }}</span>
-                    <v-chip v-if="!ft.is_new" size="x-small" color="info" class="ml-2">{{ $t('categories.aiPreview.exists') }}</v-chip>
-                    <v-chip v-else size="x-small" color="success" class="ml-2">{{ $t('categories.aiPreview.new') }}</v-chip>
-                    <span class="text-caption text-medium-emphasis ml-2">{{ ft.description }}</span>
-                  </div>
-                </template>
-              </v-checkbox>
-            </v-card-text>
-          </v-card>
-
-          <!-- Extraction Prompt Section -->
-          <v-card variant="outlined" class="mb-4">
-            <v-card-title class="text-subtitle-1 pb-2">
-              <v-icon start color="info">mdi-text-box-edit</v-icon>
-              {{ $t('categories.aiPreview.extractionPrompt') }}
-            </v-card-title>
-            <v-card-text>
-              <v-textarea
-                v-model="editableExtractionPrompt"
-                rows="8"
-                variant="outlined"
-                :hint="$t('categories.aiPreview.promptHint')"
-                persistent-hint
-              ></v-textarea>
-            </v-card-text>
-          </v-card>
-
-          <!-- Search Terms & URL Patterns -->
-          <v-row>
-            <v-col cols="12" md="6">
-              <v-card variant="outlined" class="h-100">
-                <v-card-title class="text-subtitle-2 pb-2">
-                  <v-icon start size="small">mdi-magnify</v-icon>
-                  {{ $t('categories.aiPreview.searchTerms') }}
-                </v-card-title>
-                <v-card-text>
-                  <v-chip
-                    v-for="term in aiPreviewData.suggested_search_terms"
-                    :key="term"
-                    size="small"
-                    color="primary"
-                    variant="tonal"
-                    class="mr-1 mb-1"
-                  >
-                    {{ term }}
-                  </v-chip>
-                </v-card-text>
-              </v-card>
-            </v-col>
-            <v-col cols="12" md="6">
-              <v-card variant="outlined" class="h-100">
-                <v-card-title class="text-subtitle-2 pb-2">
-                  <v-icon start size="small">mdi-filter</v-icon>
-                  {{ $t('categories.aiPreview.urlPatterns') }}
-                </v-card-title>
-                <v-card-text>
-                  <div class="mb-2">
-                    <span class="text-caption font-weight-medium text-success">Include:</span>
-                    <v-chip
-                      v-for="pattern in aiPreviewData.suggested_url_include_patterns"
-                      :key="pattern"
-                      size="x-small"
-                      color="success"
-                      variant="tonal"
-                      class="ml-1 mb-1"
-                    >
-                      {{ pattern }}
-                    </v-chip>
-                    <span v-if="!aiPreviewData.suggested_url_include_patterns?.length" class="text-caption text-medium-emphasis">-</span>
-                  </div>
-                  <div>
-                    <span class="text-caption font-weight-medium text-error">Exclude:</span>
-                    <v-chip
-                      v-for="pattern in aiPreviewData.suggested_url_exclude_patterns"
-                      :key="pattern"
-                      size="x-small"
-                      color="error"
-                      variant="tonal"
-                      class="ml-1 mb-1"
-                    >
-                      {{ pattern }}
-                    </v-chip>
-                    <span v-if="!aiPreviewData.suggested_url_exclude_patterns?.length" class="text-caption text-medium-emphasis">-</span>
-                  </div>
-                </v-card-text>
-              </v-card>
-            </v-col>
-          </v-row>
-
-          <!-- Reasoning -->
-          <v-alert v-if="aiPreviewData.reasoning" type="info" variant="tonal" class="mt-4">
-            <div class="text-caption font-weight-medium mb-1">{{ $t('categories.aiPreview.reasoning') }}</div>
-            <div class="text-body-2">{{ aiPreviewData.reasoning }}</div>
-          </v-alert>
-        </v-card-text>
-
-        <v-divider></v-divider>
-
-        <v-card-actions class="pa-4">
-          <v-btn variant="tonal" @click="aiPreviewDialog = false">{{ $t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="grey" @click="saveWithoutAiSetup">
-            <v-icon start>mdi-content-save-outline</v-icon>
-            {{ $t('categories.aiPreview.saveWithoutAi') }}
-          </v-btn>
-          <v-spacer></v-spacer>
-          <v-btn
-            variant="tonal"
-            color="primary"
-            :loading="savingWithAi"
-            :disabled="aiPreviewLoading"
-            @click="saveWithAiSetup"
-          >
-            <v-icon start>mdi-check</v-icon>
-            {{ $t('categories.aiPreview.applyAndSave') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <CategoryAiPreviewDialog
+      v-model="aiPreviewDialog"
+      :loading="aiPreviewLoading"
+      :saving="savingWithAi"
+      :preview-data="aiPreviewData"
+      :selected-entity-type-option="selectedEntityTypeOption"
+      :selected-facet-types="selectedFacetTypes"
+      :extraction-prompt="editableExtractionPrompt"
+      @update:selected-entity-type-option="selectedEntityTypeOption = $event"
+      @update:extraction-prompt="editableExtractionPrompt = $event"
+      @update-facet-type="handleFacetTypeUpdate"
+      @save-without-ai="saveWithoutAiSetup"
+      @save-with-ai="saveWithAiSetup"
+    />
 
     <!-- Snackbar for feedback -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000">
@@ -1048,8 +623,14 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
 import { getContrastColor } from '@/composables/useColorHelpers'
+import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import ScheduleBuilder from '@/components/common/ScheduleBuilder.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import CategorySourcesDialog from '@/components/categories/CategorySourcesDialog.vue'
+import CategoryCrawlerDialog from '@/components/categories/CategoryCrawlerDialog.vue'
+import CategoryAiPreviewDialog from '@/components/categories/CategoryAiPreviewDialog.vue'
+import CategoryReanalyzeDialog from '@/components/categories/CategoryReanalyzeDialog.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -1059,6 +640,7 @@ const categories = ref<any[]>([])
 const dialog = ref(false)
 const categoryTab = ref('general')
 const deleteDialog = ref(false)
+const form = ref<InstanceType<typeof import('vuetify/components')['VForm']> | null>(null)
 const reanalyzeDialog = ref(false)
 const sourcesDialog = ref(false)
 const reanalyzeAll = ref(false)
@@ -1066,7 +648,6 @@ const editMode = ref(false)
 const selectedCategory = ref<any>(null)
 const selectedCategoryForSources = ref<any>(null)
 const categorySources = ref<any[]>([])
-const categorySourcesSearch = ref('')
 const categorySourcesLoading = ref(false)
 
 // DataSources Tab state
@@ -1210,6 +791,9 @@ const loadCategories = async () => {
     categories.value = response.data.items
   } catch (error) {
     console.error('Failed to load categories:', error)
+    snackbarText.value = t('categories.messages.loadError')
+    snackbarColor.value = 'error'
+    snackbar.value = true
   } finally {
     loading.value = false
   }
@@ -1259,6 +843,15 @@ const openEditDialog = async (category: any) => {
 }
 
 const saveCategory = async () => {
+  // Validate form before saving
+  const { valid } = await form.value?.validate() ?? { valid: false }
+  if (!valid) {
+    snackbarText.value = t('common.formValidationError') || 'Bitte füllen Sie alle Pflichtfelder aus'
+    snackbarColor.value = 'warning'
+    snackbar.value = true
+    return
+  }
+
   try {
     if (editMode.value) {
       // For edit mode, just save directly
@@ -1379,10 +972,16 @@ const confirmDelete = (category: any) => {
 const deleteCategory = async () => {
   try {
     await adminApi.deleteCategory(selectedCategory.value.id)
+    snackbarText.value = t('categories.messages.deleted')
+    snackbarColor.value = 'success'
+    snackbar.value = true
     deleteDialog.value = false
     loadCategories()
   } catch (error) {
     console.error('Failed to delete category:', error)
+    snackbarText.value = t('categories.messages.deleteError')
+    snackbarColor.value = 'error'
+    snackbar.value = true
   }
 }
 
@@ -1398,11 +997,21 @@ const crawlerFilter = ref({
   source_type: null as string | null,
 })
 
-const hasCrawlerFilter = computed(() => {
-  return crawlerFilter.value.search ||
-         crawlerFilter.value.status ||
-         crawlerFilter.value.source_type
-})
+// Handler for crawler filter updates from dialog component
+const handleCrawlerFilterUpdate = (newFilter: typeof crawlerFilter.value) => {
+  const searchChanged = newFilter.search !== crawlerFilter.value.search
+  crawlerFilter.value = newFilter
+  if (searchChanged) {
+    debouncedUpdateCrawlerCount()
+  } else {
+    updateCrawlerFilteredCount()
+  }
+}
+
+// Handler for facet type checkbox updates
+const handleFacetTypeUpdate = (payload: { index: number; value: boolean }) => {
+  selectedFacetTypes.value[payload.index] = payload.value
+}
 
 const resetCrawlerFilters = () => {
   crawlerFilter.value = {
@@ -1414,11 +1023,11 @@ const resetCrawlerFilters = () => {
   updateCrawlerFilteredCount()
 }
 
-let crawlerFilterTimeout: ReturnType<typeof setTimeout> | null = null
-const debouncedUpdateCrawlerCount = () => {
-  if (crawlerFilterTimeout) clearTimeout(crawlerFilterTimeout)
-  crawlerFilterTimeout = setTimeout(() => updateCrawlerFilteredCount(), 300)
-}
+// Debounced crawler count update - uses composable with automatic cleanup
+const { debouncedFn: debouncedUpdateCrawlerCount } = useDebounce(
+  () => updateCrawlerFilteredCount(),
+  { delay: DEBOUNCE_DELAYS.SEARCH }
+)
 
 const updateCrawlerFilteredCount = async () => {
   if (!selectedCategoryForCrawler.value) return
@@ -1514,17 +1123,6 @@ const reanalyzeDocuments = async () => {
 }
 
 // Computed properties for sources dialog
-const filteredCategorySources = computed(() => {
-  if (!categorySourcesSearch.value) {
-    return categorySources.value
-  }
-  const search = categorySourcesSearch.value.toLowerCase()
-  return categorySources.value.filter(s =>
-    s.name?.toLowerCase().includes(search) ||
-    s.base_url?.toLowerCase().includes(search)
-  )
-})
-
 const categorySourcesStats = computed(() => {
   const sources = categorySources.value
   return {
@@ -1558,7 +1156,6 @@ const getSourceTypeIcon = (type: string) => {
 
 const showSourcesForCategory = async (category: any) => {
   selectedCategoryForSources.value = category
-  categorySourcesSearch.value = ''
   categorySources.value = []
   sourcesDialog.value = true
   categorySourcesLoading.value = true
@@ -1595,6 +1192,9 @@ const loadAvailableTags = async () => {
   } catch (error) {
     console.error('Failed to load available tags:', error)
     availableTags.value = []
+    snackbarText.value = t('categories.messages.tagsLoadError')
+    snackbarColor.value = 'error'
+    snackbar.value = true
   }
 }
 
@@ -1669,6 +1269,8 @@ const assignSourcesByTags = async () => {
 onMounted(() => {
   loadCategories()
 })
+
+// useDebounce handles cleanup automatically via its own onUnmounted
 </script>
 
 <style scoped>

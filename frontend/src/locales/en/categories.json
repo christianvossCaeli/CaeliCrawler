@@ -143,7 +143,11 @@
       "reanalyzeStarted": "Reanalysis started",
       "reanalyzeError": "Error starting reanalysis",
       "sourcesLoadError": "Error loading data sources",
-      "saveError": "Error saving"
+      "saveError": "Error saving",
+      "loadError": "Error loading analysis topics",
+      "deleteError": "Error deleting analysis topic",
+      "aiPreviewError": "Error generating AI preview",
+      "tagsLoadError": "Error loading available tags"
     },
     "aiPreview": {
       "title": "AI Setup Suggestions",

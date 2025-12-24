@@ -302,15 +302,82 @@ class DataQueryService:
         if not entities:
             return []
 
-        # Get facet types
+        # Get facet types - bulk load instead of N+1 queries
         ft_result = await self.session.execute(
             select(FacetType).where(FacetType.slug.in_(facet_type_slugs))
         )
         facet_types = {ft.slug: ft for ft in ft_result.scalars().all()}
 
         entity_ids = [e.id for e in entities]
-        results = []
 
+        # Separate history and regular facet types
+        history_facet_types = {slug: ft for slug, ft in facet_types.items() if ft.value_type == "history"}
+        regular_facet_types = {slug: ft for slug, ft in facet_types.items() if ft.value_type != "history"}
+
+        # Bulk load latest history values using window function
+        history_by_entity: Dict[UUID, Dict[str, Any]] = {eid: {} for eid in entity_ids}
+        if history_facet_types:
+            history_ft_ids = [ft.id for ft in history_facet_types.values()]
+            history_subquery = (
+                select(
+                    FacetValueHistory.entity_id,
+                    FacetValueHistory.facet_type_id,
+                    FacetValueHistory.value,
+                    FacetValueHistory.value_label,
+                    FacetValueHistory.recorded_at,
+                    func.row_number().over(
+                        partition_by=[FacetValueHistory.entity_id, FacetValueHistory.facet_type_id],
+                        order_by=FacetValueHistory.recorded_at.desc()
+                    ).label("rn")
+                )
+                .where(
+                    FacetValueHistory.entity_id.in_(entity_ids),
+                    FacetValueHistory.facet_type_id.in_(history_ft_ids),
+                )
+            ).subquery()
+
+            history_query = select(history_subquery).where(history_subquery.c.rn == 1)
+            history_result = await self.session.execute(history_query)
+
+            # Build lookup: facet_type_id -> slug
+            ft_id_to_slug = {ft.id: slug for slug, ft in history_facet_types.items()}
+
+            for row in history_result.all():
+                ft_slug = ft_id_to_slug.get(row.facet_type_id)
+                if ft_slug:
+                    history_by_entity[row.entity_id][ft_slug] = {
+                        "value": row.value,
+                        "value_label": row.value_label,
+                        "recorded_at": row.recorded_at.isoformat() if row.recorded_at else None,
+                    }
+
+        # Bulk load regular facet values
+        facets_by_entity: Dict[UUID, Dict[str, Any]] = {eid: {} for eid in entity_ids}
+        if regular_facet_types:
+            regular_ft_ids = [ft.id for ft in regular_facet_types.values()]
+            fv_result = await self.session.execute(
+                select(FacetValue)
+                .where(
+                    FacetValue.entity_id.in_(entity_ids),
+                    FacetValue.facet_type_id.in_(regular_ft_ids),
+                    FacetValue.is_active.is_(True),
+                )
+            )
+
+            # Build lookup: facet_type_id -> slug
+            ft_id_to_slug = {ft.id: slug for slug, ft in regular_facet_types.items()}
+
+            for fv in fv_result.scalars().all():
+                ft_slug = ft_id_to_slug.get(fv.facet_type_id)
+                if ft_slug and ft_slug not in facets_by_entity[fv.entity_id]:
+                    # Only keep first (in case of multiple values)
+                    facets_by_entity[fv.entity_id][ft_slug] = {
+                        "value": fv.value,
+                        "text": fv.text_representation,
+                    }
+
+        # Build results using pre-loaded data
+        results = []
         for entity in entities:
             entity_data = {
                 "entity_id": str(entity.id),
@@ -318,46 +385,11 @@ class DataQueryService:
                 "facets": {},
             }
 
-            for ft_slug, ft in facet_types.items():
-                if ft.value_type == "history":
-                    # Get latest history point
-                    history_query = (
-                        select(FacetValueHistory)
-                        .where(
-                            FacetValueHistory.entity_id == entity.id,
-                            FacetValueHistory.facet_type_id == ft.id,
-                        )
-                        .order_by(FacetValueHistory.recorded_at.desc())
-                        .limit(1)
-                    )
-                    history_result = await self.session.execute(history_query)
-                    latest = history_result.scalar_one_or_none()
+            # Add history facets
+            entity_data["facets"].update(history_by_entity.get(entity.id, {}))
 
-                    if latest:
-                        entity_data["facets"][ft_slug] = {
-                            "value": latest.value,
-                            "value_label": latest.value_label,
-                            "recorded_at": latest.recorded_at.isoformat() if latest.recorded_at else None,
-                        }
-                else:
-                    # Get regular facet value
-                    fv_query = (
-                        select(FacetValue)
-                        .where(
-                            FacetValue.entity_id == entity.id,
-                            FacetValue.facet_type_id == ft.id,
-                            FacetValue.is_active.is_(True),
-                        )
-                        .limit(1)
-                    )
-                    fv_result = await self.session.execute(fv_query)
-                    facet_value = fv_result.scalar_one_or_none()
-
-                    if facet_value:
-                        entity_data["facets"][ft_slug] = {
-                            "value": facet_value.value,
-                            "text": facet_value.text_representation,
-                        }
+            # Add regular facets
+            entity_data["facets"].update(facets_by_entity.get(entity.id, {}))
 
             results.append(entity_data)
 

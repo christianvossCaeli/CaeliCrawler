@@ -5,12 +5,13 @@ import time
 from typing import AsyncGenerator, Dict, List, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Body, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.models.user import User, UserRole
+from app.core.rate_limit import check_rate_limit
 from app.schemas.assistant import (
     AssistantChatRequest,
     AssistantChatResponse,
@@ -124,6 +125,7 @@ router = APIRouter()
 
 @router.post("/chat", response_model=AssistantChatResponse)
 async def chat(
+    http_request: Request,
     request: AssistantChatRequest,
     session: AsyncSession = Depends(get_session),
     current_user: Optional[User] = Depends(get_current_user_optional),
@@ -165,6 +167,10 @@ async def chat(
     - `help`: Help information
     - `error`: Error message
     """
+    # Rate limiting
+    user_id = str(current_user.id) if current_user else None
+    await check_rate_limit(http_request, "assistant_chat", identifier=user_id)
+
     # Load attachments if provided
     attachments = []
     for attachment_id in request.attachment_ids:
@@ -196,6 +202,7 @@ async def chat(
 
 @router.post("/chat-stream")
 async def chat_stream(
+    http_request: Request,
     request: AssistantChatRequest,
     session: AsyncSession = Depends(get_session),
     current_user: Optional[User] = Depends(get_current_user_optional),
@@ -226,6 +233,10 @@ async def chat_stream(
     data: [DONE]
     ```
     """
+    # Rate limiting
+    user_id = str(current_user.id) if current_user else None
+    await check_rate_limit(http_request, "assistant_stream", identifier=user_id)
+
     # Load attachments if provided
     attachments = []
     for attachment_id in request.attachment_ids:
@@ -288,6 +299,7 @@ MAX_ATTACHMENT_SIZE = AssistantConstants.ATTACHMENT_MAX_SIZE_MB * 1024 * 1024
 
 @router.post("/upload", response_model=AttachmentUploadResponse)
 async def upload_attachment(
+    http_request: Request,
     file: UploadFile = File(...),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> AttachmentUploadResponse:
@@ -302,6 +314,10 @@ async def upload_attachment(
 
     Returns an attachment ID that can be included in chat requests.
     """
+    # Rate limiting
+    user_id = str(current_user.id) if current_user else None
+    await check_rate_limit(http_request, "assistant_upload", identifier=user_id)
+
     # Validate content type
     if file.content_type not in ALLOWED_ATTACHMENT_TYPES:
         raise HTTPException(
@@ -508,6 +524,7 @@ async def create_facet_type_via_assistant(
 
 @router.post("/execute-action", response_model=ActionExecuteResponse)
 async def execute_action(
+    http_request: Request,
     request: ActionExecuteRequest,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -524,6 +541,9 @@ async def execute_action(
 
     Requires EDITOR or ADMIN role.
     """
+    # Rate limiting
+    await check_rate_limit(http_request, "assistant_execute", identifier=str(current_user.id))
+
     # Check if user has edit permissions
     allowed_roles = [UserRole.ADMIN, UserRole.EDITOR]
     if not current_user.is_superuser and current_user.role not in allowed_roles:
@@ -713,6 +733,7 @@ async def get_insights(
 
 @router.post("/batch-action", response_model=BatchActionResponse)
 async def batch_action(
+    http_request: Request,
     request: BatchActionRequest,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -738,6 +759,9 @@ async def batch_action(
 
     Requires EDITOR or ADMIN role.
     """
+    # Rate limiting (batch operations are expensive)
+    await check_rate_limit(http_request, "assistant_batch", identifier=str(current_user.id))
+
     # Check permissions
     allowed_roles = [UserRole.ADMIN, UserRole.EDITOR]
     if not current_user.is_superuser and current_user.role not in allowed_roles:

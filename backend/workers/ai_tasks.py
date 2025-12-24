@@ -227,6 +227,7 @@ def analyze_document(self, document_id: str, skip_relevance_check: bool = False)
 
             except Exception as e:
                 logger.exception("AI analysis failed", document_id=document_id)
+                document.processing_status = ProcessingStatus.FAILED
                 document.processing_error = f"AI analysis error: {str(e)}"
 
             await session.commit()
@@ -536,20 +537,27 @@ async def _resolve_entity(
     session: "AsyncSession",
     entity_type_slug: str,
     entity_name: str,
+    similarity_threshold: float = 0.85,
 ) -> Optional[UUID]:
     """
-    Resolve an entity name to its UUID.
+    Resolve an entity name to its UUID using exact and similarity matching.
+
+    Uses a two-phase approach:
+    1. Exact match on normalized name
+    2. Similarity matching if no exact match found
 
     Args:
         session: Database session
         entity_type_slug: Entity type slug
         entity_name: Entity name to resolve
+        similarity_threshold: Minimum similarity score for fuzzy matching (default: 0.85)
 
     Returns:
         Entity UUID if found, None otherwise
     """
     from app.models import Entity, EntityType
     from app.utils.text import normalize_entity_name
+    from app.utils.similarity import find_similar_entities
     from sqlalchemy import select
 
     try:
@@ -562,10 +570,9 @@ async def _resolve_entity(
         if not entity_type:
             return None
 
-        # Normalize name for matching
+        # Phase 1: Exact match on normalized name
         name_normalized = normalize_entity_name(entity_name, country="DE")
 
-        # Find entity by normalized name
         entity_result = await session.execute(
             select(Entity).where(
                 Entity.entity_type_id == entity_type.id,
@@ -575,7 +582,29 @@ async def _resolve_entity(
         )
         entity = entity_result.scalar_one_or_none()
 
-        return entity.id if entity else None
+        if entity:
+            return entity.id
+
+        # Phase 2: Similarity matching
+        similar_entities = await find_similar_entities(
+            session,
+            entity_type.id,
+            entity_name,
+            threshold=similarity_threshold,
+            limit=1,
+        )
+
+        if similar_entities:
+            matched_entity, score = similar_entities[0]
+            logger.info(
+                "Resolved entity via similarity matching",
+                search_name=entity_name,
+                matched_name=matched_entity.name,
+                similarity_score=score,
+            )
+            return matched_entity.id
+
+        return None
 
     except Exception as e:
         logger.warning(

@@ -13,7 +13,7 @@ export type ExtractionHandler = 'default' | 'event';
 /**
  * ISO 639-1 language codes supported by the system
  */
-export type LanguageCode = 'de' | 'en' | 'fr' | 'nl' | 'it' | 'es' | 'pl' | 'da' | 'pt' | 'sv' | 'no' | 'fi' | 'cs' | 'hu' | 'ro' | 'bg' | 'el' | 'tr' | 'ru' | 'uk' | 'ar' | 'zh' | 'ja' | 'ko';
+export type LanguageCode = 'de' | 'en' | 'fr' | 'nl' | 'it' | 'es' | 'pl' | 'da' | 'pt' | 'sv' | 'no' | 'fi' | 'cs' | 'hu' | 'ro' | 'bg' | 'el' | 'tr' | 'ru' | 'uk' | 'ar' | 'zh' | 'ja' | 'ko' | string;
 
 /**
  * Base category fields shared between create/update/response
@@ -51,8 +51,37 @@ export interface CategoryBase {
 
 /**
  * Request body for creating a new category
+ * All base fields are optional except name and purpose
  */
-export interface CategoryCreate extends CategoryBase {
+export interface CategoryCreate {
+  /** Category name (1-255 characters) */
+  name: string;
+  /** Optional description */
+  description?: string | null;
+  /** Purpose of this category */
+  purpose: string;
+  /** Search terms for document matching */
+  search_terms: string[];
+  /** Document types to search for */
+  document_types: string[];
+  /** Regex patterns - URLs must match at least one (if set) */
+  url_include_patterns?: string[];
+  /** Regex patterns - URLs matching any will be skipped */
+  url_exclude_patterns?: string[];
+  /** Language codes for this category */
+  languages: LanguageCode[];
+  /** Custom AI extraction prompt */
+  ai_extraction_prompt?: string | null;
+  /** Handler for processing extractions (defaults to 'default') */
+  extraction_handler?: ExtractionHandler;
+  /** Cron expression for scheduled crawls */
+  schedule_cron?: string;
+  /** Whether category is active for crawling */
+  is_active?: boolean;
+  /** If true, visible to all users */
+  is_public?: boolean;
+  /** Target EntityType for extracted entities */
+  target_entity_type_id?: string | null;
   /** URL-friendly slug (auto-generated if not provided) */
   slug?: string | null;
 }
@@ -190,4 +219,44 @@ export function isCategoryApiError(error: unknown): error is CategoryApiError {
     'message' in error &&
     'status_code' in error
   );
+}
+
+/**
+ * Query parameters for listing documents
+ */
+export interface DocumentListParams {
+  /** Filter by category ID */
+  category_id?: string;
+  /** Filter by source ID */
+  source_id?: string;
+  /** Filter by location */
+  location?: string;
+  /** Filter by status */
+  status?: string;
+  /** Filter by processing status */
+  processing_status?: string;
+  /** Filter from date (ISO 8601) */
+  from_date?: string;
+  /** Filter to date (ISO 8601) */
+  to_date?: string;
+  /** Page number (1-based) */
+  page?: number;
+  /** Items per page */
+  per_page?: number;
+  /** Search in document content */
+  search?: string;
+}
+
+/**
+ * Query parameters for export
+ */
+export interface ExportListParams {
+  /** Filter from date (ISO 8601) */
+  from_date?: string;
+  /** Filter to date (ISO 8601) */
+  to_date?: string;
+  /** Filter by entity type */
+  entity_type?: string;
+  /** Limit number of results */
+  limit?: number;
 }

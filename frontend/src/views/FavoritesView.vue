@@ -168,6 +168,7 @@ import { useI18n } from 'vue-i18n'
 import { useFavoritesStore, type Favorite } from '@/stores/favorites'
 import { useEntityStore } from '@/stores/entity'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
 
 const { t } = useI18n()
@@ -282,12 +283,11 @@ function formatDate(dateStr: string): string {
   })
 }
 
-// Debounce search
-let searchTimeout: ReturnType<typeof setTimeout> | null = null
-function debouncedSearch() {
-  if (searchTimeout) clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => loadFavorites(1), 300)
-}
+// Debounce search - uses composable with automatic cleanup
+const { debouncedFn: debouncedSearch } = useDebounce(
+  () => loadFavorites(1),
+  { delay: DEBOUNCE_DELAYS.SEARCH }
+)
 
 // Init
 onMounted(async () => {
