@@ -208,6 +208,20 @@ RATE_LIMITS = {
     "assistant_upload": {"max_requests": 20, "window_seconds": 60},  # 20 per minute
     "assistant_execute": {"max_requests": 20, "window_seconds": 60},  # 20 per minute
     "assistant_batch": {"max_requests": 5, "window_seconds": 60},  # 5 per minute (heavy)
+
+    # Custom Summaries
+    "summary_create": {"max_requests": 10, "window_seconds": 60},  # 10 per minute (AI calls)
+    "summary_list": {"max_requests": 60, "window_seconds": 60},  # 60 per minute (reads)
+    "summary_read": {"max_requests": 60, "window_seconds": 60},  # 60 per minute (reads)
+    "summary_update": {"max_requests": 30, "window_seconds": 60},  # 30 per minute
+    "summary_delete": {"max_requests": 10, "window_seconds": 60},  # 10 per minute
+    "summary_execute": {"max_requests": 20, "window_seconds": 60},  # 20 per minute (expensive)
+    "summary_share": {"max_requests": 10, "window_seconds": 60},  # 10 per minute
+    "summary_export": {"max_requests": 5, "window_seconds": 60},  # 5 per minute (PDF generation)
+
+    # Public Shared Summary Access (stricter limits, prevent brute force)
+    "shared_summary_access": {"max_requests": 20, "window_seconds": 60},  # 20 per minute
+    "shared_summary_export": {"max_requests": 5, "window_seconds": 60},  # 5 per minute
 }
 
 

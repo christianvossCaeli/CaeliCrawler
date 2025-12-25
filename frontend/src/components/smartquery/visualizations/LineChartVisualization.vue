@@ -168,7 +168,7 @@ const chartOptions = computed(() => {
             if (label && isTimeSeries) {
               try {
                 const date = new Date(label)
-                return date.toLocaleDateString('de-DE', {
+                return date.toLocaleDateString(undefined, {
                   day: '2-digit',
                   month: '2-digit',
                   year: 'numeric',
@@ -182,7 +182,7 @@ const chartOptions = computed(() => {
           label: (context: any) => {
             const value = context.parsed.y
             if (typeof value === 'number') {
-              return `${context.dataset.label}: ${value.toLocaleString('de-DE')}`
+              return `${context.dataset.label}: ${value.toLocaleString()}`
             }
             return `${context.dataset.label}: ${value}`
           },
@@ -223,7 +223,7 @@ const chartOptions = computed(() => {
         },
         ticks: {
           callback: function(tickValue: string | number) {
-            return Number(tickValue).toLocaleString('de-DE')
+            return Number(tickValue).toLocaleString()
           },
         },
       },

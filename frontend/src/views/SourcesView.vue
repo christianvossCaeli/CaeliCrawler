@@ -334,6 +334,9 @@ import { useSourceHelpers } from '@/composables/useSourceHelpers'
 import { PageHeader, ErrorBoundary } from '@/components/common'
 import { SEARCH, TABLE_HEADERS, ACTION_CLEANUP_DELAY } from '@/config/sources'
 import type { BulkImportState, DataSourceResponse, SourceType, SourceStatus } from '@/types/sources'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('SourcesView')
 
 // =============================================================================
 // Lazy-loaded Dialog Components (heavy, only loaded when needed)
@@ -528,7 +531,7 @@ const saveSource = async () => {
     formDialog.value = false
     showSnackbar(t('sources.messages.saved'), 'success')
   } catch (error) {
-    console.error('Failed to save source:', error)
+    logger.error('Failed to save source:', error)
     showSnackbar(store.error || t('sources.errors.saveFailed'), 'error')
   }
 }
@@ -548,7 +551,7 @@ const showCategoryInfo = (categoryId: string) => {
  * Handle errors from dialog error boundaries
  */
 const onDialogError = (error: Error, info: string) => {
-  console.error('[SourcesView] Dialog error:', error, info)
+  logger.error('[SourcesView] Dialog error:', error, info)
   showSnackbar(t('common.errorOccurred'), 'error')
 }
 
@@ -572,7 +575,7 @@ const handleDeleteSource = async () => {
     deleteDialog.value = false
     showSnackbar(t('sources.messages.deleted'), 'success')
   } catch (error) {
-    console.error('Failed to delete source:', error)
+    logger.error('Failed to delete source:', error)
     showSnackbar(t('sources.errors.deleteFailed'), 'error')
   } finally {
     deleting.value = false
@@ -593,7 +596,7 @@ const handleStartCrawl = async (source: DataSourceResponse) => {
     await store.startCrawl(source)
     showSnackbar(t('sources.messages.crawlStarted', { name: source.name }), 'success')
   } catch (error) {
-    console.error('Failed to start crawl:', error)
+    logger.error('Failed to start crawl:', error)
     showSnackbar(t('sources.messages.crawlError'), 'error')
   } finally {
     // Only cleanup if no newer action has started (prevents race condition)
@@ -616,7 +619,7 @@ const handleResetSource = async (source: DataSourceResponse) => {
     await store.resetSource(source)
     showSnackbar(t('sources.messages.reset', { name: source.name }), 'success')
   } catch (error) {
-    console.error('Failed to reset source:', error)
+    logger.error('Failed to reset source:', error)
     showSnackbar(t('sources.messages.resetError'), 'error')
   } finally {
     // Only cleanup after delay (no intermediate false state)
@@ -649,7 +652,7 @@ const handleBulkImport = async (data: BulkImportState) => {
       'success'
     )
   } catch (error) {
-    console.error('Bulk import failed:', error)
+    logger.error('Bulk import failed:', error)
     // Extract detailed error message from API response
     const apiError = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
     const errorDetail = apiError.response?.data?.detail

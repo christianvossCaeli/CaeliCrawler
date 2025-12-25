@@ -3,7 +3,7 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Query, status
+from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,8 +12,31 @@ from app.models.user import User, UserRole
 from app.core.security import decode_access_token, decode_sse_ticket
 from app.core.token_blacklist import is_token_blacklisted
 
+
+class HTTPBearer401(HTTPBearer):
+    """
+    Custom HTTPBearer that returns 401 instead of 403 when credentials are missing.
+
+    This follows REST API best practices:
+    - 401 Unauthorized: No credentials or invalid credentials
+    - 403 Forbidden: Valid credentials but insufficient permissions
+    """
+
+    async def __call__(self, request: Request) -> Optional[HTTPAuthorizationCredentials]:
+        try:
+            return await super().__call__(request)
+        except HTTPException as exc:
+            if exc.status_code == 403:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Not authenticated",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            raise
+
+
 # HTTP Bearer token security scheme
-security = HTTPBearer()
+security = HTTPBearer401()
 security_optional = HTTPBearer(auto_error=False)
 
 

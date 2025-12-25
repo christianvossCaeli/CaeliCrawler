@@ -4,9 +4,25 @@
  *
  * Provides consistent styling, loading states, error handling,
  * and refresh functionality for all widget types.
+ *
+ * @slot default - Widget content
+ * @slot-prop {boolean} loading - Current loading state
+ * @slot-prop {() => void} refresh - Function to trigger a refresh
+ * @slot-prop {(msg: string | null) => void} setError - Function to set error message
+ * @slot-prop {(val: boolean) => void} setLoading - Function to control loading state
+ *
+ * @example
+ * ```vue
+ * <BaseWidget :definition="def" @refresh="loadData">
+ *   <template #default="{ loading, setError }">
+ *     <div v-if="loading">Loading...</div>
+ *     <div v-else>Content</div>
+ *   </template>
+ * </BaseWidget>
+ * ```
  */
 
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, shallowRef, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { WidgetDefinition, WidgetConfig } from './types'
 
@@ -27,14 +43,11 @@ const { t } = useI18n()
 const loading = ref(false)
 const error = ref<string | null>(null)
 const lastRefresh = ref<Date | null>(null)
-let refreshTimer: ReturnType<typeof setInterval> | null = null
+// Use shallowRef for timer to avoid deep reactivity issues
+const refreshTimerId = shallowRef<ReturnType<typeof setInterval> | null>(null)
 
 // Computed
 const widgetTitle = computed(() => t(props.definition.name))
-
-const hasRefreshInterval = computed(
-  () => props.definition.refreshInterval && props.definition.refreshInterval > 0
-)
 
 const timeSinceRefresh = computed(() => {
   if (!lastRefresh.value) return null
@@ -60,35 +73,47 @@ const refresh = async () => {
   }
 }
 
-const setupAutoRefresh = () => {
-  if (hasRefreshInterval.value && props.definition.refreshInterval) {
-    refreshTimer = setInterval(refresh, props.definition.refreshInterval)
-  }
-}
-
+/**
+ * Clear any existing auto-refresh timer
+ */
 const clearAutoRefresh = () => {
-  if (refreshTimer) {
-    clearInterval(refreshTimer)
-    refreshTimer = null
+  if (refreshTimerId.value !== null) {
+    clearInterval(refreshTimerId.value)
+    refreshTimerId.value = null
   }
 }
 
-// Lifecycle
+/**
+ * Setup auto-refresh timer based on definition.refreshInterval
+ * Always clears existing timer first to prevent multiple timers
+ */
+const setupAutoRefresh = () => {
+  // Always clear first to ensure only one timer exists
+  clearAutoRefresh()
+
+  const interval = props.definition.refreshInterval
+  if (interval && interval > 0) {
+    refreshTimerId.value = setInterval(refresh, interval)
+  }
+}
+
+// Lifecycle - setup timer on mount
 onMounted(() => {
   setupAutoRefresh()
 })
 
+// Lifecycle - always cleanup on unmount
 onUnmounted(() => {
   clearAutoRefresh()
 })
 
-// Watch for changes in refresh interval
+// Watch for changes in refresh interval and reconfigure timer
 watch(
   () => props.definition.refreshInterval,
   () => {
-    clearAutoRefresh()
     setupAutoRefresh()
-  }
+  },
+  { flush: 'sync' } // Sync flush ensures timer is updated immediately
 )
 
 // Expose methods for parent components
@@ -105,6 +130,7 @@ defineExpose({
 
 <template>
   <v-card
+    :data-testid="`widget-${definition.type}`"
     :class="['widget-card', { 'widget-editing': isEditing }]"
     :elevation="isEditing ? 4 : 1"
     rounded="lg"
@@ -134,6 +160,7 @@ defineExpose({
         size="x-small"
         variant="text"
         :loading="loading"
+        data-testid="widget-refresh-btn"
         @click="refresh"
       >
         <v-icon size="small">mdi-refresh</v-icon>
@@ -144,6 +171,7 @@ defineExpose({
         icon
         size="x-small"
         variant="text"
+        data-testid="widget-config-btn"
         @click="emit('configure')"
       >
         <v-icon size="small">mdi-cog</v-icon>
@@ -152,9 +180,14 @@ defineExpose({
 
     <v-divider />
 
-    <v-card-text class="widget-content pa-3">
-      <!-- Loading State -->
-      <div v-if="loading && !$slots.default" class="d-flex justify-center py-4">
+    <v-card-text class="widget-content pa-3" data-testid="widget-content">
+      <!-- Loading State (only show if no slot content provided) -->
+      <div
+        v-if="loading && !$slots.default"
+        class="d-flex justify-center py-4"
+        role="status"
+        :aria-label="$t('common.loading')"
+      >
         <v-progress-circular indeterminate size="32" />
       </div>
 
@@ -165,6 +198,7 @@ defineExpose({
         density="compact"
         variant="tonal"
         class="mb-0"
+        role="alert"
       >
         {{ error }}
         <template #append>
@@ -174,8 +208,14 @@ defineExpose({
         </template>
       </v-alert>
 
-      <!-- Content -->
-      <slot v-else :loading="loading" :refresh="refresh" />
+      <!-- Content - pass setError and setLoading to children via slot props -->
+      <slot
+        v-else
+        :loading="loading"
+        :refresh="refresh"
+        :set-error="(msg: string | null) => error = msg"
+        :set-loading="(val: boolean) => loading = val"
+      />
     </v-card-text>
 
     <!-- Edit Mode Overlay -->

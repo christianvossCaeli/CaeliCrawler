@@ -226,6 +226,10 @@
       "unknownEntity": "Unknown",
       "ariaLabel": "Map visualization showing geographic data",
       "interactiveMap": "Interactive map - use mouse to pan and zoom"
+    },
+    "calendar": {
+      "noEvents": "No events in this period",
+      "viewDetails": "View details"
     }
   },
   "sourceInfo": {

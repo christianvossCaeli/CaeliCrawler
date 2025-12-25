@@ -116,6 +116,9 @@ import { useTheme } from 'vuetify'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { entityApi } from '@/services/api'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('EntityMapView')
 
 interface Props {
   entityTypeSlug?: string
@@ -186,7 +189,6 @@ async function initMap() {
     attributionControl: {},
   })
 
-  // @ts-expect-error MapLibre types cause deep instantiation error
   // Add navigation controls
   map.value.addControl(new maplibregl.NavigationControl(), 'top-right')
   map.value.addControl(new maplibregl.ScaleControl(), 'bottom-right')
@@ -401,7 +403,7 @@ async function loadGeoData() {
       map.value.fitBounds(bounds, { padding: 50, maxZoom: 10 })
     }
   } catch (error) {
-    console.error('Failed to load GeoJSON data:', error)
+    logger.error('Failed to load GeoJSON data:', error)
   } finally {
     loading.value = false
   }

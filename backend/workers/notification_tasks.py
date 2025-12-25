@@ -7,6 +7,7 @@ from typing import Any, Dict
 import structlog
 
 from workers.celery_app import celery_app
+from workers.async_runner import run_async
 
 logger = structlog.get_logger()
 
@@ -35,7 +36,7 @@ def send_notification(self, notification_id: str):
             success = await service.send_notification(notification_id)
             return success
 
-    result = asyncio.run(_send())
+    result = run_async(_send())
 
     logger.info(
         "Notification send task completed",
@@ -81,7 +82,7 @@ def emit_event(event_type: str, payload: Dict[str, Any]):
 
             return notification_ids
 
-    notification_ids = asyncio.run(_emit())
+    notification_ids = run_async(_emit())
 
     logger.info(
         "Event emitted",
@@ -177,7 +178,7 @@ def process_digests():
             await session.commit()
             return processed_count
 
-    count = asyncio.run(_process())
+    count = run_async(_process())
 
     logger.info(
         "Digest processing completed",
@@ -206,7 +207,7 @@ def retry_failed():
 
             return len(notifications)
 
-    count = asyncio.run(_retry())
+    count = run_async(_retry())
 
     logger.info(
         "Retry task completed",
@@ -231,7 +232,7 @@ def cleanup_old():
             deleted_count = await service.cleanup_old_notifications(days=90)
             return deleted_count
 
-    count = asyncio.run(_cleanup())
+    count = run_async(_cleanup())
 
     logger.info(
         "Cleanup task completed",
@@ -260,7 +261,7 @@ def send_pending():
 
             return len(notifications)
 
-    count = asyncio.run(_send_pending())
+    count = run_async(_send_pending())
 
     logger.info(
         "Send pending task completed",

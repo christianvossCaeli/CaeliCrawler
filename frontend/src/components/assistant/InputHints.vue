@@ -229,23 +229,39 @@ const visibleHints = computed(() => {
     .slice(0, 3)
 })
 
-// Highlight the trigger word in the hint text
+// Escape HTML to prevent XSS
+function escapeHtml(str: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  }
+  return str.replace(/[&<>"']/g, (c) => map[c])
+}
+
+// Highlight the trigger word in the hint text (with XSS protection)
 function highlightTrigger(text: string, trigger: string | RegExp): string {
+  // First escape the text to prevent XSS
+  const escapedText = escapeHtml(text)
+
   if (trigger instanceof RegExp) {
     // For regex triggers, we highlight based on common keywords
-    const keywords = text.match(/"([^"]+)"/g)
+    // Match quoted text in the escaped string (quotes are now &quot;)
+    const keywords = escapedText.match(/&quot;([^&]+)&quot;/g)
     if (keywords) {
-      let result = text
+      let result = escapedText
       keywords.forEach(kw => {
         result = result.replace(kw, `<strong>${kw}</strong>`)
       })
       return result
     }
-    return text
+    return escapedText
   }
 
-  const escapedTrigger = trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return text.replace(new RegExp(`(${escapedTrigger})`, 'gi'), '<strong>$1</strong>')
+  const escapedTrigger = escapeHtml(trigger).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return escapedText.replace(new RegExp(`(${escapedTrigger})`, 'gi'), '<strong>$1</strong>')
 }
 </script>
 

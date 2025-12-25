@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="900" @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog v-model="modelValue" max-width="900">
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon class="mr-2">mdi-database-outline</v-icon>
@@ -102,7 +102,7 @@
           <v-icon left>mdi-filter</v-icon>{{ t('categories.dialog.showAllInSourcesView') }}
         </v-btn>
         <v-spacer></v-spacer>
-        <v-btn variant="tonal" @click="$emit('update:modelValue', false)">{{ t('common.close') }}</v-btn>
+        <v-btn variant="tonal" @click="modelValue = false">{{ t('common.close') }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -112,6 +112,7 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getContrastColor } from '@/composables/useColorHelpers'
+import { useStatusColors } from '@/composables'
 
 // Types
 interface Source {
@@ -136,9 +137,10 @@ interface Stats {
   error: number
 }
 
+const modelValue = defineModel<boolean>()
+
 // Props
 const props = defineProps<{
-  modelValue: boolean
   category: Category | null
   sources: Source[]
   stats: Stats
@@ -146,11 +148,11 @@ const props = defineProps<{
 
 // Emits
 defineEmits<{
-  'update:modelValue': [value: boolean]
   navigateToSources: []
 }>()
 
 const { t } = useI18n()
+const { getStatusColor } = useStatusColors()
 
 // Local state
 const searchQuery = ref('')
@@ -166,16 +168,7 @@ const filteredSources = computed(() => {
   )
 })
 
-// Helper functions
-function getStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    active: 'success',
-    pending: 'warning',
-    error: 'error',
-    inactive: 'grey',
-  }
-  return colors[status?.toLowerCase()] || 'grey'
-}
+// Helper functions - getStatusColor now from useStatusColors composable
 
 function getSourceTypeIcon(sourceType?: string): string {
   const icons: Record<string, string> = {

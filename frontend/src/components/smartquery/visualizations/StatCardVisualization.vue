@@ -86,7 +86,7 @@ function formatStatValue(value: any, unit?: string): string {
 
   let formatted: string
   if (typeof value === 'number') {
-    formatted = value.toLocaleString('de-DE')
+    formatted = value.toLocaleString()
   } else {
     formatted = String(value)
   }

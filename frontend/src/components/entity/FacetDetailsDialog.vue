@@ -1,11 +1,11 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="800" scrollable @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog v-model="modelValue" max-width="800" scrollable>
     <v-card v-if="facetGroup">
       <v-card-title class="d-flex align-center">
         <v-icon :icon="facetGroup.facet_type_icon" :color="facetGroup.facet_type_color" class="mr-2"></v-icon>
         {{ facetGroup.facet_type_name }}
         <v-spacer></v-spacer>
-        <v-btn icon="mdi-close" variant="tonal" @click="$emit('update:modelValue', false)" :aria-label="t('common.close')"></v-btn>
+        <v-btn icon="mdi-close" variant="tonal" @click="modelValue = false" :aria-label="t('common.close')"></v-btn>
       </v-card-title>
       <v-card-text>
         <div class="d-flex flex-column ga-3">
@@ -154,6 +154,8 @@ import { useI18n } from 'vue-i18n'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 
+const modelValue = defineModel<boolean>()
+
 // Types
 interface FacetGroup {
   facet_type_id: string
@@ -178,14 +180,12 @@ interface FacetValue {
 
 // Props
 defineProps<{
-  modelValue: boolean
   facetGroup: FacetGroup | null
   facetValues: FacetValue[]
 }>()
 
 // Emits
 defineEmits<{
-  'update:modelValue': [value: boolean]
   verify: [id: string]
   copyEmail: [email: string]
 }>()

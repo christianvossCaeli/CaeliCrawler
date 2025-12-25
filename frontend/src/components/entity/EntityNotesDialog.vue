@@ -1,11 +1,11 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="700" scrollable @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog v-model="modelValue" max-width="700" scrollable>
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon start>mdi-note-text</v-icon>
         {{ t('entityDetail.notes') }}
         <v-spacer></v-spacer>
-        <v-btn icon="mdi-close" variant="tonal" @click="$emit('update:modelValue', false)" :aria-label="t('common.close')"></v-btn>
+        <v-btn icon="mdi-close" variant="tonal" @click="modelValue = false" :aria-label="t('common.close')"></v-btn>
       </v-card-title>
       <v-card-text>
         <!-- Add Note Form -->
@@ -83,9 +83,10 @@ interface Note {
   created_at: string
 }
 
+const modelValue = defineModel<boolean>()
+
 // Props
 defineProps<{
-  modelValue: boolean
   notes: Note[]
   newNote: string
   savingNote: boolean
@@ -93,7 +94,6 @@ defineProps<{
 
 // Emits
 defineEmits<{
-  'update:modelValue': [value: boolean]
   'update:newNote': [value: string]
   saveNote: []
   deleteNote: [noteId: string]

@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="600" scrollable @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog v-model="modelValue" max-width="600" scrollable>
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon start>{{ editing ? 'mdi-pencil' : 'mdi-link-plus' }}</v-icon>
@@ -122,9 +122,10 @@ interface TargetEntity {
   entity_type_name?: string
 }
 
+const modelValue = defineModel<boolean>()
+
 // Props
 defineProps<{
-  modelValue: boolean
   editing: boolean
   relationTypeId: string
   direction: 'outgoing' | 'incoming'
@@ -140,7 +141,6 @@ defineProps<{
 
 // Emits
 defineEmits<{
-  'update:modelValue': [value: boolean]
   'update:relationTypeId': [value: string]
   'update:direction': [value: 'outgoing' | 'incoming']
   'update:targetEntityId': [value: string]

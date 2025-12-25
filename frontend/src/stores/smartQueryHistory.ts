@@ -7,6 +7,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { smartQueryHistoryApi } from '@/services/api'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('SmartQueryHistoryStore')
 
 export interface SmartQueryOperation {
   id: string
@@ -85,7 +88,7 @@ export const useSmartQueryHistoryStore = defineStore('smartQueryHistory', () => 
       // Update favoriteIds set for quick lookup
       favoriteIds.value = new Set(history.value.filter((op) => op.is_favorite).map((op) => op.id))
     } catch (e) {
-      console.error('Failed to load Smart Query history:', e)
+      logger.error('Failed to load Smart Query history:', e)
       error.value = 'Failed to load history'
     } finally {
       isLoading.value = false
@@ -114,7 +117,7 @@ export const useSmartQueryHistoryStore = defineStore('smartQueryHistory', () => 
 
       return newState
     } catch (e) {
-      console.error('Failed to toggle favorite:', e)
+      logger.error('Failed to toggle favorite:', e)
       error.value = 'Failed to toggle favorite'
       return false
     }
@@ -137,7 +140,7 @@ export const useSmartQueryHistoryStore = defineStore('smartQueryHistory', () => 
 
       return response.data
     } catch (e) {
-      console.error('Failed to execute from history:', e)
+      logger.error('Failed to execute from history:', e)
       error.value = 'Failed to execute operation'
       throw e
     }
@@ -160,7 +163,7 @@ export const useSmartQueryHistoryStore = defineStore('smartQueryHistory', () => 
 
       return true
     } catch (e) {
-      console.error('Failed to delete from history:', e)
+      logger.error('Failed to delete from history:', e)
       error.value = 'Failed to delete operation'
       return false
     }
@@ -185,7 +188,7 @@ export const useSmartQueryHistoryStore = defineStore('smartQueryHistory', () => 
 
       return true
     } catch (e) {
-      console.error('Failed to clear history:', e)
+      logger.error('Failed to clear history:', e)
       error.value = 'Failed to clear history'
       return false
     }

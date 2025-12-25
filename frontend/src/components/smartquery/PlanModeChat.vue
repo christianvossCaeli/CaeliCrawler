@@ -118,6 +118,46 @@
         </div>
       </div>
 
+      <!-- Summary Suggestion Card -->
+      <div
+        v-if="summarySuggestion"
+        class="summary-suggestion-section"
+        role="region"
+        :aria-label="t('summaries.createDialog.title', 'Als Zusammenfassung speichern')"
+      >
+        <v-card
+          class="summary-suggestion-card"
+          color="info"
+          variant="tonal"
+        >
+          <v-card-title class="d-flex align-center">
+            <v-icon start aria-hidden="true">mdi-view-dashboard-variant</v-icon>
+            {{ t('summaries.dashboard.suggestion', 'Als Zusammenfassung speichern?') }}
+          </v-card-title>
+          <v-card-text>
+            <p class="text-body-2 mb-4">
+              {{ t('summaries.dashboard.suggestionHint', 'Diese Abfrage kann als automatisch aktualisierte Zusammenfassung gespeichert werden.') }}
+            </p>
+            <div class="d-flex ga-2">
+              <v-btn
+                color="info"
+                variant="elevated"
+                @click="$emit('save-as-summary', generatedPrompt?.prompt || getLastQuery())"
+              >
+                <v-icon start>mdi-content-save</v-icon>
+                {{ t('summaries.createNew', 'Als Zusammenfassung speichern') }}
+              </v-btn>
+              <v-btn
+                variant="text"
+                @click="dismissSummarySuggestion"
+              >
+                {{ t('common.dismiss', 'Später') }}
+              </v-btn>
+            </div>
+          </v-card-text>
+        </v-card>
+      </div>
+
       <!-- Generated Prompt Card -->
       <div
         v-if="generatedPrompt"
@@ -238,6 +278,9 @@ import { ref, watch, nextTick, computed, onMounted, onUnmounted, type ComponentP
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('PlanModeChat')
 
 interface Message {
   role: 'user' | 'assistant'
@@ -272,11 +315,35 @@ defineEmits<{
   (e: 'adopt-prompt', prompt: string, mode: 'read' | 'write'): void
   (e: 'validate', prompt: string, mode: 'read' | 'write'): void
   (e: 'reset'): void
+  (e: 'save-as-summary', prompt: string): void
 }>()
 
 const { t } = useI18n()
 const conversationRef = ref<HTMLElement | null>(null)
 const generatedPromptRef = ref<HTMLElement | null>(null)
+
+// Summary suggestion state
+const summarySuggestionDismissed = ref(false)
+
+// Detect if any message contains a summary suggestion
+const summarySuggestion = computed(() => {
+  if (summarySuggestionDismissed.value) return false
+  return props.conversation.some(msg =>
+    msg.role === 'assistant' &&
+    msg.content.includes('[SUMMARY_SUGGESTION]')
+  )
+})
+
+// Get the last user query for summary creation
+function getLastQuery(): string {
+  const userMessages = props.conversation.filter(m => m.role === 'user')
+  return userMessages.length > 0 ? userMessages[userMessages.length - 1].content : ''
+}
+
+// Dismiss summary suggestion
+function dismissSummarySuggestion() {
+  summarySuggestionDismissed.value = true
+}
 
 // ARIA live region announcement
 const liveAnnouncement = ref('')
@@ -410,13 +477,16 @@ function formatMessage(content: string): string {
   if (!content) return ''
 
   try {
+    // Remove summary suggestion blocks - they're shown as a separate card
+    let cleanedContent = content.replace(/\[SUMMARY_SUGGESTION\][\s\S]*?\[\/SUMMARY_SUGGESTION\]/g, '')
+
     // Parse markdown to HTML
-    const html = marked.parse(content) as string
+    const html = marked.parse(cleanedContent) as string
 
     // Sanitize with DOMPurify - hook handles link security attributes
     return DOMPurify.sanitize(html, purifyConfig)
   } catch (error) {
-    console.error('Markdown parsing failed:', error)
+    logger.error('Markdown parsing failed:', error)
     // Fallback: escape HTML and convert newlines to <br>
     return escapeHtml(content).replace(/\n/g, '<br>')
   }
@@ -740,6 +810,16 @@ onUnmounted(() => {
   .thinking-indicator .dot:nth-child(3) {
     opacity: 1;
   }
+}
+
+/* Summary Suggestion Section */
+.summary-suggestion-section {
+  padding: 0 16px;
+  margin-bottom: 16px;
+}
+
+.summary-suggestion-card {
+  border-radius: 12px !important;
 }
 
 /* Generated Prompt Section */

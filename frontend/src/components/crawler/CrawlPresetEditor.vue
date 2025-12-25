@@ -177,6 +177,9 @@ import { useCrawlPresetsStore, type CrawlPreset, type CrawlPresetFilters, cleanF
 import { crawlPresetsApi, entityApi, adminApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import ScheduleBuilder from '@/components/common/ScheduleBuilder.vue'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('CrawlPresetEditor')
 
 const { t } = useI18n()
 const presetsStore = useCrawlPresetsStore()
@@ -248,7 +251,7 @@ onMounted(async () => {
       name: et.name,
     }))
   } catch (error) {
-    console.error('Failed to load entity types:', error)
+    logger.error('Failed to load entity types:', error)
   } finally {
     entityTypesLoading.value = false
   }
@@ -259,7 +262,7 @@ onMounted(async () => {
     const response = await adminApi.getAvailableTags()
     availableTags.value = response.data.tags || []
   } catch (error) {
-    console.error('Failed to load tags:', error)
+    logger.error('Failed to load tags:', error)
   } finally {
     tagsLoading.value = false
   }
@@ -369,7 +372,7 @@ async function loadPreview() {
       previewData.value = response.data
     }
   } catch (error) {
-    console.error('Failed to load preview:', error)
+    logger.error('Failed to load preview:', error)
     previewData.value = {
       sources_count: 0,
       sources_preview: [],

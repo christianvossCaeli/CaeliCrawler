@@ -36,6 +36,13 @@ export {
 export { usePySisHelpers } from './usePySisHelpers'
 export { useAssistant } from './useAssistant'
 export { useColorHelpers, isLightColor, getContrastColor } from './useColorHelpers'
+export {
+  useStatusColors,
+  getStatusColor,
+  getStatusIcon,
+  STATUS_COLORS,
+  STATUS_ICONS,
+} from './useStatusColors'
 export { useSourceHelpers } from './useSourceHelpers'
 export { useErrorHandler, type ApiError, type ErrorHandlerOptions, ERROR_MESSAGES } from './useErrorHandler'
 export {
@@ -73,7 +80,13 @@ export {
   useLogger,
   configureLogger,
   resetLoggerConfig,
+  getLoggerConfig,
   logger,
+  type LogLevel,
+  type LogEntry,
+  type LoggerConfig,
+  type PerformanceTimer,
+  type PerformanceLogEntry,
 } from './useLogger'
 export {
   useEntitySearch,
@@ -102,3 +115,19 @@ export {
   useLazyVisualizations,
   type LazyComponentOptions,
 } from './useLazyComponent'
+export {
+  useDialogFocus,
+  useFocusTrap,
+  type UseDialogFocusOptions,
+  type UseDialogFocusReturn,
+} from './useDialogFocus'
+export { useEntityExport, type ExportOptions as EntityExportOptions, type ExportData } from './useEntityExport'
+export { useEntityNotes, type Note } from './useEntityNotes'
+export { useEntityRelations, type Relation } from './useEntityRelations'
+export { useEntityDataSources, type DataSource } from './useEntityDataSources'
+export {
+  useEntityEnrichment,
+  type EnrichmentTaskStatus,
+  type EnrichmentPreviewData,
+} from './useEntityEnrichment'
+export { useEntityFacets, type NewFacet } from './useEntityFacets'

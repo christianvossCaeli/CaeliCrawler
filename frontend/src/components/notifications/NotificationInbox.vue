@@ -6,6 +6,7 @@
         variant="tonal"
         color="primary"
         :disabled="unreadCount === 0"
+        :aria-label="t('notifications.messages.markAllRead')"
         @click="handleMarkAllRead"
       >
         {{ t('notifications.messages.markAllRead') }}
@@ -48,19 +49,21 @@
       </v-row>
 
       <!-- Loading -->
-      <v-progress-linear v-if="loading" indeterminate class="mb-4" />
+      <v-progress-linear v-if="loading" indeterminate class="mb-4" role="status" :aria-label="t('common.loading')" />
 
       <!-- Notification List -->
-      <v-list v-if="notifications.length > 0" lines="three">
+      <v-list v-if="notifications.length > 0" lines="three" role="list" :aria-label="t('notifications.inbox.notificationsList')">
         <v-list-item
           v-for="notification in notifications"
           :key="notification.id"
           :class="getUnreadClass(notification)"
           @click="openNotification(notification)"
           class="mb-2 rounded"
+          role="listitem"
+          :aria-label="`${notification.title} - ${notification.read_at ? t('notifications.read') : t('notifications.unread')}`"
         >
           <template v-slot:prepend>
-            <v-icon :color="getEventTypeColor(notification.event_type)" class="mr-3">
+            <v-icon :color="getEventTypeColor(notification.event_type)" class="mr-3" aria-hidden="true">
               {{ getEventTypeIcon(notification.event_type) }}
             </v-icon>
           </template>
@@ -72,6 +75,7 @@
               size="x-small"
               color="primary"
               class="ml-2"
+              role="status"
             >
               {{ t('common.new') }}
             </v-chip>
@@ -108,10 +112,10 @@
   </v-card>
 
   <!-- Notification Detail Dialog -->
-  <v-dialog v-model="detailDialog" max-width="600">
+  <v-dialog v-model="detailDialog" max-width="600" role="dialog" aria-modal="true">
     <v-card v-if="selectedNotification">
       <v-card-title class="d-flex align-center">
-        <v-icon :color="getEventTypeColor(selectedNotification.event_type)" class="mr-2">
+        <v-icon :color="getEventTypeColor(selectedNotification.event_type)" class="mr-2" aria-hidden="true">
           {{ getEventTypeIcon(selectedNotification.event_type) }}
         </v-icon>
         {{ selectedNotification.title }}

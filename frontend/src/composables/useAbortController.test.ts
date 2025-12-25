@@ -1,7 +1,7 @@
 /**
  * Tests for useAbortController composable
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   useAbortController,
   useMultiAbortController,
@@ -149,7 +149,7 @@ describe('useMultiAbortController', () => {
     })
 
     it('should abort previous controller with same name', () => {
-      const { reset, getSignal } = useMultiAbortController()
+      const { reset } = useMultiAbortController()
 
       const firstSignal = reset('users')
       reset('users')

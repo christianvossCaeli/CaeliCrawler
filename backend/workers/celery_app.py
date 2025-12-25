@@ -8,7 +8,10 @@ from celery.signals import (
     task_failure,
     task_retry,
     task_success,
+    task_revoked,
     worker_process_init,
+    worker_process_shutdown,
+    worker_shutdown,
 )
 
 import structlog
@@ -35,6 +38,8 @@ celery_app = Celery(
         "workers.api_template_tasks",
         "workers.crawl_preset_tasks",
         "workers.api_facet_sync_tasks",
+        "workers.summary_tasks",
+        "workers.maintenance_tasks",
     ],
 )
 
@@ -70,16 +75,20 @@ celery_app.conf.update(
         "workers.api_template_tasks.*": {"queue": "processing"},
         "workers.crawl_preset_tasks.*": {"queue": "crawl"},
         "workers.api_facet_sync_tasks.*": {"queue": "processing"},
+        "workers.summary_tasks.*": {"queue": "processing"},
+        "workers.maintenance_tasks.*": {"queue": "default"},  # Lightweight, runs on default
     },
 
     # Default queue
     task_default_queue="default",
 
     # Beat schedule for periodic tasks
+    # NOTE: Task frequencies are tuned to balance responsiveness with connection usage
+    # Higher frequencies = more DB connections, lower frequencies = slower response
     beat_schedule={
         "check-scheduled-crawls": {
             "task": "workers.crawl_tasks.check_scheduled_crawls",
-            "schedule": timedelta(seconds=5),  # High-frequency for seconds-level schedules
+            "schedule": timedelta(seconds=30),  # Reduced from 5s to prevent connection exhaustion
         },
         "cleanup-old-jobs": {
             "task": "workers.crawl_tasks.cleanup_old_jobs",
@@ -132,7 +141,7 @@ celery_app.conf.update(
         # Crawl Preset scheduling
         "check-scheduled-presets": {
             "task": "workers.crawl_preset_tasks.check_scheduled_presets",
-            "schedule": timedelta(seconds=5),  # High-frequency for seconds-level schedules
+            "schedule": timedelta(seconds=30),  # Reduced from 5s to prevent connection exhaustion
         },
         "cleanup-archived-presets": {
             "task": "workers.crawl_preset_tasks.cleanup_archived_presets",
@@ -142,6 +151,24 @@ celery_app.conf.update(
         "check-scheduled-api-syncs": {
             "task": "workers.api_facet_sync_tasks.check_scheduled_api_syncs",
             "schedule": crontab(minute="*"),  # Every minute
+        },
+        # Custom Summary scheduling
+        "check-scheduled-summaries": {
+            "task": "workers.summary_tasks.check_scheduled_summaries",
+            "schedule": timedelta(seconds=60),  # Every minute
+        },
+        "cleanup-summary-executions": {
+            "task": "workers.summary_tasks.cleanup_old_executions",
+            "schedule": crontab(hour=3, minute=30),  # Daily at 3:30 AM
+        },
+        # Database connection maintenance
+        "cleanup-idle-connections": {
+            "task": "workers.maintenance_tasks.cleanup_idle_connections",
+            "schedule": timedelta(minutes=5),  # Every 5 minutes - safety net for orphaned connections
+        },
+        "log-connection-stats": {
+            "task": "workers.maintenance_tasks.log_connection_stats",
+            "schedule": timedelta(minutes=15),  # Every 15 minutes - for monitoring
         },
     },
 )
@@ -154,16 +181,55 @@ celery_app.conf.task_default_priority = 5
 @worker_process_init.connect
 def configure_worker(**kwargs):
     """Configure worker process on initialization."""
-    # Apply nest_asyncio ONLY in worker processes
-    # This is necessary because Celery tasks use asyncio.run() with asyncpg
-    # which requires nested event loop support
-    import nest_asyncio
-    nest_asyncio.apply()
+    # NOTE: We intentionally DO NOT apply nest_asyncio anymore.
+    # nest_asyncio was causing issues with asyncpg connections getting
+    # "attached to a different loop". Instead, each task uses run_async()
+    # which creates a fresh event loop per task execution.
 
     # Reset the database engine for this worker process
     # This ensures each worker has its own connection pool
     from app.database import reset_celery_engine
     reset_celery_engine()
+
+    logger.info("worker_process_initialized", pid=kwargs.get("pid"))
+
+
+@worker_process_shutdown.connect
+def cleanup_worker_process(**kwargs):
+    """Clean up database connections when worker process shuts down."""
+    import asyncio
+    from app.database import dispose_celery_engine_async
+
+    logger.info("worker_process_shutting_down", pid=kwargs.get("pid"))
+
+    try:
+        # Create a new event loop for cleanup since the existing one may be closed
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(dispose_celery_engine_async())
+        finally:
+            loop.close()
+    except Exception as e:
+        logger.warning("worker_process_cleanup_error", error=str(e))
+
+
+@worker_shutdown.connect
+def cleanup_worker(**kwargs):
+    """Clean up when the worker itself shuts down."""
+    logger.info("worker_shutting_down")
+
+
+@task_revoked.connect
+def handle_task_revoked(sender=None, request=None, terminated=False, signum=None, expired=False, **kwargs):
+    """Log when tasks are revoked (cancelled)."""
+    logger.warning(
+        "task_revoked",
+        task_name=sender.name if sender else "unknown",
+        task_id=request.id if request else None,
+        terminated=terminated,
+        expired=expired,
+    )
 
 
 # =============================================================================

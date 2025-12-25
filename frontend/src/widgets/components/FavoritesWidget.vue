@@ -7,6 +7,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useFavoritesStore, type Favorite } from '@/stores/favorites'
+import { handleKeyboardClick } from '../composables'
 import BaseWidget from '../BaseWidget.vue'
 import type { WidgetDefinition, WidgetConfig } from '../types'
 
@@ -20,11 +21,15 @@ const { t } = useI18n()
 const router = useRouter()
 const store = useFavoritesStore()
 const loading = ref(true)
+const error = ref<string | null>(null)
 
 const refresh = async () => {
   loading.value = true
+  error.value = null
   try {
     await store.loadFavorites({ page: 1 })
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : t('common.loadError')
   } finally {
     loading.value = false
   }
@@ -43,6 +48,7 @@ const favorites = computed(() => store.favorites.slice(0, 8))
 const hasMore = computed(() => store.total > 8)
 
 function navigateToEntity(fav: Favorite) {
+  if (props.isEditing) return
   if (fav.entity.entity_type_slug && fav.entity.slug) {
     router.push({
       name: 'entity-detail',
@@ -55,7 +61,16 @@ function navigateToEntity(fav: Favorite) {
 }
 
 function navigateToFavorites() {
+  if (props.isEditing) return
   router.push({ name: 'favorites' })
+}
+
+function handleKeydownEntity(event: KeyboardEvent, fav: Favorite) {
+  handleKeyboardClick(event, () => navigateToEntity(fav))
+}
+
+function handleKeydownShowAll(event: KeyboardEvent) {
+  handleKeyboardClick(event, () => navigateToFavorites())
 }
 </script>
 
@@ -70,12 +85,17 @@ function navigateToFavorites() {
       <v-progress-circular indeterminate size="32" />
     </div>
 
-    <v-list v-else-if="favorites.length > 0" density="compact" class="favorites-list">
+    <v-list v-else-if="favorites.length > 0" density="compact" class="favorites-list" role="list">
       <v-list-item
         v-for="fav in favorites"
         :key="fav.id"
+        class="px-2 clickable-item"
+        :class="{ 'non-interactive': isEditing }"
+        role="button"
+        :tabindex="isEditing ? -1 : 0"
+        :aria-label="fav.entity.name + ' - ' + fav.entity.entity_type_name"
         @click="navigateToEntity(fav)"
-        class="px-2"
+        @keydown="handleKeydownEntity($event, fav)"
       >
         <template #prepend>
           <v-avatar
@@ -102,7 +122,16 @@ function navigateToFavorites() {
         </template>
       </v-list-item>
 
-      <v-list-item v-if="hasMore" @click="navigateToFavorites" class="px-2">
+      <v-list-item
+        v-if="hasMore"
+        class="px-2 clickable-item"
+        :class="{ 'non-interactive': isEditing }"
+        role="button"
+        :tabindex="isEditing ? -1 : 0"
+        :aria-label="t('favorites.showAll', { count: store.total })"
+        @click="navigateToFavorites"
+        @keydown="handleKeydownShowAll($event)"
+      >
         <v-list-item-title class="text-body-2 text-primary">
           {{ t('favorites.showAll', { count: store.total }) }}
         </v-list-item-title>
@@ -121,5 +150,25 @@ function navigateToFavorites() {
 .favorites-list {
   max-height: 300px;
   overflow-y: auto;
+}
+
+.clickable-item {
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.clickable-item:hover {
+  background-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.clickable-item:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+.non-interactive {
+  cursor: default;
+  pointer-events: none;
 }
 </style>

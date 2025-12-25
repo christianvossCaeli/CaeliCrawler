@@ -9,6 +9,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { crawlPresetsApi } from '@/services/api'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('CrawlPresetsStore')
 
 export interface CrawlPresetFilters {
   category_id?: string
@@ -147,7 +150,7 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
       // Update favoriteIds set for quick lookup
       favoriteIds.value = new Set(presets.value.filter((p) => p.is_favorite).map((p) => p.id))
     } catch (e) {
-      console.error('Failed to load crawl presets:', e)
+      logger.error('Failed to load crawl presets:', e)
       error.value = 'Failed to load presets'
     } finally {
       isLoading.value = false
@@ -172,7 +175,7 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
 
       return newPreset
     } catch (e) {
-      console.error('Failed to create preset:', e)
+      logger.error('Failed to create preset:', e)
       error.value = 'Failed to create preset'
       return null
     }
@@ -201,7 +204,7 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
 
       return updatedPreset
     } catch (e) {
-      console.error('Failed to update preset:', e)
+      logger.error('Failed to update preset:', e)
       error.value = 'Failed to update preset'
       return null
     }
@@ -224,7 +227,7 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
 
       return true
     } catch (e) {
-      console.error('Failed to delete preset:', e)
+      logger.error('Failed to delete preset:', e)
       error.value = 'Failed to delete preset'
       return false
     }
@@ -256,7 +259,7 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
         message: response.data.message,
       }
     } catch (e) {
-      console.error('Failed to execute preset:', e)
+      logger.error('Failed to execute preset:', e)
       error.value = 'Failed to execute preset'
       return null
     }
@@ -284,7 +287,7 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
 
       return newState
     } catch (e) {
-      console.error('Failed to toggle favorite:', e)
+      logger.error('Failed to toggle favorite:', e)
       error.value = 'Failed to toggle favorite'
       return false
     }
@@ -318,7 +321,7 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
 
       return newPreset
     } catch (e) {
-      console.error('Failed to create preset from filters:', e)
+      logger.error('Failed to create preset from filters:', e)
       error.value = 'Failed to create preset'
       return null
     }
@@ -336,7 +339,7 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
       const response = await crawlPresetsApi.preview(presetId)
       return response.data
     } catch (e) {
-      console.error('Failed to preview preset:', e)
+      logger.error('Failed to preview preset:', e)
       error.value = 'Failed to preview preset'
       return null
     }

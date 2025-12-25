@@ -12,6 +12,7 @@ import structlog
 from app.utils.cron import croniter_for_expression, get_schedule_timezone
 
 from workers.celery_app import celery_app
+from workers.async_runner import run_async
 
 logger = structlog.get_logger(__name__)
 
@@ -98,7 +99,7 @@ def check_scheduled_api_syncs():
                     triggered=triggered,
                 )
 
-    asyncio.run(_check_and_execute())
+    run_async(_check_and_execute())
 
 
 @celery_app.task(
@@ -187,7 +188,7 @@ def sync_api_template_to_facets(self, template_id: str):
                 # Retry the task
                 raise self.retry(exc=e)
 
-    return asyncio.run(_sync())
+    return run_async(_sync())
 
 
 def _emit_sync_notification(template, result: dict):
@@ -248,4 +249,4 @@ def sync_api_template_now(template_id: str):
 
             return result.to_dict()
 
-    return asyncio.run(_sync())
+    return run_async(_sync())

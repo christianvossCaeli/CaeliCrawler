@@ -13,10 +13,11 @@ from app.config import settings
 
 # JWT settings
 ALGORITHM = "HS256"
-# Security: Reduced from 24 hours to 1 hour for access tokens
+# Security: Short-lived access tokens (15 min) with longer refresh tokens
 # This limits the window of opportunity if a token is compromised
-ACCESS_TOKEN_EXPIRE_MINUTES = 60  # 1 hour (was 24 hours)
-REFRESH_TOKEN_EXPIRE_DAYS = 7  # 7 days for refresh tokens
+# while maintaining good UX through automatic token refresh
+ACCESS_TOKEN_EXPIRE_MINUTES = 15  # 15 minutes (security best practice)
+REFRESH_TOKEN_EXPIRE_DAYS = 30  # 30 days for refresh tokens (increased for UX)
 
 # SSE Ticket settings
 # Very short-lived tokens that can only be used for SSE connections

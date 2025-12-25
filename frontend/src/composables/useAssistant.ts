@@ -4,6 +4,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { useEntityStore } from '@/stores/entity'
 import { useQueryContextStore } from '@/stores/queryContext'
 import { assistantApi } from '@/services/api'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('useAssistant')
 
 // Types
 export interface AssistantContext {
@@ -258,7 +261,7 @@ export function useAssistant() {
         }))
       }
     } catch (e) {
-      console.error('Failed to load assistant history:', e)
+      logger.error('Failed to load assistant history:', e)
     }
   }
 
@@ -268,7 +271,7 @@ export function useAssistant() {
       const toSave = messages.value.slice(-MAX_HISTORY_LENGTH)
       localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave))
     } catch (e) {
-      console.error('Failed to save assistant history:', e)
+      logger.error('Failed to save assistant history:', e)
     }
   }
 
@@ -284,7 +287,7 @@ export function useAssistant() {
         }))
       }
     } catch (e) {
-      console.error('Failed to load query history:', e)
+      logger.error('Failed to load query history:', e)
     }
   }
 
@@ -294,7 +297,7 @@ export function useAssistant() {
       const toSave = queryHistory.value.slice(-MAX_QUERY_HISTORY_LENGTH)
       localStorage.setItem(QUERY_HISTORY_KEY, JSON.stringify(toSave))
     } catch (e) {
-      console.error('Failed to save query history:', e)
+      logger.error('Failed to save query history:', e)
     }
   }
 
@@ -663,7 +666,7 @@ export function useAssistant() {
                   break
               }
             } catch (parseError) {
-              console.error('Failed to parse SSE data:', parseError, dataStr)
+              logger.error('Failed to parse SSE data:', parseError, dataStr)
             }
           }
         }
@@ -1019,7 +1022,7 @@ export function useAssistant() {
       try {
         await assistantApi.cancelBatch(activeBatch.value.batch_id)
       } catch (e) {
-        console.error('Failed to cancel batch:', e)
+        logger.error('Failed to cancel batch:', e)
       }
     }
 
@@ -1063,7 +1066,7 @@ export function useAssistant() {
           saveHistory()
         }
       } catch (e) {
-        console.error('Failed to poll batch status:', e)
+        logger.error('Failed to poll batch status:', e)
         stopBatchPolling()
       }
     }, 2000) // Poll every 2 seconds
@@ -1106,7 +1109,7 @@ export function useAssistant() {
       const response = await assistantApi.getCommands()
       slashCommands.value = response.data
     } catch (e) {
-      console.error('Failed to load slash commands:', e)
+      logger.error('Failed to load slash commands:', e)
     }
   }
 
@@ -1127,7 +1130,7 @@ export function useAssistant() {
         })) || []
       }
     } catch (e) {
-      console.error('Failed to load suggestions:', e)
+      logger.error('Failed to load suggestions:', e)
     }
   }
 
@@ -1144,7 +1147,7 @@ export function useAssistant() {
       })
       insights.value = response.data.insights || []
     } catch (e) {
-      console.error('Failed to load insights:', e)
+      logger.error('Failed to load insights:', e)
       insights.value = []
     }
   }
@@ -1165,7 +1168,7 @@ export function useAssistant() {
       const response = await assistantApi.getWizards()
       availableWizards.value = response.data.wizards || []
     } catch (e) {
-      console.error('Failed to load wizards:', e)
+      logger.error('Failed to load wizards:', e)
       availableWizards.value = []
     }
   }
@@ -1318,7 +1321,7 @@ export function useAssistant() {
     try {
       await assistantApi.wizardCancel(activeWizard.value.state.wizard_id)
     } catch (e) {
-      console.error('Failed to cancel wizard:', e)
+      logger.error('Failed to cancel wizard:', e)
     }
 
     // Add cancellation message
@@ -1422,7 +1425,7 @@ export function useAssistant() {
       const response = await assistantApi.getReminders()
       reminders.value = response.data.items || []
     } catch (e) {
-      console.error('Failed to load reminders:', e)
+      logger.error('Failed to load reminders:', e)
       reminders.value = []
     }
   }
@@ -1440,7 +1443,7 @@ export function useAssistant() {
         hasUnread.value = true
       }
     } catch (e) {
-      console.error('Failed to load due reminders:', e)
+      logger.error('Failed to load due reminders:', e)
       dueReminders.value = []
     }
   }
@@ -1499,7 +1502,7 @@ export function useAssistant() {
       await loadReminders()
       return true
     } catch (e) {
-      console.error('Failed to dismiss reminder:', e)
+      logger.error('Failed to dismiss reminder:', e)
       return false
     }
   }
@@ -1514,7 +1517,7 @@ export function useAssistant() {
       dueReminders.value = dueReminders.value.filter(r => r.id !== reminderId)
       return true
     } catch (e) {
-      console.error('Failed to delete reminder:', e)
+      logger.error('Failed to delete reminder:', e)
       return false
     }
   }
@@ -1531,7 +1534,7 @@ export function useAssistant() {
       await loadReminders()
       return true
     } catch (e) {
-      console.error('Failed to snooze reminder:', e)
+      logger.error('Failed to snooze reminder:', e)
       return false
     }
   }

@@ -9,6 +9,7 @@ import structlog
 from celery.exceptions import SoftTimeLimitExceeded
 
 from workers.celery_app import celery_app
+from workers.async_runner import run_async
 from app.config import settings
 
 if TYPE_CHECKING:
@@ -232,7 +233,7 @@ def analyze_document(self, document_id: str, skip_relevance_check: bool = False)
 
             await session.commit()
 
-    asyncio.run(_analyze())
+    run_async(_analyze())
 
 
 def _get_default_prompt(category) -> str:
@@ -717,7 +718,7 @@ def reanalyze_low_confidence(threshold: float = 0.5):
 
             logger.info("Requeued low confidence documents", count=len(document_ids))
 
-    asyncio.run(_reanalyze())
+    run_async(_reanalyze())
 
 
 @celery_app.task(
@@ -746,7 +747,7 @@ def extract_pysis_fields(self, process_id: str, field_ids: Optional[list[str]] =
         field_ids: Optional list of specific field UUIDs to extract
     """
     import asyncio
-    asyncio.run(_extract_pysis_fields_async(process_id, field_ids, self.request.id))
+    run_async(_extract_pysis_fields_async(process_id, field_ids, self.request.id))
 
 
 async def _extract_pysis_fields_async(process_id: str, field_ids: Optional[list[str]], celery_task_id: Optional[str] = None):
@@ -1037,7 +1038,7 @@ def convert_extractions_to_facets(
         entity_type_slug: Entity type to create (default: territorial_entity)
     """
     import asyncio
-    asyncio.run(_convert_extractions_async(min_confidence, batch_size, entity_type_slug))
+    run_async(_convert_extractions_async(min_confidence, batch_size, entity_type_slug))
 
 
 async def _convert_extractions_async(
@@ -1175,7 +1176,7 @@ def analyze_pysis_fields_for_facets(
         existing_task_id: Existing AITask ID (to avoid duplicate creation)
     """
     import asyncio
-    asyncio.run(_analyze_pysis_for_facets_async(
+    run_async(_analyze_pysis_for_facets_async(
         process_id,
         include_empty,
         min_confidence,
@@ -1730,7 +1731,7 @@ def enrich_facet_values_from_pysis(
         existing_task_id: Existing AITask ID (to avoid duplicate creation)
     """
     import asyncio
-    asyncio.run(_enrich_facet_values_from_pysis_async(
+    run_async(_enrich_facet_values_from_pysis_async(
         entity_id,
         facet_type_id,
         overwrite_existing,
@@ -2066,7 +2067,7 @@ def analyze_entity_data_for_facets(
         task_id: AITask ID for progress tracking
     """
     import asyncio
-    asyncio.run(_analyze_entity_data_for_facets_async(
+    run_async(_analyze_entity_data_for_facets_async(
         entity_id,
         source_types,
         target_facet_types,
@@ -2466,7 +2467,7 @@ def analyze_attachment_task(
         extract_facets: Whether to extract facet suggestions
     """
     import asyncio
-    asyncio.run(_analyze_attachment_async(attachment_id, task_id, extract_facets))
+    run_async(_analyze_attachment_async(attachment_id, task_id, extract_facets))
 
 
 async def _analyze_attachment_async(

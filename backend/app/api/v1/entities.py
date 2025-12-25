@@ -1,10 +1,13 @@
 """API endpoints for Entity management."""
 
 import json
-from typing import Any, Dict, List, Optional
+import structlog
+from typing import Any, Dict, List, Optional, Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+
+logger = structlog.get_logger(__name__)
 from sqlalchemy import delete, func, select, text, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,20 +53,20 @@ router = APIRouter()
 
 @router.get("", response_model=EntityListResponse)
 async def list_entities(
-    page: int = Query(default=1, ge=1),
-    per_page: int = Query(default=50, ge=1, le=500),
-    entity_type_id: Optional[UUID] = Query(default=None),
-    entity_type_slug: Optional[str] = Query(default=None),
-    parent_id: Optional[UUID] = Query(default=None),
-    hierarchy_level: Optional[int] = Query(default=None),
-    is_active: Optional[bool] = Query(default=None),
-    search: Optional[str] = Query(default=None),
-    country: Optional[str] = Query(default=None, description="Filter by country code (DE, GB, etc.)"),
-    admin_level_1: Optional[str] = Query(default=None, description="Filter by admin level 1 (Bundesland, Region)"),
-    admin_level_2: Optional[str] = Query(default=None, description="Filter by admin level 2 (Landkreis, District)"),
-    core_attr_filters: Optional[str] = Query(default=None, description="JSON-encoded core_attributes filters, e.g. {\"locality_type\": \"Stadt\"}"),
+    page: Annotated[int, Query(ge=1, description="Page number")] = 1,
+    per_page: Annotated[int, Query(ge=1, le=500, description="Items per page")] = 50,
+    entity_type_id: Annotated[Optional[UUID], Query(description="Filter by entity type ID")] = None,
+    entity_type_slug: Annotated[Optional[str], Query(description="Filter by entity type slug")] = None,
+    parent_id: Annotated[Optional[UUID], Query(description="Filter by parent entity ID")] = None,
+    hierarchy_level: Annotated[Optional[int], Query(description="Filter by hierarchy level")] = None,
+    is_active: Annotated[Optional[bool], Query(description="Filter by active status")] = None,
+    search: Annotated[Optional[str], Query(description="Search in entity name or external ID")] = None,
+    country: Annotated[Optional[str], Query(description="Filter by country code (DE, GB, etc.)")] = None,
+    admin_level_1: Annotated[Optional[str], Query(description="Filter by admin level 1 (Bundesland, Region)")] = None,
+    admin_level_2: Annotated[Optional[str], Query(description="Filter by admin level 2 (Landkreis, District)")] = None,
+    core_attr_filters: Annotated[Optional[str], Query(description="JSON-encoded core_attributes filters, e.g. {\"locality_type\": \"Stadt\"}")] = None,
     session: AsyncSession = Depends(get_session),
-):
+) -> EntityListResponse:
     """List entities with filters."""
     from sqlalchemy.orm import selectinload
 
@@ -251,7 +254,7 @@ async def create_entity(
     request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
-):
+) -> EntityResponse:
     """Create a new entity. Requires Editor role."""
     # Verify entity type exists
     entity_type = await session.get(EntityType, data.entity_type_id)

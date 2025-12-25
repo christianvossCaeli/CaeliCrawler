@@ -12,6 +12,7 @@ from uuid import UUID
 import structlog
 
 from workers.celery_app import celery_app
+from workers.async_runner import run_async
 
 logger = structlog.get_logger(__name__)
 
@@ -57,7 +58,7 @@ def sync_all_external_apis():
                 triggered=triggered,
             )
 
-    asyncio.run(_check_and_sync())
+    run_async(_check_and_sync())
 
 
 @celery_app.task(
@@ -139,7 +140,7 @@ def sync_external_api(self, config_id: str):
                 raise
 
     try:
-        return asyncio.run(_sync())
+        return run_async(_sync())
     except Exception as e:
         # Retry on failure
         logger.warning(
@@ -188,7 +189,7 @@ def cleanup_archived_records(days_old: int = 90):
 
             return deleted
 
-    return asyncio.run(_cleanup())
+    return run_async(_cleanup())
 
 
 @celery_app.task(name="workers.external_api_tasks.test_external_api")
@@ -247,7 +248,7 @@ def test_external_api(config_id: str) -> dict:
                     "error_type": type(e).__name__,
                 }
 
-    return asyncio.run(_test())
+    return run_async(_test())
 
 
 def _emit_sync_notification(config, result):

@@ -281,7 +281,9 @@ class TestAISourceDiscoveryService:
         """Test service initializes correctly."""
         service = AISourceDiscoveryService()
 
-        assert service.search_provider is not None
+        # Service has primary and fallback search providers
+        assert service.primary_search_provider is not None
+        assert service.fallback_search_provider is not None
         assert len(service.extractors) > 0
 
     @pytest.mark.asyncio
@@ -363,7 +365,7 @@ class TestAISourceDiscoveryService:
         ]
 
         with patch.object(service, '_generate_search_strategy', return_value=mock_strategy):
-            with patch.object(service.search_provider, 'search', return_value=mock_search_results):
+            with patch.object(service.primary_search_provider, 'search', return_value=mock_search_results):
                 with patch.object(service, '_extract_from_pages', return_value=mock_extracted):
                     result = await service.discover_sources(
                         prompt="Test organizations",

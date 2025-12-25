@@ -12,6 +12,7 @@ import structlog
 from app.utils.cron import croniter_for_expression, get_schedule_timezone
 
 from workers.celery_app import celery_app
+from workers.async_runner import run_async
 
 logger = structlog.get_logger(__name__)
 
@@ -33,7 +34,6 @@ def check_scheduled_presets():
     from app.database import get_celery_session_context
     from app.models import CrawlPreset, PresetStatus
     from sqlalchemy import select
-    import asyncio
 
     async def _check_and_execute():
         async with get_celery_session_context() as session:
@@ -92,7 +92,7 @@ def check_scheduled_presets():
                 triggered=triggered,
             )
 
-    asyncio.run(_check_and_execute())
+    run_async(_check_and_execute())
 
 
 @celery_app.task(
@@ -118,7 +118,6 @@ def execute_crawl_preset(self, preset_id: str):
     from app.database import get_celery_session_context
     from app.models import CrawlPreset, PresetStatus
     from services.smart_query.crawl_operations import find_sources_for_crawl, start_crawl_jobs
-    import asyncio
 
     async def _execute():
         async with get_celery_session_context() as session:
@@ -187,6 +186,11 @@ def execute_crawl_preset(self, preset_id: str):
                     jobs_created=len(job_ids),
                 )
 
+                # Trigger summary updates for summaries linked to this preset
+                if job_ids:
+                    from workers.summary_tasks import on_preset_completed
+                    on_preset_completed.delay(preset_id)
+
                 return {
                     "success": True,
                     "jobs_created": len(job_ids),
@@ -205,7 +209,7 @@ def execute_crawl_preset(self, preset_id: str):
                 # Re-raise to trigger Celery retry
                 raise self.retry(exc=e)
 
-    return asyncio.run(_execute())
+    return run_async(_execute())
 
 
 @celery_app.task(name="workers.crawl_preset_tasks.cleanup_archived_presets")
@@ -219,7 +223,6 @@ def cleanup_archived_presets():
     from app.models import CrawlPreset, PresetStatus
     from sqlalchemy import select, delete
     from datetime import timedelta
-    import asyncio
 
     async def _cleanup():
         async with get_celery_session_context() as session:
@@ -242,4 +245,4 @@ def cleanup_archived_presets():
                 cutoff_date=cutoff_date.isoformat(),
             )
 
-    asyncio.run(_cleanup())
+    run_async(_cleanup())

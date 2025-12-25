@@ -294,8 +294,12 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useNotifications, type NotificationRule } from '@/composables/useNotifications'
+import { useDialogFocus } from '@/composables'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('NotificationRules')
 
 const { t } = useI18n()
 
@@ -333,6 +337,10 @@ const editingRuleId = ref<string | null>(null)
 const ruleToDelete = ref<NotificationRule | null>(null)
 const formRef = ref()
 const formValid = ref(false)
+
+// Focus management for accessibility (WCAG 2.1)
+useDialogFocus({ isOpen: ruleDialog })
+useDialogFocus({ isOpen: deleteDialog })
 
 // Webhook testing
 const testingWebhook = ref(false)
@@ -500,7 +508,7 @@ const saveRule = async () => {
     }
     closeDialog()
   } catch (e) {
-    console.error('Failed to save rule:', e)
+    logger.error('Failed to save rule:', e)
   }
 }
 
@@ -517,7 +525,7 @@ const handleDelete = async () => {
     deleteDialog.value = false
     ruleToDelete.value = null
   } catch (e) {
-    console.error('Failed to delete rule:', e)
+    logger.error('Failed to delete rule:', e)
   }
 }
 
@@ -525,7 +533,7 @@ const handleToggleActive = async (rule: NotificationRule) => {
   try {
     await toggleRuleActive(rule)
   } catch (e) {
-    console.error('Failed to toggle rule:', e)
+    logger.error('Failed to toggle rule:', e)
   }
 }
 

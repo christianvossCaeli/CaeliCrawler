@@ -151,7 +151,7 @@ const comparisonSummary = computed(() => {
   return t('smartQuery.comparison.summary', {
     entity: maxEntity.entity_name,
     facet: facetLabel,
-    value: maxValue.toLocaleString('de-DE'),
+    value: maxValue.toLocaleString(),
   })
 })
 
@@ -169,13 +169,13 @@ function getFacetValue(entity: Record<string, any>, facetKey: string): string {
   if (typeof facetValue === 'object' && 'value' in facetValue) {
     const val = facetValue.value
     if (typeof val === 'number') {
-      return val.toLocaleString('de-DE')
+      return val.toLocaleString()
     }
     return String(val)
   }
 
   if (typeof facetValue === 'number') {
-    return facetValue.toLocaleString('de-DE')
+    return facetValue.toLocaleString()
   }
 
   return String(facetValue)
@@ -206,8 +206,8 @@ function formatAttrKey(key: string): string {
 
 function formatAttrValue(value: any): string {
   if (value === null || value === undefined) return '-'
-  if (typeof value === 'number') return value.toLocaleString('de-DE')
-  if (typeof value === 'boolean') return value ? 'Ja' : 'Nein'
+  if (typeof value === 'number') return value.toLocaleString()
+  if (typeof value === 'boolean') return value ? t('common.yes') : t('common.no')
   return String(value)
 }
 </script>

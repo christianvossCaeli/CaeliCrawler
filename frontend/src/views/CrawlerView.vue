@@ -421,6 +421,9 @@ import { useCrawlPresetsStore } from '@/stores/crawlPresets'
 import { useAuthStore } from '@/stores/auth'
 import CrawlPresetsTab from '@/components/crawler/CrawlPresetsTab.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('CrawlerView')
 
 interface LogEntry {
   status: string
@@ -556,7 +559,7 @@ const loadJobLog = async (jobId: string) => {
     const response = await adminApi.getJobLog(jobId)
     jobLogs.value[jobId] = response.data
   } catch (error) {
-    console.error('Failed to load job log:', error)
+    logger.error('Failed to load job log:', error)
   }
 }
 
@@ -627,19 +630,23 @@ const doStopAllCrawlers = async () => {
   stoppingAll.value = true
   try {
     let cancelledCount = 0
-    // Cancel all running jobs
+    // Collect all unique job IDs to cancel (running + pending)
+    const jobsToCancel = new Set<string>()
+
+    // Add running jobs from status endpoint
     for (const job of runningJobs.value) {
-      try {
-        await adminApi.cancelJob(job.id)
-        cancelledCount++
-      } catch (e) {
-        // Continue with other jobs
-      }
+      jobsToCancel.add(job.id)
     }
-    // Also cancel all pending jobs from the jobs list
+
+    // Add pending and running jobs from jobs list
     for (const job of jobs.value.filter(j => j.status === 'PENDING' || j.status === 'RUNNING')) {
+      jobsToCancel.add(job.id)
+    }
+
+    // Cancel all unique jobs
+    for (const jobId of jobsToCancel) {
       try {
-        await adminApi.cancelJob(job.id)
+        await adminApi.cancelJob(jobId)
         cancelledCount++
       } catch (e) {
         // Continue with other jobs
@@ -686,10 +693,10 @@ const connectSSE = async () => {
       ticketParam = `ticket=${encodeURIComponent(data.ticket)}`
     } else {
       // Fallback: SSE without authentication (will fail if auth required)
-      console.warn('Failed to get SSE ticket, SSE may not work')
+      logger.warn('Failed to get SSE ticket, SSE may not work')
     }
   } catch (error) {
-    console.warn('Error getting SSE ticket:', error)
+    logger.warn('Error getting SSE ticket:', error)
   }
 
   const url = ticketParam
@@ -718,7 +725,7 @@ const connectSSE = async () => {
 
   eventSource.addEventListener('error', () => {
     // Fallback to polling on error
-    console.warn('SSE connection failed, falling back to polling')
+    logger.warn('SSE connection failed, falling back to polling')
     useSSE.value = false
     disconnectSSE()
     startPolling()
@@ -759,7 +766,7 @@ onMounted(() => {
     try {
       connectSSE()
     } catch (e) {
-      console.warn('SSE not available, using polling')
+      logger.warn('SSE not available, using polling')
       startPolling()
     }
   } else {

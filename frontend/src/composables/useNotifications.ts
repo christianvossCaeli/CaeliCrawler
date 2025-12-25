@@ -1,5 +1,8 @@
 import { ref, computed } from 'vue'
 import { notificationApi } from '@/services/api'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('useNotifications')
 
 // Types
 export interface Notification {
@@ -110,7 +113,7 @@ export function useNotifications() {
       const response = await notificationApi.getUnreadCount()
       unreadCount.value = response.data.count
     } catch (e) {
-      console.error('Failed to load unread count:', e)
+      logger.error('Failed to load unread count:', e)
     }
   }
 
@@ -150,7 +153,7 @@ export function useNotifications() {
       eventTypes.value = typesRes.data
       channels.value = channelsRes.data
     } catch (e) {
-      console.error('Failed to load meta:', e)
+      logger.error('Failed to load meta:', e)
     }
   }
 
@@ -160,7 +163,7 @@ export function useNotifications() {
       const response = await notificationApi.getPreferences()
       preferences.value = response.data
     } catch (e) {
-      console.error('Failed to load preferences:', e)
+      logger.error('Failed to load preferences:', e)
     }
   }
 

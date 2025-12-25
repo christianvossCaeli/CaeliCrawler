@@ -7,6 +7,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { favoritesApi } from '@/services/api'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('FavoritesStore')
 
 export interface FavoriteEntity {
   id: string
@@ -88,7 +91,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
       // Update favoriteIds set for quick lookup
       favoriteIds.value = new Set(favorites.value.map((f) => f.entity_id))
     } catch (e) {
-      console.error('Failed to load favorites:', e)
+      logger.error('Failed to load favorites:', e)
       error.value = 'Failed to load favorites'
     } finally {
       isLoading.value = false
@@ -110,7 +113,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
 
       return favorite
     } catch (e) {
-      console.error('Failed to add favorite:', e)
+      logger.error('Failed to add favorite:', e)
       error.value = 'Failed to add favorite'
       return null
     }
@@ -133,7 +136,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
 
       return true
     } catch (e) {
-      console.error('Failed to remove favorite:', e)
+      logger.error('Failed to remove favorite:', e)
       error.value = 'Failed to remove favorite'
       return false
     }
@@ -165,7 +168,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
       }
       return response.data.is_favorited
     } catch (e) {
-      console.error('Failed to check favorite status:', e)
+      logger.error('Failed to check favorite status:', e)
       return false
     }
   }

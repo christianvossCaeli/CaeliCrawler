@@ -159,11 +159,11 @@ class DIPBundestagClient(BaseAPIClient):
     API_NAME = "DIP-Bundestag"
     DEFAULT_DELAY = 0.3  # DIP is quite responsive
 
-    # Public API key (valid until 05/2026)
-    DEFAULT_API_KEY = "OSOegLs.PR2lwJ1dwCeje9vTj7FPOt3hvpYKtwKkhw"
-
     def __init__(self, api_key: Optional[str] = None, **kwargs):
-        super().__init__(api_key=api_key or self.DEFAULT_API_KEY, **kwargs)
+        import os
+        # Load API key from environment variable (public API key for DIP Bundestag)
+        resolved_api_key = api_key or os.environ.get("DIP_BUNDESTAG_API_KEY")
+        super().__init__(api_key=resolved_api_key, **kwargs)
 
     def _get_auth_headers(self) -> Dict[str, str]:
         """Add API key to headers."""

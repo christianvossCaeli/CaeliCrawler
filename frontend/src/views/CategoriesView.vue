@@ -104,6 +104,7 @@
             <v-btn icon="mdi-database-outline" size="small" variant="tonal" color="primary" :title="$t('categories.actions.viewSources')" :aria-label="$t('categories.actions.viewSources')" @click="showSourcesForCategory(item)"></v-btn>
             <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="$t('common.edit')" :aria-label="$t('common.edit')" @click="openEditDialog(item)"></v-btn>
             <v-btn icon="mdi-play" size="small" variant="tonal" color="success" :title="$t('categories.actions.startCrawl')" :aria-label="$t('categories.actions.startCrawl')" @click="openCrawlerDialog(item)"></v-btn>
+            <v-btn icon="mdi-view-dashboard-variant" size="small" variant="tonal" color="info" :title="$t('categories.actions.createSummary')" :aria-label="$t('categories.actions.createSummary')" @click="openSummaryDialog(item)"></v-btn>
             <v-btn icon="mdi-refresh" size="small" variant="tonal" color="warning" :title="$t('categories.actions.reanalyze')" :aria-label="$t('categories.actions.reanalyze')" @click="confirmReanalyze(item)"></v-btn>
             <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="$t('common.delete')" :aria-label="$t('common.delete')" @click="confirmDelete(item)"></v-btn>
           </div>
@@ -610,6 +611,13 @@
       @save-with-ai="saveWithAiSetup"
     />
 
+    <!-- Summary Create Dialog -->
+    <SummaryCreateDialog
+      v-model="summaryCreateDialog"
+      :initial-prompt="summaryInitialPrompt"
+      @created="handleSummaryCreated"
+    />
+
     <!-- Snackbar for feedback -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000">
       {{ snackbarText }}
@@ -631,7 +639,10 @@ import CategorySourcesDialog from '@/components/categories/CategorySourcesDialog
 import CategoryCrawlerDialog from '@/components/categories/CategoryCrawlerDialog.vue'
 import CategoryAiPreviewDialog from '@/components/categories/CategoryAiPreviewDialog.vue'
 import CategoryReanalyzeDialog from '@/components/categories/CategoryReanalyzeDialog.vue'
+import SummaryCreateDialog from '@/components/summaries/SummaryCreateDialog.vue'
+import { useLogger } from '@/composables/useLogger'
 
+const logger = useLogger('CategoriesView')
 const { t } = useI18n()
 const router = useRouter()
 
@@ -649,6 +660,11 @@ const selectedCategory = ref<any>(null)
 const selectedCategoryForSources = ref<any>(null)
 const categorySources = ref<any[]>([])
 const categorySourcesLoading = ref(false)
+
+// Summary Create Dialog state
+const summaryCreateDialog = ref(false)
+const summaryInitialPrompt = ref('')
+const summaryTriggerCategory = ref<any>(null)
 
 // DataSources Tab state
 const availableTags = ref<string[]>([])
@@ -790,7 +806,7 @@ const loadCategories = async () => {
     const response = await adminApi.getCategories({ per_page: 100 })
     categories.value = response.data.items
   } catch (error) {
-    console.error('Failed to load categories:', error)
+    logger.error('Failed to load categories:', error)
     snackbarText.value = t('categories.messages.loadError')
     snackbarColor.value = 'error'
     snackbar.value = true
@@ -864,7 +880,7 @@ const saveCategory = async () => {
       await showAiPreview()
     }
   } catch (error) {
-    console.error('Failed to save category:', error)
+    logger.error('Failed to save category:', error)
     snackbarText.value = t('categories.messages.saveError')
     snackbarColor.value = 'error'
     snackbar.value = true
@@ -892,7 +908,7 @@ const showAiPreview = async () => {
     // Default to creating new EntityType if suggested
     selectedEntityTypeOption.value = response.data.suggested_entity_type.is_new ? 'new' : (response.data.suggested_entity_type.id || 'new')
   } catch (error: any) {
-    console.error('Failed to get AI preview:', error)
+    logger.error('Failed to get AI preview:', error)
     aiPreviewDialog.value = false
     dialog.value = true // Re-open the original dialog
 
@@ -914,7 +930,7 @@ const saveWithoutAiSetup = async () => {
     snackbarColor.value = 'success'
     snackbar.value = true
   } catch (error) {
-    console.error('Failed to save category:', error)
+    logger.error('Failed to save category:', error)
     snackbarText.value = t('categories.messages.saveError')
     snackbarColor.value = 'error'
     snackbar.value = true
@@ -955,7 +971,7 @@ const saveWithAiSetup = async () => {
     snackbarColor.value = 'success'
     snackbar.value = true
   } catch (error) {
-    console.error('Failed to save category with AI setup:', error)
+    logger.error('Failed to save category with AI setup:', error)
     snackbarText.value = t('categories.messages.saveError')
     snackbarColor.value = 'error'
     snackbar.value = true
@@ -978,7 +994,7 @@ const deleteCategory = async () => {
     deleteDialog.value = false
     loadCategories()
   } catch (error) {
-    console.error('Failed to delete category:', error)
+    logger.error('Failed to delete category:', error)
     snackbarText.value = t('categories.messages.deleteError')
     snackbarColor.value = 'error'
     snackbar.value = true
@@ -1051,7 +1067,7 @@ const updateCrawlerFilteredCount = async () => {
 
     crawlerFilteredCount.value = count
   } catch (error) {
-    console.error('Failed to get filtered count:', error)
+    logger.error('Failed to get filtered count:', error)
     crawlerFilteredCount.value = selectedCategoryForCrawler.value?.source_count || 0
   }
 }
@@ -1089,7 +1105,7 @@ const startFilteredCrawl = async () => {
     snackbarColor.value = 'success'
     snackbar.value = true
   } catch (error) {
-    console.error('Failed to start crawl:', error)
+    logger.error('Failed to start crawl:', error)
     snackbarText.value = t('categories.crawler.errorStarting')
     snackbarColor.value = 'error'
     snackbar.value = true
@@ -1115,7 +1131,7 @@ const reanalyzeDocuments = async () => {
     snackbarColor.value = 'success'
     snackbar.value = true
   } catch (error) {
-    console.error('Failed to start reanalysis:', error)
+    logger.error('Failed to start reanalysis:', error)
     snackbarText.value = t('categories.messages.reanalyzeError')
     snackbarColor.value = 'error'
     snackbar.value = true
@@ -1167,7 +1183,7 @@ const showSourcesForCategory = async (category: any) => {
     })
     categorySources.value = response.data.items
   } catch (error) {
-    console.error('Failed to load sources for category:', error)
+    logger.error('Failed to load sources for category:', error)
     snackbarText.value = t('categories.messages.sourcesLoadError')
     snackbarColor.value = 'error'
     snackbar.value = true
@@ -1190,7 +1206,7 @@ const loadAvailableTags = async () => {
     const response = await adminApi.getAvailableTags()
     availableTags.value = (response.data.tags || []).map(t => t.tag)
   } catch (error) {
-    console.error('Failed to load available tags:', error)
+    logger.error('Failed to load available tags:', error)
     availableTags.value = []
     snackbarText.value = t('categories.messages.tagsLoadError')
     snackbarColor.value = 'error'
@@ -1219,7 +1235,7 @@ const searchSourcesByTags = async () => {
       is_assigned: assignedSourceIds.has(source.id),
     }))
   } catch (error) {
-    console.error('Failed to search sources by tags:', error)
+    logger.error('Failed to search sources by tags:', error)
     dataSourcesTab.value.foundSources = []
     snackbarText.value = t('categories.dataSourcesTab.assignError')
     snackbarColor.value = 'error'
@@ -1257,13 +1273,35 @@ const assignSourcesByTags = async () => {
     // Re-search to mark newly assigned sources
     await searchSourcesByTags()
   } catch (error) {
-    console.error('Failed to assign sources:', error)
+    logger.error('Failed to assign sources:', error)
     snackbarText.value = t('categories.dataSourcesTab.assignError')
     snackbarColor.value = 'error'
     snackbar.value = true
   } finally {
     dataSourcesTab.value.assigning = false
   }
+}
+
+// Summary Dialog methods
+const openSummaryDialog = (category: any) => {
+  summaryTriggerCategory.value = category
+  // Generate a prompt based on the category
+  const entityTypeName = category.target_entity_type?.name || category.name
+  const purpose = category.purpose || ''
+  summaryInitialPrompt.value = t('categories.summaryPromptTemplate', {
+    name: category.name,
+    entityType: entityTypeName,
+    purpose: purpose,
+  })
+  summaryCreateDialog.value = true
+}
+
+const handleSummaryCreated = (result: { id: string; name: string }) => {
+  snackbarText.value = t('summaries.messages.created', { name: result.name })
+  snackbarColor.value = 'success'
+  snackbar.value = true
+  // Navigate to the new summary dashboard
+  router.push({ name: 'summary-dashboard', params: { id: result.id } })
 }
 
 onMounted(() => {

@@ -217,6 +217,9 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { entityApi } from '@/services/api'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('WizardStep')
 
 const { t } = useI18n()
 
@@ -396,7 +399,7 @@ async function onEntitySearch(query: string) {
       entity_type: item.entity_type?.name || item.entity_type_slug,
     }))
   } catch (e) {
-    console.error('Entity search failed:', e)
+    logger.error('Entity search failed:', e)
     entitySearchResults.value = []
   } finally {
     isSearching.value = false

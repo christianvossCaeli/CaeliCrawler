@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="650" @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog v-model="modelValue" max-width="650">
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon class="mr-2">mdi-spider-web</v-icon>
@@ -113,7 +113,7 @@
           {{ filteredCount.toLocaleString() }} {{ t('categories.crawler.sourcesCount') }}
         </v-chip>
         <v-spacer></v-spacer>
-        <v-btn variant="tonal" @click="$emit('update:modelValue', false)">{{ t('common.cancel') }}</v-btn>
+        <v-btn variant="tonal" @click="modelValue = false">{{ t('common.cancel') }}</v-btn>
         <v-btn
           color="warning"
           :loading="starting"
@@ -147,9 +147,10 @@ interface CrawlerFilter {
   source_type: string | null
 }
 
+const modelValue = defineModel<boolean>()
+
 // Props
 const props = defineProps<{
-  modelValue: boolean
   category: Category | null
   filter: CrawlerFilter
   filteredCount: number
@@ -158,7 +159,6 @@ const props = defineProps<{
 
 // Emits
 defineEmits<{
-  'update:modelValue': [value: boolean]
   'update:filter': [filter: CrawlerFilter]
   'resetFilters': []
   'start': []

@@ -7,6 +7,7 @@ from uuid import UUID
 import structlog
 
 from workers.celery_app import celery_app
+from workers.async_runner import run_async
 
 logger = structlog.get_logger()
 
@@ -103,7 +104,7 @@ def validate_template(self, template_id: str):
                 await session.commit()
                 raise
 
-    asyncio.run(_validate())
+    run_async(_validate())
 
 
 @celery_app.task(
@@ -163,7 +164,7 @@ def validate_all_templates(self, only_active: bool = True):
 
             return {"queued": validated_count, "failed": failed_count}
 
-    return asyncio.run(_validate_all())
+    return run_async(_validate_all())
 
 
 @celery_app.task(
@@ -218,4 +219,4 @@ def cleanup_failed_templates(self, days_failed: int = 30):
 
             return {"deactivated": deactivated_count}
 
-    return asyncio.run(_cleanup())
+    return run_async(_cleanup())

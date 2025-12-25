@@ -69,8 +69,10 @@
       "delete": "Delete",
       "viewSources": "View data sources",
       "startCrawl": "Start crawl",
+      "createSummary": "Create summary",
       "reanalyze": "Reanalyze documents"
     },
+    "summaryPromptTemplate": "Dashboard for \"{name}\": Show an overview of all {entityType} with key metrics. Purpose: {purpose}",
     "dialog": {
       "create": "New Analysis Topic",
       "edit": "Edit Analysis Topic",

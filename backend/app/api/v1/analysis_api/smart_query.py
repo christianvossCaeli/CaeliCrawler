@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from slowapi import Limiter
@@ -96,14 +96,21 @@ async def smart_query_endpoint(
             for msg in query_request.conversation_history
         ]
 
-    result = await smart_query(
-        session,
-        query_request.question,
-        allow_write=query_request.allow_write,
-        mode=query_request.mode,
-        conversation_history=conversation_history,
-    )
-    return result
+    try:
+        result = await smart_query(
+            session,
+            query_request.question,
+            allow_write=query_request.allow_write,
+            mode=query_request.mode,
+            conversation_history=conversation_history,
+        )
+        return result
+    except ValueError as e:
+        # Convert validation errors to 422 Unprocessable Entity
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
+        )
 
 
 class SmartQueryStreamRequest(BaseModel):

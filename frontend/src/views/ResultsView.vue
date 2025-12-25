@@ -569,6 +569,9 @@ import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('ResultsView')
 
 const { t } = useI18n()
 
@@ -670,7 +673,7 @@ const loadDisplayConfig = async (categoryId: string | null) => {
     entityReferenceColumns.value = config.entity_reference_columns || []
 
   } catch (error) {
-    console.error('Failed to load display config:', error)
+    logger.error('Failed to load display config:', error)
     // Fallback to default headers
     headers.value = getDefaultHeaders()
     entityReferenceColumns.value = []
@@ -810,7 +813,7 @@ const loadData = async () => {
       extractionTypes.value = Object.keys(statsRes.data.by_type)
     }
   } catch (error) {
-    console.error('Failed to load data:', error)
+    logger.error('Failed to load data:', error)
     showError(t('results.messages.errorLoading'))
   } finally {
     loading.value = false
@@ -827,7 +830,7 @@ const loadFilters = async () => {
     locations.value = locationsRes.data
     categories.value = categoriesRes.data.items || categoriesRes.data
   } catch (error) {
-    console.error('Failed to load filters:', error)
+    logger.error('Failed to load filters:', error)
   }
 }
 

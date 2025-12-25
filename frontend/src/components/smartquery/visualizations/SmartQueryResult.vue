@@ -121,6 +121,12 @@ const MapVisualization = defineAsyncComponent({
   timeout: 15000,
 })
 
+// Lazy-loaded calendar (vue-cal dependency)
+const CalendarVisualization = defineAsyncComponent({
+  loader: () => import('./CalendarVisualization.vue'),
+  delay: 100,
+})
+
 // Common Components
 import SourceInfoChip from './common/SourceInfoChip.vue'
 import SuggestedActionsBar from './common/SuggestedActionsBar.vue'
@@ -156,6 +162,7 @@ const visualizationComponents: Record<VisualizationType, Component> = {
   text: TextVisualization,
   comparison: ComparisonVisualization,
   map: MapVisualization,
+  calendar: CalendarVisualization,
   heatmap: TableVisualization, // Fallback to table for now
 }
 

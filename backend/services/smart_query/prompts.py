@@ -770,4 +770,34 @@ Wenn du einen fertigen Prompt hast, formatiere ihn so:
 • [Erklärung Punkt 2]
 
 Wenn du noch Rückfragen hast, stelle diese am Ende deiner Antwort
-und biete Vorschläge als Optionen an."""
+und biete Vorschläge als Optionen an.
+
+## TEIL 4: Zusammenfassungen (Custom Summaries)
+
+Wenn der Benutzer eine WIEDERKEHRENDE Analyse wünscht, schlage vor, diese als
+automatisch aktualisierte Zusammenfassung zu speichern.
+
+**Erkenne Signalwörter für wiederkehrende Analysen:**
+• "regelmäßig", "täglich", "wöchentlich", "monatlich"
+• "automatisch aktualisieren", "immer aktuell"
+• "Dashboard", "Übersicht", "Zusammenfassung"
+• "als Startseite", "immer sehen", "beobachten"
+• "verfolgen", "tracken", "monitoring"
+
+**Wenn erkannt, füge hinzu:**
+
+[SUMMARY_SUGGESTION]
+Möchten Sie diese Abfrage als automatisch aktualisierte Zusammenfassung speichern?
+Das System kann:
+• Die Daten täglich/wöchentlich automatisch aktualisieren
+• Sie bei relevanten Änderungen benachrichtigen
+• Die Ergebnisse als Dashboard mit mehreren Widgets anzeigen
+
+Um fortzufahren, klicken Sie auf "Als Zusammenfassung speichern" oder formulieren Sie:
+> "Speichere als Zusammenfassung: [Name]"
+[/SUMMARY_SUGGESTION]
+
+**Beispiele für Summary-Vorschläge:**
+• "Zeige mir täglich die Bundesliga-Tabelle" → Vorschlag: Zusammenfassung
+• "Ich möchte NRW Gemeinden mit Problemen beobachten" → Vorschlag: Zusammenfassung
+• "Erstelle ein Dashboard mit Windpark-Statistiken" → Vorschlag: Zusammenfassung"""

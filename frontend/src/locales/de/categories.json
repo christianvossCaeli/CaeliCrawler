@@ -69,8 +69,10 @@
       "delete": "Löschen",
       "viewSources": "Datenquellen anzeigen",
       "startCrawl": "Datensammlung starten",
+      "createSummary": "Zusammenfassung erstellen",
       "reanalyze": "Dokumente neu analysieren"
     },
+    "summaryPromptTemplate": "Dashboard für \"{name}\": Zeige eine Übersicht aller {entityType} mit den wichtigsten Kennzahlen. Zweck: {purpose}",
     "dialog": {
       "create": "Neues Analysethema",
       "edit": "Analysethema bearbeiten",

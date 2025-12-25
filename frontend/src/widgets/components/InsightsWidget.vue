@@ -6,6 +6,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDashboardStore } from '@/stores/dashboard'
+import { handleKeyboardClick } from '../composables'
 import BaseWidget from '../BaseWidget.vue'
 import type { WidgetDefinition, WidgetConfig } from '../types'
 
@@ -18,11 +19,15 @@ const props = defineProps<{
 const router = useRouter()
 const store = useDashboardStore()
 const loading = ref(true)
+const error = ref<string | null>(null)
 
 const refresh = async () => {
   loading.value = true
+  error.value = null
   try {
     await store.loadInsights()
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Failed to load'
   } finally {
     loading.value = false
   }
@@ -59,9 +64,16 @@ const getInsightColor = (type: string): string => {
 }
 
 const navigateToLink = (link?: string) => {
-  if (link) {
-    router.push(link)
-  }
+  if (props.isEditing || !link) return
+  router.push(link)
+}
+
+const isClickable = (link?: string): boolean => {
+  return !!link && !props.isEditing
+}
+
+const handleKeydown = (event: KeyboardEvent, link?: string) => {
+  handleKeyboardClick(event, () => navigateToLink(link))
 }
 </script>
 
@@ -76,15 +88,22 @@ const navigateToLink = (link?: string) => {
       <v-progress-circular indeterminate size="32" />
     </div>
 
-    <div v-else-if="items.length > 0" class="insights-list">
+    <div v-else-if="items.length > 0" class="insights-list" role="list">
       <v-card
         v-for="(item, index) in items"
         :key="index"
         variant="tonal"
         :color="getInsightColor(item.type)"
         class="mb-2 insight-card"
-        :class="{ 'cursor-pointer': item.link }"
+        :class="{
+          'clickable-card': item.link,
+          'non-interactive': isEditing
+        }"
+        :role="item.link ? 'button' : 'article'"
+        :tabindex="isClickable(item.link) ? 0 : -1"
+        :aria-label="item.title + ': ' + item.message + ' (' + item.count + ')'"
         @click="navigateToLink(item.link)"
+        @keydown="handleKeydown($event, item.link)"
       >
         <v-card-text class="d-flex align-center py-2 px-3">
           <v-icon
@@ -125,11 +144,25 @@ const navigateToLink = (link?: string) => {
   overflow-y: auto;
 }
 
-.insight-card:hover {
+.insight-card {
+  transition: opacity 0.2s ease, outline 0.2s ease;
+}
+
+.clickable-card {
+  cursor: pointer;
+}
+
+.clickable-card:hover {
   opacity: 0.9;
 }
 
-.cursor-pointer {
-  cursor: pointer;
+.clickable-card:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+.non-interactive {
+  cursor: default;
+  pointer-events: none;
 }
 </style>

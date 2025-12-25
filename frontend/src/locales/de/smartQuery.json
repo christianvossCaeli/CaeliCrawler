@@ -226,6 +226,10 @@
       "unknownEntity": "Unbekannt",
       "ariaLabel": "Kartenvisualisierung mit geografischen Daten",
       "interactiveMap": "Interaktive Karte - mit Maus verschieben und zoomen"
+    },
+    "calendar": {
+      "noEvents": "Keine Termine in diesem Zeitraum",
+      "viewDetails": "Details anzeigen"
     }
   },
   "sourceInfo": {

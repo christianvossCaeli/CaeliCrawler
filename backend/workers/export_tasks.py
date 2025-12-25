@@ -14,6 +14,7 @@ import structlog
 from celery import shared_task
 
 from workers.celery_app import celery_app
+from workers.async_runner import run_async
 
 logger = structlog.get_logger(__name__)
 
@@ -57,7 +58,7 @@ def async_entity_export(
 
     try:
         # Run the async export in an event loop
-        result = asyncio.run(_execute_async_export(
+        result = run_async(_execute_async_export(
             export_job_id,
             export_data,
             progress_callback=lambda p, m: _update_progress(self, export_job_id, p, m),
@@ -78,7 +79,7 @@ def async_entity_export(
             error=str(e),
         )
         # Update job status to failed
-        asyncio.run(_mark_job_failed(export_job_id, str(e)))
+        run_async(_mark_job_failed(export_job_id, str(e)))
         raise
 
 

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.custom_summary import CustomSummary
     from app.models.device_token import DeviceToken
     from app.models.notification import Notification
     from app.models.notification_rule import NotificationRule
@@ -186,6 +187,12 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
         order_by="desc(SmartQueryOperation.last_executed_at)",
+    )
+    custom_summaries: Mapped[List["CustomSummary"]] = relationship(
+        "CustomSummary",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="desc(CustomSummary.updated_at)",
     )
 
     def __repr__(self) -> str:

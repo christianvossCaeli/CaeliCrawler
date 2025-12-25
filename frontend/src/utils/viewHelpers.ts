@@ -5,6 +5,9 @@
  * used across multiple views to eliminate code duplication.
  */
 
+// Re-export status colors from the centralized composable
+export { STATUS_COLORS, STATUS_ICONS, getStatusColor, getStatusIcon } from '@/composables/useStatusColors'
+
 /**
  * Format a date string for display.
  * @param dateStr - ISO date string or Date object
@@ -66,61 +69,6 @@ export function formatRelativeTime(dateStr: string | Date | null | undefined): s
   } catch {
     return String(dateStr)
   }
-}
-
-/**
- * Status color mapping for common statuses.
- */
-export const STATUS_COLORS: Record<string, string> = {
-  // General statuses
-  ACTIVE: 'success',
-  active: 'success',
-  INACTIVE: 'grey',
-  inactive: 'grey',
-  PENDING: 'warning',
-  pending: 'warning',
-  ERROR: 'error',
-  error: 'error',
-  FAILED: 'error',
-  failed: 'error',
-
-  // Processing statuses
-  COMPLETED: 'success',
-  completed: 'success',
-  PROCESSING: 'info',
-  processing: 'info',
-  RUNNING: 'info',
-  running: 'info',
-  QUEUED: 'warning',
-  queued: 'warning',
-  SCHEDULED: 'warning',
-  scheduled: 'warning',
-  CANCELLED: 'grey',
-  cancelled: 'grey',
-  SKIPPED: 'grey',
-  skipped: 'grey',
-
-  // Document statuses
-  EXTRACTED: 'success',
-  extracted: 'success',
-  NEW: 'info',
-  new: 'info',
-
-  // Boolean-like
-  true: 'success',
-  false: 'error',
-  enabled: 'success',
-  disabled: 'grey',
-}
-
-/**
- * Get color for a status value.
- * @param status - Status string
- * @returns Vuetify color name
- */
-export function getStatusColor(status: string | null | undefined): string {
-  if (!status) return 'grey'
-  return STATUS_COLORS[status] || 'grey'
 }
 
 /**

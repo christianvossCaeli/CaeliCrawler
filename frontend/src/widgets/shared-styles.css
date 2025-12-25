@@ -1,0 +1,83 @@
+/**
+ * Shared Widget Styles
+ *
+ * Common CSS classes used across dashboard widget components.
+ * Import this file in widget components to reduce duplication.
+ */
+
+/* Clickable list items */
+.widget-clickable-item {
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.widget-clickable-item:hover {
+  background-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.widget-clickable-item:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+/* Clickable stats (used in summary bars) */
+.widget-clickable-stat {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.widget-clickable-stat:hover {
+  background-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.widget-clickable-stat:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+/* View all / action links */
+.widget-action-link {
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.widget-action-link:hover {
+  background-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.widget-action-link:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+/* Non-interactive state (edit mode) */
+.widget-non-interactive {
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Summary bar background */
+.widget-summary-bar {
+  background-color: rgba(var(--v-theme-on-surface), 0.05);
+}
+
+/* Scrollable lists */
+.widget-scrollable-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.widget-scrollable-list--small {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.widget-scrollable-list--medium {
+  max-height: 250px;
+  overflow-y: auto;
+}

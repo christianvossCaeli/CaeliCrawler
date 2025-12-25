@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="900" persistent scrollable @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog v-model="modelValue" max-width="900" persistent scrollable>
     <v-card>
       <v-card-title class="d-flex align-center pa-4 bg-info">
         <v-avatar color="info-darken-1" size="40" class="mr-3">
@@ -171,7 +171,7 @@
       <v-divider></v-divider>
 
       <v-card-actions class="pa-4">
-        <v-btn variant="tonal" @click="$emit('update:modelValue', false)">{{ t('common.cancel') }}</v-btn>
+        <v-btn variant="tonal" @click="modelValue = false">{{ t('common.cancel') }}</v-btn>
         <v-btn variant="tonal" color="grey" @click="$emit('saveWithoutAi')">
           <v-icon start>mdi-content-save-outline</v-icon>
           {{ t('categories.aiPreview.saveWithoutAi') }}
@@ -194,6 +194,8 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+
+const modelValue = defineModel<boolean>()
 
 // Types
 interface EntityType {
@@ -230,7 +232,6 @@ interface AiPreviewData {
 
 // Props
 defineProps<{
-  modelValue: boolean
   loading: boolean
   saving: boolean
   previewData: AiPreviewData | null
@@ -241,7 +242,6 @@ defineProps<{
 
 // Emits
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
   'update:selectedEntityTypeOption': [value: string]
   'update:extractionPrompt': [value: string]
   'updateFacetType': [payload: { index: number; value: boolean }]

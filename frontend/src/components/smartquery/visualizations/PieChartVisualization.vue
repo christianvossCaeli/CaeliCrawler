@@ -94,7 +94,7 @@ const chartOptions = computed(() => ({
           const value = context.parsed
           const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
           const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0
-          return `${context.label}: ${value.toLocaleString('de-DE')} (${percentage}%)`
+          return `${context.label}: ${value.toLocaleString()} (${percentage}%)`
         },
       },
     },

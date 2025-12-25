@@ -89,7 +89,7 @@
 
     <!-- App Bar -->
     <v-app-bar v-if="auth.isAuthenticated" app color="primary">
-      <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
+      <v-app-bar-nav-icon @click="drawer = !drawer" :aria-label="$t('nav.toggleMenu')"></v-app-bar-nav-icon>
       <v-toolbar-title>CaeliCrawler</v-toolbar-title>
       <v-spacer></v-spacer>
 
@@ -101,9 +101,9 @@
           color="error"
           overlap
         >
-          <v-icon>mdi-bell-outline</v-icon>
+          <v-icon aria-hidden="true">mdi-bell-outline</v-icon>
         </v-badge>
-        <v-icon v-else>mdi-bell-outline</v-icon>
+        <v-icon v-else aria-hidden="true">mdi-bell-outline</v-icon>
       </v-btn>
 
       <!-- Language Switcher -->
@@ -162,7 +162,7 @@
     </v-main>
 
     <!-- Password Change Dialog -->
-    <v-dialog v-model="passwordDialogOpen" max-width="400">
+    <v-dialog v-model="passwordDialogOpen" max-width="400" role="dialog" aria-modal="true">
       <v-card>
         <v-card-title>{{ $t('auth.changePassword') }}</v-card-title>
         <v-card-text class="pt-4">
@@ -214,11 +214,13 @@
       :color="snackbarColor"
       :timeout="snackbarTimeout"
       location="bottom right"
+      role="alert"
+      aria-live="polite"
     >
       {{ snackbarText }}
       <template v-slot:actions>
-        <v-btn variant="tonal" @click="snackbar = false">
-          <v-icon>mdi-close</v-icon>
+        <v-btn variant="tonal" :aria-label="$t('common.close')" @click="snackbar = false">
+          <v-icon aria-hidden="true">mdi-close</v-icon>
         </v-btn>
       </template>
     </v-snackbar>
@@ -246,6 +248,9 @@ import { useNotifications } from './composables/useNotifications'
 import { useFeatureFlags } from './composables/useFeatureFlags'
 import { dataApi } from './services/api'
 import { setLocale, type SupportedLocale } from './locales'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('App')
 
 const { snackbar, snackbarText, snackbarColor, snackbarTimeout, showMessage } = useSnackbar()
 const { t, locale } = useI18n()
@@ -292,6 +297,7 @@ const mainNavItems = computed(() => [
 
 const secondaryNavItems = computed(() => [
   { title: t('nav.favorites'), icon: 'mdi-star', to: '/favorites' },
+  { title: t('nav.summaries'), icon: 'mdi-view-dashboard-variant', to: '/summaries' },
   { title: t('nav.notifications'), icon: 'mdi-bell-outline', to: '/notifications' },
   { title: t('nav.help'), icon: 'mdi-help-circle-outline', to: '/help' },
 ])
@@ -381,7 +387,7 @@ async function loadBadgeCounts() {
     pendingDocsCount.value = docsRes.data.total
     unverifiedResultsCount.value = resultsRes.data.unverified || 0
   } catch (error) {
-    console.error('Failed to load badge counts:', error)
+    logger.error('Failed to load badge counts:', error)
   }
 }
 

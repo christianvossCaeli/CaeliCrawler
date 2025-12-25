@@ -190,6 +190,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCrawlPresetsStore, type CrawlPreset } from '@/stores/crawlPresets'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { useDialogFocus } from '@/composables'
 import CrawlPresetEditor from './CrawlPresetEditor.vue'
 
 const { t, locale } = useI18n()
@@ -202,6 +203,9 @@ const editingPreset = ref<CrawlPreset | null>(null)
 const deleteDialog = ref(false)
 const deletingPreset = ref<CrawlPreset | null>(null)
 const executingPresetId = ref<string | null>(null)
+
+// Focus management for accessibility (WCAG 2.1)
+useDialogFocus({ isOpen: deleteDialog })
 
 const filteredPresets = computed(() => {
   switch (filterMode.value) {

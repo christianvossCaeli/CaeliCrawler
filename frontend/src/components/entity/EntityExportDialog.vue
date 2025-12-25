@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="500" @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog v-model="modelValue" max-width="500">
     <v-card>
       <v-card-title>
         <v-icon start>mdi-export</v-icon>
@@ -46,7 +46,7 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn variant="tonal" @click="$emit('update:modelValue', false)">{{ t('common.cancel') }}</v-btn>
+        <v-btn variant="tonal" @click="modelValue = false">{{ t('common.cancel') }}</v-btn>
         <v-btn variant="tonal" color="primary" :loading="exporting" @click="$emit('export')">
           <v-icon start>mdi-download</v-icon>
           {{ t('common.export') }}
@@ -73,9 +73,10 @@ interface ExportFormat {
   value: string
 }
 
+const modelValue = defineModel<boolean>()
+
 // Props
 const props = defineProps<{
-  modelValue: boolean
   format: string
   options: ExportOptions
   exporting: boolean
@@ -83,7 +84,6 @@ const props = defineProps<{
 
 // Emits
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
   'update:format': [value: string]
   'update:options': [value: ExportOptions]
   export: []

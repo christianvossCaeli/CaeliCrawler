@@ -90,11 +90,25 @@ export interface DashboardStats {
 }
 
 /**
+ * Activity action types
+ */
+export type ActivityAction =
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'VERIFY'
+  | 'IMPORT'
+  | 'EXPORT'
+  | 'CRAWL_START'
+  | 'CRAWL_COMPLETE'
+  | 'LOGIN'
+
+/**
  * Activity item from the API
  */
 export interface ActivityItem {
   id: string
-  action: string
+  action: ActivityAction | string // Allow string for unknown actions
   entity_type?: string
   entity_id?: string
   entity_name?: string
@@ -140,6 +154,43 @@ export interface ChartDataPoint {
   label: string
   value: number
   color?: string
+  slug?: string
+}
+
+/**
+ * Chart data point with calculated percentage
+ */
+export interface ChartItemWithPercentage extends ChartDataPoint {
+  percentage: number
+}
+
+/**
+ * Crawler job status
+ */
+export type CrawlerJobStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'PENDING'
+
+/**
+ * Crawler job from the API
+ */
+export interface CrawlerJob {
+  id: string
+  source_id: string
+  source_name: string
+  status: CrawlerJobStatus
+  documents_found?: number
+  pages_crawled?: number
+  started_at?: string
+  completed_at?: string
+}
+
+/**
+ * Crawler status summary
+ */
+export interface CrawlerStatusData {
+  worker_count: number
+  running_jobs: number
+  pending_jobs: number
+  queue_size?: number
 }
 
 /**
@@ -161,3 +212,84 @@ export const WIDGET_SIZE_OPTIONS = [
   { value: 3, label: 'dashboard.size.large', description: '3 Spalten' },
   { value: 4, label: 'dashboard.size.full', description: '4 Spalten' },
 ] as const
+
+// =============================================================================
+// Widget-specific Types
+// =============================================================================
+
+/**
+ * Search result types
+ */
+export type SearchResultType = 'entity' | 'document' | 'facet'
+
+/**
+ * Quick search result item
+ */
+export interface QuickSearchResult {
+  id: string
+  title: string
+  type: SearchResultType | string // Allow string for unknown types
+  type_name?: string
+  slug?: string
+  type_slug?: string
+  highlight?: string
+}
+
+/**
+ * Recent document item for RecentDocuments widget
+ */
+export interface RecentDocument {
+  id: string
+  title: string
+  source_name?: string
+  category_name?: string
+  status: string
+  created_at: string
+  file_type?: string
+}
+
+/**
+ * Data source freshness for DataFreshness widget
+ */
+export type FreshnessLevel = 'fresh' | 'stale' | 'outdated' | 'never'
+
+export interface SourceFreshness {
+  id: string
+  name: string
+  last_crawl: string | null
+  status: string
+  document_count: number
+  freshness: FreshnessLevel
+}
+
+/**
+ * Saved search item for SavedSearches widget
+ */
+export interface SavedSearch {
+  id: string
+  query: string
+  label?: string
+  createdAt: string
+  lastUsed: string
+  useCount: number
+  isPinned: boolean
+}
+
+// =============================================================================
+// Widget Constants
+// =============================================================================
+
+/** Maximum number of saved searches to store */
+export const MAX_SAVED_SEARCHES = 10
+
+/** Default items per page for widget lists */
+export const WIDGET_DEFAULT_LIMIT = 8
+
+/** Data freshness thresholds in hours */
+export const FRESHNESS_THRESHOLDS = {
+  FRESH_HOURS: 24,
+  STALE_HOURS: 72,
+} as const
+
+/** System health failure rate threshold (10%) */
+export const FAILURE_RATE_THRESHOLD = 0.1

@@ -93,6 +93,7 @@
         @send="(msg) => { question = msg; executePlanQuery() }"
         @adopt-prompt="adoptPrompt"
         @reset="handlePlanReset"
+        @save-as-summary="handleSaveAsSummary"
       />
     </v-card>
 
@@ -420,6 +421,13 @@
         @rerun="handleHistoryRerun"
       />
     </v-navigation-drawer>
+
+    <!-- Summary Create Dialog -->
+    <SummaryCreateDialog
+      v-model="showSummaryCreateDialog"
+      :initial-prompt="summaryInitialPrompt"
+      @created="handleSummaryCreated"
+    />
   </div>
 </template>
 
@@ -442,6 +450,10 @@ import SmartQueryExamples from '@/components/smartquery/SmartQueryExamples.vue'
 import SmartQueryGenerationProgress from '@/components/smartquery/SmartQueryGenerationProgress.vue'
 import SmartQueryPreview from '@/components/smartquery/SmartQueryPreview.vue'
 import SmartQueryWriteResults from '@/components/smartquery/SmartQueryWriteResults.vue'
+import SummaryCreateDialog from '@/components/summaries/SummaryCreateDialog.vue'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('SmartQueryView')
 
 // Types for attachments
 interface AttachmentInfo {
@@ -468,6 +480,10 @@ const previewData = ref<any>(null)
 type QueryMode = 'read' | 'write' | 'plan'
 const currentMode = ref<QueryMode>('read')
 const fromAssistant = ref(false)
+
+// Summary creation from plan mode
+const showSummaryCreateDialog = ref(false)
+const summaryInitialPrompt = ref('')
 
 // Plan mode composable
 const {
@@ -748,6 +764,18 @@ function handlePlanReset() {
   question.value = ''
 }
 
+// Summary creation handlers
+function handleSaveAsSummary(prompt: string) {
+  summaryInitialPrompt.value = prompt
+  showSummaryCreateDialog.value = true
+}
+
+function handleSummaryCreated() {
+  showSummaryCreateDialog.value = false
+  // Optionally navigate to the new summary
+  router.push('/summaries')
+}
+
 async function executeQuery() {
   // Plan mode has its own execution logic
   if (currentMode.value === 'plan') {
@@ -890,7 +918,7 @@ function resetAll() {
  * Handle actions from visualization component
  */
 function handleVisualizationAction(action: string, params: Record<string, any>) {
-  console.log('Visualization action:', action, params)
+  logger.debug('Visualization action:', action, params)
 
   // Handle specific actions
   switch (action) {

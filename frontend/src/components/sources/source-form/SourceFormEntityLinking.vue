@@ -84,6 +84,9 @@ import { ref, onUnmounted } from 'vue'
 import { entityApi } from '@/services/api'
 import { ENTITY_SEARCH } from '@/config/sources'
 import type { EntityBrief } from '@/stores/entity'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('SourceFormEntityLinking')
 
 interface Props {
   selectedEntities: EntityBrief[]
@@ -124,7 +127,7 @@ const onSearch = (query: string) => {
         (e: EntityBrief) => !selectedIds.has(e.id)
       )
     } catch (e) {
-      console.error('Failed to search entities:', e)
+      logger.error('Failed to search entities:', e)
       entitySearchResults.value = []
     } finally {
       searchingEntities.value = false

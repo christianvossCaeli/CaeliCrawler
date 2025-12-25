@@ -455,6 +455,9 @@ import { entityApi, facetApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { getContrastColor } from '@/composables/useColorHelpers'
 import PageHeader from '@/components/common/PageHeader.vue'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('EntityTypesView')
 
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
@@ -578,7 +581,7 @@ async function loadEntityTypes() {
     const response = await entityApi.getEntityTypes({ per_page: 100 })
     entityTypes.value = response.data.items || []
   } catch (e) {
-    console.error('Failed to load entity types', e)
+    logger.error('Failed to load entity types', e)
     showError(t('admin.entityTypes.messages.loadError'))
   } finally {
     loading.value = false
@@ -590,7 +593,7 @@ async function loadFacetTypes() {
     const response = await facetApi.getFacetTypes({ per_page: 100, is_active: true })
     facetTypes.value = response.data.items || []
   } catch (e) {
-    console.error('Failed to load facet types', e)
+    logger.error('Failed to load facet types', e)
   }
 }
 

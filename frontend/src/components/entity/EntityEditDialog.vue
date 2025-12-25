@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="500" @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog v-model="modelValue" max-width="500">
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon class="mr-2">mdi-pencil</v-icon>
@@ -22,7 +22,7 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn variant="tonal" @click="$emit('update:modelValue', false)">{{ t('common.cancel') }}</v-btn>
+        <v-btn variant="tonal" @click="modelValue = false">{{ t('common.cancel') }}</v-btn>
         <v-btn variant="tonal" color="primary" :loading="saving" @click="handleSave">
           {{ t('common.save') }}
         </v-btn>
@@ -35,9 +35,10 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+const modelValue = defineModel<boolean>()
+
 // Props
 defineProps<{
-  modelValue: boolean
   name: string
   externalId: string
   entityTypeName?: string
@@ -46,7 +47,6 @@ defineProps<{
 
 // Emits
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
   'update:name': [value: string]
   'update:externalId': [value: string]
   save: []

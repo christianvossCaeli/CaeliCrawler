@@ -12,6 +12,7 @@ import structlog
 from celery.exceptions import SoftTimeLimitExceeded
 
 from workers.celery_app import celery_app
+from workers.async_runner import run_async
 from app.config import settings
 
 logger = structlog.get_logger()
@@ -96,7 +97,7 @@ def process_document(self, document_id: str):
                 from workers.ai_tasks import analyze_document
                 analyze_document.delay(document_id)
 
-    asyncio.run(_process())
+    run_async(_process())
 
 
 async def _download_document(document) -> str:
@@ -300,7 +301,7 @@ def process_pending_documents():
 
             logger.info("Queued pending documents for processing", count=len(documents))
 
-    asyncio.run(_process_pending())
+    run_async(_process_pending())
 
 
 @celery_app.task(name="workers.processing_tasks.reprocess_failed")
@@ -332,4 +333,4 @@ def reprocess_failed_documents():
 
             logger.info("Requeued failed documents", count=len(document_ids))
 
-    asyncio.run(_reprocess())
+    run_async(_reprocess())

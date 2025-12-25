@@ -151,8 +151,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useStatusColors } from '@/composables'
 
 const { t } = useI18n()
+const { getStatusColor: getBaseStatusColor, getStatusIcon: getBaseStatusIcon } = useStatusColors()
 
 export interface BatchStatus {
   batch_id: string
@@ -194,34 +196,19 @@ const hasErrors = computed(() => props.status.errors.length > 0)
 const isRunning = computed(() => props.status.status === 'running')
 const isCompleted = computed(() => ['completed', 'failed', 'cancelled'].includes(props.status.status))
 
+// Use centralized status colors with special handling for completed with errors
 const statusColor = computed(() => {
-  switch (props.status.status) {
-    case 'completed':
-      return hasErrors.value ? 'warning' : 'success'
-    case 'failed':
-      return 'error'
-    case 'cancelled':
-      return 'grey'
-    case 'running':
-      return 'primary'
-    default:
-      return 'grey'
+  if (props.status.status === 'completed' && hasErrors.value) {
+    return 'warning'
   }
+  return getBaseStatusColor(props.status.status)
 })
 
 const statusIcon = computed(() => {
-  switch (props.status.status) {
-    case 'completed':
-      return hasErrors.value ? 'mdi-alert' : 'mdi-check-circle'
-    case 'failed':
-      return 'mdi-alert-circle'
-    case 'cancelled':
-      return 'mdi-stop-circle'
-    case 'running':
-      return 'mdi-cog-sync'
-    default:
-      return 'mdi-clock-outline'
+  if (props.status.status === 'completed' && hasErrors.value) {
+    return 'mdi-alert'
   }
+  return getBaseStatusIcon(props.status.status)
 })
 
 const statusLabel = computed(() => {

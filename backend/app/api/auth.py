@@ -1,10 +1,13 @@
 """Authentication API endpoints."""
 
+import structlog
 from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+
+logger = structlog.get_logger(__name__)
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select, and_, func

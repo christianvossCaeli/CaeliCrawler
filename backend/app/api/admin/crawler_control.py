@@ -209,23 +209,23 @@ async def cancel_job(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_editor),
 ):
-    """Cancel a running crawl job."""
+    """Cancel a running or pending crawl job."""
     from workers.celery_app import celery_app
 
     job = await session.get(CrawlJob, job_id)
     if not job:
         raise NotFoundError("Crawl Job", str(job_id))
 
-    if job.status != JobStatus.RUNNING:
-        raise ValidationError("Can only cancel running jobs")
+    if job.status not in (JobStatus.RUNNING, JobStatus.PENDING):
+        raise ValidationError("Can only cancel running or pending jobs")
 
     # Get source and category names for audit
     source = await session.get(DataSource, job.source_id) if job.source_id else None
     category = await session.get(Category, job.category_id) if job.category_id else None
 
     async with AuditContext(session, current_user, request) as audit:
-        # Revoke Celery task
-        if job.celery_task_id:
+        # Revoke Celery task if running
+        if job.celery_task_id and job.status == JobStatus.RUNNING:
             celery_app.control.revoke(job.celery_task_id, terminate=True)
 
         job.status = JobStatus.CANCELLED

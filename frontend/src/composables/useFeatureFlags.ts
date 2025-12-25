@@ -1,5 +1,8 @@
 import { ref, readonly } from 'vue'
 import { api } from '@/services/api'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('useFeatureFlags')
 
 interface FeatureFlags {
   entityLevelFacets: boolean
@@ -27,7 +30,7 @@ export function useFeatureFlags() {
       flags.value = response.data
       loaded.value = true
     } catch (e) {
-      console.error('Failed to load feature flags', e)
+      logger.error('Failed to load feature flags', e)
     } finally {
       loading.value = false
     }

@@ -13,6 +13,7 @@ export type VisualizationType =
   | 'comparison'
   | 'map'
   | 'heatmap'
+  | 'calendar'
 
 export type ColumnType =
   | 'text'
@@ -167,15 +168,17 @@ export function formatValue(value: any, type: ColumnType, format?: string): stri
   switch (type) {
     case 'number':
       if (typeof value === 'number') {
+        // Use browser locale for consistent number formatting
         return format
-          ? value.toLocaleString('de-DE', { minimumFractionDigits: parseInt(format) || 0 })
-          : value.toLocaleString('de-DE')
+          ? value.toLocaleString(undefined, { minimumFractionDigits: parseInt(format) || 0 })
+          : value.toLocaleString()
       }
       return String(value)
 
     case 'currency':
       if (typeof value === 'number') {
-        return value.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })
+        // Use browser locale; currency should ideally come from config
+        return value.toLocaleString(undefined, { style: 'currency', currency: 'EUR' })
       }
       return String(value)
 
@@ -188,7 +191,12 @@ export function formatValue(value: any, type: ColumnType, format?: string): stri
     case 'date':
       try {
         const date = new Date(value)
-        return date.toLocaleDateString('de-DE')
+        // Use browser locale for consistent date formatting
+        return date.toLocaleDateString(undefined, {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        })
       } catch {
         return String(value)
       }
@@ -196,13 +204,21 @@ export function formatValue(value: any, type: ColumnType, format?: string): stri
     case 'datetime':
       try {
         const date = new Date(value)
-        return date.toLocaleString('de-DE')
+        // Use browser locale for consistent datetime formatting
+        return date.toLocaleString(undefined, {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
       } catch {
         return String(value)
       }
 
     case 'boolean':
-      return value ? 'Ja' : 'Nein'
+      // Note: These should ideally come from i18n
+      return value ? '✓' : '✗'
 
     default:
       return String(value)
@@ -227,6 +243,7 @@ export const VISUALIZATION_ICONS: Record<VisualizationType, string> = {
   comparison: 'mdi-compare',
   map: 'mdi-map',
   heatmap: 'mdi-grid',
+  calendar: 'mdi-calendar',
 }
 
 /**
@@ -251,6 +268,7 @@ export const VISUALIZATION_COLORS: Record<VisualizationType, string> = {
   comparison: 'cyan',
   map: 'teal',
   heatmap: 'deep-orange',
+  calendar: 'light-green',
 }
 
 /**

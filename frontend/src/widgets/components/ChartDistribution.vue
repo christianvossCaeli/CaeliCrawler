@@ -4,9 +4,11 @@
  */
 
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { dashboardApi } from '@/services/api'
+import { handleKeyboardClick } from '../composables'
 import BaseWidget from '../BaseWidget.vue'
-import type { WidgetDefinition, WidgetConfig, ChartDataResponse } from '../types'
+import type { WidgetDefinition, WidgetConfig, ChartDataResponse, ChartItemWithPercentage } from '../types'
 
 const props = defineProps<{
   definition: WidgetDefinition
@@ -14,16 +16,19 @@ const props = defineProps<{
   isEditing?: boolean
 }>()
 
+const router = useRouter()
 const loading = ref(true)
+const error = ref<string | null>(null)
 const chartData = ref<ChartDataResponse | null>(null)
 
 const refresh = async () => {
   loading.value = true
+  error.value = null
   try {
     const response = await dashboardApi.getChartData('entity-distribution')
     chartData.value = response.data
   } catch (e) {
-    console.error('Failed to load chart data:', e)
+    error.value = e instanceof Error ? e.message : 'Failed to load'
   } finally {
     loading.value = false
   }
@@ -34,9 +39,9 @@ onMounted(() => {
 })
 
 // Compute chart data for display
-const pieData = computed(() => {
+const pieData = computed<ChartItemWithPercentage[]>(() => {
   if (!chartData.value?.data) return []
-  return chartData.value.data.slice(0, 6).map((item) => ({
+  return chartData.value.data.slice(0, 6).map((item): ChartItemWithPercentage => ({
     ...item,
     percentage: chartData.value!.total
       ? Math.round((item.value / chartData.value!.total) * 100)
@@ -51,6 +56,20 @@ const defaultColors = [
   '#1976D2', '#388E3C', '#FBC02D', '#D32F2F',
   '#7B1FA2', '#0097A7', '#F57C00', '#455A64',
 ]
+
+const navigateToEntityType = (item: ChartItemWithPercentage) => {
+  if (props.isEditing) return
+  // Navigate to entities filtered by type (using slug if available)
+  if (item.slug) {
+    router.push({ path: `/entities/${item.slug}` })
+  } else {
+    router.push({ path: '/entities', query: { type: item.label } })
+  }
+}
+
+const handleKeydown = (event: KeyboardEvent, item: ChartItemWithPercentage) => {
+  handleKeyboardClick(event, () => navigateToEntityType(item))
+}
 </script>
 
 <template>
@@ -67,11 +86,17 @@ const defaultColors = [
     <template v-else-if="pieData.length > 0">
       <div class="chart-container">
         <!-- Simple Bar Chart Visualization -->
-        <div class="bar-chart mb-4">
+        <div class="bar-chart mb-4" role="list" aria-label="Entity distribution">
           <div
             v-for="(item, index) in pieData"
             :key="item.label"
-            class="bar-item mb-2"
+            class="bar-item mb-2 clickable-bar"
+            :class="{ 'non-interactive': isEditing }"
+            role="button"
+            :tabindex="isEditing ? -1 : 0"
+            :aria-label="item.label + ': ' + item.value + ' (' + item.percentage + '%)'"
+            @click="navigateToEntityType(item)"
+            @keydown="handleKeydown($event, item)"
           >
             <div class="d-flex justify-space-between align-center mb-1">
               <span class="text-caption text-truncate" style="max-width: 60%">
@@ -116,5 +141,27 @@ const defaultColors = [
 
 .bar-item {
   padding: 4px 0;
+}
+
+.clickable-bar {
+  cursor: pointer;
+  padding: 8px;
+  margin: -4px -8px;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.clickable-bar:hover {
+  background-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.clickable-bar:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+.non-interactive {
+  cursor: default;
+  pointer-events: none;
 }
 </style>

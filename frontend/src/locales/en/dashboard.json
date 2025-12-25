@@ -46,13 +46,17 @@
         "name": "Facets",
         "description": "Facet values and verification rate",
         "total": "Total facets",
-        "verified": "verified"
+        "verified": "verified",
+        "unverified": "unverified"
       },
       "statsDocuments": {
         "name": "Documents",
         "description": "Documents and processing status",
         "total": "Total documents",
-        "processed": "processed"
+        "processed": "processed",
+        "filtered": "filtered",
+        "pending": "pending",
+        "failed": "failed"
       },
       "statsCrawler": {
         "name": "Crawler",
@@ -82,6 +86,30 @@
       "favorites": {
         "name": "Favorites",
         "description": "Your favorite entities for quick access"
+      },
+      "recentDocuments": {
+        "name": "Recent Documents",
+        "description": "Recently added documents"
+      },
+      "quickSearch": {
+        "name": "Quick Search",
+        "description": "Search directly from the dashboard"
+      },
+      "dataFreshness": {
+        "name": "Data Freshness",
+        "description": "Last update per source"
+      },
+      "savedSearches": {
+        "name": "Saved Searches",
+        "description": "Your recent and pinned searches"
+      },
+      "mySummaries": {
+        "name": "My Summaries",
+        "description": "Your custom dashboard summaries"
+      },
+      "summaryQuickCreate": {
+        "name": "Create Summary",
+        "description": "Quickly create a new AI-powered summary"
       }
     },
     "stats": {
@@ -145,6 +173,27 @@
     "countries": {
       "germany": "Germany",
       "unitedKingdom": "United Kingdom"
+    },
+    "noDocuments": "No documents available",
+    "searchPlaceholder": "Search documents, entities...",
+    "viewAllResults": "View all results",
+    "searchHint": "Enter a search term",
+    "fresh": "Fresh",
+    "stale": "Stale",
+    "outdated": "Outdated",
+    "neverCrawled": "Never crawled",
+    "noSources": "No data sources",
+    "noSavedSearches": "No saved searches",
+    "savedSearchesHint": "Your searches are automatically saved",
+    "newSearch": "New Search",
+    "storageUnavailable": "Storage unavailable - changes will not be saved",
+    "storageSaveError": "Could not save searches",
+    "storageQuotaWarning": "{count} old searches were removed to free up space",
+    "storageError": "Could not load saved searches",
+    "summaryExamples": {
+      "topEntities": "Top 10 entities by document count",
+      "recentChanges": "Latest changes from the past week",
+      "dataOverview": "Overview of all data types with statistics"
     }
   }
 }

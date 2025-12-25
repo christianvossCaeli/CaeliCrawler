@@ -278,6 +278,9 @@ import { useAuthStore, type User } from '@/stores/auth'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('UsersView')
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -390,7 +393,7 @@ async function fetchUsers() {
     users.value = response.data.items
     totalUsers.value = response.data.total
   } catch (error) {
-    console.error('Failed to fetch users:', error)
+    logger.error('Failed to fetch users:', error)
   } finally {
     loading.value = false
   }
@@ -439,7 +442,7 @@ async function saveUser() {
     dialogOpen.value = false
     await fetchUsers()
   } catch (error: any) {
-    console.error('Failed to save user:', error)
+    logger.error('Failed to save user:', error)
     alert(error.response?.data?.detail || t('admin.users.saveError'))
   } finally {
     saving.value = false
@@ -462,7 +465,7 @@ async function resetPassword() {
     })
     passwordDialogOpen.value = false
   } catch (error: any) {
-    console.error('Failed to reset password:', error)
+    logger.error('Failed to reset password:', error)
     alert(error.response?.data?.detail || t('admin.users.resetError'))
   } finally {
     saving.value = false
@@ -483,7 +486,7 @@ async function deleteUser() {
     deleteDialogOpen.value = false
     await fetchUsers()
   } catch (error: any) {
-    console.error('Failed to delete user:', error)
+    logger.error('Failed to delete user:', error)
     alert(error.response?.data?.detail || t('admin.users.deleteError'))
   } finally {
     saving.value = false

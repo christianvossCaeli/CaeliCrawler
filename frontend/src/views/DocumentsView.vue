@@ -409,7 +409,9 @@ import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
+import { useLogger } from '@/composables/useLogger'
 
+const logger = useLogger('DocumentsView')
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
 
@@ -549,7 +551,7 @@ const loadStats = async () => {
       failed: results[5].data.total,
     }
   } catch (error) {
-    console.error('Failed to load stats:', error)
+    logger.error('Failed to load stats:', error)
   }
 }
 
@@ -558,7 +560,7 @@ const loadLocations = async () => {
     const response = await dataApi.getDocumentLocations()
     locations.value = response.data
   } catch (error) {
-    console.error('Failed to load locations:', error)
+    logger.error('Failed to load locations:', error)
   }
 }
 
@@ -567,7 +569,7 @@ const loadCategories = async () => {
     const response = await adminApi.getCategories()
     categories.value = response.data.items || response.data
   } catch (error) {
-    console.error('Failed to load categories:', error)
+    logger.error('Failed to load categories:', error)
   }
 }
 

@@ -301,6 +301,51 @@ async def batch_update_embeddings(
     return updated_count
 
 
+def _normalize_for_comparison(name: str) -> str:
+    """
+    Normalize a name for comparison purposes.
+
+    - Converts to lowercase
+    - Replaces German umlauts with ASCII equivalents
+    - Removes common prefixes like 'Stadt', 'Gemeinde', 'Landkreis'
+    - Strips whitespace
+
+    Args:
+        name: The name to normalize
+
+    Returns:
+        Normalized string for comparison
+    """
+    if not name:
+        return ""
+
+    # Lowercase and strip
+    result = name.lower().strip()
+
+    # Replace German umlauts
+    umlaut_map = {
+        'ä': 'ae', 'ö': 'oe', 'ü': 'ue',
+        'Ä': 'ae', 'Ö': 'oe', 'Ü': 'ue',
+        'ß': 'ss'
+    }
+    for umlaut, replacement in umlaut_map.items():
+        result = result.replace(umlaut, replacement)
+
+    # Remove common prefixes (both at start and end)
+    prefixes_to_remove = ['stadt ', 'gemeinde ', 'landkreis ', 'kreis ']
+    suffixes_to_remove = [' stadt', ' gemeinde', ' landkreis', ' kreis']
+
+    for prefix in prefixes_to_remove:
+        if result.startswith(prefix):
+            result = result[len(prefix):]
+
+    for suffix in suffixes_to_remove:
+        if result.endswith(suffix):
+            result = result[:-len(suffix)]
+
+    return result.strip()
+
+
 def calculate_name_similarity(name1: str, name2: str) -> float:
     """
     Calculate similarity between two entity names.
@@ -322,9 +367,9 @@ def calculate_name_similarity(name1: str, name2: str) -> float:
     if not name1 or not name2:
         return 0.0
 
-    # Simple lowercase comparison
-    n1 = name1.lower().strip()
-    n2 = name2.lower().strip()
+    # Normalize for comparison
+    n1 = _normalize_for_comparison(name1)
+    n2 = _normalize_for_comparison(name2)
 
     if n1 == n2:
         return 1.0

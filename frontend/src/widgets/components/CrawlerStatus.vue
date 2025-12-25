@@ -1,12 +1,18 @@
 <script setup lang="ts">
 /**
  * CrawlerStatus Widget - Shows live crawler status and recent jobs
+ * Auto-refresh is handled by BaseWidget via refreshInterval in registry
  */
 
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
+import { useStatusColors } from '@/composables'
+import { handleKeyboardClick } from '../composables'
 import BaseWidget from '../BaseWidget.vue'
-import type { WidgetDefinition, WidgetConfig } from '../types'
+import WidgetEmptyState from './WidgetEmptyState.vue'
+import type { WidgetDefinition, WidgetConfig, CrawlerJob, CrawlerStatusData } from '../types'
 
 const props = defineProps<{
   definition: WidgetDefinition
@@ -14,24 +20,54 @@ const props = defineProps<{
   isEditing?: boolean
 }>()
 
+const { t } = useI18n()
+const router = useRouter()
 const loading = ref(true)
-const status = ref<any>(null)
-const runningJobs = ref<any[]>([])
-const recentJobs = ref<any[]>([])
-let refreshInterval: ReturnType<typeof setInterval> | null = null
+const error = ref<string | null>(null)
+const status = ref<CrawlerStatusData | null>(null)
+const runningJobs = ref<CrawlerJob[]>([])
+const recentJobs = ref<CrawlerJob[]>([])
 
 const refresh = async () => {
+  error.value = null
+  const errors: string[] = []
+
   try {
-    const [statusRes, runningRes, jobsRes] = await Promise.all([
+    const [statusResult, runningResult, jobsResult] = await Promise.allSettled([
       adminApi.getCrawlerStatus(),
       adminApi.getRunningJobs(),
       adminApi.getCrawlerJobs({ per_page: 5, status: 'COMPLETED,FAILED' }),
     ])
-    status.value = statusRes.data
-    runningJobs.value = runningRes.data || []
-    recentJobs.value = jobsRes.data?.items || []
+
+    // Handle status result
+    if (statusResult.status === 'fulfilled') {
+      status.value = statusResult.value.data
+    } else {
+      errors.push('Status')
+    }
+
+    // Handle running jobs result
+    if (runningResult.status === 'fulfilled') {
+      runningJobs.value = runningResult.value.data || []
+    } else {
+      errors.push('Running Jobs')
+    }
+
+    // Handle recent jobs result
+    if (jobsResult.status === 'fulfilled') {
+      recentJobs.value = jobsResult.value.data?.items || []
+    } else {
+      errors.push('Recent Jobs')
+    }
+
+    // Set partial error message if some requests failed
+    if (errors.length > 0 && errors.length < 3) {
+      error.value = t('common.partialLoadError', { components: errors.join(', ') })
+    } else if (errors.length === 3) {
+      error.value = t('common.loadError')
+    }
   } catch (e) {
-    console.error('Failed to load crawler status:', e)
+    error.value = e instanceof Error ? e.message : t('common.loadError')
   } finally {
     loading.value = false
   }
@@ -39,38 +75,32 @@ const refresh = async () => {
 
 onMounted(() => {
   refresh()
-  // Auto-refresh every 10 seconds
-  refreshInterval = setInterval(refresh, 10000)
-})
-
-onUnmounted(() => {
-  if (refreshInterval) {
-    clearInterval(refreshInterval)
-  }
+  // Note: Auto-refresh is handled by BaseWidget (refreshInterval: 10000 in registry)
 })
 
 const hasRunningJobs = computed(() => runningJobs.value.length > 0)
 
-const getStatusColor = (jobStatus: string): string => {
-  const colorMap: Record<string, string> = {
-    RUNNING: 'info',
-    COMPLETED: 'success',
-    FAILED: 'error',
-    CANCELLED: 'warning',
-    PENDING: 'grey',
-  }
-  return colorMap[jobStatus] || 'grey'
+// Use centralized status colors/icons
+const { getStatusColor, getStatusIcon } = useStatusColors()
+
+const navigateToCrawler = (status?: string) => {
+  if (props.isEditing) return
+  const query: Record<string, string> = {}
+  if (status) query.status = status
+  router.push({ path: '/crawler', query })
 }
 
-const getStatusIcon = (jobStatus: string): string => {
-  const iconMap: Record<string, string> = {
-    RUNNING: 'mdi-sync mdi-spin',
-    COMPLETED: 'mdi-check-circle',
-    FAILED: 'mdi-alert-circle',
-    CANCELLED: 'mdi-cancel',
-    PENDING: 'mdi-clock-outline',
-  }
-  return iconMap[jobStatus] || 'mdi-help-circle'
+const navigateToJob = (jobId: string) => {
+  if (props.isEditing) return
+  router.push({ path: `/crawler/${jobId}` })
+}
+
+const handleKeydownStatus = (event: KeyboardEvent, status?: string) => {
+  handleKeyboardClick(event, () => navigateToCrawler(status))
+}
+
+const handleKeydownJob = (event: KeyboardEvent, jobId: string) => {
+  handleKeyboardClick(event, () => navigateToJob(jobId))
 }
 </script>
 
@@ -87,18 +117,42 @@ const getStatusIcon = (jobStatus: string): string => {
 
     <template v-else>
       <!-- Status Summary -->
-      <div class="d-flex justify-space-around mb-4 pa-2 stat-summary rounded">
-        <div class="text-center">
+      <div class="d-flex justify-space-around mb-4 pa-2 stat-summary rounded" role="group" aria-label="Crawler status summary">
+        <div
+          class="text-center clickable-stat"
+          :class="{ 'non-interactive': isEditing }"
+          role="button"
+          :tabindex="isEditing ? -1 : 0"
+          :aria-label="$t('dashboard.workers') + ': ' + (status?.worker_count || 0)"
+          @click="navigateToCrawler()"
+          @keydown="handleKeydownStatus($event)"
+        >
           <div class="text-h6">{{ status?.worker_count || 0 }}</div>
           <div class="text-caption">{{ $t('dashboard.workers') }}</div>
         </div>
         <v-divider vertical />
-        <div class="text-center">
+        <div
+          class="text-center clickable-stat"
+          :class="{ 'non-interactive': isEditing }"
+          role="button"
+          :tabindex="isEditing ? -1 : 0"
+          :aria-label="$t('dashboard.running') + ': ' + (status?.running_jobs || 0)"
+          @click="navigateToCrawler('RUNNING')"
+          @keydown="handleKeydownStatus($event, 'RUNNING')"
+        >
           <div class="text-h6 text-info">{{ status?.running_jobs || 0 }}</div>
           <div class="text-caption">{{ $t('dashboard.running') }}</div>
         </div>
         <v-divider vertical />
-        <div class="text-center">
+        <div
+          class="text-center clickable-stat"
+          :class="{ 'non-interactive': isEditing }"
+          role="button"
+          :tabindex="isEditing ? -1 : 0"
+          :aria-label="$t('dashboard.pending') + ': ' + (status?.pending_jobs || 0)"
+          @click="navigateToCrawler('PENDING')"
+          @keydown="handleKeydownStatus($event, 'PENDING')"
+        >
           <div class="text-h6">{{ status?.pending_jobs || 0 }}</div>
           <div class="text-caption">{{ $t('dashboard.pending') }}</div>
         </div>
@@ -113,7 +167,13 @@ const getStatusIcon = (jobStatus: string): string => {
           <v-list-item
             v-for="job in runningJobs"
             :key="job.id"
-            class="px-2"
+            class="px-2 clickable-item"
+            :class="{ 'non-interactive': isEditing }"
+            role="button"
+            :tabindex="isEditing ? -1 : 0"
+            :aria-label="job.source_name + ' - ' + (job.documents_found || 0) + ' ' + $t('common.documents')"
+            @click="navigateToJob(job.id)"
+            @keydown="handleKeydownJob($event, job.id)"
           >
             <template #prepend>
               <v-icon icon="mdi-sync mdi-spin" color="info" size="small" />
@@ -136,7 +196,13 @@ const getStatusIcon = (jobStatus: string): string => {
         <v-list-item
           v-for="job in recentJobs"
           :key="job.id"
-          class="px-2"
+          class="px-2 clickable-item"
+          :class="{ 'non-interactive': isEditing }"
+          role="button"
+          :tabindex="isEditing ? -1 : 0"
+          :aria-label="job.source_name + ' - ' + job.status + ' - ' + (job.documents_found || 0) + ' ' + $t('common.documents')"
+          @click="navigateToJob(job.id)"
+          @keydown="handleKeydownJob($event, job.id)"
         >
           <template #prepend>
             <v-icon
@@ -154,9 +220,11 @@ const getStatusIcon = (jobStatus: string): string => {
         </v-list-item>
       </v-list>
 
-      <div v-else class="text-center text-medium-emphasis py-4">
-        {{ $t('dashboard.noRecentJobs') }}
-      </div>
+      <WidgetEmptyState
+        v-else
+        icon="mdi-spider-web"
+        :message="$t('dashboard.noRecentJobs')"
+      />
     </template>
   </BaseWidget>
 </template>
@@ -164,5 +232,40 @@ const getStatusIcon = (jobStatus: string): string => {
 <style scoped>
 .stat-summary {
   background-color: rgba(var(--v-theme-on-surface), 0.05);
+}
+
+.clickable-stat {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.clickable-stat:hover {
+  background-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.clickable-stat:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+.clickable-item {
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.clickable-item:hover {
+  background-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.clickable-item:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+.non-interactive {
+  cursor: default;
+  pointer-events: none;
 }
 </style>

@@ -44,6 +44,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import DOMPurify from 'dompurify'
 import type { VisualizationConfig } from './types'
 
 const { t } = useI18n()
@@ -55,11 +56,17 @@ const props = defineProps<{
 
 const textContent = computed(() => props.config?.text_content || '')
 
-// Simple markdown-like rendering
+// DOMPurify config for safe output
+const purifyConfig = {
+  ALLOWED_TAGS: ['strong', 'em', 'b', 'i', 'br', 'ul', 'li', 'p'],
+  ALLOWED_ATTR: [] as string[],
+}
+
+// Simple markdown-like rendering with XSS protection
 const renderedContent = computed(() => {
   if (!textContent.value) return ''
 
-  return textContent.value
+  const html = textContent.value
     // Bold text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     // Line breaks
@@ -67,6 +74,9 @@ const renderedContent = computed(() => {
     // Lists
     .replace(/^- (.*)$/gm, '<li>$1</li>')
     .replace(/(<li>.*<\/li>)+/g, '<ul>$&</ul>')
+
+  // Sanitize HTML to prevent XSS
+  return DOMPurify.sanitize(html, purifyConfig)
 })
 
 function formatFacetKey(key: string): string {
@@ -83,7 +93,7 @@ function formatFacetValue(value: any): string {
     if ('value' in value) {
       const v = value.value
       if (typeof v === 'number') {
-        return v.toLocaleString('de-DE')
+        return v.toLocaleString()
       }
       return String(v)
     }
@@ -91,7 +101,7 @@ function formatFacetValue(value: any): string {
   }
 
   if (typeof value === 'number') {
-    return value.toLocaleString('de-DE')
+    return value.toLocaleString()
   }
 
   return String(value)

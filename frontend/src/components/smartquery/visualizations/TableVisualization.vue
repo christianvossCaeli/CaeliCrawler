@@ -137,7 +137,7 @@ const tableHeaders = computed(() => {
 // Extract facet columns for custom rendering
 const facetColumns = computed(() => {
   if (props.config?.columns) {
-    return props.config.columns.filter(col => col.key.startsWith('facets.'))
+    return props.config.columns.filter(col => col.key?.startsWith('facets.'))
   }
 
   // Auto-detect

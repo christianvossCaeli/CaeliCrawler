@@ -182,6 +182,105 @@ export const widgetRegistry: Map<string, WidgetDefinition> = new Map([
       refreshInterval: 60000,
     },
   ],
+  [
+    'recent-documents',
+    {
+      id: 'recent-documents',
+      type: 'recent-documents',
+      name: 'dashboard.widgets.recentDocuments.name',
+      description: 'dashboard.widgets.recentDocuments.description',
+      icon: 'mdi-file-document-multiple',
+      defaultSize: { w: 2, h: 2 },
+      minSize: { w: 2, h: 1 },
+      maxSize: { w: 4, h: 3 },
+      component: defineAsyncComponent(
+        () => import('./components/RecentDocuments.vue')
+      ),
+      refreshInterval: 30000,
+    },
+  ],
+  [
+    'quick-search',
+    {
+      id: 'quick-search',
+      type: 'quick-search',
+      name: 'dashboard.widgets.quickSearch.name',
+      description: 'dashboard.widgets.quickSearch.description',
+      icon: 'mdi-magnify',
+      defaultSize: { w: 2, h: 2 },
+      minSize: { w: 2, h: 1 },
+      maxSize: { w: 4, h: 2 },
+      component: defineAsyncComponent(
+        () => import('./components/QuickSearch.vue')
+      ),
+    },
+  ],
+  [
+    'data-freshness',
+    {
+      id: 'data-freshness',
+      type: 'data-freshness',
+      name: 'dashboard.widgets.dataFreshness.name',
+      description: 'dashboard.widgets.dataFreshness.description',
+      icon: 'mdi-clock-check',
+      defaultSize: { w: 2, h: 2 },
+      minSize: { w: 2, h: 1 },
+      maxSize: { w: 4, h: 3 },
+      component: defineAsyncComponent(
+        () => import('./components/DataFreshness.vue')
+      ),
+      refreshInterval: 60000,
+    },
+  ],
+  [
+    'saved-searches',
+    {
+      id: 'saved-searches',
+      type: 'saved-searches',
+      name: 'dashboard.widgets.savedSearches.name',
+      description: 'dashboard.widgets.savedSearches.description',
+      icon: 'mdi-bookmark-multiple',
+      defaultSize: { w: 2, h: 2 },
+      minSize: { w: 2, h: 1 },
+      maxSize: { w: 4, h: 3 },
+      component: defineAsyncComponent(
+        () => import('./components/SavedSearches.vue')
+      ),
+    },
+  ],
+  [
+    'my-summaries',
+    {
+      id: 'my-summaries',
+      type: 'my-summaries',
+      name: 'dashboard.widgets.mySummaries.name',
+      description: 'dashboard.widgets.mySummaries.description',
+      icon: 'mdi-chart-box',
+      defaultSize: { w: 2, h: 2 },
+      minSize: { w: 2, h: 1 },
+      maxSize: { w: 4, h: 3 },
+      component: defineAsyncComponent(
+        () => import('./components/MySummaries.vue')
+      ),
+      refreshInterval: 60000,
+    },
+  ],
+  [
+    'summary-quick-create',
+    {
+      id: 'summary-quick-create',
+      type: 'summary-quick-create',
+      name: 'dashboard.widgets.summaryQuickCreate.name',
+      description: 'dashboard.widgets.summaryQuickCreate.description',
+      icon: 'mdi-auto-fix',
+      defaultSize: { w: 2, h: 2 },
+      minSize: { w: 2, h: 2 },
+      maxSize: { w: 4, h: 3 },
+      component: defineAsyncComponent(
+        () => import('./components/SummaryQuickCreate.vue')
+      ),
+    },
+  ],
 ])
 
 /**

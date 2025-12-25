@@ -10,17 +10,19 @@
         <v-btn
           variant="tonal"
           :color="dashboardStore.isEditing ? 'warning' : 'default'"
+          :aria-label="dashboardStore.isEditing ? $t('dashboard.finishEditing') : $t('dashboard.customize')"
           @click="toggleEditMode"
         >
-          <v-icon :icon="dashboardStore.isEditing ? 'mdi-check' : 'mdi-pencil'" class="mr-2" />
+          <v-icon :icon="dashboardStore.isEditing ? 'mdi-check' : 'mdi-pencil'" class="mr-2" aria-hidden="true" />
           {{ dashboardStore.isEditing ? $t('dashboard.finishEditing') : $t('dashboard.customize') }}
         </v-btn>
         <v-btn
           variant="tonal"
           color="warning"
+          :aria-label="$t('dashboard.quickActions.startCrawler')"
           @click="showStartCrawlerDialog = true"
         >
-          <v-icon icon="mdi-play" class="mr-2" />
+          <v-icon icon="mdi-play" class="mr-2" aria-hidden="true" />
           {{ $t('dashboard.quickActions.startCrawler') }}
         </v-btn>
       </template>
@@ -30,8 +32,8 @@
     <CrawlPresetQuickActions class="mb-4" />
 
     <!-- Loading State -->
-    <div v-if="dashboardStore.isLoading" class="d-flex justify-center py-12">
-      <v-progress-circular indeterminate size="48" color="primary" />
+    <div v-if="dashboardStore.isLoading" class="d-flex justify-center py-12" role="status" aria-live="polite">
+      <v-progress-circular indeterminate size="48" color="primary" :aria-label="$t('common.loading')" />
     </div>
 
     <!-- Widget Grid -->
@@ -45,10 +47,10 @@
     <WidgetConfigurator v-model="showConfigurator" />
 
     <!-- Start Crawler Dialog -->
-    <v-dialog v-model="showStartCrawlerDialog" max-width="650">
+    <v-dialog v-model="showStartCrawlerDialog" max-width="650" role="dialog" aria-modal="true">
       <v-card>
         <v-card-title class="d-flex align-center">
-          <v-icon class="mr-2">mdi-spider-web</v-icon>
+          <v-icon class="mr-2" aria-hidden="true">mdi-spider-web</v-icon>
           {{ $t('dashboard.startCrawlerDialog.title') }}
         </v-card-title>
         <v-card-text>
@@ -62,6 +64,7 @@
                 v-if="hasAnyFilter"
                 size="small"
                 variant="tonal"
+                :aria-label="$t('dashboard.startCrawlerDialog.resetFilters')"
                 @click="resetCrawlerFilters"
               >
                 {{ $t('dashboard.startCrawlerDialog.resetFilters') }}
@@ -197,6 +200,9 @@ import DashboardGrid from '@/widgets/DashboardGrid.vue'
 import WidgetConfigurator from '@/components/dashboard/WidgetConfigurator.vue'
 import CrawlPresetQuickActions from '@/components/crawler/CrawlPresetQuickActions.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('DashboardView')
 
 const { t } = useI18n()
 const dashboardStore = useDashboardStore()
@@ -280,7 +286,7 @@ const updateFilteredCount = async () => {
 
     filteredSourceCount.value = count
   } catch (error) {
-    console.error('Failed to get filtered count:', error)
+    logger.error('Failed to get filtered count:', error)
     filteredSourceCount.value = totalSourceCount.value
   }
 }
@@ -303,7 +309,7 @@ const startFilteredCrawlers = async () => {
     // Refresh stats
     await dashboardStore.loadStats()
   } catch (error) {
-    console.error('Failed to start crawlers:', error)
+    logger.error('Failed to start crawlers:', error)
   } finally {
     startingCrawlers.value = false
   }
@@ -321,7 +327,7 @@ const loadCategories = async () => {
     const response = await adminApi.getCategories({ per_page: 100 })
     crawlerCategories.value = response.data.items
   } catch (error) {
-    console.error('Failed to load categories:', error)
+    logger.error('Failed to load categories:', error)
   }
 }
 
@@ -331,7 +337,7 @@ const loadTotalSources = async () => {
     totalSourceCount.value = response.data.total
     filteredSourceCount.value = response.data.total
   } catch (error) {
-    console.error('Failed to load sources count:', error)
+    logger.error('Failed to load sources count:', error)
   }
 }
 

@@ -73,12 +73,15 @@ async def test_smart_write_invalid_command(admin_client: AsyncClient):
     assert response.status_code == 200
 
     data = response.json()
-    # Should indicate no write operation detected
+    # Should indicate no write operation detected (or a read/query operation)
+    # Valid non-write operations include: none, query_external, query_data, etc.
+    non_write_operations = ["none", "query_external", "query_data", "query_facet_history", None]
     if "success" in data:
-        # Either fails or operation is 'none'
         interpretation = data.get("interpretation", {})
         if interpretation:
-            assert interpretation.get("operation") in ["none", None] or not data["success"]
+            operation = interpretation.get("operation")
+            # Either a non-write operation or failed
+            assert operation in non_write_operations or not data["success"]
 
 
 @pytest.mark.asyncio

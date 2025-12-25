@@ -31,8 +31,16 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Production stage with nginx
+# Production stage with nginx (security hardened)
 FROM nginx:alpine AS production
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nginx-user && \
+    adduser -S -D -H -u 1001 -h /var/cache/nginx -s /sbin/nologin -G nginx-user nginx-user && \
+    chown -R nginx-user:nginx-user /var/cache/nginx && \
+    chown -R nginx-user:nginx-user /var/log/nginx && \
+    touch /var/run/nginx.pid && \
+    chown -R nginx-user:nginx-user /var/run/nginx.pid
 
 # Copy built assets
 COPY --from=build /app/dist /usr/share/nginx/html
@@ -40,6 +48,12 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Ensure correct permissions
+RUN chown -R nginx-user:nginx-user /usr/share/nginx/html
+
 EXPOSE 80
+
+# Switch to non-root user
+USER nginx-user
 
 CMD ["nginx", "-g", "daemon off;"]

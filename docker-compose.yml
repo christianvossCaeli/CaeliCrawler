@@ -1,3 +1,13 @@
+# ============================================
+# CaeliCrawler Docker Compose Configuration
+# ============================================
+# SECURITY NOTES:
+# - Copy .env.example to .env and configure all variables
+# - In production: NEVER use default passwords
+# - In production: Use docker secrets or external secret management
+# - Review resource limits for your infrastructure
+# ============================================
+
 services:
   # PostgreSQL Database with pgvector for embedding similarity
   postgres:
@@ -5,8 +15,25 @@ services:
     container_name: caelichrawler-postgres
     environment:
       POSTGRES_USER: caelichrawler
+      # SECURITY: Set POSTGRES_PASSWORD in .env for production!
+      # Default 'caelichrawler_secret' is ONLY for local development
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-caelichrawler_secret}
       POSTGRES_DB: caelichrawler
+    # PostgreSQL configuration with connection protection:
+    # - max_connections: Total connection limit
+    # - idle_in_transaction_session_timeout: Auto-kill idle transactions after 5 minutes
+    # - statement_timeout: Maximum query execution time (10 minutes)
+    # - tcp_keepalives_*: Detect dead connections faster
+    command: >
+      postgres
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c idle_in_transaction_session_timeout=300000
+      -c statement_timeout=600000
+      -c tcp_keepalives_idle=60
+      -c tcp_keepalives_interval=10
+      -c tcp_keepalives_count=6
+      -c log_min_duration_statement=5000
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -16,6 +43,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     restart: unless-stopped
 
   # Redis (for Celery broker and caching)
@@ -32,6 +67,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     restart: unless-stopped
 
   # FastAPI Backend
@@ -81,6 +124,20 @@ services:
       redis:
         condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     restart: unless-stopped
 
   # Celery Worker - General (default + processing tasks)
@@ -126,6 +183,20 @@ services:
       redis:
         condition: service_healthy
     command: celery -A workers.celery_app worker --loglevel=info -Q default,processing --concurrency=4 --hostname=worker-general@%h
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A workers.celery_app inspect ping -d celery@worker-general@$$(hostname) --timeout=10"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     restart: unless-stopped
 
   # Celery Worker - Crawling (dedicated for crawl tasks, higher concurrency)
@@ -138,6 +209,20 @@ services:
     volumes: *worker-volumes
     depends_on: *worker-depends
     command: celery -A workers.celery_app worker --loglevel=info -Q crawl --concurrency=8 --hostname=worker-crawl@%h
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A workers.celery_app inspect ping -d celery@worker-crawl@$$(hostname) --timeout=10"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     restart: unless-stopped
 
   # Celery Worker - AI Tasks (dedicated for AI analysis, limited concurrency due to API rate limits)
@@ -150,6 +235,20 @@ services:
     volumes: *worker-volumes
     depends_on: *worker-depends
     command: celery -A workers.celery_app worker --loglevel=info -Q ai --concurrency=2 --hostname=worker-ai@%h
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A workers.celery_app inspect ping -d celery@worker-ai@$$(hostname) --timeout=10"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
     restart: unless-stopped
 
   # Celery Beat (Scheduler)
@@ -172,6 +271,20 @@ services:
       redis:
         condition: service_healthy
     command: celery -A workers.celery_app beat --loglevel=info
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'celery.*beat' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
     restart: unless-stopped
 
   # Vue.js Frontend (Development)
@@ -190,9 +303,113 @@ services:
       - "5173:5173"
     depends_on:
       - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    restart: unless-stopped
+
+  # ============================================
+  # Monitoring Stack (Optional - uncomment to enable)
+  # ============================================
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: caelichrawler-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=30d'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+    profiles:
+      - monitoring
+    restart: unless-stopped
+
+  # Redis Exporter for Redis metrics
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.55.0
+    container_name: caelichrawler-redis-exporter
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+    ports:
+      - "9121:9121"
+    depends_on:
+      - redis
+    profiles:
+      - monitoring
+    restart: unless-stopped
+
+  # PostgreSQL Exporter for database metrics
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: caelichrawler-postgres-exporter
+    environment:
+      - DATA_SOURCE_NAME=postgresql://caelichrawler:${POSTGRES_PASSWORD:-caelichrawler_secret}@postgres:5432/caelichrawler?sslmode=disable
+    ports:
+      - "9187:9187"
+    depends_on:
+      - postgres
+    profiles:
+      - monitoring
+    restart: unless-stopped
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: caelichrawler-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/system-health.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+    restart: unless-stopped
+
+  # Alertmanager for alert handling and notifications
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: caelichrawler-alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "9093:9093"
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
     restart: unless-stopped
 
 volumes:
   postgres_data:
   redis_data:
   document_storage:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:

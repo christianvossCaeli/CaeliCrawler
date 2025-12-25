@@ -300,7 +300,7 @@ describe('useErrorHandler', () => {
     })
 
     it('should use context-specific default messages', () => {
-      const { createContextHandler, lastError } = useErrorHandler()
+      const { createContextHandler } = useErrorHandler()
       const handler = createContextHandler('Test', {
         load: 'Custom load error',
       })

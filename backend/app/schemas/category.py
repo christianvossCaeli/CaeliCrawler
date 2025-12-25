@@ -155,8 +155,8 @@ def _validate_cron_expression(cron: Optional[str]) -> Optional[str]:
     return normalize_cron_expression(cron)
 
 
-class CategoryBase(BaseModel):
-    """Base category schema with common fields."""
+class _CategoryFieldsMixin(BaseModel):
+    """Shared fields for Category schemas (without validators)."""
 
     name: str = Field(..., min_length=1, max_length=255, description="Category name")
     description: Optional[str] = Field(None, description="Category description")
@@ -191,27 +191,6 @@ class CategoryBase(BaseModel):
     )
     is_active: bool = Field(default=True, description="Whether category is active")
 
-    @field_validator("url_include_patterns", "url_exclude_patterns", mode="before")
-    @classmethod
-    def validate_regex_patterns(cls, v: Optional[List[str]]) -> List[str]:
-        """Validate that all patterns are valid regex expressions."""
-        return _validate_regex_patterns_impl(v, allow_none=False)
-
-    @field_validator("languages", mode="before")
-    @classmethod
-    def validate_languages(cls, v: Optional[List[str]]) -> List[str]:
-        """Validate ISO 639-1 language codes."""
-        return _validate_languages_impl(v, allow_none=False)
-
-    @field_validator("schedule_cron", mode="before")
-    @classmethod
-    def validate_schedule_cron(cls, v: Optional[str]) -> str:
-        """Validate cron expression format."""
-        if v is None:
-            return "0 2 * * *"  # Default: daily at 2 AM
-        validated = _validate_cron_expression(v)
-        return validated if validated else "0 2 * * *"
-
     # Visibility
     is_public: bool = Field(
         default=False,
@@ -235,6 +214,31 @@ class CategoryBase(BaseModel):
         None,
         description="Config for entity reference extraction: {entity_types: ['territorial-entity']}",
     )
+
+
+class CategoryBase(_CategoryFieldsMixin):
+    """Base category schema with common fields and validators for input."""
+
+    @field_validator("url_include_patterns", "url_exclude_patterns", mode="before")
+    @classmethod
+    def validate_regex_patterns(cls, v: Optional[List[str]]) -> List[str]:
+        """Validate that all patterns are valid regex expressions."""
+        return _validate_regex_patterns_impl(v, allow_none=False)
+
+    @field_validator("languages", mode="before")
+    @classmethod
+    def validate_languages(cls, v: Optional[List[str]]) -> List[str]:
+        """Validate ISO 639-1 language codes."""
+        return _validate_languages_impl(v, allow_none=False)
+
+    @field_validator("schedule_cron", mode="before")
+    @classmethod
+    def validate_schedule_cron(cls, v: Optional[str]) -> str:
+        """Validate cron expression format."""
+        if v is None:
+            return "0 2 * * *"  # Default: daily at 2 AM
+        validated = _validate_cron_expression(v)
+        return validated if validated else "0 2 * * *"
 
 
 class CategoryCreate(CategoryBase):
@@ -283,10 +287,13 @@ class CategoryUpdate(BaseModel):
         return _validate_languages_impl(v, allow_none=True)
 
 
-class CategoryResponse(CategoryBase):
+class CategoryResponse(_CategoryFieldsMixin):
     """Schema for category response.
 
     Contains all category data plus computed fields like source_count and document_count.
+
+    Note: Inherits from _CategoryFieldsMixin (without validators) to allow reading
+    existing data that may contain invalid regex patterns.
     """
 
     id: UUID

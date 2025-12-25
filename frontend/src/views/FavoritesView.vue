@@ -170,6 +170,9 @@ import { useEntityStore } from '@/stores/entity'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('FavoritesView')
 
 const { t } = useI18n()
 const router = useRouter()
@@ -222,7 +225,7 @@ async function loadFavorites(page = currentPage.value) {
     })
     currentPage.value = page
   } catch (e) {
-    console.error('Failed to load favorites:', e)
+    logger.error('Failed to load favorites:', e)
     showError(t('favorites.loadError'))
   } finally {
     loading.value = false
@@ -265,7 +268,7 @@ async function removeFavorite(favorite: Favorite) {
     await favoritesStore.removeFavorite(favorite.entity_id)
     showSuccess(t('favorites.removed'))
   } catch (e) {
-    console.error('Failed to remove favorite:', e)
+    logger.error('Failed to remove favorite:', e)
     showError(t('favorites.removeError'))
   } finally {
     removingId.value = null

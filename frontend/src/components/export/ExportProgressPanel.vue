@@ -171,8 +171,13 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { exportApi } from '@/services/api'
+import { useStatusColors } from '@/composables'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('ExportProgressPanel')
 
 const { t } = useI18n()
+const { getStatusColor } = useStatusColors()
 
 interface ExportJob {
   id: string
@@ -209,16 +214,7 @@ const completedJobs = computed(() =>
     .slice(0, 5)
 )
 
-function getStatusColor(status: string): string {
-  switch (status) {
-    case 'pending': return 'grey'
-    case 'processing': return 'primary'
-    case 'completed': return 'success'
-    case 'failed': return 'error'
-    case 'cancelled': return 'warning'
-    default: return 'grey'
-  }
-}
+// getStatusColor now from useStatusColors composable
 
 function getStatusLabel(status: string): string {
   return t(`export.status.${status}`)
@@ -242,7 +238,7 @@ async function refreshJobs() {
     const response = await exportApi.listExportJobs({ limit: 10 })
     jobs.value = response.data
   } catch (error) {
-    console.error('Failed to load export jobs:', error)
+    logger.error('Failed to load export jobs:', error)
   } finally {
     isLoading.value = false
   }
@@ -253,7 +249,7 @@ async function cancelJob(jobId: string) {
     await exportApi.cancelExportJob(jobId)
     await refreshJobs()
   } catch (error) {
-    console.error('Failed to cancel job:', error)
+    logger.error('Failed to cancel job:', error)
   }
 }
 
@@ -277,7 +273,7 @@ async function downloadJob(jobId: string, format: string) {
     window.URL.revokeObjectURL(url)
     document.body.removeChild(a)
   } catch (error) {
-    console.error('Failed to download:', error)
+    logger.error('Failed to download:', error)
   } finally {
     downloadingId.value = null
   }

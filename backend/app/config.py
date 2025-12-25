@@ -187,6 +187,10 @@ class Settings(BaseSettings):
     feature_entity_hierarchy: bool = True  # Enable parent-child relationships between entities
     feature_auto_entity_relations: bool = True  # Auto-create relations (located_in, member_of) for seed entities
 
+    # AI Summary Settings
+    ai_summary_max_tokens: int = 2500  # Max tokens for summary interpretation
+    ai_summary_temperature: float = 0.3  # Temperature for summary AI calls
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, v):

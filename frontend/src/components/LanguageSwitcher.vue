@@ -37,6 +37,9 @@ import { useI18n } from 'vue-i18n'
 import { useLocale } from 'vuetify'
 import { setLocale, type SupportedLocale } from '@/locales'
 import { useAuthStore } from '@/stores/auth'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('LanguageSwitcher')
 
 const { locale } = useI18n()
 const vuetifyLocale = useLocale()
@@ -70,7 +73,7 @@ async function changeLanguage(code: SupportedLocale) {
     try {
       await auth.updateLanguage(code)
     } catch (error) {
-      console.error('Failed to save language preference:', error)
+      logger.error('Failed to save language preference:', error)
     }
   }
 }

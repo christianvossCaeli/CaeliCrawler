@@ -1,41 +1,16 @@
 """Celery tasks for crawling operations."""
 
-import asyncio
 import hashlib
 from datetime import datetime, timedelta, timezone
-from typing import Any, Coroutine, Optional, TypeVar
 from uuid import UUID
 
 import structlog
 from celery.exceptions import SoftTimeLimitExceeded
 
 from workers.celery_app import celery_app
+from workers.async_runner import run_async
 
 logger = structlog.get_logger()
-
-T = TypeVar("T")
-
-
-def _run_async(coro: Coroutine[Any, Any, T]) -> T:
-    """
-    Run async coroutine in Celery task safely.
-
-    Creates a new event loop for each task execution to avoid conflicts
-    with existing loops. This is the recommended pattern for running
-    async code in synchronous Celery tasks.
-
-    Args:
-        coro: The coroutine to execute
-
-    Returns:
-        The result of the coroutine
-    """
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
 
 # Try to import metrics (optional - may not be available in all environments)
 try:
@@ -191,6 +166,11 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                     }
                 )
 
+                # Trigger summary updates for summaries linked to this category
+                if source.category_id:
+                    from workers.summary_tasks import on_crawl_completed
+                    on_crawl_completed.delay(str(job.id), str(source.category_id))
+
                 if result.documents_new > 0:
                     emit_event.delay(
                         "NEW_DOCUMENT",
@@ -279,7 +259,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
 
             await session.commit()
 
-    _run_async(_crawl())
+    run_async(_crawl())
 
 
 @celery_app.task(name="workers.crawl_tasks.check_scheduled_crawls")
@@ -343,7 +323,7 @@ def check_scheduled_crawls():
 
             logger.info("Scheduled crawl check completed", jobs_created=jobs_created)
 
-    _run_async(_check())
+    run_async(_check())
 
 
 @celery_app.task(name="workers.crawl_tasks.create_crawl_job")
@@ -409,7 +389,7 @@ def create_crawl_job(source_id: str, category_id: str, force: bool = False):
             )
             return str(job.id)
 
-    return _run_async(_create())
+    return run_async(_create())
 
 
 @celery_app.task(name="workers.crawl_tasks.cleanup_old_jobs")
@@ -435,7 +415,7 @@ def cleanup_old_jobs():
 
             logger.info("Old jobs cleaned up", deleted=deleted)
 
-    _run_async(_cleanup())
+    run_async(_cleanup())
 
 
 @celery_app.task(name="workers.crawl_tasks.detect_changes")
@@ -502,4 +482,4 @@ def detect_changes(source_id: str):
             except Exception as e:
                 logger.error("Change detection failed", source_id=source_id, error=str(e))
 
-    _run_async(_detect())
+    run_async(_detect())

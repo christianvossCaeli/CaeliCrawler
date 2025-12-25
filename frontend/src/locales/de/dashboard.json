@@ -46,13 +46,17 @@
         "name": "Merkmale",
         "description": "Merkmalswerte und Prüfungsrate",
         "total": "Merkmale gesamt",
-        "verified": "geprüft"
+        "verified": "geprüft",
+        "unverified": "ungeprüft"
       },
       "statsDocuments": {
         "name": "Dokumente",
         "description": "Dokumente und Verarbeitungsstatus",
         "total": "Dokumente gesamt",
-        "processed": "verarbeitet"
+        "processed": "verarbeitet",
+        "filtered": "gefiltert",
+        "pending": "ausstehend",
+        "failed": "fehlgeschlagen"
       },
       "statsCrawler": {
         "name": "Datensammler",
@@ -82,6 +86,30 @@
       "favorites": {
         "name": "Favoriten",
         "description": "Ihre Lieblings-Datensätze für schnellen Zugriff"
+      },
+      "recentDocuments": {
+        "name": "Neue Dokumente",
+        "description": "Zuletzt hinzugefügte Dokumente"
+      },
+      "quickSearch": {
+        "name": "Schnellsuche",
+        "description": "Direkt vom Dashboard suchen"
+      },
+      "dataFreshness": {
+        "name": "Datenaktualität",
+        "description": "Letzte Aktualisierung pro Quelle"
+      },
+      "savedSearches": {
+        "name": "Gespeicherte Suchen",
+        "description": "Ihre letzten und gepinnten Suchanfragen"
+      },
+      "mySummaries": {
+        "name": "Meine Zusammenfassungen",
+        "description": "Ihre benutzerdefinierten Dashboard-Zusammenfassungen"
+      },
+      "summaryQuickCreate": {
+        "name": "Zusammenfassung erstellen",
+        "description": "Schnell eine neue Zusammenfassung mit KI erstellen"
       }
     },
     "stats": {
@@ -145,6 +173,27 @@
     "countries": {
       "germany": "Deutschland",
       "unitedKingdom": "Vereinigtes Königreich"
+    },
+    "noDocuments": "Keine Dokumente vorhanden",
+    "searchPlaceholder": "Suche nach Dokumenten, Datensätzen...",
+    "viewAllResults": "Alle Ergebnisse anzeigen",
+    "searchHint": "Geben Sie einen Suchbegriff ein",
+    "fresh": "Aktuell",
+    "stale": "Veraltet",
+    "outdated": "Überfällig",
+    "neverCrawled": "Nie gesammelt",
+    "noSources": "Keine Datenquellen",
+    "noSavedSearches": "Keine gespeicherten Suchen",
+    "savedSearchesHint": "Ihre Suchanfragen werden automatisch gespeichert",
+    "newSearch": "Neue Suche",
+    "storageUnavailable": "Speicher nicht verfügbar - Änderungen werden nicht gespeichert",
+    "storageSaveError": "Suchen konnten nicht gespeichert werden",
+    "storageQuotaWarning": "{count} alte Suchen wurden entfernt um Platz zu schaffen",
+    "storageError": "Gespeicherte Suchen konnten nicht geladen werden",
+    "summaryExamples": {
+      "topEntities": "Top 10 Datensätze nach Dokumentanzahl",
+      "recentChanges": "Neueste Änderungen der letzten Woche",
+      "dataOverview": "Übersicht aller Datentypen mit Statistiken"
     }
   }
 }

@@ -274,6 +274,9 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { entityDataApi } from '@/services/api'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('FacetEnrichmentReview')
 
 const { t } = useI18n()
 
@@ -435,7 +438,7 @@ async function applyChanges() {
     })
     handleClose()
   } catch (error) {
-    console.error('Failed to apply changes:', error)
+    logger.error('Failed to apply changes:', error)
   } finally {
     applying.value = false
   }

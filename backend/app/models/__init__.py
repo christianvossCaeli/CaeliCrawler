@@ -71,6 +71,12 @@ from app.models.api_template import APITemplate, APIType, TemplateStatus
 # Crawl Presets
 from app.models.crawl_preset import CrawlPreset, PresetStatus
 
+# Custom Summaries
+from app.models.custom_summary import CustomSummary, SummaryStatus, SummaryTriggerType
+from app.models.summary_widget import SummaryWidget, SummaryWidgetType
+from app.models.summary_execution import SummaryExecution, ExecutionStatus
+from app.models.summary_share import SummaryShare
+
 # External API Integration
 from external_apis.models.external_api_config import ExternalAPIConfig, AuthType, SyncStatus
 from external_apis.models.sync_record import SyncRecord, RecordStatus
@@ -161,6 +167,15 @@ __all__ = [
     # Crawl Presets
     "CrawlPreset",
     "PresetStatus",
+    # Custom Summaries
+    "CustomSummary",
+    "SummaryStatus",
+    "SummaryTriggerType",
+    "SummaryWidget",
+    "SummaryWidgetType",
+    "SummaryExecution",
+    "ExecutionStatus",
+    "SummaryShare",
     # External API Integration
     "ExternalAPIConfig",
     "AuthType",

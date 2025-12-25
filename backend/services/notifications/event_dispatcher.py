@@ -147,6 +147,14 @@ class NotificationEventDispatcher:
             ]:
                 return False
 
+        # Summary filter (for summary events)
+        if "summary_ids" in conditions:
+            summary_id = payload.get("summary_id")
+            if summary_id and str(summary_id) not in [
+                str(s) for s in conditions["summary_ids"]
+            ]:
+                return False
+
         # Minimum confidence filter
         if "min_confidence" in conditions:
             confidence = payload.get("confidence", 0)
@@ -210,6 +218,18 @@ class NotificationEventDispatcher:
         """
         title, body = self._generate_content(event_type, payload)
 
+        # Determine related entity type and ID based on event type
+        related_entity_type = payload.get("entity_type")
+        related_entity_id = self._parse_uuid(payload.get("entity_id"))
+
+        # Special handling for summary events
+        if event_type in (
+            NotificationEventType.SUMMARY_UPDATED,
+            NotificationEventType.SUMMARY_RELEVANT_CHANGES,
+        ):
+            related_entity_type = "summary"
+            related_entity_id = self._parse_uuid(payload.get("summary_id"))
+
         notification = Notification(
             user_id=rule.user_id,
             rule_id=rule.id,
@@ -217,8 +237,8 @@ class NotificationEventDispatcher:
             channel=rule.channel,
             title=title,
             body=body,
-            related_entity_type=payload.get("entity_type"),
-            related_entity_id=self._parse_uuid(payload.get("entity_id")),
+            related_entity_type=related_entity_type,
+            related_entity_id=related_entity_id,
             payload=payload,
             status=NotificationStatus.PENDING,
         )
@@ -280,6 +300,14 @@ class NotificationEventDispatcher:
                 "Fehler bei Datenquelle",
                 "Bei der Quelle '{source_name}' ist ein Fehler aufgetreten: {error}",
             ),
+            NotificationEventType.SUMMARY_UPDATED: (
+                "Zusammenfassung aktualisiert",
+                "Die Zusammenfassung '{summary_name}' wurde erfolgreich aktualisiert.",
+            ),
+            NotificationEventType.SUMMARY_RELEVANT_CHANGES: (
+                "Relevante Änderungen in Zusammenfassung",
+                "In der Zusammenfassung '{summary_name}' wurden relevante Änderungen erkannt: {relevance_reason}",
+            ),
         }
 
         title_template, body_template = templates.get(
@@ -298,6 +326,10 @@ class NotificationEventDispatcher:
             "confidence": payload.get("confidence", 0),
             "status": payload.get("status", "unbekannt"),
             "summary": payload.get("summary", "")[:200],
+            # Summary events
+            "summary_name": payload.get("summary_name", "Unbekannte Zusammenfassung"),
+            "relevance_score": payload.get("relevance_score", 0),
+            "relevance_reason": payload.get("relevance_reason", "Änderungen erkannt"),
         }
 
         try:

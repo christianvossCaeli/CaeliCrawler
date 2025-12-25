@@ -245,6 +245,10 @@ export interface DocumentListParams {
   per_page?: number;
   /** Search in document content */
   search?: string;
+  /** Sort by field */
+  sort_by?: string;
+  /** Sort order */
+  sort_order?: 'asc' | 'desc';
 }
 
 /**

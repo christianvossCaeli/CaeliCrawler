@@ -99,7 +99,7 @@ const chartOptions = computed(() => ({
         label: (context: any) => {
           const value = context.parsed.y
           if (typeof value === 'number') {
-            return `${context.dataset.label}: ${value.toLocaleString('de-DE')}`
+            return `${context.dataset.label}: ${value.toLocaleString()}`
           }
           return `${context.dataset.label}: ${value}`
         },
@@ -126,7 +126,7 @@ const chartOptions = computed(() => ({
       beginAtZero: true,
       ticks: {
         callback: function(tickValue: string | number) {
-          return Number(tickValue).toLocaleString('de-DE')
+          return Number(tickValue).toLocaleString()
         },
       },
     },

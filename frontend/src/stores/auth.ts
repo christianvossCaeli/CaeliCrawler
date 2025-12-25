@@ -7,6 +7,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '@/services/api'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('AuthStore')
 
 // Types
 export type UserRole = 'VIEWER' | 'EDITOR' | 'ADMIN'
@@ -245,7 +248,7 @@ export const useAuthStore = defineStore('auth', () => {
       }
       return true
     } catch (err) {
-      console.error('Failed to update language preference:', err)
+      logger.error('Failed to update language preference:', err)
       return false
     }
   }

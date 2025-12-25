@@ -145,6 +145,9 @@ import 'chartjs-adapter-date-fns'
 import { de } from 'date-fns/locale'
 import { facetApi } from '@/services/api'
 import type { EntityHistoryResponse, HistoryTrack } from '@/types/facets'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('FacetHistoryChart')
 
 // Register Chart.js components
 ChartJS.register(
@@ -409,7 +412,7 @@ async function loadHistory() {
     const response = await facetApi.getEntityHistory(props.entityId, props.facetTypeId, params)
     historyData.value = response.data
   } catch (error) {
-    console.error('Failed to load history:', error)
+    logger.error('Failed to load history:', error)
   } finally {
     loading.value = false
   }
@@ -443,7 +446,7 @@ async function addDataPoint() {
     await loadHistory()
     emit('updated')
   } catch (error) {
-    console.error('Failed to add data point:', error)
+    logger.error('Failed to add data point:', error)
   } finally {
     saving.value = false
   }

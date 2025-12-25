@@ -3,8 +3,10 @@
  * StatsFacets Widget - Shows facet value statistics
  */
 
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useDashboardStore } from '@/stores/dashboard'
+import { handleKeyboardClick } from '../composables'
 import BaseWidget from '../BaseWidget.vue'
 import type { WidgetDefinition, WidgetConfig } from '../types'
 
@@ -14,16 +16,42 @@ const props = defineProps<{
   isEditing?: boolean
 }>()
 
+const router = useRouter()
 const store = useDashboardStore()
 const loading = ref(true)
+const error = ref<string | null>(null)
+
+// Computed for reactive isEditing check
+const isEditMode = computed(() => props.isEditing ?? false)
+const tabIndex = computed(() => (isEditMode.value ? -1 : 0))
+
+// Computed for unverified count
+const unverifiedCount = computed(() => {
+  if (!store.stats?.facets) return 0
+  return store.stats.facets.total - store.stats.facets.verified
+})
 
 const refresh = async () => {
   loading.value = true
+  error.value = null
   try {
     await store.loadStats()
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Failed to load'
   } finally {
     loading.value = false
   }
+}
+
+const navigateTo = (verified?: boolean) => {
+  if (isEditMode.value) return
+  const query: Record<string, string> = {}
+  if (verified !== undefined) query.verified = String(verified)
+  router.push({ path: '/results', query })
+}
+
+const handleKeydown = (event: KeyboardEvent, verified?: boolean) => {
+  handleKeyboardClick(event, () => navigateTo(verified))
 }
 
 onMounted(() => {
@@ -48,7 +76,15 @@ onMounted(() => {
       </div>
 
       <template v-else-if="store.stats?.facets">
-        <div class="text-h3 font-weight-bold text-info">
+        <div
+          class="text-h3 font-weight-bold text-info clickable-stat"
+          :class="{ 'non-interactive': isEditMode }"
+          role="button"
+          :tabindex="tabIndex"
+          :aria-label="$t('dashboard.widgets.statsFacets.total') + ': ' + store.stats.facets.total"
+          @click="navigateTo()"
+          @keydown="handleKeydown($event)"
+        >
           {{ store.stats.facets.total.toLocaleString() }}
         </div>
         <div class="text-caption text-medium-emphasis mt-1">
@@ -57,23 +93,37 @@ onMounted(() => {
 
         <v-divider class="my-3" />
 
-        <div class="d-flex align-center justify-center">
-          <v-progress-circular
-            :model-value="store.stats.facets.verification_rate"
-            :size="50"
-            :width="4"
-            color="success"
+        <div class="d-flex justify-center ga-4" role="group" aria-label="Facet status breakdown">
+          <div
+            class="text-center clickable-stat"
+            :class="{ 'non-interactive': isEditing }"
+            role="button"
+            :tabindex="isEditing ? -1 : 0"
+            :aria-label="$t('dashboard.widgets.statsFacets.verified') + ': ' + store.stats.facets.verified"
+            @click="navigateTo(true)"
+            @keydown="handleKeydown($event, true)"
           >
-            <span class="text-caption">
-              {{ Math.round(store.stats.facets.verification_rate) }}%
-            </span>
-          </v-progress-circular>
-          <div class="ml-3 text-left">
-            <div class="text-body-2 font-weight-medium">
+            <div class="text-h6 font-weight-medium text-success">
               {{ store.stats.facets.verified.toLocaleString() }}
             </div>
             <div class="text-caption text-medium-emphasis">
               {{ $t('dashboard.widgets.statsFacets.verified') }}
+            </div>
+          </div>
+          <div
+            class="text-center clickable-stat"
+            :class="{ 'non-interactive': isEditMode }"
+            role="button"
+            :tabindex="tabIndex"
+            :aria-label="$t('dashboard.widgets.statsFacets.unverified') + ': ' + unverifiedCount"
+            @click="navigateTo(false)"
+            @keydown="handleKeydown($event, false)"
+          >
+            <div class="text-h6 font-weight-medium text-warning">
+              {{ unverifiedCount.toLocaleString() }}
+            </div>
+            <div class="text-caption text-medium-emphasis">
+              {{ $t('dashboard.widgets.statsFacets.unverified') }}
             </div>
           </div>
         </div>
@@ -89,5 +139,26 @@ onMounted(() => {
 <style scoped>
 .stats-content {
   min-height: 100px;
+}
+
+.clickable-stat {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.clickable-stat:hover {
+  background-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.clickable-stat:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+.clickable-stat.non-interactive {
+  cursor: default;
+  pointer-events: none;
 }
 </style>

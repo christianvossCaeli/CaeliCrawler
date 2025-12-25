@@ -316,6 +316,10 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { attachmentApi } from '@/services/api'
+import { useStatusColors } from '@/composables'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('EntityAttachmentsTab')
 
 interface FacetSuggestion {
   facet_type_id?: string
@@ -357,6 +361,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { getStatusColor } = useStatusColors()
 
 // State
 const loading = ref(false)
@@ -423,7 +428,7 @@ async function loadAttachments() {
     const response = await attachmentApi.list(props.entityId)
     attachments.value = response.data.items
   } catch (error) {
-    console.error('Failed to load attachments:', error)
+    logger.error('Failed to load attachments:', error)
   } finally {
     loading.value = false
   }
@@ -437,7 +442,7 @@ function startPolling() {
       const response = await attachmentApi.list(props.entityId)
       attachments.value = response.data.items
     } catch (error) {
-      console.error('Polling failed:', error)
+      logger.error('Polling failed:', error)
     }
   }, 3000)
 }
@@ -471,7 +476,7 @@ async function uploadFile() {
     emit('attachments-changed')
     showSnackbar(t('entityDetail.attachments.uploadSuccess'), 'success')
   } catch (error: any) {
-    console.error('Upload failed:', error)
+    logger.error('Upload failed:', error)
     showSnackbar(error.response?.data?.detail || t('entityDetail.attachments.uploadError'), 'error')
   } finally {
     uploading.value = false
@@ -490,7 +495,7 @@ async function onDrop(event: DragEvent) {
       emit('attachments-changed')
       showSnackbar(t('entityDetail.attachments.uploadSuccess'), 'success')
     } catch (error: any) {
-      console.error('Upload failed:', error)
+      logger.error('Upload failed:', error)
       showSnackbar(error.response?.data?.detail || t('entityDetail.attachments.uploadError'), 'error')
     } finally {
       uploading.value = false
@@ -507,7 +512,7 @@ async function analyzeAttachment(att: Attachment) {
     att.analysis_status = 'ANALYZING'
     showSnackbar(t('entityDetail.attachments.analysisStarted'), 'info')
   } catch (error: any) {
-    console.error('Analysis failed:', error)
+    logger.error('Analysis failed:', error)
     showSnackbar(error.response?.data?.detail || t('entityDetail.attachments.analysisError'), 'error')
   } finally {
     analyzingIds.value = analyzingIds.value.filter((id) => id !== att.id)
@@ -552,7 +557,7 @@ async function applySelectedFacets() {
 
     emit('facets-applied')
   } catch (error: any) {
-    console.error('Apply facets failed:', error)
+    logger.error('Apply facets failed:', error)
     showSnackbar(error.response?.data?.detail || t('entityDetail.attachments.facetsApplyError'), 'error')
   } finally {
     applyingFacets.value = false
@@ -571,7 +576,7 @@ async function downloadAttachment(att: Attachment) {
     a.click()
     URL.revokeObjectURL(url)
   } catch (error) {
-    console.error('Download failed:', error)
+    logger.error('Download failed:', error)
   }
 }
 
@@ -592,7 +597,7 @@ async function deleteAttachment() {
     emit('attachments-changed')
     showSnackbar(t('entityDetail.attachments.deleteSuccess'), 'success')
   } catch (error) {
-    console.error('Delete failed:', error)
+    logger.error('Delete failed:', error)
   } finally {
     deleting.value = false
   }
@@ -613,18 +618,7 @@ function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString()
 }
 
-function getStatusColor(status: string): string {
-  switch (status) {
-    case 'COMPLETED':
-      return 'success'
-    case 'ANALYZING':
-      return 'info'
-    case 'FAILED':
-      return 'error'
-    default:
-      return 'grey'
-  }
-}
+// getStatusColor now from useStatusColors composable
 
 function getStatusLabel(status: string): string {
   return t(`attachments.status.${status.toLowerCase()}`)

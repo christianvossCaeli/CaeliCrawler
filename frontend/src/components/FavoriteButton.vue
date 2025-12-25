@@ -9,6 +9,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useFavoritesStore } from '@/stores/favorites'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('FavoriteButton')
 
 const props = withDefaults(
   defineProps<{
@@ -50,7 +53,7 @@ async function toggle() {
   try {
     await store.toggleFavorite(props.entityId)
   } catch (e) {
-    console.error('Failed to toggle favorite:', e)
+    logger.error('Failed to toggle favorite:', e)
   } finally {
     isLoading.value = false
   }
@@ -74,9 +77,12 @@ onMounted(async () => {
         :size="size"
         :variant="variant"
         :loading="isLoading"
+        :aria-label="tooltipText"
+        :aria-pressed="isFavorited"
+        :aria-busy="isLoading"
         @click.stop="toggle"
       >
-        <v-icon :icon="icon" />
+        <v-icon :icon="icon" aria-hidden="true" />
       </v-btn>
     </template>
     {{ tooltipText }}
@@ -88,8 +94,11 @@ onMounted(async () => {
     :size="size"
     :variant="variant"
     :loading="isLoading"
+    :aria-label="tooltipText"
+    :aria-pressed="isFavorited"
+    :aria-busy="isLoading"
     @click.stop="toggle"
   >
-    <v-icon :icon="icon" />
+    <v-icon :icon="icon" aria-hidden="true" />
   </v-btn>
 </template>

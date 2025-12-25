@@ -575,7 +575,9 @@ import { pysisApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useFeatureFlags } from '@/composables/useFeatureFlags'
+import { useLogger } from '@/composables/useLogger'
 
+const logger = useLogger('PySisTab')
 const { t } = useI18n()
 const { flags } = useFeatureFlags()
 
@@ -774,7 +776,7 @@ const loadProcesses = async () => {
     processes.value = response.data.items || []
     emit('update:process-count', processes.value.length)
   } catch (error) {
-    console.error('Failed to load processes', error)
+    logger.error('Failed to load processes', error)
     emit('update:process-count', 0)
   }
 }
@@ -784,7 +786,7 @@ const loadTemplates = async () => {
     const response = await pysisApi.getTemplates({ is_active: true })
     templates.value = response.data.items || []
   } catch (error) {
-    console.error('Failed to load templates', error)
+    logger.error('Failed to load templates', error)
   }
 }
 
@@ -795,10 +797,10 @@ const loadAvailableProcesses = async () => {
     const response = await pysisApi.getAvailableProcesses()
     availableProcesses.value = response.data.items || []
     if (response.data.error) {
-      console.warn('PySis API error:', response.data.error)
+      logger.warn('PySis API error:', response.data.error)
     }
   } catch (error) {
-    console.error('Failed to load available processes', error)
+    logger.error('Failed to load available processes', error)
     availableProcesses.value = []
   } finally {
     loadingAvailableProcesses.value = false
@@ -816,7 +818,7 @@ const loadFields = async () => {
     const response = await pysisApi.getFields(selectedProcess.value.id)
     fields.value = response.data || []
   } catch (error) {
-    console.error('Failed to load fields', error)
+    logger.error('Failed to load fields', error)
   }
 }
 
@@ -883,7 +885,7 @@ const toggleAiExtraction = async (field: any) => {
   try {
     await pysisApi.updateField(field.id, { ai_extraction_enabled: field.ai_extraction_enabled })
   } catch (error) {
-    console.error('Failed to toggle AI extraction', error)
+    logger.error('Failed to toggle AI extraction', error)
     // Revert on error
     field.ai_extraction_enabled = !field.ai_extraction_enabled
     showMessage(t('pysis.error'), 'error')
@@ -1111,7 +1113,7 @@ const pollForFieldCompletion = (fieldId: string, fieldName: string) => {
         showMessage(t('pysis.aiReady', { name: fieldName }), 'success')
       }
     } catch (error) {
-      console.error('Polling error', error)
+      logger.error('Polling error', error)
       // Don't stop on error - keep trying
     }
   }
@@ -1183,7 +1185,7 @@ const showHistory = async (field: any) => {
     const response = await pysisApi.getFieldHistory(field.id, 20)
     historyEntries.value = response.data.items || []
   } catch (error) {
-    console.error('Failed to load history', error)
+    logger.error('Failed to load history', error)
     showMessage(t('pysis.error'), 'error')
   } finally {
     loadingHistory.value = false

@@ -51,16 +51,20 @@
           <v-form @submit.prevent="handleLogin" ref="formRef">
             <!-- Email Field -->
             <div class="input-group">
-              <label class="input-label">{{ $t('auth.email') }}</label>
+              <label for="email-input" class="input-label">{{ $t('auth.email') }}</label>
               <div class="input-wrapper">
-                <v-icon class="input-icon" size="18">mdi-email-outline</v-icon>
+                <v-icon class="input-icon" size="18" aria-hidden="true">mdi-email-outline</v-icon>
                 <input
+                  id="email-input"
                   v-model="email"
                   type="email"
                   class="custom-input"
                   data-testid="email-input"
                   :placeholder="$t('auth.enterEmail') || 'E-Mail eingeben'"
                   :disabled="isLoading"
+                  :aria-busy="isLoading"
+                  :aria-invalid="!!errorMessage"
+                  :aria-describedby="errorMessage ? 'login-error' : undefined"
                   autocomplete="email"
                   @keyup.enter="handleLogin"
                 />
@@ -69,25 +73,31 @@
 
             <!-- Password Field -->
             <div class="input-group">
-              <label class="input-label">{{ $t('auth.password') }}</label>
+              <label for="password-input" class="input-label">{{ $t('auth.password') }}</label>
               <div class="input-wrapper">
-                <v-icon class="input-icon" size="18">mdi-lock-outline</v-icon>
+                <v-icon class="input-icon" size="18" aria-hidden="true">mdi-lock-outline</v-icon>
                 <input
+                  id="password-input"
                   v-model="password"
                   :type="showPassword ? 'text' : 'password'"
                   class="custom-input"
                   data-testid="password-input"
                   :placeholder="$t('auth.enterPassword') || 'Passwort eingeben'"
                   :disabled="isLoading"
+                  :aria-busy="isLoading"
+                  :aria-invalid="!!errorMessage"
+                  :aria-describedby="errorMessage ? 'login-error' : undefined"
                   autocomplete="current-password"
                   @keyup.enter="handleLogin"
                 />
                 <button
                   type="button"
                   class="password-toggle"
+                  :aria-label="showPassword ? $t('auth.hidePassword') : $t('auth.showPassword')"
+                  :aria-pressed="showPassword"
                   @click="showPassword = !showPassword"
                 >
-                  <v-icon size="18">
+                  <v-icon size="18" aria-hidden="true">
                     {{ showPassword ? 'mdi-eye-off' : 'mdi-eye' }}
                   </v-icon>
                 </button>
@@ -96,11 +106,11 @@
 
             <!-- Error Alert -->
             <Transition name="fade">
-              <div v-if="errorMessage" class="error-alert">
-                <v-icon size="16" class="mr-2">mdi-alert-circle</v-icon>
+              <div v-if="errorMessage" id="login-error" class="error-alert" role="alert" aria-live="polite">
+                <v-icon size="16" class="mr-2" aria-hidden="true">mdi-alert-circle</v-icon>
                 {{ errorMessage }}
-                <button type="button" class="error-close" @click="errorMessage = null">
-                  <v-icon size="14">mdi-close</v-icon>
+                <button type="button" class="error-close" :aria-label="$t('common.close')" @click="errorMessage = null">
+                  <v-icon size="14" aria-hidden="true">mdi-close</v-icon>
                 </button>
               </div>
             </Transition>
@@ -112,12 +122,13 @@
               data-testid="login-button"
               :class="{ loading: isLoading }"
               :disabled="!isFormValid || isLoading"
+              :aria-busy="isLoading"
             >
               <span v-if="!isLoading" class="button-content">
                 {{ $t('auth.login') }}
               </span>
-              <span v-else class="button-loading">
-                <div class="spinner"></div>
+              <span v-else class="button-loading" aria-live="polite">
+                <div class="spinner" role="status" :aria-label="$t('common.loading')"></div>
               </span>
             </button>
           </v-form>

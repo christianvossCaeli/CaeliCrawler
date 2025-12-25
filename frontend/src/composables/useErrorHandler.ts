@@ -1,6 +1,9 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSnackbar } from './useSnackbar'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('useErrorHandler')
 
 /**
  * API Error structure
@@ -149,7 +152,7 @@ export function useErrorHandler() {
     lastError.value = error as ApiError
 
     if (opts.logError) {
-      console.error('Error handled:', error)
+      logger.error('Error handled:', error)
     }
 
     if (opts.showNotification) {

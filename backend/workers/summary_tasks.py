@@ -1,0 +1,506 @@
+"""Celery tasks for custom summary scheduling.
+
+This module provides background tasks for:
+- Periodic checking of scheduled summaries
+- Executing summaries based on their cron schedules
+- Triggering summaries on crawl events
+- Cleanup of old executions
+"""
+
+from datetime import datetime, timedelta, timezone
+from uuid import UUID
+
+import structlog
+from app.utils.cron import croniter_for_expression, get_schedule_timezone
+
+from workers.celery_app import celery_app
+from workers.async_runner import run_async
+
+logger = structlog.get_logger(__name__)
+
+
+def calculate_next_run(cron_expression: str, from_time: datetime = None) -> datetime:
+    """Calculate the next run time from a cron expression.
+
+    Args:
+        cron_expression: The cron expression to use.
+        from_time: The base time to calculate from. If None, uses current time.
+                   This is important to avoid skipping scheduled times if
+                   execution is delayed.
+
+    Returns:
+        The next scheduled run time.
+    """
+    schedule_tz = get_schedule_timezone()
+    base_time = from_time or datetime.now(schedule_tz)
+
+    # Ensure base_time has timezone info
+    if base_time.tzinfo is None:
+        base_time = schedule_tz.localize(base_time)
+
+    cron = croniter_for_expression(cron_expression, base_time)
+    return cron.get_next(datetime)
+
+
+@celery_app.task(
+    bind=True,
+    name="workers.summary_tasks.check_scheduled_summaries",
+    max_retries=3,
+    default_retry_delay=30,
+    retry_backoff=True,
+    retry_backoff_max=300,
+    autoretry_for=(Exception,),
+    retry_jitter=True,
+)
+def check_scheduled_summaries(self):
+    """Check and execute scheduled summaries.
+
+    This task runs periodically (default: every 60 seconds) and triggers
+    execution for any summary that is due based on its schedule_cron.
+    """
+    from app.database import get_celery_session_context
+    from app.models import CustomSummary
+    from app.models.custom_summary import SummaryStatus, SummaryTriggerType
+    from sqlalchemy import select
+
+    async def _check_and_execute():
+        async with get_celery_session_context() as session:
+            schedule_tz = get_schedule_timezone()
+            now = datetime.now(schedule_tz)
+
+            # Get all summaries due for execution (cron trigger type)
+            result = await session.execute(
+                select(CustomSummary)
+                .where(
+                    CustomSummary.schedule_enabled.is_(True),
+                    CustomSummary.trigger_type == SummaryTriggerType.CRON,
+                    CustomSummary.status == SummaryStatus.ACTIVE,
+                    CustomSummary.next_run_at <= now,
+                )
+                .with_for_update(skip_locked=True)
+            )
+            summaries = result.scalars().all()
+
+            if not summaries:
+                logger.debug("summary_schedule_check_completed", total_due=0, triggered=0)
+                return
+
+            trigger_summaries = []
+            for summary in summaries:
+                if not summary.schedule_cron:
+                    continue
+                try:
+                    # Calculate next run from the SCHEDULED time, not current time
+                    # This ensures we don't skip scheduled windows if execution is delayed
+                    # Example: If scheduled for 10:00 and we check at 10:02,
+                    # next run should be calculated from 10:00, not 10:02
+                    base_time = summary.next_run_at or now
+                    summary.next_run_at = calculate_next_run(summary.schedule_cron, base_time)
+                    trigger_summaries.append(summary)
+                except Exception as exc:
+                    logger.warning(
+                        "summary_schedule_invalid",
+                        summary_id=str(summary.id),
+                        summary_name=summary.name,
+                        cron=summary.schedule_cron,
+                        error=str(exc),
+                    )
+
+            await session.commit()
+
+            triggered = 0
+            for summary in trigger_summaries:
+                execute_summary_task.delay(str(summary.id), "cron")
+                triggered += 1
+
+                logger.info(
+                    "summary_scheduled_execution_triggered",
+                    summary_id=str(summary.id),
+                    summary_name=summary.name,
+                    next_run_at=summary.next_run_at.isoformat() if summary.next_run_at else None,
+                )
+
+            logger.info(
+                "summary_schedule_check_completed",
+                total_due=len(summaries),
+                triggered=triggered,
+            )
+
+    run_async(_check_and_execute())
+
+
+@celery_app.task(
+    bind=True,
+    name="workers.summary_tasks.execute_summary_task",
+    max_retries=3,
+    default_retry_delay=60,  # 1 minute
+    retry_backoff=True,
+    retry_backoff_max=600,  # 10 minutes max
+    retry_jitter=True,
+    acks_late=True,  # Acknowledge after completion for reliability
+    reject_on_worker_lost=True,  # Requeue if worker dies
+)
+def execute_summary_task(self, summary_id: str, triggered_by: str = "manual", trigger_details: dict = None):
+    """Execute a single summary.
+
+    This task:
+    1. Loads the summary with all widgets
+    2. Executes queries for each widget
+    3. Checks relevance (if enabled)
+    4. Caches results
+    5. Emits notification if relevant changes detected
+
+    Args:
+        summary_id: UUID of the CustomSummary to execute.
+        triggered_by: Who/what triggered (manual, cron, crawl_event).
+        trigger_details: Additional context (e.g., crawl_job_id).
+    """
+    from app.database import get_celery_session_context
+    from app.models import CustomSummary
+    from app.models.custom_summary import SummaryStatus
+    from app.models.summary_execution import ExecutionStatus
+    from services.summaries import SummaryExecutor, should_notify_user
+
+    async def _execute():
+        async with get_celery_session_context() as session:
+            summary = await session.get(CustomSummary, UUID(summary_id))
+
+            if not summary:
+                logger.error(
+                    "summary_not_found",
+                    summary_id=summary_id,
+                )
+                return {"success": False, "error": "Summary not found"}
+
+            if summary.status not in (SummaryStatus.ACTIVE, SummaryStatus.DRAFT):
+                logger.warning(
+                    "summary_not_active",
+                    summary_id=summary_id,
+                    summary_name=summary.name,
+                    status=summary.status.value,
+                )
+                return {"success": False, "error": "Summary is not active"}
+
+            logger.info(
+                "summary_execution_started",
+                summary_id=summary_id,
+                summary_name=summary.name,
+                triggered_by=triggered_by,
+            )
+
+            try:
+                executor = SummaryExecutor(session)
+                execution = await executor.execute_summary(
+                    summary_id=UUID(summary_id),
+                    triggered_by=triggered_by,
+                    trigger_details=trigger_details,
+                    force=False,  # Respect relevance check for scheduled executions
+                )
+
+                # Always emit SUMMARY_UPDATED event for successful completions
+                if execution.status == ExecutionStatus.COMPLETED:
+                    from workers.notification_tasks import emit_event
+                    emit_event.delay(
+                        "SUMMARY_UPDATED",
+                        {
+                            "summary_id": str(summary.id),
+                            "summary_name": summary.name,
+                            "user_id": str(summary.user_id),
+                            "execution_id": str(execution.id),
+                            "has_changes": execution.has_changes,
+                            "triggered_by": triggered_by,
+                        }
+                    )
+
+                # Check if we should notify the user
+                if execution.status == ExecutionStatus.COMPLETED and execution.has_changes:
+                    from services.summaries.relevance_checker import RelevanceCheckResult
+
+                    # Create a result object for notification check
+                    result = RelevanceCheckResult(
+                        should_update=True,
+                        score=execution.relevance_score or 0.5,
+                        reason=execution.relevance_reason or "Changes detected",
+                    )
+
+                    if should_notify_user(result, notification_threshold=0.5):
+                        # Emit notification
+                        from workers.notification_tasks import emit_event
+                        emit_event.delay(
+                            "SUMMARY_RELEVANT_CHANGES",
+                            {
+                                "summary_id": str(summary.id),
+                                "summary_name": summary.name,
+                                "user_id": str(summary.user_id),
+                                "execution_id": str(execution.id),
+                                "relevance_score": execution.relevance_score,
+                                "relevance_reason": execution.relevance_reason,
+                            }
+                        )
+                        logger.info(
+                            "summary_notification_triggered",
+                            summary_id=summary_id,
+                            execution_id=str(execution.id),
+                        )
+
+                logger.info(
+                    "summary_execution_completed",
+                    summary_id=summary_id,
+                    summary_name=summary.name,
+                    execution_id=str(execution.id),
+                    status=execution.status.value,
+                    has_changes=execution.has_changes,
+                    duration_ms=execution.duration_ms,
+                )
+
+                return {
+                    "success": True,
+                    "execution_id": str(execution.id),
+                    "status": execution.status.value,
+                    "has_changes": execution.has_changes,
+                    "duration_ms": execution.duration_ms,
+                }
+
+            except Exception as e:
+                logger.exception(
+                    "summary_execution_failed",
+                    summary_id=summary_id,
+                    summary_name=summary.name if summary else "unknown",
+                    error=str(e),
+                )
+                # Re-raise to trigger Celery retry
+                raise self.retry(exc=e)
+
+    return run_async(_execute())
+
+
+@celery_app.task(
+    bind=True,
+    name="workers.summary_tasks.on_crawl_completed",
+    max_retries=3,
+    default_retry_delay=30,
+    retry_backoff=True,
+    retry_backoff_max=300,
+    retry_jitter=True,
+    acks_late=True,
+    reject_on_worker_lost=True,
+)
+def on_crawl_completed(self, crawl_job_id: str, category_id: str):
+    """Event handler: Trigger summaries when a crawl completes.
+
+    This task is called after a crawl job completes and triggers
+    any summaries configured with trigger_type=crawl_category.
+
+    Args:
+        crawl_job_id: UUID of the completed crawl job.
+        category_id: UUID of the category that was crawled.
+    """
+    from app.database import get_celery_session_context
+    from app.models import CustomSummary
+    from app.models.custom_summary import SummaryStatus, SummaryTriggerType
+    from sqlalchemy import select
+
+    async def _trigger_summaries():
+        async with get_celery_session_context() as session:
+            # Find summaries triggered by this category
+            result = await session.execute(
+                select(CustomSummary)
+                .where(
+                    CustomSummary.trigger_type == SummaryTriggerType.CRAWL_CATEGORY,
+                    CustomSummary.trigger_category_id == UUID(category_id),
+                    CustomSummary.status == SummaryStatus.ACTIVE,
+                )
+            )
+            summaries = result.scalars().all()
+
+            if not summaries:
+                logger.debug(
+                    "crawl_completed_no_summaries_to_trigger",
+                    crawl_job_id=crawl_job_id,
+                    category_id=category_id,
+                )
+                return {"triggered": 0}
+
+            triggered = 0
+            for summary in summaries:
+                execute_summary_task.delay(
+                    str(summary.id),
+                    "crawl_event",
+                    {"crawl_job_id": crawl_job_id, "category_id": category_id},
+                )
+                triggered += 1
+
+                logger.info(
+                    "summary_triggered_by_crawl",
+                    summary_id=str(summary.id),
+                    summary_name=summary.name,
+                    crawl_job_id=crawl_job_id,
+                    category_id=category_id,
+                )
+
+            return {"triggered": triggered}
+
+    try:
+        return run_async(_trigger_summaries())
+    except Exception as e:
+        logger.exception(
+            "on_crawl_completed_failed",
+            crawl_job_id=crawl_job_id,
+            category_id=category_id,
+            error=str(e),
+        )
+        raise self.retry(exc=e)
+
+
+@celery_app.task(
+    bind=True,
+    name="workers.summary_tasks.on_preset_completed",
+    max_retries=3,
+    default_retry_delay=30,
+    retry_backoff=True,
+    retry_backoff_max=300,
+    retry_jitter=True,
+    acks_late=True,
+    reject_on_worker_lost=True,
+)
+def on_preset_completed(self, preset_id: str):
+    """Event handler: Trigger summaries when a crawl preset completes.
+
+    This task is called after a crawl preset execution completes and
+    triggers any summaries configured with trigger_type=crawl_preset.
+
+    Args:
+        preset_id: UUID of the completed crawl preset.
+    """
+    from app.database import get_celery_session_context
+    from app.models import CustomSummary
+    from app.models.custom_summary import SummaryStatus, SummaryTriggerType
+    from sqlalchemy import select
+
+    async def _trigger_summaries():
+        async with get_celery_session_context() as session:
+            # Find summaries triggered by this preset
+            result = await session.execute(
+                select(CustomSummary)
+                .where(
+                    CustomSummary.trigger_type == SummaryTriggerType.CRAWL_PRESET,
+                    CustomSummary.trigger_preset_id == UUID(preset_id),
+                    CustomSummary.status == SummaryStatus.ACTIVE,
+                )
+            )
+            summaries = result.scalars().all()
+
+            if not summaries:
+                logger.debug(
+                    "preset_completed_no_summaries_to_trigger",
+                    preset_id=preset_id,
+                )
+                return {"triggered": 0}
+
+            triggered = 0
+            for summary in summaries:
+                execute_summary_task.delay(
+                    str(summary.id),
+                    "crawl_event",
+                    {"preset_id": preset_id},
+                )
+                triggered += 1
+
+                logger.info(
+                    "summary_triggered_by_preset",
+                    summary_id=str(summary.id),
+                    summary_name=summary.name,
+                    preset_id=preset_id,
+                )
+
+            return {"triggered": triggered}
+
+    try:
+        return run_async(_trigger_summaries())
+    except Exception as e:
+        logger.exception(
+            "on_preset_completed_failed",
+            preset_id=preset_id,
+            error=str(e),
+        )
+        raise self.retry(exc=e)
+
+
+@celery_app.task(
+    bind=True,
+    name="workers.summary_tasks.cleanup_old_executions",
+    max_retries=3,
+    default_retry_delay=60,
+    retry_backoff=True,
+)
+def cleanup_old_executions(self, max_age_days: int = 30):
+    """Cleanup old summary executions.
+
+    This task runs daily and removes old execution records
+    while keeping the most recent ones for each summary.
+
+    Args:
+        max_age_days: Maximum age of executions to keep (default: 30 days).
+    """
+    from app.database import get_celery_session_context
+    from app.models import SummaryExecution
+    from sqlalchemy import select, delete, func
+
+    async def _cleanup():
+        async with get_celery_session_context() as session:
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+
+            # Get executions to keep (most recent 10 per summary)
+            # This is a subquery to find the IDs to KEEP
+            keep_subquery = (
+                select(SummaryExecution.id)
+                .where(SummaryExecution.created_at >= cutoff_date)
+            )
+
+            # For older executions, keep only the most recent 5 per summary
+            # This is complex in SQL, so we'll do it in two steps
+
+            # Step 1: Delete old executions (older than cutoff)
+            # But keep at least 5 per summary
+            result = await session.execute(
+                select(SummaryExecution.id, SummaryExecution.summary_id, SummaryExecution.created_at)
+                .where(SummaryExecution.created_at < cutoff_date)
+                .order_by(SummaryExecution.summary_id, SummaryExecution.created_at.desc())
+            )
+            old_executions = result.all()
+
+            # Group by summary and keep newest 5
+            from collections import defaultdict
+            by_summary = defaultdict(list)
+            for exec_id, summary_id, created_at in old_executions:
+                by_summary[summary_id].append(exec_id)
+
+            delete_ids = []
+            for summary_id, exec_ids in by_summary.items():
+                # Keep first 5 (newest), delete the rest
+                if len(exec_ids) > 5:
+                    delete_ids.extend(exec_ids[5:])
+
+            if delete_ids:
+                await session.execute(
+                    delete(SummaryExecution).where(SummaryExecution.id.in_(delete_ids))
+                )
+                await session.commit()
+
+            logger.info(
+                "summary_execution_cleanup_completed",
+                deleted_count=len(delete_ids),
+                cutoff_date=cutoff_date.isoformat(),
+            )
+
+            return {"deleted": len(delete_ids)}
+
+    try:
+        return run_async(_cleanup())
+    except Exception as e:
+        logger.exception(
+            "cleanup_old_executions_failed",
+            max_age_days=max_age_days,
+            error=str(e),
+        )
+        raise self.retry(exc=e)

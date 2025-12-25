@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="700" scrollable @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog v-model="modelValue" max-width="700" scrollable>
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon start>mdi-plus-circle</v-icon>
@@ -125,9 +125,10 @@ interface FacetType {
   value_schema?: Record<string, unknown> | null
 }
 
+const modelValue = defineModel<boolean>()
+
 // Props
 const props = defineProps<{
-  modelValue: boolean
   facetTypeId: string
   facetTypes: FacetType[]
   selectedFacetType: FacetType | null
@@ -140,7 +141,6 @@ const props = defineProps<{
 
 // Emits
 defineEmits<{
-  'update:modelValue': [value: boolean]
   'update:facetTypeId': [value: string]
   'update:value': [value: Record<string, unknown>]
   'update:textRepresentation': [value: string]

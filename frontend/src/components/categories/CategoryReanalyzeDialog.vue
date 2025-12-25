@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="500" @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog v-model="modelValue" max-width="500">
     <v-card>
       <v-card-title>{{ t('categories.dialog.reanalyze') }}</v-card-title>
       <v-card-text>
@@ -18,7 +18,7 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn variant="tonal" @click="$emit('update:modelValue', false)">{{ t('common.cancel') }}</v-btn>
+        <v-btn variant="tonal" @click="modelValue = false">{{ t('common.cancel') }}</v-btn>
         <v-btn variant="tonal" color="warning" @click="$emit('confirm')">{{ t('categories.actions.reanalyze') }}</v-btn>
       </v-card-actions>
     </v-card>
@@ -28,16 +28,16 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 
+const modelValue = defineModel<boolean>()
+
 // Props
 defineProps<{
-  modelValue: boolean
   categoryName: string
   reanalyzeAll: boolean
 }>()
 
 // Emits
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
   'update:reanalyzeAll': [value: boolean]
   'confirm': []
 }>()

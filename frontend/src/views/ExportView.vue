@@ -353,6 +353,9 @@ import { de, enUS } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
 import ExportProgressPanel from '@/components/export/ExportProgressPanel.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('ExportView')
 
 const { t, locale } = useI18n()
 const { showSuccess, showError } = useSnackbar()
@@ -503,7 +506,7 @@ const loadCategories = async () => {
     const response = await adminApi.getCategories({ per_page: 100 })
     categories.value = response.data.items
   } catch (error) {
-    console.error('Failed to load categories:', error)
+    logger.error('Failed to load categories:', error)
     showError(t('exportView.messages.categoriesError'))
     categories.value = []
   } finally {
@@ -522,7 +525,7 @@ const loadLocationOptions = async () => {
       admin_level_1: response.data.admin_level_1 || [],
     }
   } catch (error) {
-    console.error('Failed to load location options:', error)
+    logger.error('Failed to load location options:', error)
     showError(t('exportView.messages.locationOptionsError'))
     locationOptions.value = { countries: [], admin_level_1: [] }
   } finally {
@@ -536,7 +539,7 @@ const loadChanges = async () => {
     const response = await exportApi.getChangesFeed({ limit: 500 })
     changes.value = response.data.changes
   } catch (error: any) {
-    console.error('Failed to load changes feed:', error)
+    logger.error('Failed to load changes feed:', error)
     showError(t('exportView.messages.changesError'))
   } finally {
     loadingChanges.value = false

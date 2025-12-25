@@ -49,6 +49,13 @@ const router = createRouter({
       component: () => import('@/views/EntityDetailView.vue'),
       meta: { requiresAuth: true }
     },
+    // Direct entity access by ID (used by maps, summaries, etc.)
+    {
+      path: '/entity/:id',
+      name: 'entity-by-id',
+      component: () => import('@/views/EntityDetailView.vue'),
+      meta: { requiresAuth: true }
+    },
     {
       path: '/categories',
       name: 'categories',
@@ -144,6 +151,28 @@ const router = createRouter({
       name: 'admin-api-templates',
       component: () => import('@/views/admin/ApiTemplatesView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
+    },
+
+    // Custom Summaries routes
+    {
+      path: '/summaries',
+      name: 'summaries',
+      component: () => import('@/views/CustomSummariesView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/summaries/:id',
+      name: 'summary-dashboard',
+      component: () => import('@/views/SummaryDashboardView.vue'),
+      meta: { requiresAuth: true }
+    },
+
+    // Shared Summary (public access)
+    {
+      path: '/shared/summary/:token',
+      name: 'shared-summary',
+      component: () => import('@/views/SharedSummaryView.vue'),
+      meta: { public: true }
     },
 
     // Catch-all redirect

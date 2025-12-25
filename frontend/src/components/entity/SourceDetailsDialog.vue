@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="600" scrollable @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog v-model="modelValue" max-width="600" scrollable>
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon start :color="getFacetSourceColor(sourceFacet?.source_type)">
@@ -7,7 +7,7 @@
         </v-icon>
         {{ t('entityDetail.source') }}
         <v-spacer></v-spacer>
-        <v-btn icon="mdi-close" variant="tonal" @click="$emit('update:modelValue', false)" :aria-label="t('common.close')"></v-btn>
+        <v-btn icon="mdi-close" variant="tonal" @click="modelValue = false" :aria-label="t('common.close')"></v-btn>
       </v-card-title>
       <v-card-text v-if="sourceFacet">
         <!-- Source Type Info -->
@@ -159,7 +159,7 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn variant="tonal" @click="$emit('update:modelValue', false)">{{ t('common.close') }}</v-btn>
+        <v-btn variant="tonal" @click="modelValue = false">{{ t('common.close') }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -170,6 +170,8 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
+
+const modelValue = defineModel<boolean>()
 
 // Types
 interface SourceFacet {
@@ -201,13 +203,11 @@ interface PysisInfo {
 
 // Props
 const props = defineProps<{
-  modelValue: boolean
   sourceFacet: SourceFacet | null
 }>()
 
 // Emits
 defineEmits<{
-  'update:modelValue': [value: boolean]
 }>()
 
 const { t } = useI18n()

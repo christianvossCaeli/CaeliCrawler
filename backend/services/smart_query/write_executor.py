@@ -36,6 +36,45 @@ from .crawl_operations import execute_crawl_command
 logger = structlog.get_logger()
 
 
+async def execute_facet_type_create(
+    session: AsyncSession,
+    facet_type_data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Create a new FacetType via the operations registry.
+
+    This is a convenience wrapper for the create_facet_type operation.
+
+    Args:
+        session: Database session
+        facet_type_data: FacetType data including name, slug, value_type, etc.
+
+    Returns:
+        Dict with success, message, and facet_type_id if successful
+    """
+    from .operations import execute_operation
+
+    command = {
+        "operation": "create_facet_type",
+        "facet_type_data": facet_type_data,
+    }
+
+    result = await execute_operation(session, command, user_id=None)
+
+    response = {
+        "success": result.success,
+        "message": result.message,
+    }
+
+    if result.success and result.created_items:
+        for item in result.created_items:
+            if item.get("type") == "facet_type":
+                response["facet_type_id"] = item.get("id")
+                response["facet_type_slug"] = item.get("slug")
+                break
+
+    return response
+
+
 async def execute_batch_operation(
     session: AsyncSession,
     batch_data: Dict[str, Any],

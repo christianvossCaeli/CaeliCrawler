@@ -2,7 +2,8 @@
  * Tests for useDebounce composable
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { ref } from 'vue'
+// Vue imports for potential reactive testing
+// import { ref } from 'vue'
 import {
   useDebounce,
   useThrottle,
@@ -337,7 +338,7 @@ describe('useDebounce', () => {
 
     it('should not start twice if already active', () => {
       const callback = vi.fn()
-      const { start, isActive } = usePolling(callback, 1000)
+      const { start } = usePolling(callback, 1000)
 
       start()
       start() // Try to start again

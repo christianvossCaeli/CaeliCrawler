@@ -1,6 +1,6 @@
 """API endpoints for the Dashboard."""
 
-from typing import Optional
+from typing import Optional, Annotated
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,7 +25,7 @@ router = APIRouter()
 async def get_dashboard_preferences(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> DashboardPreferencesResponse:
     """Get the current user's dashboard widget preferences."""
     service = DashboardService(session)
     return await service.get_preferences(current_user.id)
@@ -36,7 +36,7 @@ async def update_dashboard_preferences(
     update: DashboardPreferencesUpdate,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> DashboardPreferencesResponse:
     """Update the current user's dashboard widget preferences."""
     service = DashboardService(session)
     return await service.update_preferences(current_user.id, update)
@@ -46,7 +46,7 @@ async def update_dashboard_preferences(
 async def get_dashboard_stats(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> DashboardStatsResponse:
     """Get aggregated statistics for the dashboard."""
     service = DashboardService(session)
     return await service.get_stats()
@@ -54,11 +54,11 @@ async def get_dashboard_stats(
 
 @router.get("/activity", response_model=ActivityFeedResponse)
 async def get_activity_feed(
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    limit: Annotated[int, Query(ge=1, le=100, description="Maximum number of items to return")] = 20,
+    offset: Annotated[int, Query(ge=0, description="Number of items to skip")] = 0,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> ActivityFeedResponse:
     """Get recent activity from the audit log."""
     service = DashboardService(session)
     return await service.get_activity_feed(limit=limit, offset=offset)
@@ -66,10 +66,10 @@ async def get_activity_feed(
 
 @router.get("/insights", response_model=InsightsResponse)
 async def get_user_insights(
-    period_days: int = Query(default=7, ge=1, le=30),
+    period_days: Annotated[int, Query(ge=1, le=30, description="Number of days to analyze")] = 7,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> InsightsResponse:
     """Get personalized insights for the current user."""
     service = DashboardService(session)
     return await service.get_insights(current_user, period_days=period_days)
@@ -80,7 +80,7 @@ async def get_chart_data(
     chart_type: str,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> ChartDataResponse:
     """Get data for a specific chart.
 
     Available chart types:

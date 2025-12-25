@@ -50,6 +50,7 @@ import deAssistant from './de/assistant.json'
 import deMisc from './de/misc.json'
 import deFavorites from './de/favorites.json'
 import deCrawlPresets from './de/crawlPresets.json'
+import deSummaries from './de/summaries.json'
 
 // English locale modules
 import enCommon from './en/common.json'
@@ -73,6 +74,7 @@ import enAssistant from './en/assistant.json'
 import enMisc from './en/misc.json'
 import enFavorites from './en/favorites.json'
 import enCrawlPresets from './en/crawlPresets.json'
+import enSummaries from './en/summaries.json'
 
 // Merge German modules
 const de = {
@@ -100,6 +102,7 @@ const de = {
   ...deMisc,
   ...deFavorites,
   ...deCrawlPresets,
+  ...deSummaries,
 }
 
 // Merge English modules
@@ -128,6 +131,7 @@ const en = {
   ...enMisc,
   ...enFavorites,
   ...enCrawlPresets,
+  ...enSummaries,
 }
 
 export type SupportedLocale = 'de' | 'en'

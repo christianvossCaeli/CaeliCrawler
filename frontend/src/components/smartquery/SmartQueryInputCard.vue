@@ -1,5 +1,5 @@
 <template>
-  <v-card class="input-card" :class="{ 'input-card--active': modelValue.trim() || attachments.length > 0 }">
+  <v-card class="input-card" :class="{ 'input-card--active': modelValue?.trim() || attachments.length > 0 }">
     <!-- Attachment Preview inside card -->
     <div v-if="attachments.length > 0" class="attachment-preview pa-3 pb-0">
       <div class="d-flex flex-wrap ga-2">
@@ -23,8 +23,7 @@
 
     <!-- Textarea -->
     <v-textarea
-      :model-value="modelValue"
-      @update:model-value="$emit('update:modelValue', $event)"
+      v-model="modelValue"
       :placeholder="placeholder"
       rows="2"
       auto-grow
@@ -58,9 +57,11 @@
           size="small"
           :disabled="disabled || loading || uploading"
           :loading="uploading"
+          :aria-label="t('assistant.attachFile')"
+          :aria-busy="uploading"
           @click="$emit('triggerFileInput')"
         >
-          <v-icon size="20">mdi-paperclip</v-icon>
+          <v-icon size="20" aria-hidden="true">mdi-paperclip</v-icon>
           <v-tooltip activator="parent" location="top">
             {{ t('assistant.attachFile') }}
           </v-tooltip>
@@ -75,9 +76,11 @@
           :color="isListening ? 'error' : undefined"
           :class="{ 'voice-btn-listening': isListening }"
           :disabled="disabled || loading"
+          :aria-label="isListening ? t('smartQueryView.voice.stopRecording') : t('smartQueryView.voice.startRecording')"
+          :aria-pressed="isListening"
           @click="$emit('toggleVoice')"
         >
-          <v-icon size="20">{{ isListening ? 'mdi-microphone-off' : 'mdi-microphone' }}</v-icon>
+          <v-icon size="20" aria-hidden="true">{{ isListening ? 'mdi-microphone-off' : 'mdi-microphone' }}</v-icon>
           <v-tooltip activator="parent" location="top">
             {{ isListening ? t('smartQueryView.voice.stopRecording') : t('smartQueryView.voice.startRecording') }}
           </v-tooltip>
@@ -96,7 +99,7 @@
         :color="submitButtonColor"
         rounded="pill"
         :loading="loading"
-        :disabled="!modelValue.trim() && attachments.length === 0"
+        :disabled="!modelValue?.trim() && attachments.length === 0"
         @click="$emit('submit')"
         class="submit-btn"
       >
@@ -121,8 +124,9 @@ interface Attachment {
 
 type QueryMode = 'read' | 'write' | 'plan'
 
+const modelValue = defineModel<string>()
+
 const props = defineProps<{
-  modelValue: string
   attachments: Attachment[]
   mode: QueryMode
   disabled: boolean
@@ -134,7 +138,6 @@ const props = defineProps<{
 }>()
 
 defineEmits<{
-  'update:modelValue': [value: string]
   submit: []
   paste: [event: ClipboardEvent]
   removeAttachment: [id: string]

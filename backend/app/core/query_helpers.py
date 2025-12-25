@@ -1,13 +1,121 @@
 """Query helper utilities to avoid N+1 queries and reduce code duplication."""
 
-from typing import Any, Dict, List, Optional, Set, Type, TypeVar, Union
+from dataclasses import dataclass
+from typing import Any, Dict, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.sql import Select
 
 T = TypeVar("T", bound=DeclarativeBase)
+R = TypeVar("R")  # Response type
+
+
+@dataclass
+class PaginationParams:
+    """Standard pagination parameters."""
+    page: int = 1
+    per_page: int = 50
+
+    @property
+    def offset(self) -> int:
+        """Calculate offset for SQL query."""
+        return (self.page - 1) * self.per_page
+
+    def total_pages(self, total: int) -> int:
+        """Calculate total pages from total items."""
+        if self.per_page <= 0:
+            return 0
+        return (total + self.per_page - 1) // self.per_page
+
+
+@dataclass
+class PaginatedResult(Generic[T]):
+    """Generic paginated result container."""
+    items: List[T]
+    total: int
+    page: int
+    per_page: int
+    pages: int
+
+    @classmethod
+    def empty(cls, pagination: PaginationParams) -> "PaginatedResult":
+        """Create an empty paginated result."""
+        return cls(
+            items=[],
+            total=0,
+            page=pagination.page,
+            per_page=pagination.per_page,
+            pages=0,
+        )
+
+
+async def paginate_query(
+    session: AsyncSession,
+    query: Select,
+    pagination: PaginationParams,
+) -> Tuple[List[Any], int]:
+    """
+    Execute a query with pagination and return items + total count.
+
+    This is a reusable helper to avoid duplicating pagination logic
+    across all API endpoints.
+
+    Args:
+        session: Database session
+        query: SQLAlchemy Select query (before pagination applied)
+        pagination: Pagination parameters
+
+    Returns:
+        Tuple of (items list, total count)
+
+    Example:
+        query = select(Entity).where(Entity.is_active == True)
+        items, total = await paginate_query(session, query, PaginationParams(page=1, per_page=50))
+    """
+    # Count total items (before pagination)
+    count_query = select(func.count()).select_from(query.subquery())
+    count_result = await session.execute(count_query)
+    total = count_result.scalar() or 0
+
+    # Apply pagination
+    paginated_query = query.offset(pagination.offset).limit(pagination.per_page)
+    result = await session.execute(paginated_query)
+    items = list(result.scalars().all())
+
+    return items, total
+
+
+async def paginate_query_with_result(
+    session: AsyncSession,
+    query: Select,
+    pagination: PaginationParams,
+) -> PaginatedResult:
+    """
+    Execute a query with pagination and return a PaginatedResult.
+
+    Convenience wrapper around paginate_query that returns a
+    structured result object.
+
+    Args:
+        session: Database session
+        query: SQLAlchemy Select query
+        pagination: Pagination parameters
+
+    Returns:
+        PaginatedResult with items, total, page info
+    """
+    items, total = await paginate_query(session, query, pagination)
+
+    return PaginatedResult(
+        items=items,
+        total=total,
+        page=pagination.page,
+        per_page=pagination.per_page,
+        pages=pagination.total_pages(total),
+    )
 
 
 async def batch_fetch_by_ids(

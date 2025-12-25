@@ -181,6 +181,9 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ConversationMessage } from '@/composables/useAssistant'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('ChatMessage')
 
 const { t, locale } = useI18n()
 
@@ -208,7 +211,7 @@ async function copyMessage() {
       copied.value = false
     }, 2000)
   } catch (e) {
-    console.error('Failed to copy message:', e)
+    logger.error('Failed to copy message:', e)
   }
 }
 

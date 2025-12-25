@@ -1,0 +1,61 @@
+# Docker Compose Override for Production with Nginx
+# ==================================================
+#
+# Usage: docker-compose -f docker-compose.yml -f nginx/docker-compose.nginx.yml up -d
+#
+# This adds:
+# - Nginx reverse proxy with SSL/TLS termination
+# - Let's Encrypt certificate auto-renewal
+# - Proper networking for production
+#
+
+services:
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: caelichrawler-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - certbot-webroot:/var/www/certbot:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+    networks:
+      - caelichrawler-network
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Certbot for Let's Encrypt certificates
+  certbot:
+    image: certbot/certbot:latest
+    container_name: caelichrawler-certbot
+    volumes:
+      - ./nginx/ssl:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    restart: unless-stopped
+    networks:
+      - caelichrawler-network
+
+  # Override backend to not expose ports directly
+  backend:
+    ports: []  # Remove direct port exposure
+
+  # Override frontend to not expose ports directly
+  frontend:
+    ports: []  # Remove direct port exposure
+
+networks:
+  caelichrawler-network:
+    driver: bridge
+
+volumes:
+  certbot-webroot:

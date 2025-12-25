@@ -18,6 +18,7 @@ export { default as StatCardVisualization } from './StatCardVisualization.vue'
 export { default as TextVisualization } from './TextVisualization.vue'
 export { default as ComparisonVisualization } from './ComparisonVisualization.vue'
 export { default as MapVisualization } from './MapVisualization.vue'
+export { default as CalendarVisualization } from './CalendarVisualization.vue'
 
 // Common components
 export { default as SourceInfoChip } from './common/SourceInfoChip.vue'

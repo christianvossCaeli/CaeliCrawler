@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" :max-width="maxWidth" @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog v-model="modelValue" :max-width="maxWidth">
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon :color="iconColor" class="mr-2">{{ icon }}</v-icon>
@@ -12,7 +12,7 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn variant="tonal" @click="$emit('update:modelValue', false)">{{ cancelText }}</v-btn>
+        <v-btn variant="tonal" @click="modelValue = false">{{ cancelText }}</v-btn>
         <v-btn
           variant="tonal"
           :color="confirmColor"
@@ -28,8 +28,9 @@
 </template>
 
 <script setup lang="ts">
+const modelValue = defineModel<boolean>()
+
 withDefaults(defineProps<{
-  modelValue: boolean
   title: string
   message: string
   subtitle?: string
@@ -51,7 +52,6 @@ withDefaults(defineProps<{
 })
 
 defineEmits<{
-  'update:modelValue': [value: boolean]
   confirm: []
 }>()
 </script>

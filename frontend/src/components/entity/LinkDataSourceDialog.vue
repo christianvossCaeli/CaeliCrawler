@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="600" @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog v-model="modelValue" max-width="600">
     <v-card>
       <v-card-title class="d-flex align-center pa-4 bg-primary">
         <v-avatar color="primary-darken-1" size="40" class="mr-3">
@@ -49,7 +49,7 @@
         </div>
       </v-card-text>
       <v-card-actions class="pa-4">
-        <v-btn variant="tonal" @click="$emit('update:modelValue', false)">{{ t('common.cancel') }}</v-btn>
+        <v-btn variant="tonal" @click="modelValue = false">{{ t('common.cancel') }}</v-btn>
         <v-spacer></v-spacer>
         <v-btn
           variant="tonal"
@@ -69,6 +69,8 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 
+const modelValue = defineModel<boolean>()
+
 // Types
 interface DataSource {
   id: string
@@ -80,7 +82,6 @@ interface DataSource {
 
 // Props
 defineProps<{
-  modelValue: boolean
   selectedSource: DataSource | null
   availableSources: DataSource[]
   searching: boolean
@@ -90,7 +91,6 @@ defineProps<{
 
 // Emits
 defineEmits<{
-  'update:modelValue': [value: boolean]
   'update:selectedSource': [source: DataSource | null]
   search: [query: string]
   link: []

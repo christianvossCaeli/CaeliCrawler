@@ -372,6 +372,9 @@ import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('ApiTemplatesView')
 
 // ============================================================================
 // Types
@@ -523,7 +526,7 @@ const fetchTemplates = async () => {
     templates.value = response.data.templates
     totalTemplates.value = response.data.total
   } catch (error) {
-    console.error('Failed to fetch templates:', error)
+    logger.error('Failed to fetch templates:', error)
     showSnackbar(t('admin.apiTemplates.errors.loadFailed'), 'error')
   } finally {
     loading.value = false
@@ -586,7 +589,7 @@ const saveTemplate = async () => {
     dialogOpen.value = false
     fetchTemplates()
   } catch (error) {
-    console.error('Failed to save template:', error)
+    logger.error('Failed to save template:', error)
     showSnackbar(t('admin.apiTemplates.errors.saveFailed'), 'error')
   } finally {
     saving.value = false
@@ -608,7 +611,7 @@ const deleteTemplate = async () => {
     deleteDialog.value = false
     fetchTemplates()
   } catch (error) {
-    console.error('Failed to delete template:', error)
+    logger.error('Failed to delete template:', error)
     showSnackbar(t('admin.apiTemplates.errors.deleteFailed'), 'error')
   } finally {
     deleting.value = false
@@ -623,7 +626,7 @@ const testTemplate = async (template: ApiTemplate) => {
     testResultDialog.value = true
     fetchTemplates() // Refresh to show updated validation status
   } catch (error) {
-    console.error('Failed to test template:', error)
+    logger.error('Failed to test template:', error)
     showSnackbar(t('admin.apiTemplates.errors.testFailed'), 'error')
   } finally {
     testingId.value = null

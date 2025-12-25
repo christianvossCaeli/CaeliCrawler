@@ -1,0 +1,131 @@
+# Prometheus Alert Rules for CaeliCrawler
+# ========================================
+
+groups:
+  - name: crawler_alerts
+    rules:
+      # High error rate in crawlers
+      - alert: HighCrawlerErrorRate
+        expr: rate(crawler_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hohe Crawler-Fehlerrate"
+          description: "Crawler-Fehlerrate ist {{ $value | printf \"%.2f\" }} Fehler/Sekunde"
+
+      # Crawler job taking too long
+      - alert: CrawlerJobTimeout
+        expr: histogram_quantile(0.95, rate(crawler_job_duration_seconds_bucket[5m])) > 1800
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Crawler-Jobs dauern zu lange"
+          description: "95. Perzentil der Job-Dauer ist {{ $value | printf \"%.0f\" }} Sekunden"
+
+      # Too many pending documents
+      - alert: HighPendingDocuments
+        expr: documents_pending_count{status="pending"} > 1000
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Viele ausstehende Dokumente"
+          description: "{{ $value }} Dokumente warten auf Verarbeitung"
+
+      # No running crawler jobs for extended period
+      - alert: NoCrawlerActivity
+        expr: sum(crawler_jobs_running) == 0
+        for: 24h
+        labels:
+          severity: info
+        annotations:
+          summary: "Keine Crawler-Aktivität"
+          description: "Seit 24h keine Crawler-Jobs aktiv"
+
+  - name: ai_alerts
+    rules:
+      # High AI analysis error rate
+      - alert: HighAIErrorRate
+        expr: rate(ai_analysis_errors_total[10m]) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hohe KI-Analyse Fehlerrate"
+          description: "KI-Fehlerrate ist {{ $value | printf \"%.3f\" }} Fehler/Sekunde"
+
+      # AI analysis taking too long
+      - alert: SlowAIAnalysis
+        expr: histogram_quantile(0.95, rate(ai_analysis_duration_seconds_bucket[5m])) > 120
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "KI-Analysen sind langsam"
+          description: "95. Perzentil der Analyse-Dauer ist {{ $value | printf \"%.0f\" }} Sekunden"
+
+      # High token usage (cost control)
+      - alert: HighTokenUsage
+        expr: increase(ai_tokens_used_total[1h]) > 100000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hoher Token-Verbrauch"
+          description: "{{ $value | printf \"%.0f\" }} Tokens in der letzten Stunde verbraucht"
+
+  - name: system_alerts
+    rules:
+      # Backend down
+      - alert: BackendDown
+        expr: up{job="caeli-crawler-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend ist nicht erreichbar"
+          description: "Der CaeliCrawler Backend-Service antwortet nicht"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes{job="caeli-crawler-backend"} > 1.5e9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hoher Speicherverbrauch"
+          description: "Backend nutzt {{ $value | humanize1024 }}B Speicher"
+
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="caeli-crawler-backend"}[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hohe CPU-Auslastung"
+          description: "Backend CPU-Auslastung ist {{ $value | printf \"%.1f\" }} Cores"
+
+  - name: database_alerts
+    rules:
+      # Redis connection issues
+      - alert: RedisConnectionDown
+        expr: redis_connection_status == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis-Verbindung unterbrochen"
+          description: "Keine Verbindung zu Redis möglich"
+
+      # Celery workers not responding
+      - alert: NoActiveCeleryWorkers
+        expr: sum(celery_workers_active) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Keine Celery-Worker aktiv"
+          description: "Alle Celery-Worker sind ausgefallen"

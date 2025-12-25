@@ -13,8 +13,8 @@ from redis.asyncio import Redis
 from app import __version__
 from app.config import settings
 from app.database import close_db, init_db
-from app.api.admin import categories, sources, crawler, pysis, locations, users, versions, audit, notifications, external_apis, api_import, ai_discovery, api_templates, crawl_presets, api_facet_sync, sharepoint
-from app.api.v1 import export, entity_types, entities, facets, relations, assistant, pysis_facets, dashboard, ai_tasks, entity_data, attachments, favorites, smart_query_history
+from app.api.admin import categories, sources, crawler, pysis, locations, users, versions, audit, notifications, external_apis, api_import, ai_discovery, api_templates, crawl_presets, api_facet_sync, sharepoint, custom_summaries
+from app.api.v1 import export, entity_types, entities, facets, relations, assistant, pysis_facets, dashboard, ai_tasks, entity_data, attachments, favorites, smart_query_history, summaries as public_summaries
 from app.api.v1.data_api import router as data_router
 from app.api.v1.analysis_api import router as analysis_router
 from app.api import auth
@@ -189,11 +189,14 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         messages = []
 
         for error in errors:
-            field = " -> ".join(str(loc) for loc in error.get("loc", ["unknown"]))
+            # Only show field path without 'body' prefix
+            loc = error.get("loc", ["unknown"])
+            field_parts = [str(p) for p in loc if p != "body"]
+            field = " -> ".join(field_parts) if field_parts else "input"
             error_type = error.get("type", "unknown")
             msg = error.get("msg", "Invalid value")
 
-            # Translate common error types to German
+            # Translate common error types to German (user-friendly)
             if error_type == "string_too_long":
                 ctx = error.get("ctx", {})
                 max_length = ctx.get("max_length", "?")
@@ -205,16 +208,40 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
             elif error_type == "missing":
                 messages.append(f"Feld '{field}': Pflichtfeld fehlt")
             elif error_type == "value_error":
-                messages.append(f"Feld '{field}': Ungültiger Wert - {msg}")
+                messages.append(f"Feld '{field}': Ungültiger Wert")
             else:
-                messages.append(f"Feld '{field}': {msg}")
+                messages.append(f"Feld '{field}': Ungültiger Wert")
 
         return JSONResponse(
             status_code=422,
             content={
                 "error": "Validierungsfehler",
                 "detail": "; ".join(messages),
-                "errors": errors,
+                "code": "VALIDATION_ERROR",
+            },
+        )
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        """
+        Global handler for unhandled exceptions.
+        Logs the full error but returns a generic message to the client.
+        """
+        import structlog
+        logger = structlog.get_logger(__name__)
+        logger.error(
+            "Unhandled exception",
+            exc_type=type(exc).__name__,
+            exc_message=str(exc),
+            path=str(request.url.path),
+            method=request.method,
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "Ein unerwarteter Fehler ist aufgetreten",
+                "detail": "Bitte versuchen Sie es später erneut oder kontaktieren Sie den Support.",
+                "code": "INTERNAL_SERVER_ERROR",
             },
         )
 
@@ -332,6 +359,11 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         tags=["Admin - Crawl Presets"],
     )
     app.include_router(
+        custom_summaries.router,
+        prefix=f"{settings.admin_api_prefix}/summaries",
+        tags=["Admin - Custom Summaries"],
+    )
+    app.include_router(
         api_facet_sync.router,
         prefix=f"{settings.admin_api_prefix}/api-facet-syncs",
         tags=["Admin - API Facet Syncs"],
@@ -419,6 +451,13 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         attachments.router,
         prefix=settings.api_v1_prefix,
         tags=["API v1 - Entity Attachments"],
+    )
+
+    # Public Summaries API (no authentication required for shared access)
+    app.include_router(
+        public_summaries.router,
+        prefix=f"{settings.api_v1_prefix}/summaries",
+        tags=["API v1 - Public Summaries"],
     )
 
     return app

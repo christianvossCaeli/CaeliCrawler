@@ -6,6 +6,9 @@
  */
 
 import { z } from 'zod'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('validation')
 
 // =============================================================================
 // Common Schemas
@@ -226,7 +229,7 @@ export function safeValidate<T>(
     return result.data
   }
 
-  console.warn('[Validation] API response validation failed:', result.error.errors)
+  logger.warn('[Validation] API response validation failed:', result.error.errors)
 
   if (fallback !== undefined) {
     return fallback

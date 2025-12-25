@@ -218,6 +218,9 @@ import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('AuditLogView')
 
 const { t } = useI18n()
 
@@ -352,7 +355,7 @@ async function fetchLogs() {
     logs.value = response.data.items
     totalLogs.value = response.data.total
   } catch (error) {
-    console.error('Failed to fetch audit logs:', error)
+    logger.error('Failed to fetch audit logs:', error)
   } finally {
     loading.value = false
   }
@@ -363,7 +366,7 @@ async function fetchStats() {
     const response = await api.get('/admin/audit/stats')
     stats.value = response.data
   } catch (error) {
-    console.error('Failed to fetch stats:', error)
+    logger.error('Failed to fetch stats:', error)
   }
 }
 

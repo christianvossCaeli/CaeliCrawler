@@ -73,6 +73,9 @@
  * </ErrorBoundary>
  */
 import { ref, computed, onErrorCaptured } from 'vue'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('ErrorBoundary')
 
 interface Props {
   /** Custom fallback message when error occurs */
@@ -120,8 +123,8 @@ onErrorCaptured((err: Error, _instance, info: string) => {
 
   // Log error in development
   if (import.meta.env.DEV) {
-    console.error('[ErrorBoundary] Caught error:', err)
-    console.error('[ErrorBoundary] Component info:', info)
+    logger.error('[ErrorBoundary] Caught error:', err)
+    logger.error('[ErrorBoundary] Component info:', info)
   }
 
   // Notify parent

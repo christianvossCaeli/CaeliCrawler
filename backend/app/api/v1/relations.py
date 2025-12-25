@@ -1,7 +1,7 @@
 """API endpoints for Relation Type and Entity Relation management."""
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -41,15 +41,15 @@ router = APIRouter()
 
 @router.get("/types", response_model=RelationTypeListResponse)
 async def list_relation_types(
-    page: int = Query(default=1, ge=1),
-    per_page: int = Query(default=50, ge=1, le=100),
-    is_active: Optional[bool] = Query(default=None),
-    source_entity_type_id: Optional[UUID] = Query(default=None),
-    target_entity_type_id: Optional[UUID] = Query(default=None),
-    search: Optional[str] = Query(default=None),
+    page: Annotated[int, Query(ge=1, description="Page number")] = 1,
+    per_page: Annotated[int, Query(ge=1, le=100, description="Items per page")] = 50,
+    is_active: Annotated[Optional[bool], Query(description="Filter by active status")] = None,
+    source_entity_type_id: Annotated[Optional[UUID], Query(description="Filter by source entity type")] = None,
+    target_entity_type_id: Annotated[Optional[UUID], Query(description="Filter by target entity type")] = None,
+    search: Annotated[Optional[str], Query(description="Search in name or slug")] = None,
     session: AsyncSession = Depends(get_session),
     current_user: Optional[User] = Depends(get_current_user_optional),
-):
+) -> RelationTypeListResponse:
     """List all relation types with pagination."""
     query = select(RelationType)
 
@@ -133,7 +133,7 @@ async def create_relation_type(
     request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
-):
+) -> RelationTypeResponse:
     """Create a new relation type. Requires Editor role."""
     # Verify entity types exist
     source_et = await session.get(EntityType, data.source_entity_type_id)
@@ -209,7 +209,7 @@ async def get_relation_type(
     relation_type_id: UUID,
     session: AsyncSession = Depends(get_session),
     current_user: Optional[User] = Depends(get_current_user_optional),
-):
+) -> RelationTypeResponse:
     """Get a single relation type by ID."""
     rt = await session.get(RelationType, relation_type_id)
     if not rt:
@@ -237,7 +237,7 @@ async def get_relation_type_by_slug(
     slug: str,
     session: AsyncSession = Depends(get_session),
     current_user: Optional[User] = Depends(get_current_user_optional),
-):
+) -> RelationTypeResponse:
     """Get a single relation type by slug."""
     result = await session.execute(
         select(RelationType).where(RelationType.slug == slug)
@@ -270,7 +270,7 @@ async def update_relation_type(
     request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
-):
+) -> RelationTypeResponse:
     """Update a relation type."""
     rt = await session.get(RelationType, relation_type_id)
     if not rt:
@@ -299,7 +299,7 @@ async def delete_relation_type(
     request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
-):
+) -> MessageResponse:
     """Delete a relation type. Requires Editor role."""
     rt = await session.get(RelationType, relation_type_id)
     if not rt:
@@ -345,19 +345,19 @@ async def delete_relation_type(
 
 @router.get("", response_model=EntityRelationListResponse)
 async def list_entity_relations(
-    page: int = Query(default=1, ge=1),
-    per_page: int = Query(default=50, ge=1, le=200),
-    relation_type_id: Optional[UUID] = Query(default=None),
-    relation_type_slug: Optional[str] = Query(default=None),
-    source_entity_id: Optional[UUID] = Query(default=None),
-    target_entity_id: Optional[UUID] = Query(default=None),
-    entity_id: Optional[UUID] = Query(default=None, description="Either source or target"),
-    min_confidence: float = Query(default=0.0, ge=0, le=1),
-    human_verified: Optional[bool] = Query(default=None),
-    is_active: Optional[bool] = Query(default=None),
+    page: Annotated[int, Query(ge=1, description="Page number")] = 1,
+    per_page: Annotated[int, Query(ge=1, le=200, description="Items per page")] = 50,
+    relation_type_id: Annotated[Optional[UUID], Query(description="Filter by relation type ID")] = None,
+    relation_type_slug: Annotated[Optional[str], Query(description="Filter by relation type slug")] = None,
+    source_entity_id: Annotated[Optional[UUID], Query(description="Filter by source entity")] = None,
+    target_entity_id: Annotated[Optional[UUID], Query(description="Filter by target entity")] = None,
+    entity_id: Annotated[Optional[UUID], Query(description="Either source or target")] = None,
+    min_confidence: Annotated[float, Query(ge=0, le=1, description="Minimum confidence score")] = 0.0,
+    human_verified: Annotated[Optional[bool], Query(description="Filter by verification status")] = None,
+    is_active: Annotated[Optional[bool], Query(description="Filter by active status")] = None,
     session: AsyncSession = Depends(get_session),
     current_user: Optional[User] = Depends(get_current_user_optional),
-):
+) -> EntityRelationListResponse:
     """List entity relations with filters."""
     query = select(EntityRelation)
 
@@ -471,7 +471,7 @@ async def create_entity_relation(
     request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
-):
+) -> EntityRelationResponse:
     """Create a new entity relation. Requires Editor role."""
     # Verify entities exist
     source = await session.get(Entity, data.source_entity_id)
@@ -571,7 +571,7 @@ async def get_entity_relation(
     relation_id: UUID,
     session: AsyncSession = Depends(get_session),
     current_user: Optional[User] = Depends(get_current_user_optional),
-):
+) -> EntityRelationResponse:
     """Get a single entity relation by ID."""
     rel = await session.get(EntityRelation, relation_id)
     if not rel:
@@ -604,7 +604,7 @@ async def update_entity_relation(
     request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
-):
+) -> EntityRelationResponse:
     """Update an entity relation."""
     rel = await session.get(EntityRelation, relation_id)
     if not rel:
@@ -632,11 +632,11 @@ async def update_entity_relation(
 @router.put("/{relation_id}/verify", response_model=EntityRelationResponse)
 async def verify_entity_relation(
     relation_id: UUID,
-    verified: bool = Query(default=True),
-    verified_by: Optional[str] = Query(default=None),
+    verified: Annotated[bool, Query(description="Mark as verified or unverified")] = True,
+    verified_by: Annotated[Optional[str], Query(description="Name of verifier")] = None,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
-):
+) -> EntityRelationResponse:
     """Verify an entity relation."""
     rel = await session.get(EntityRelation, relation_id)
     if not rel:
@@ -658,7 +658,7 @@ async def delete_entity_relation(
     request: Request,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
-):
+) -> MessageResponse:
     """Delete an entity relation. Requires Editor role."""
     rel = await session.get(EntityRelation, relation_id)
     if not rel:
@@ -685,11 +685,11 @@ async def delete_entity_relation(
 @router.get("/graph/{entity_id}", response_model=EntityRelationsGraph)
 async def get_entity_relations_graph(
     entity_id: UUID,
-    depth: int = Query(default=1, ge=1, le=3),
-    relation_type_slugs: Optional[List[str]] = Query(default=None),
+    depth: Annotated[int, Query(ge=1, le=3, description="Graph traversal depth (1-3)")] = 1,
+    relation_type_slugs: Annotated[Optional[List[str]], Query(description="Filter by relation type slugs")] = None,
     session: AsyncSession = Depends(get_session),
     current_user: Optional[User] = Depends(get_current_user_optional),
-):
+) -> EntityRelationsGraph:
     """Get a graph of entity relations centered on the given entity."""
     entity = await session.get(Entity, entity_id)
     if not entity:

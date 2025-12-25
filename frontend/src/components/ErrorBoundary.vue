@@ -21,6 +21,9 @@
 
 import { ref, onErrorCaptured, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('ErrorBoundary')
 
 interface Props {
   /** Show technical error details (only in development) */
@@ -57,10 +60,10 @@ onErrorCaptured((err: Error, instance, info: string) => {
   errorInfo.value = info
 
   if (props.logErrors) {
-    console.error('[ErrorBoundary] Caught error:', err)
-    console.error('[ErrorBoundary] Component info:', info)
+    logger.error('[ErrorBoundary] Caught error:', err)
+    logger.error('[ErrorBoundary] Component info:', info)
     if (instance) {
-      console.error('[ErrorBoundary] Component:', instance.$options?.name || 'Unknown')
+      logger.error('[ErrorBoundary] Component:', instance.$options?.name || 'Unknown')
     }
   }
 
@@ -99,7 +102,7 @@ async function copyErrorDetails() {
   try {
     await navigator.clipboard.writeText(details)
   } catch (e) {
-    console.error('Failed to copy error details:', e)
+    logger.error('Failed to copy error details:', e)
   }
 }
 

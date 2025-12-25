@@ -2,8 +2,8 @@
   <div>
     <!-- Loading Overlay -->
     <v-overlay :model-value="loading" class="align-center justify-center" persistent >
-      <v-card class="pa-8 text-center" min-width="320" elevation="24">
-        <v-progress-circular indeterminate size="80" width="6" color="primary" class="mb-4"></v-progress-circular>
+      <v-card class="pa-8 text-center" min-width="320" elevation="24" role="status" aria-live="polite">
+        <v-progress-circular indeterminate size="80" width="6" color="primary" class="mb-4" :aria-label="t('common.loading')"></v-progress-circular>
         <div class="text-h6 mb-2">{{ t('entities.loadingData') }}</div>
         <div class="text-body-2 text-medium-emphasis">
           {{ totalEntities > 0 ? `${totalEntities.toLocaleString()} ${currentEntityType?.name_plural || t('entities.entries')}` : t('common.pleaseWait') }}
@@ -20,33 +20,34 @@
     >
       <template #actions>
         <v-btn v-if="store.selectedTemplate" variant="outlined" @click="templateDialog = true">
-          <v-icon start>mdi-view-dashboard</v-icon>
+          <v-icon start aria-hidden="true">mdi-view-dashboard</v-icon>
           {{ store.selectedTemplate.name }}
         </v-btn>
-        <v-btn variant="tonal" color="primary" @click="createDialog = true">
-          <v-icon start>mdi-plus</v-icon>
+        <v-btn variant="tonal" color="primary" :aria-label="t('entities.createNew')" @click="createDialog = true">
+          <v-icon start aria-hidden="true">mdi-plus</v-icon>
           {{ t('entities.createNew') }}
         </v-btn>
       </template>
     </PageHeader>
 
     <!-- Entity Type Tabs (if no specific type selected) -->
-    <v-tabs v-if="!typeSlug" v-model="selectedTypeTab" color="primary" class="mb-4" show-arrows>
+    <v-tabs v-if="!typeSlug" v-model="selectedTypeTab" color="primary" class="mb-4" show-arrows role="navigation" :aria-label="t('entities.entityTypeNavigation')">
       <v-tab
         v-for="entityType in store.activeEntityTypes"
         :key="entityType.slug"
         :value="entityType.slug"
+        :aria-label="`${entityType.name_plural} - ${entityType.entity_count} ${t('entities.items')}`"
       >
-        <v-icon start :icon="entityType.icon" :color="entityType.color"></v-icon>
+        <v-icon start :icon="entityType.icon" :color="entityType.color" aria-hidden="true"></v-icon>
         {{ entityType.name_plural }}
-        <v-chip size="x-small" class="ml-2">{{ entityType.entity_count }}</v-chip>
+        <v-chip size="x-small" class="ml-2" role="status">{{ entityType.entity_count }}</v-chip>
       </v-tab>
     </v-tabs>
 
     <!-- Stats Cards -->
-    <v-row class="mb-4">
+    <v-row class="mb-4" role="region" :aria-label="t('entities.statistics')">
       <v-col cols="6" sm="3">
-        <v-card variant="outlined">
+        <v-card variant="outlined" role="status">
           <v-card-text class="text-center py-3">
             <div class="text-h5 text-primary">{{ totalEntities }}</div>
             <div class="text-caption">{{ currentEntityType?.name_plural || 'Entities' }}</div>
@@ -54,7 +55,7 @@
         </v-card>
       </v-col>
       <v-col cols="6" sm="3">
-        <v-card variant="outlined">
+        <v-card variant="outlined" role="status">
           <v-card-text class="text-center py-3">
             <div class="text-h5 text-info">{{ stats.total_facet_values || 0 }}</div>
             <div class="text-caption">{{ t('entities.facetValues') }}</div>
@@ -62,7 +63,7 @@
         </v-card>
       </v-col>
       <v-col cols="6" sm="3">
-        <v-card variant="outlined">
+        <v-card variant="outlined" role="status">
           <v-card-text class="text-center py-3">
             <div class="text-h5 text-success">{{ stats.verified_count || 0 }}</div>
             <div class="text-caption">{{ t('entities.verified') }}</div>
@@ -70,7 +71,7 @@
         </v-card>
       </v-col>
       <v-col cols="6" sm="3">
-        <v-card variant="outlined">
+        <v-card variant="outlined" role="status">
           <v-card-text class="text-center py-3">
             <div class="text-h5">{{ stats.relation_count || 0 }}</div>
             <div class="text-caption">{{ t('entities.relations') }}</div>
@@ -789,7 +790,9 @@ import { useFeatureFlags } from '@/composables/useFeatureFlags'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import EntityMapView from '@/components/entities/EntityMapView.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import { useLogger } from '@/composables/useLogger'
 
+const logger = useLogger('EntitiesView')
 const { t } = useI18n()
 const { flags } = useFeatureFlags()
 
@@ -1023,7 +1026,7 @@ async function loadEntities(page = currentPage.value) {
     // Load stats
     await loadStats()
   } catch (e) {
-    console.error('Failed to load entities', e)
+    logger.error('Failed to load entities', e)
     showError(t('entities.loadError'))
   } finally {
     loading.value = false
@@ -1044,7 +1047,7 @@ async function loadStats() {
       relation_count: overview.total_connections || overview.total_relations || 0,
     }
   } catch (e) {
-    console.error('Failed to load stats', e)
+    logger.error('Failed to load stats', e)
   }
 }
 
@@ -1053,7 +1056,7 @@ async function loadCategories() {
     const response = await adminApi.getCategories({ per_page: 100 })
     categories.value = response.data.items || []
   } catch (e) {
-    console.error('Failed to load categories', e)
+    logger.error('Failed to load categories', e)
   }
 }
 
@@ -1068,7 +1071,7 @@ async function loadUsers() {
       display: `${u.full_name} (${u.email})`,
     }))
   } catch (e) {
-    console.error('Failed to load users', e)
+    logger.error('Failed to load users', e)
   } finally {
     loadingUsers.value = false
   }
@@ -1084,7 +1087,7 @@ async function loadParentOptions() {
     // Load initial options (empty search)
     await searchParents('')
   } catch (e) {
-    console.error('Failed to load parent options', e)
+    logger.error('Failed to load parent options', e)
   }
 }
 
@@ -1104,7 +1107,7 @@ async function searchParents(query: string) {
       })
       parentOptions.value = response.items || []
     } catch (e) {
-      console.error('Failed to search parents', e)
+      logger.error('Failed to search parents', e)
     } finally {
       loadingParents.value = false
     }
@@ -1256,7 +1259,7 @@ async function loadLocationOptions() {
     locationOptions.value.admin_level_1 = data.admin_level_1 || []
     locationOptions.value.admin_level_2 = data.admin_level_2 || []
   } catch (e) {
-    console.error('Failed to load location options', e)
+    logger.error('Failed to load location options', e)
   }
 }
 
@@ -1333,7 +1336,7 @@ async function loadSchemaAttributes() {
     })
     schemaAttributes.value = response.data.attributes || []
   } catch (e) {
-    console.error('Failed to load schema attributes', e)
+    logger.error('Failed to load schema attributes', e)
     schemaAttributes.value = []
   }
 }
@@ -1353,7 +1356,7 @@ async function loadAttributeValues(attributeKey: string) {
       attributeValueOptions.value[attributeKey] = response.data.attribute_values[attributeKey]
     }
   } catch (e) {
-    console.error(`Failed to load values for attribute ${attributeKey}`, e)
+    logger.error(`Failed to load values for attribute ${attributeKey}`, e)
   }
 }
 

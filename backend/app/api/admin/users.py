@@ -1,12 +1,15 @@
 """Admin API endpoints for user management."""
 
+import structlog
 from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
+
+logger = structlog.get_logger(__name__)
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
@@ -18,6 +21,7 @@ from app.core.password_policy import validate_password, default_policy
 from app.core.rate_limit import check_rate_limit
 from app.core.audit import AuditContext
 from app.models.audit_log import AuditAction
+from app.core.query_helpers import PaginationParams, paginate_query
 
 router = APIRouter()
 
@@ -106,10 +110,9 @@ async def list_users(
 
     Admin only.
     """
-    # Build query
+    # Build query with filters
     query = select(User)
 
-    # Apply filters
     if role:
         query = query.where(User.role == role)
     if is_active is not None:
@@ -120,24 +123,19 @@ async def list_users(
             (User.email.ilike(search_filter)) | (User.full_name.ilike(search_filter))
         )
 
-    # Get total count
-    count_query = select(func.count()).select_from(query.subquery())
-    total = (await session.execute(count_query)).scalar() or 0
-
-    # Apply pagination
+    # Add ordering before pagination
     query = query.order_by(User.created_at.desc())
-    query = query.offset((page - 1) * per_page).limit(per_page)
 
-    # Execute query
-    result = await session.execute(query)
-    users = list(result.scalars().all())
+    # Use pagination helper
+    pagination = PaginationParams(page=page, per_page=per_page)
+    users, total = await paginate_query(session, query, pagination)
 
     return UserListResponse(
         items=[UserResponse.model_validate(u) for u in users],
         total=total,
-        page=page,
-        per_page=per_page,
-        pages=(total + per_page - 1) // per_page,
+        page=pagination.page,
+        per_page=pagination.per_page,
+        pages=pagination.total_pages(total),
     )
 
 

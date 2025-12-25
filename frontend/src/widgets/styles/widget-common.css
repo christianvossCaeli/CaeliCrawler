@@ -1,0 +1,96 @@
+/**
+ * Common Widget Styles
+ * Shared styles for interactive widget elements
+ */
+
+/* CSS Custom Properties for Widget Styling */
+:root {
+  --widget-hover-bg: rgba(var(--v-theme-on-surface), 0.08);
+  --widget-focus-color: rgb(var(--v-theme-primary));
+  --widget-transition: background-color 0.2s ease, outline 0.2s ease;
+  --widget-border-radius: 8px;
+  --widget-max-height: 300px;
+  --widget-max-height-sm: 200px;
+  --widget-loading-padding: 1rem;
+  --widget-empty-padding: 1.5rem;
+  --widget-loading-size: 32px;
+}
+
+/* Base clickable element styles */
+.clickable-stat,
+.clickable-item,
+.clickable-box,
+.clickable-bar {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--widget-border-radius);
+  transition: var(--widget-transition);
+}
+
+.clickable-stat:hover,
+.clickable-item:hover,
+.clickable-box:hover,
+.clickable-bar:hover {
+  background-color: var(--widget-hover-bg);
+}
+
+.clickable-stat:focus-visible,
+.clickable-item:focus-visible,
+.clickable-box:focus-visible,
+.clickable-bar:focus-visible {
+  outline: 2px solid var(--widget-focus-color);
+  outline-offset: 2px;
+}
+
+/* Non-interactive state (edit mode) */
+.non-interactive {
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Stats content container */
+.stats-content {
+  min-height: 100px;
+}
+
+/* Scrollable content areas */
+.widget-scrollable {
+  max-height: var(--widget-max-height);
+  overflow-y: auto;
+}
+
+.widget-scrollable-sm {
+  max-height: var(--widget-max-height-sm);
+  overflow-y: auto;
+}
+
+/* Loading state */
+.widget-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--widget-loading-padding);
+}
+
+/* Empty state */
+.widget-empty {
+  text-align: center;
+  padding: var(--widget-empty-padding);
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .widget-scrollable {
+    max-height: var(--widget-max-height-sm);
+  }
+}
+
+/* Touch device adjustments - disable hover on touch */
+@media (hover: none) {
+  .clickable-stat:hover,
+  .clickable-item:hover,
+  .clickable-box:hover,
+  .clickable-bar:hover {
+    background-color: transparent;
+  }
+}

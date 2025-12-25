@@ -108,6 +108,7 @@ export interface FacetValue {
   event_date: string | null
   valid_from: string | null
   valid_until: string | null
+  source_type: string | null
   source_document_id: string | null
   document_title: string | null
   document_url: string | null

@@ -1,0 +1,180 @@
+import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useSnackbar } from './useSnackbar'
+import { adminApi, entityApi } from '@/services/api'
+import { getCachedData, setCachedData, clearCachedData } from './useEntityDetailHelpers'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('useEntityDataSources')
+
+export interface DataSource {
+  id: string
+  name: string
+  base_url: string
+  status: string
+  source_type?: string
+  is_direct_link?: boolean
+  document_count?: number
+  last_crawl?: string
+  hasRunningJob?: boolean
+}
+
+export function useEntityDataSources(entityId: string | undefined) {
+  const { t } = useI18n()
+  const { showSuccess, showError } = useSnackbar()
+
+  const dataSources = ref<DataSource[]>([])
+  const availableSourcesForLink = ref<any[]>([])
+  const selectedSourceToLink = ref<any>(null)
+  const sourceSearchQuery = ref('')
+
+  const loadingDataSources = ref(false)
+  const searchingSourcesForLink = ref(false)
+  const linkingSource = ref(false)
+  const startingCrawl = ref<string | null>(null)
+
+  let sourceSearchTimeout: ReturnType<typeof setTimeout> | null = null
+
+  async function loadDataSources() {
+    if (!entityId) return
+
+    // Check cache first
+    const cacheKey = `datasources_${entityId}`
+    const cached = getCachedData(cacheKey)
+    if (cached) {
+      dataSources.value = cached
+      return
+    }
+
+    loadingDataSources.value = true
+    try {
+      // Get sources via the new traceability endpoint:
+      // Entity -> FacetValues -> Documents -> DataSources
+      const response = await entityApi.getEntitySources(entityId)
+      dataSources.value = response.data.sources || []
+
+      // Cache the result
+      setCachedData(cacheKey, dataSources.value)
+    } catch (e) {
+      logger.error('Failed to load data sources', e)
+      dataSources.value = []
+      showError(t('entityDetail.messages.dataSourcesLoadError'))
+    } finally {
+      loadingDataSources.value = false
+    }
+  }
+
+  async function searchSourcesForLink(query: string) {
+    sourceSearchQuery.value = query
+    if (!query || query.length < 2) {
+      availableSourcesForLink.value = []
+      return
+    }
+
+    if (sourceSearchTimeout) clearTimeout(sourceSearchTimeout)
+    sourceSearchTimeout = setTimeout(async () => {
+      searchingSourcesForLink.value = true
+      try {
+        const response = await adminApi.getSources({ search: query, per_page: 20 })
+        // Filter out already linked sources
+        const linkedIds = new Set(dataSources.value.map((s: any) => s.id))
+        availableSourcesForLink.value = (response.data.items || []).filter(
+          (s: any) => !linkedIds.has(s.id)
+        )
+      } catch (e) {
+        logger.error('Failed to search sources:', e)
+        availableSourcesForLink.value = []
+        showError(t('entityDetail.messages.sourceSearchError'))
+      } finally {
+        searchingSourcesForLink.value = false
+      }
+    }, 300)
+  }
+
+  async function linkSourceToEntity() {
+    if (!selectedSourceToLink.value || !entityId) return
+
+    linkingSource.value = true
+    try {
+      // Update the source's extra_data to add this entity to entity_ids (N:M)
+      const sourceId = selectedSourceToLink.value.id
+      const currentExtraData = selectedSourceToLink.value.extra_data || {}
+
+      // Support legacy entity_id and new entity_ids array
+      const existingEntityIds = currentExtraData.entity_ids ||
+        (currentExtraData.entity_id ? [currentExtraData.entity_id] : [])
+
+      // Add new entity if not already linked
+      const newEntityIds = existingEntityIds.includes(entityId)
+        ? existingEntityIds
+        : [...existingEntityIds, entityId]
+
+      await adminApi.updateSource(sourceId, {
+        extra_data: {
+          ...currentExtraData,
+          entity_ids: newEntityIds,
+          // Remove legacy field
+          entity_id: undefined,
+        },
+      })
+
+      showSuccess(t('entityDetail.messages.sourceLinkSuccess'))
+      selectedSourceToLink.value = null
+
+      // Invalidate cache and reload
+      clearCachedData(`datasources_${entityId}`)
+      await loadDataSources()
+      return true
+    } catch (e) {
+      logger.error('Failed to link source:', e)
+      showError(t('entityDetail.messages.sourceLinkError'))
+      return false
+    } finally {
+      linkingSource.value = false
+    }
+  }
+
+  async function startCrawl(source: any) {
+    startingCrawl.value = source.id
+    try {
+      await adminApi.startCrawl({ source_ids: [source.id] })
+      showSuccess(t('entityDetail.messages.crawlStarted', { name: source.name }))
+      source.hasRunningJob = true
+    } catch (e: any) {
+      showError(e.response?.data?.detail || t('entityDetail.messages.crawlStartError'))
+    } finally {
+      startingCrawl.value = null
+    }
+  }
+
+  async function reloadDataSources() {
+    if (entityId) {
+      clearCachedData(`datasources_${entityId}`)
+      await loadDataSources()
+    }
+  }
+
+  function cleanup() {
+    if (sourceSearchTimeout) {
+      clearTimeout(sourceSearchTimeout)
+      sourceSearchTimeout = null
+    }
+  }
+
+  return {
+    dataSources,
+    availableSourcesForLink,
+    selectedSourceToLink,
+    sourceSearchQuery,
+    loadingDataSources,
+    searchingSourcesForLink,
+    linkingSource,
+    startingCrawl,
+    loadDataSources,
+    searchSourcesForLink,
+    linkSourceToEntity,
+    startCrawl,
+    reloadDataSources,
+    cleanup,
+  }
+}

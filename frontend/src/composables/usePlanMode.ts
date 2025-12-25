@@ -9,6 +9,9 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '@/services/api'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('usePlanMode')
 
 // Types
 export interface PlanMessage {
@@ -95,7 +98,7 @@ export function usePlanMode() {
       const firstMessage = conversation.value[0]
       const recentMessages = conversation.value.slice(-(TRIM_TARGET - 1))
       conversation.value = [firstMessage, ...recentMessages]
-      console.info(`[usePlanMode] Trimmed conversation from ${conversation.value.length + TRIM_THRESHOLD - TRIM_TARGET} to ${conversation.value.length} messages`)
+      logger.info(`[usePlanMode] Trimmed conversation from ${conversation.value.length + TRIM_THRESHOLD - TRIM_TARGET} to ${conversation.value.length} messages`)
     }
   }
 
@@ -346,7 +349,7 @@ export function usePlanMode() {
               }
             } catch (parseError) {
               // Ignore JSON parse errors for malformed events
-              console.warn('Failed to parse SSE event:', line)
+              logger.warn('Failed to parse SSE event:', line)
             }
           }
         }

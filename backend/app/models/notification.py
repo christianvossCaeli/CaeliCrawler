@@ -46,6 +46,10 @@ class NotificationEventType(str, enum.Enum):
     SOURCE_STATUS_CHANGED = "SOURCE_STATUS_CHANGED"
     SOURCE_ERROR = "SOURCE_ERROR"
 
+    # Summary events
+    SUMMARY_UPDATED = "SUMMARY_UPDATED"
+    SUMMARY_RELEVANT_CHANGES = "SUMMARY_RELEVANT_CHANGES"
+
 
 class NotificationStatus(str, enum.Enum):
     """Status of a notification."""

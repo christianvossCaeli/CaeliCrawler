@@ -3,12 +3,15 @@
 import ipaddress
 import re
 import socket
+import structlog
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+
+logger = structlog.get_logger(__name__)
 from pydantic import BaseModel, field_validator
 from slowapi import Limiter
 from slowapi.util import get_remote_address

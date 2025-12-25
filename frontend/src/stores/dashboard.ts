@@ -14,6 +14,9 @@ import type {
   InsightsResponse,
 } from '@/widgets/types'
 import { getDefaultWidgets } from '@/widgets/registry'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('DashboardStore')
 
 export const useDashboardStore = defineStore('dashboard', () => {
   // State
@@ -54,7 +57,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
         : new Date()
       hasChanges.value = false
     } catch (e) {
-      console.error('Failed to load dashboard preferences:', e)
+      logger.error('Failed to load dashboard preferences:', e)
       // Use default widgets on error
       widgets.value = getDefaultWidgets()
       error.value = 'Failed to load preferences'
@@ -76,7 +79,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
       lastUpdated.value = new Date()
       return true
     } catch (e) {
-      console.error('Failed to save dashboard preferences:', e)
+      logger.error('Failed to save dashboard preferences:', e)
       error.value = 'Failed to save preferences'
       return false
     } finally {
@@ -160,7 +163,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
       const response = await dashboardApi.getStats()
       stats.value = response.data
     } catch (e) {
-      console.error('Failed to load dashboard stats:', e)
+      logger.error('Failed to load dashboard stats:', e)
     }
   }
 
@@ -175,7 +178,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
       const response = await dashboardApi.getActivityFeed({ limit, offset })
       activityFeed.value = response.data
     } catch (e) {
-      console.error('Failed to load activity feed:', e)
+      logger.error('Failed to load activity feed:', e)
     }
   }
 
@@ -187,7 +190,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
       const response = await dashboardApi.getInsights({ period_days: periodDays })
       insights.value = response.data
     } catch (e) {
-      console.error('Failed to load insights:', e)
+      logger.error('Failed to load insights:', e)
     }
   }
 

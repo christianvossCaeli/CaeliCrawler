@@ -83,22 +83,25 @@
     <v-card
       v-if="selectedFeature"
       class="entity-popup"
-      :style="{ left: popupPosition.x + 'px', top: popupPosition.y + 'px' }"
+      :style="popupStyle"
       elevation="8"
       max-width="320"
     >
       <v-card-title class="d-flex align-center py-2">
         <v-icon :icon="selectedFeature.icon || 'mdi-map-marker'" :color="selectedFeature.color || 'primary'" class="mr-2" size="small"></v-icon>
-        {{ selectedFeature.name }}
+        <span class="text-truncate" style="max-width: 200px;">{{ selectedFeature.name }}</span>
         <v-spacer></v-spacer>
         <v-btn icon="mdi-close" size="x-small" variant="text" @click="selectedFeature = null"></v-btn>
       </v-card-title>
-      <v-card-text class="py-2">
+      <v-card-text class="py-2 popup-content">
         <div v-if="selectedFeature.entity_type" class="text-caption text-medium-emphasis mb-1">
           {{ selectedFeature.entity_type }}
         </div>
-        <div v-for="(value, key) in selectedFeature.attributes" :key="key" class="text-caption">
+        <div v-for="(value, key) in limitedAttributes" :key="key" class="text-caption">
           <strong>{{ formatAttributeKey(String(key)) }}:</strong> {{ formatAttributeValue(value) }}
+        </div>
+        <div v-if="hasMoreAttributes" class="text-caption text-medium-emphasis mt-1">
+          +{{ Object.keys(selectedFeature.attributes).length - maxAttributesInPopup }} {{ t('common.more') }}
         </div>
       </v-card-text>
       <v-card-actions v-if="selectedFeature.entity_id" class="py-1">
@@ -127,6 +130,9 @@ import { useI18n } from 'vue-i18n'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { VisualizationConfig } from './types'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('MapVisualization')
 
 // =============================================================================
 // Types
@@ -167,6 +173,7 @@ const DEFAULT_CENTER: [number, number] = [10.4515, 51.1657] // Germany center
 const DEFAULT_ZOOM = 5
 const FIT_BOUNDS_PADDING = 50
 const MAX_FIT_ZOOM = 12
+const MAX_ATTRIBUTES_IN_POPUP = 6 // Limit attributes to prevent overflow
 
 // =============================================================================
 // Reactive State
@@ -197,6 +204,53 @@ const MAP_STYLES = {
 }
 
 const mapStyle = computed(() => isDark.value ? MAP_STYLES.dark : MAP_STYLES.light)
+
+// Popup computed properties
+const maxAttributesInPopup = MAX_ATTRIBUTES_IN_POPUP
+
+const limitedAttributes = computed(() => {
+  if (!selectedFeature.value?.attributes) return {}
+  const entries = Object.entries(selectedFeature.value.attributes)
+  return Object.fromEntries(entries.slice(0, MAX_ATTRIBUTES_IN_POPUP))
+})
+
+const hasMoreAttributes = computed(() => {
+  if (!selectedFeature.value?.attributes) return false
+  return Object.keys(selectedFeature.value.attributes).length > MAX_ATTRIBUTES_IN_POPUP
+})
+
+const popupStyle = computed(() => {
+  const containerWidth = mapContainer.value?.clientWidth || 500
+  const containerHeight = mapContainer.value?.clientHeight || 400
+  const popupWidth = 320
+  const popupMaxHeight = 250
+
+  let x = popupPosition.value.x + 10
+  let y = popupPosition.value.y - 10
+
+  // Prevent overflow on right
+  if (x + popupWidth > containerWidth) {
+    x = popupPosition.value.x - popupWidth - 10
+  }
+  // Prevent overflow on left
+  if (x < 0) {
+    x = 10
+  }
+  // Prevent overflow on bottom
+  if (y + popupMaxHeight > containerHeight) {
+    y = containerHeight - popupMaxHeight - 10
+  }
+  // Prevent overflow on top
+  if (y < 10) {
+    y = 10
+  }
+
+  return {
+    left: x + 'px',
+    top: y + 'px',
+    maxHeight: popupMaxHeight + 'px',
+  }
+})
 
 // Caeli-themed cluster colors
 const CLUSTER_COLORS = {
@@ -315,6 +369,7 @@ async function initMap() {
   })
 
   // Add navigation controls
+  // @ts-ignore - MapLibre types cause deep instantiation error
   map.value.addControl(new maplibregl.NavigationControl(), 'top-right')
   map.value.addControl(new maplibregl.ScaleControl(), 'bottom-right')
 
@@ -533,7 +588,7 @@ function loadGeoData() {
       })
     }
   } catch (error) {
-    console.error('Failed to load map data:', error)
+    logger.error('Failed to load map data:', error)
   } finally {
     loading.value = false
   }
@@ -636,7 +691,8 @@ function formatAttributeValue(value: any): string {
 
 function navigateToEntity(feature: any) {
   if (feature.entity_id) {
-    router.push(`/entities/${feature.entity_id}`)
+    // Use /entity/:id route for direct access by ID
+    router.push(`/entity/${feature.entity_id}`)
   }
 }
 
@@ -723,6 +779,14 @@ onUnmounted(() => {
   position: absolute;
   z-index: 10;
   pointer-events: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.popup-content {
+  overflow-y: auto;
+  max-height: 150px;
 }
 
 .cluster-dot {

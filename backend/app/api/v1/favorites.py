@@ -1,6 +1,6 @@
 """API endpoints for User Favorites management."""
 
-from typing import Optional
+from typing import Optional, Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -27,13 +27,13 @@ router = APIRouter()
 
 @router.get("", response_model=FavoriteListResponse)
 async def list_favorites(
-    page: int = Query(default=1, ge=1),
-    per_page: int = Query(default=20, ge=1, le=100),
-    entity_type_slug: Optional[str] = Query(default=None, description="Filter by entity type slug"),
-    search: Optional[str] = Query(default=None, description="Search in entity name"),
+    page: Annotated[int, Query(ge=1, description="Page number")] = 1,
+    per_page: Annotated[int, Query(ge=1, le=100, description="Items per page")] = 20,
+    entity_type_slug: Annotated[Optional[str], Query(description="Filter by entity type slug")] = None,
+    search: Annotated[Optional[str], Query(description="Search in entity name")] = None,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> FavoriteListResponse:
     """
     List user's favorite entities with pagination.
 
@@ -110,7 +110,7 @@ async def add_favorite(
     data: FavoriteCreate,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> FavoriteResponse:
     """
     Add an entity to favorites.
 
@@ -171,7 +171,7 @@ async def check_favorite(
     entity_id: UUID,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> FavoriteCheckResponse:
     """
     Check if an entity is in the user's favorites.
 
@@ -197,7 +197,7 @@ async def remove_favorite(
     favorite_id: UUID,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> MessageResponse:
     """
     Remove an entity from favorites by favorite ID.
     """
@@ -223,7 +223,7 @@ async def remove_favorite_by_entity(
     entity_id: UUID,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> MessageResponse:
     """
     Remove an entity from favorites by entity ID.
 
