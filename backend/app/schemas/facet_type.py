@@ -92,14 +92,37 @@ class FacetTypeUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
-class FacetTypeResponse(FacetTypeBase):
-    """Schema for facet type response."""
+class FacetTypeResponse(BaseModel):
+    """Schema for facet type response.
+
+    Note: Uses string types for enums to allow reading existing data that may
+    contain values not in the current enum (for backwards compatibility).
+    """
 
     id: UUID
     slug: str
     is_system: bool
     created_at: datetime
     updated_at: datetime
+
+    # Fields from base (using permissive types for response)
+    name: str
+    name_plural: str
+    description: Optional[str] = None
+    value_type: str = Field(description="Type: text, structured, list, reference, etc.")
+    value_schema: Optional[Dict[str, Any]] = None
+    applicable_entity_type_slugs: List[str] = Field(default_factory=list)
+    icon: str = Field(default="mdi-tag")
+    color: str = Field(default="#607D8B")
+    display_order: int = Field(default=0)
+    aggregation_method: str = Field(default="dedupe")
+    deduplication_fields: List[str] = Field(default_factory=list)
+    is_time_based: bool = Field(default=False)
+    time_field_path: Optional[str] = None
+    default_time_filter: str = Field(default="all")
+    ai_extraction_enabled: bool = Field(default=True)
+    ai_extraction_prompt: Optional[str] = None
+    is_active: bool = Field(default=True)
 
     # Computed fields
     value_count: int = Field(default=0, description="Number of facet values of this type")

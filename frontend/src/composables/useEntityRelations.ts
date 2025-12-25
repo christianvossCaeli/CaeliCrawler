@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSnackbar } from './useSnackbar'
 import { relationApi, entityApi } from '@/services/api'
@@ -23,8 +23,30 @@ export interface Relation {
   relation_type_name: string
   relation_type_name_inverse: string | null
   relation_type_color: string | null
-  attributes: Record<string, any>
+  attributes: Record<string, unknown>
   human_verified: boolean
+}
+
+/**
+ * Relation type from API
+ */
+export interface RelationType {
+  id: string
+  name: string
+  name_inverse: string | null
+  color: string | null
+  [key: string]: unknown
+}
+
+/**
+ * Entity search result
+ */
+export interface EntitySearchResult {
+  id: string
+  name: string
+  entity_type_name: string
+  slug?: string
+  [key: string]: unknown
 }
 
 export function useEntityRelations(entity: Entity | null) {
@@ -33,8 +55,8 @@ export function useEntityRelations(entity: Entity | null) {
   const store = useEntityStore()
 
   const relations = ref<Relation[]>([])
-  const relationTypes = ref<any[]>([])
-  const targetEntities = ref<any[]>([])
+  const relationTypes = ref<RelationType[]>([])
+  const targetEntities = ref<EntitySearchResult[]>([])
   const entitySearchQuery = ref('')
 
   const loadingRelations = ref(false)
@@ -59,7 +81,7 @@ export function useEntityRelations(entity: Entity | null) {
 
     // Check cache first
     const cacheKey = `relations_${entity.id}`
-    const cached = getCachedData(cacheKey)
+    const cached = getCachedData<Relation[]>(cacheKey)
     if (cached) {
       relations.value = cached
       relationsLoaded.value = true
@@ -109,9 +131,8 @@ export function useEntityRelations(entity: Entity | null) {
     try {
       const response = await entityApi.searchEntities({ q: query, per_page: 20 })
       // Filter out the current entity from results
-      targetEntities.value = (response.data.items || []).filter(
-        (e: any) => e.id !== entity?.id
-      )
+      const items = response.data.items as EntitySearchResult[] || []
+      targetEntities.value = items.filter((e) => e.id !== entity?.id)
     } catch (e) {
       logger.error('Failed to search entities', e)
       targetEntities.value = []
@@ -145,11 +166,12 @@ export function useEntityRelations(entity: Entity | null) {
       attributes_json: rel.attributes ? JSON.stringify(rel.attributes, null, 2) : '',
     }
     // Pre-populate the target entities list with the current target
-    targetEntities.value = [{
+    const targetEntity: EntitySearchResult = {
       id: isSource ? rel.target_entity_id : rel.source_entity_id,
       name: isSource ? rel.target_entity_name : rel.source_entity_name,
       entity_type_name: isSource ? rel.target_entity_type_slug : rel.source_entity_type_slug,
-    }]
+    }
+    targetEntities.value = [targetEntity]
     loadRelationTypes()
   }
 
@@ -171,10 +193,10 @@ export function useEntityRelations(entity: Entity | null) {
     savingRelation.value = true
     try {
       // Parse attributes JSON if provided
-      let attributes = {}
+      let attributes: Record<string, unknown> = {}
       if (newRelation.value.attributes_json.trim()) {
         try {
-          attributes = JSON.parse(newRelation.value.attributes_json)
+          attributes = JSON.parse(newRelation.value.attributes_json) as Record<string, unknown>
         } catch (e) {
           showError(t('entityDetail.messages.invalidJson'))
           savingRelation.value = false
@@ -210,8 +232,9 @@ export function useEntityRelations(entity: Entity | null) {
       relationsLoaded.value = false
       await loadRelations()
       return true
-    } catch (e: any) {
-      showError(e.response?.data?.detail || t('entityDetail.messages.relationSaveError'))
+    } catch (e: unknown) {
+      const error = e as { response?: { data?: { detail?: string } } }
+      showError(error.response?.data?.detail || t('entityDetail.messages.relationSaveError'))
       return false
     } finally {
       savingRelation.value = false
@@ -234,8 +257,9 @@ export function useEntityRelations(entity: Entity | null) {
       relationsLoaded.value = false
       await loadRelations()
       return true
-    } catch (e: any) {
-      showError(e.response?.data?.detail || t('entityDetail.messages.deleteError'))
+    } catch (e: unknown) {
+      const error = e as { response?: { data?: { detail?: string } } }
+      showError(error.response?.data?.detail || t('entityDetail.messages.deleteError'))
       return false
     } finally {
       deletingRelation.value = false

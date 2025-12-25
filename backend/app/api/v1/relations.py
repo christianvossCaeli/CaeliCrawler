@@ -215,8 +215,15 @@ async def get_relation_type(
     if not rt:
         raise NotFoundError("RelationType", str(relation_type_id))
 
-    source_et = await session.get(EntityType, rt.source_entity_type_id)
-    target_et = await session.get(EntityType, rt.target_entity_type_id)
+    # Batch load both EntityTypes in a single query
+    entity_type_ids = [rt.source_entity_type_id, rt.target_entity_type_id]
+    entity_types_result = await session.execute(
+        select(EntityType).where(EntityType.id.in_(entity_type_ids))
+    )
+    entity_types_map = {et.id: et for et in entity_types_result.scalars().all()}
+
+    source_et = entity_types_map.get(rt.source_entity_type_id)
+    target_et = entity_types_map.get(rt.target_entity_type_id)
 
     relation_count = (await session.execute(
         select(func.count()).where(EntityRelation.relation_type_id == rt.id)
@@ -246,8 +253,15 @@ async def get_relation_type_by_slug(
     if not rt:
         raise NotFoundError("RelationType", slug)
 
-    source_et = await session.get(EntityType, rt.source_entity_type_id)
-    target_et = await session.get(EntityType, rt.target_entity_type_id)
+    # Batch load both EntityTypes in a single query
+    entity_type_ids = [rt.source_entity_type_id, rt.target_entity_type_id]
+    entity_types_result = await session.execute(
+        select(EntityType).where(EntityType.id.in_(entity_type_ids))
+    )
+    entity_types_map = {et.id: et for et in entity_types_result.scalars().all()}
+
+    source_et = entity_types_map.get(rt.source_entity_type_id)
+    target_et = entity_types_map.get(rt.target_entity_type_id)
 
     relation_count = (await session.execute(
         select(func.count()).where(EntityRelation.relation_type_id == rt.id)
@@ -550,8 +564,22 @@ async def create_entity_relation(
         await session.commit()
         await session.refresh(relation)
 
-    source_et = await session.get(EntityType, source.entity_type_id)
-    target_et = await session.get(EntityType, target.entity_type_id)
+    # Batch load entity types
+    entity_type_ids = []
+    if source.entity_type_id:
+        entity_type_ids.append(source.entity_type_id)
+    if target.entity_type_id:
+        entity_type_ids.append(target.entity_type_id)
+
+    entity_types_map = {}
+    if entity_type_ids:
+        entity_types_result = await session.execute(
+            select(EntityType).where(EntityType.id.in_(entity_type_ids))
+        )
+        entity_types_map = {et.id: et for et in entity_types_result.scalars().all()}
+
+    source_et = entity_types_map.get(source.entity_type_id) if source.entity_type_id else None
+    target_et = entity_types_map.get(target.entity_type_id) if target.entity_type_id else None
 
     item = EntityRelationResponse.model_validate(relation)
     item.relation_type_slug = rt.slug
@@ -577,12 +605,37 @@ async def get_entity_relation(
     if not rel:
         raise NotFoundError("EntityRelation", str(relation_id))
 
-    rt = await session.get(RelationType, rel.relation_type_id)
-    source = await session.get(Entity, rel.source_entity_id)
-    target = await session.get(Entity, rel.target_entity_id)
+    # Batch load all related objects in parallel queries
+    rt_result = await session.execute(
+        select(RelationType).where(RelationType.id == rel.relation_type_id)
+    )
+    rt = rt_result.scalar()
 
-    source_et = await session.get(EntityType, source.entity_type_id) if source else None
-    target_et = await session.get(EntityType, target.entity_type_id) if target else None
+    # Batch load entities
+    entity_ids = [rel.source_entity_id, rel.target_entity_id]
+    entities_result = await session.execute(
+        select(Entity).where(Entity.id.in_(entity_ids))
+    )
+    entities_map = {e.id: e for e in entities_result.scalars().all()}
+    source = entities_map.get(rel.source_entity_id)
+    target = entities_map.get(rel.target_entity_id)
+
+    # Batch load entity types
+    entity_type_ids = []
+    if source and source.entity_type_id:
+        entity_type_ids.append(source.entity_type_id)
+    if target and target.entity_type_id:
+        entity_type_ids.append(target.entity_type_id)
+
+    entity_types_map = {}
+    if entity_type_ids:
+        entity_types_result = await session.execute(
+            select(EntityType).where(EntityType.id.in_(entity_type_ids))
+        )
+        entity_types_map = {et.id: et for et in entity_types_result.scalars().all()}
+
+    source_et = entity_types_map.get(source.entity_type_id) if source else None
+    target_et = entity_types_map.get(target.entity_type_id) if target else None
 
     response = EntityRelationResponse.model_validate(rel)
     response.relation_type_slug = rt.slug if rt else None

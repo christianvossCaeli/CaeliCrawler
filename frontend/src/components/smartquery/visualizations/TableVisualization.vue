@@ -8,6 +8,9 @@
       density="comfortable"
       class="elevation-0"
       hover
+      role="table"
+      :aria-label="t('smartQuery.visualization.tableLabel')"
+      :aria-rowcount="tableItems.length"
     >
       <!-- Entity Name Column with Link -->
       <template #item.entity_name="{ item }">

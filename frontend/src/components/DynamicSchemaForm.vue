@@ -15,6 +15,8 @@
         density="comfortable"
         class="mb-3"
         clearable
+        :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :error-messages="getFieldErrors(key)"
       ></v-select>
 
       <!-- String with format email -->
@@ -30,6 +32,8 @@
         variant="outlined"
         density="comfortable"
         class="mb-3"
+        :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :error-messages="getFieldErrors(key)"
       ></v-text-field>
 
       <!-- String with format date or date-time -->
@@ -45,6 +49,8 @@
         variant="outlined"
         density="comfortable"
         class="mb-3"
+        :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :error-messages="getFieldErrors(key)"
       ></v-text-field>
 
       <!-- Long text string (description, quote, etc.) -->
@@ -61,6 +67,8 @@
         variant="outlined"
         density="comfortable"
         class="mb-3"
+        :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :error-messages="getFieldErrors(key)"
       ></v-textarea>
 
       <!-- Regular string -->
@@ -75,6 +83,8 @@
         variant="outlined"
         density="comfortable"
         class="mb-3"
+        :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :error-messages="getFieldErrors(key)"
       ></v-text-field>
 
       <!-- Integer -->
@@ -91,6 +101,8 @@
         variant="outlined"
         density="comfortable"
         class="mb-3"
+        :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :error-messages="getFieldErrors(key)"
       ></v-text-field>
 
       <!-- Number (float) -->
@@ -107,6 +119,8 @@
         variant="outlined"
         density="comfortable"
         class="mb-3"
+        :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :error-messages="getFieldErrors(key)"
       ></v-text-field>
 
       <!-- Boolean -->
@@ -118,6 +132,7 @@
         persistent-hint
         density="comfortable"
         class="mb-3"
+        :aria-describedby="field.description ? `${key}-hint` : undefined"
       ></v-checkbox>
 
       <!-- Array of strings -->
@@ -136,6 +151,8 @@
         variant="outlined"
         density="comfortable"
         class="mb-3"
+        :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :error-messages="getFieldErrors(key)"
       ></v-combobox>
 
       <!-- Fallback for unknown types -->
@@ -148,6 +165,8 @@
         variant="outlined"
         density="comfortable"
         class="mb-3"
+        :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :error-messages="getFieldErrors(key)"
       ></v-text-field>
     </template>
 
@@ -160,6 +179,16 @@
     >
       {{ t('dynamicForm.noSchema') }}
     </v-alert>
+
+    <!-- Live region for validation errors -->
+    <div
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      class="sr-only"
+    >
+      {{ validationMessage }}
+    </div>
   </div>
 </template>
 
@@ -207,6 +236,7 @@ const emit = defineEmits<{
 // ============================================================================
 
 const formData = ref<Record<string, any>>({})
+const fieldErrors = ref<Record<string, string[]>>({})
 
 // ============================================================================
 // Computed
@@ -223,6 +253,11 @@ const hasProperties = computed(() => {
 
 const requiredFields = computed(() => {
   return props.schema?.required || []
+})
+
+const validationMessage = computed(() => {
+  const errors = Object.values(fieldErrors.value).flat()
+  return errors.length > 0 ? errors.join('. ') : ''
 })
 
 // ============================================================================
@@ -284,6 +319,10 @@ function getNumberRules(key: string) {
     return !isNaN(Number(v)) || t('validation.number')
   })
   return rules
+}
+
+function getFieldErrors(key: string): string[] {
+  return fieldErrors.value[key] || []
 }
 
 function initFormData() {
@@ -351,5 +390,17 @@ watch(formData, (newVal) => {
 .dynamic-schema-form {
   display: flex;
   flex-direction: column;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 </style>

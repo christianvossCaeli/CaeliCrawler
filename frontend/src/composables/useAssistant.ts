@@ -5,6 +5,7 @@ import { useEntityStore } from '@/stores/entity'
 import { useQueryContextStore } from '@/stores/queryContext'
 import { assistantApi } from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
+import type { AssistantAction } from '@/types/assistant'
 
 const logger = useLogger('useAssistant')
 
@@ -20,14 +21,33 @@ export interface AssistantContext {
   [key: string]: unknown
 }
 
+/**
+ * Response data structure for different response types
+ */
+export interface ResponseData {
+  type?: string
+  message?: string
+  items?: unknown[]
+  total?: number
+  mode?: string
+  action?: unknown
+  requires_confirmation?: boolean
+  target?: {
+    route?: string
+    entity_name?: string
+    [key: string]: unknown
+  }
+  suggested_actions?: SuggestedAction[]
+  [key: string]: unknown
+}
+
 export interface ConversationMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
   metadata?: Record<string, unknown>
   response_type?: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  response_data?: any  // Using any for Vue template compatibility
+  response_data?: ResponseData
 }
 
 export interface SuggestedAction {
@@ -91,9 +111,9 @@ export interface WizardStepDef {
   input_type: 'text' | 'textarea' | 'number' | 'date' | 'select' | 'multi_select' | 'entity_search' | 'confirm'
   options?: WizardStepOption[]
   placeholder?: string
-  validation?: Record<string, any>
+  validation?: Record<string, unknown>
   entity_type?: string
-  default_value?: any
+  default_value?: unknown
   required?: boolean
   help_text?: string
 }
@@ -104,7 +124,7 @@ export interface WizardState {
   current_step_id: string
   current_step_index: number
   total_steps: number
-  answers: Record<string, any>
+  answers: Record<string, unknown>
   completed: boolean
   cancelled: boolean
 }
@@ -178,7 +198,7 @@ export function useAssistant() {
   const suggestedActions = ref<SuggestedAction[]>([])
   const slashCommands = ref<SlashCommand[]>([])
   const hasUnread = ref(false)
-  const pendingAction = ref<any>(null)
+  const pendingAction = ref<AssistantAction | null>(null)
   const useStreaming = ref(true) // Enable streaming by default
   const pendingAttachments = ref<AttachmentInfo[]>([])
   const isUploading = ref(false)
@@ -189,8 +209,8 @@ export function useAssistant() {
   const isBatchDryRun = ref(false)
   const pendingBatchRequest = ref<{
     action_type: string
-    target_filter: Record<string, any>
-    action_data: Record<string, any>
+    target_filter: Record<string, unknown>
+    action_data: Record<string, unknown>
   } | null>(null)
   let batchPollInterval: ReturnType<typeof setInterval> | null = null
 
@@ -249,13 +269,25 @@ export function useAssistant() {
     available_actions: getAvailableActions()
   }))
 
+  /**
+   * Stored message structure for local storage
+   */
+  interface StoredMessage {
+    role: 'user' | 'assistant'
+    content: string
+    timestamp: string
+    metadata?: Record<string, unknown>
+    response_type?: string
+    response_data?: ResponseData
+  }
+
   // Load history from local storage
   function loadHistory() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored) {
-        const parsed = JSON.parse(stored)
-        messages.value = parsed.map((msg: any) => ({
+        const parsed = JSON.parse(stored) as StoredMessage[]
+        messages.value = parsed.map((msg) => ({
           ...msg,
           timestamp: new Date(msg.timestamp)
         }))
@@ -275,13 +307,27 @@ export function useAssistant() {
     }
   }
 
+  /**
+   * Stored query history item structure
+   */
+  interface StoredQueryHistoryItem {
+    id: string
+    query: string
+    timestamp: string
+    resultCount: number
+    queryType: 'read' | 'write' | 'plan'
+    isFavorite: boolean
+    entityType?: string
+    facetTypes?: string[]
+  }
+
   // Load query history from local storage
   function loadQueryHistory() {
     try {
       const stored = localStorage.getItem(QUERY_HISTORY_KEY)
       if (stored) {
-        const parsed = JSON.parse(stored)
-        queryHistory.value = parsed.map((item: any) => ({
+        const parsed = JSON.parse(stored) as StoredQueryHistoryItem[]
+        queryHistory.value = parsed.map((item) => ({
           ...item,
           timestamp: new Date(item.timestamp)
         }))
@@ -525,8 +571,9 @@ export function useAssistant() {
         hasUnread.value = true
       }
 
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || e.message || 'Fehler bei der Kommunikation'
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } }; message?: string }
+      error.value = err.response?.data?.detail || err.message || 'Fehler bei der Kommunikation'
       const errorMessage: ConversationMessage = {
         role: 'assistant',
         content: `Fehler: ${error.value}`,
@@ -603,7 +650,7 @@ export function useAssistant() {
 
       const decoder = new TextDecoder()
       let buffer = ''
-      let finalResponseData: any = null
+      let finalResponseData: ResponseData | null = null
 
       while (true) {
         const { done, value } = await reader.read()
@@ -622,11 +669,11 @@ export function useAssistant() {
             }
 
             try {
-              const data = JSON.parse(dataStr)
+              const data = JSON.parse(dataStr) as { type: string; content?: string; message?: string; data?: unknown }
 
               switch (data.type) {
                 case 'status':
-                  streamingStatus.value = data.message
+                  streamingStatus.value = data.message || ''
                   break
 
                 case 'intent':
@@ -635,7 +682,7 @@ export function useAssistant() {
 
                 case 'token':
                   // Append token to streaming content
-                  streamingContent.value += data.content
+                  streamingContent.value += data.content || ''
                   messages.value[assistantMessageIndex].content = streamingContent.value
                   break
 
@@ -646,12 +693,14 @@ export function useAssistant() {
                 case 'complete':
                   // Final response data - data.data contains {success, response, suggested_actions}
                   // We need to extract the response part for message/type, but keep the full wrapper for suggested_actions
-                  const completeWrapper = data.data
-                  const responseData = completeWrapper?.response || completeWrapper
+                  const completeWrapper = data.data as { response?: ResponseData; suggested_actions?: SuggestedAction[] } | ResponseData | undefined
+                  const responseData = (completeWrapper && typeof completeWrapper === 'object' && 'response' in completeWrapper) ? completeWrapper.response : completeWrapper
                   finalResponseData = {
-                    ...responseData,
-                    suggested_actions: completeWrapper?.suggested_actions || responseData?.suggested_actions || []
-                  }
+                    ...(responseData || {}),
+                    suggested_actions: (completeWrapper && typeof completeWrapper === 'object' && 'suggested_actions' in completeWrapper)
+                      ? completeWrapper.suggested_actions || []
+                      : (responseData?.suggested_actions || [])
+                  } as ResponseData
                   if (finalResponseData?.message) {
                     messages.value[assistantMessageIndex].content = finalResponseData.message
                   }
@@ -660,13 +709,13 @@ export function useAssistant() {
                   break
 
                 case 'error':
-                  error.value = data.message
-                  messages.value[assistantMessageIndex].content = `Fehler: ${data.message}`
+                  error.value = data.message ?? null
+                  messages.value[assistantMessageIndex].content = `Fehler: ${data.message || 'Unbekannter Fehler'}`
                   messages.value[assistantMessageIndex].response_type = 'error'
                   break
               }
             } catch (parseError) {
-              logger.error('Failed to parse SSE data:', parseError, dataStr)
+              logger.error('Failed to parse SSE data:', parseError)
             }
           }
         }
@@ -702,8 +751,9 @@ export function useAssistant() {
         hasUnread.value = true
       }
 
-    } catch (e: any) {
-      error.value = e.message || 'Fehler bei der Streaming-Kommunikation'
+    } catch (e: unknown) {
+      const err = e as { message?: string }
+      error.value = err.message || 'Fehler bei der Streaming-Kommunikation'
       messages.value[assistantMessageIndex].content = `Fehler: ${error.value}`
       messages.value[assistantMessageIndex].response_type = 'error'
     } finally {
@@ -724,8 +774,18 @@ export function useAssistant() {
     }
   }
 
+  /**
+   * Action execution result from API
+   */
+  interface ActionResult {
+    message: string
+    success: boolean
+    refresh_required?: boolean
+    affected_entity_id?: string
+  }
+
   // Execute confirmed action
-  async function executeAction(action: any) {
+  async function executeAction(action: AssistantAction) {
     isLoading.value = true
     error.value = null
 
@@ -735,7 +795,7 @@ export function useAssistant() {
         context: currentContext.value
       })
 
-      const result = response.data
+      const result = response.data as ActionResult
 
       // Add result message
       const resultMessage: ConversationMessage = {
@@ -754,8 +814,9 @@ export function useAssistant() {
         await entityStore.fetchEntity(result.affected_entity_id)
       }
 
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || e.message || 'Fehler bei der Ausführung'
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } }; message?: string }
+      error.value = err.response?.data?.detail || err.message || 'Fehler bei der Ausführung'
       const errorMessage: ConversationMessage = {
         role: 'assistant',
         content: `Fehler: ${error.value}`,
@@ -834,8 +895,9 @@ export function useAssistant() {
       }
 
       return result.success
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || e.message || 'Fehler beim Speichern'
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } }; message?: string }
+      error.value = err.response?.data?.detail || err.message || 'Fehler beim Speichern'
       const errorMessage: ConversationMessage = {
         role: 'assistant',
         content: `Fehler: ${error.value}`,
@@ -847,6 +909,18 @@ export function useAssistant() {
       return false
     } finally {
       isLoading.value = false
+    }
+  }
+
+  /**
+   * Attachment upload response from API
+   */
+  interface AttachmentUploadResponse {
+    attachment: {
+      attachment_id: string
+      filename: string
+      content_type: string
+      size: number
     }
   }
 
@@ -871,7 +945,7 @@ export function useAssistant() {
 
     try {
       const response = await assistantApi.uploadAttachment(file)
-      const data = response.data
+      const data = response.data as AttachmentUploadResponse
 
       // Create preview for images
       let preview: string | undefined
@@ -888,8 +962,9 @@ export function useAssistant() {
       })
 
       return true
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || e.message || 'Fehler beim Upload'
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } }; message?: string }
+      error.value = err.response?.data?.detail || err.message || 'Fehler beim Upload'
       return false
     } finally {
       isUploading.value = false
@@ -946,11 +1021,21 @@ export function useAssistant() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
+  /**
+   * Batch action response from API
+   */
+  interface BatchActionResponse {
+    batch_id?: string
+    affected_count: number
+    message?: string
+    preview?: BatchPreviewEntity[]
+  }
+
   // Execute a batch action (dry run first)
   async function executeBatchAction(
     actionType: string,
-    targetFilter: Record<string, any>,
-    actionData: Record<string, any>,
+    targetFilter: Record<string, unknown>,
+    actionData: Record<string, unknown>,
     dryRun: boolean = true
   ): Promise<boolean> {
     isLoading.value = true
@@ -964,7 +1049,7 @@ export function useAssistant() {
         dry_run: dryRun,
       })
 
-      const data = response.data
+      const data = response.data as BatchActionResponse
 
       if (dryRun) {
         // Show preview
@@ -982,7 +1067,7 @@ export function useAssistant() {
       } else {
         // Start actual batch operation
         activeBatch.value = {
-          batch_id: data.batch_id,
+          batch_id: data.batch_id || '',
           status: 'running',
           processed: 0,
           total: data.affected_count,
@@ -993,12 +1078,15 @@ export function useAssistant() {
         batchPreview.value = data.preview || []
 
         // Start polling for status
-        startBatchPolling(data.batch_id)
+        if (data.batch_id) {
+          startBatchPolling(data.batch_id)
+        }
       }
 
       return true
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || e.message || 'Fehler bei Batch-Operation'
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } }; message?: string }
+      error.value = err.response?.data?.detail || err.message || 'Fehler bei Batch-Operation'
       return false
     } finally {
       isLoading.value = false
@@ -1081,7 +1169,7 @@ export function useAssistant() {
   }
 
   // Get completion message for batch operation
-  function getBatchCompletionMessage(status: any): string {
+  function getBatchCompletionMessage(status: BatchStatus): string {
     if (status.status === 'completed') {
       if (status.errors?.length > 0) {
         return `Batch-Operation abgeschlossen: ${status.processed} von ${status.total} verarbeitet. ${status.errors.length} Fehler aufgetreten.`
@@ -1121,9 +1209,18 @@ export function useAssistant() {
         entity_type: currentContext.value.current_entity_type || undefined,
         entity_id: currentContext.value.current_entity_id || undefined
       })
+      /**
+       * Suggestion from API
+       */
+      interface ApiSuggestion {
+        label: string
+        query: string
+      }
+
       // Only update if we don't have user-triggered suggestions
       if (messages.value.length === 0 || !suggestedActions.value.length) {
-        suggestedActions.value = response.data.suggestions?.map((s: any) => ({
+        const suggestions = response.data.suggestions as ApiSuggestion[] | undefined
+        suggestedActions.value = suggestions?.map((s) => ({
           label: s.label,
           action: 'query',
           value: s.query
@@ -1211,16 +1308,34 @@ export function useAssistant() {
       saveHistory()
 
       return true
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || e.message || 'Fehler beim Starten des Wizards'
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } }; message?: string }
+      error.value = err.response?.data?.detail || err.message || 'Fehler beim Starten des Wizards'
       return false
     } finally {
       isWizardLoading.value = false
     }
   }
 
+  /**
+   * Wizard response from API
+   */
+  interface WizardResponseData {
+    wizard_response: {
+      wizard_state: WizardState
+      current_step: WizardStepDef
+      can_go_back: boolean
+      progress: number
+      message: string
+    }
+    result?: {
+      success: boolean
+      navigate_to?: string
+    }
+  }
+
   // Submit wizard response
-  async function submitWizardResponse(value: any): Promise<boolean> {
+  async function submitWizardResponse(value: unknown): Promise<boolean> {
     if (!activeWizard.value) return false
 
     isWizardLoading.value = true
@@ -1232,7 +1347,7 @@ export function useAssistant() {
         value
       )
 
-      const data = response.data
+      const data = response.data as WizardResponseData
       const wizardResponse = data.wizard_response
       const result = data.result
 
@@ -1277,8 +1392,9 @@ export function useAssistant() {
       }
 
       return true
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || e.message || 'Fehler bei der Wizard-Antwort'
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } }; message?: string }
+      error.value = err.response?.data?.detail || err.message || 'Fehler bei der Wizard-Antwort'
       return false
     } finally {
       isWizardLoading.value = false
@@ -1306,8 +1422,9 @@ export function useAssistant() {
       }
 
       return true
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || e.message || 'Fehler beim Zurückgehen'
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } }; message?: string }
+      error.value = err.response?.data?.detail || err.message || 'Fehler beim Zurückgehen'
       return false
     } finally {
       isWizardLoading.value = false
@@ -1485,8 +1602,9 @@ export function useAssistant() {
         return true
       }
       return false
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || e.message || 'Fehler beim Erstellen der Erinnerung'
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } }; message?: string }
+      error.value = err.response?.data?.detail || err.message || 'Fehler beim Erstellen der Erinnerung'
       return false
     }
   }

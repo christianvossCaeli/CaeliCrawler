@@ -1,8 +1,15 @@
 <template>
-  <v-dialog v-model="modelValue" max-width="700" scrollable>
+  <v-dialog
+    v-model="modelValue"
+    max-width="700"
+    scrollable
+    role="dialog"
+    aria-modal="true"
+    :aria-labelledby="dialogTitleId"
+  >
     <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon start>mdi-note-text</v-icon>
+      <v-card-title :id="dialogTitleId" class="d-flex align-center">
+        <v-icon start aria-hidden="true">mdi-note-text</v-icon>
         {{ t('entityDetail.notes') }}
         <v-spacer></v-spacer>
         <v-btn icon="mdi-close" variant="tonal" @click="modelValue = false" :aria-label="t('common.close')"></v-btn>
@@ -16,6 +23,7 @@
           rows="3"
           variant="outlined"
           class="mb-4"
+          :aria-label="t('entityDetail.dialog.addNote')"
         ></v-textarea>
         <div class="d-flex justify-end mb-4">
           <v-btn
@@ -53,6 +61,7 @@
                     size="x-small"
                     variant="tonal"
                     color="error"
+                    :aria-label="t('entityDetail.dialog.deleteNote')"
                     @click="$emit('deleteNote', note.id)"
                   ></v-btn>
                 </div>
@@ -74,6 +83,7 @@
 import { useI18n } from 'vue-i18n'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
+import { useDialogFocus } from '@/composables'
 
 // Types
 interface Note {
@@ -85,12 +95,18 @@ interface Note {
 
 const modelValue = defineModel<boolean>()
 
+// ARIA
+const dialogTitleId = `entity-notes-dialog-title-${Math.random().toString(36).slice(2, 9)}`
+
 // Props
 defineProps<{
   notes: Note[]
   newNote: string
   savingNote: boolean
 }>()
+
+// Focus management for accessibility
+useDialogFocus({ isOpen: modelValue })
 
 // Emits
 defineEmits<{

@@ -353,7 +353,9 @@ def calculate_name_similarity(name1: str, name2: str) -> float:
     DEPRECATED: This is a legacy function for backwards compatibility.
     Use embedding-based similarity via find_similar_entities() instead.
 
-    This synchronous function uses simple string comparison as a fallback.
+    This synchronous function uses simple string comparison as a fallback,
+    with a boost for substring matches (e.g. "Bad Homburg" matching
+    "Bad Homburg vor der Höhe").
 
     Args:
         name1: First name to compare
@@ -373,6 +375,17 @@ def calculate_name_similarity(name1: str, name2: str) -> float:
 
     if n1 == n2:
         return 1.0
+
+    # Substring boost: if one is a complete substring of the other at word boundary
+    # e.g., "Bad Homburg" in "Bad Homburg vor der Höhe" -> high similarity
+    shorter, longer = (n1, n2) if len(n1) <= len(n2) else (n2, n1)
+
+    # Check if shorter is a prefix or exact word-boundary substring of longer
+    if longer.startswith(shorter) or f" {shorter}" in longer or shorter in longer.split():
+        # Calculate substring coverage ratio
+        coverage = len(shorter) / len(longer)
+        # Boost: 0.85 + (coverage * 0.15) gives 0.85-1.0 range
+        return min(1.0, 0.85 + (coverage * 0.15))
 
     # Use SequenceMatcher as fallback
     return SequenceMatcher(None, n1, n2).ratio()

@@ -121,7 +121,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, toRef, onUnmounted } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCustomSummariesStore, type SummaryWidget, type WidgetUpdate } from '@/stores/customSummaries'
 import { useDialogFocus } from '@/composables'

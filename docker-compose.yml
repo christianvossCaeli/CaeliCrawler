@@ -89,21 +89,21 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      - APP_ENV=development
-      - DEBUG=true
+      - APP_ENV=${APP_ENV:-development}
+      - DEBUG=${DEBUG:-false}
       - DOCUMENT_STORAGE_PATH=/app/storage/documents
-      # Azure OpenAI
-      - AZURE_OPENAI_ENDPOINT=https://caeli-prod-ai-marketing.cognitiveservices.azure.com/
+      # Azure OpenAI - ALL values from .env
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
       - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
-      - AZURE_OPENAI_API_VERSION=2025-04-01-preview
-      - AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4.1-mini
-      - AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT=text-embedding-3-large
-      # PySis Integration
-      - PYSIS_API_BASE_URL=https://pisys.caeli-wind.de/api/pisys/v1
-      - PYSIS_TENANT_ID=d546a5cd-9f03-4040-b588-b8b4cde6448b
-      - PYSIS_CLIENT_ID=4d5e8963-35d7-4a7e-a989-81adb1fe5d9c
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2025-04-01-preview}
+      - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-4.1-mini}
+      - AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT=${AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT:-text-embedding-3-large}
+      # PySis Integration - ALL values from .env
+      - PYSIS_API_BASE_URL=${PYSIS_API_BASE_URL}
+      - PYSIS_TENANT_ID=${PYSIS_TENANT_ID}
+      - PYSIS_CLIENT_ID=${PYSIS_CLIENT_ID}
       - PYSIS_CLIENT_SECRET=${PYSIS_CLIENT_SECRET}
-      - PYSIS_SCOPE=api://7e32391f-a384-44b1-9850-d565b4a59ed0/.default
+      - PYSIS_SCOPE=${PYSIS_SCOPE}
       # Caeli Auction API
       - CAELI_AUCTION_MARKETPLACE_API_AUTH=${CAELI_AUCTION_MARKETPLACE_API_AUTH}
       # Web Search API for AI Source Discovery (SerpAPI - same as caeli-google-news-fetch)

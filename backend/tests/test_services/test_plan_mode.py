@@ -424,7 +424,11 @@ class TestBuildPlanModePrompt:
         )
 
         assert "pain_point" in prompt
-        assert "Pain Point" in prompt
+        # When description is provided, it's used instead of name
+        assert "Problem or challenge" in prompt
+        # Check applicability info is included
+        assert "territorial_entity" in prompt
+        assert "organization" in prompt
 
     def test_includes_relation_types(self):
         """Test that relation types are included in the prompt."""
@@ -440,7 +444,8 @@ class TestBuildPlanModePrompt:
         )
 
         assert "works_for" in prompt
-        assert "Works For" in prompt
+        # When description is provided, it's used instead of name
+        assert "Employment relation" in prompt
 
     def test_includes_system_documentation(self):
         """Test that system documentation is included."""
@@ -588,4 +593,5 @@ class TestPlanModeAPIEndpoint:
 
         # May fail if API is not running
         if response.status_code == 200:
-            assert response.headers.get("content-type") == "text/event-stream"
+            content_type = response.headers.get("content-type", "")
+            assert content_type.startswith("text/event-stream")

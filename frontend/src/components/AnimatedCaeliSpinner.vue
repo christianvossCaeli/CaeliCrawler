@@ -1,5 +1,5 @@
 <template>
-  <div class="spinner-container" :style="containerStyle">
+  <div class="spinner-container" :style="containerStyle" role="status" aria-live="polite" aria-label="Loading">
     <!-- Glow effect -->
     <div v-if="showGlow" class="spinner-glow" :style="glowStyle"></div>
 
@@ -16,6 +16,7 @@
       viewBox="0 0 32 32"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
     >
       <!-- Top vertical bar -->
       <path
@@ -237,6 +238,24 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   50% {
     opacity: 1;
     transform: scale(1.1);
+  }
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .caeli-spinner,
+  .animate-rotate,
+  .spinner-glow {
+    animation: none !important;
+  }
+
+  .caeli-spinner {
+    opacity: 0.8;
+  }
+
+  .spinner-glow {
+    opacity: 0.3;
+    transform: scale(1);
   }
 }
 </style>

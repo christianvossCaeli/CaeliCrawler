@@ -679,22 +679,28 @@ async def get_facet_value(
     session: AsyncSession = Depends(get_session),
 ):
     """Get a single facet value by ID."""
-    fv = await session.get(FacetValue, facet_value_id)
+    # Eagerly load all relationships in a single query
+    result = await session.execute(
+        select(FacetValue)
+        .options(
+            selectinload(FacetValue.entity),
+            selectinload(FacetValue.facet_type),
+            selectinload(FacetValue.category),
+            selectinload(FacetValue.source_document),
+        )
+        .where(FacetValue.id == facet_value_id)
+    )
+    fv = result.scalar()
     if not fv:
         raise NotFoundError("FacetValue", str(facet_value_id))
 
-    entity = await session.get(Entity, fv.entity_id)
-    facet_type = await session.get(FacetType, fv.facet_type_id)
-    category = await session.get(Category, fv.category_id) if fv.category_id else None
-    document = await session.get(Document, fv.source_document_id) if fv.source_document_id else None
-
     response = FacetValueResponse.model_validate(fv)
-    response.entity_name = entity.name if entity else None
-    response.facet_type_name = facet_type.name if facet_type else None
-    response.facet_type_slug = facet_type.slug if facet_type else None
-    response.category_name = category.name if category else None
-    response.document_title = document.title if document else None
-    response.document_url = document.original_url if document else None
+    response.entity_name = fv.entity.name if fv.entity else None
+    response.facet_type_name = fv.facet_type.name if fv.facet_type else None
+    response.facet_type_slug = fv.facet_type.slug if fv.facet_type else None
+    response.category_name = fv.category.name if fv.category else None
+    response.document_title = fv.source_document.title if fv.source_document else None
+    response.document_url = fv.source_document.original_url if fv.source_document else None
 
     return response
 
@@ -734,19 +740,26 @@ async def update_facet_value(
         await session.commit()
         await session.refresh(fv)
 
-    # Enrich response with related entity info
-    entity = await session.get(Entity, fv.entity_id)
-    facet_type = await session.get(FacetType, fv.facet_type_id)
-    category = await session.get(Category, fv.category_id) if fv.category_id else None
-    document = await session.get(Document, fv.source_document_id) if fv.source_document_id else None
+    # Enrich response with related entity info - eagerly load all relationships
+    result = await session.execute(
+        select(FacetValue)
+        .options(
+            selectinload(FacetValue.entity),
+            selectinload(FacetValue.facet_type),
+            selectinload(FacetValue.category),
+            selectinload(FacetValue.source_document),
+        )
+        .where(FacetValue.id == fv.id)
+    )
+    fv = result.scalar()
 
     response = FacetValueResponse.model_validate(fv)
-    response.entity_name = entity.name if entity else None
-    response.facet_type_name = facet_type.name if facet_type else None
-    response.facet_type_slug = facet_type.slug if facet_type else None
-    response.category_name = category.name if category else None
-    response.document_title = document.title if document else None
-    response.document_url = document.original_url if document else None
+    response.entity_name = fv.entity.name if fv.entity else None
+    response.facet_type_name = fv.facet_type.name if fv.facet_type else None
+    response.facet_type_slug = fv.facet_type.slug if fv.facet_type else None
+    response.category_name = fv.category.name if fv.category else None
+    response.document_title = fv.source_document.title if fv.source_document else None
+    response.document_url = fv.source_document.original_url if fv.source_document else None
 
     return response
 
@@ -775,19 +788,26 @@ async def verify_facet_value(
     await session.commit()
     await session.refresh(fv)
 
-    # Enrich response with related entity info
-    entity = await session.get(Entity, fv.entity_id)
-    facet_type = await session.get(FacetType, fv.facet_type_id)
-    category = await session.get(Category, fv.category_id) if fv.category_id else None
-    document = await session.get(Document, fv.source_document_id) if fv.source_document_id else None
+    # Enrich response with related entity info - eagerly load all relationships
+    result = await session.execute(
+        select(FacetValue)
+        .options(
+            selectinload(FacetValue.entity),
+            selectinload(FacetValue.facet_type),
+            selectinload(FacetValue.category),
+            selectinload(FacetValue.source_document),
+        )
+        .where(FacetValue.id == fv.id)
+    )
+    fv = result.scalar()
 
     response = FacetValueResponse.model_validate(fv)
-    response.entity_name = entity.name if entity else None
-    response.facet_type_name = facet_type.name if facet_type else None
-    response.facet_type_slug = facet_type.slug if facet_type else None
-    response.category_name = category.name if category else None
-    response.document_title = document.title if document else None
-    response.document_url = document.original_url if document else None
+    response.entity_name = fv.entity.name if fv.entity else None
+    response.facet_type_name = fv.facet_type.name if fv.facet_type else None
+    response.facet_type_slug = fv.facet_type.slug if fv.facet_type else None
+    response.category_name = fv.category.name if fv.category else None
+    response.document_title = fv.source_document.title if fv.source_document else None
+    response.document_url = fv.source_document.original_url if fv.source_document else None
 
     return response
 

@@ -180,6 +180,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import DOMPurify from 'dompurify'
 import type { ConversationMessage } from '@/composables/useAssistant'
 import { useLogger } from '@/composables/useLogger'
 
@@ -257,7 +258,11 @@ function formatMessage(content: string): string {
     '<span class="entity-chip" data-type="$1" data-slug="$2" role="button" tabindex="0">$3</span>'
   )
 
-  return formatted
+  // 4. Final sanitization with DOMPurify for defense-in-depth
+  return DOMPurify.sanitize(formatted, {
+    ALLOWED_TAGS: ['strong', 'code', 'br', 'span'],
+    ALLOWED_ATTR: ['class', 'data-type', 'data-slug', 'role', 'tabindex']
+  })
 }
 
 function formatTime(date: Date): string {

@@ -12,10 +12,44 @@ export interface EnrichmentTaskStatus {
   error_message?: string
 }
 
+/**
+ * New facet from enrichment preview
+ */
+export interface EnrichmentFacet {
+  facet_type: string
+  value: unknown
+  confidence?: number
+  source?: string
+  [key: string]: unknown
+}
+
+/**
+ * Update item from enrichment preview
+ */
+export interface EnrichmentUpdate {
+  type: string
+  field: string
+  old_value?: unknown
+  new_value: unknown
+  confidence?: number
+  [key: string]: unknown
+}
+
+/**
+ * Analysis summary from enrichment
+ */
+export interface AnalysisSummary {
+  total_facets?: number
+  total_updates?: number
+  confidence_average?: number
+  sources?: string[]
+  [key: string]: unknown
+}
+
 export interface EnrichmentPreviewData {
-  new_facets?: any[]
-  updates?: any[]
-  analysis_summary?: any
+  new_facets?: EnrichmentFacet[]
+  updates?: EnrichmentUpdate[]
+  analysis_summary?: AnalysisSummary
 }
 
 export function useEntityEnrichment() {

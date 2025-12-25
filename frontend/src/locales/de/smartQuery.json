@@ -211,6 +211,7 @@
   "visualization": {
     "noData": "Keine Daten vorhanden",
     "noVisualization": "Keine Visualisierung verfügbar",
+    "tableLabel": "Datentabelle mit Abfrageergebnissen",
     "columns": {
       "name": "Name",
       "region": "Region",

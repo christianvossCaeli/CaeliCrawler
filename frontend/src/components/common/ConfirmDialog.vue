@@ -1,8 +1,14 @@
 <template>
-  <v-dialog v-model="modelValue" :max-width="maxWidth">
+  <v-dialog
+    v-model="modelValue"
+    :max-width="maxWidth"
+    role="dialog"
+    aria-modal="true"
+    :aria-labelledby="dialogTitleId"
+  >
     <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon :color="iconColor" class="mr-2">{{ icon }}</v-icon>
+      <v-card-title :id="dialogTitleId" class="d-flex align-center">
+        <v-icon :color="iconColor" class="mr-2" aria-hidden="true">{{ icon }}</v-icon>
         {{ title }}
       </v-card-title>
       <v-card-text>
@@ -28,7 +34,12 @@
 </template>
 
 <script setup lang="ts">
+import { useDialogFocus } from '@/composables'
+
 const modelValue = defineModel<boolean>()
+
+// ARIA
+const dialogTitleId = `confirm-dialog-title-${Math.random().toString(36).slice(2, 9)}`
 
 withDefaults(defineProps<{
   title: string
@@ -54,4 +65,7 @@ withDefaults(defineProps<{
 defineEmits<{
   confirm: []
 }>()
+
+// Focus management for accessibility
+useDialogFocus({ isOpen: modelValue })
 </script>

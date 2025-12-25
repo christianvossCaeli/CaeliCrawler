@@ -804,11 +804,17 @@ async def get_entity_children(
     session: AsyncSession = Depends(get_session),
 ):
     """Get direct children of an entity."""
+    from sqlalchemy.orm import selectinload
+
     entity = await session.get(Entity, entity_id)
     if not entity:
         raise NotFoundError("Entity", str(entity_id))
 
-    query = select(Entity).where(Entity.parent_id == entity_id)
+    # Eagerly load created_by and owner to avoid lazy loading
+    query = select(Entity).options(
+        selectinload(Entity.created_by),
+        selectinload(Entity.owner),
+    ).where(Entity.parent_id == entity_id)
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
@@ -819,13 +825,21 @@ async def get_entity_children(
     result = await session.execute(query)
     children = result.scalars().all()
 
-    entity_type = await session.get(EntityType, entity.entity_type_id)
+    # Batch load entity types to avoid N+1
+    entity_type_ids = list(set(c.entity_type_id for c in children))
+    entity_types_map = {}
+    if entity_type_ids:
+        entity_types_result = await session.execute(
+            select(EntityType).where(EntityType.id.in_(entity_type_ids))
+        )
+        entity_types_map = {et.id: et for et in entity_types_result.scalars().all()}
 
     items = []
     for child in children:
+        et = entity_types_map.get(child.entity_type_id)
         item = EntityResponse.model_validate(child)
-        item.entity_type_name = entity_type.name if entity_type else None
-        item.entity_type_slug = entity_type.slug if entity_type else None
+        item.entity_type_name = et.name if et else None
+        item.entity_type_slug = et.slug if et else None
         items.append(item)
 
     return EntityListResponse(

@@ -31,7 +31,7 @@ celery_app = Celery(
     include=[
         "workers.crawl_tasks",
         "workers.processing_tasks",
-        "workers.ai_tasks",
+        "workers.ai_tasks",  # Now a package with sub-modules
         "workers.notification_tasks",
         "workers.external_api_tasks",
         "workers.export_tasks",
@@ -266,6 +266,8 @@ def handle_task_failure(sender=None, task_id=None, exception=None, traceback=Non
             "workers.crawl_tasks.crawl_source",
             "workers.ai_tasks.analyze_document",
             "workers.ai_tasks.extract_pysis_fields",
+            "workers.ai_tasks.analyze_entity_data_for_facets",
+            "workers.ai_tasks.analyze_attachment_task",
         ):
             emit_event.delay(
                 "SYSTEM_ERROR",

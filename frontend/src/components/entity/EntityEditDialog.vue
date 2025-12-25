@@ -1,8 +1,14 @@
 <template>
-  <v-dialog v-model="modelValue" max-width="500">
+  <v-dialog
+    v-model="modelValue"
+    max-width="500"
+    role="dialog"
+    aria-modal="true"
+    :aria-labelledby="dialogTitleId"
+  >
     <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon class="mr-2">mdi-pencil</v-icon>
+      <v-card-title :id="dialogTitleId" class="d-flex align-center">
+        <v-icon class="mr-2" aria-hidden="true">mdi-pencil</v-icon>
         {{ t('entityDetail.dialog.editEntity', { type: entityTypeName }) }}
       </v-card-title>
       <v-card-text>
@@ -34,8 +40,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useDialogFocus } from '@/composables'
 
 const modelValue = defineModel<boolean>()
+
+// ARIA
+const dialogTitleId = `entity-edit-dialog-title-${Math.random().toString(36).slice(2, 9)}`
 
 // Props
 defineProps<{
@@ -54,6 +64,9 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const formRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
+
+// Focus management for accessibility
+useDialogFocus({ isOpen: modelValue })
 
 async function handleSave() {
   const { valid } = await formRef.value?.validate() || { valid: false }

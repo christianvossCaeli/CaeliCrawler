@@ -112,7 +112,13 @@
     />
 
     <!-- Messages -->
-    <div ref="messagesContainer" class="chat-window__messages">
+    <div
+      ref="messagesContainer"
+      class="chat-window__messages"
+      role="log"
+      aria-live="polite"
+      :aria-label="t('assistant.messagesLabel')"
+    >
       <!-- Welcome message if empty -->
       <div v-if="messages.length === 0" class="chat-window__welcome">
         <v-icon size="48" color="primary" class="mb-4">mdi-robot-happy-outline</v-icon>
@@ -200,10 +206,26 @@
       <!-- Loading indicator with streaming status -->
       <div v-if="isLoading && !pendingAction" class="chat-window__loading">
         <TypingIndicator />
-        <div v-if="isStreaming && streamingStatus" class="chat-window__loading-status">
+        <div
+          v-if="isStreaming && streamingStatus"
+          class="chat-window__loading-status"
+          role="status"
+          aria-live="polite"
+        >
           {{ streamingStatus }}
         </div>
       </div>
+    </div>
+
+    <!-- Voice recognition status for screen readers -->
+    <div
+      v-if="isListening"
+      id="voice-status"
+      role="status"
+      aria-live="polite"
+      class="sr-only"
+    >
+      {{ t('assistant.voiceListening') }}
     </div>
 
     <!-- Suggested Actions -->
@@ -278,6 +300,8 @@
         auto-grow
         hide-details
         class="chat-window__textarea"
+        :aria-label="t('assistant.inputLabel')"
+        :aria-describedby="isListening ? 'voice-status' : undefined"
         @keydown.enter.exact.prevent="sendMessage"
       >
         <template v-slot:append-inner>
@@ -773,5 +797,18 @@ watch(
 .slide-left-leave-to {
   transform: translateX(-100%);
   opacity: 0;
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 </style>

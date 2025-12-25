@@ -158,13 +158,13 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         allowed_hosts = ["api.caeli-wind.de", "localhost"]
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
-    # CORS middleware
+    # CORS middleware - explicit methods for security
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "Accept", "Accept-Language", "X-Requested-With"],
     )
 
     # i18n middleware - sets locale based on request headers
