@@ -53,9 +53,11 @@ interface Step {
   subtitle: string
 }
 
-const props = defineProps<{
-  currentStep: number
-}>()
+const props = withDefaults(defineProps<{
+  currentStep?: number
+}>(), {
+  currentStep: 1
+})
 
 const { t } = useI18n()
 

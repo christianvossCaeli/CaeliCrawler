@@ -295,23 +295,26 @@ interface Props {
       facet_type: string
       facet_type_name?: string
       value: any
-      text: string
+      text?: string
       confidence?: number
+      [key: string]: unknown
     }>
     updates?: Array<{
-      facet_value_id: string
+      facet_value_id?: string
       facet_type: string
       facet_type_name?: string
-      current_value: any
-      proposed_value: any
+      current_value?: any
+      proposed_value?: any
       changes?: string[]
-      text: string
+      text?: string
       confidence?: number
+      [key: string]: unknown
     }>
     analysis_summary?: {
-      sources_analyzed: string[]
-      new_suggestions: number
-      update_suggestions: number
+      sources_analyzed?: string[]
+      new_suggestions?: number
+      update_suggestions?: number
+      [key: string]: unknown
     }
   } | null
 }
@@ -344,8 +347,8 @@ watch(() => props.previewData, (newData) => {
       .filter((idx) => (newData.new_facets![idx].confidence || 0) >= 0.7)
 
     acceptedUpdates.value = (newData.updates || [])
-      .filter((u) => (u.confidence || 0) >= 0.7)
-      .map((u) => u.facet_value_id)
+      .filter((u) => (u.confidence || 0) >= 0.7 && u.facet_value_id)
+      .map((u) => u.facet_value_id as string)
 
     // Switch to tab with content
     if (newData.new_facets?.length) {
@@ -404,7 +407,9 @@ function selectNoneNew() {
 }
 
 function selectAllUpdates() {
-  acceptedUpdates.value = (props.previewData?.updates || []).map((u) => u.facet_value_id)
+  acceptedUpdates.value = (props.previewData?.updates || [])
+    .filter((u) => u.facet_value_id)
+    .map((u) => u.facet_value_id as string)
 }
 
 function selectNoneUpdates() {

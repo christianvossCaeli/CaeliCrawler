@@ -38,6 +38,18 @@ export interface ResponseData {
     [key: string]: unknown
   }
   suggested_actions?: SuggestedAction[]
+  // Nested data for query results
+  data?: {
+    items?: Array<{ entity_name?: string; name?: string; [key: string]: unknown }>
+    suggestions?: Array<{ type?: string; suggestion?: string; corrected_query?: string }>
+    [key: string]: unknown
+  }
+  // Discussion response fields
+  analysis_type?: string
+  key_points?: string[]
+  recommendations?: string[]
+  // Help response fields
+  suggested_commands?: string[]
   [key: string]: unknown
 }
 
@@ -694,7 +706,12 @@ export function useAssistant() {
                   // Final response data - data.data contains {success, response, suggested_actions}
                   // We need to extract the response part for message/type, but keep the full wrapper for suggested_actions
                   const completeWrapper = data.data as { response?: ResponseData; suggested_actions?: SuggestedAction[] } | ResponseData | undefined
-                  const responseData = (completeWrapper && typeof completeWrapper === 'object' && 'response' in completeWrapper) ? completeWrapper.response : completeWrapper
+                  let responseData: ResponseData | undefined
+                  if (completeWrapper && typeof completeWrapper === 'object' && 'response' in completeWrapper) {
+                    responseData = (completeWrapper as { response?: ResponseData }).response
+                  } else {
+                    responseData = completeWrapper as ResponseData | undefined
+                  }
                   finalResponseData = {
                     ...(responseData || {}),
                     suggested_actions: (completeWrapper && typeof completeWrapper === 'object' && 'suggested_actions' in completeWrapper)
@@ -727,7 +744,7 @@ export function useAssistant() {
 
         // Handle special response types
         if (finalResponseData.type === 'action_preview' && finalResponseData.requires_confirmation) {
-          pendingAction.value = finalResponseData.action
+          pendingAction.value = finalResponseData.action as AssistantAction | null
         } else if (finalResponseData.type === 'navigation') {
           const target = finalResponseData.target
           if (target?.route) {

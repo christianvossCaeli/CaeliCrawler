@@ -147,6 +147,7 @@
     }
   },
   "nav": {
+    "toggleMenu": "Toggle menu",
     "dashboard": "Dashboard",
     "entities": "Entities",
     "entityTypes": "Entity Types",

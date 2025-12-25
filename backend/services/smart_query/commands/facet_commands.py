@@ -67,6 +67,7 @@ class CreateFacetTypeCommand(BaseCommand):
     async def execute(self) -> CommandResult:
         """Create the facet type."""
         from services.smart_query.utils import generate_slug
+        from app.utils.similarity import find_similar_facet_types
 
         facet_type_data = self.data.get("facet_type_data", {})
         name = facet_type_data.get("name")
@@ -76,15 +77,52 @@ class CreateFacetTypeCommand(BaseCommand):
         if not slug:
             slug = generate_slug(name)
 
-        # Check if name or slug already exists
+        # Check if name or slug already exists (exact match)
         existing = await self.session.execute(
             select(FacetType).where(
                 or_(FacetType.slug == slug, FacetType.name == name)
             )
         )
-        if existing.scalar_one_or_none():
-            return CommandResult.failure(
-                message=f"Facet-Typ mit Name '{name}' oder Slug '{slug}' existiert bereits"
+        exact_match = existing.scalar_one_or_none()
+        if exact_match:
+            return CommandResult.success_result(
+                message=f"Facet-Typ '{exact_match.name}' existiert bereits",
+                created_items=[{
+                    "type": "facet_type",
+                    "id": str(exact_match.id),
+                    "name": exact_match.name,
+                    "slug": exact_match.slug,
+                    "existing": True,
+                }],
+                facet_type_id=str(exact_match.id),
+                facet_type_name=exact_match.name,
+                facet_type_slug=exact_match.slug,
+            )
+
+        # Check for semantically similar types
+        similar_types = await find_similar_facet_types(self.session, name, threshold=0.7)
+        if similar_types:
+            best_match, score, reason = similar_types[0]
+            logger.info(
+                "Found similar FacetType instead of creating duplicate",
+                requested_name=name,
+                matched_name=best_match.name,
+                similarity_score=score,
+                reason=reason,
+            )
+            return CommandResult.success_result(
+                message=f"Ähnlicher Facet-Typ '{best_match.name}' gefunden ({reason})",
+                created_items=[{
+                    "type": "facet_type",
+                    "id": str(best_match.id),
+                    "name": best_match.name,
+                    "slug": best_match.slug,
+                    "existing": True,
+                    "similarity_reason": reason,
+                }],
+                facet_type_id=str(best_match.id),
+                facet_type_name=best_match.name,
+                facet_type_slug=best_match.slug,
             )
 
         # Determine value_type

@@ -265,6 +265,20 @@ async def create_template(
 
     The template will have status=PENDING until validated.
     """
+    # Check for duplicate by URL
+    from app.utils.similarity import find_duplicate_api_template
+    duplicate = await find_duplicate_api_template(
+        session,
+        base_url=data.base_url,
+        endpoint=data.endpoint,
+    )
+    if duplicate:
+        existing_template, reason = duplicate
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"{reason}. Verwenden Sie das bestehende Template statt ein neues zu erstellen.",
+        )
+
     template = APITemplate(
         name=data.name,
         description=data.description,

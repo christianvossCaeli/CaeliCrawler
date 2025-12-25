@@ -100,7 +100,7 @@ onMounted(() => {
             @click="navigateTo('COMPLETED')"
             @keydown="handleKeydown($event, 'COMPLETED')"
           >
-            <div class="font-weight-medium text-success">
+            <div class="text-h6 font-weight-medium text-success">
               {{ store.stats.crawler.completed_jobs.toLocaleString() }}
             </div>
             <div class="text-caption text-medium-emphasis">
@@ -116,7 +116,7 @@ onMounted(() => {
             @click="navigateTo('FAILED')"
             @keydown="handleKeydown($event, 'FAILED')"
           >
-            <div class="font-weight-medium text-error">
+            <div class="text-h6 font-weight-medium text-error">
               {{ store.stats.crawler.failed_jobs.toLocaleString() }}
             </div>
             <div class="text-caption text-medium-emphasis">

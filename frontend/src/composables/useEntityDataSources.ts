@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, toValue, type MaybeRefOrGetter } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSnackbar } from './useSnackbar'
 import { adminApi, entityApi } from '@/services/api'
@@ -19,7 +19,7 @@ export interface DataSource {
   hasRunningJob?: boolean
 }
 
-export function useEntityDataSources(entityId: string | undefined) {
+export function useEntityDataSources(entityIdRef: MaybeRefOrGetter<string | undefined>) {
   const { t } = useI18n()
   const { showSuccess, showError } = useSnackbar()
 
@@ -36,11 +36,12 @@ export function useEntityDataSources(entityId: string | undefined) {
   let sourceSearchTimeout: ReturnType<typeof setTimeout> | null = null
 
   async function loadDataSources() {
+    const entityId = toValue(entityIdRef)
     if (!entityId) return
 
     // Check cache first
     const cacheKey = `datasources_${entityId}`
-    const cached = getCachedData(cacheKey)
+    const cached = getCachedData<DataSource[]>(cacheKey)
     if (cached) {
       dataSources.value = cached
       return
@@ -92,6 +93,7 @@ export function useEntityDataSources(entityId: string | undefined) {
   }
 
   async function linkSourceToEntity() {
+    const entityId = toValue(entityIdRef)
     if (!selectedSourceToLink.value || !entityId) return
 
     linkingSource.value = true
@@ -148,6 +150,7 @@ export function useEntityDataSources(entityId: string | undefined) {
   }
 
   async function reloadDataSources() {
+    const entityId = toValue(entityIdRef)
     if (entityId) {
       clearCachedData(`datasources_${entityId}`)
       await loadDataSources()

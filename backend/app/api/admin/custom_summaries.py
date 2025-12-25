@@ -195,6 +195,17 @@ async def create_from_prompt(
     # Use user-provided name or AI-suggested name
     summary_name = data.name or interpretation.get("name", "Neue Zusammenfassung")
 
+    # Check for duplicate name
+    from app.utils.similarity import find_duplicate_custom_summary
+    duplicate = await find_duplicate_custom_summary(
+        session,
+        user_id=current_user.id,
+        name=summary_name,
+    )
+    if duplicate:
+        existing, reason = duplicate
+        raise ValidationError(f"Ähnliche Zusammenfassung existiert bereits: {reason}")
+
     # Determine trigger type and cron from AI suggestion
     schedule = interpretation.get("suggested_schedule", {})
     trigger_type = SummaryTriggerType.MANUAL
@@ -295,6 +306,17 @@ async def create_summary(
 ):
     """Create a summary with manual configuration."""
     await check_rate_limit(request, "summary_create", identifier=str(current_user.id))
+
+    # Check for duplicate name
+    from app.utils.similarity import find_duplicate_custom_summary
+    duplicate = await find_duplicate_custom_summary(
+        session,
+        user_id=current_user.id,
+        name=data.name,
+    )
+    if duplicate:
+        existing, reason = duplicate
+        raise ValidationError(f"Ähnliche Zusammenfassung existiert bereits: {reason}")
 
     # Validate cron if provided
     if data.schedule_cron and not is_valid_cron_expression(data.schedule_cron):

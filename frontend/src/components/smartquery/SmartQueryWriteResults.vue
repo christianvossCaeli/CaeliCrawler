@@ -207,7 +207,7 @@ import { useI18n } from 'vue-i18n'
 
 interface WriteResults {
   success: boolean
-  message: string
+  message?: string
   created_items?: Array<{
     id: string
     name?: string

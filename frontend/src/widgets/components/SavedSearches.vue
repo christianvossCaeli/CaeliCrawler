@@ -166,8 +166,8 @@ onMounted(() => {
   }
 
   loadSearches()
-  // Track current search if on search page
-  if (route.path === '/search' && typeof route.query.q === 'string') {
+  // Track current search if on smart-query page
+  if (route.path === '/smart-query' && typeof route.query.q === 'string') {
     trackSearch(route.query.q)
   }
 })
@@ -203,12 +203,12 @@ const navigateToSearch = (search: SavedSearch) => {
   search.lastUsed = new Date().toISOString()
   search.useCount++
   saveSearches()
-  router.push({ path: '/search', query: { q: search.query } })
+  router.push({ path: '/smart-query', query: { q: search.query } })
 }
 
 const navigateToSearchPage = () => {
   if (isEditMode.value) return
-  router.push({ path: '/search' })
+  router.push({ path: '/smart-query' })
 }
 
 const handleKeydownSearch = (event: KeyboardEvent, search: SavedSearch) => {

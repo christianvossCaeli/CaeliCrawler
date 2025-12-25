@@ -147,7 +147,7 @@ async def create_relation_type(
     # Generate slug if not provided
     slug = data.slug or generate_slug(data.name)
 
-    # Check for duplicate
+    # Check for exact duplicate
     existing = await session.execute(
         select(RelationType).where(
             (RelationType.name == data.name) | (RelationType.slug == slug)
@@ -157,6 +157,22 @@ async def create_relation_type(
         raise ConflictError(
             "Relation Type already exists",
             detail=f"A relation type with name '{data.name}' or slug '{slug}' already exists",
+        )
+
+    # Check for semantically similar RelationTypes (AI-based)
+    from app.utils.similarity import find_similar_relation_types
+    similar_matches = await find_similar_relation_types(
+        session,
+        name=data.name,
+        name_inverse=data.name_inverse,
+        source_entity_type_id=data.source_entity_type_id,
+        target_entity_type_id=data.target_entity_type_id,
+    )
+    if similar_matches:
+        match, score, reason = similar_matches[0]
+        raise ConflictError(
+            "Semantisch ähnlicher RelationType existiert bereits",
+            detail=f"'{match.name}' ({match.slug}) - {reason}. Verwenden Sie diesen statt einen neuen zu erstellen.",
         )
 
     async with AuditContext(session, current_user, request) as audit:

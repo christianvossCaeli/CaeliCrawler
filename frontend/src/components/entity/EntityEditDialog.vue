@@ -42,7 +42,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDialogFocus } from '@/composables'
 
-const modelValue = defineModel<boolean>()
+const modelValue = defineModel<boolean>({ default: false })
 
 // ARIA
 const dialogTitleId = `entity-edit-dialog-title-${Math.random().toString(36).slice(2, 9)}`

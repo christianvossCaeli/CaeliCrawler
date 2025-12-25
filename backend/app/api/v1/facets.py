@@ -629,6 +629,22 @@ async def create_facet_value(
     # Use provided text_representation or generate from value
     text_repr = data.text_representation or build_text_representation(data.value)
 
+    # Check for semantically similar FacetValues (AI-based)
+    from app.utils.similarity import find_similar_facet_values
+    similar_values = await find_similar_facet_values(
+        session,
+        entity_id=data.entity_id,
+        facet_type_id=data.facet_type_id,
+        text_representation=text_repr,
+        threshold=0.85,
+    )
+    if similar_values:
+        existing_fv, score, reason = similar_values[0]
+        raise ConflictError(
+            "Ähnlicher FacetValue existiert bereits",
+            detail=f"{reason}. Bearbeiten Sie den bestehenden Wert statt einen neuen zu erstellen.",
+        )
+
     async with AuditContext(session, current_user, request) as audit:
         facet_value = FacetValue(
             entity_id=data.entity_id,

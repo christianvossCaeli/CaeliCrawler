@@ -97,7 +97,7 @@ onMounted(() => {
             @click="navigateTo(true)"
             @keydown="handleKeydown($event, true)"
           >
-            <div class="font-weight-medium text-success">
+            <div class="text-h6 font-weight-medium text-success">
               {{ store.stats.entities.active.toLocaleString() }}
             </div>
             <div class="text-caption text-medium-emphasis">
@@ -113,7 +113,7 @@ onMounted(() => {
             @click="navigateTo(false)"
             @keydown="handleKeydown($event, false)"
           >
-            <div class="font-weight-medium text-medium-emphasis">
+            <div class="text-h6 font-weight-medium text-medium-emphasis">
               {{ store.stats.entities.inactive.toLocaleString() }}
             </div>
             <div class="text-caption text-medium-emphasis">

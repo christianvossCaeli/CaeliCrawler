@@ -147,6 +147,7 @@
     }
   },
   "nav": {
+    "toggleMenu": "Menü umschalten",
     "dashboard": "Übersicht",
     "entities": "Datensätze",
     "entityTypes": "Datentypen",

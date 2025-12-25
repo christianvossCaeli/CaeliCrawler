@@ -519,6 +519,22 @@ async def create_rule(
             detail="Invalid digest frequency. Must be 'hourly', 'daily', or 'weekly'",
         )
 
+    # Check for duplicate by conditions
+    from app.utils.similarity import find_duplicate_notification_rule
+    duplicate = await find_duplicate_notification_rule(
+        session,
+        user_id=current_user.id,
+        event_type=data.event_type.value,
+        channel=data.channel.value,
+        conditions=data.conditions,
+    )
+    if duplicate:
+        existing_rule, reason = duplicate
+        raise ConflictError(
+            "Ähnliche Benachrichtigungsregel existiert bereits",
+            detail=f"{reason}. Bearbeiten Sie die bestehende Regel statt eine neue zu erstellen.",
+        )
+
     rule = NotificationRule(
         user_id=current_user.id,
         name=data.name,

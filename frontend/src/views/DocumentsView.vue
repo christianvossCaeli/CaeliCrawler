@@ -403,6 +403,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { dataApi, adminApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
@@ -413,6 +414,7 @@ import { useLogger } from '@/composables/useLogger'
 
 const logger = useLogger('DocumentsView')
 const { t } = useI18n()
+const route = useRoute()
 const { showSuccess, showError } = useSnackbar()
 
 // Loading states
@@ -745,7 +747,25 @@ watch(() => stats.value.processing + stats.value.analyzing, (activeCount) => {
 })
 
 onMounted(async () => {
+  // Check for processing_status query parameter from dashboard widget
+  if (route.query.processing_status) {
+    const status = route.query.processing_status as string
+    const validStatuses = ['PENDING', 'PROCESSING', 'ANALYZING', 'COMPLETED', 'FILTERED', 'FAILED']
+    if (validStatuses.includes(status)) {
+      statusFilter.value = status
+    }
+  }
   await Promise.all([loadData(), loadLocations(), loadCategories()])
+
+  // Check for document_id query parameter to auto-open document details
+  if (route.query.document_id) {
+    const docId = route.query.document_id as string
+    const doc = documents.value.find((d: any) => d.id === docId)
+    if (doc) {
+      selectedDocument.value = doc
+      detailsDialog.value = true
+    }
+  }
 })
 
 onUnmounted(() => {

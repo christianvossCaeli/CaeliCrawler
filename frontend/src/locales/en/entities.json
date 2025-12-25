@@ -6,6 +6,9 @@
     "overview": "Overview",
     "entries": "Entries",
     "connections": "Connections",
+    "entityTypeNavigation": "Entity Type Navigation",
+    "statistics": "Statistics",
+    "items": "{count} items",
     "tabs": {
       "general": "General",
       "attributes": "Attributes",
@@ -14,6 +17,7 @@
       "attachments": "Attachments"
     },
     "properties": "Properties",
+    "filledFacets": "Facets",
     "relations": "Relations",
     "facetValues": "Facet Values",
     "verified": "Verified",
@@ -199,6 +203,10 @@
     "addFacet": "Add Facet",
     "notes": "Notes",
     "export": "Export",
+    "bulkDeleteTitle": "Delete Multiple Facets",
+    "bulkDeleteMessage": "Do you really want to delete {count} facets?",
+    "deleteFacetTitle": "Delete Facet",
+    "deleteFacetMessage": "Do you really want to delete this facet?",
     "stats": {
       "facetValues": "Facet Values",
       "properties": "Properties",

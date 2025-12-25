@@ -93,7 +93,7 @@ interface Note {
   created_at: string
 }
 
-const modelValue = defineModel<boolean>()
+const modelValue = defineModel<boolean>({ default: false })
 
 // ARIA
 const dialogTitleId = `entity-notes-dialog-title-${Math.random().toString(36).slice(2, 9)}`

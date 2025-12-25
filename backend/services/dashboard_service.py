@@ -544,6 +544,7 @@ class DashboardService:
                         title="Neue Facetten",
                         count=new_facets,
                         message=f"{new_facets} neue Facetten-Werte hinzugefügt",
+                        link="/results",
                     )
                 )
 
@@ -584,6 +585,7 @@ class DashboardService:
                         title="Verifizierung ausstehend",
                         count=unverified,
                         message=f"{unverified} Facetten-Werte warten auf Verifizierung",
+                        link="/results",
                     )
                 )
 

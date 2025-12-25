@@ -94,15 +94,16 @@ const navigateToResult = (result: QuickSearchResult) => {
       params: { typeSlug: result.type_slug, entitySlug: result.slug },
     })
   } else if (result.type === 'document') {
-    router.push({ path: `/documents/${result.id}` })
+    // Navigate to documents list - no detail view available
+    router.push({ path: '/documents' })
   } else {
-    router.push({ path: `/search`, query: { q: searchQuery.value } })
+    router.push({ path: '/smart-query', query: { q: searchQuery.value } })
   }
 }
 
 const navigateToFullSearch = () => {
   if (isEditMode.value || !searchQuery.value.trim()) return
-  router.push({ path: '/search', query: { q: searchQuery.value } })
+  router.push({ path: '/smart-query', query: { q: searchQuery.value } })
 }
 
 const handleKeydownResult = (event: KeyboardEvent, result: QuickSearchResult) => {

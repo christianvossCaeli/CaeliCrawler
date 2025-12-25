@@ -116,12 +116,12 @@ const formatLastCrawl = (lastCrawl: string | null): string => {
 
 const navigateToSource = (source: SourceFreshness) => {
   if (isEditMode.value) return
-  router.push({ path: `/admin/sources/${source.id}` })
+  router.push({ path: `/sources`, query: { id: source.id } })
 }
 
 const navigateToSources = () => {
   if (isEditMode.value) return
-  router.push({ path: '/admin/sources' })
+  router.push({ path: '/sources' })
 }
 
 const handleKeydownSource = (event: KeyboardEvent, source: SourceFreshness) => {

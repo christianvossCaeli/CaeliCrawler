@@ -116,7 +116,7 @@ export function useEntityExport() {
           id: entity.id,
           name: entity.name,
           type: entityType?.name,
-          external_id: entity.external_id,
+          external_id: entity.external_id ?? undefined,
           attributes: entity.core_attributes,
         },
       }

@@ -264,23 +264,28 @@ async def create_entity(
     # Generate slug if not provided
     slug = data.slug or generate_slug(data.name)
 
-    # Check for duplicate within same entity type
+    # Use centralized normalization for consistent entity matching
+    name_normalized = normalize_entity_name(data.name, country=data.country or "DE")
+
+    # Check for duplicate within same entity type (using normalized name)
     existing = await session.execute(
         select(Entity).where(
             and_(
                 Entity.entity_type_id == data.entity_type_id,
+                Entity.is_active.is_(True),
                 or_(
-                    Entity.name == data.name,
+                    Entity.name_normalized == name_normalized,
                     Entity.slug == slug,
                     (Entity.external_id == data.external_id) if data.external_id else False
                 )
             )
         )
     )
-    if existing.scalar():
+    existing_entity = existing.scalar()
+    if existing_entity:
         raise ConflictError(
             "Entity already exists",
-            detail=f"An entity with name '{data.name}' or slug '{slug}' already exists for this type",
+            detail=f"Entity '{existing_entity.name}' mit gleichem normalisierten Namen oder Slug existiert bereits",
         )
 
     # Handle parent relationship
@@ -294,9 +299,6 @@ async def create_entity(
         hierarchy_level = parent.hierarchy_level + 1
     else:
         hierarchy_path = f"/{slug}"
-
-    # Use centralized normalization for consistent entity matching
-    name_normalized = normalize_entity_name(data.name, country=data.country or "DE")
 
     async with AuditContext(session, current_user, request) as audit:
         entity = Entity(

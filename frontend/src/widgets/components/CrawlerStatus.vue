@@ -92,7 +92,8 @@ const navigateToCrawler = (status?: string) => {
 
 const navigateToJob = (jobId: string) => {
   if (props.isEditing) return
-  router.push({ path: `/crawler/${jobId}` })
+  // Navigate to crawler page with job_id to auto-open details
+  router.push({ path: '/crawler', query: { job_id: jobId } })
 }
 
 const handleKeydownStatus = (event: KeyboardEvent, status?: string) => {

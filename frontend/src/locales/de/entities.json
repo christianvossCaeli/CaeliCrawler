@@ -6,6 +6,9 @@
     "overview": "Übersicht",
     "entries": "Einträge",
     "connections": "Verknüpfungen",
+    "entityTypeNavigation": "Datentyp-Navigation",
+    "statistics": "Statistiken",
+    "items": "{count} Einträge",
     "tabs": {
       "general": "Allgemein",
       "attributes": "Eigenschaften",
@@ -14,6 +17,7 @@
       "attachments": "Anhänge"
     },
     "properties": "Eigenschaften",
+    "filledFacets": "Merkmale",
     "relations": "Verknüpfungen",
     "facetValues": "Merkmalswerte",
     "verified": "Geprüft",
@@ -199,6 +203,10 @@
     "addFacet": "Merkmal hinzufügen",
     "notes": "Notizen",
     "export": "Exportieren",
+    "bulkDeleteTitle": "Mehrere Merkmale löschen",
+    "bulkDeleteMessage": "Möchten Sie wirklich {count} Merkmale löschen?",
+    "deleteFacetTitle": "Merkmal löschen",
+    "deleteFacetMessage": "Möchten Sie dieses Merkmal wirklich löschen?",
     "stats": {
       "facetValues": "Merkmalswerte",
       "properties": "Eigenschaften",

@@ -443,6 +443,20 @@ async def apply_facet_suggestions(
             value = suggestion.get("value", {})
             text_repr = suggestion.get("text_representation") or str(value.get("text", value.get("description", "")))[:500]
 
+            # Check for semantically similar FacetValues (AI-based)
+            from app.utils.similarity import find_similar_facet_values
+            similar_values = await find_similar_facet_values(
+                session,
+                entity_id=entity_id,
+                facet_type_id=ft.id,
+                text_representation=text_repr,
+                threshold=0.85,
+            )
+            if similar_values:
+                existing_fv, score, reason = similar_values[0]
+                errors.append(f"Index {idx}: Ähnlicher FacetValue existiert bereits - {reason}")
+                continue
+
             facet_value = FacetValue(
                 entity_id=entity_id,
                 facet_type_id=ft.id,

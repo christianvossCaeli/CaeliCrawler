@@ -89,7 +89,7 @@
 
     <!-- App Bar -->
     <v-app-bar v-if="auth.isAuthenticated" app color="primary">
-      <v-app-bar-nav-icon @click="drawer = !drawer" :aria-label="$t('nav.toggleMenu')"></v-app-bar-nav-icon>
+      <v-app-bar-nav-icon @click="drawer = !drawer" :aria-label="$t('common.toggleMenu')"></v-app-bar-nav-icon>
       <v-toolbar-title>CaeliCrawler</v-toolbar-title>
       <v-spacer></v-spacer>
 

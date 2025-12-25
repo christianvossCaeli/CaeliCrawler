@@ -134,7 +134,7 @@ async def create_entity_type(
     # Generate slug if not provided
     slug = data.slug or generate_slug(data.name)
 
-    # Check for duplicate
+    # Check for exact duplicate
     existing = await session.execute(
         select(EntityType).where(
             (EntityType.name == data.name) | (EntityType.slug == slug)
@@ -144,6 +144,28 @@ async def create_entity_type(
         raise ConflictError(
             "Entity Type already exists",
             detail=f"An entity type with name '{data.name}' or slug '{slug}' already exists",
+        )
+
+    # Check for hierarchy mapping (e.g., "Stadt" should use territorial_entity)
+    from app.utils.similarity import get_hierarchy_mapping, find_similar_entity_types
+    hierarchy_mapping = get_hierarchy_mapping(data.name)
+    if hierarchy_mapping:
+        parent_slug = hierarchy_mapping["parent_type_slug"]
+        level_name = hierarchy_mapping["level_name"]
+        raise ConflictError(
+            "Hierarchischer EntityType existiert bereits",
+            detail=f"'{data.name}' ist ein Hierarchie-Level von '{parent_slug}' ({level_name}). "
+                   f"Verwenden Sie stattdessen den bestehenden Typ '{parent_slug}'.",
+        )
+
+    # Check for semantically similar EntityTypes (AI-based)
+    similar_types = await find_similar_entity_types(session, data.name)
+    if similar_types:
+        existing_type, score, _ = similar_types[0]
+        raise ConflictError(
+            "Semantisch ähnlicher EntityType existiert bereits",
+            detail=f"'{existing_type.name}' ({existing_type.slug}) ist semantisch ähnlich ({int(score*100)}%). "
+                   f"Verwenden Sie diesen statt einen neuen zu erstellen.",
         )
 
     async with AuditContext(session, current_user, request) as audit:

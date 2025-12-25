@@ -47,10 +47,13 @@ interface Example {
   title: string
 }
 
-defineProps<{
-  examples: Example[]
-  writeMode: boolean
-}>()
+withDefaults(defineProps<{
+  examples?: Example[]
+  writeMode?: boolean
+}>(), {
+  examples: () => [],
+  writeMode: false
+})
 
 defineEmits<{
   select: [question: string]

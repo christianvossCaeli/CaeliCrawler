@@ -989,6 +989,10 @@ onMounted(async () => {
   if (route.query.document_id) {
     // Could filter by document_id if API supports it
   }
+  // Check for verified filter from dashboard widget
+  if (route.query.verified !== undefined) {
+    verifiedFilter.value = route.query.verified === 'true'
+  }
   await Promise.all([loadData(), loadFilters()])
 })
 </script>

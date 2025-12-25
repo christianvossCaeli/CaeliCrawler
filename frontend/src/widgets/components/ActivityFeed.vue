@@ -83,17 +83,25 @@ const formatTime = (timestamp: string): string => {
   return t('common.dateFormat', { date: date.toLocaleDateString() })
 }
 
+// Entity types that can be navigated to (model class names from audit log)
+const navigableEntityTypes = new Set(['Entity', 'FacetValue'])
+
 const isClickable = (item: ActivityItem): boolean => {
-  return !!(item.entity_type && item.entity_id)
+  return !!(item.entity_type && item.entity_id && navigableEntityTypes.has(item.entity_type))
 }
 
 const navigateToItem = (item: ActivityItem) => {
   if (props.isEditing || !isClickable(item)) return
 
-  // Navigate to entity detail page if entity info is available
-  if (item.entity_type && item.entity_id) {
+  // Navigate to entity detail page for Entity items (use ID-based route)
+  if (item.entity_type === 'Entity' && item.entity_id) {
     router.push({
-      path: `/entities/${item.entity_type}/${item.entity_id}`
+      path: `/entity/${item.entity_id}`
+    })
+  } else if (item.entity_type === 'FacetValue' && item.entity_id) {
+    // Navigate to results page for FacetValue items
+    router.push({
+      path: '/results'
     })
   }
 }

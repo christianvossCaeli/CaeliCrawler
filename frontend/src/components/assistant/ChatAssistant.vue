@@ -151,7 +151,7 @@
               <button
                 v-if="msg.response_type === 'navigation' && msg.response_data?.target"
                 class="nav-btn"
-                @click="handleNavigate(msg.response_data.target.route)"
+                @click="handleNavigate(msg.response_data?.target?.route || '')"
               >
                 <v-icon size="14">mdi-arrow-right</v-icon>
                 {{ t('assistant.goTo', { name: msg.response_data.target.entity_name || 'Seite' }) }}

@@ -65,7 +65,7 @@
           variant="tonal"
           color="primary"
           class="mr-1 mb-1 suggestion-chip"
-          @click="$emit('suggestion-click', suggestion.corrected_query)"
+          @click="$emit('suggestion-click', suggestion.corrected_query || '')"
         >
           <v-icon start size="small">
             {{ suggestion.type === 'geographic' ? 'mdi-map-marker' : suggestion.type === 'entity_type' ? 'mdi-folder-outline' : 'mdi-tag-outline' }}
@@ -81,7 +81,7 @@
         variant="tonal"
         color="primary"
         class="mt-2"
-        @click="$emit('navigate', message.response_data.target.route)"
+        @click="$emit('navigate', message.response_data?.target?.route || '')"
       >
         <v-icon start size="small">mdi-arrow-right</v-icon>
         {{ t('assistant.goTo', { name: message.response_data.target.entity_name || t('nav.entities') }) }}

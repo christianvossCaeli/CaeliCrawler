@@ -206,8 +206,8 @@
       @save-note="noteHandlers.saveNote"
       @delete-note="noteHandlers.deleteNote"
       @delete-single-facet="handleDeleteSingleFacet"
-      @update:editing-facet-value="editingFacetValue.value = $event"
-      @update:editing-facet-text-value="editingFacetTextValue.value = $event"
+      @update:editing-facet-value="editingFacetValue = $event"
+      @update:editing-facet-text-value="editingFacetTextValue = $event"
       @save-edited-facet="handleSaveEditedFacet"
     />
 
@@ -270,7 +270,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useEntityStore, type Entity, type EntityType } from '@/stores/entity'
-import { entityApi, facetApi, attachmentApi } from '@/services/api'
+import { entityApi, attachmentApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useFeatureFlags } from '@/composables/useFeatureFlags'
 import { useEntityExport } from '@/composables/useEntityExport'
@@ -377,7 +377,6 @@ const {
 const {
   selectedFacetGroup,
   facetDetails,
-  facetToDelete,
   editingFacet,
   editingFacetValue,
   editingFacetTextValue,
@@ -392,7 +391,6 @@ const {
   openAddFacetValueDialog,
   saveFacetValue,
   verifyFacet,
-  loadFacetDetails,
   saveEditedFacet,
   deleteSingleFacet,
 } = facetHandlers

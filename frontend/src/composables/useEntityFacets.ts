@@ -95,7 +95,7 @@ export function useEntityFacets(
 
     if (facetType.value_schema?.properties) {
       valueToSave = { ...newFacet.value.value }
-      textRepresentation = buildTextRepresentation(valueToSave, facetType)
+      textRepresentation = buildTextRepresentation(valueToSave, facetType.slug)
     } else {
       if (!newFacet.value.text_representation) return false
       valueToSave = { text: newFacet.value.text_representation }

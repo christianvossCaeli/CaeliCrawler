@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, toValue, type MaybeRefOrGetter } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSnackbar } from './useSnackbar'
 import { useLogger } from '@/composables/useLogger'
@@ -12,7 +12,7 @@ export interface Note {
   created_at: string
 }
 
-export function useEntityNotes(entityId: string | undefined) {
+export function useEntityNotes(entityIdRef: MaybeRefOrGetter<string | undefined>) {
   const { t } = useI18n()
   const { showSuccess, showError } = useSnackbar()
 
@@ -21,6 +21,7 @@ export function useEntityNotes(entityId: string | undefined) {
   const savingNote = ref(false)
 
   async function loadNotes() {
+    const entityId = toValue(entityIdRef)
     if (!entityId) return
     try {
       // Notes are stored as a special facet type or in a separate endpoint
@@ -35,6 +36,7 @@ export function useEntityNotes(entityId: string | undefined) {
   }
 
   async function saveNote() {
+    const entityId = toValue(entityIdRef)
     if (!entityId || !newNote.value.trim()) return
     savingNote.value = true
 
@@ -62,6 +64,7 @@ export function useEntityNotes(entityId: string | undefined) {
   }
 
   async function deleteNote(noteId: string) {
+    const entityId = toValue(entityIdRef)
     if (!entityId) return
 
     try {

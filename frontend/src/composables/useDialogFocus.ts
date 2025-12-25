@@ -9,13 +9,14 @@
  * This is important for accessibility (WCAG 2.1) and keyboard navigation.
  */
 
-import { ref, watch, nextTick, type Ref } from 'vue'
+import { ref, watch, nextTick, type Ref, type ModelRef } from 'vue'
 
 export interface UseDialogFocusOptions {
   /**
    * Ref to the dialog's open state.
+   * Accepts both Ref<boolean> and ModelRef<boolean | undefined> from defineModel()
    */
-  isOpen: Ref<boolean>
+  isOpen: Ref<boolean> | Ref<boolean | undefined> | ModelRef<boolean | undefined>
 
   /**
    * Optional: Selector for the element to focus when dialog opens.

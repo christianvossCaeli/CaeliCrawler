@@ -233,7 +233,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useCustomSummariesStore, type CustomSummary } from '@/stores/customSummaries'
 import { useSnackbar } from '@/composables/useSnackbar'
@@ -249,6 +249,7 @@ const logger = useLogger('CustomSummariesView')
 
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 const store = useCustomSummariesStore()
 const { showSuccess, showError } = useSnackbar()
 
@@ -417,6 +418,11 @@ onMounted(() => {
   store.loadSchedulePresets()
   // Listen for window resize for responsive skeleton count
   window.addEventListener('resize', handleResize)
+
+  // Check for create query parameter from MySummaries widget
+  if (route.query.create === 'true') {
+    createDialog.value = true
+  }
 })
 
 onUnmounted(() => {

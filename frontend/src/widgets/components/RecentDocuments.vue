@@ -88,7 +88,8 @@ const formatTime = (timestamp: string): string => {
 
 const navigateToDocument = (doc: RecentDocument) => {
   if (isEditMode.value) return
-  router.push({ path: `/documents/${doc.id}` })
+  // Navigate to documents list with document ID in query to highlight/select it
+  router.push({ path: '/documents', query: { document_id: doc.id } })
 }
 
 const navigateToDocuments = () => {

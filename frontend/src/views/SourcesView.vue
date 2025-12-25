@@ -551,7 +551,7 @@ const showCategoryInfo = (categoryId: string) => {
  * Handle errors from dialog error boundaries
  */
 const onDialogError = (error: Error, info: string) => {
-  logger.error('[SourcesView] Dialog error:', error, info)
+  logger.error('[SourcesView] Dialog error', { error, info })
   showSnackbar(t('common.errorOccurred'), 'error')
 }
 
@@ -712,6 +712,15 @@ onMounted(async () => {
 
   // Initialize store data
   await store.initialize()
+
+  // Check for id query parameter to auto-select source (from DataFreshness widget)
+  if (route.query.id) {
+    const sourceId = route.query.id as string
+    const source = store.sources.find((s: DataSourceResponse) => s.id === sourceId)
+    if (source) {
+      store.selectedSource = source
+    }
+  }
 })
 
 // Note: VueUse's useDebounceFn handles cleanup automatically on unmount

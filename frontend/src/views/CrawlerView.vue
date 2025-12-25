@@ -413,6 +413,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { adminApi } from '@/services/api'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
@@ -437,6 +438,7 @@ interface JobLog {
 }
 
 const { t } = useI18n()
+const route = useRoute()
 const { showSuccess, showError } = useSnackbar()
 const presetsStore = useCrawlPresetsStore()
 const authStore = useAuthStore()
@@ -758,8 +760,36 @@ const showJobDetails = async (job: any) => {
   detailsDialog.value = true
 }
 
-onMounted(() => {
-  loadData()
+onMounted(async () => {
+  // Check for status filter from dashboard widget
+  if (route.query.status) {
+    const status = route.query.status as string
+    const validStatuses = ['RUNNING', 'COMPLETED', 'FAILED', 'PENDING']
+    if (validStatuses.includes(status)) {
+      statusFilter.value = status
+    }
+  }
+
+  await loadData()
+
+  // Check for job_id query parameter to auto-open job details
+  if (route.query.job_id) {
+    const jobId = route.query.job_id as string
+    const job = jobs.value.find((j: any) => j.id === jobId)
+    if (job) {
+      selectedJob.value = job
+      detailsDialog.value = true
+    } else {
+      // Try to fetch the job directly if not in current list
+      try {
+        const response = await adminApi.getCrawlerJob(jobId)
+        selectedJob.value = response.data
+        detailsDialog.value = true
+      } catch (e) {
+        logger.warn('Could not load job details:', e)
+      }
+    }
+  }
 
   // Try SSE first, fallback to polling
   if (useSSE.value) {

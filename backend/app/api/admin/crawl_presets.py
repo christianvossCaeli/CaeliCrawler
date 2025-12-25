@@ -116,6 +116,17 @@ async def _create_preset_internal(
     Raises:
         ValidationError: If cron expression is invalid
     """
+    # Check for duplicate by filter configuration
+    from app.utils.similarity import find_duplicate_crawl_preset
+    duplicate = await find_duplicate_crawl_preset(
+        session,
+        user_id=user_id,
+        filters=filters.model_dump(exclude_none=True),
+    )
+    if duplicate:
+        existing_preset, reason = duplicate
+        raise ValidationError(f"Ähnliches Preset existiert bereits: {reason}")
+
     # Validate cron expression if provided
     if schedule_cron and not validate_cron_expression(schedule_cron):
         raise ValidationError("Invalid cron expression")

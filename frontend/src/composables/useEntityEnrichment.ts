@@ -17,7 +17,9 @@ export interface EnrichmentTaskStatus {
  */
 export interface EnrichmentFacet {
   facet_type: string
+  facet_type_name?: string
   value: unknown
+  text?: string
   confidence?: number
   source?: string
   [key: string]: unknown
@@ -27,10 +29,17 @@ export interface EnrichmentFacet {
  * Update item from enrichment preview
  */
 export interface EnrichmentUpdate {
-  type: string
-  field: string
+  facet_value_id?: string
+  facet_type: string
+  facet_type_name?: string
+  current_value?: unknown
+  proposed_value?: unknown
+  changes?: string[]
+  text?: string
+  type?: string
+  field?: string
   old_value?: unknown
-  new_value: unknown
+  new_value?: unknown
   confidence?: number
   [key: string]: unknown
 }
@@ -43,6 +52,9 @@ export interface AnalysisSummary {
   total_updates?: number
   confidence_average?: number
   sources?: string[]
+  sources_analyzed?: string[]
+  new_suggestions?: number
+  update_suggestions?: number
   [key: string]: unknown
 }
 

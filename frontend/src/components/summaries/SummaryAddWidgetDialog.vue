@@ -144,7 +144,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, toRef, computed, onUnmounted } from 'vue'
+import { ref, watch, computed, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCustomSummariesStore, type WidgetCreate } from '@/stores/customSummaries'
 import { VISUALIZATION_ICONS, VISUALIZATION_COLORS } from '@/components/smartquery/visualizations/types'

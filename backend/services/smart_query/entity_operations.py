@@ -35,7 +35,17 @@ async def create_entity_type_from_command(
     session: AsyncSession,
     entity_type_data: Dict[str, Any],
 ) -> Tuple[Optional[EntityType], str]:
-    """Create a new entity type from smart query command."""
+    """Create a new entity type from smart query command.
+
+    Uses semantic similarity detection to find existing similar types
+    and return them instead of creating duplicates.
+
+    Also checks if the requested type is actually a hierarchy level of
+    an existing hierarchical EntityType (e.g., "Bundesland" is a hierarchy
+    level of "territorial_entity", not a separate type).
+    """
+    from app.utils.similarity import find_similar_entity_types, get_hierarchy_mapping
+
     name = entity_type_data.get("name", "").strip()
     if not name:
         return None, "Name ist erforderlich"
@@ -43,14 +53,58 @@ async def create_entity_type_from_command(
     # Use explicit slug if provided, otherwise generate from name
     slug = entity_type_data.get("slug") or generate_slug(name)
 
-    # Check for duplicates
+    # Check for exact duplicates first
     existing = await session.execute(
         select(EntityType).where(
             or_(EntityType.name == name, EntityType.slug == slug)
         )
     )
-    if existing.scalar():
-        return None, f"Entity-Typ '{name}' existiert bereits"
+    exact_match = existing.scalar()
+    if exact_match:
+        return exact_match, f"Entity-Typ '{exact_match.name}' existiert bereits (exakt)"
+
+    # Check if this is actually a hierarchy level of an existing type
+    hierarchy_mapping = get_hierarchy_mapping(name)
+    if hierarchy_mapping:
+        parent_type_slug = hierarchy_mapping["parent_type_slug"]
+        hierarchy_level = hierarchy_mapping["hierarchy_level"]
+        level_name = hierarchy_mapping["level_name"]
+
+        # Find the parent hierarchical type
+        parent_type_result = await session.execute(
+            select(EntityType).where(
+                EntityType.slug == parent_type_slug,
+                EntityType.is_active.is_(True),
+            )
+        )
+        parent_type = parent_type_result.scalar_one_or_none()
+
+        if parent_type:
+            logger.info(
+                "Redirecting to hierarchical EntityType",
+                requested_name=name,
+                parent_type=parent_type.name,
+                parent_slug=parent_type_slug,
+                hierarchy_level=hierarchy_level,
+                level_name=level_name,
+            )
+            return parent_type, (
+                f"'{level_name}' ist eine Hierarchie-Ebene (Level {hierarchy_level}) "
+                f"von '{parent_type.name}'. Verwende diesen Typ und setze hierarchy_level={hierarchy_level}."
+            )
+
+    # Check for semantically similar types
+    similar_types = await find_similar_entity_types(session, name, threshold=0.7)
+    if similar_types:
+        best_match, score, reason = similar_types[0]
+        logger.info(
+            "Found similar EntityType instead of creating duplicate",
+            requested_name=name,
+            matched_name=best_match.name,
+            similarity_score=score,
+            reason=reason,
+        )
+        return best_match, f"Ähnlicher Entity-Typ '{best_match.name}' gefunden ({reason})"
 
     # Create entity type
     entity_type = EntityType(

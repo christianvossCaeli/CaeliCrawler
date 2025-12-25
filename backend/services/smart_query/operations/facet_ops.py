@@ -39,6 +39,7 @@ class CreateFacetTypeOperation(WriteOperation):
         user_id: Optional[UUID] = None,
     ) -> OperationResult:
         from app.models import FacetType
+        from app.utils.similarity import find_similar_facet_types
 
         facet_type_data = command.get("facet_type_data", {})
         name = facet_type_data.get("name")
@@ -48,16 +49,52 @@ class CreateFacetTypeOperation(WriteOperation):
         if not slug:
             slug = generate_slug(name)
 
-        # Check if name or slug already exists
+        # Check if name or slug already exists (exact match)
         existing = await session.execute(
             select(FacetType).where(
                 or_(FacetType.slug == slug, FacetType.name == name)
             )
         )
-        if existing.scalar_one_or_none():
+        exact_match = existing.scalar_one_or_none()
+        if exact_match:
             return OperationResult(
-                success=False,
-                message=f"Facet-Typ mit Name '{name}' oder Slug '{slug}' existiert bereits",
+                success=True,
+                message=f"Facet-Typ '{exact_match.name}' existiert bereits",
+                created_items=[
+                    {
+                        "type": "facet_type",
+                        "id": str(exact_match.id),
+                        "name": exact_match.name,
+                        "slug": exact_match.slug,
+                        "existing": True,
+                    }
+                ],
+            )
+
+        # Check for semantically similar types
+        similar_types = await find_similar_facet_types(session, name, threshold=0.7)
+        if similar_types:
+            best_match, score, reason = similar_types[0]
+            logger.info(
+                "Found similar FacetType instead of creating duplicate",
+                requested_name=name,
+                matched_name=best_match.name,
+                similarity_score=score,
+                reason=reason,
+            )
+            return OperationResult(
+                success=True,
+                message=f"Ähnlicher Facet-Typ '{best_match.name}' gefunden ({reason})",
+                created_items=[
+                    {
+                        "type": "facet_type",
+                        "id": str(best_match.id),
+                        "name": best_match.name,
+                        "slug": best_match.slug,
+                        "existing": True,
+                        "similarity_reason": reason,
+                    }
+                ],
             )
 
         # Validate applicable_entity_type_slugs

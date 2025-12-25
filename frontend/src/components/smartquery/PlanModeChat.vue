@@ -302,13 +302,16 @@ interface ValidationResult {
   original_prompt: string
 }
 
-const props = defineProps<{
-  conversation: Message[]
-  loading: boolean
+const props = withDefaults(defineProps<{
+  conversation?: Message[]
+  loading?: boolean
   generatedPrompt?: GeneratedPrompt | null
   validating?: boolean
   validationResult?: ValidationResult | null
-}>()
+}>(), {
+  conversation: () => [],
+  loading: false
+})
 
 defineEmits<{
   (e: 'send', message: string): void

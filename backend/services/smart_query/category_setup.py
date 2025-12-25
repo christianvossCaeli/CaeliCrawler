@@ -1035,7 +1035,7 @@ async def create_category_setup(
         # 2. Generate slug
         slug = generate_slug(name)
 
-        # 3. Check for duplicate EntityType
+        # 3. Check for duplicate EntityType (exact match)
         existing_et = await session.execute(
             select(EntityType).where(
                 or_(EntityType.name == name, EntityType.slug == slug)
@@ -1043,6 +1043,33 @@ async def create_category_setup(
         )
         if existing_et.scalar():
             result["message"] = f"EntityType '{name}' existiert bereits"
+            return result
+
+        # 3b. Check for semantically similar EntityTypes (AI-based)
+        from app.utils.similarity import find_similar_entity_types, get_hierarchy_mapping
+
+        # Check if this is a hierarchy level of an existing type
+        hierarchy_mapping = get_hierarchy_mapping(name)
+        if hierarchy_mapping:
+            parent_slug = hierarchy_mapping["parent_type_slug"]
+            parent_result = await session.execute(
+                select(EntityType).where(EntityType.slug == parent_slug, EntityType.is_active.is_(True))
+            )
+            parent_type = parent_result.scalar_one_or_none()
+            if parent_type:
+                level_name = hierarchy_mapping["level_name"]
+                result["message"] = (
+                    f"'{level_name}' ist eine Hierarchie-Ebene von '{parent_type.name}'. "
+                    f"Verwende den bestehenden Typ statt einen neuen zu erstellen."
+                )
+                return result
+
+        # Check for semantically similar types
+        similar_types = await find_similar_entity_types(session, name, threshold=0.85)
+        if similar_types:
+            best_match, score, reason = similar_types[0]
+            result["message"] = f"Ähnlicher EntityType '{best_match.name}' existiert bereits ({reason})"
+            result["warnings"].append(f"Verwende stattdessen: {best_match.slug}")
             return result
 
         # 4. Generate attribute schema

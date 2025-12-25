@@ -36,7 +36,7 @@
 <script setup lang="ts">
 import { useDialogFocus } from '@/composables'
 
-const modelValue = defineModel<boolean>()
+const modelValue = defineModel<boolean>({ default: false })
 
 // ARIA
 const dialogTitleId = `confirm-dialog-title-${Math.random().toString(36).slice(2, 9)}`

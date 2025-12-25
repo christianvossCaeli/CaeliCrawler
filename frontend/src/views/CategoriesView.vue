@@ -187,7 +187,6 @@ const {
 
 // DataSources state from composable
 const {
-  availableTags,
   dataSourcesTab,
   loadAvailableTags,
   searchSourcesByTags,
@@ -258,12 +257,17 @@ const openEditDialog = async (category: Category) => {
   editMode.value = true
   selectedCategory.value = category
   formData.value = {
-    ...category,
+    name: category.name,
+    description: category.description || '',
+    purpose: category.purpose,
     search_terms: category.search_terms || [],
     document_types: category.document_types || [],
     languages: category.languages || ['de'],
     url_include_patterns: category.url_include_patterns || [],
     url_exclude_patterns: category.url_exclude_patterns || [],
+    schedule_cron: category.schedule_cron || '0 2 * * *',
+    ai_extraction_prompt: category.ai_extraction_prompt || '',
+    is_active: category.is_active,
   }
   resetDataSourcesTab()
   dialog.value = true

@@ -126,16 +126,23 @@ type QueryMode = 'read' | 'write' | 'plan'
 
 const modelValue = defineModel<string>()
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   attachments: Attachment[]
   mode: QueryMode
-  disabled: boolean
-  loading: boolean
-  uploading: boolean
-  isListening: boolean
-  hasMicrophone: boolean
-  interimTranscript: string
-}>()
+  disabled?: boolean
+  loading?: boolean
+  uploading?: boolean
+  isListening?: boolean
+  hasMicrophone?: boolean
+  interimTranscript?: string
+}>(), {
+  disabled: false,
+  loading: false,
+  uploading: false,
+  isListening: false,
+  hasMicrophone: false,
+  interimTranscript: ''
+})
 
 defineEmits<{
   submit: []

@@ -57,7 +57,29 @@ class UpdateEntityOperation(WriteOperation):
         # Update fields
         updates = update_data.get("updates", {})
         if "name" in updates:
-            entity.name = updates["name"]
+            new_name = updates["name"]
+            # Check for duplicate name before updating
+            from app.utils.text import normalize_name
+            from sqlalchemy import select, and_
+            new_normalized = normalize_name(new_name)
+
+            existing = await session.execute(
+                select(Entity).where(
+                    and_(
+                        Entity.entity_type_id == entity.entity_type_id,
+                        Entity.name_normalized == new_normalized,
+                        Entity.id != entity.id,
+                        Entity.is_active.is_(True),
+                    )
+                )
+            )
+            if existing.scalar():
+                return OperationResult(
+                    success=False,
+                    message=f"Entity mit Namen '{new_name}' existiert bereits in diesem Typ",
+                )
+            entity.name = new_name
+            entity.name_normalized = new_normalized
         if "core_attributes" in updates:
             entity.core_attributes = {**(entity.core_attributes or {}), **updates["core_attributes"]}
         if "external_id" in updates:

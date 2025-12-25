@@ -99,7 +99,7 @@ async def create_analysis_template(
     # Generate slug if not provided
     slug = data.slug or generate_slug(data.name)
 
-    # Check for duplicate
+    # Check for exact duplicate
     existing = await session.execute(
         select(AnalysisTemplate).where(
             (AnalysisTemplate.name == data.name) | (AnalysisTemplate.slug == slug)
@@ -109,6 +109,23 @@ async def create_analysis_template(
         raise ConflictError(
             "Analysis Template already exists",
             detail=f"A template with name '{data.name}' or slug '{slug}' already exists",
+        )
+
+    # Check for duplicate by configuration (same entity type + category + facet config)
+    from app.utils.similarity import find_duplicate_analysis_template
+    facet_configs = [fc.model_dump() if hasattr(fc, 'model_dump') else fc for fc in data.facet_config]
+    duplicate = await find_duplicate_analysis_template(
+        session,
+        name=data.name,
+        primary_entity_type_id=data.primary_entity_type_id,
+        category_id=data.category_id,
+        facet_config=facet_configs,
+    )
+    if duplicate:
+        existing_template, reason = duplicate
+        raise ConflictError(
+            "Ähnliches AnalysisTemplate existiert bereits",
+            detail=f"{reason}. Verwenden Sie das bestehende Template statt ein neues zu erstellen.",
         )
 
     template = AnalysisTemplate(
