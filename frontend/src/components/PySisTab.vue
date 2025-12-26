@@ -609,12 +609,15 @@ interface PySisHistoryEntry {
   recorded_at: string
   source: string
   action: string
+  confidence_score?: number
+  created_at?: string
 }
 
 interface PySisTemplate {
   id: string
   name?: string
   description?: string
+  fields?: { internal_name: string; pysis_field_name: string; field_type: string }[]
 }
 
 interface AvailablePySisProcess {
@@ -733,12 +736,13 @@ const showMessage = (text: string, color = 'success') => {
   snackbar.value = true
 }
 
-const formatDate = (dateStr: string | null) => {
+const formatDate = (dateStr: string | null | undefined) => {
   if (!dateStr) return t('results.never')
   return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: de })
 }
 
-const getSyncStatusColor = (status: string) => {
+const getSyncStatusColor = (status?: string) => {
+  if (!status) return 'grey'
   const colors: Record<string, string> = {
     SYNCED: 'success',
     PENDING: 'warning',
@@ -748,7 +752,8 @@ const getSyncStatusColor = (status: string) => {
   return colors[status] || 'grey'
 }
 
-const getSyncStatusIcon = (status: string) => {
+const getSyncStatusIcon = (status?: string) => {
+  if (!status) return 'mdi-help-circle'
   const icons: Record<string, string> = {
     SYNCED: 'mdi-check-circle',
     PENDING: 'mdi-clock',
@@ -758,7 +763,8 @@ const getSyncStatusIcon = (status: string) => {
   return icons[status] || 'mdi-help-circle'
 }
 
-const getSourceColor = (source: string) => {
+const getSourceColor = (source?: string) => {
+  if (!source) return 'grey'
   const colors: Record<string, string> = {
     AI: 'info',
     MANUAL: 'primary',
@@ -767,13 +773,14 @@ const getSourceColor = (source: string) => {
   return colors[source] || 'grey'
 }
 
-const getConfidenceColor = (score: number) => {
+const getConfidenceColor = (score?: number) => {
+  if (!score) return 'grey'
   if (score >= 0.8) return 'success'
   if (score >= 0.5) return 'warning'
   return 'error'
 }
 
-const truncateValue = (value: string | null, maxLength = 100) => {
+const truncateValue = (value: string | null | undefined, maxLength = 100) => {
   if (!value) return null
   if (value.length <= maxLength) return value
   return value.substring(0, maxLength) + '...'
@@ -794,8 +801,9 @@ const saveFieldValue = async () => {
       source: 'MANUAL',
     })
     // Update the field in the list
-    const field = fields.value.find((f) => f.id === editingField.value.id)
-    if (field) {
+    const editedId = editingField.value.id
+    const field = fields.value.find((f) => f.id === editedId)
+    if (field && editingField.value) {
       field.current_value = editingField.value.current_value
       field.value_source = 'MANUAL'
       field.needs_push = true
@@ -937,10 +945,11 @@ const toggleAiExtraction = async (field: PySisFieldLocal) => {
 }
 
 const openFieldSettings = (field: PySisFieldLocal) => {
-  // Create a copy to edit
+  // Create a copy to edit - include pysis_field_name for type compatibility
   editingFieldSettings.value = {
     id: field.id,
     internal_name: field.internal_name,
+    pysis_field_name: field.pysis_field_name,
     field_type: field.field_type,
     ai_extraction_enabled: field.ai_extraction_enabled,
     ai_extraction_prompt: field.ai_extraction_prompt || '',
@@ -957,12 +966,13 @@ const saveFieldSettings = async () => {
       internal_name: editingFieldSettings.value.internal_name,
       field_type: editingFieldSettings.value.field_type,
       ai_extraction_enabled: editingFieldSettings.value.ai_extraction_enabled,
-      ai_extraction_prompt: editingFieldSettings.value.ai_extraction_prompt || null,
+      ai_extraction_prompt: editingFieldSettings.value.ai_extraction_prompt || undefined,
     })
 
     // Update the field in the local list
-    const field = fields.value.find((f) => f.id === editingFieldSettings.value.id)
-    if (field) {
+    const editedSettingsId = editingFieldSettings.value.id
+    const field = fields.value.find((f) => f.id === editedSettingsId)
+    if (field && editingFieldSettings.value) {
       field.internal_name = editingFieldSettings.value.internal_name
       field.field_type = editingFieldSettings.value.field_type
       field.ai_extraction_enabled = editingFieldSettings.value.ai_extraction_enabled
@@ -1192,7 +1202,7 @@ const acceptAiSuggestion = async (field: PySisFieldLocal) => {
       // Update field in list
       field.current_value = response.data.accepted_value
       field.value_source = 'AI'
-      field.ai_extracted_value = null
+      field.ai_extracted_value = undefined
       field.needs_push = true
     } else {
       showMessage(response.data.message || t('pysis.error'), 'error')
@@ -1208,8 +1218,8 @@ const rejectAiSuggestion = async (field: PySisFieldLocal) => {
     if (response.data.success) {
       showMessage(t('pysis.aiSuggestionRejected'))
       // Update field in list
-      field.ai_extracted_value = null
-      field.confidence_score = null
+      field.ai_extracted_value = undefined
+      field.confidence_score = undefined
     } else {
       showMessage(response.data.message || t('pysis.error'), 'error')
     }
@@ -1244,7 +1254,8 @@ const restoreFromHistory = async (entry: PySisHistoryEntry) => {
     if (response.data.success) {
       showMessage(t('pysis.valueRestored'))
       // Update field in list
-      const field = fields.value.find((f) => f.id === historyField.value.id)
+      const historyFieldId = historyField.value.id
+      const field = fields.value.find((f) => f.id === historyFieldId)
       if (field) {
         field.current_value = response.data.accepted_value
         field.value_source = 'MANUAL'

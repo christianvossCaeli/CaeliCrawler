@@ -144,7 +144,21 @@ const totalWithCoords = ref(0)
 const totalWithoutCoords = ref(0)
 const pointCount = ref(0)
 const polygonCount = ref(0)
-const selectedEntity = ref<{ id?: string; name?: string; entity_type?: string; slug?: string } | null>(null)
+interface MapEntity {
+  id?: string
+  name?: string
+  entity_type?: string
+  entity_type_slug?: string
+  entity_type_name?: string
+  slug?: string
+  icon?: string
+  color?: string
+  external_id?: string
+  country?: string
+  admin_level_1?: string
+  admin_level_2?: string
+}
+const selectedEntity = ref<MapEntity | null>(null)
 const popupPosition = ref({ x: 0, y: 0 })
 
 // Map Styles - CartoDB free styles (MapLibre-compatible)
@@ -200,27 +214,38 @@ async function initMap() {
   })
 }
 
+// GeoJSON coordinate types
+type Position = [number, number]
+type LineStringCoords = Position[]
+type PolygonCoords = Position[][]
+type MultiPolygonCoords = Position[][][]
+
+interface GeoJSONGeometry {
+  type: string
+  coordinates: Position | LineStringCoords | PolygonCoords | MultiPolygonCoords
+}
+
 // Helper to extend bounds with any geometry type
-function extendBoundsWithGeometry(bounds: maplibregl.LngLatBounds, geometry: { type: string; coordinates: unknown }) {
+function extendBoundsWithGeometry(bounds: maplibregl.LngLatBounds, geometry: GeoJSONGeometry) {
   if (geometry.type === 'Point') {
-    bounds.extend(geometry.coordinates as [number, number])
+    bounds.extend(geometry.coordinates as Position)
   } else if (geometry.type === 'Polygon') {
-    for (const ring of geometry.coordinates) {
+    for (const ring of geometry.coordinates as PolygonCoords) {
       for (const coord of ring) {
-        bounds.extend(coord as [number, number])
+        bounds.extend(coord)
       }
     }
   } else if (geometry.type === 'MultiPolygon') {
-    for (const polygon of geometry.coordinates) {
+    for (const polygon of geometry.coordinates as MultiPolygonCoords) {
       for (const ring of polygon) {
         for (const coord of ring) {
-          bounds.extend(coord as [number, number])
+          bounds.extend(coord)
         }
       }
     }
   } else if (geometry.type === 'LineString') {
-    for (const coord of geometry.coordinates) {
-      bounds.extend(coord as [number, number])
+    for (const coord of geometry.coordinates as LineStringCoords) {
+      bounds.extend(coord)
     }
   }
 }
@@ -398,7 +423,10 @@ async function loadGeoData() {
     if (geojson.features.length > 0) {
       const bounds = new maplibregl.LngLatBounds()
       geojson.features.forEach((feature: GeoJSON.Feature) => {
-        extendBoundsWithGeometry(bounds, feature.geometry)
+        // Only extend bounds for geometry types with coordinates (not GeometryCollection)
+        if (feature.geometry && 'coordinates' in feature.geometry) {
+          extendBoundsWithGeometry(bounds, feature.geometry as GeoJSONGeometry)
+        }
       })
       map.value.fitBounds(bounds, { padding: 50, maxZoom: 10 })
     }

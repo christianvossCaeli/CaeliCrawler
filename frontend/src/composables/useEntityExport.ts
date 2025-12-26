@@ -23,24 +23,21 @@ interface FacetExportItem {
 }
 
 interface RelationExportItem {
-  id: string
-  relation_type_name: string
-  target_entity_name: string
-  target_entity_id: string
+  type: string
+  target: string
+  verified: boolean
 }
 
 interface DataSourceExportItem {
-  id: string
   name: string
   url?: string
-  source_type?: string
+  status?: string
 }
 
 interface NoteExportItem {
-  id: string
   content: string
-  created_at: string
-  created_by?: string
+  author?: string
+  date: string
 }
 
 export interface ExportData {
@@ -133,7 +130,7 @@ export function useEntityExport() {
     entityType: EntityType | null,
     facetsSummary: { facets_by_type?: Array<{ facet_type_slug: string; facet_type_name: string }> } | null,
     relations: Array<{ relation_type_name: string; source_entity_id: string; target_entity_name: string; source_entity_name: string; human_verified: boolean }>,
-    dataSources: Array<{ name: string; url?: string }>,
+    dataSources: Array<{ name: string; base_url?: string; status?: string }>,
     notes: Array<{ created_at: string; created_by?: string; content: string }>
   ) {
     exporting.value = true
@@ -189,7 +186,7 @@ export function useEntityExport() {
       if (exportOptions.value.notes) {
         data.notes = notes.map(n => ({
           content: n.content,
-          author: n.author,
+          author: n.created_by,
           date: n.created_at,
         }))
       }

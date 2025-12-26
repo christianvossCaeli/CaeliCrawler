@@ -456,6 +456,7 @@ import { useSnackbar } from '@/composables/useSnackbar'
 import { getContrastColor } from '@/composables/useColorHelpers'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useLogger } from '@/composables/useLogger'
+import { getErrorMessage } from '@/composables/useApiErrorHandler'
 
 // Local interfaces
 interface EntityTypeLocal {
@@ -470,6 +471,7 @@ interface EntityTypeLocal {
   supports_hierarchy?: boolean
   supports_pysis?: boolean
   is_active?: boolean
+  is_system?: boolean
   display_order?: number
   entity_count?: number
 }
@@ -480,6 +482,10 @@ interface FacetTypeLocal {
   name: string
   description?: string
   applicable_entity_type_slugs?: string[]
+  icon?: string
+  color?: string
+  value_type?: string
+  is_system?: boolean
 }
 
 interface VFormRef {

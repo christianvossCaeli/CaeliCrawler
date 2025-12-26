@@ -139,23 +139,38 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+/**
+ * Action type for ActionPreview that includes all possible action fields
+ */
+interface ActionPreviewAction {
+  type: string
+  label?: string
+  description?: string
+  icon?: string
+  params?: {
+    entity_id?: string
+    entity_type?: string
+    data?: Record<string, unknown>
+    [key: string]: unknown
+  }
+  confirmation_required?: boolean
+  confirmation_message?: string
+  // Preview-specific fields
+  target_id?: string
+  target_name?: string
+  target_type?: string
+  changes?: Record<string, { from: unknown; to: unknown }>
+  delete_target?: string
+  delete_count?: number
+  undo_details?: {
+    operation: string
+    description: string
+  }
+}
+
 const props = defineProps<{
   message: string
-  action: {
-    type: string
-    target_id?: string
-    target_name?: string
-    target_type?: string
-    changes?: Record<string, { from: unknown; to: unknown }>
-    // Delete-specific fields
-    delete_target?: string
-    delete_count?: number
-    // UNDO-specific fields
-    undo_details?: {
-      operation: string
-      description: string
-    }
-  }
+  action: ActionPreviewAction
   loading?: boolean
 }>()
 

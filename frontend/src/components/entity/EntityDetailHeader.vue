@@ -118,6 +118,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FavoriteButton from '@/components/FavoriteButton.vue'
+import type { FacetGroup } from '@/types/entity'
 
 // Types - Use relaxed types to be compatible with store types
 interface EntityType {
@@ -142,14 +143,6 @@ interface Entity {
   relation_count?: number
   children_count?: number
   parent_id?: string | null
-}
-
-interface FacetGroup {
-  facet_type_id: string
-  facet_type_name: string
-  facet_type_icon?: string
-  facet_type_color?: string
-  value_count: number
 }
 
 // Props

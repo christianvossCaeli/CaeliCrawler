@@ -30,14 +30,33 @@ export interface Notification {
   created_at: string
 }
 
+export interface NotificationRuleConditions {
+  min_confidence?: number | null
+  keywords?: string[]
+  [key: string]: unknown
+}
+
+export interface NotificationRuleChannelConfig {
+  email_address_ids?: string[]
+  include_primary?: boolean
+  url?: string
+  auth?: {
+    type: string
+    token?: string
+    username?: string
+    password?: string
+  }
+  [key: string]: unknown
+}
+
 export interface NotificationRule {
   id: string
   name: string
   description?: string
   event_type: string
   channel: string
-  conditions: Record<string, unknown>
-  channel_config: Record<string, unknown>
+  conditions: NotificationRuleConditions
+  channel_config: NotificationRuleChannelConfig
   digest_enabled: boolean
   digest_frequency?: string
   is_active: boolean
@@ -298,7 +317,16 @@ export function useNotifications() {
   // Test webhook
   const testWebhook = async (url: string, auth?: { type?: string; username?: string; password?: string; token?: string }) => {
     try {
-      const response = await notificationApi.testWebhook({ url, auth })
+      // Transform auth to match API expected format
+      let transformedAuth: { type: string; config: Record<string, string> } | undefined
+      if (auth?.type) {
+        const config: Record<string, string> = {}
+        if (auth.username) config.username = auth.username
+        if (auth.password) config.password = auth.password
+        if (auth.token) config.token = auth.token
+        transformedAuth = { type: auth.type, config }
+      }
+      const response = await notificationApi.testWebhook({ url, auth: transformedAuth })
       return response.data
     } catch (e: unknown) {
       error.value = getErrorDetail(e) || 'Fehler beim Testen des Webhooks'

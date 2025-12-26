@@ -424,6 +424,7 @@ async def apply_facet_suggestions(
 
     created = []
     errors = []
+    facet_values_for_embedding = []
 
     for idx in valid_indices:
         suggestion = suggestions[idx]
@@ -468,6 +469,11 @@ async def apply_facet_suggestions(
                 ai_model_used=attachment.ai_model_used,
             )
             session.add(facet_value)
+            await session.flush()
+
+            # Track for embedding generation
+            facet_values_for_embedding.append((facet_value, text_repr))
+
             created.append({
                 "facet_type": ft.name,
                 "text": text_repr[:100],
@@ -475,6 +481,13 @@ async def apply_facet_suggestions(
 
         except Exception as e:
             errors.append(f"Fehler bei Index {idx}: {str(e)}")
+
+    # Generate embeddings for created facet values
+    from app.utils.similarity import generate_embedding
+    for facet_value, text_repr in facet_values_for_embedding:
+        embedding = await generate_embedding(text_repr)
+        if embedding:
+            facet_value.text_embedding = embedding
 
     await session.commit()
 

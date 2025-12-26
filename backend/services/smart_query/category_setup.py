@@ -237,41 +237,65 @@ async def create_category_setup_with_ai(
         url_exclude_patterns = crawl_config.get("url_exclude_patterns", [])
 
         # =========================================================================
-        # CREATE CATEGORY
+        # CREATE CATEGORY (or use existing if duplicate detected)
         # =========================================================================
-        cat_name = name
-        cat_slug = slug
+        from app.utils.similarity import find_similar_categories
 
-        existing_cat = await session.execute(
+        # Check for exact duplicate Category
+        existing_cat_result = await session.execute(
             select(Category).where(
-                or_(Category.name == cat_name, Category.slug == cat_slug)
+                or_(Category.name == name, Category.slug == slug)
             )
         )
-        if existing_cat.scalar():
-            cat_name = f"{name} (Crawl)"
-            cat_slug = f"{slug}-crawl"
+        existing_category = existing_cat_result.scalar()
 
-        category = Category(
-            id=uuid_module.uuid4(),
-            name=cat_name,
-            slug=cat_slug,
-            description=f"KI-generiert: {user_intent}",
-            purpose=cat_config.get("purpose", user_intent),
-            search_terms=search_terms,
-            document_types=["html", "pdf"],
-            url_include_patterns=url_include_patterns,
-            url_exclude_patterns=url_exclude_patterns,
-            languages=["de"],
-            ai_extraction_prompt=ai_prompt,
-            extraction_handler=extraction_handler,
-            schedule_cron="0 2 * * *",
-            is_active=True,
-            is_public=True,  # Always visible in frontend
-            created_by_id=current_user_id,
-            owner_id=current_user_id,
-            target_entity_type_id=entity_type.id,
-        )
-        session.add(category)
+        # Check for semantically similar Categories (AI-based)
+        if not existing_category:
+            similar_categories = await find_similar_categories(session, name, threshold=0.85)
+            if similar_categories:
+                existing_category = similar_categories[0][0]
+                logger.info(
+                    "Found semantically similar Category",
+                    new_name=name,
+                    existing_name=existing_category.name,
+                    similarity=round(similar_categories[0][1], 3),
+                )
+
+        if existing_category:
+            # Use existing category instead of creating a new one
+            category = existing_category
+            logger.info(
+                "Using existing Category instead of creating duplicate",
+                category_id=str(category.id),
+                category_name=category.name,
+                requested_name=name,
+            )
+            result["warnings"].append(
+                f"Bestehende Kategorie '{category.name}' wird verwendet statt '{name}' neu zu erstellen"
+            )
+        else:
+            # Create new Category
+            category = Category(
+                id=uuid_module.uuid4(),
+                name=name,
+                slug=slug,
+                description=f"KI-generiert: {user_intent}",
+                purpose=cat_config.get("purpose", user_intent),
+                search_terms=search_terms,
+                document_types=["html", "pdf"],
+                url_include_patterns=url_include_patterns,
+                url_exclude_patterns=url_exclude_patterns,
+                languages=["de"],
+                ai_extraction_prompt=ai_prompt,
+                extraction_handler=extraction_handler,
+                schedule_cron="0 2 * * *",
+                is_active=True,
+                is_public=True,  # Always visible in frontend
+                created_by_id=current_user_id,
+                owner_id=current_user_id,
+                target_entity_type_id=entity_type.id,
+            )
+            session.add(category)
         await session.flush()
 
         result["category_id"] = str(category.id)
@@ -1046,7 +1070,7 @@ async def create_category_setup(
             return result
 
         # 3b. Check for semantically similar EntityTypes (AI-based)
-        from app.utils.similarity import find_similar_entity_types, get_hierarchy_mapping
+        from app.utils.similarity import find_similar_entity_types, find_similar_categories, get_hierarchy_mapping
 
         # Check if this is a hierarchy level of an existing type
         hierarchy_mapping = get_hierarchy_mapping(name)
@@ -1116,42 +1140,62 @@ async def create_category_setup(
         if search_focus == "event_attendance":
             extraction_handler = "event"
 
-        # 8. Check for duplicate Category
-        existing_cat = await session.execute(
+        # 8. Check for duplicate Category (exact match)
+        existing_cat_result = await session.execute(
             select(Category).where(
                 or_(Category.name == name, Category.slug == slug)
             )
         )
-        if existing_cat.scalar():
-            # Use a slightly different name/slug for category
-            cat_name = f"{name} (Crawl)"
-            cat_slug = f"{slug}-crawl"
-        else:
-            cat_name = name
-            cat_slug = slug
+        existing_category = existing_cat_result.scalar()
 
-        # 9. Create Category with URL patterns and expanded search terms
-        category = Category(
-            id=uuid_module.uuid4(),
-            name=cat_name,
-            slug=cat_slug,
-            description=f"Automatisch erstellt: {user_intent}",
-            purpose=purpose,
-            search_terms=expanded_search_terms or ["Event", "Veranstaltung", "Konferenz", "Tagung"],
-            document_types=["html", "pdf"],
-            url_include_patterns=url_include_patterns,
-            url_exclude_patterns=url_exclude_patterns,
-            languages=["de"],
-            ai_extraction_prompt=ai_prompt,
-            extraction_handler=extraction_handler,
-            schedule_cron="0 2 * * *",
-            is_active=True,
-            is_public=True,  # Always visible in frontend
-            created_by_id=current_user_id,
-            owner_id=current_user_id,
-            target_entity_type_id=entity_type.id,
-        )
-        session.add(category)
+        # 8b. Check for semantically similar Categories (AI-based)
+        if not existing_category:
+            similar_categories = await find_similar_categories(session, name, threshold=0.85)
+            if similar_categories:
+                existing_category = similar_categories[0][0]
+                logger.info(
+                    "Found semantically similar Category",
+                    new_name=name,
+                    existing_name=existing_category.name,
+                    similarity=round(similar_categories[0][1], 3),
+                )
+
+        # 9. Use existing Category or create new one
+        if existing_category:
+            # Use existing category instead of creating a new one
+            category = existing_category
+            logger.info(
+                "Using existing Category instead of creating duplicate",
+                category_id=str(category.id),
+                category_name=category.name,
+                requested_name=name,
+            )
+            result["warnings"].append(
+                f"Bestehende Kategorie '{category.name}' wird verwendet statt '{name}' neu zu erstellen"
+            )
+        else:
+            # Create new Category with URL patterns and expanded search terms
+            category = Category(
+                id=uuid_module.uuid4(),
+                name=name,
+                slug=slug,
+                description=f"Automatisch erstellt: {user_intent}",
+                purpose=purpose,
+                search_terms=expanded_search_terms or ["Event", "Veranstaltung", "Konferenz", "Tagung"],
+                document_types=["html", "pdf"],
+                url_include_patterns=url_include_patterns,
+                url_exclude_patterns=url_exclude_patterns,
+                languages=["de"],
+                ai_extraction_prompt=ai_prompt,
+                extraction_handler=extraction_handler,
+                schedule_cron="0 2 * * *",
+                is_active=True,
+                is_public=True,  # Always visible in frontend
+                created_by_id=current_user_id,
+                owner_id=current_user_id,
+                target_entity_type_id=entity_type.id,
+            )
+            session.add(category)
         await session.flush()
 
         logger.info(

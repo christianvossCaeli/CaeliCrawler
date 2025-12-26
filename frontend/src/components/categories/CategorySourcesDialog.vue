@@ -118,10 +118,12 @@ import { useStatusColors } from '@/composables'
 interface Source {
   id: string
   name: string
-  base_url: string
-  status: string
+  base_url?: string
+  status?: string
   source_type?: string
   document_count?: number
+  last_crawled_at?: string
+  is_assigned?: boolean
 }
 
 interface Category {
@@ -164,7 +166,7 @@ const filteredSources = computed(() => {
   return props.sources.filter(
     source =>
       source.name.toLowerCase().includes(query) ||
-      source.base_url.toLowerCase().includes(query)
+      source.base_url?.toLowerCase().includes(query)
   )
 })
 

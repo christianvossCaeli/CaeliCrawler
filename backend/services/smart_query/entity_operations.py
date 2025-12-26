@@ -401,6 +401,8 @@ async def create_facet_from_command(
     if not target_entity:
         return None, f"Entity '{target_name}' nicht gefunden"
 
+    text_repr = facet_data.get("text_representation", "")
+
     # Create facet value
     from app.models.facet_value import FacetValueSourceType
     facet_value = FacetValue(
@@ -408,13 +410,19 @@ async def create_facet_from_command(
         entity_id=target_entity.id,
         facet_type_id=facet_type.id,
         value=facet_data.get("value", {}),
-        text_representation=facet_data.get("text_representation", ""),
+        text_representation=text_repr,
         source_type=FacetValueSourceType.SMART_QUERY,
         confidence_score=SMART_QUERY_CONFIDENCE_SCORE,
         is_active=True,
     )
     session.add(facet_value)
     await session.flush()
+
+    # Generate embedding for semantic similarity search
+    from app.utils.similarity import generate_embedding
+    embedding = await generate_embedding(text_repr)
+    if embedding:
+        facet_value.text_embedding = embedding
 
     return facet_value, f"Facet '{facet_type.name}' für '{target_entity.name}' erstellt"
 

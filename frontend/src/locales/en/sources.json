@@ -94,6 +94,7 @@
       "WEBSITE": "Website",
       "RSS": "RSS Feed",
       "API": "API",
+      "REST_API": "REST API",
       "OPARL_API": "OParl API",
       "CUSTOM_API": "Custom API",
       "SHAREPOINT": "SharePoint",

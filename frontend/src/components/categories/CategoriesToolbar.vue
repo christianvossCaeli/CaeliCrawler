@@ -10,6 +10,7 @@
             clearable
             hide-details
             @update:model-value="updateFilter('search', $event)"
+            @keyup.enter="$emit('search')"
           />
         </v-col>
 
@@ -76,6 +77,7 @@ export interface CategoriesToolbarProps {
 
 export interface CategoriesToolbarEmits {
   (e: 'update:filters', filters: CategoryFilters): void
+  (e: 'search'): void
 }
 
 const props = defineProps<CategoriesToolbarProps>()

@@ -26,6 +26,14 @@
       </v-list-item>
     </v-list>
 
+    <h3 class="text-h6 mb-3">{{ t('help.facetTypeAdmin.filterToolbar.title') }}</h3>
+    <p class="mb-2">{{ t('help.facetTypeAdmin.filterToolbar.description') }}</p>
+    <v-chip-group class="mb-4">
+      <v-chip size="small" variant="outlined" prepend-icon="mdi-magnify">{{ t('help.facetTypeAdmin.filterToolbar.search') }}</v-chip>
+      <v-chip size="small" variant="outlined" prepend-icon="mdi-shape">{{ t('help.facetTypeAdmin.filterToolbar.entityTypeFilter') }}</v-chip>
+      <v-chip size="small" variant="outlined" prepend-icon="mdi-toggle-switch">{{ t('help.facetTypeAdmin.filterToolbar.statusFilter') }}</v-chip>
+    </v-chip-group>
+
     <h3 class="text-h6 mb-3">{{ t('help.facetTypeAdmin.concept.title') }}</h3>
     <p class="mb-3">{{ t('help.facetTypeAdmin.concept.description') }}</p>
     <v-row class="mb-4">
@@ -81,24 +89,20 @@
         <v-expansion-panel-text>
           <v-list density="compact">
             <v-list-item>
-              <v-list-item-title><strong>{{ t('help.facetTypeAdmin.createFacetType.valueType.structured') }}</strong></v-list-item-title>
-              <v-list-item-subtitle>{{ t('help.facetTypeAdmin.createFacetType.valueType.structuredDesc') }}</v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
               <v-list-item-title><strong>{{ t('help.facetTypeAdmin.createFacetType.valueType.text') }}</strong></v-list-item-title>
               <v-list-item-subtitle>{{ t('help.facetTypeAdmin.createFacetType.valueType.textDesc') }}</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
-              <v-list-item-title><strong>{{ t('help.facetTypeAdmin.createFacetType.valueType.number') }}</strong></v-list-item-title>
-              <v-list-item-subtitle>{{ t('help.facetTypeAdmin.createFacetType.valueType.numberDesc') }}</v-list-item-subtitle>
+              <v-list-item-title><strong>{{ t('help.facetTypeAdmin.createFacetType.valueType.structured') }}</strong></v-list-item-title>
+              <v-list-item-subtitle>{{ t('help.facetTypeAdmin.createFacetType.valueType.structuredDesc') }}</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
-              <v-list-item-title><strong>{{ t('help.facetTypeAdmin.createFacetType.valueType.boolean') }}</strong></v-list-item-title>
-              <v-list-item-subtitle>{{ t('help.facetTypeAdmin.createFacetType.valueType.booleanDesc') }}</v-list-item-subtitle>
+              <v-list-item-title><strong>{{ t('help.facetTypeAdmin.createFacetType.valueType.list') }}</strong></v-list-item-title>
+              <v-list-item-subtitle>{{ t('help.facetTypeAdmin.createFacetType.valueType.listDesc') }}</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
-              <v-list-item-title><strong>{{ t('help.facetTypeAdmin.createFacetType.valueType.date') }}</strong></v-list-item-title>
-              <v-list-item-subtitle>{{ t('help.facetTypeAdmin.createFacetType.valueType.dateDesc') }}</v-list-item-subtitle>
+              <v-list-item-title><strong>{{ t('help.facetTypeAdmin.createFacetType.valueType.reference') }}</strong></v-list-item-title>
+              <v-list-item-subtitle>{{ t('help.facetTypeAdmin.createFacetType.valueType.referenceDesc') }}</v-list-item-subtitle>
             </v-list-item>
           </v-list>
         </v-expansion-panel-text>
@@ -126,6 +130,13 @@
 
     <h3 class="text-h6 mb-3">{{ t('help.facetTypeAdmin.schema.title') }}</h3>
     <p class="mb-2">{{ t('help.facetTypeAdmin.schema.description') }}</p>
+    <v-card variant="tonal" color="info" class="mb-4 pa-3">
+      <div class="d-flex align-center mb-2">
+        <v-icon color="info" class="mr-2">mdi-auto-fix</v-icon>
+        <strong>{{ t('help.facetTypeAdmin.schema.aiGenerator') }}</strong>
+      </div>
+      <div class="text-body-2">{{ t('help.facetTypeAdmin.schema.aiGeneratorDesc') }}</div>
+    </v-card>
     <v-card variant="outlined" class="mb-4 pa-3">
       <div class="text-caption mb-1">{{ t('help.facetTypeAdmin.schema.example') }}</div>
       <code class="text-body-2 text-pre-wrap">{{ exampleSchema }}</code>
@@ -133,6 +144,28 @@
     <v-alert type="info" variant="tonal" density="compact" class="mb-4">
       {{ t('help.facetTypeAdmin.schema.tip') }}
     </v-alert>
+
+    <h3 class="text-h6 mb-3">{{ t('help.facetTypeAdmin.advancedSettings.title') }}</h3>
+    <v-table density="compact" class="mb-4">
+      <tbody>
+        <tr>
+          <td><strong>{{ t('help.facetTypeAdmin.advancedSettings.aggregationMethod') }}</strong></td>
+          <td>{{ t('help.facetTypeAdmin.advancedSettings.aggregationMethodDesc') }}</td>
+        </tr>
+        <tr>
+          <td><strong>{{ t('help.facetTypeAdmin.advancedSettings.deduplicationFields') }}</strong></td>
+          <td>{{ t('help.facetTypeAdmin.advancedSettings.deduplicationFieldsDesc') }}</td>
+        </tr>
+        <tr>
+          <td><strong>{{ t('help.facetTypeAdmin.advancedSettings.displayOrder') }}</strong></td>
+          <td>{{ t('help.facetTypeAdmin.advancedSettings.displayOrderDesc') }}</td>
+        </tr>
+        <tr>
+          <td><strong>{{ t('help.facetTypeAdmin.advancedSettings.systemType') }}</strong></td>
+          <td>{{ t('help.facetTypeAdmin.advancedSettings.systemTypeDesc') }}</td>
+        </tr>
+      </tbody>
+    </v-table>
 
     <h3 class="text-h6 mb-3">{{ t('help.facetTypeAdmin.aiExtraction.title') }}</h3>
     <v-table density="compact" class="mb-4">

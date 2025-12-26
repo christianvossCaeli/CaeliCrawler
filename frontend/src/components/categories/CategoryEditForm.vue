@@ -146,8 +146,8 @@ export interface CategoryEditFormProps {
   formData: CategoryFormData
   availableLanguages: Array<{ code: string; name: string; flag: string }>
   dataSourcesState: DataSourcesTabState
-  getStatusColor: (status: string) => string
-  getSourceTypeIcon: (type: string) => string
+  getStatusColor: (status?: string) => string
+  getSourceTypeIcon: (type?: string) => string
 }
 
 export interface CategoryEditFormEmits {

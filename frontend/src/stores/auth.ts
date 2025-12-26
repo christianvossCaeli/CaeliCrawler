@@ -156,9 +156,9 @@ export const useAuthStore = defineStore('auth', () => {
 
       return true
     } catch (err: unknown) {
-      // Refresh token is invalid, log out
+      // Refresh token is invalid - clear local state without API call
       logger.warn('Token refresh failed', err)
-      await logout()
+      clearLocalAuth()
       return false
     } finally {
       isRefreshing.value = false
@@ -171,29 +171,34 @@ export const useAuthStore = defineStore('auth', () => {
     return Date.now() > (tokenExpiry.value - 30000)
   }
 
+  /**
+   * Clear local auth state without API call
+   * Used when we know the session is already invalid (e.g., 401 from /auth/me)
+   */
+  function clearLocalAuth(): void {
+    token.value = null
+    refreshToken.value = null
+    tokenExpiry.value = null
+    user.value = null
+    error.value = null
+
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(REFRESH_TOKEN_KEY)
+    localStorage.removeItem(TOKEN_EXPIRY_KEY)
+
+    setAuthHeader(null)
+  }
+
   async function logout(): Promise<void> {
     try {
-      // Optionally notify server
+      // Optionally notify server (only if we have a token)
       if (token.value) {
         await api.post('/auth/logout').catch(() => {
           // Ignore logout errors
         })
       }
     } finally {
-      // Clear state
-      token.value = null
-      refreshToken.value = null
-      tokenExpiry.value = null
-      user.value = null
-      error.value = null
-
-      // Clear storage
-      localStorage.removeItem(TOKEN_KEY)
-      localStorage.removeItem(REFRESH_TOKEN_KEY)
-      localStorage.removeItem(TOKEN_EXPIRY_KEY)
-
-      // Clear auth header
-      setAuthHeader(null)
+      clearLocalAuth()
     }
   }
 
@@ -214,8 +219,9 @@ export const useAuthStore = defineStore('auth', () => {
       initialized.value = true
       return true
     } catch (err) {
-      // Token is invalid or expired
-      await logout()
+      // Token is invalid or expired - clear local state without API call
+      // (no need to call /auth/logout since the server already rejected us)
+      clearLocalAuth()
       initialized.value = true
       return false
     } finally {

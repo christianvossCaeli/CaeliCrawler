@@ -114,8 +114,7 @@ export const importApiData = (data: {
   skip_duplicates?: boolean
 }) => api.post('/admin/ai-discovery/import-api-data', data)
 
-// API Configurations (formerly API Templates)
-// Save discovered API as a new configuration
+// Save discovered API as a new configuration (used by AI-Discovery)
 export const saveApiFromDiscovery = (data: {
   name: string
   description?: string
@@ -130,67 +129,6 @@ export const saveApiFromDiscovery = (data: {
   confidence?: number
   validation_item_count?: number
 }) => api.post('/admin/external-apis/save-from-discovery', data)
-
-// External APIs
-export const listExternalApis = (params?: { is_active?: boolean; api_type?: string }) =>
-  api.get('/admin/external-apis', { params })
-export const getExternalApi = (id: string) => api.get(`/admin/external-apis/${id}`)
-export const createExternalApi = (data: {
-  name: string
-  description?: string
-  api_type: string
-  api_base_url: string
-  api_endpoint?: string
-  auth_type?: string
-  auth_config?: Record<string, unknown>
-  sync_interval_hours?: number
-  sync_enabled?: boolean
-  entity_type_slug?: string
-  id_field?: string
-  name_field?: string
-  field_mappings?: Record<string, unknown>
-  location_fields?: Record<string, string>
-  request_config?: Record<string, unknown>
-  mark_missing_inactive?: boolean
-  inactive_after_days?: number
-  ai_linking_enabled?: boolean
-  link_to_entity_types?: string[]
-  data_source_id?: string
-}) => api.post('/admin/external-apis', data)
-export const updateExternalApi = (id: string, data: Partial<{
-  name: string
-  description: string
-  api_base_url: string
-  api_endpoint: string
-  auth_type: string
-  auth_config: Record<string, unknown>
-  sync_interval_hours: number
-  sync_enabled: boolean
-  is_active: boolean
-  entity_type_slug: string
-  id_field: string
-  name_field: string
-  field_mappings: Record<string, unknown>
-  location_fields: Record<string, string>
-  request_config: Record<string, unknown>
-  mark_missing_inactive: boolean
-  inactive_after_days: number
-  ai_linking_enabled: boolean
-  link_to_entity_types: string[]
-  data_source_id: string
-}>) => api.patch(`/admin/external-apis/${id}`, data)
-export const deleteExternalApi = (id: string) => api.delete(`/admin/external-apis/${id}`)
-export const triggerExternalApiSync = (id: string, options?: { full_sync?: boolean }) =>
-  api.post(`/admin/external-apis/${id}/sync`, options)
-export const testExternalApiConnection = (id: string) => api.post(`/admin/external-apis/${id}/test`)
-export const getExternalApiStats = (id: string) => api.get(`/admin/external-apis/${id}/stats`)
-export const listExternalApiRecords = (configId: string, params?: { status?: string; page?: number; page_size?: number }) =>
-  api.get(`/admin/external-apis/${configId}/records`, { params })
-export const getExternalApiRecord = (configId: string, recordId: string) =>
-  api.get(`/admin/external-apis/${configId}/records/${recordId}`)
-export const deleteExternalApiRecord = (configId: string, recordId: string) =>
-  api.delete(`/admin/external-apis/${configId}/records/${recordId}`)
-export const getAvailableApiTypes = () => api.get('/admin/external-apis/types/available')
 
 // Extracted Data & Documents (Public API)
 export const getExtractedData = (params?: {

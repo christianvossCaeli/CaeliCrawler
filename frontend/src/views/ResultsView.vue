@@ -96,6 +96,7 @@
               hide-details
               :placeholder="$t('results.filters.fulltextPlaceholder')"
               @update:model-value="debouncedLoadData"
+              @keyup.enter="loadData"
             />
           </v-col>
           <v-col cols="6" md="2">
@@ -230,7 +231,7 @@
 
         <template #item.confidence_score="{ item }">
           <v-chip :color="getConfidenceColor(item.raw?.confidence_score ?? item.confidence_score)" size="small">
-            {{ (item.raw?.confidence_score ?? item.confidence_score) ? ((item.raw?.confidence_score ?? item.confidence_score) * 100).toFixed(0) + '%' : '-' }}
+            {{ (item.raw?.confidence_score ?? item.confidence_score) != null ? (((item.raw?.confidence_score ?? item.confidence_score) as number) * 100).toFixed(0) + '%' : '-' }}
           </v-chip>
         </template>
 
@@ -307,7 +308,7 @@
                     <v-icon start size="x-small">{{ getEntityTypeIcon(entityRef.entity_type) }}</v-icon>
                     {{ entityRef.entity_name }}
                     <v-tooltip v-if="entityRef.role !== 'secondary'" activator="parent" location="top">
-                      {{ entityRef.role }} ({{ Math.round(entityRef.confidence * 100) }}%)
+                      {{ entityRef.role }} ({{ Math.round((entityRef.confidence ?? 0) * 100) }}%)
                     </v-tooltip>
                   </v-chip>
                 </div>
@@ -336,7 +337,7 @@
 
             <!-- Pain Points -->
             <v-card v-if="getContent(selectedResult).pain_points?.length" variant="outlined" class="mb-4" color="error">
-              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-alert-circle</v-icon>{{ $t('results.detail.painPoints') }} ({{ getContent(selectedResult).pain_points.length }})</v-card-title>
+              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-alert-circle</v-icon>{{ $t('results.detail.painPoints') }} ({{ getContent(selectedResult).pain_points?.length ?? 0 }})</v-card-title>
               <v-card-text>
                 <div class="d-flex flex-column ga-3">
                   <v-card
@@ -390,7 +391,7 @@
 
             <!-- Positive Signals -->
             <v-card v-if="getContent(selectedResult).positive_signals?.length" variant="outlined" class="mb-4" color="success">
-              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-lightbulb-on</v-icon>{{ $t('results.detail.positiveSignals') }} ({{ getContent(selectedResult).positive_signals.length }})</v-card-title>
+              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-lightbulb-on</v-icon>{{ $t('results.detail.positiveSignals') }} ({{ getContent(selectedResult).positive_signals?.length ?? 0 }})</v-card-title>
               <v-card-text>
                 <div class="d-flex flex-column ga-3">
                   <v-card
@@ -440,7 +441,7 @@
 
             <!-- Decision Makers -->
             <v-card v-if="getContent(selectedResult).decision_makers?.length" variant="outlined" class="mb-4" color="info">
-              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-account-group</v-icon>{{ $t('results.detail.decisionMakers') }} ({{ getContent(selectedResult).decision_makers.length }})</v-card-title>
+              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-account-group</v-icon>{{ $t('results.detail.decisionMakers') }} ({{ getContent(selectedResult).decision_makers?.length ?? 0 }})</v-card-title>
               <v-card-text>
                 <div class="d-flex flex-column ga-3">
                   <v-card
@@ -507,14 +508,14 @@
             <v-card v-if="getContent(selectedResult).outreach_recommendation" variant="outlined" class="mb-4" color="info">
               <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-bullhorn</v-icon>{{ $t('results.detail.outreachRecommendation') }}</v-card-title>
               <v-card-text>
-                <div v-if="getContent(selectedResult).outreach_recommendation.priority">
+                <div v-if="getContent(selectedResult).outreach_recommendation?.priority">
                   <strong>{{ $t('results.detail.priority') }}:</strong>
-                  <v-chip :color="getPriorityColor(getContent(selectedResult).outreach_recommendation.priority)" size="small" class="ml-2">
-                    {{ getContent(selectedResult).outreach_recommendation.priority }}
+                  <v-chip :color="getPriorityColor(getContent(selectedResult).outreach_recommendation?.priority ?? '')" size="small" class="ml-2">
+                    {{ getContent(selectedResult).outreach_recommendation?.priority }}
                   </v-chip>
                 </div>
-                <div v-if="getContent(selectedResult).outreach_recommendation.reason" class="mt-2">
-                  <strong>{{ $t('results.detail.reason') }}:</strong> {{ getContent(selectedResult).outreach_recommendation.reason }}
+                <div v-if="getContent(selectedResult).outreach_recommendation?.reason" class="mt-2">
+                  <strong>{{ $t('results.detail.reason') }}:</strong> {{ getContent(selectedResult).outreach_recommendation?.reason }}
                 </div>
               </v-card-text>
             </v-card>
@@ -576,6 +577,59 @@ interface EntityReference {
   entity_name: string
   entity_type: string
   relevance_score?: number
+  role?: string
+  confidence?: number
+}
+
+// Pain point / positive signal item
+interface SignalItem {
+  description?: string
+  text?: string
+  concern?: string
+  type?: string
+  severity?: string
+  quote?: string
+  source?: string
+  source_url?: string
+  opportunity?: string
+}
+
+// Decision maker item
+interface DecisionMaker {
+  name?: string
+  person?: string
+  role?: string
+  position?: string
+  department?: string
+  contact?: string
+  email?: string
+  phone?: string
+  telefon?: string
+  sentiment?: string
+  statement?: string
+  quote?: string
+  source?: string
+  source_url?: string
+  influence_level?: string
+}
+
+// Outreach recommendation
+interface OutreachRecommendation {
+  priority?: string
+  reason?: string
+}
+
+// Content structure from extraction
+interface ExtractedContent {
+  is_relevant?: boolean
+  relevanz?: string
+  summary?: string
+  municipality?: string
+  pain_points?: (string | SignalItem)[]
+  positive_signals?: (string | SignalItem)[]
+  decision_makers?: DecisionMaker[]
+  outreach_recommendation?: OutreachRecommendation
+  [key: string]: unknown
 }
 
 interface SearchResult {
@@ -592,6 +646,13 @@ interface SearchResult {
   verified_at?: string
   created_at: string
   updated_at?: string
+  // Additional properties used in template
+  source_name?: string
+  final_content?: ExtractedContent
+  extracted_content?: ExtractedContent
+  raw?: SearchResult
+  ai_model_used?: string
+  tokens_used?: number
 }
 
 interface TableHeader {
@@ -599,7 +660,7 @@ interface TableHeader {
   key: string
   sortable?: boolean
   align?: 'start' | 'center' | 'end'
-  width?: string | number
+  width?: string
 }
 
 interface TableOptions {
@@ -724,14 +785,15 @@ const hasActiveFilters = computed(() =>
 )
 
 // Helpers
-const getConfidenceColor = (score: number | null) => {
+const getConfidenceColor = (score?: number | null) => {
   if (!score) return 'grey'
   if (score >= 0.8) return 'success'
   if (score >= 0.6) return 'warning'
   return 'error'
 }
 
-const getSeverityColor = (severity: string) => {
+const getSeverityColor = (severity?: string) => {
+  if (!severity) return 'grey'
   const colors: Record<string, string> = { hoch: 'error', mittel: 'warning', niedrig: 'info', high: 'error', medium: 'warning', low: 'info' }
   return colors[severity.toLowerCase()] || 'grey'
 }
@@ -753,7 +815,8 @@ const getSentimentColor = (sentiment: string) => {
   return 'grey'
 }
 
-const copyToClipboard = (text: string) => {
+const copyToClipboard = (text?: string) => {
+  if (!text) return
   navigator.clipboard.writeText(text)
   showSuccess(t('results.messages.copiedToClipboard'))
 }
@@ -799,7 +862,7 @@ const getEntityTypeIcon = (entityType: string): string => {
   return icons[entityType] || 'mdi-tag'
 }
 
-const getContent = (item: SearchResult) => {
+const getContent = (item: SearchResult): ExtractedContent => {
   return item.final_content || item.extracted_content || {}
 }
 

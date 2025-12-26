@@ -253,15 +253,25 @@ class ChangeTracker:
             # Undo delete = recreate the facet
             from app.models import FacetType
 
+            text_repr = diff.get("text_representation", "")
+
             facet = FacetValue(
                 id=facet_id,
                 entity_id=UUID(diff["entity_id"]),
                 facet_type_id=UUID(diff["facet_type_id"]),
                 value=diff.get("value", {}),
-                text_representation=diff.get("text_representation", ""),
+                text_representation=text_repr,
                 is_active=True,
             )
             self.session.add(facet)
+            await self.session.flush()
+
+            # Regenerate embedding for restored facet
+            from app.utils.similarity import generate_embedding
+            embedding = await generate_embedding(text_repr)
+            if embedding:
+                facet.text_embedding = embedding
+
             await self.session.delete(version)
             await self.session.flush()
 
@@ -279,6 +289,13 @@ class ChangeTracker:
                 if isinstance(change, dict) and "old" in change:
                     setattr(facet, field, change["old"])
                     restored[field] = change["old"]
+
+            # If text_representation was restored, regenerate embedding
+            if "text_representation" in restored:
+                from app.utils.similarity import generate_embedding
+                embedding = await generate_embedding(restored["text_representation"])
+                if embedding:
+                    facet.text_embedding = embedding
 
             await self.session.delete(version)
             await self.session.flush()

@@ -476,7 +476,10 @@ function closeCheckUpdatesDialog() {
 function getWidgetData(widgetId: string): Record<string, unknown>[] {
   const widgetKey = `widget_${widgetId}`
   const cachedData = lastExecution.value?.cached_data?.[widgetKey]
-  return cachedData?.data || []
+  if (cachedData && typeof cachedData === 'object' && 'data' in cachedData && Array.isArray(cachedData.data)) {
+    return cachedData.data as Record<string, unknown>[]
+  }
+  return []
 }
 
 function getWidgetStyle(widget: SummaryWidget): Record<string, string> {

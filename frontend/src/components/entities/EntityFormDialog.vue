@@ -113,10 +113,10 @@
                 {{ t('entities.attributesInfo') }}
               </v-alert>
 
-              <template v-if="currentEntityType?.attribute_schema?.properties">
+              <template v-if="Object.keys(attributeSchemaProperties).length > 0">
                 <v-row>
                   <v-col
-                    v-for="(prop, key) in currentEntityType.attribute_schema.properties"
+                    v-for="(prop, key) in attributeSchemaProperties"
                     :key="key"
                     cols="12"
                     :md="prop.type === 'boolean' ? 6 : 12"
@@ -124,7 +124,7 @@
                     <v-text-field
                       v-if="prop.type === 'string'"
                       :model-value="entityForm.core_attributes[String(key)]"
-                      :label="prop.title || key"
+                      :label="prop.title || String(key)"
                       :hint="prop.description"
                       persistent-hint
                       variant="outlined"
@@ -132,8 +132,8 @@
                     ></v-text-field>
                     <v-number-input
                       v-else-if="prop.type === 'integer' || prop.type === 'number'"
-                      :model-value="entityForm.core_attributes[String(key)]"
-                      :label="prop.title || key"
+                      :model-value="entityForm.core_attributes[String(key)] as number | null | undefined"
+                      :label="prop.title || String(key)"
                       :hint="prop.description"
                       persistent-hint
                       variant="outlined"
@@ -143,7 +143,7 @@
                     <v-card v-else-if="prop.type === 'boolean'" variant="outlined" class="pa-3">
                       <div class="d-flex align-center justify-space-between">
                         <div>
-                          <div class="text-body-2 font-weight-medium">{{ prop.title || key }}</div>
+                          <div class="text-body-2 font-weight-medium">{{ prop.title || String(key) }}</div>
                           <div v-if="prop.description" class="text-caption text-medium-emphasis">
                             {{ prop.description }}
                           </div>
@@ -313,6 +313,14 @@ interface VFormRef {
   resetValidation: () => void
 }
 
+// Helper interface for attribute schema properties with proper typing
+interface AttributeSchemaProperty {
+  type?: string
+  title?: string
+  description?: string
+  [key: string]: unknown
+}
+
 interface Props {
   modelValue: boolean
   entityForm: EntityForm
@@ -341,6 +349,15 @@ const emit = defineEmits<Emits>()
 const { t } = useI18n()
 
 const formRef = ref<VFormRef | null>(null)
+
+// Computed property to safely get typed attribute schema properties
+const attributeSchemaProperties = computed(() => {
+  const schema = props.currentEntityType?.attribute_schema
+  if (!schema || !('properties' in schema) || !schema.properties) {
+    return {} as Record<string, AttributeSchemaProperty>
+  }
+  return schema.properties as Record<string, AttributeSchemaProperty>
+})
 
 const localEntityTab = computed({
   get: () => props.entityTab,

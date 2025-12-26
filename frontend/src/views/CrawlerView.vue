@@ -129,14 +129,14 @@
             <template #append>
               <div class="d-flex align-center">
                 <v-progress-linear
-                  :model-value="task.progress_percent"
+                  :model-value="task.progress_percent ?? 0"
                   height="8"
                   rounded
                   color="info"
                   style="width: 100px"
                   class="mr-2"
                 ></v-progress-linear>
-                <span class="text-caption mr-2">{{ Math.round(task.progress_percent) }}%</span>
+                <span class="text-caption mr-2">{{ Math.round(task.progress_percent ?? 0) }}%</span>
                 <v-btn
                   icon="mdi-stop"
                   size="small"
@@ -188,7 +188,7 @@
                   <v-chip size="x-small" color="success" class="mr-1">
                     {{ rj.documents_found }} {{ $t('crawler.docs') }}
                   </v-chip>
-                  <v-chip v-if="rj.error_count > 0" size="x-small" color="warning">
+                  <v-chip v-if="(rj.error_count ?? 0) > 0" size="x-small" color="warning">
                     {{ rj.error_count }} {{ $t('crawler.errors') }}
                   </v-chip>
                 </div>
@@ -271,7 +271,7 @@
         </template>
 
         <template #item.scheduled_at="{ item }">
-          {{ formatDate(item.scheduled_at) }}
+          {{ item.scheduled_at ? formatDate(item.scheduled_at) : '-' }}
         </template>
 
         <template #item.duration="{ item }">
@@ -280,9 +280,9 @@
 
         <template #item.progress="{ item }">
           <div class="d-flex align-center">
-            <span class="mr-2">{{ item.documents_processed }}/{{ item.documents_found }}</span>
+            <span class="mr-2">{{ item.documents_processed ?? 0 }}/{{ item.documents_found ?? 0 }}</span>
             <v-progress-linear
-              :model-value="item.documents_found > 0 ? (item.documents_processed / item.documents_found) * 100 : 0"
+              :model-value="(item.documents_found ?? 0) > 0 ? ((item.documents_processed ?? 0) / (item.documents_found ?? 1)) * 100 : 0"
               height="8"
               rounded
               color="primary"
@@ -397,7 +397,7 @@
               variant="tonal"
               class="mt-2"
             >
-              {{ error.error }}
+              {{ typeof error === 'string' ? error : error.error }}
             </v-alert>
           </div>
         </v-card-text>
@@ -438,6 +438,12 @@ interface JobLog {
   log_entries: LogEntry[]
 }
 
+interface CrawlerJobError {
+  error: string
+  timestamp?: string
+  url?: string
+}
+
 interface CrawlerJob {
   id: string
   source_name?: string
@@ -448,15 +454,27 @@ interface CrawlerJob {
   completed_at?: string
   pages_crawled?: number
   documents_found?: number
+  documents_processed?: number
+  documents_new?: number
   duration?: number
+  duration_seconds?: number
+  error_log?: CrawlerJobError[] | string[]
+  current_url?: string
+  base_url?: string
+  error_count?: number
 }
 
 interface AiTask {
   id: string
   task_type?: string
+  name?: string
   status: string
   started_at?: string
   progress?: number
+  current_item?: string
+  progress_current?: number
+  progress_total?: number
+  progress_percent?: number
 }
 
 const { t } = useI18n()

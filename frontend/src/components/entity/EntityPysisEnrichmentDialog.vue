@@ -104,6 +104,7 @@ import { useI18n } from 'vue-i18n'
 import { pysisApi, aiTasksApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useLogger } from '@/composables/useLogger'
+import { getErrorMessage } from '@/composables/useApiErrorHandler'
 
 const props = withDefaults(defineProps<Props>(), {
   overwrite: false,

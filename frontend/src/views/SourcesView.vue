@@ -104,6 +104,7 @@
                   clearable
                   hide-details
                   @update:model-value="debouncedSearch"
+                  @keyup.enter="store.fetchSources(1)"
                 ></v-text-field>
               </v-col>
             </v-row>

@@ -94,7 +94,7 @@
       :searching="searching"
       :search-query="sourceSearchQuery"
       :linking="linking"
-      @update:selected-source="$emit('update:selected-source', $event)"
+      @update:selected-source="handleSelectedSourceUpdate"
       @search="$emit('search-sources', $event)"
       @link="$emit('link-source')"
       @create-new="$emit('create-new-source')"
@@ -103,7 +103,7 @@
     <!-- Source Details Dialog -->
     <SourceDetailsDialog
       v-model="internalSourceDetailsDialog"
-      :source-facet="sourceFacet"
+      :source-facet="adaptedSourceFacet"
     />
 
     <!-- Notes Dialog -->
@@ -130,26 +130,31 @@
     />
 
     <!-- Edit Facet Dialog -->
-    <v-dialog v-model="internalEditFacetDialog" max-width="800">
-      <v-card>
-        <v-card-title>
+    <v-dialog v-model="internalEditFacetDialog" max-width="800" scrollable>
+      <v-card min-height="400">
+        <v-card-title class="d-flex align-center">
           <v-icon start>mdi-pencil</v-icon>
           {{ t('entityDetail.dialog.editFacet') }}
+          <span v-if="editingFacet?.facet_type_name" class="text-body-2 text-medium-emphasis ml-2">
+            ({{ editingFacet.facet_type_name }})
+          </span>
         </v-card-title>
         <v-card-text v-if="editingFacet">
           <DynamicSchemaForm
-            v-if="editingFacetSchema"
+            v-if="adaptedSchema"
             :model-value="editingFacetValue"
-            :schema="editingFacetSchema"
+            :schema="adaptedSchema"
             @update:model-value="$emit('update:editing-facet-value', $event)"
           />
           <v-textarea
             v-else
             :model-value="editingFacetTextValue"
-            :label="t('entities.facet.value')"
-            rows="3"
+            :label="t('entityDetail.dialog.facetValue')"
+            rows="8"
             variant="outlined"
-            class="mt-2"
+            auto-grow
+            :hint="t('entityDetail.dialog.facetValueHint')"
+            persistent-hint
             @update:model-value="$emit('update:editing-facet-text-value', $event)"
           ></v-textarea>
         </v-card-text>
@@ -171,37 +176,33 @@ import { useI18n } from 'vue-i18n'
 import type {
   FacetType,
   FacetValue,
+  FacetGroup,
   FacetTypeValueSchema,
   RelationType,
   Relation,
   EntityBrief,
+  EntityNote,
 } from '@/types/entity'
-import type { DataSourceResponse } from '@/types/sources'
 
-// Local interfaces for props without global type definitions
-interface FacetGroup {
-  facet_type_id: string
-  facet_type_slug: string
-  facet_type_name: string
-  value_type: string
-  icon?: string
-  color?: string
-  values: FacetValue[]
-}
-
-interface EntityNote {
+// Simplified DataSource type for props (matches useEntityDataSources composable)
+interface DataSourceLocal {
   id: string
-  content: string
-  created_at: string
-  updated_at: string
-  created_by?: string
+  name: string
+  base_url: string
+  status: string
+  source_type?: string
+  is_direct_link?: boolean
+  document_count?: number
+  last_crawl?: string | null
+  hasRunningJob?: boolean
+  extra_data?: Record<string, unknown>
 }
 
 interface ExportOptions {
-  includeFacets: boolean
-  includeRelations: boolean
-  includeHistory: boolean
-  format: string
+  facets: boolean
+  relations: boolean
+  dataSources: boolean
+  notes: boolean
 }
 
 import AddFacetDialog from './AddFacetDialog.vue'
@@ -266,8 +267,8 @@ const props = defineProps<{
 
   // Link Data Source Dialog
   linkDataSourceDialog: boolean
-  selectedSource: DataSourceResponse | null
-  availableSources: DataSourceResponse[]
+  selectedSource: DataSourceLocal | null
+  availableSources: DataSourceLocal[]
   searching: boolean
   sourceSearchQuery: string
   linking: boolean
@@ -326,7 +327,7 @@ const emit = defineEmits<{
   'update:export-options': [value: ExportOptions]
   'export': []
   'update:link-data-source-dialog': [value: boolean]
-  'update:selected-source': [value: DataSourceResponse | null]
+  'update:selected-source': [value: DataSourceLocal | null]
   'search-sources': [query: string]
   'link-source': []
   'create-new-source': []
@@ -404,5 +405,75 @@ const internalEditFacetDialog = computed({
 const relationDeleteSubtitle = computed(() => {
   if (!props.relationToDelete) return undefined
   return `${props.relationToDelete.relation_type_name}: ${props.relationToDelete.target_entity_name || props.relationToDelete.source_entity_name}`
+})
+
+// Type-safe handler for selected source update
+interface LinkDataSource {
+  id: string
+  name: string
+  base_url?: string | null
+  source_type?: string
+  status?: string
+}
+function handleSelectedSourceUpdate(source: LinkDataSource | null) {
+  emit('update:selected-source', source as DataSourceLocal | null)
+}
+
+// Adapted sourceFacet for SourceDetailsDialog
+interface SourceFacet {
+  source_type?: string
+  source_url?: string | null
+  document_title?: string | null
+  document_url?: string | null
+  verified_by?: string | null
+  ai_model_used?: string | null
+  confidence_score?: number | null
+  created_at?: string | null
+  verified_at?: string | null
+  human_verified?: boolean
+  value?: Record<string, unknown> | null
+}
+const adaptedSourceFacet = computed<SourceFacet | null>(() => {
+  const facet = props.sourceFacet
+  if (!facet) return null
+  return {
+    source_type: facet.source_type,
+    source_url: facet.source_url,
+    document_title: facet.document_title,
+    document_url: facet.document_url,
+    verified_by: facet.verified_by,
+    ai_model_used: facet.ai_model_used,
+    confidence_score: facet.confidence_score,
+    created_at: facet.created_at,
+    verified_at: facet.verified_at,
+    human_verified: facet.human_verified,
+    value: typeof facet.value === 'object' ? facet.value as Record<string, unknown> : null
+  }
+})
+
+// Adapted schema for DynamicSchemaForm
+interface JsonSchema {
+  type?: string
+  properties?: Record<string, SchemaProperty>
+  required?: string[]
+}
+interface SchemaProperty {
+  type: string
+  title?: string
+  description?: string
+  enum?: string[]
+  format?: string
+  items?: { type: string; enum?: string[] }
+  minimum?: number
+  maximum?: number
+}
+const adaptedSchema = computed<JsonSchema | null>(() => {
+  const schema = props.editingFacetSchema
+  if (!schema) return null
+  return {
+    type: schema.type,
+    properties: schema.properties as Record<string, SchemaProperty> | undefined,
+    required: Array.isArray(schema.required) ? schema.required as string[] : undefined
+  }
 })
 </script>

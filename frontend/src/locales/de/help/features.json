@@ -434,11 +434,19 @@
       },
       "availableFilters": "Verfügbare Filter",
       "filters": [
-        "Land",
+        "Volltextsuche",
         "Gemeinde/Ort (Autocomplete)",
+        "Analysetyp",
         "Kategorie",
-        "Min. Konfidenz (Slider)"
+        "Min. Konfidenz (Slider)",
+        "Datumsbereich (Von/Bis)"
       ],
+      "headerActions": {
+        "title": "Header-Aktionen",
+        "bulkVerify": "Massen-Verifizierung ausgewaehlter Ergebnisse",
+        "csvExport": "CSV-Export der aktuellen Ergebnisliste",
+        "refresh": "Daten neu laden"
+      },
       "whatIsExtracted": "Was wird extrahiert?",
       "extracted": {
         "topicSummary": "Thema & Zusammenfassung",
@@ -462,6 +470,8 @@
         ],
         "infoCards": "Info-Karten",
         "sections": {
+          "entityReferences": "Entity-Referenzen",
+          "entityReferencesDesc": "Verknuepfte Entities (Gemeinden, Personen, Events) mit Klick zur Detail-Ansicht",
           "summary": "Zusammenfassung",
           "summaryDesc": "KI-generierte Zusammenfassung des Inhalts",
           "painPoints": "Pain Points",
@@ -470,8 +480,12 @@
           "positiveSignalsDesc": "Expandierbare Liste mit Chancen und positiven Entwicklungen",
           "decisionMakers": "Entscheider",
           "decisionMakersDesc": "Identifizierte Entscheidungsträger mit Name und Rolle",
+          "outreachRecommendation": "Outreach-Empfehlung",
+          "outreachRecommendationDesc": "Priorisierung und Begruendung fuer Vertriebskontakt",
           "rawJson": "Raw JSON",
-          "rawJsonDesc": "Vollständige KI-Antwort im JSON-Format zur Analyse"
+          "rawJsonDesc": "Vollstaendige KI-Antwort im JSON-Format zur Analyse",
+          "aiMetadata": "KI-Metadaten",
+          "aiMetadataDesc": "Extraktionstyp, verwendetes Modell, Erstellungsdatum, Token-Verbrauch"
         },
         "tip": "Tipp: Nutzen Sie \"Dokument öffnen\" um das Original anzuzeigen."
       },
@@ -573,14 +587,16 @@
         }
       },
       "changesFeed": {
-        "title": "Änderungs-Feed",
-        "description": "Zeigt die letzten Änderungen im System:",
-        "new": "NEW",
-        "newDesc": "Neue Extraktion hinzugefügt",
-        "updated": "UPDATED",
-        "updatedDesc": "Bestehende Extraktion aktualisiert",
-        "verified": "VERIFIED",
-        "verifiedDesc": "Manuell verifiziert"
+        "title": "Aenderungs-Feed",
+        "description": "Zeigt die letzten Aenderungen an Dokumenten im System:",
+        "newDocument": "NEW_DOCUMENT",
+        "newDocumentDesc": "Neues Dokument gefunden",
+        "contentChanged": "CONTENT_CHANGED",
+        "contentChangedDesc": "Dokumentinhalt hat sich geaendert",
+        "removed": "REMOVED",
+        "removedDesc": "Dokument wurde entfernt",
+        "metadataChanged": "METADATA_CHANGED",
+        "metadataChangedDesc": "Metadaten wurden aktualisiert"
       },
       "apiEndpoints": {
         "title": "API-Endpunkte",
@@ -799,7 +815,15 @@
         "readMode": "Lese-Modus (Standard)",
         "readModeDesc": "Nur Abfragen und Navigation - keine Aenderungen am System",
         "writeMode": "Schreib-Modus",
-        "writeModeDesc": "Erlaubt Inline-Bearbeitungen mit Vorschau und Bestaetigung"
+        "writeModeDesc": "Erlaubt Inline-Bearbeitungen mit Vorschau und Bestaetigung",
+        "planMode": "Plan-Modus",
+        "planModeDesc": "KI-gestuetzte Analyse und Strategievorschlaege fuer komplexe Aufgaben"
+      },
+      "quickActions": {
+        "title": "Quick Actions",
+        "description": "Schnellzugriff auf haeufig verwendete Funktionen direkt im Chat-Fenster:",
+        "expand": "Klicken Sie auf 'Quick Actions' um die verfuegbaren Aktionen anzuzeigen",
+        "contextual": "Die angezeigten Aktionen passen sich dem aktuellen Kontext an"
       },
       "slashCommands": {
         "title": "Verfuegbare Slash-Kommandos",
@@ -1070,16 +1094,14 @@
         },
         "valueType": {
           "title": "Werte-Typ",
-          "structured": "Strukturiert",
-          "structuredDesc": "Komplexe Daten mit Schema (Standard)",
           "text": "Text",
-          "textDesc": "Einfacher Freitext",
-          "number": "Zahl",
-          "numberDesc": "Numerischer Wert",
-          "boolean": "Boolean",
-          "booleanDesc": "Ja/Nein Wert",
-          "date": "Datum",
-          "dateDesc": "Datumswert"
+          "textDesc": "Einfacher Freitext ohne Schema",
+          "structured": "Strukturiert",
+          "structuredDesc": "Komplexe Daten mit JSON-Schema Definition",
+          "list": "Liste",
+          "listDesc": "Mehrere Werte als Liste speichern",
+          "reference": "Referenz",
+          "referenceDesc": "Verweis auf andere Entities"
         },
         "entityTypeAssignment": {
           "title": "Entity-Typ Zuordnung",
@@ -1090,12 +1112,43 @@
           "specificTypesDesc": "Waehlen Sie einen oder mehrere Entity-Typen aus"
         }
       },
+      "filterToolbar": {
+        "title": "Filter und Suche",
+        "description": "Die Facet-Typ Liste bietet Filter- und Suchfunktionen:",
+        "search": "Suchfeld",
+        "searchDesc": "Facet-Typen nach Namen durchsuchen",
+        "entityTypeFilter": "Entity-Typ Filter",
+        "entityTypeFilterDesc": "Nur Facet-Typen fuer bestimmte Entity-Typen anzeigen",
+        "statusFilter": "Status Filter",
+        "statusFilterDesc": "Nach aktivem/inaktivem Status filtern"
+      },
       "schema": {
         "title": "Schema-Definition",
         "description": "Fuer strukturierte Facet-Typen koennen Sie ein JSON-Schema definieren:",
         "example": "Beispiel fuer Pain Point:",
         "exampleSchema": "type: object mit properties: severity (string, enum: low/medium/high), category (string), details (string)",
-        "tip": "Tipp: Die KI verwendet das Schema, um strukturierte Daten zu extrahieren."
+        "tip": "Tipp: Die KI verwendet das Schema, um strukturierte Daten zu extrahieren.",
+        "aiGenerator": "KI Schema-Generator",
+        "aiGeneratorDesc": "Generiert automatisch ein passendes JSON-Schema basierend auf dem Facet-Namen und der Beschreibung",
+        "aiGeneratorButton": "Schema generieren"
+      },
+      "advancedSettings": {
+        "title": "Erweiterte Einstellungen",
+        "aggregationMethod": "Aggregations-Methode",
+        "aggregationMethodDesc": "Wie mehrere Werte zusammengefasst werden:",
+        "aggregationOptions": {
+          "count": "Anzahl - Zaehlt die Werte",
+          "sum": "Summe - Addiert numerische Werte",
+          "avg": "Durchschnitt - Berechnet Mittelwert",
+          "list": "Liste - Alle Werte sammeln",
+          "dedupe": "Deduplizieren - Doppelte entfernen (Standard)"
+        },
+        "deduplicationFields": "Deduplizierungs-Felder",
+        "deduplicationFieldsDesc": "JSON-Pfade, die fuer die Deduplizierung verglichen werden",
+        "displayOrder": "Anzeigereihenfolge",
+        "displayOrderDesc": "Position in der Facet-Liste (niedrigere Zahlen erscheinen zuerst)",
+        "systemType": "System-Typ",
+        "systemTypeDesc": "System-Facet-Typen sind geschuetzt und koennen nicht geloescht werden"
       },
       "aiExtraction": {
         "title": "KI-Extraktion konfigurieren",
@@ -1706,64 +1759,6 @@
       "testing": {
         "title": "Template-Validierung",
         "description": "Testen Sie Templates, um sicherzustellen, dass die API erreichbar ist und die erwarteten Daten liefert."
-      }
-    },
-    "externalApis": {
-      "title": "Externe APIs",
-      "description": "Integrieren Sie externe Datenquellen ueber das pluggable API-System.",
-      "concept": {
-        "title": "Konzept",
-        "description": "Das External-API-System ermoeglicht die bidirektionale Synchronisation von Daten zwischen CaeliCrawler und externen Diensten."
-      },
-      "features": {
-        "title": "Funktionen",
-        "syncRecords": {
-          "title": "Sync-Records",
-          "rawData": "Speicherung der Rohdaten aus der API",
-          "timestamps": "Zeitstempel fuer letzte Synchronisation",
-          "errorTracking": "Fehlerverfolgung bei Sync-Problemen"
-        },
-        "entityLinking": {
-          "title": "Entity-Verknuepfung",
-          "bidirectional": "Bidirektionale Verknuepfung mit lokalen Entities",
-          "externalIds": "Externe IDs fuer Referenzierung",
-          "autoUpdate": "Automatische Aktualisierung bei Aenderungen"
-        }
-      },
-      "authentication": {
-        "title": "Authentifizierungsmethoden",
-        "table": {
-          "method": "Methode",
-          "description": "Beschreibung"
-        },
-        "apiKey": "Einfache API-Key-Authentifizierung im Header oder Query",
-        "oauth": "OAuth 2.0 fuer sichere Autorisierung",
-        "basic": "HTTP Basic Auth mit Benutzername und Passwort",
-        "none": "Keine",
-        "noneDesc": "Fuer oeffentliche APIs ohne Authentifizierung"
-      },
-      "workflow": {
-        "title": "Integrations-Workflow",
-        "step1": {
-          "title": "API-Template erstellen",
-          "description": "Definieren Sie die API-Verbindung und Authentifizierung"
-        },
-        "step2": {
-          "title": "Daten synchronisieren",
-          "description": "Starten Sie die initiale Synchronisation"
-        },
-        "step3": {
-          "title": "Entities verknuepfen",
-          "description": "Ordnen Sie externe Daten lokalen Entities zu"
-        },
-        "step4": {
-          "title": "Automatische Updates",
-          "description": "Konfigurieren Sie regelmaessige Synchronisationen"
-        }
-      },
-      "viewingData": {
-        "title": "Externe Daten anzeigen",
-        "description": "In der Entity-Detailansicht finden Sie unter 'Externe Daten' alle synchronisierten Rohdaten aus verknuepften APIs."
       }
     }
   }

@@ -250,21 +250,21 @@
         <v-card-text>
           <p>{{ t('entities.deleteConfirmMessage', { name: entityToDelete?.name }) }}</p>
           <v-alert
-            v-if="entityToDelete?.facet_count > 0 || entityToDelete?.relation_count > 0"
+            v-if="(entityToDelete?.facet_count ?? 0) > 0 || (entityToDelete?.relation_count ?? 0) > 0"
             type="warning"
             variant="tonal"
             density="compact"
             class="mt-3"
           >
             <strong>{{ t('entities.warning') }}:</strong> {{ t('entities.entityHas') }}
-            <span v-if="entityToDelete?.facet_count > 0"
-              >{{ entityToDelete.facet_count }} {{ t('entities.facetValues') }}</span
+            <span v-if="(entityToDelete?.facet_count ?? 0) > 0"
+              >{{ entityToDelete?.facet_count ?? 0 }} {{ t('entities.facetValues') }}</span
             >
-            <span v-if="entityToDelete?.facet_count > 0 && entityToDelete?.relation_count > 0">
+            <span v-if="(entityToDelete?.facet_count ?? 0) > 0 && (entityToDelete?.relation_count ?? 0) > 0">
               {{ t('entities.and') }}
             </span>
-            <span v-if="entityToDelete?.relation_count > 0"
-              >{{ entityToDelete.relation_count }} {{ t('entities.relations') }}</span
+            <span v-if="(entityToDelete?.relation_count ?? 0) > 0"
+              >{{ entityToDelete?.relation_count ?? 0 }} {{ t('entities.relations') }}</span
             >.
             {{ t('entities.willBeDeleted') }}
           </v-alert>

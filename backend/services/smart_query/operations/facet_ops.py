@@ -134,6 +134,12 @@ class CreateFacetTypeOperation(WriteOperation):
         session.add(facet_type)
         await session.flush()
 
+        # Generate embedding for semantic similarity search
+        from app.utils.similarity import generate_embedding
+        embedding = await generate_embedding(name)
+        if embedding:
+            facet_type.name_embedding = embedding
+
         return OperationResult(
             success=True,
             message=f"Facet-Typ '{name}' erstellt",

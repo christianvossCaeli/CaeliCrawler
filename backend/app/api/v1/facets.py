@@ -390,6 +390,14 @@ async def update_facet_type(
     async with AuditContext(session, current_user, request) as audit:
         # Update fields
         update_data = data.model_dump(exclude_unset=True)
+
+        # If name changes, regenerate embedding
+        if "name" in update_data:
+            from app.utils.similarity import generate_embedding
+            embedding = await generate_embedding(update_data["name"])
+            if embedding:
+                update_data["name_embedding"] = embedding
+
         for field, value in update_data.items():
             setattr(facet_type, field, value)
 
@@ -665,6 +673,12 @@ async def create_facet_value(
         session.add(facet_value)
         await session.flush()
 
+        # Generate embedding for semantic similarity search
+        from app.utils.similarity import generate_embedding
+        embedding = await generate_embedding(text_repr)
+        if embedding:
+            facet_value.text_embedding = embedding
+
         audit.track_action(
             action=AuditAction.CREATE,
             entity_type="FacetValue",
@@ -741,6 +755,14 @@ async def update_facet_value(
         # Rebuild text representation if value changes
         if "value" in update_data:
             update_data["text_representation"] = build_text_representation(update_data["value"])
+
+        # If text_representation changes, regenerate embedding
+        if "text_representation" in update_data or "value" in update_data:
+            from app.utils.similarity import generate_embedding
+            text_repr = update_data.get("text_representation") or fv.text_representation
+            embedding = await generate_embedding(text_repr)
+            if embedding:
+                update_data["text_embedding"] = embedding
 
         for field, value in update_data.items():
             setattr(fv, field, value)

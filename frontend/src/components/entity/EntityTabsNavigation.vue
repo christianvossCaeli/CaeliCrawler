@@ -38,10 +38,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { FacetsSummary } from '@/types/entity'
 
 const props = defineProps<{
   activeTab: string
-  facetsSummary: { facets_by_type?: Array<{ facet_type_id: string; count: number }> } | null
+  facetsSummary: FacetsSummary | null
   totalConnectionsCount: number
   dataSourcesCount: number
   attachmentCount: number

@@ -86,7 +86,6 @@ export const helpSectionGroups: HelpSectionGroup[] = [
     color: 'pink',
     sections: [
       { id: 'ai-assistant', title: 'help.sections.aiAssistant', icon: 'mdi-robot-happy', color: 'pink' },
-      { id: 'external-apis', title: 'help.sections.externalApis', icon: 'mdi-cloud-sync', color: 'teal' },
     ],
   },
   {

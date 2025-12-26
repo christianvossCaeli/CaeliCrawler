@@ -74,7 +74,7 @@ export function useFacetHelpers() {
   function formatFacetValue(facet: FacetValue): string {
     if (facet.text_representation) return facet.text_representation
     if (typeof facet.value === 'string') return facet.value
-    if (facet.value?.text) return facet.value.text
+    if (typeof facet.value?.text === 'string') return facet.value.text
     return JSON.stringify(facet.value)
   }
 
@@ -98,7 +98,8 @@ export function useFacetHelpers() {
     const val = facet.value
     if (!val) return ''
     if (typeof val === 'string') return val
-    return val.description || val.text || val.concern || val.opportunity || ''
+    const desc = val.description ?? val.text ?? val.concern ?? val.opportunity
+    return typeof desc === 'string' ? desc : ''
   }
 
   /**
@@ -107,7 +108,7 @@ export function useFacetHelpers() {
   function getStructuredType(facet: FacetValue): string | null {
     const val = facet.value
     if (!val || typeof val === 'string') return null
-    return val.type || null
+    return typeof val.type === 'string' ? val.type : null
   }
 
   /**
@@ -116,7 +117,7 @@ export function useFacetHelpers() {
   function getStructuredSeverity(facet: FacetValue): string | null {
     const val = facet.value
     if (!val || typeof val === 'string') return null
-    return val.severity || null
+    return typeof val.severity === 'string' ? val.severity : null
   }
 
   /**
@@ -125,7 +126,7 @@ export function useFacetHelpers() {
   function getStructuredQuote(facet: FacetValue): string | null {
     const val = facet.value
     if (!val || typeof val === 'string') return null
-    return val.quote || null
+    return typeof val.quote === 'string' ? val.quote : null
   }
 
   /**
@@ -162,7 +163,7 @@ export function useFacetHelpers() {
     const val = facet.value
     if (!val) return ''
     if (typeof val === 'string') return val
-    return val.name || ''
+    return typeof val.name === 'string' ? val.name : ''
   }
 
   /**
@@ -171,7 +172,8 @@ export function useFacetHelpers() {
   function getContactRole(facet: FacetValue): string | null {
     const val = facet.value
     if (!val || typeof val === 'string') return null
-    return val.role || val.position || null
+    const role = val.role ?? val.position
+    return typeof role === 'string' ? role : null
   }
 
   /**
@@ -180,7 +182,7 @@ export function useFacetHelpers() {
   function getContactEmail(facet: FacetValue): string | null {
     const val = facet.value
     if (!val || typeof val === 'string') return null
-    return val.email || null
+    return typeof val.email === 'string' ? val.email : null
   }
 
   /**
@@ -189,7 +191,8 @@ export function useFacetHelpers() {
   function getContactPhone(facet: FacetValue): string | null {
     const val = facet.value
     if (!val || typeof val === 'string') return null
-    return val.phone || val.telefon || null
+    const phone = val.phone ?? val.telefon
+    return typeof phone === 'string' ? phone : null
   }
 
   /**
@@ -198,7 +201,7 @@ export function useFacetHelpers() {
   function getContactSentiment(facet: FacetValue): string | null {
     const val = facet.value
     if (!val || typeof val === 'string') return null
-    return val.sentiment || null
+    return typeof val.sentiment === 'string' ? val.sentiment : null
   }
 
   /**
@@ -207,7 +210,8 @@ export function useFacetHelpers() {
   function getContactStatement(facet: FacetValue): string | null {
     const val = facet.value
     if (!val || typeof val === 'string') return null
-    return val.statement || val.quote || null
+    const stmt = val.statement ?? val.quote
+    return typeof stmt === 'string' ? stmt : null
   }
 
   /**

@@ -34,8 +34,17 @@
 import { computed } from 'vue'
 import type { VisualizationConfig, StatCard } from './types'
 
+// Local interface for stat data items
+interface StatDataItem {
+  entity_id?: string
+  entity_name?: string
+  entity_type?: string
+  facets?: Record<string, { value?: unknown } | unknown>
+  [key: string]: unknown
+}
+
 const props = defineProps<{
-  data: Record<string, unknown>[]
+  data: StatDataItem[]
   config?: VisualizationConfig
 }>()
 
@@ -106,7 +115,7 @@ function getTrendIcon(trend: string): string {
   }
 }
 
-function getDefaultIcon(item: Record<string, unknown>): string {
+function getDefaultIcon(item: StatDataItem): string {
   // Try to determine a sensible icon based on entity type or facets
   const type = item.entity_type?.toLowerCase() || ''
 

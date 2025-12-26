@@ -175,16 +175,20 @@ interface FacetGroup {
   facet_type_slug: string
   facet_type_icon?: string
   facet_type_color?: string
-  value_count: number
+  icon?: string
+  color?: string
+  value_type?: string
+  value_count?: number
+  values?: FacetValue[]
 }
 
 interface FacetValue {
   id: string
-  facet_type_id: string
+  facet_type_id?: string
   text_representation?: string | null
-  value: Record<string, unknown> | null
-  confidence_score: number | null
-  human_verified: boolean
+  value?: Record<string, unknown> | string | number | boolean | null
+  confidence_score?: number | null
+  human_verified?: boolean
   source_url?: string | null
   created_at?: string | null
   updated_at?: string | null

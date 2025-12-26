@@ -89,8 +89,10 @@ import { useDialogFocus } from '@/composables'
 interface Note {
   id: string
   content: string
-  author: string
+  author?: string
+  created_by?: string
   created_at: string
+  updated_at?: string
 }
 
 const modelValue = defineModel<boolean>({ default: false })

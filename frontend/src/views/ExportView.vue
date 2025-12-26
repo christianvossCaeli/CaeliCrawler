@@ -373,6 +373,8 @@ interface WebhookResult {
   status_code?: number
   response_time_ms?: number
   message?: string
+  error?: string
+  response?: unknown
 }
 
 interface ChangeRecord {
@@ -381,6 +383,7 @@ interface ChangeRecord {
   entity_name?: string
   change_type?: string
   timestamp?: string
+  detected_at?: string
 }
 
 const categories = ref<CategoryOption[]>([])
@@ -499,7 +502,8 @@ const changeHeaders = computed(() => [
   { title: t('exportView.detected'), key: 'detected_at' },
 ])
 
-const getChangeColor = (type: string) => {
+const getChangeColor = (type?: string) => {
+  if (!type) return 'grey'
   const colors: Record<string, string> = {
     NEW_DOCUMENT: 'success',
     CONTENT_CHANGED: 'info',
@@ -509,7 +513,8 @@ const getChangeColor = (type: string) => {
   return colors[type] || 'grey'
 }
 
-const formatDate = (dateStr: string) => {
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return '-'
   return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: dateLocale.value })
 }
 
@@ -617,8 +622,9 @@ const testWebhook = async () => {
       showError(t('exportView.messages.webhookError'))
     }
   } catch (error) {
-    webhookResult.value = { success: false, error: error.message }
-    showError(t('exportView.messages.webhookError') + ': ' + error.message)
+    const message = error instanceof Error ? error.message : String(error)
+    webhookResult.value = { success: false, error: message }
+    showError(t('exportView.messages.webhookError') + ': ' + message)
   } finally {
     testingWebhook.value = false
   }

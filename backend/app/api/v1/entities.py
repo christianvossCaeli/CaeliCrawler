@@ -327,6 +327,12 @@ async def create_entity(
         session.add(entity)
         await session.flush()
 
+        # Generate embedding for semantic similarity search
+        from app.utils.similarity import generate_embedding
+        embedding = await generate_embedding(entity.name)
+        if embedding:
+            entity.name_embedding = embedding
+
         audit.track_action(
             action=AuditAction.CREATE,
             entity_type="Entity",
@@ -944,11 +950,17 @@ async def update_entity(
         update_data["hierarchy_path"] = f"/{entity.slug}"
         update_data["hierarchy_level"] = 0
 
-    # If name changes, update normalized name using centralized function
+    # If name changes, update normalized name and embedding
     if "name" in update_data:
         # Get country from update or existing entity for consistent normalization
         country = update_data.get("country", entity.country) or "DE"
         update_data["name_normalized"] = normalize_entity_name(update_data["name"], country=country)
+
+        # Regenerate embedding for new name
+        from app.utils.similarity import generate_embedding
+        embedding = await generate_embedding(update_data["name"])
+        if embedding:
+            update_data["name_embedding"] = embedding
 
     async with AuditContext(session, current_user, request) as audit:
         for field, value in update_data.items():

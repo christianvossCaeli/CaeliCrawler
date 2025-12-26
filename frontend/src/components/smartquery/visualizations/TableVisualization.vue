@@ -46,9 +46,9 @@
 
       <!-- Tags Column -->
       <template #item.tags="{ item }">
-        <div v-if="item.tags?.length" class="d-flex flex-wrap gap-1">
+        <div v-if="getItemTags(item).length" class="d-flex flex-wrap gap-1">
           <v-chip
-            v-for="tag in item.tags.slice(0, 3)"
+            v-for="tag in getItemTags(item).slice(0, 3)"
             :key="tag"
             size="x-small"
             variant="tonal"
@@ -56,8 +56,8 @@
           >
             {{ tag }}
           </v-chip>
-          <v-chip v-if="item.tags.length > 3" size="x-small" variant="text">
-            +{{ item.tags.length - 3 }}
+          <v-chip v-if="getItemTags(item).length > 3" size="x-small" variant="text">
+            +{{ getItemTags(item).length - 3 }}
           </v-chip>
         </div>
         <span v-else class="text-medium-emphasis">-</span>
@@ -97,7 +97,7 @@ const tableHeaders = computed(() => {
       title: col.label,
       key: col.key,
       sortable: col.sortable !== false,
-      align: col.align || 'start',
+      align: (col.align || 'start') as 'start' | 'end' | 'center',
       width: col.width,
     }))
   }
@@ -106,7 +106,7 @@ const tableHeaders = computed(() => {
   if (!props.data || props.data.length === 0) return []
 
   const sample = props.data[0]
-  const headers: Array<{ title: string; key: string; sortable?: boolean; align?: string; width?: string }> = []
+  const headers: Array<{ title: string; key: string; sortable?: boolean; align?: 'start' | 'end' | 'center'; width?: string }> = []
 
   // Always add name column first if present (entity_name or name)
   if ('entity_name' in sample) {
@@ -131,7 +131,7 @@ const tableHeaders = computed(() => {
         title: formatFacetLabel(facetKey),
         key: `facets.${facetKey}.value`,
         sortable: true,
-        align: isNumeric ? 'end' : 'start',
+        align: isNumeric ? 'end' as const : 'start' as const,
       })
     }
   }
@@ -220,6 +220,12 @@ const sortBy = computed(() => {
   }
   return []
 })
+
+// Helper to safely get tags from item
+function getItemTags(item: Record<string, unknown>): string[] {
+  const tags = item.tags
+  return Array.isArray(tags) ? tags : []
+}
 
 function formatFacetLabel(slug: string): string {
   return slug

@@ -11,7 +11,6 @@
 export {
   api,
   adminApi,
-  externalApiApi,
   dataApi,
   exportApi,
   locationApi,

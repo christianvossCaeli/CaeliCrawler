@@ -47,12 +47,21 @@
       </v-list-item>
     </v-list>
 
+    <h3 class="text-h6 mb-3">{{ t('help.results.headerActions.title') }}</h3>
+    <v-chip-group class="mb-4">
+      <v-chip size="small" color="success" variant="tonal"><v-icon start size="small">mdi-check-all</v-icon>{{ t('help.results.headerActions.bulkVerify') }}</v-chip>
+      <v-chip size="small" color="success" variant="tonal"><v-icon start size="small">mdi-download</v-icon>{{ t('help.results.headerActions.csvExport') }}</v-chip>
+      <v-chip size="small" variant="tonal"><v-icon start size="small">mdi-refresh</v-icon>{{ t('help.results.headerActions.refresh') }}</v-chip>
+    </v-chip-group>
+
     <h3 class="text-h6 mb-3">{{ t('help.results.availableFilters') }}</h3>
     <v-chip-group class="mb-4">
       <v-chip size="small" variant="outlined">{{ t('help.results.filters[0]') }}</v-chip>
       <v-chip size="small" variant="outlined">{{ t('help.results.filters[1]') }}</v-chip>
       <v-chip size="small" variant="outlined">{{ t('help.results.filters[2]') }}</v-chip>
       <v-chip size="small" variant="outlined">{{ t('help.results.filters[3]') }}</v-chip>
+      <v-chip size="small" variant="outlined">{{ t('help.results.filters[4]') }}</v-chip>
+      <v-chip size="small" variant="outlined">{{ t('help.results.filters[5]') }}</v-chip>
     </v-chip-group>
 
     <h3 class="text-h6 mb-3">{{ t('help.results.whatIsExtracted') }}</h3>
@@ -97,6 +106,14 @@
     </v-row>
 
     <v-expansion-panels variant="accordion" class="mb-4">
+      <v-expansion-panel>
+        <v-expansion-panel-title>
+          <v-icon class="mr-2" color="primary">mdi-link-variant</v-icon> {{ t('help.results.detailDialog.sections.entityReferences') }}
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          {{ t('help.results.detailDialog.sections.entityReferencesDesc') }}
+        </v-expansion-panel-text>
+      </v-expansion-panel>
       <v-expansion-panel :title="t('help.results.detailDialog.sections.summary')">
         <v-expansion-panel-text>
           {{ t('help.results.detailDialog.sections.summaryDesc') }}
@@ -128,10 +145,26 @@
       </v-expansion-panel>
       <v-expansion-panel>
         <v-expansion-panel-title>
+          <v-icon class="mr-2" color="info">mdi-bullhorn</v-icon> {{ t('help.results.detailDialog.sections.outreachRecommendation') }}
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          {{ t('help.results.detailDialog.sections.outreachRecommendationDesc') }}
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+      <v-expansion-panel>
+        <v-expansion-panel-title>
           <v-icon class="mr-2">mdi-code-json</v-icon> {{ t('help.results.detailDialog.sections.rawJson') }}
         </v-expansion-panel-title>
         <v-expansion-panel-text>
           {{ t('help.results.detailDialog.sections.rawJsonDesc') }}
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+      <v-expansion-panel>
+        <v-expansion-panel-title>
+          <v-icon class="mr-2">mdi-robot</v-icon> {{ t('help.results.detailDialog.sections.aiMetadata') }}
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          {{ t('help.results.detailDialog.sections.aiMetadataDesc') }}
         </v-expansion-panel-text>
       </v-expansion-panel>
     </v-expansion-panels>

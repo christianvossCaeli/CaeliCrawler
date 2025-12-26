@@ -181,22 +181,6 @@ export const adminApi = {
   reanalyzeFiltered: adminExports.reanalyzeFiltered,
 }
 
-// External APIs
-export const externalApiApi = {
-  list: sourcesExports.listExternalApis,
-  get: sourcesExports.getExternalApi,
-  create: sourcesExports.createExternalApi,
-  update: sourcesExports.updateExternalApi,
-  delete: sourcesExports.deleteExternalApi,
-  triggerSync: sourcesExports.triggerExternalApiSync,
-  testConnection: sourcesExports.testExternalApiConnection,
-  getStats: sourcesExports.getExternalApiStats,
-  listRecords: sourcesExports.listExternalApiRecords,
-  getRecord: sourcesExports.getExternalApiRecord,
-  deleteRecord: sourcesExports.deleteExternalApiRecord,
-  getAvailableApiTypes: sourcesExports.getAvailableApiTypes,
-}
-
 // Public Data API
 export const dataApi = {
   // Extracted Data

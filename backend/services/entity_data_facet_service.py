@@ -442,17 +442,26 @@ class EntityDataFacetService:
         if not facet_type:
             raise ValueError(f"FacetType nicht gefunden: {facet_data.get('facet_type')}")
 
+        text_repr = facet_data.get("text", "")[:2000]
+
         facet_value = FacetValue(
             entity_id=entity_id,
             facet_type_id=facet_type.id,
             value=facet_data.get("value", {}),
-            text_representation=facet_data.get("text", "")[:2000],
+            text_representation=text_repr,
             confidence_score=facet_data.get("confidence", 0.5),
             source_type=FacetValueSourceType.AI_ASSISTANT,
             ai_model_used=facet_data.get("ai_model"),
         )
         self.db.add(facet_value)
         await self.db.flush()
+
+        # Generate embedding for semantic similarity search
+        from app.utils.similarity import generate_embedding
+        embedding = await generate_embedding(text_repr)
+        if embedding:
+            facet_value.text_embedding = embedding
+
         return facet_value
 
     async def _apply_update_from_preview(self, update_data: Dict[str, Any]) -> None:

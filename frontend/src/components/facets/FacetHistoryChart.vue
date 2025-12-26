@@ -302,7 +302,9 @@ const chartOptions = computed(() => ({
       bodyColor: chartColors.value.tooltipText,
       callbacks: {
         label: (context: { parsed: { y: unknown }; dataset: { label?: string } }) => {
-          const value = formatValue(context.parsed.y)
+          const y = context.parsed.y
+          const numericValue = typeof y === 'number' ? y : null
+          const value = formatValue(numericValue)
           return `${context.dataset.label}: ${value}`
         },
       },
@@ -423,7 +425,12 @@ async function addDataPoint() {
 
   saving.value = true
   try {
-    const data: Record<string, unknown> = {
+    const data: {
+      recorded_at: string
+      value: number
+      track_key?: string
+      annotations?: Record<string, unknown>
+    } = {
       recorded_at: new Date(newDataPoint.value.recorded_at).toISOString(),
       value: newDataPoint.value.value,
       track_key: newDataPoint.value.track_key,

@@ -24,6 +24,7 @@ export interface CrawlPresetFilters {
   status?: string
   search?: string
   limit?: number
+  [key: string]: unknown
 }
 
 /**

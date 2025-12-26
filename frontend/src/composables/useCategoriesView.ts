@@ -265,7 +265,8 @@ export function useCategoriesView() {
     return lang?.flag || code.toUpperCase()
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status?: string) => {
+    if (!status) return 'grey'
     const colors: Record<string, string> = {
       ACTIVE: 'success',
       PENDING: 'warning',
@@ -275,7 +276,8 @@ export function useCategoriesView() {
     return colors[status] || 'grey'
   }
 
-  const getSourceTypeIcon = (type: string) => {
+  const getSourceTypeIcon = (type?: string) => {
+    if (!type) return 'mdi-database'
     const icons: Record<string, string> = {
       WEBSITE: 'mdi-web',
       OPARL_API: 'mdi-api',

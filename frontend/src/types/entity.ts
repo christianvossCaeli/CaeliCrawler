@@ -16,15 +16,21 @@ export interface EntityType {
   name: string
   name_plural: string
   slug: string
-  description?: string
+  description?: string | null
   icon?: string
   color?: string
-  schema?: EntityTypeSchema
-  parent_type_id?: string
-  parent_type_slug?: string
+  attribute_schema?: EntityTypeSchema | Record<string, unknown> | null
+  parent_type_id?: string | null
+  parent_type_slug?: string | null
   applicable_facet_types?: string[]
-  is_hierarchical: boolean
-  entity_count: number
+  supports_hierarchy: boolean
+  supports_pysis?: boolean
+  hierarchy_config?: Record<string, unknown> | null
+  entity_count?: number
+  is_active?: boolean
+  is_public?: boolean
+  is_primary?: boolean
+  is_system?: boolean
   created_at: string
   updated_at: string
 }
@@ -37,18 +43,23 @@ export interface EntityTypeSchema {
 }
 
 export interface EntityTypeSchemaProperty {
-  type: 'string' | 'number' | 'boolean' | 'array' | 'object' | 'date'
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object' | 'date'
+  title?: string
   label?: string
   description?: string
   enum?: string[]
   format?: string
   default?: unknown
+  minimum?: number
+  maximum?: number
 }
 
 export interface EntityTypeListParams extends PaginationParams {
   search?: string
-  is_hierarchical?: boolean
   is_active?: boolean
+  is_primary?: boolean
+  is_public?: boolean
+  include_private?: boolean
   include_counts?: boolean
 }
 
@@ -59,10 +70,12 @@ export interface EntityTypeCreate {
   description?: string
   icon?: string
   color?: string
-  schema?: EntityTypeSchema
+  attribute_schema?: EntityTypeSchema
   parent_type_id?: string
-  is_hierarchical?: boolean
+  supports_hierarchy?: boolean
   applicable_facet_types?: string[]
+  is_active?: boolean
+  is_public?: boolean
 }
 
 export type EntityTypeUpdate = Partial<EntityTypeCreate>
@@ -74,41 +87,52 @@ export type EntityTypeUpdate = Partial<EntityTypeCreate>
 export interface Entity {
   id: string
   entity_type_id: string
-  entity_type_slug: string
-  entity_type_name: string
+  entity_type_slug: string | null
+  entity_type_name: string | null
   name: string
+  name_normalized?: string
   slug: string
-  description?: string
-  location_name?: string
-  country?: string
-  admin_level_1?: string
-  admin_level_2?: string
-  latitude?: number
-  longitude?: number
-  attributes: Record<string, unknown>
-  parent_id?: string
-  parent_name?: string
-  parent_slug?: string
-  children_count: number
-  facet_count: number
-  relation_count: number
-  document_count: number
-  source_count: number
-  is_active: boolean
+  description?: string | null
+  location_name?: string | null
+  country?: string | null
+  admin_level_1?: string | null
+  admin_level_2?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  // Type-specific attributes from backend
+  core_attributes?: Record<string, unknown>
+  // Legacy alias for backwards compatibility
+  attributes?: Record<string, unknown>
+  parent_id?: string | null
+  parent_name?: string | null
+  parent_slug?: string | null
+  hierarchy_path?: string | string[]
+  children_count?: number
+  facet_count?: number
+  relation_count?: number
+  document_count?: number
+  source_count?: number
+  is_active?: boolean
+  owner_id?: string | null
   created_at: string
   updated_at: string
   // External data source fields
-  external_id?: string
-  api_configuration_id?: string
-  external_source_name?: string
+  external_id?: string | null
+  api_configuration_id?: string | null
+  external_source_name?: string | null
+  // GeoJSON geometry for complex shapes
+  geometry?: {
+    type: string
+    coordinates: unknown
+  } | null
 }
 
 export interface EntityBrief {
   id: string
   name: string
-  slug: string
-  entity_type_id: string
-  entity_type_slug: string
+  slug?: string
+  entity_type_id?: string
+  entity_type_slug?: string
   entity_type_name: string
   location_name?: string
 }
@@ -203,19 +227,29 @@ export type FacetValueType =
 export interface FacetType {
   id: string
   name: string
-  name_plural: string
+  name_plural?: string
   slug: string
-  description?: string
-  value_type: FacetValueType
-  value_schema?: FacetTypeValueSchema
+  description?: string | null
+  value_type: string
+  value_schema?: FacetTypeValueSchema | Record<string, unknown> | null
   icon?: string
   color?: string
-  applicable_entity_types: string[]
-  is_system: boolean
-  is_active: boolean
-  facet_count: number
-  created_at: string
-  updated_at: string
+  applicable_entity_types?: string[]
+  applicable_entity_type_slugs?: string[]
+  is_system?: boolean
+  is_active?: boolean
+  facet_count?: number
+  created_at?: string
+  updated_at?: string
+  // Additional fields from API
+  aggregation_method?: string
+  deduplication_fields?: string[]
+  is_time_based?: boolean
+  time_field_path?: string | null  // Can be null from API
+  default_time_filter?: string | null  // Can be null from API
+  ai_extraction_enabled?: boolean
+  ai_extraction_prompt?: string | null  // Can be null from API
+  display_order?: number
 }
 
 export interface FacetTypeValueSchema {
@@ -231,6 +265,7 @@ export interface FacetTypeValueSchema {
   precision?: number
   tracks?: Record<string, FacetTrackConfig>
   reference_entity_type?: string
+  [key: string]: unknown
 }
 
 export interface FacetTrackConfig {
@@ -253,7 +288,7 @@ export interface FacetTypeCreate {
   slug?: string
   description?: string
   value_type: FacetValueType
-  value_schema?: FacetTypeValueSchema
+  value_schema?: FacetTypeValueSchema | Record<string, unknown> | null
   icon?: string
   color?: string
   applicable_entity_type_slugs?: string[]
@@ -295,26 +330,56 @@ export type FacetSourceType =
 
 export interface FacetValue {
   id: string
-  entity_id: string
-  entity_name: string
-  facet_type_id: string
-  facet_type_slug: string
-  facet_type_name: string
-  value: unknown
+  entity_id?: string
+  entity_name?: string
+  facet_type_id?: string
+  facet_type_slug?: string
+  facet_type_name?: string
+  value?: Record<string, unknown> | string | number | boolean | null
   value_display?: string
+  text_representation?: string
   effective_date?: string
   expiration_date?: string
-  source_type: FacetSourceType
+  source_type?: FacetSourceType
   source_document_id?: string
   source_url?: string
-  confidence_score: number
+  document_title?: string
+  document_url?: string
+  confidence_score?: number
   ai_model_used?: string
-  human_verified: boolean
+  human_verified?: boolean
   verified_by?: string
   verified_at?: string
   notes?: string
-  created_at: string
-  updated_at: string
+  created_at?: string
+  updated_at?: string
+}
+
+// Facet group for entity detail views (matches API response)
+export interface FacetGroup {
+  facet_type_id: string
+  facet_type_slug: string
+  facet_type_name: string
+  value_type?: string
+  // Alternative field names for backward compatibility
+  facet_type_value_type?: string
+  facet_type_icon?: string
+  facet_type_color?: string
+  icon?: string
+  color?: string
+  value_count?: number
+  verified_count?: number
+  value_schema?: Record<string, unknown>
+  values?: FacetValue[]
+  sample_values?: FacetValue[]
+}
+
+// Facets summary for entity overview (matches API response)
+export interface FacetsSummary {
+  facets_by_type?: FacetGroup[]
+  total_count?: number
+  total_facet_values?: number
+  verified_count?: number
 }
 
 export interface FacetValueListParams extends PaginationParams {
@@ -384,19 +449,20 @@ export interface EntityFacetsSummary {
 export interface RelationType {
   id: string
   name: string
+  name_inverse?: string | null
   name_reverse?: string
-  slug: string
+  slug?: string
   description?: string
   icon?: string
-  color?: string
-  source_entity_types: string[]
-  target_entity_types: string[]
-  is_symmetric: boolean
-  is_system: boolean
-  is_active: boolean
-  relation_count: number
-  created_at: string
-  updated_at: string
+  color?: string | null
+  source_entity_types?: string[]
+  target_entity_types?: string[]
+  is_symmetric?: boolean
+  is_system?: boolean
+  is_active?: boolean
+  relation_count?: number
+  created_at?: string
+  updated_at?: string
 }
 
 export interface RelationTypeListParams extends PaginationParams {
@@ -428,27 +494,29 @@ export type RelationTypeUpdate = Partial<RelationTypeCreate>
 export interface Relation {
   id: string
   relation_type_id: string
-  relation_type_slug: string
+  relation_type_slug?: string
   relation_type_name: string
   source_entity_id: string
   source_entity_name: string
+  source_entity_slug?: string
   source_entity_type_slug: string
   target_entity_id: string
   target_entity_name: string
+  target_entity_slug?: string
   target_entity_type_slug: string
   attributes?: Record<string, unknown>
   effective_date?: string
   expiration_date?: string
-  source_type: FacetSourceType
+  source_type?: FacetSourceType | string
   source_document_id?: string
   source_url?: string
-  confidence_score: number
-  human_verified: boolean
+  confidence_score?: number
+  human_verified?: boolean
   verified_by?: string
   verified_at?: string
   notes?: string
-  created_at: string
-  updated_at: string
+  created_at?: string
+  updated_at?: string
 }
 
 export interface RelationListParams extends PaginationParams {
@@ -693,6 +761,47 @@ export interface LocationFilterOptions {
 export interface AttributeFilterOptions {
   attribute_key: string
   values: Array<{ value: string; label: string; count: number }>
+}
+
+// =============================================================================
+// Document Types (for entity documents)
+// =============================================================================
+
+// Named EntityDocument to avoid conflict with DOM Document interface
+export interface EntityDocument {
+  id: string
+  title?: string
+  url?: string
+  created_at?: string
+  document_type?: string
+  content_type?: string
+  file_size?: number
+  analyzed?: boolean
+}
+
+// =============================================================================
+// Entity Note Types
+// =============================================================================
+
+export interface EntityNote {
+  id: string
+  content: string
+  author?: string
+  created_by?: string
+  created_at: string
+  updated_at?: string
+}
+
+// =============================================================================
+// Simplified DataSource for entity linking
+// =============================================================================
+
+export interface DataSource {
+  id: string
+  name: string
+  base_url?: string
+  status?: string
+  last_crawled_at?: string
 }
 
 // =============================================================================

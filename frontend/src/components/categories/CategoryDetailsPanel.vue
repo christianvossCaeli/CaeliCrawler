@@ -130,7 +130,7 @@
                     size="x-small"
                     color="grey"
                   >
-                    +{{ source.tags.length - 3 }}
+                    +{{ (source.tags || []).length - 3 }}
                   </v-chip>
                 </div>
                 <v-chip
@@ -163,16 +163,26 @@
 <script setup lang="ts">
 import { getContrastColor } from '@/composables/useColorHelpers'
 
+interface FoundSource {
+  id: string
+  name: string
+  base_url?: string
+  status?: string
+  source_type?: string
+  tags?: string[]
+  is_assigned?: boolean
+}
+
 export interface CategoryDetailsPanelProps {
   selectedTags: string[]
   matchMode: 'all' | 'any'
   availableTags: string[]
-  foundSources: { id: string; name: string; status?: string; source_type?: string }[]
+  foundSources: FoundSource[]
   loading: boolean
   assigning: boolean
   currentSourceCount?: number
-  getStatusColor: (status: string) => string
-  getSourceTypeIcon: (type: string) => string
+  getStatusColor: (status?: string) => string
+  getSourceTypeIcon: (type?: string) => string
 }
 
 export interface CategoryDetailsPanelEmits {

@@ -49,6 +49,7 @@ export interface WidgetQueryConfig {
   limit?: number
   aggregate?: string
   group_by?: string
+  [key: string]: unknown
 }
 
 export interface WidgetVisualizationConfig {
@@ -71,6 +72,7 @@ export interface WidgetVisualizationConfig {
   format?: string
   // Text
   content?: string
+  [key: string]: unknown
 }
 
 export interface SummaryWidget {

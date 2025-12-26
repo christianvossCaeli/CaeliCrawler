@@ -434,11 +434,19 @@
       },
       "availableFilters": "Available Filters",
       "filters": [
-        "Country",
+        "Full-text search",
         "Municipality/Location (Autocomplete)",
+        "Analysis Type",
         "Category",
-        "Min. Confidence (Slider)"
+        "Min. Confidence (Slider)",
+        "Date Range (From/To)"
       ],
+      "headerActions": {
+        "title": "Header Actions",
+        "bulkVerify": "Bulk verify selected results",
+        "csvExport": "CSV export of current results list",
+        "refresh": "Reload data"
+      },
       "whatIsExtracted": "What is extracted?",
       "extracted": {
         "topicSummary": "Topic & Summary",
@@ -462,6 +470,8 @@
         ],
         "infoCards": "Info Cards",
         "sections": {
+          "entityReferences": "Entity References",
+          "entityReferencesDesc": "Linked entities (municipalities, persons, events) with click to detail view",
           "summary": "Summary",
           "summaryDesc": "AI-generated content summary",
           "painPoints": "Pain Points",
@@ -470,8 +480,12 @@
           "positiveSignalsDesc": "Expandable list with opportunities and positive developments",
           "decisionMakers": "Decision Makers",
           "decisionMakersDesc": "Identified decision makers with name and role",
+          "outreachRecommendation": "Outreach Recommendation",
+          "outreachRecommendationDesc": "Prioritization and reasoning for sales contact",
           "rawJson": "Raw JSON",
-          "rawJsonDesc": "Complete AI response in JSON format for analysis"
+          "rawJsonDesc": "Complete AI response in JSON format for analysis",
+          "aiMetadata": "AI Metadata",
+          "aiMetadataDesc": "Extraction type, model used, creation date, token usage"
         },
         "tip": "Tip: Use \"Open Document\" to view the original."
       },
@@ -556,13 +570,15 @@
       },
       "changesFeed": {
         "title": "Changes Feed",
-        "description": "Shows recent changes in the system:",
-        "new": "NEW",
-        "newDesc": "New extraction added",
-        "updated": "UPDATED",
-        "updatedDesc": "Existing extraction updated",
-        "verified": "VERIFIED",
-        "verifiedDesc": "Manually verified"
+        "description": "Shows recent document changes in the system:",
+        "newDocument": "NEW_DOCUMENT",
+        "newDocumentDesc": "New document found",
+        "contentChanged": "CONTENT_CHANGED",
+        "contentChangedDesc": "Document content has changed",
+        "removed": "REMOVED",
+        "removedDesc": "Document was removed",
+        "metadataChanged": "METADATA_CHANGED",
+        "metadataChangedDesc": "Metadata was updated"
       },
       "apiEndpoints": {
         "title": "API Endpoints",
@@ -781,7 +797,15 @@
         "readMode": "Read Mode (Default)",
         "readModeDesc": "Queries and navigation only - no changes to the system",
         "writeMode": "Write Mode",
-        "writeModeDesc": "Allows inline edits with preview and confirmation"
+        "writeModeDesc": "Allows inline edits with preview and confirmation",
+        "planMode": "Plan Mode",
+        "planModeDesc": "AI-assisted analysis and strategy suggestions for complex tasks"
+      },
+      "quickActions": {
+        "title": "Quick Actions",
+        "description": "Quick access to frequently used functions directly in the chat window:",
+        "expand": "Click on 'Quick Actions' to show available actions",
+        "contextual": "Displayed actions adapt to the current context"
       },
       "slashCommands": {
         "title": "Available Slash Commands",
@@ -1052,16 +1076,14 @@
         },
         "valueType": {
           "title": "Value Type",
-          "structured": "Structured",
-          "structuredDesc": "Complex data with schema (default)",
           "text": "Text",
-          "textDesc": "Simple free text",
-          "number": "Number",
-          "numberDesc": "Numeric value",
-          "boolean": "Boolean",
-          "booleanDesc": "Yes/No value",
-          "date": "Date",
-          "dateDesc": "Date value"
+          "textDesc": "Simple free text without schema",
+          "structured": "Structured",
+          "structuredDesc": "Complex data with JSON schema definition",
+          "list": "List",
+          "listDesc": "Store multiple values as a list",
+          "reference": "Reference",
+          "referenceDesc": "Reference to other entities"
         },
         "entityTypeAssignment": {
           "title": "Entity Type Assignment",
@@ -1072,12 +1094,43 @@
           "specificTypesDesc": "Select one or more entity types"
         }
       },
+      "filterToolbar": {
+        "title": "Filter and Search",
+        "description": "The facet type list offers filter and search functions:",
+        "search": "Search Field",
+        "searchDesc": "Search facet types by name",
+        "entityTypeFilter": "Entity Type Filter",
+        "entityTypeFilterDesc": "Show only facet types for specific entity types",
+        "statusFilter": "Status Filter",
+        "statusFilterDesc": "Filter by active/inactive status"
+      },
       "schema": {
         "title": "Schema Definition",
         "description": "For structured facet types, you can define a JSON schema:",
         "example": "Example for Pain Point:",
         "exampleSchema": "type: object with properties: severity (string, enum: low/medium/high), category (string), details (string)",
-        "tip": "Tip: The AI uses the schema to extract structured data."
+        "tip": "Tip: The AI uses the schema to extract structured data.",
+        "aiGenerator": "AI Schema Generator",
+        "aiGeneratorDesc": "Automatically generates a suitable JSON schema based on the facet name and description",
+        "aiGeneratorButton": "Generate Schema"
+      },
+      "advancedSettings": {
+        "title": "Advanced Settings",
+        "aggregationMethod": "Aggregation Method",
+        "aggregationMethodDesc": "How multiple values are combined:",
+        "aggregationOptions": {
+          "count": "Count - Counts the values",
+          "sum": "Sum - Adds numeric values",
+          "avg": "Average - Calculates mean value",
+          "list": "List - Collect all values",
+          "dedupe": "Deduplicate - Remove duplicates (default)"
+        },
+        "deduplicationFields": "Deduplication Fields",
+        "deduplicationFieldsDesc": "JSON paths that are compared for deduplication",
+        "displayOrder": "Display Order",
+        "displayOrderDesc": "Position in the facet list (lower numbers appear first)",
+        "systemType": "System Type",
+        "systemTypeDesc": "System facet types are protected and cannot be deleted"
       },
       "aiExtraction": {
         "title": "Configure AI Extraction",
@@ -1688,64 +1741,6 @@
       "testing": {
         "title": "Template Validation",
         "description": "Test templates to ensure the API is accessible and returns the expected data."
-      }
-    },
-    "externalApis": {
-      "title": "External APIs",
-      "description": "Integrate external data sources via the pluggable API system.",
-      "concept": {
-        "title": "Concept",
-        "description": "The External API system enables bidirectional synchronization of data between CaeliCrawler and external services."
-      },
-      "features": {
-        "title": "Features",
-        "syncRecords": {
-          "title": "Sync Records",
-          "rawData": "Storage of raw data from the API",
-          "timestamps": "Timestamps for last synchronization",
-          "errorTracking": "Error tracking for sync issues"
-        },
-        "entityLinking": {
-          "title": "Entity Linking",
-          "bidirectional": "Bidirectional linking with local entities",
-          "externalIds": "External IDs for referencing",
-          "autoUpdate": "Automatic updates on changes"
-        }
-      },
-      "authentication": {
-        "title": "Authentication Methods",
-        "table": {
-          "method": "Method",
-          "description": "Description"
-        },
-        "apiKey": "Simple API key authentication in header or query",
-        "oauth": "OAuth 2.0 for secure authorization",
-        "basic": "HTTP Basic Auth with username and password",
-        "none": "None",
-        "noneDesc": "For public APIs without authentication"
-      },
-      "workflow": {
-        "title": "Integration Workflow",
-        "step1": {
-          "title": "Create API Template",
-          "description": "Define the API connection and authentication"
-        },
-        "step2": {
-          "title": "Synchronize Data",
-          "description": "Start the initial synchronization"
-        },
-        "step3": {
-          "title": "Link Entities",
-          "description": "Map external data to local entities"
-        },
-        "step4": {
-          "title": "Automatic Updates",
-          "description": "Configure regular synchronizations"
-        }
-      },
-      "viewingData": {
-        "title": "Viewing External Data",
-        "description": "In the entity detail view, you'll find all synchronized raw data from linked APIs under 'External Data'."
       }
     }
   }

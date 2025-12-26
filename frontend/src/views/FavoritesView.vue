@@ -20,6 +20,7 @@
               clearable
               hide-details
               @update:model-value="debouncedSearch"
+              @keyup.enter="loadFavorites(1)"
             ></v-text-field>
           </v-col>
           <v-col cols="12" md="3">

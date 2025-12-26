@@ -151,12 +151,13 @@ const logger = useLogger('EntityDataSourceManager')
 interface DataSource {
   id: string
   name: string
-  base_url: string
-  status: string
+  base_url?: string
+  status?: string
   source_type?: string
   is_direct_link?: boolean
   document_count?: number
   last_crawl?: string
+  last_crawled_at?: string
   hasRunningJob?: boolean
   crawl_config?: {
     max_depth: number

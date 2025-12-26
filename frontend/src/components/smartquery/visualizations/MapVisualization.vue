@@ -132,16 +132,27 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import type { VisualizationConfig } from './types'
 import { useLogger } from '@/composables/useLogger'
 
-const props = defineProps<{
-  data: Record<string, unknown>[]
-  config?: VisualizationConfig
-}>()
-
-const logger = useLogger('MapVisualization')
-
 // =============================================================================
 // Types
 // =============================================================================
+
+interface MapDataItem {
+  entity_id?: string
+  entity_name?: string
+  name?: string
+  entity_type?: string
+  latitude?: number
+  longitude?: number
+  geometry?: unknown
+  coordinates?: {
+    lat?: number
+    lon?: number
+  }
+  facets?: Record<string, unknown>
+  icon?: string
+  color?: string
+  [key: string]: unknown
+}
 
 interface SelectedFeatureInfo {
   name: string
@@ -156,6 +167,13 @@ interface PopupPosition {
   x: number
   y: number
 }
+
+const props = defineProps<{
+  data: MapDataItem[]
+  config?: VisualizationConfig
+}>()
+
+const logger = useLogger('MapVisualization')
 
 // =============================================================================
 // Composables & Props
@@ -279,22 +297,27 @@ function convertToGeoJSON(data: Record<string, unknown>[]): GeoJSON.FeatureColle
   for (const item of data) {
     let geometry: GeoJSON.Geometry | null = null
 
+    // Type guards for item properties
+    const lat = typeof item.latitude === 'number' ? item.latitude : null
+    const lon = typeof item.longitude === 'number' ? item.longitude : null
+    const coords = item.coordinates as { lat?: number; lon?: number } | undefined
+
     // Check for geometry field (complex shapes)
     if (item.geometry && typeof item.geometry === 'object') {
       geometry = item.geometry as GeoJSON.Geometry
     }
     // Check for lat/lon (simple points)
-    else if (item.latitude != null && item.longitude != null) {
+    else if (lat != null && lon != null) {
       geometry = {
         type: 'Point',
-        coordinates: [item.longitude, item.latitude],
+        coordinates: [lon, lat],
       }
     }
     // Check for nested coordinates
-    else if (item.coordinates?.lat != null && item.coordinates?.lon != null) {
+    else if (coords?.lat != null && coords?.lon != null) {
       geometry = {
         type: 'Point',
-        coordinates: [item.coordinates.lon, item.coordinates.lat],
+        coordinates: [coords.lon, coords.lat],
       }
     }
     // Check for facets with geo data

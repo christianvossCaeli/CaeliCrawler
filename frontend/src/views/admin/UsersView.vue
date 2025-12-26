@@ -26,6 +26,7 @@
               clearable
               hide-details
               @update:model-value="debouncedFetch"
+              @keyup.enter="fetchUsers"
             />
           </v-col>
           <v-col cols="12" md="3">

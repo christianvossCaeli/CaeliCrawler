@@ -190,6 +190,12 @@ async def create_entity_type(
         session.add(entity_type)
         await session.flush()
 
+        # Generate embedding for semantic similarity search
+        from app.utils.similarity import generate_embedding
+        embedding = await generate_embedding(entity_type.name)
+        if embedding:
+            entity_type.name_embedding = embedding
+
         audit.track_action(
             action=AuditAction.CREATE,
             entity_type="EntityType",
@@ -278,6 +284,14 @@ async def update_entity_type(
     async with AuditContext(session, current_user, request) as audit:
         # Update fields
         update_data = data.model_dump(exclude_unset=True)
+
+        # If name changes, regenerate embedding
+        if "name" in update_data:
+            from app.utils.similarity import generate_embedding
+            embedding = await generate_embedding(update_data["name"])
+            if embedding:
+                update_data["name_embedding"] = embedding
+
         for field, value in update_data.items():
             setattr(entity_type, field, value)
 

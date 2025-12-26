@@ -63,7 +63,7 @@
           </div>
 
           <!-- Tags -->
-          <div v-if="entity.tags?.length > 0" class="comparison-tags mt-4">
+          <div v-if="entity.tags && entity.tags.length > 0" class="comparison-tags mt-4">
             <v-chip
               v-for="tag in entity.tags.slice(0, 5)"
               :key="tag"
@@ -94,8 +94,19 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { VisualizationConfig } from './types'
 
+// Local interface for comparison entities
+interface ComparisonEntity {
+  entity_id?: string
+  entity_name?: string
+  entity_type?: string
+  core_attributes?: Record<string, unknown>
+  facets?: Record<string, unknown>
+  tags?: string[]
+  [key: string]: unknown
+}
+
 const props = defineProps<{
-  data: Record<string, unknown>[]
+  data: ComparisonEntity[]
   config?: VisualizationConfig
 }>()
 
@@ -160,14 +171,14 @@ function getEntityColor(index: number): string {
   return colors[index % colors.length]
 }
 
-function getFacetValue(entity: Record<string, unknown>, facetKey: string): string {
+function getFacetValue(entity: ComparisonEntity, facetKey: string): string {
   const facets = entity.facets || {}
   const facetValue = facets[facetKey]
 
   if (facetValue === undefined || facetValue === null) return '-'
 
-  if (typeof facetValue === 'object' && 'value' in facetValue) {
-    const val = facetValue.value
+  if (typeof facetValue === 'object' && facetValue !== null && 'value' in (facetValue as Record<string, unknown>)) {
+    const val = (facetValue as Record<string, unknown>).value
     if (typeof val === 'number') {
       return val.toLocaleString()
     }
@@ -181,12 +192,13 @@ function getFacetValue(entity: Record<string, unknown>, facetKey: string): strin
   return String(facetValue)
 }
 
-function getNumericFacetValue(entity: Record<string, unknown>, facetKey: string): number {
+function getNumericFacetValue(entity: ComparisonEntity, facetKey: string): number {
   const facets = entity.facets || {}
   const facetValue = facets[facetKey]
 
-  if (typeof facetValue === 'object' && 'value' in facetValue) {
-    return typeof facetValue.value === 'number' ? facetValue.value : 0
+  if (typeof facetValue === 'object' && facetValue !== null && 'value' in (facetValue as Record<string, unknown>)) {
+    const val = (facetValue as Record<string, unknown>).value
+    return typeof val === 'number' ? val : 0
   }
   return typeof facetValue === 'number' ? facetValue : 0
 }

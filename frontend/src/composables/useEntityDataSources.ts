@@ -24,8 +24,9 @@ export interface DataSource {
   source_type?: string
   is_direct_link?: boolean
   document_count?: number
-  last_crawl?: string
+  last_crawl?: string | null
   hasRunningJob?: boolean
+  extra_data?: Record<string, unknown>
 }
 
 export function useEntityDataSources(entityIdRef: MaybeRefOrGetter<string | undefined>) {
@@ -111,9 +112,12 @@ export function useEntityDataSources(entityIdRef: MaybeRefOrGetter<string | unde
       const sourceId = selectedSourceToLink.value.id
       const currentExtraData = selectedSourceToLink.value.extra_data || {}
 
-      // Support legacy entity_id and new entity_ids array
-      const existingEntityIds = currentExtraData.entity_ids ||
-        (currentExtraData.entity_id ? [currentExtraData.entity_id] : [])
+      // Support legacy entity_id and new entity_ids array - with type guards
+      const rawEntityIds = currentExtraData.entity_ids
+      const legacyEntityId = currentExtraData.entity_id
+      const existingEntityIds: string[] = Array.isArray(rawEntityIds)
+        ? rawEntityIds
+        : (typeof legacyEntityId === 'string' ? [legacyEntityId] : [])
 
       // Add new entity if not already linked
       const newEntityIds = existingEntityIds.includes(entityId)

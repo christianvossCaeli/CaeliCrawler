@@ -31,6 +31,7 @@
               clearable
               hide-details
               @update:model-value="debouncedSearch"
+              @keyup.enter="loadSummaries(1)"
             />
           </v-col>
           <v-col cols="12" md="2">

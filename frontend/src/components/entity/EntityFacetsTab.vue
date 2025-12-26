@@ -344,80 +344,80 @@
                         <div class="text-body-1">{{ formatFacetValue(sample) }}</div>
                       </template>
 
-                      <!-- Source & Confidence Info (shown for all types) -->
-                      <div class="d-flex align-center flex-wrap ga-2 mt-2">
-                        <!-- Source Badge (Clickable - opens details modal) -->
-                        <v-chip
-                          size="x-small"
-                          variant="tonal"
-                          :color="getFacetSourceColor(sample.source_type)"
-                          class="cursor-pointer"
-                          @click.stop="openSourceDetails(sample)"
-                        >
-                          <v-icon start size="x-small">{{ getFacetSourceIcon(sample.source_type) }}</v-icon>
-                          {{ t('entityDetail.source') }}
-                        </v-chip>
+                      <!-- Footer: Meta Info & Actions -->
+                      <div class="facet-footer mt-3 pt-3 border-t">
+                        <!-- Meta Information Row -->
+                        <div class="d-flex align-center flex-wrap ga-3 mb-2">
+                          <!-- Source Badge (Clickable - opens details modal) -->
+                          <v-chip
+                            size="small"
+                            variant="tonal"
+                            :color="getFacetSourceColor(sample.source_type)"
+                            class="cursor-pointer"
+                            @click.stop="openSourceDetails(sample)"
+                          >
+                            <v-icon start size="small">{{ getFacetSourceIcon(sample.source_type) }}</v-icon>
+                            {{ t('entityDetail.source') }}
+                          </v-chip>
 
-                        <!-- Confidence Score -->
-                        <div v-if="sample.confidence_score" class="d-flex align-center">
-                          <v-progress-linear
-                            :model-value="sample.confidence_score * 100"
-                            :color="getConfidenceColor(sample.confidence_score)"
-                            height="4"
-                            class="mr-2"
-                            style="max-width: 80px;"
-                          ></v-progress-linear>
-                          <span class="text-caption text-medium-emphasis">{{ Math.round(sample.confidence_score * 100) }}%</span>
+                          <!-- Confidence Score -->
+                          <div v-if="sample.confidence_score" class="d-flex align-center ga-2">
+                            <span class="text-caption text-medium-emphasis">{{ t('entityDetail.confidence') }}:</span>
+                            <v-progress-linear
+                              :model-value="sample.confidence_score * 100"
+                              :color="getConfidenceColor(sample.confidence_score)"
+                              height="6"
+                              rounded
+                              style="width: 60px;"
+                            ></v-progress-linear>
+                            <span class="text-caption font-weight-medium">{{ Math.round(sample.confidence_score * 100) }}%</span>
+                          </div>
+
+                          <!-- Created Date -->
+                          <span v-if="sample.created_at" class="text-caption text-medium-emphasis">
+                            <v-icon size="small" class="mr-1">mdi-clock-outline</v-icon>
+                            {{ formatDate(sample.created_at) }}
+                          </span>
+
+                          <!-- Verified Badge -->
+                          <v-chip v-if="sample.human_verified" size="small" color="success" variant="flat">
+                            <v-icon start size="small">mdi-check-circle</v-icon>
+                            {{ t('entityDetail.verifiedLabel') }}
+                          </v-chip>
                         </div>
 
-                        <!-- Created Date -->
-                        <span v-if="sample.created_at" class="text-caption text-medium-emphasis">
-                          <v-icon size="x-small" class="mr-1">mdi-clock-outline</v-icon>
-                          {{ formatDate(sample.created_at) }}
-                        </span>
-
-                        <!-- Verified Badge -->
-                        <v-chip v-if="sample.human_verified" size="x-small" color="success" variant="flat">
-                          <v-icon start size="x-small">mdi-check-circle</v-icon>
-                          {{ t('entityDetail.verifiedLabel') }}
-                        </v-chip>
-
-                        <v-spacer></v-spacer>
-
-                        <!-- Action buttons -->
-                        <div class="d-flex ga-1">
+                        <!-- Action Buttons Row -->
+                        <div v-if="sample.id" class="d-flex align-center ga-2">
                           <!-- Verify button -->
                           <v-btn
-                            v-if="!sample.human_verified && sample.id"
-                            size="x-small"
+                            v-if="!sample.human_verified"
+                            size="small"
                             color="success"
                             variant="tonal"
-                            :title="t('entityDetail.verifyAction')"
                             @click.stop="verifyFacet(sample.id)"
                           >
-                            <v-icon size="small">mdi-check</v-icon>
+                            <v-icon start size="small">mdi-check</v-icon>
+                            {{ t('entityDetail.verifyAction') }}
                           </v-btn>
                           <!-- Edit button -->
                           <v-btn
-                            v-if="sample.id"
-                            size="x-small"
+                            size="small"
                             color="primary"
                             variant="tonal"
-                            :title="t('common.edit')"
                             @click.stop="openEditFacetDialog(sample, facetGroup)"
                           >
-                            <v-icon size="small">mdi-pencil</v-icon>
+                            <v-icon start size="small">mdi-pencil</v-icon>
+                            {{ t('common.edit') }}
                           </v-btn>
                           <!-- Delete button -->
                           <v-btn
-                            v-if="sample.id"
-                            size="x-small"
+                            size="small"
                             color="error"
                             variant="tonal"
-                            :title="t('common.delete')"
                             @click.stop="confirmDeleteFacet(sample)"
                           >
-                            <v-icon size="small">mdi-delete</v-icon>
+                            <v-icon start size="small">mdi-delete</v-icon>
+                            {{ t('common.delete') }}
                           </v-btn>
                         </div>
                       </div>
@@ -550,9 +550,15 @@
     />
 
     <!-- Edit Facet Dialog -->
-    <v-dialog v-model="editFacetDialog" max-width="600">
-      <v-card>
-        <v-card-title>{{ t('entityDetail.editFacet') }}</v-card-title>
+    <v-dialog v-model="editFacetDialog" max-width="800" scrollable>
+      <v-card min-height="400">
+        <v-card-title class="d-flex align-center">
+          <v-icon start>mdi-pencil</v-icon>
+          {{ t('entityDetail.dialog.editFacet') }}
+          <span v-if="editingFacetTypeName" class="text-body-2 text-medium-emphasis ml-2">
+            ({{ editingFacetTypeName }})
+          </span>
+        </v-card-title>
         <v-card-text>
           <!-- Structured Form -->
           <DynamicSchemaForm
@@ -564,15 +570,18 @@
           <v-textarea
             v-else
             v-model="editingFacetTextValue"
-            :label="t('entityDetail.facetValue')"
-            rows="3"
+            :label="t('entityDetail.dialog.facetValue')"
+            rows="8"
             variant="outlined"
+            auto-grow
+            :hint="t('entityDetail.dialog.facetValueHint')"
+            persistent-hint
           ></v-textarea>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn variant="text" @click="editFacetDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn color="primary" :loading="savingFacet" @click="saveEditedFacet">{{ t('common.save') }}</v-btn>
+          <v-btn variant="tonal" @click="editFacetDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn color="primary" variant="tonal" :loading="savingFacet" @click="saveEditedFacet">{{ t('common.save') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -588,7 +597,8 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useEntityStore, type FacetValue, type Entity, type EntityType } from '@/stores/entity'
+import { useEntityStore, type Entity, type EntityType } from '@/stores/entity'
+import type { FacetValue, FacetGroup, FacetsSummary } from '@/types/entity'
 import { facetApi, entityDataApi } from '@/services/api'
 import { format, formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
@@ -620,27 +630,8 @@ const emit = defineEmits<{
 const logger = useLogger('EntityFacetsTab')
 
 // =============================================================================
-// Types
+// Types (local-only types that aren't shared)
 // =============================================================================
-
-interface FacetGroup {
-  facet_type_id: string
-  facet_type_slug: string
-  facet_type_name: string
-  facet_type_icon: string
-  facet_type_color: string
-  facet_type_value_type?: string
-  value_schema?: Record<string, unknown>
-  value_count: number
-  verified_count: number
-  sample_values: FacetValue[]
-}
-
-interface FacetsSummary {
-  total_facet_values: number
-  verified_count: number
-  facets_by_type: FacetGroup[]
-}
 
 interface EnrichmentSources {
   pysis: { available: boolean; count: number; last_updated: string | null }
@@ -701,6 +692,7 @@ const editingFacetValue = ref<Record<string, unknown>>({})
 const editingFacetTextValue = ref('')
 const editingFacetSchema = ref<Record<string, unknown> | null>(null)
 const savingFacet = ref(false)
+const editingFacetTypeName = computed(() => editingFacetGroup.value?.facet_type_name || '')
 
 // Source Details
 const sourceDetailsDialog = ref(false)
@@ -782,13 +774,13 @@ function matchesFacetSearch(facet: FacetValue, query: string): boolean {
 function canLoadMore(facetGroup: FacetGroup): boolean {
   const slug = facetGroup.facet_type_slug
   const loaded = expandedFacetValues.value[slug]?.length || facetGroup.sample_values?.length || 0
-  return loaded < facetGroup.value_count
+  return loaded < (facetGroup.value_count ?? 0)
 }
 
 function getRemainingCount(facetGroup: FacetGroup): number {
   const slug = facetGroup.facet_type_slug
   const loaded = expandedFacetValues.value[slug]?.length || facetGroup.sample_values?.length || 0
-  return Math.min(10, facetGroup.value_count - loaded)
+  return Math.min(10, (facetGroup.value_count ?? 0) - loaded)
 }
 
 function isExpanded(facetGroup: FacetGroup): boolean {
@@ -1229,5 +1221,13 @@ onUnmounted(() => {
 
 .bg-primary-lighten-5 {
   background-color: rgba(var(--v-theme-primary), 0.1);
+}
+
+.facet-footer {
+  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.border-t {
+  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 </style>

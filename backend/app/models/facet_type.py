@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pgvector.sqlalchemy import Vector
 
 from app.database import Base
 
@@ -82,6 +83,11 @@ class FacetType(Base):
         String(255),
         nullable=False,
         comment="Plural form",
+    )
+    name_embedding: Mapped[Optional[List[float]]] = mapped_column(
+        Vector(1536),
+        nullable=True,
+        comment="Embedding vector for semantic similarity search",
     )
     description: Mapped[Optional[str]] = mapped_column(
         Text,

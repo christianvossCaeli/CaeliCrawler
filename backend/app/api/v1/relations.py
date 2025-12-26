@@ -194,6 +194,16 @@ async def create_relation_type(
         session.add(relation_type)
         await session.flush()
 
+        # Generate embeddings for semantic similarity search
+        from app.utils.similarity import generate_embedding
+        name_embedding = await generate_embedding(data.name)
+        if name_embedding:
+            relation_type.name_embedding = name_embedding
+        if data.name_inverse:
+            name_inverse_embedding = await generate_embedding(data.name_inverse)
+            if name_inverse_embedding:
+                relation_type.name_inverse_embedding = name_inverse_embedding
+
         audit.track_action(
             action=AuditAction.CREATE,
             entity_type="RelationType",
@@ -311,6 +321,21 @@ async def update_relation_type(
     async with AuditContext(session, current_user, request) as audit:
         # Update fields
         update_data = data.model_dump(exclude_unset=True)
+
+        # If name changes, regenerate embedding
+        if "name" in update_data:
+            from app.utils.similarity import generate_embedding
+            embedding = await generate_embedding(update_data["name"])
+            if embedding:
+                update_data["name_embedding"] = embedding
+
+        # If name_inverse changes, regenerate embedding
+        if "name_inverse" in update_data:
+            from app.utils.similarity import generate_embedding
+            embedding = await generate_embedding(update_data["name_inverse"])
+            if embedding:
+                update_data["name_inverse_embedding"] = embedding
+
         for field, value in update_data.items():
             setattr(rt, field, value)
 

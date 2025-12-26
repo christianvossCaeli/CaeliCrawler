@@ -10,6 +10,8 @@
             clearable
             hide-details
             @update:model-value="handleSearchUpdate"
+            @keyup.enter="$emit('load-entities')"
+            @click:clear="handleSearchClear"
           ></v-text-field>
         </v-col>
         <v-col cols="12" md="2">
@@ -133,7 +135,7 @@ interface Props {
   categories: Category[]
   parentOptions: ParentOption[]
   loadingParents: boolean
-  facetFilterOptions: Array<{ label: string; value: string }>
+  facetFilterOptions: Array<{ label: string; value: string | boolean | null }>
   hasExtendedFilters: boolean
   activeExtendedFilterCount: number
   allExtendedFilters: Record<string, string>
@@ -160,6 +162,11 @@ const { t } = useI18n()
 
 function handleSearchUpdate(value: string | null) {
   emit('update:search-query', value || '')
+}
+
+function handleSearchClear() {
+  emit('update:search-query', '')
+  emit('load-entities')
 }
 
 function handleCategoryChange(value: string | null) {

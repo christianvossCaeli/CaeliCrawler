@@ -663,7 +663,13 @@ function getFacetTypeColor(slug: string): string {
 
 function getSuggestionText(suggestion: FacetSuggestion): string {
   const value = suggestion.value
-  return value?.text || value?.description || value?.name || JSON.stringify(value).slice(0, 100)
+  const text = value?.text
+  const description = value?.description
+  const name = value?.name
+  if (typeof text === 'string' && text) return text
+  if (typeof description === 'string' && description) return description
+  if (typeof name === 'string' && name) return name
+  return JSON.stringify(value).slice(0, 100)
 }
 
 function showSnackbar(message: string, color: string) {

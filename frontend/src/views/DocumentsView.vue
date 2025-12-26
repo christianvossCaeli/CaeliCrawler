@@ -162,6 +162,7 @@
               clearable
               hide-details
               @update:model-value="debouncedLoadData"
+              @keyup.enter="loadData"
             />
           </v-col>
           <v-col cols="12" md="2">
@@ -412,14 +413,34 @@ import { useLogger } from '@/composables/useLogger'
 import { getErrorMessage } from '@/composables/useApiErrorHandler'
 
 // Document types
+interface ExtractedDataItem {
+  id: string
+  type: string
+  confidence: number
+  verified?: boolean
+  content?: Record<string, unknown>
+}
+
 interface Document {
   id: string
   title?: string
   file_path?: string
   status: string
   source_id?: string
+  source_name?: string
   created_at: string
   updated_at?: string
+  // Additional document properties
+  document_type?: string
+  original_url?: string
+  processing_status?: string
+  processing_error?: string
+  file_size?: number
+  discovered_at?: string
+  processed_at?: string
+  page_count?: number
+  raw_text?: string
+  extracted_data?: ExtractedDataItem[]
 }
 
 interface TableOptions {
@@ -498,32 +519,37 @@ const hasActiveFilters = computed(() =>
 )
 
 // Helpers
-const getStatusColor = (status: string) => {
+const getStatusColor = (status?: string) => {
+  if (!status) return 'grey'
   const colors: Record<string, string> = { PENDING: 'warning', PROCESSING: 'info', ANALYZING: 'purple', COMPLETED: 'success', FILTERED: 'grey', FAILED: 'error' }
   return colors[status] || 'grey'
 }
 
-const getStatusLabel = (status: string) => {
+const getStatusLabel = (status?: string) => {
+  if (!status) return '-'
   const labels: Record<string, string> = { PENDING: 'Wartend', PROCESSING: 'Verarbeitung', ANALYZING: 'KI-Analyse', COMPLETED: 'Fertig', FILTERED: 'Gefiltert', FAILED: 'Fehler' }
   return labels[status] || status
 }
 
-const getTypeColor = (type: string) => {
+const getTypeColor = (type?: string) => {
+  if (!type) return 'grey'
   const colors: Record<string, string> = { PDF: 'red', HTML: 'blue', DOCX: 'indigo', DOC: 'indigo' }
   return colors[type] || 'grey'
 }
 
-const getTypeIcon = (type: string) => {
+const getTypeIcon = (type?: string) => {
+  if (!type) return 'mdi-file-document'
   const icons: Record<string, string> = { PDF: 'mdi-file-pdf-box', HTML: 'mdi-language-html5', DOCX: 'mdi-file-word', DOC: 'mdi-file-word' }
   return icons[type] || 'mdi-file-document'
 }
 
-const formatDate = (dateStr: string) => {
+const formatDate = (dateStr?: string) => {
   if (!dateStr) return '-'
   return format(new Date(dateStr), 'dd.MM.yy HH:mm', { locale: de })
 }
 
-const formatFileSize = (bytes: number) => {
+const formatFileSize = (bytes?: number) => {
+  if (!bytes) return '-'
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`

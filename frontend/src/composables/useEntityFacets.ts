@@ -5,6 +5,7 @@ import { facetApi } from '@/services/api'
 import { useEntityStore } from '@/stores/entity'
 import { buildTextRepresentation } from './useEntityDetailHelpers'
 import type { Entity, EntityType } from '@/stores/entity'
+import type { FacetGroup, FacetValue } from '@/types/entity'
 import { useLogger } from '@/composables/useLogger'
 
 const logger = useLogger('useEntityFacets')
@@ -26,23 +27,11 @@ export interface NewFacet {
   value: Record<string, unknown>
 }
 
-export interface FacetGroup {
-  facet_type_id: string
-  facet_type_slug: string
-  facet_type_name: string
-  value_type?: string
-  icon?: string
-  color?: string
-}
+// Re-export for convenience
+export type { FacetGroup, FacetValue }
 
-export interface FacetDetail {
-  id: string
-  text_representation?: string
-  value?: Record<string, unknown>
-  confidence_score?: number
-  human_verified?: boolean
-  source_url?: string
-}
+// Alias for backward compatibility
+export type FacetDetail = FacetValue
 
 export interface FacetSchema {
   properties?: Record<string, { title?: string; type?: string; description?: string }>
@@ -59,9 +48,9 @@ export function useEntityFacets(
   const store = useEntityStore()
 
   const selectedFacetGroup = ref<FacetGroup | null>(null)
-  const facetDetails = ref<FacetDetail[]>([])
-  const facetToDelete = ref<FacetDetail | null>(null)
-  const editingFacet = ref<FacetDetail | null>(null)
+  const facetDetails = ref<FacetValue[]>([])
+  const facetToDelete = ref<FacetValue | null>(null)
+  const editingFacet = ref<FacetValue | null>(null)
   const editingFacetValue = ref<Record<string, unknown>>({})
   const editingFacetTextValue = ref('')
   const editingFacetSchema = ref<FacetSchema | null>(null)

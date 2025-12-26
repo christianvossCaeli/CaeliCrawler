@@ -8,6 +8,7 @@ import { useFeatureFlags } from '@/composables/useFeatureFlags'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import { useLogger } from '@/composables/useLogger'
 import type { Entity } from '@/types/entity'
+import type { AnalysisTemplate } from '@/stores/entity'
 
 // Local interfaces for API responses
 interface UserResponse {
@@ -18,12 +19,6 @@ interface UserResponse {
 
 interface VFormRef {
   validate: () => Promise<{ valid: boolean }> | boolean
-}
-
-interface EntityTemplate {
-  id: string
-  name: string
-  fields?: Record<string, unknown>
 }
 
 // Helper for type-safe error handling
@@ -176,7 +171,8 @@ export function useEntitiesView() {
   // Computed
   const currentEntityType = computed(() => {
     const slug = typeSlug.value || selectedTypeTab.value
-    return store.entityTypes.find(et => et.slug === slug) || store.activeEntityTypes[0]
+    // Return null instead of undefined when no entity type is found
+    return store.entityTypes.find(et => et.slug === slug) || store.activeEntityTypes[0] || null
   })
 
   const totalEntities = computed(() => store.entitiesTotal)
@@ -488,11 +484,11 @@ export function useEntitiesView() {
     entityForm.value = {
       name: entity.name,
       external_id: entity.external_id || '',
-      parent_id: entity.parent_id,
+      parent_id: entity.parent_id ?? null,
       core_attributes: { ...entity.core_attributes },
-      latitude: entity.latitude,
-      longitude: entity.longitude,
-      owner_id: entity.owner_id || null,
+      latitude: entity.latitude ?? null,
+      longitude: entity.longitude ?? null,
+      owner_id: entity.owner_id ?? null,
     }
     createDialog.value = true
   }
@@ -516,7 +512,7 @@ export function useEntitiesView() {
     deleteDialog.value = true
   }
 
-  function selectTemplate(template: EntityTemplate) {
+  function selectTemplate(template: AnalysisTemplate) {
     store.selectedTemplate = template
     templateDialog.value = false
     loadEntities()

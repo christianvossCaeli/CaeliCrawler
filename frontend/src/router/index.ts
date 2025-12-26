@@ -146,17 +146,6 @@ const router = createRouter({
       component: () => import('@/views/admin/AuditLogView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
     },
-    {
-      // Redirect deprecated api-templates to external-apis
-      path: '/admin/api-templates',
-      redirect: '/admin/external-apis'
-    },
-    {
-      path: '/admin/external-apis',
-      name: 'admin-external-apis',
-      component: () => import('@/views/admin/ExternalApisView.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true }
-    },
 
     // Custom Summaries routes
     {

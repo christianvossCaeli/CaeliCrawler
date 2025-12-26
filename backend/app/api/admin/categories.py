@@ -291,6 +291,12 @@ async def create_category(
         session.add(category)
         await session.flush()  # Get ID before audit
 
+        # Generate embedding for semantic similarity search
+        from app.utils.similarity import generate_embedding
+        embedding = await generate_embedding(category.name)
+        if embedding:
+            category.name_embedding = embedding
+
         # Audit log with detailed info
         audit.track_action(
             action=AuditAction.CREATE,
@@ -453,6 +459,14 @@ async def update_category(
     async with AuditContext(session, current_user, request) as audit:
         # Update fields
         update_data = data.model_dump(exclude_unset=True)
+
+        # If name changes, regenerate embedding
+        if "name" in update_data:
+            from app.utils.similarity import generate_embedding
+            embedding = await generate_embedding(update_data["name"])
+            if embedding:
+                update_data["name_embedding"] = embedding
+
         for field, value in update_data.items():
             setattr(category, field, value)
 

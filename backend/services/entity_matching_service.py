@@ -33,6 +33,115 @@ from app.utils.text import normalize_entity_name, create_slug
 logger = structlog.get_logger()
 
 
+
+import re
+from dataclasses import dataclass
+
+
+@dataclass
+class CompositeEntityMatch:
+    """Result of detecting a composite entity name."""
+    is_composite: bool
+    pattern_type: str  # e.g., "gemeinden_und", "region_gemeinde"
+    extracted_names: List[str]
+    original_name: str
+
+
+# Patterns for detecting composite entity names that should not be created
+COMPOSITE_ENTITY_PATTERNS = [
+    # "Gemeinden X und Y" - multiple municipalities
+    (
+        r"(?:Gemeinden?|Städte|Märkte)\s+(.+?)\s+und\s+(.+?)(?:,|$)",
+        "gemeinden_und",
+    ),
+    # "Region X, Gemeinde Y" or "Region X, Stadt Y" or "Region X, Markt Y"
+    (
+        r"Region\s+[^,]+,\s+(?:Gemeinde|Stadt|Markt)\s+([^,]+?)(?:,|$)",
+        "region_gemeinde",
+    ),
+    # "Region X, insbesondere Gemeinde Y"
+    (
+        r"(?:insbesondere|speziell|vor allem)\s+(?:Gemeinde|Stadt|Markt)?\s*([^,]+?)(?:,|$)",
+        "insbesondere",
+    ),
+]
+
+
+def detect_composite_entity_name(name: str) -> CompositeEntityMatch:
+    """
+    Detect if an entity name is a composite that should be split into multiple entities.
+    
+    Examples of composite names that should not be created as single entities:
+    - "Gemeinden Litzendorf und Buttenheim" → should use "Litzendorf" and "Buttenheim"
+    - "Region Oberfranken-West, Gemeinde Litzendorf" → should use "Litzendorf"
+    - "Region X, insbesondere Gemeinde Bad Rodach" → should use "Bad Rodach"
+    
+    Args:
+        name: The entity name to check
+        
+    Returns:
+        CompositeEntityMatch with detection results
+    """
+    # Check for "Gemeinden X und Y" pattern
+    match = re.search(
+        r"(?:Gemeinden?|Städte|Märkte)\s+(.+?)\s+und\s+(.+?)(?:,|\s*$)",
+        name,
+        re.IGNORECASE
+    )
+    if match:
+        name1 = match.group(1).strip()
+        name2 = match.group(2).strip()
+        # Clean up trailing location info
+        name2 = re.sub(r",?\s*(?:Landkreis|Region|Bayern|Kreis).*$", "", name2, flags=re.IGNORECASE)
+        return CompositeEntityMatch(
+            is_composite=True,
+            pattern_type="gemeinden_und",
+            extracted_names=[name1, name2],
+            original_name=name,
+        )
+    
+    # Check for "Region X, Gemeinde/Stadt/Markt Y" pattern
+    match = re.search(
+        r"Region\s+[^,]+,\s+(?:Gemeinde|Stadt|Markt)\s+([^,]+?)(?:,|\s*$)",
+        name,
+        re.IGNORECASE
+    )
+    if match:
+        extracted = match.group(1).strip()
+        # Clean up trailing location info
+        extracted = re.sub(r",?\s*(?:Landkreis|Region|Bayern|Kreis).*$", "", extracted, flags=re.IGNORECASE)
+        return CompositeEntityMatch(
+            is_composite=True,
+            pattern_type="region_gemeinde",
+            extracted_names=[extracted],
+            original_name=name,
+        )
+    
+    # Check for "insbesondere Gemeinde X" pattern
+    match = re.search(
+        r"(?:insbesondere|speziell|vor allem)\s+(?:Gemeinde|Stadt|Markt)?\s*([^,]+?)(?:,|\s*$)",
+        name,
+        re.IGNORECASE
+    )
+    if match:
+        extracted = match.group(1).strip()
+        # Clean up trailing location info
+        extracted = re.sub(r",?\s*(?:Landkreis|Region|Bayern|Kreis).*$", "", extracted, flags=re.IGNORECASE)
+        return CompositeEntityMatch(
+            is_composite=True,
+            pattern_type="insbesondere",
+            extracted_names=[extracted],
+            original_name=name,
+        )
+    
+    return CompositeEntityMatch(
+        is_composite=False,
+        pattern_type="",
+        extracted_names=[],
+        original_name=name,
+    )
+
+
 class EntityMatchingService:
     """
     Centralized service for consistent entity creation and matching.
@@ -71,7 +180,8 @@ class EntityMatchingService:
         1. external_id (if provided) - exact match
         2. name_normalized + entity_type - exact match
         3. similarity matching (if threshold < 1.0) - fuzzy match
-        4. Create new entity if not found
+        4. Composite name detection - returns existing entity if found
+        5. Create new entity if not found
 
         The creation is race-condition-safe using IntegrityError handling
         combined with the unique constraint on (entity_type_id, name_normalized).
@@ -143,7 +253,25 @@ class EntityMatchingService:
                 )
                 return similar_entity
 
-        # 6. Create new entity (race-condition-safe, with embedding)
+        # 6. Check for composite entity names (e.g., "Gemeinden X und Y")
+        # If detected and component entities exist, return one of them instead
+        composite = detect_composite_entity_name(name)
+        if composite.is_composite:
+            existing_entity = await self._resolve_composite_entity(
+                entity_type.id, composite, country
+            )
+            if existing_entity:
+                logger.info(
+                    "Resolved composite entity name to existing entity",
+                    composite_name=name,
+                    pattern_type=composite.pattern_type,
+                    extracted_names=composite.extracted_names,
+                    resolved_to=existing_entity.name,
+                    entity_id=str(existing_entity.id),
+                )
+                return existing_entity
+
+        # 7. Create new entity (race-condition-safe, with embedding)
         return await self._create_entity_safe(
             entity_type=entity_type,
             name=name,
@@ -312,6 +440,56 @@ class EntityMatchingService:
                 return matches[0][0]  # Return best match
         except ImportError:
             logger.warning("Similarity module not available")
+        return None
+
+
+    async def _resolve_composite_entity(
+        self,
+        entity_type_id: uuid.UUID,
+        composite: CompositeEntityMatch,
+        country: str = "DE",
+    ) -> Optional[Entity]:
+        """
+        Try to resolve a composite entity name to an existing entity.
+        
+        When a composite name like "Gemeinden Litzendorf und Buttenheim" is detected,
+        this method searches for existing entities with the extracted component names
+        (e.g., "Litzendorf", "Buttenheim") and returns the first match.
+        
+        This prevents creation of duplicate/composite entities when the individual
+        entities already exist in the database.
+        
+        Args:
+            entity_type_id: The entity type ID to search within
+            composite: The composite entity detection result
+            country: Country code for name normalization
+            
+        Returns:
+            First matching existing entity, or None if no components exist
+        """
+        if not composite.is_composite or not composite.extracted_names:
+            return None
+            
+        for extracted_name in composite.extracted_names:
+            # Try exact match first
+            name_normalized = normalize_entity_name(extracted_name, country=country)
+            entity = await self._find_by_normalized_name(entity_type_id, name_normalized)
+            if entity:
+                return entity
+            
+            # Also try searching with the full extracted name (might have location suffixes)
+            # e.g., "Bad Rodach" from "insbesondere Gemeinde Bad Rodach, Landkreis Coburg"
+            result = await self.session.execute(
+                select(Entity).where(
+                    Entity.entity_type_id == entity_type_id,
+                    Entity.name.ilike(f"%{extracted_name}%"),
+                    Entity.is_active.is_(True),
+                ).limit(1)
+            )
+            entity = result.scalar_one_or_none()
+            if entity:
+                return entity
+        
         return None
 
     async def _create_entity_safe(

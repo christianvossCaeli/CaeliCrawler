@@ -80,8 +80,20 @@ import 'vue-cal/style.css'
 import type { VisualizationConfig } from './types'
 import { getNestedValue } from './types'
 
+// Calendar data item interface
+interface CalendarDataItem {
+  entity_id?: string
+  entity_name?: string
+  name?: string
+  entity_type?: string
+  date?: string | Date
+  start_date?: string | Date
+  facets?: Record<string, { value?: unknown } | unknown>
+  [key: string]: unknown
+}
+
 const props = defineProps<{
-  data: Record<string, unknown>[]
+  data: CalendarDataItem[]
   config?: VisualizationConfig & {
     active_view?: 'month' | 'week' | 'day' | 'year'
     date_field?: string
@@ -96,9 +108,24 @@ const props = defineProps<{
 const { t, locale: i18nLocale } = useI18n()
 const theme = useTheme()
 
+// Calendar event interface
+interface CalendarEvent {
+  title?: string
+  subtitle?: string
+  start?: Date
+  end?: Date
+  content?: string
+  color?: string
+  entity_id?: string
+  entity_type?: string
+  originalItem?: unknown
+  originalData?: unknown
+  class?: string
+}
+
 // Refs
 const showEventDialog = ref(false)
-const selectedEvent = ref<{ title?: string; start?: Date; end?: Date; content?: string; originalItem?: unknown } | null>(null)
+const selectedEvent = ref<CalendarEvent | null>(null)
 
 // Computed: Dark mode
 const isDarkMode = computed(() => theme.global.current.value.dark)
@@ -196,7 +223,7 @@ const calendarEvents = computed(() => {
                           getNestedValue(item, `facets.${colorField}.value`)
         if (colorValue) {
           // Map category to color or use directly if it's a hex color
-          color = mapCategoryToColor(colorValue)
+          color = mapCategoryToColor(String(colorValue))
         }
       }
 
@@ -222,7 +249,8 @@ function parseDate(value: unknown): Date | null {
   if (value instanceof Date) return value
 
   // Try parsing ISO string
-  const date = new Date(value)
+  const dateStr = typeof value === 'string' || typeof value === 'number' ? value : String(value)
+  const date = new Date(dateStr)
   if (!isNaN(date.getTime())) return date
 
   // Try German date format (DD.MM.YYYY)

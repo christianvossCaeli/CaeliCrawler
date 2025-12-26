@@ -46,7 +46,7 @@ import { de } from 'date-fns/locale'
 interface Document {
   id: string
   title?: string
-  url: string
+  url?: string
   document_type?: string
   created_at?: string
 }

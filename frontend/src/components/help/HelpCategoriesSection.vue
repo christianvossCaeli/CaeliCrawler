@@ -77,6 +77,44 @@
 }</pre>
         </v-expansion-panel-text>
       </v-expansion-panel>
+
+      <v-expansion-panel :title="t('help.categories.aiSetupPreview.title')">
+        <v-expansion-panel-text>
+          <p class="mb-3">{{ t('help.categories.aiSetupPreview.description') }}</p>
+          <v-list density="compact">
+            <v-list-item prepend-icon="mdi-text-box">{{ t('help.categories.aiSetupPreview.features.extractionPrompt') }}</v-list-item>
+            <v-list-item prepend-icon="mdi-shape">{{ t('help.categories.aiSetupPreview.features.entityType') }}</v-list-item>
+            <v-list-item prepend-icon="mdi-tag-multiple">{{ t('help.categories.aiSetupPreview.features.facetTypes') }}</v-list-item>
+            <v-list-item prepend-icon="mdi-magnify">{{ t('help.categories.aiSetupPreview.features.searchTerms') }}</v-list-item>
+            <v-list-item prepend-icon="mdi-filter">{{ t('help.categories.aiSetupPreview.features.urlPatterns') }}</v-list-item>
+          </v-list>
+          <v-alert type="info" variant="tonal" density="compact" class="mt-3">
+            {{ t('help.categories.aiSetupPreview.note') }}
+          </v-alert>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+
+      <v-expansion-panel :title="t('help.categories.filterToolbar.title')">
+        <v-expansion-panel-text>
+          <p class="mb-2">{{ t('help.categories.filterToolbar.description') }}</p>
+          <v-chip-group>
+            <v-chip size="small" variant="outlined">{{ t('help.categories.filterToolbar.filters.status') }}</v-chip>
+            <v-chip size="small" variant="outlined">{{ t('help.categories.filterToolbar.filters.documentType') }}</v-chip>
+            <v-chip size="small" variant="outlined">{{ t('help.categories.filterToolbar.filters.language') }}</v-chip>
+          </v-chip-group>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+
+      <v-expansion-panel :title="t('help.categories.tagAssignment.title')">
+        <v-expansion-panel-text>
+          <p class="mb-3">{{ t('help.categories.tagAssignment.description') }}</p>
+          <v-list density="compact">
+            <v-list-item prepend-icon="mdi-tag-multiple">{{ t('help.categories.tagAssignment.steps.selectTags') }}</v-list-item>
+            <v-list-item prepend-icon="mdi-eye">{{ t('help.categories.tagAssignment.steps.preview') }}</v-list-item>
+            <v-list-item prepend-icon="mdi-link-plus">{{ t('help.categories.tagAssignment.steps.assign') }}</v-list-item>
+          </v-list>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
     </v-expansion-panels>
 
     <h3 class="text-h6 mt-4 mb-3">{{ t('help.categories.actions.title') }}</h3>
@@ -84,7 +122,9 @@
       <thead><tr><th>{{ t('common.actions') }}</th><th>{{ t('common.icon') }}</th><th>{{ t('common.description') }}</th></tr></thead>
       <tbody>
         <tr><td>{{ t('help.categories.actions.edit') }}</td><td><v-icon size="small">mdi-pencil</v-icon></td><td>{{ t('help.categories.actions.editDesc') }}</td></tr>
+        <tr><td>{{ t('help.categories.actions.viewSources') }}</td><td><v-icon size="small" color="primary">mdi-database</v-icon></td><td>{{ t('help.categories.actions.viewSourcesDesc') }}</td></tr>
         <tr><td>{{ t('help.categories.actions.crawl') }}</td><td><v-icon size="small" color="success">mdi-play</v-icon></td><td>{{ t('help.categories.actions.crawlDesc') }}</td></tr>
+        <tr><td>{{ t('help.categories.actions.createSummary') }}</td><td><v-icon size="small" color="info">mdi-file-document-plus</v-icon></td><td>{{ t('help.categories.actions.createSummaryDesc') }}</td></tr>
         <tr><td>{{ t('help.categories.actions.reanalyze') }}</td><td><v-icon size="small" color="warning">mdi-refresh</v-icon></td><td>{{ t('help.categories.actions.reanalyzeDesc') }}</td></tr>
         <tr><td>{{ t('help.categories.actions.delete') }}</td><td><v-icon size="small" color="error">mdi-delete</v-icon></td><td>{{ t('help.categories.actions.deleteDesc') }}</td></tr>
       </tbody>

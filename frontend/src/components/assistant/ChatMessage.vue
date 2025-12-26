@@ -96,7 +96,7 @@
         variant="tonal"
         color="warning"
         class="mt-2"
-        @click="$emit('smart-query-redirect', message.response_data)"
+        @click="$emit('smart-query-redirect', message.response_data ?? null)"
       >
         <v-icon start size="small">mdi-magnify</v-icon>
         {{ t('assistant.openSmartQuery') }}
@@ -191,12 +191,12 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'item-click': [item: { entity_type?: string; entity_slug?: string; slug?: string }]
+  'item-click': [item: { entity_name?: string; name?: string; entity_type?: string; entity_slug?: string; slug?: string; [key: string]: unknown }]
   'navigate': [route: string]
   'command': [command: string]
   'entity-click': [entityType: string, entitySlug: string]
   'suggestion-click': [correctedQuery: string]
-  'smart-query-redirect': [responseData: Record<string, unknown>]
+  'smart-query-redirect': [responseData: Record<string, unknown> | null]
 }>()
 
 const logger = useLogger('ChatMessage')

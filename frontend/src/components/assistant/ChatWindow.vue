@@ -355,6 +355,24 @@ import type { BatchStatus, BatchPreviewEntity } from './BatchActionProgress.vue'
 import { useSpeechRecognition } from '@/composables/useSpeechRecognition'
 import type { ConversationMessage, SuggestedAction, AssistantContext, AttachmentInfo, Insight, ActiveWizard, Reminder, QueryHistoryItem } from '@/composables/useAssistant'
 
+// Flexible action type that works with ActionPreview component
+interface PendingAction {
+  type: string
+  label?: string
+  description?: string
+  icon?: string
+  params?: Record<string, unknown>
+  confirmation_required?: boolean
+  confirmation_message?: string
+  target_id?: string
+  target_name?: string
+  target_type?: string
+  changes?: Record<string, { from: unknown; to: unknown }>
+  delete_target?: string
+  delete_count?: number
+  undo_details?: { operation: string; description: string }
+}
+
 const props = defineProps<{
   messages: ConversationMessage[]
   context: AssistantContext
@@ -364,7 +382,7 @@ const props = defineProps<{
   streamingStatus?: string
   mode: 'read' | 'write'
   suggestedActions: SuggestedAction[]
-  pendingAction: SuggestedAction | null
+  pendingAction: PendingAction | null
   pendingAttachments?: AttachmentInfo[]
   // Batch operation props
   activeBatch?: BatchStatus | null
@@ -388,7 +406,7 @@ const emit = defineEmits<{
   'remove-attachment': [attachmentId: string]
   navigate: [route: string]
   action: [action: SuggestedAction]
-  'action-confirm': [action: SuggestedAction]
+  'action-confirm': [action: PendingAction]
   'action-cancel': []
   'mode-change': [mode: 'read' | 'write']
   // Batch operation emits

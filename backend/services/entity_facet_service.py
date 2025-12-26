@@ -131,6 +131,13 @@ async def create_facet_value(
 
     try:
         await session.flush()
+
+        # Generate embedding for semantic similarity search
+        from app.utils.similarity import generate_embedding
+        embedding = await generate_embedding(text_representation)
+        if embedding:
+            facet_value.text_embedding = embedding
+
         return facet_value
     except IntegrityError as e:
         # Duplicate detected by database unique index - rollback and return None
@@ -143,7 +150,7 @@ async def create_facet_value(
                 text_preview=text_representation[:50] if text_representation else "",
             )
             return None
-        raise  # Re-raise if it's a different IntegrityError
+        raise  # Re-raise if it's a different IntegrityError  # Re-raise if it's a different IntegrityError
 
 
 async def check_duplicate_facet(

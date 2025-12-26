@@ -168,8 +168,7 @@
       "title": "Administration",
       "users": "Benutzerverwaltung",
       "auditLog": "Änderungsverlauf",
-      "apiTemplates": "API-Vorlagen",
-      "externalApis": "Externe APIs"
+      "apiTemplates": "API-Vorlagen"
     }
   },
   "auth": {

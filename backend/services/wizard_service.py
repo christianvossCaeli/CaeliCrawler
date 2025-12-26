@@ -660,6 +660,8 @@ class WizardService:
                 "message": "Pain Point Facet-Typ nicht gefunden.",
             }
 
+        text_repr = description[:500] if description else ""
+
         # Create facet value
         facet_value = FacetValue(
             entity_id=entity.id,
@@ -668,11 +670,19 @@ class WizardService:
                 "severity": severity,
                 "description": description,
             },
-            text_representation=description[:500] if description else "",
+            text_representation=text_repr,
             confidence_score=1.0,
             source_type=FacetValueSourceType.MANUAL,
         )
         self.db.add(facet_value)
+        await self.db.flush()
+
+        # Generate embedding for semantic similarity search
+        from app.utils.similarity import generate_embedding
+        embedding = await generate_embedding(text_repr)
+        if embedding:
+            facet_value.text_embedding = embedding
+
         await self.db.commit()
 
         return {

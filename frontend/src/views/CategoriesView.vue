@@ -26,6 +26,7 @@
       :document-options="documentFilterOptions"
       :language-options="languageFilterOptions"
       @update:filters="categoryFilters = $event"
+      @search="loadCategories"
     />
 
     <!-- Categories Table -->
@@ -100,7 +101,7 @@
       v-model="aiPreviewDialog"
       :loading="aiPreviewLoading"
       :saving="savingWithAi"
-      :preview-data="aiPreviewData"
+      :preview-data="adaptedAiPreviewData"
       :selected-entity-type-option="selectedEntityTypeOption"
       :selected-facet-types="selectedFacetTypes"
       :extraction-prompt="editableExtractionPrompt"
@@ -128,7 +129,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
@@ -224,20 +225,57 @@ const selectedCategoryForSources = ref<Category | null>(null)
 const summaryInitialPrompt = ref('')
 const summaryTriggerCategory = ref<Category | null>(null)
 
-// AI Preview data interface
+// AI Preview data interface - must match CategoryAiPreviewDialog expectations
 interface AiPreviewData {
   suggested_extraction_prompt?: string
-  suggested_facet_types: Array<{ selected?: boolean; name?: string; slug?: string }>
-  suggested_entity_type: { is_new: boolean; id?: string; name?: string }
+  suggested_facet_types?: Array<{ selected?: boolean; name?: string; slug?: string; description?: string; icon?: string; color?: string; is_new?: boolean }>
+  suggested_entity_type?: { name?: string; description?: string; is_new?: boolean; id?: string }
   suggested_search_terms?: string[]
   suggested_url_include_patterns?: string[]
   suggested_url_exclude_patterns?: string[]
+  existing_entity_types?: Array<{ id?: string; name?: string; slug?: string; description?: string }>
 }
 
 // AI Preview states
 const aiPreviewLoading = ref(false)
 const aiPreviewData = ref<AiPreviewData | null>(null)
 const savingWithAi = ref(false)
+
+// Adapted preview data for CategoryAiPreviewDialog (with required fields)
+interface AdaptedAiPreviewData {
+  suggested_extraction_prompt?: string
+  suggested_facet_types: Array<{ selected?: boolean; name: string; slug: string; description?: string; icon?: string; color?: string; is_new?: boolean }>
+  suggested_entity_type: { name: string; description?: string; is_new?: boolean; id?: string }
+  suggested_search_terms?: string[]
+  suggested_url_include_patterns?: string[]
+  suggested_url_exclude_patterns?: string[]
+  existing_entity_types: Array<{ id: string; name: string; slug?: string; description?: string }>
+}
+const adaptedAiPreviewData = computed<AdaptedAiPreviewData | null>(() => {
+  const data = aiPreviewData.value
+  if (!data) return null
+  // Ensure required fields have defaults
+  return {
+    ...data,
+    suggested_entity_type: {
+      name: data.suggested_entity_type?.name || 'Unbekannt',
+      description: data.suggested_entity_type?.description,
+      is_new: data.suggested_entity_type?.is_new,
+      id: data.suggested_entity_type?.id,
+    },
+    suggested_facet_types: (data.suggested_facet_types || []).map(ft => ({
+      ...ft,
+      name: ft.name || '',
+      slug: ft.slug || '',
+    })),
+    existing_entity_types: (data.existing_entity_types || []).map(et => ({
+      id: et.id || '',
+      name: et.name || '',
+      slug: et.slug,
+      description: et.description,
+    })),
+  }
+})
 const selectedEntityTypeOption = ref<string>('new')
 const selectedFacetTypes = ref<boolean[]>([])
 const editableExtractionPrompt = ref('')

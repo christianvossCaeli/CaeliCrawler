@@ -56,6 +56,35 @@
         </v-col>
       </v-row>
 
+      <h3 class="text-h6 mb-3">{{ t('help.smartQuery.imageAnalysis.title') }}</h3>
+      <v-card variant="outlined" class="mb-4" color="secondary">
+        <v-card-title class="text-subtitle-1">
+          <v-icon class="mr-2" color="secondary">mdi-image-search</v-icon>
+          {{ t('help.smartQuery.imageAnalysis.title') }}
+        </v-card-title>
+        <v-card-text>
+          <p class="mb-3">{{ t('help.smartQuery.imageAnalysis.description') }}</p>
+          <v-list density="compact">
+            <v-list-item prepend-icon="mdi-paperclip">
+              {{ t('help.smartQuery.imageAnalysis.uploadMethods.button') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-content-paste">
+              {{ t('help.smartQuery.imageAnalysis.uploadMethods.paste') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-file-document">
+              {{ t('help.smartQuery.imageAnalysis.uploadMethods.formats') }}
+            </v-list-item>
+          </v-list>
+          <p class="text-subtitle-2 mt-3 mb-2">{{ t('help.smartQuery.imageAnalysis.examples.1') }}</p>
+          <p class="text-subtitle-2 mb-2">{{ t('help.smartQuery.imageAnalysis.examples.2') }}</p>
+          <p class="text-subtitle-2 mb-2">{{ t('help.smartQuery.imageAnalysis.examples.3') }}</p>
+          <v-alert type="info" variant="tonal" density="compact" class="mt-3">
+            <v-icon>mdi-information</v-icon>
+            {{ t('help.smartQuery.imageAnalysis.note') }}
+          </v-alert>
+        </v-card-text>
+      </v-card>
+
       <h3 class="text-h6 mb-3">{{ t('help.smartQuery.speechRecognition.title') }}</h3>
       <v-card variant="outlined" class="mb-4" color="success">
         <v-card-title class="text-subtitle-1">
@@ -79,6 +108,31 @@
             <v-icon>mdi-information</v-icon>
             {{ t('help.smartQuery.speechRecognition.browserSupport') }}
           </v-alert>
+        </v-card-text>
+      </v-card>
+
+      <h3 class="text-h6 mb-3">{{ t('help.smartQuery.queryHistory.title') }}</h3>
+      <v-card variant="outlined" class="mb-4">
+        <v-card-title class="text-subtitle-1">
+          <v-icon class="mr-2">mdi-history</v-icon>
+          {{ t('help.smartQuery.queryHistory.title') }}
+        </v-card-title>
+        <v-card-text>
+          <p class="mb-3">{{ t('help.smartQuery.queryHistory.description') }}</p>
+          <v-list density="compact">
+            <v-list-item prepend-icon="mdi-clock-outline">
+              {{ t('help.smartQuery.queryHistory.features.toggle') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-star">
+              {{ t('help.smartQuery.queryHistory.features.favorites') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-replay">
+              {{ t('help.smartQuery.queryHistory.features.rerun') }}
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-delete">
+              {{ t('help.smartQuery.queryHistory.features.delete') }}
+            </v-list-item>
+          </v-list>
         </v-card-text>
       </v-card>
 

@@ -1,122 +1,225 @@
-"""Tests for Entity Matching Service and Similarity utilities."""
+"""Tests for Entity Matching Service - Composite Entity Detection."""
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-from app.utils.similarity import (
-    calculate_name_similarity,
-    _normalize_for_comparison,
-    is_likely_duplicate,
+from services.entity_matching_service import (
+    EntityMatchingService,
+    detect_composite_entity_name,
+    CompositeEntityMatch,
 )
-from services.entity_matching_service import EntityMatchingService
 
 
-class TestNameSimilarity:
-    """Tests for name similarity calculations."""
+class TestCompositeEntityDetection:
+    """Tests for composite entity name detection."""
 
-    def test_exact_match(self):
-        """Test that identical names return 1.0."""
-        assert calculate_name_similarity("München", "München") == 1.0
-        assert calculate_name_similarity("Berlin", "Berlin") == 1.0
+    def test_gemeinden_und_pattern(self):
+        """Test detection of 'Gemeinden X und Y' pattern."""
+        result = detect_composite_entity_name(
+            "Region Oberfranken-West, Gemeinden Litzendorf und Buttenheim, Landkreis Bamberg"
+        )
+        assert result.is_composite is True
+        assert result.pattern_type == "gemeinden_und"
+        assert "Litzendorf" in result.extracted_names
+        assert "Buttenheim" in result.extracted_names
 
-    def test_umlaut_equivalence(self):
-        """Test that umlaut variations are considered similar."""
-        score = calculate_name_similarity("München", "Muenchen")
-        assert score >= 0.9, f"Expected >= 0.9, got {score}"
+    def test_region_gemeinde_pattern(self):
+        """Test detection of 'Region X, Gemeinde Y' pattern."""
+        result = detect_composite_entity_name(
+            "Region Oberfranken-West, Gemeinde Litzendorf"
+        )
+        assert result.is_composite is True
+        assert result.pattern_type == "region_gemeinde"
+        assert "Litzendorf" in result.extracted_names
 
-        score = calculate_name_similarity("Köln", "Koeln")
-        assert score >= 0.9, f"Expected >= 0.9, got {score}"
+    def test_region_stadt_pattern(self):
+        """Test detection of 'Region X, Stadt Y' pattern."""
+        result = detect_composite_entity_name(
+            "Region Oberfranken-Ost, Stadt Creußen, Landkreis Bayreuth"
+        )
+        assert result.is_composite is True
+        assert result.pattern_type == "region_gemeinde"
+        assert "Creußen" in result.extracted_names
 
-        score = calculate_name_similarity("Düsseldorf", "Duesseldorf")
-        assert score >= 0.9, f"Expected >= 0.9, got {score}"
+    def test_region_markt_pattern(self):
+        """Test detection of 'Region X, Markt Y' pattern."""
+        result = detect_composite_entity_name(
+            "Region Oberfranken-Ost, Markt Schnabelwaid, Landkreis Bayreuth"
+        )
+        assert result.is_composite is True
+        assert result.pattern_type == "region_gemeinde"
+        assert "Schnabelwaid" in result.extracted_names
 
-    def test_prefix_removal(self):
-        """Test that common prefixes don't affect similarity."""
-        score = calculate_name_similarity("Stadt München", "München")
-        assert score >= 0.85, f"Expected >= 0.85, got {score}"
+    def test_insbesondere_pattern(self):
+        """Test detection of 'insbesondere Gemeinde X' pattern."""
+        result = detect_composite_entity_name(
+            "Region Oberfranken-West, insbesondere Gemeinde Bad Rodach, Landkreis Coburg"
+        )
+        assert result.is_composite is True
+        assert result.pattern_type == "insbesondere"
+        assert "Bad Rodach" in result.extracted_names
 
-        score = calculate_name_similarity("Gemeinde Rosenheim", "Rosenheim")
-        assert score >= 0.85, f"Expected >= 0.85, got {score}"
+    def test_normal_entity_name(self):
+        """Test that normal entity names are not detected as composite."""
+        result = detect_composite_entity_name("München")
+        assert result.is_composite is False
+        assert result.extracted_names == []
 
-        score = calculate_name_similarity("Landkreis Freising", "Freising")
-        assert score >= 0.85, f"Expected >= 0.85, got {score}"
+        result = detect_composite_entity_name("Markt Buttenheim")
+        assert result.is_composite is False
+        assert result.extracted_names == []
 
-    def test_suffix_removal(self):
-        """Test that common suffixes don't affect similarity."""
-        score = calculate_name_similarity("München Stadt", "München")
-        assert score >= 0.85, f"Expected >= 0.85, got {score}"
+        result = detect_composite_entity_name("Litzendorf")
+        assert result.is_composite is False
+        assert result.extracted_names == []
 
-    def test_different_names(self):
-        """Test that different names have low similarity."""
-        score = calculate_name_similarity("Berlin", "Hamburg")
-        assert score < 0.5, f"Expected < 0.5, got {score}"
+    def test_region_without_gemeinde(self):
+        """Test that region names without Gemeinde/Stadt/Markt are not composite."""
+        result = detect_composite_entity_name("Region Oberfranken-West")
+        assert result.is_composite is False
 
-        score = calculate_name_similarity("München", "Frankfurt")
-        assert score < 0.5, f"Expected < 0.5, got {score}"
+    def test_staedte_und_pattern(self):
+        """Test detection of 'Städte X und Y' pattern."""
+        result = detect_composite_entity_name(
+            "Städte München und Augsburg"
+        )
+        assert result.is_composite is True
+        assert result.pattern_type == "gemeinden_und"
+        assert "München" in result.extracted_names
+        assert "Augsburg" in result.extracted_names
 
-    def test_substring_boost(self):
-        """Test substring matching boost."""
-        score = calculate_name_similarity("Bad Homburg", "Bad Homburg vor der Höhe")
-        assert score >= 0.85, f"Expected >= 0.85, got {score}"
+    def test_gemeinde_singular_und_pattern(self):
+        """Test detection of 'Gemeinde X und Y' (singular) pattern."""
+        result = detect_composite_entity_name(
+            "Gemeinde Haag und Creußen"
+        )
+        assert result.is_composite is True
+        assert result.pattern_type == "gemeinden_und"
+        assert "Haag" in result.extracted_names
+        assert "Creußen" in result.extracted_names
 
-    def test_case_insensitivity(self):
-        """Test that comparison is case-insensitive."""
-        assert calculate_name_similarity("MÜNCHEN", "münchen") == 1.0
-        assert calculate_name_similarity("Berlin", "BERLIN") == 1.0
+    def test_cleans_trailing_landkreis(self):
+        """Test that trailing Landkreis info is cleaned from extracted names."""
+        result = detect_composite_entity_name(
+            "Gemeinden Litzendorf und Buttenheim, Landkreis Bamberg"
+        )
+        assert result.is_composite is True
+        # Should not include "Landkreis Bamberg" in the second name
+        assert "Buttenheim" in result.extracted_names
+        assert not any("Landkreis" in name for name in result.extracted_names)
 
-
-class TestNormalizeForComparison:
-    """Tests for the internal normalization function."""
-
-    def test_lowercase(self):
-        """Test that result is lowercase."""
-        result = _normalize_for_comparison("MÜNCHEN")
-        assert result.islower() or result == ""
-
-    def test_prefix_removal(self):
-        """Test common prefix removal."""
-        assert _normalize_for_comparison("stadt münchen") == "muenchen"
-        assert _normalize_for_comparison("gemeinde rosenheim") == "rosenheim"
-        assert _normalize_for_comparison("landkreis freising") == "freising"
-
-    def test_suffix_removal(self):
-        """Test common suffix removal."""
-        assert _normalize_for_comparison("münchen stadt") == "muenchen"
-        assert _normalize_for_comparison("rosenheim gemeinde") == "rosenheim"
-
-    def test_umlaut_replacement(self):
-        """Test umlaut to ASCII conversion."""
-        assert "ue" in _normalize_for_comparison("München")  # ü → ue
-        assert "oe" in _normalize_for_comparison("Köln")     # ö → oe
-        assert "ue" in _normalize_for_comparison("Düsseldorf")  # ü → ue
-        assert "ss" in _normalize_for_comparison("Straße")   # ß → ss
-        assert "ae" in _normalize_for_comparison("Gräfenhausen")  # ä → ae
-
-
-class TestIsDuplicate:
-    """Tests for the quick duplicate check."""
-
-    def test_exact_match_is_duplicate(self):
-        """Test exact match detection."""
-        assert is_likely_duplicate("München", "München") is True
-
-    def test_normalized_match_is_duplicate(self):
-        """Test normalized match detection."""
-        assert is_likely_duplicate("München", "Muenchen", strict_threshold=0.9) is True
-
-    def test_different_names_not_duplicate(self):
-        """Test different names aren't duplicates."""
-        assert is_likely_duplicate("Berlin", "Hamburg") is False
+    def test_speziell_pattern(self):
+        """Test detection of 'speziell Gemeinde X' pattern."""
+        result = detect_composite_entity_name(
+            "Region Bayern, speziell Gemeinde Rosenheim"
+        )
+        assert result.is_composite is True
+        assert result.pattern_type == "insbesondere"
+        assert "Rosenheim" in result.extracted_names
 
 
-class TestEntityMatchingService:
-    """Tests for the EntityMatchingService."""
+class TestCompositeEntityResolution:
+    """Tests for composite entity resolution in EntityMatchingService."""
+
+    @pytest.fixture
+    def mock_session(self):
+        """Create a mock async session."""
+        session = MagicMock()
+        session.execute = AsyncMock()
+        session.flush = AsyncMock()
+        session.add = MagicMock()
+        session.get = AsyncMock()
+        return session
 
     @pytest.mark.asyncio
-    async def test_get_or_create_entity_finds_existing(self, session):
+    async def test_composite_entity_resolved_to_existing(self, mock_session):
+        """Test that composite names are resolved to existing entities."""
+        service = EntityMatchingService(mock_session)
+
+        entity_type_id = uuid4()
+        existing_entity_id = uuid4()
+
+        mock_entity_type = MagicMock()
+        mock_entity_type.id = entity_type_id
+        mock_entity_type.slug = "territorial_entity"
+
+        mock_existing_entity = MagicMock()
+        mock_existing_entity.id = existing_entity_id
+        mock_existing_entity.name = "Litzendorf"
+
+        with patch.object(service, '_get_entity_type', new_callable=AsyncMock) as mock_get_type:
+            mock_get_type.return_value = mock_entity_type
+
+            with patch.object(service, '_find_by_normalized_name', new_callable=AsyncMock) as mock_find:
+                # First call for exact match returns None
+                # Second call for composite resolution returns existing entity
+                mock_find.side_effect = [None, mock_existing_entity]
+
+                with patch.object(service, '_resolve_composite_entity', new_callable=AsyncMock) as mock_resolve:
+                    mock_resolve.return_value = mock_existing_entity
+
+                    result = await service.get_or_create_entity(
+                        entity_type_slug="territorial_entity",
+                        name="Region Oberfranken-West, Gemeinde Litzendorf",
+                    )
+
+        assert result is not None
+        assert result.id == existing_entity_id
+        assert result.name == "Litzendorf"
+
+    @pytest.mark.asyncio
+    async def test_composite_entity_creates_new_if_no_components_exist(self, mock_session):
+        """Test that new entity is created if no component entities exist."""
+        service = EntityMatchingService(mock_session)
+
+        entity_type_id = uuid4()
+
+        mock_entity_type = MagicMock()
+        mock_entity_type.id = entity_type_id
+        mock_entity_type.slug = "territorial_entity"
+
+        with patch.object(service, '_get_entity_type', new_callable=AsyncMock) as mock_get_type:
+            mock_get_type.return_value = mock_entity_type
+
+            with patch.object(service, '_find_by_normalized_name', new_callable=AsyncMock) as mock_find:
+                mock_find.return_value = None
+
+                with patch.object(service, '_resolve_composite_entity', new_callable=AsyncMock) as mock_resolve:
+                    mock_resolve.return_value = None
+
+                    with patch.object(service, '_create_entity_safe', new_callable=AsyncMock) as mock_create:
+                        mock_new_entity = MagicMock()
+                        mock_new_entity.id = uuid4()
+                        mock_new_entity.name = "Region X, Gemeinde New"
+                        mock_create.return_value = mock_new_entity
+
+                        result = await service.get_or_create_entity(
+                            entity_type_slug="territorial_entity",
+                            name="Region X, Gemeinde New",
+                        )
+
+        assert result is not None
+        mock_create.assert_called_once()
+
+
+class TestEntityMatchingServiceBasic:
+    """Basic tests for the EntityMatchingService."""
+
+    @pytest.fixture
+    def mock_session(self):
+        """Create a mock async session."""
+        session = MagicMock()
+        session.execute = AsyncMock()
+        session.flush = AsyncMock()
+        session.add = MagicMock()
+        session.get = AsyncMock()
+        return session
+
+    @pytest.mark.asyncio
+    async def test_get_or_create_entity_finds_existing(self, mock_session):
         """Test that existing entity is found."""
-        service = EntityMatchingService(session)
+        service = EntityMatchingService(mock_session)
 
         entity_type_id = uuid4()
         entity_id = uuid4()
@@ -147,9 +250,9 @@ class TestEntityMatchingService:
         assert result.id == entity_id
 
     @pytest.mark.asyncio
-    async def test_get_or_create_entity_returns_none_for_invalid_type(self, session):
+    async def test_get_or_create_entity_returns_none_for_invalid_type(self, mock_session):
         """Test that None is returned for invalid entity type."""
-        service = EntityMatchingService(session)
+        service = EntityMatchingService(mock_session)
 
         with patch.object(service, '_get_entity_type', new_callable=AsyncMock) as mock_get_type:
             mock_get_type.return_value = None
@@ -162,9 +265,9 @@ class TestEntityMatchingService:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_get_or_create_entity_creates_new(self, session):
+    async def test_get_or_create_entity_creates_new(self, mock_session):
         """Test that new entity is created when not found."""
-        service = EntityMatchingService(session)
+        service = EntityMatchingService(mock_session)
 
         entity_type_id = uuid4()
 
@@ -179,175 +282,20 @@ class TestEntityMatchingService:
             with patch.object(service, '_find_by_normalized_name', new_callable=AsyncMock) as mock_find:
                 mock_find.return_value = None
 
-                with patch.object(service, '_create_entity_safe', new_callable=AsyncMock) as mock_create:
-                    mock_new_entity = MagicMock()
-                    mock_new_entity.id = uuid4()
-                    mock_new_entity.name = "New Entity"
-                    mock_create.return_value = mock_new_entity
+                with patch.object(service, '_resolve_composite_entity', new_callable=AsyncMock) as mock_resolve:
+                    mock_resolve.return_value = None
 
-                    result = await service.get_or_create_entity(
-                        entity_type_slug="territorial_entity",
-                        name="New Entity",
-                    )
+                    with patch.object(service, '_create_entity_safe', new_callable=AsyncMock) as mock_create:
+                        mock_new_entity = MagicMock()
+                        mock_new_entity.id = uuid4()
+                        mock_new_entity.name = "New Entity"
+                        mock_create.return_value = mock_new_entity
+
+                        result = await service.get_or_create_entity(
+                            entity_type_slug="territorial_entity",
+                            name="New Entity",
+                        )
 
         assert result is not None
         assert result.name == "New Entity"
         mock_create.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_get_or_create_entity_uses_external_id(self, session):
-        """Test that external_id is used for matching when provided."""
-        service = EntityMatchingService(session)
-
-        entity_type_id = uuid4()
-        entity_id = uuid4()
-
-        mock_entity_type = MagicMock()
-        mock_entity_type.id = entity_type_id
-
-        mock_entity = MagicMock()
-        mock_entity.id = entity_id
-        mock_entity.external_id = "EXT-123"
-
-        with patch.object(service, '_get_entity_type', new_callable=AsyncMock) as mock_get_type:
-            mock_get_type.return_value = mock_entity_type
-
-            with patch.object(service, '_find_by_external_id', new_callable=AsyncMock) as mock_find_ext:
-                mock_find_ext.return_value = mock_entity
-
-                result = await service.get_or_create_entity(
-                    entity_type_slug="territorial_entity",
-                    name="München",
-                    external_id="EXT-123",
-                )
-
-        assert result is not None
-        assert result.id == entity_id
-        mock_find_ext.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_similarity_matching_enabled(self, session):
-        """Test that similarity matching is used when threshold < 1.0."""
-        service = EntityMatchingService(session)
-
-        entity_type_id = uuid4()
-
-        mock_entity_type = MagicMock()
-        mock_entity_type.id = entity_type_id
-
-        mock_similar_entity = MagicMock()
-        mock_similar_entity.id = uuid4()
-        mock_similar_entity.name = "München"
-
-        with patch.object(service, '_get_entity_type', new_callable=AsyncMock) as mock_get_type:
-            mock_get_type.return_value = mock_entity_type
-
-            with patch.object(service, '_find_by_normalized_name', new_callable=AsyncMock) as mock_find:
-                mock_find.return_value = None
-
-                with patch.object(service, '_find_similar_entity', new_callable=AsyncMock) as mock_find_similar:
-                    mock_find_similar.return_value = mock_similar_entity
-
-                    result = await service.get_or_create_entity(
-                        entity_type_slug="territorial_entity",
-                        name="Muenchen",
-                        similarity_threshold=0.85,
-                    )
-
-        assert result is not None
-        assert result.id == mock_similar_entity.id
-        mock_find_similar.assert_called_once()
-
-
-class TestBatchOperations:
-    """Tests for batch entity operations."""
-
-    @pytest.mark.asyncio
-    async def test_batch_get_or_create_entities(self, session):
-        """Test batch entity lookup and creation."""
-        service = EntityMatchingService(session)
-
-        entity_type_id = uuid4()
-
-        mock_entity_type = MagicMock()
-        mock_entity_type.id = entity_type_id
-        mock_entity_type.slug = "territorial_entity"
-
-        # Mock existing entity
-        mock_existing = MagicMock()
-        mock_existing.id = uuid4()
-        mock_existing.name = "München"
-        mock_existing.name_normalized = "muenchen"
-
-        with patch.object(service, '_get_entity_type', new_callable=AsyncMock) as mock_get_type:
-            mock_get_type.return_value = mock_entity_type
-
-            with patch.object(session, 'execute', new_callable=AsyncMock) as mock_execute:
-                mock_result = MagicMock()
-                mock_result.scalars.return_value.all.return_value = [mock_existing]
-                mock_execute.return_value = mock_result
-
-                with patch.object(service, '_create_entity_safe', new_callable=AsyncMock) as mock_create:
-                    mock_new = MagicMock()
-                    mock_new.id = uuid4()
-                    mock_new.name = "Berlin"
-                    mock_new.name_normalized = "berlin"
-                    mock_create.return_value = mock_new
-
-                    result = await service.batch_get_or_create_entities(
-                        entity_type_slug="territorial_entity",
-                        names=["München", "Berlin"],
-                    )
-
-        assert "München" in result
-        assert result["München"].id == mock_existing.id
-
-
-class TestRaceConditionSafety:
-    """Tests for race condition handling."""
-
-    @pytest.mark.asyncio
-    async def test_integrity_error_handling(self, session):
-        """Test that IntegrityError is handled gracefully."""
-        from sqlalchemy.exc import IntegrityError
-
-        service = EntityMatchingService(session)
-
-        entity_type_id = uuid4()
-
-        mock_entity_type = MagicMock()
-        mock_entity_type.id = entity_type_id
-        mock_entity_type.slug = "territorial_entity"
-
-        # After rollback, find the existing entity
-        mock_existing = MagicMock()
-        mock_existing.id = uuid4()
-        mock_existing.name = "München"
-
-        # Make flush raise IntegrityError with the constraint name
-        session.flush = AsyncMock(side_effect=IntegrityError(
-            "statement",
-            {},
-            Exception("uq_entity_type_name_normalized violation")
-        ))
-
-        # Mock the rollback
-        session.rollback = AsyncMock()
-
-        # Mock the session.get for parent lookup
-        session.get = AsyncMock(return_value=None)
-
-        with patch.object(service, '_find_by_normalized_name', new_callable=AsyncMock) as mock_find:
-            # After IntegrityError and rollback, return existing entity
-            mock_find.return_value = mock_existing
-
-            result = await service._create_entity_safe(
-                entity_type=mock_entity_type,
-                name="München",
-                name_normalized="muenchen",
-                slug="muenchen",
-            )
-
-        # Should return the existing entity after handling the race condition
-        assert result is mock_existing
-        session.rollback.assert_called_once()

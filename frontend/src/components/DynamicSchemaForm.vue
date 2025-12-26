@@ -4,7 +4,7 @@
       <!-- String with enum (Select/Dropdown) -->
       <v-select
         v-if="field.type === 'string' && field.enum"
-        v-model="formData[key]"
+        :model-value="formData[key] as string | null | undefined"
         :items="field.enum"
         :label="getFieldLabel(key, field)"
         :hint="field.description"
@@ -17,6 +17,7 @@
         clearable
         :aria-describedby="field.description ? `${key}-hint` : undefined"
         :error-messages="getFieldErrors(key)"
+        @update:model-value="formData[key] = $event"
       ></v-select>
 
       <!-- String with format email -->
@@ -138,7 +139,7 @@
       <!-- Array of strings -->
       <v-combobox
         v-else-if="field.type === 'array' && field.items?.type === 'string'"
-        v-model="formData[key]"
+        :model-value="formData[key] as string[] | null | undefined"
         :label="getFieldLabel(key, field)"
         :hint="field.description || t('dynamicForm.arrayHint')"
         :items="field.items?.enum || []"
@@ -153,6 +154,7 @@
         class="mb-3"
         :aria-describedby="field.description ? `${key}-hint` : undefined"
         :error-messages="getFieldErrors(key)"
+        @update:model-value="formData[key] = $event"
       ></v-combobox>
 
       <!-- Fallback for unknown types -->

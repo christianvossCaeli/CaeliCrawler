@@ -136,13 +136,42 @@
       </v-expansion-panel>
     </v-expansion-panels>
 
-    <h3 class="text-h6 mb-3">{{ t('help.dashboard.quick_actions_title') }}</h3>
-    <v-chip-group class="mb-4">
-      <v-chip color="primary" variant="elevated"><v-icon start>mdi-plus</v-icon> {{ t('help.dashboard.quick_actions.new_category') }}</v-chip>
-      <v-chip color="success" variant="elevated"><v-icon start>mdi-web-plus</v-icon> {{ t('help.dashboard.quick_actions.new_source') }}</v-chip>
-      <v-chip color="warning" variant="elevated"><v-icon start>mdi-play</v-icon> {{ t('help.dashboard.quick_actions.start_crawler') }}</v-chip>
-      <v-chip color="info" variant="elevated"><v-icon start>mdi-export</v-icon> {{ t('help.dashboard.quick_actions.export_data') }}</v-chip>
-    </v-chip-group>
+    <h3 class="text-h6 mb-3">{{ t('help.dashboard.header_actions_title') }}</h3>
+    <v-row class="mb-4">
+      <v-col cols="12" md="6">
+        <v-card variant="outlined" class="pa-3">
+          <div class="d-flex align-center mb-2">
+            <v-btn variant="tonal" size="small" class="mr-2">
+              <v-icon start>mdi-pencil</v-icon>
+              {{ t('help.dashboard.header_actions.customize') }}
+            </v-btn>
+            <span class="text-caption">{{ t('help.dashboard.header_actions.customize_desc') }}</span>
+          </div>
+          <div class="d-flex align-center">
+            <v-btn variant="tonal" color="warning" size="small" class="mr-2">
+              <v-icon start>mdi-play</v-icon>
+              {{ t('help.dashboard.header_actions.start_crawler') }}
+            </v-btn>
+            <span class="text-caption">{{ t('help.dashboard.header_actions.start_crawler_desc') }}</span>
+          </div>
+        </v-card>
+      </v-col>
+    </v-row>
+
+    <h3 class="text-h6 mb-3">{{ t('help.dashboard.preset_quick_actions_title') }}</h3>
+    <v-alert type="info" variant="tonal" class="mb-3">
+      <v-icon>mdi-lightning-bolt</v-icon>
+      {{ t('help.dashboard.preset_quick_actions.description') }}
+    </v-alert>
+    <v-list density="compact" class="mb-4">
+      <v-list-item prepend-icon="mdi-star">{{ t('help.dashboard.preset_quick_actions.features.favorites') }}</v-list-item>
+      <v-list-item prepend-icon="mdi-cursor-default-click">{{ t('help.dashboard.preset_quick_actions.features.one_click') }}</v-list-item>
+      <v-list-item prepend-icon="mdi-clock-outline">{{ t('help.dashboard.preset_quick_actions.features.scheduled_info') }}</v-list-item>
+    </v-list>
+    <v-alert type="warning" variant="tonal" density="compact" class="mb-4">
+      <v-icon size="small">mdi-information</v-icon>
+      {{ t('help.dashboard.preset_quick_actions.empty_hint') }}
+    </v-alert>
 
     <h3 class="text-h6 mb-3">{{ t('help.dashboard.crawler_dialog_title') }}</h3>
     <v-table density="compact">

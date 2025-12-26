@@ -24,8 +24,24 @@ import { de } from 'date-fns/locale'
 import type { VisualizationConfig } from './types'
 import { getNestedValue } from './types'
 
+// History data point
+interface HistoryPoint {
+  recorded_at: string
+  value: number
+}
+
+// Local interface for line chart data items
+interface LineChartDataItem {
+  entity_id?: string
+  entity_name?: string
+  entity_type?: string
+  history?: HistoryPoint[]
+  facets?: Record<string, { value?: unknown } | unknown>
+  [key: string]: unknown
+}
+
 const props = defineProps<{
-  data: Record<string, unknown>[]
+  data: LineChartDataItem[]
   config?: VisualizationConfig
 }>()
 
@@ -58,13 +74,13 @@ const chartData = computed(() => {
     // Multi-entity time series
     const datasets = props.data.map((entity, idx) => {
       const history = entity.history || []
-      const sortedHistory = [...history].sort((a: { recorded_at: string }, b: { recorded_at: string }) =>
+      const sortedHistory = [...history].sort((a, b) =>
         new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
       )
 
       return {
         label: entity.entity_name || `Serie ${idx + 1}`,
-        data: sortedHistory.map((point: { recorded_at: string; value: number }) => ({
+        data: sortedHistory.map((point) => ({
           x: new Date(point.recorded_at).getTime(), // Use timestamp for Chart.js time scale
           y: point.value,
         })),
@@ -84,7 +100,10 @@ const chartData = computed(() => {
   if (series.length > 0) {
     const labels = props.data.map(item => {
       const val = getNestedValue(item, xKey)
-      return isTimeSeries ? new Date(val).getTime() : val
+      if (isTimeSeries && (typeof val === 'string' || typeof val === 'number' || val instanceof Date)) {
+        return new Date(val).getTime()
+      }
+      return val
     })
 
     const datasets = series.map((s, idx) => ({
@@ -121,7 +140,10 @@ const chartData = computed(() => {
 
   const labels = props.data.map(item => {
     const val = getNestedValue(item, xKey) || item.entity_name
-    return isTimeSeries && val ? new Date(val).getTime() : val
+    if (isTimeSeries && val && (typeof val === 'string' || typeof val === 'number' || val instanceof Date)) {
+      return new Date(val).getTime()
+    }
+    return val
   })
 
   const data = props.data.map(item => {

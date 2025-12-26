@@ -440,7 +440,12 @@ const openEditDialog = (rule: NotificationRule) => {
       email_address_ids: rule.channel_config.email_address_ids || [],
       include_primary: rule.channel_config.include_primary !== false,
       url: rule.channel_config.url || '',
-      auth: rule.channel_config.auth || { type: 'none', token: '', username: '', password: '' },
+      auth: {
+        type: rule.channel_config.auth?.type || 'none',
+        token: rule.channel_config.auth?.token || '',
+        username: rule.channel_config.auth?.username || '',
+        password: rule.channel_config.auth?.password || '',
+      },
     },
     digest_enabled: rule.digest_enabled,
     digest_frequency: rule.digest_frequency || 'daily',
@@ -462,42 +467,50 @@ const saveRule = async () => {
   const { valid } = await formRef.value.validate()
   if (!valid) return
 
-  // Build the rule data
-  const data: Record<string, unknown> = {
-    name: formData.value.name,
-    description: formData.value.description || null,
-    event_type: formData.value.event_type,
-    channel: formData.value.channel,
-    conditions: {},
-    channel_config: {},
-    digest_enabled: formData.value.digest_enabled,
-    digest_frequency: formData.value.digest_enabled ? formData.value.digest_frequency : null,
-    is_active: formData.value.is_active,
-  }
-
-  // Add conditions if set
+  // Build typed conditions object
+  const conditions: { min_confidence?: number | null; keywords?: string[] } = {}
   if (formData.value.conditions.min_confidence) {
-    data.conditions.min_confidence = formData.value.conditions.min_confidence
+    conditions.min_confidence = formData.value.conditions.min_confidence
   }
   if (formData.value.conditions.keywords?.length > 0) {
-    data.conditions.keywords = formData.value.conditions.keywords
+    conditions.keywords = formData.value.conditions.keywords
   }
 
-  // Add channel config based on channel type
+  // Build typed channel config object
+  const channelConfig: {
+    email_address_ids?: string[]
+    include_primary?: boolean
+    url?: string
+    auth?: { type: string; token?: string; username?: string; password?: string }
+  } = {}
+
   if (formData.value.channel === 'EMAIL') {
     if (formData.value.channel_config.email_address_ids.length > 0) {
-      data.channel_config.email_address_ids = formData.value.channel_config.email_address_ids
+      channelConfig.email_address_ids = formData.value.channel_config.email_address_ids
     }
-    data.channel_config.include_primary = formData.value.channel_config.include_primary
+    channelConfig.include_primary = formData.value.channel_config.include_primary
   } else if (formData.value.channel === 'WEBHOOK') {
-    data.channel_config.url = formData.value.channel_config.url
+    channelConfig.url = formData.value.channel_config.url
     if (webhookAuthType.value !== 'none') {
       const { type: _existingType, ...authWithoutType } = formData.value.channel_config.auth || {}
-      data.channel_config.auth = {
+      channelConfig.auth = {
         ...authWithoutType,
         type: webhookAuthType.value,
       }
     }
+  }
+
+  // Build the rule data
+  const data = {
+    name: formData.value.name,
+    description: formData.value.description || undefined,
+    event_type: formData.value.event_type,
+    channel: formData.value.channel,
+    conditions,
+    channel_config: channelConfig,
+    digest_enabled: formData.value.digest_enabled,
+    digest_frequency: formData.value.digest_enabled ? formData.value.digest_frequency : undefined,
+    is_active: formData.value.is_active,
   }
 
   try {
@@ -553,7 +566,8 @@ const handleTestWebhook = async () => {
     const result = await testWebhook(formData.value.channel_config.url, auth)
     webhookTestResult.value = result
   } catch (e) {
-    webhookTestResult.value = { success: false, error: e.message }
+    const message = e instanceof Error ? e.message : String(e)
+    webhookTestResult.value = { success: false, error: message }
   } finally {
     testingWebhook.value = false
   }

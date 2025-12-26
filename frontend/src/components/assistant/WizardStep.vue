@@ -57,7 +57,7 @@
       <!-- NUMBER Input -->
       <v-number-input
         v-if="currentStep.input_type === 'number'"
-        v-model="answer"
+        v-model="numericAnswer"
         :placeholder="currentStep.placeholder"
         :rules="validationRules"
         variant="outlined"
@@ -248,13 +248,22 @@ export interface WizardStepOption {
   icon?: string
 }
 
+export interface WizardValidation {
+  min_length?: number
+  max_length?: number
+  min?: number
+  max?: number
+  pattern?: string
+  [key: string]: unknown
+}
+
 export interface WizardStepDef {
   id: string
   question: string
   input_type: 'text' | 'textarea' | 'number' | 'date' | 'select' | 'multi_select' | 'entity_search' | 'confirm'
   options?: WizardStepOption[]
   placeholder?: string
-  validation?: Record<string, unknown>
+  validation?: WizardValidation
   entity_type?: string
   default_value?: unknown
   required?: boolean
@@ -279,8 +288,15 @@ interface EntitySearchResult {
   entity_type?: string
 }
 
-// State
-const answer = ref<unknown>(props.currentStep.default_value ?? '')
+// State - answer can be string, number, array (multi_select), or object (entity_search result)
+type AnswerValue = string | number | string[] | { id?: string; [key: string]: unknown } | null
+const answer = ref<AnswerValue>((props.currentStep.default_value ?? '') as AnswerValue)
+
+// Computed for v-number-input (expects number | null | undefined)
+const numericAnswer = computed({
+  get: () => typeof answer.value === 'number' ? answer.value : null,
+  set: (val) => { answer.value = val ?? 0 }
+})
 const entitySearchQuery = ref('')
 const entitySearchResults = ref<EntitySearchResult[]>([])
 const isSearching = ref(false)
@@ -304,17 +320,27 @@ const validationRules = computed(() => {
 
   if (props.currentStep.validation) {
     const val = props.currentStep.validation
-    if (val.min_length) {
-      rules.push((v: string) => !v || v.length >= val.min_length || t('assistant.wizardMinLength', { min: val.min_length }))
+    if (val.min_length !== undefined) {
+      const minLen = val.min_length
+      rules.push((v: unknown) => {
+        const str = v as string
+        return !str || str.length >= minLen || t('assistant.wizardMinLength', { min: minLen })
+      })
     }
-    if (val.max_length) {
-      rules.push((v: string) => !v || v.length <= val.max_length || t('assistant.wizardMaxLength', { max: val.max_length }))
+    if (val.max_length !== undefined) {
+      const maxLen = val.max_length
+      rules.push((v: unknown) => {
+        const str = v as string
+        return !str || str.length <= maxLen || t('assistant.wizardMaxLength', { max: maxLen })
+      })
     }
     if (val.min !== undefined) {
-      rules.push((v: number) => v >= val.min || t('assistant.wizardMinValue', { min: val.min }))
+      const minVal = val.min
+      rules.push((v: unknown) => (v as number) >= minVal || t('assistant.wizardMinValue', { min: minVal }))
     }
     if (val.max !== undefined) {
-      rules.push((v: number) => v <= val.max || t('assistant.wizardMaxValue', { max: val.max }))
+      const maxVal = val.max
+      rules.push((v: unknown) => (v as number) <= maxVal || t('assistant.wizardMaxValue', { max: maxVal }))
     }
   }
 
@@ -346,9 +372,9 @@ function handleNext() {
   if (!isValid.value) return
 
   // For entity search, extract the ID
-  let value = answer.value
-  if (props.currentStep.input_type === 'entity_search' && value?.id) {
-    value = value.id
+  let value: AnswerValue | undefined = answer.value
+  if (props.currentStep.input_type === 'entity_search' && value && typeof value === 'object' && 'id' in value) {
+    value = value.id as string | undefined
   }
 
   emit('next', value)
@@ -417,7 +443,7 @@ async function onEntitySearch(query: string) {
 
 // Watch for step changes to reset answer
 watch(() => props.currentStep.id, () => {
-  answer.value = props.currentStep.default_value ?? ''
+  answer.value = (props.currentStep.default_value ?? '') as AnswerValue
   entitySearchResults.value = []
 })
 </script>

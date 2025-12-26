@@ -390,9 +390,9 @@ function handleNavigate(route: string) {
   isOpen.value = false
 }
 
-function handleSmartQueryRedirect(responseData: { prefilled_query?: string; message?: string; write_mode?: boolean } | null) {
+function handleSmartQueryRedirect(responseData: Record<string, unknown> | undefined) {
   // Set context in store so Smart Query can consume it
-  const query = responseData?.prefilled_query || responseData?.message || ''
+  const query = (responseData?.prefilled_query as string) || (responseData?.message as string) || ''
   const writeMode = responseData?.write_mode === true
   queryContextStore.setFromAssistant(
     query,
@@ -407,10 +407,11 @@ function handleSmartQueryRedirect(responseData: { prefilled_query?: string; mess
   isOpen.value = false
 }
 
-function handleItemClick(item: { entity_type?: string; entity_slug?: string; slug?: string }) {
-  if (item.entity_type && (item.entity_slug || item.slug)) {
-    const slug = item.entity_slug || item.slug
-    handleNavigate(`/entities/${item.entity_type}/${slug}`)
+function handleItemClick(item: { [key: string]: unknown; entity_name?: string; name?: string }) {
+  const entityType = item.entity_type as string | undefined
+  const entitySlug = (item.entity_slug || item.slug) as string | undefined
+  if (entityType && entitySlug) {
+    handleNavigate(`/entities/${entityType}/${entitySlug}`)
   }
 }
 

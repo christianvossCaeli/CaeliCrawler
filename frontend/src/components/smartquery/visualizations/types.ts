@@ -69,6 +69,7 @@ export interface ComparisonEntity {
   facets: Record<string, unknown>
   core_attributes: Record<string, unknown>
   tags?: string[]
+  [key: string]: unknown
 }
 
 export interface VisualizationConfig {
@@ -190,6 +191,9 @@ export function formatValue(value: unknown, type: ColumnType, format?: string): 
 
     case 'date':
       try {
+        if (typeof value !== 'string' && typeof value !== 'number' && !(value instanceof Date)) {
+          return String(value)
+        }
         const date = new Date(value)
         // Use browser locale for consistent date formatting
         return date.toLocaleDateString(undefined, {
@@ -203,6 +207,9 @@ export function formatValue(value: unknown, type: ColumnType, format?: string): 
 
     case 'datetime':
       try {
+        if (typeof value !== 'string' && typeof value !== 'number' && !(value instanceof Date)) {
+          return String(value)
+        }
         const date = new Date(value)
         // Use browser locale for consistent datetime formatting
         return date.toLocaleString(undefined, {

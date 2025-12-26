@@ -64,13 +64,24 @@
         "title": "Recent Crawl Jobs",
         "description": "Shows the last 5 completed jobs with status and document count"
       },
-      "quickActions": "Quick Actions",
-      "quick_actions_title": "Quick Actions",
-      "quick_actions": {
-        "new_category": "New Category",
-        "new_source": "New Source",
+      "header_actions_title": "Header Actions",
+      "header_actions": {
+        "customize": "Customize",
+        "customize_desc": "Opens the widget configurator to add, remove, or rearrange widgets",
+        "finish_editing": "Finish Editing",
+        "finish_editing_desc": "Saves the widget configuration",
         "start_crawler": "Start Crawler",
-        "export_data": "Export Data"
+        "start_crawler_desc": "Opens the dialog for starting crawlers with filter options"
+      },
+      "preset_quick_actions_title": "Preset Quick Start",
+      "preset_quick_actions": {
+        "description": "Shows your favorite crawler presets for quick one-click start.",
+        "features": {
+          "favorites": "Favorite presets displayed as chips",
+          "one_click": "One-click crawler start",
+          "scheduled_info": "Display of scheduled presets"
+        },
+        "empty_hint": "Mark presets as favorites in the Crawler view to display them here."
       },
       "crawler_dialog_title": "Start Crawler - Dialog",
       "crawlerDialog": {
@@ -118,6 +129,98 @@
           "sourceTypeDesc": "Website, OParl API or RSS Feed"
         },
         "warning": "With more than 500 sources, a filter or limit is recommended!"
+      },
+      "widgetConfigurator": {
+        "title": "Widget Configurator",
+        "description": "Customize your dashboard by adding, removing, or rearranging widgets.",
+        "availableWidgets": "Available Widgets",
+        "moreWidgets": "More Widgets",
+        "sizes": "Widget sizes (S/M/L/XL)",
+        "widgetDetailsTitle": "Widget Details",
+        "widgets": {
+          "statsEntities": "Entity Statistics",
+          "statsFacets": "Facet Statistics",
+          "statsDocuments": "Document Statistics",
+          "statsCrawler": "Crawler Status",
+          "activityFeed": "Activity Feed",
+          "crawlerStatus": "Crawler Live Status",
+          "insights": "Data Insights",
+          "chartDistribution": "Distribution Charts",
+          "systemHealth": "System Health",
+          "favorites": "Favorites"
+        },
+        "widgetDetails": {
+          "statsEntities": {
+            "title": "Entity Statistics",
+            "description": "Shows the total number of entities, split by active and inactive entries.",
+            "data": "Total, active, inactive",
+            "refresh": "60 seconds",
+            "size": "S-M"
+          },
+          "statsFacets": {
+            "title": "Facet Statistics",
+            "description": "Shows the number of facet values with verification rate as progress indicator.",
+            "data": "Total, verified, verification rate",
+            "refresh": "60 seconds",
+            "size": "S-M"
+          },
+          "statsDocuments": {
+            "title": "Document Statistics",
+            "description": "Shows the processing status of all crawled documents.",
+            "data": "Total, processed, processing rate",
+            "refresh": "60 seconds",
+            "size": "S-M"
+          },
+          "statsCrawler": {
+            "title": "Crawler Status",
+            "description": "Live status of crawler jobs with color indication on activity.",
+            "data": "Running, completed, failed",
+            "refresh": "15 seconds",
+            "size": "S-M"
+          },
+          "activityFeed": {
+            "title": "Activity Feed",
+            "description": "Chronological list of recent system activities with timestamp and user.",
+            "data": "Action type, entity, time, user",
+            "refresh": "30 seconds",
+            "size": "M-XL"
+          },
+          "crawlerStatus": {
+            "title": "Crawler Live Status",
+            "description": "Detailed view of running crawler jobs with document counter and worker status.",
+            "data": "Workers, jobs, documents per job",
+            "refresh": "10 seconds",
+            "size": "M-XL"
+          },
+          "insights": {
+            "title": "Data Insights",
+            "description": "Personalized insights and notifications about new data or required actions.",
+            "data": "New entities, facets, crawls, actions",
+            "refresh": "60 seconds",
+            "size": "M-XL"
+          },
+          "chartDistribution": {
+            "title": "Distribution Chart",
+            "description": "Visualizes entity distribution by type as horizontal bar chart.",
+            "data": "Top 6 entity types with percentage",
+            "refresh": "120 seconds",
+            "size": "M-XL"
+          },
+          "systemHealth": {
+            "title": "System Health",
+            "description": "Shows overall system status with AI tasks and crawler statistics.",
+            "data": "Health status, AI tasks, crawler jobs, confidence",
+            "refresh": "30 seconds",
+            "size": "M-XL"
+          },
+          "favorites": {
+            "title": "Favorites",
+            "description": "List of your favorite entities with quick access to detail view.",
+            "data": "Entity name, type, icon",
+            "refresh": "60 seconds",
+            "size": "S-XL"
+          }
+        }
       }
     },
     "smartQuery": {
@@ -309,7 +412,26 @@
           { "query": "Monitor wind energy in Bavaria", "mode": "write", "result": "New analysis setup for Bavaria" }
         ]
       },
-      "exampleQueries": "Example Queries"
+      "exampleQueries": "Example Queries",
+      "speechRecognition": {
+        "title": "Speech Recognition",
+        "voiceInput": "Voice Input",
+        "description": "Use speech recognition to conveniently dictate your queries via microphone.",
+        "howTo": "Click the microphone icon next to the input field",
+        "realtime": "Your speech is transcribed and displayed in real-time",
+        "submit": "Click the microphone again or press Enter to submit the query",
+        "browserSupport": "Speech recognition is supported by Chrome, Edge, and Safari. Firefox may require additional settings."
+      },
+      "queryHistory": {
+        "title": "Query History",
+        "description": "Your previous queries are automatically saved and can be re-executed at any time.",
+        "features": {
+          "toggle": "Click the clock icon in the toolbar to open the history",
+          "favorites": "Mark frequently used queries as favorites",
+          "rerun": "Click on a query to re-execute it",
+          "delete": "Delete individual entries or the entire history"
+        }
+      }
     },
     "categories": {
       "title": "Categories",
@@ -352,12 +474,46 @@
         "title": "AI Extraction Prompt",
         "description": "Defines what the AI should extract. Example:"
       },
+      "aiSetupPreview": {
+        "title": "AI Setup Preview",
+        "description": "When creating a new category, AI automatically suggests:",
+        "features": {
+          "extractionPrompt": "Extraction prompt based on name and purpose",
+          "entityType": "Matching entity type (new or existing)",
+          "facetTypes": "Recommended facet types for analysis",
+          "searchTerms": "Relevant search terms",
+          "urlPatterns": "Useful URL filters"
+        },
+        "note": "Suggestions can be adjusted before saving."
+      },
+      "filterToolbar": {
+        "title": "Filter Toolbar",
+        "description": "Filter categories by:",
+        "filters": {
+          "status": "Status (Active, Inactive)",
+          "documentType": "Document type",
+          "language": "Language"
+        }
+      },
+      "tagAssignment": {
+        "title": "Tag-based Source Assignment",
+        "description": "In the edit dialog, you can assign sources via tags:",
+        "steps": {
+          "selectTags": "Select tags that describe your desired sources",
+          "preview": "Preview matching sources",
+          "assign": "Assign selected sources to the category"
+        }
+      },
       "actions": {
         "title": "Actions",
         "edit": "Edit",
         "editDesc": "Change settings",
+        "viewSources": "View Sources",
+        "viewSourcesDesc": "Shows all assigned data sources",
         "crawl": "Crawl",
         "crawlDesc": "Start crawl for all sources",
+        "createSummary": "Create Summary",
+        "createSummaryDesc": "Create automated summary for this category",
         "reanalyze": "Reanalyze",
         "reanalyzeDesc": "Documents again through AI",
         "delete": "Delete",
@@ -550,7 +706,23 @@
         "completed": "Completed",
         "failed": "Failed"
       },
-      "stopButton": "Stop"
+      "stopButton": "Stop",
+      "presets": {
+        "title": "Crawler Presets",
+        "description": "Save frequently used crawler configurations as presets for quick access.",
+        "features": {
+          "title": "Features",
+          "save": "Save configurations as presets",
+          "favorites": "Mark presets as favorites",
+          "quickStart": "Start crawlers with one click"
+        },
+        "config": {
+          "title": "Configuration Options",
+          "category": "Category filter",
+          "filters": "Country and status filters",
+          "limits": "Max count and other restrictions"
+        }
+      }
     },
     "documents": {
       "title": "Documents",
@@ -613,129 +785,6 @@
           "processSelected": "Process selected",
           "analyzeSelected": "Analyze selected",
           "deleteSelected": "Delete selected"
-        }
-      }
-    },
-    "smartQuery": {
-      "speechRecognition": {
-        "title": "Speech Recognition",
-        "voiceInput": "Voice Input",
-        "description": "Use speech recognition to conveniently dictate your queries via microphone.",
-        "howTo": "Click the microphone icon next to the input field",
-        "realtime": "Your speech is transcribed and displayed in real-time",
-        "submit": "Click the microphone again or press Enter to submit the query",
-        "browserSupport": "Speech recognition is supported by Chrome, Edge, and Safari. Firefox may require additional settings."
-      }
-    },
-    "dashboard": {
-      "widgetConfigurator": {
-        "title": "Widget Configurator",
-        "description": "Customize your dashboard by adding, removing, or rearranging widgets.",
-        "availableWidgets": "Available Widgets",
-        "moreWidgets": "More Widgets",
-        "sizes": "Widget sizes (S/M/L/XL)",
-        "widgetDetailsTitle": "Widget Details",
-        "widgets": {
-          "statsEntities": "Entity Statistics",
-          "statsFacets": "Facet Statistics",
-          "statsDocuments": "Document Statistics",
-          "statsCrawler": "Crawler Status",
-          "activityFeed": "Activity Feed",
-          "crawlerStatus": "Crawler Live Status",
-          "insights": "Data Insights",
-          "chartDistribution": "Distribution Charts",
-          "systemHealth": "System Health",
-          "favorites": "Favorites"
-        },
-        "widgetDetails": {
-          "statsEntities": {
-            "title": "Entity Statistics",
-            "description": "Shows the total number of entities, split by active and inactive entries.",
-            "data": "Total, active, inactive",
-            "refresh": "60 seconds",
-            "size": "S-M"
-          },
-          "statsFacets": {
-            "title": "Facet Statistics",
-            "description": "Shows the number of facet values with verification rate as progress indicator.",
-            "data": "Total, verified, verification rate",
-            "refresh": "60 seconds",
-            "size": "S-M"
-          },
-          "statsDocuments": {
-            "title": "Document Statistics",
-            "description": "Shows the processing status of all crawled documents.",
-            "data": "Total, processed, processing rate",
-            "refresh": "60 seconds",
-            "size": "S-M"
-          },
-          "statsCrawler": {
-            "title": "Crawler Status",
-            "description": "Live status of crawler jobs with color indication on activity.",
-            "data": "Running, completed, failed",
-            "refresh": "15 seconds",
-            "size": "S-M"
-          },
-          "activityFeed": {
-            "title": "Activity Feed",
-            "description": "Chronological list of recent system activities with timestamp and user.",
-            "data": "Action type, entity, time, user",
-            "refresh": "30 seconds",
-            "size": "M-XL"
-          },
-          "crawlerStatus": {
-            "title": "Crawler Live Status",
-            "description": "Detailed view of running crawler jobs with document counter and worker status.",
-            "data": "Workers, jobs, documents per job",
-            "refresh": "10 seconds",
-            "size": "M-XL"
-          },
-          "insights": {
-            "title": "Data Insights",
-            "description": "Personalized insights and notifications about new data or required actions.",
-            "data": "New entities, facets, crawls, actions",
-            "refresh": "60 seconds",
-            "size": "M-XL"
-          },
-          "chartDistribution": {
-            "title": "Distribution Chart",
-            "description": "Visualizes entity distribution by type as horizontal bar chart.",
-            "data": "Top 6 entity types with percentage",
-            "refresh": "120 seconds",
-            "size": "M-XL"
-          },
-          "systemHealth": {
-            "title": "System Health",
-            "description": "Shows overall system status with AI tasks and crawler statistics.",
-            "data": "Health status, AI tasks, crawler jobs, confidence",
-            "refresh": "30 seconds",
-            "size": "M-XL"
-          },
-          "favorites": {
-            "title": "Favorites",
-            "description": "List of your favorite entities with quick access to detail view.",
-            "data": "Entity name, type, icon",
-            "refresh": "60 seconds",
-            "size": "S-XL"
-          }
-        }
-      }
-    },
-    "crawler": {
-      "presets": {
-        "title": "Crawler Presets",
-        "description": "Save frequently used crawler configurations as presets for quick access.",
-        "features": {
-          "title": "Features",
-          "save": "Save configurations as presets",
-          "favorites": "Mark presets as favorites",
-          "quickStart": "Start crawlers with one click"
-        },
-        "config": {
-          "title": "Configuration Options",
-          "category": "Category filter",
-          "filters": "Country and status filters",
-          "limits": "Max count and other restrictions"
         }
       }
     }

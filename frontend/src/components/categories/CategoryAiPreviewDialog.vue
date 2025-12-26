@@ -30,13 +30,13 @@
                 <template #label>
                   <div>
                     <span class="font-weight-medium">{{ t('categories.aiPreview.createNew') }}: </span>
-                    <v-chip size="small" color="success" class="ml-1">{{ previewData.suggested_entity_type.name }}</v-chip>
-                    <span class="text-caption text-medium-emphasis ml-2">{{ previewData.suggested_entity_type.description }}</span>
+                    <v-chip size="small" color="success" class="ml-1">{{ previewData.suggested_entity_type?.name }}</v-chip>
+                    <span class="text-caption text-medium-emphasis ml-2">{{ previewData.suggested_entity_type?.description }}</span>
                   </div>
                 </template>
               </v-radio>
               <v-radio
-                v-for="et in previewData.existing_entity_types.slice(0, 5)"
+                v-for="et in (previewData.existing_entity_types ?? []).slice(0, 5)"
                 :key="et.id"
                 :value="et.id"
               >
@@ -234,14 +234,14 @@ interface FacetType {
 }
 
 interface AiPreviewData {
-  suggested_entity_type: {
-    name: string
+  suggested_entity_type?: {
+    name?: string
     description?: string
     is_new?: boolean
     id?: string
   }
-  existing_entity_types: EntityType[]
-  suggested_facet_types: FacetType[]
+  existing_entity_types?: EntityType[]
+  suggested_facet_types?: FacetType[]
   suggested_extraction_prompt?: string
   suggested_search_terms?: string[]
   suggested_url_include_patterns?: string[]

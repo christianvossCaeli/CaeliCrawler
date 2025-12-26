@@ -3,7 +3,7 @@
 import enum
 import uuid
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -19,6 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pgvector.sqlalchemy import Vector
 
 from app.database import Base
 
@@ -102,6 +103,11 @@ class FacetValue(Base):
         TSVECTOR,
         nullable=True,
         comment="Full-text search vector (auto-generated from text_representation)",
+    )
+    text_embedding: Mapped[Optional[List[float]]] = mapped_column(
+        Vector(1536),
+        nullable=True,
+        comment="Embedding vector for semantic similarity search",
     )
 
     # Time-based fields

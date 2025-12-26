@@ -93,14 +93,15 @@ interface DataSource {
   id: string
   name: string
   base_url?: string | null
-  source_type: string
-  status: string
+  source_type?: string
+  status?: string
 }
 
 const { t } = useI18n()
 
 // Helpers
-function getSourceStatusColor(status: string): string {
+function getSourceStatusColor(status?: string): string {
+  if (!status) return 'grey'
   const colors: Record<string, string> = {
     active: 'success',
     inactive: 'grey',
@@ -111,7 +112,8 @@ function getSourceStatusColor(status: string): string {
   return colors[status] || 'grey'
 }
 
-function getSourceTypeIcon(sourceType: string): string {
+function getSourceTypeIcon(sourceType?: string): string {
+  if (!sourceType) return 'mdi-database'
   const icons: Record<string, string> = {
     website: 'mdi-web',
     api: 'mdi-api',

@@ -58,16 +58,16 @@
 
     <h3 class="text-h6 mb-3">{{ t('help.aiAssistant.modes.title') }}</h3>
     <v-row>
-      <v-col cols="12" md="6">
+      <v-col cols="12" md="4">
         <v-card variant="outlined">
           <v-card-title class="text-subtitle-1">
-            <v-icon color="success" class="mr-2">mdi-book-open</v-icon>
+            <v-icon color="success" class="mr-2">mdi-magnify</v-icon>
             {{ t('help.aiAssistant.modes.readMode') }}
           </v-card-title>
           <v-card-text>{{ t('help.aiAssistant.modes.readModeDesc') }}</v-card-text>
         </v-card>
       </v-col>
-      <v-col cols="12" md="6">
+      <v-col cols="12" md="4">
         <v-card variant="outlined">
           <v-card-title class="text-subtitle-1">
             <v-icon color="warning" class="mr-2">mdi-pencil</v-icon>
@@ -76,7 +76,29 @@
           <v-card-text>{{ t('help.aiAssistant.modes.writeModeDesc') }}</v-card-text>
         </v-card>
       </v-col>
+      <v-col cols="12" md="4">
+        <v-card variant="outlined">
+          <v-card-title class="text-subtitle-1">
+            <v-icon color="info" class="mr-2">mdi-lightbulb-on</v-icon>
+            {{ t('help.aiAssistant.modes.planMode') }}
+          </v-card-title>
+          <v-card-text>{{ t('help.aiAssistant.modes.planModeDesc') }}</v-card-text>
+        </v-card>
+      </v-col>
     </v-row>
+
+    <v-divider class="my-4"></v-divider>
+
+    <h3 class="text-h6 mb-3">{{ t('help.aiAssistant.quickActions.title') }}</h3>
+    <p class="mb-3">{{ t('help.aiAssistant.quickActions.description') }}</p>
+    <v-list density="compact" class="mb-4">
+      <v-list-item prepend-icon="mdi-chevron-down">
+        <v-list-item-subtitle>{{ t('help.aiAssistant.quickActions.expand') }}</v-list-item-subtitle>
+      </v-list-item>
+      <v-list-item prepend-icon="mdi-map-marker">
+        <v-list-item-subtitle>{{ t('help.aiAssistant.quickActions.contextual') }}</v-list-item-subtitle>
+      </v-list-item>
+    </v-list>
 
     <v-divider class="my-4"></v-divider>
 

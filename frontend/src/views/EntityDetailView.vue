@@ -281,7 +281,14 @@ import { useEntityNotes } from '@/composables/useEntityNotes'
 import { useEntityRelations } from '@/composables/useEntityRelations'
 import { useEntityDataSources } from '@/composables/useEntityDataSources'
 import { useEntityEnrichment } from '@/composables/useEntityEnrichment'
-import { useEntityFacets } from '@/composables/useEntityFacets'
+import { useEntityFacets, type FacetGroup } from '@/composables/useEntityFacets'
+import type {
+  FacetsSummary,
+  FacetValue,
+  Relation,
+  EntityDocument,
+  DataSource,
+} from '@/types/entity'
 
 // Components
 import PySisTab from '@/components/PySisTab.vue'
@@ -301,49 +308,14 @@ import EntityTabsNavigation from '@/components/entity/EntityTabsNavigation.vue'
 import EntityDialogsManager from '@/components/entity/EntityDialogsManager.vue'
 import { useLogger } from '@/composables/useLogger'
 
-// Local interfaces
-interface FacetGroup {
-  facet_type_id: string
-  facet_type_slug: string
-  facet_type_name: string
-  value_type: string
-  icon?: string
-  color?: string
-}
+// Local type aliases (using shared types from entity.ts)
+type DataSourceLocal = DataSource
+type RelationLocal = Relation
 
-interface FacetsSummary {
-  facets_by_type?: FacetGroup[]
-  total_count?: number
-}
-
-interface DataSourceLocal {
-  id: string
-  name: string
-  base_url?: string
-  status?: string
-  last_crawled_at?: string
-}
-
-interface RelationLocal {
-  id: string
-  relation_type_name: string
-  source_entity_id: string
-  target_entity_id: string
-  source_entity_name?: string
-  target_entity_name?: string
-  source_entity_type_slug?: string
-  target_entity_type_slug?: string
-  source_entity_slug?: string
-  target_entity_slug?: string
-  human_verified?: boolean
-}
-
-interface FacetValueLocal {
-  id: string
-  facet_type_id: string
-  facet_type_name?: string
-  text_representation?: string
-  value?: unknown
+// Local interfaces (view-specific types not shared elsewhere)
+interface ExternalData {
+  has_external_data: boolean
+  [key: string]: unknown
 }
 
 const logger = useLogger('EntityDetailView')
@@ -366,8 +338,8 @@ const activeTab = ref('facets')
 const entity = computed<Entity | null>(() => store.selectedEntity)
 const entityType = computed<EntityType | null>(() => store.selectedEntityType)
 const facetsSummary = ref<FacetsSummary | null>(null)
-const documents = ref<{ id: string; title?: string; url?: string; created_at?: string }[]>([])
-const externalData = ref<Record<string, unknown> | null>(null)
+const documents = ref<EntityDocument[]>([])
+const externalData = ref<ExternalData | null>(null)
 const attachmentCount = ref(0)
 
 // Async function for facet summary refresh
@@ -475,7 +447,7 @@ const enrichPysisOverwrite = ref(false)
 const editingSource = ref<DataSourceLocal | null>(null)
 const sourceToDelete = ref<DataSourceLocal | null>(null)
 const sourceToUnlink = ref<DataSourceLocal | null>(null)
-const selectedSourceFacet = ref<FacetValueLocal | null>(null)
+const selectedSourceFacet = ref<FacetValue | null>(null)
 
 const editForm = ref({
   name: '',

@@ -26,6 +26,7 @@
                 clearable
                 hide-details
                 @update:model-value="debouncedSearch"
+                @keyup.enter="loadFacetTypes"
               ></v-text-field>
             </v-col>
             <v-col cols="12" md="3">
@@ -501,6 +502,7 @@ import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import { getContrastColor } from '@/composables/useColorHelpers'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useLogger } from '@/composables/useLogger'
+import { getErrorMessage } from '@/composables/useApiErrorHandler'
 
 const logger = useLogger('FacetTypesView')
 
@@ -739,7 +741,7 @@ function openEditDialog(item: FacetTypeLocal) {
     icon: item.icon || 'mdi-tag',
     color: resolvedColor,
     value_type: item.value_type || 'structured',
-    value_schema: item.value_schema,
+    value_schema: item.value_schema ?? null,
     applicable_entity_type_slugs: item.applicable_entity_type_slugs || [],
     aggregation_method: item.aggregation_method || 'dedupe',
     deduplication_fields: item.deduplication_fields || [],

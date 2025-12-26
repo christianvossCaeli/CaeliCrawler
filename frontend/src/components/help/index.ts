@@ -46,7 +46,6 @@ export { default as HelpAiSourceDiscoverySection } from './HelpAiSourceDiscovery
 export { default as HelpDataSourceTagsSection } from './HelpDataSourceTagsSection.vue'
 export { default as HelpEntityMapViewSection } from './HelpEntityMapViewSection.vue'
 export { default as HelpFacetHistorySection } from './HelpFacetHistorySection.vue'
-export { default as HelpExternalApisSection } from './HelpExternalApisSection.vue'
 
 // Data and types
 export {

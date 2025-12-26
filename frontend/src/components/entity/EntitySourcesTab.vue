@@ -20,8 +20,6 @@
         <v-card
           variant="outlined"
           class="pa-3"
-          :class="{ 'cursor-pointer': apiConfigurationId }"
-          @click="apiConfigurationId && navigateToApiConfig()"
         >
           <div class="d-flex align-center">
             <v-avatar color="primary" size="40" class="mr-3">
@@ -38,15 +36,6 @@
               <v-icon start size="x-small">mdi-sync</v-icon>
               API Import
             </v-chip>
-            <v-btn
-              v-if="apiConfigurationId"
-              icon="mdi-open-in-new"
-              size="small"
-              variant="text"
-              class="ml-2"
-              :title="t('entityDetail.viewApiConfig')"
-              @click.stop="navigateToApiConfig()"
-            />
           </div>
         </v-card>
       </div>
@@ -161,7 +150,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 
@@ -174,8 +162,9 @@ interface DataSource {
   source_type?: string
   is_direct_link?: boolean
   document_count?: number
-  last_crawl?: string
+  last_crawl?: string | null
   hasRunningJob?: boolean
+  extra_data?: Record<string, unknown>
 }
 
 // Props
@@ -196,15 +185,6 @@ defineEmits<{
   unlinkSource: [source: DataSource]
   deleteSource: [source: DataSource]
 }>()
-
-const router = useRouter()
-
-// Navigation
-function navigateToApiConfig() {
-  if (props.apiConfigurationId) {
-    router.push({ name: 'admin-external-apis', query: { id: props.apiConfigurationId } })
-  }
-}
 
 // Computed
 const totalSourcesCount = computed(() => {

@@ -107,7 +107,11 @@ export function useTableExport() {
   function dateFormatter(options?: Intl.DateTimeFormatOptions) {
     return (value: unknown) => {
       if (!value) return ''
-      return formatDate(value, options)
+      // Type guard: formatDate expects string | Date | null | undefined
+      if (typeof value === 'string' || value instanceof Date) {
+        return formatDate(value, options)
+      }
+      return String(value)
     }
   }
 

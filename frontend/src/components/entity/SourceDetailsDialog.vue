@@ -185,7 +185,7 @@ defineEmits<{
 
 // Types
 interface SourceFacet {
-  source_type: string
+  source_type?: string
   source_url?: string | null
   document_title?: string | null
   document_url?: string | null
@@ -202,7 +202,7 @@ interface SourceFacet {
       process_id?: string
       field_names?: string[]
     }
-  } | null
+  } | Record<string, unknown> | null
 }
 
 interface PysisInfo {
@@ -215,8 +215,10 @@ const { t } = useI18n()
 
 // Computed
 const pysisInfo = computed<PysisInfo | null>(() => {
-  if (!props.sourceFacet?.value?.pysis_source) return null
-  const src = props.sourceFacet.value.pysis_source
+  const value = props.sourceFacet?.value
+  if (!value || typeof value !== 'object' || !('pysis_source' in value)) return null
+  const src = value.pysis_source as { process_title?: string; process_id?: string; field_names?: string[] } | undefined
+  if (!src) return null
   return {
     processTitle: src.process_title,
     processId: src.process_id,

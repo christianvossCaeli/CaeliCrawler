@@ -308,7 +308,6 @@ const secondaryNavItems = computed(() => [
 const adminNavItems = computed(() => [
   { title: t('nav.admin.users'), icon: 'mdi-account-group', to: '/admin/users' },
   { title: t('nav.admin.auditLog'), icon: 'mdi-history', to: '/admin/audit-log' },
-  { title: t('nav.admin.externalApis'), icon: 'mdi-cloud-sync', to: '/admin/external-apis' },
 ])
 
 // User helpers

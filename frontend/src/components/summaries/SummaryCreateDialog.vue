@@ -185,10 +185,27 @@ const step = ref(1)
 const prompt = ref('')
 const customName = ref('')
 const promptError = ref('')
+interface InterpretationTheme {
+  context?: string
+  primary_entity_type?: string
+}
+
+interface SuggestedSchedule {
+  reason?: string
+  interval?: string
+}
+
+interface Interpretation {
+  theme?: InterpretationTheme
+  suggested_schedule?: SuggestedSchedule
+  overall_reasoning?: string
+  [key: string]: unknown
+}
+
 const interpretationResult = ref<{
   id: string
   name: string
-  interpretation: Record<string, unknown>
+  interpretation: Interpretation
   widgets_created: number
   message: string
 } | null>(null)

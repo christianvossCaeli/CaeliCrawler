@@ -116,7 +116,7 @@ function flattenObject(obj: Record<string, unknown>, prefix = ''): Record<string
     const newKey = prefix ? `${prefix}.${key}` : key
 
     if (value && typeof value === 'object' && !Array.isArray(value)) {
-      Object.assign(result, flattenObject(value, newKey))
+      Object.assign(result, flattenObject(value as Record<string, unknown>, newKey))
     } else if (Array.isArray(value)) {
       result[newKey] = value.join(', ')
     } else {
