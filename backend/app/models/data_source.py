@@ -21,12 +21,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.api_configuration import APIConfiguration
     from app.models.category import Category
-    from app.models.crawl_job import CrawlJob
-    from app.models.document import Document
     from app.models.change_log import ChangeLog
+    from app.models.crawl_job import CrawlJob
     from app.models.data_source_category import DataSourceCategory
-    from external_apis.models.external_api_config import ExternalAPIConfig
+    from app.models.document import Document
 
 
 class SourceType(str, enum.Enum):
@@ -201,11 +201,13 @@ class DataSource(Base):
         back_populates="source",
         cascade="all, delete-orphan",
     )
-    # External API configuration (if this source is managed by an external API)
-    external_api_config: Mapped[Optional["ExternalAPIConfig"]] = relationship(
-        "ExternalAPIConfig",
+
+    # API configuration (if this source uses external API sync)
+    api_config: Mapped[Optional["APIConfiguration"]] = relationship(
+        "APIConfiguration",
         back_populates="data_source",
         uselist=False,
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

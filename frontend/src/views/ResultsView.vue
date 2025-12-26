@@ -1,14 +1,10 @@
 <template>
   <div>
-    <!-- Loading Overlay -->
-    <v-overlay :model-value="loading && initialLoad" class="align-center justify-center" persistent >
-      <v-card class="pa-8 text-center" min-width="320" elevation="24">
-        <v-progress-circular indeterminate size="80" width="6" color="primary" class="mb-4"></v-progress-circular>
-        <div class="text-h6 mb-2">{{ $t('results.loading.title') }}</div>
-        <div class="text-body-2 text-medium-emphasis">{{ $t('results.loading.subtitle') }}</div>
-      </v-card>
-    </v-overlay>
+    <!-- Skeleton Loader for initial load -->
+    <ResultsSkeleton v-if="loading && initialLoad" />
 
+    <!-- Main Content -->
+    <template v-else>
     <PageHeader
       :title="$t('results.title')"
       :subtitle="$t('results.subtitle')"
@@ -60,8 +56,8 @@
         <v-card
           :variant="verifiedFilter === true ? 'elevated' : 'outlined'"
           :color="verifiedFilter === true ? 'success' : undefined"
-          @click="toggleVerifiedFilter(true)"
           class="cursor-pointer"
+          @click="toggleVerifiedFilter(true)"
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5 text-success">{{ stats.verified }}</div>
@@ -145,7 +141,7 @@
               hide-details
               @update:model-value="debouncedLoadData"
             >
-              <template v-slot:thumb-label="{ modelValue }">{{ modelValue }}%</template>
+              <template #thumb-label="{ modelValue }">{{ modelValue }}%</template>
             </v-slider>
           </v-col>
         </v-row>
@@ -195,7 +191,7 @@
         item-value="id"
         @update:options="onTableOptionsUpdate"
       >
-        <template v-slot:item.document="{ item }">
+        <template #item.document="{ item }">
           <div class="py-2">
             <div class="font-weight-medium text-truncate" style="max-width: 220px;" :title="(item.raw?.document_title || item.document_title) || (item.raw?.document_url || item.document_url)">
               {{ (item.raw?.document_title || item.document_title) || t('results.detail.noTitle') }}
@@ -208,7 +204,7 @@
           </div>
         </template>
 
-        <template v-slot:item.extraction_type="{ item }">
+        <template #item.extraction_type="{ item }">
           <v-chip size="small" color="primary" variant="tonal">{{ item.raw?.extraction_type || item.extraction_type }}</v-chip>
         </template>
 
@@ -216,38 +212,38 @@
         <template
           v-for="entityType in entityReferenceColumns"
           :key="`entity-${entityType}`"
-          v-slot:[`item.entity_references.${entityType}`]="{ item }"
+          #[`item.entity_references.${entityType}`]="{ item }"
         >
           <div class="entity-references">
-            <template v-for="(ref, idx) in getEntityReferencesByType(item.raw || item, entityType)" :key="idx">
+            <template v-for="(entityRef, idx) in getEntityReferencesByType(item.raw || item, entityType)" :key="idx">
               <div
                 class="entity-ref-text cursor-pointer text-info"
-                @click="filterByEntityReference(entityType, ref.entity_name)"
-                :title="ref.entity_name"
+                :title="entityRef.entity_name"
+                @click="filterByEntityReference(entityType, entityRef.entity_name)"
               >
-                {{ ref.entity_name }}
+                {{ entityRef.entity_name }}
               </div>
             </template>
             <span v-if="!getEntityReferencesByType(item.raw || item, entityType).length" class="text-medium-emphasis">-</span>
           </div>
         </template>
 
-        <template v-slot:item.confidence_score="{ item }">
+        <template #item.confidence_score="{ item }">
           <v-chip :color="getConfidenceColor(item.raw?.confidence_score ?? item.confidence_score)" size="small">
             {{ (item.raw?.confidence_score ?? item.confidence_score) ? ((item.raw?.confidence_score ?? item.confidence_score) * 100).toFixed(0) + '%' : '-' }}
           </v-chip>
         </template>
 
-        <template v-slot:item.human_verified="{ item }">
+        <template #item.human_verified="{ item }">
           <v-icon v-if="item.raw?.human_verified ?? item.human_verified" color="success" size="small">mdi-check-circle</v-icon>
           <v-icon v-else color="grey" size="small">mdi-circle-outline</v-icon>
         </template>
 
-        <template v-slot:item.created_at="{ item }">
+        <template #item.created_at="{ item }">
           <div class="text-caption">{{ formatDate(item.raw?.created_at || item.created_at) }}</div>
         </template>
 
-        <template v-slot:item.actions="{ item }">
+        <template #item.actions="{ item }">
           <div class="table-actions d-flex justify-end ga-1">
             <v-btn icon="mdi-eye" size="small" variant="tonal" :title="$t('common.details')" :aria-label="$t('common.details')" @click="showDetails(item.raw || item)"></v-btn>
             <v-btn :icon="(item.raw?.human_verified ?? item.human_verified) ? 'mdi-check-circle' : 'mdi-check'" size="small" variant="tonal" :color="(item.raw?.human_verified ?? item.human_verified) ? 'success' : 'grey'" :title="(item.raw?.human_verified ?? item.human_verified) ? $t('results.actions.verified') : $t('results.actions.verify')" :aria-label="(item.raw?.human_verified ?? item.human_verified) ? $t('results.actions.verified') : $t('results.actions.verify')" @click="verifyResult(item.raw || item)"></v-btn>
@@ -302,16 +298,16 @@
               <v-card-text>
                 <div class="d-flex flex-wrap ga-2">
                   <v-chip
-                    v-for="(ref, idx) in selectedResult.entity_references"
+                    v-for="(entityRef, idx) in selectedResult.entity_references"
                     :key="idx"
-                    :color="getEntityTypeColor(ref.entity_type)"
+                    :color="getEntityTypeColor(entityRef.entity_type)"
                     size="small"
-                    :to="ref.entity_id ? `/entities/${ref.entity_id}` : undefined"
+                    :to="entityRef.entity_id ? `/entity/${entityRef.entity_id}` : undefined"
                   >
-                    <v-icon start size="x-small">{{ getEntityTypeIcon(ref.entity_type) }}</v-icon>
-                    {{ ref.entity_name }}
-                    <v-tooltip v-if="ref.role !== 'secondary'" activator="parent" location="top">
-                      {{ ref.role }} ({{ Math.round(ref.confidence * 100) }}%)
+                    <v-icon start size="x-small">{{ getEntityTypeIcon(entityRef.entity_type) }}</v-icon>
+                    {{ entityRef.entity_name }}
+                    <v-tooltip v-if="entityRef.role !== 'secondary'" activator="parent" location="top">
+                      {{ entityRef.role }} ({{ Math.round(entityRef.confidence * 100) }}%)
                     </v-tooltip>
                   </v-chip>
                 </div>
@@ -556,6 +552,7 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    </template>
   </div>
 </template>
 
@@ -569,7 +566,47 @@ import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
+import ResultsSkeleton from '@/components/results/ResultsSkeleton.vue'
 import { useLogger } from '@/composables/useLogger'
+import { getErrorMessage } from '@/composables/useApiErrorHandler'
+
+// Search result types
+interface EntityReference {
+  entity_id: string
+  entity_name: string
+  entity_type: string
+  relevance_score?: number
+}
+
+interface SearchResult {
+  id: string
+  document_id?: string
+  document_title?: string
+  document_url?: string
+  content?: string
+  extraction_type?: string
+  entity_references?: EntityReference[]
+  confidence_score?: number
+  human_verified?: boolean
+  verified_by?: string
+  verified_at?: string
+  created_at: string
+  updated_at?: string
+}
+
+interface TableHeader {
+  title: string
+  key: string
+  sortable?: boolean
+  align?: 'start' | 'center' | 'end'
+  width?: string | number
+}
+
+interface TableOptions {
+  page: number
+  itemsPerPage: number
+  sortBy?: Array<{ key: string; order: 'asc' | 'desc' }>
+}
 
 const logger = useLogger('ResultsView')
 
@@ -584,10 +621,10 @@ const initialLoad = ref(true)
 const bulkVerifying = ref(false)
 
 // Data
-const results = ref<any[]>([])
+const results = ref<SearchResult[]>([])
 const totalResults = ref(0)
 const locations = ref<string[]>([])
-const categories = ref<any[]>([])
+const categories = ref<{ id: string; name: string }[]>([])
 const extractionTypes = ref<string[]>([])
 const selectedResults = ref<string[]>([])
 
@@ -612,11 +649,11 @@ const dateFrom = ref<string | null>(null)
 const dateTo = ref<string | null>(null)
 const page = ref(1)
 const perPage = ref(20)
-const sortBy = ref<any[]>([{ key: 'created_at', order: 'desc' }])
+const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'created_at', order: 'desc' }])
 
 // Dialog
 const detailsDialog = ref(false)
-const selectedResult = ref<any>(null)
+const selectedResult = ref<SearchResult | null>(null)
 
 // Default headers when no category-specific config is available
 const getDefaultHeaders = () => [
@@ -629,7 +666,7 @@ const getDefaultHeaders = () => [
 ]
 
 // Dynamic headers - loaded from category's display_fields config (initialized with defaults)
-const headers = ref<any[]>(getDefaultHeaders())
+const headers = ref<Array<{ title: string; key: string; sortable?: boolean; width?: string; align?: 'start' | 'center' | 'end' }>>(getDefaultHeaders())
 const entityReferenceColumns = ref<string[]>([])
 
 // Load display config for the selected category
@@ -646,10 +683,10 @@ const loadDisplayConfig = async (categoryId: string | null) => {
     const config = response.data
 
     // Build headers from config
-    const dynamicHeaders: any[] = []
+    const dynamicHeaders: TableHeader[] = []
 
     for (const col of config.columns || []) {
-      const header: any = {
+      const header: TableHeader = {
         title: col.label,
         key: col.key,
         sortable: col.sortable !== false, // Default to sortable
@@ -727,11 +764,11 @@ const getPriorityColor = (priority: string) => {
 }
 
 // Generic entity reference helpers
-const getEntityReferencesByType = (item: any, entityType: string): any[] => {
+const getEntityReferencesByType = (item: SearchResult, entityType: string): EntityReference[] => {
   if (!item.entity_references || !Array.isArray(item.entity_references)) {
     return []
   }
-  return item.entity_references.filter((ref: any) => ref.entity_type === entityType)
+  return item.entity_references.filter((ref: EntityReference) => ref.entity_type === entityType)
 }
 
 const filterByEntityReference = (_entityType: string, entityName: string) => {
@@ -762,7 +799,7 @@ const getEntityTypeIcon = (entityType: string): string => {
   return icons[entityType] || 'mdi-tag'
 }
 
-const getContent = (item: any) => {
+const getContent = (item: SearchResult) => {
   return item.final_content || item.extracted_content || {}
 }
 
@@ -784,7 +821,7 @@ const loadData = async () => {
       lastLoadedCategoryId = categoryFilter.value
     }
 
-    const params: any = { page: page.value, per_page: perPage.value }
+    const params: Record<string, unknown> = { page: page.value, per_page: perPage.value }
     if (searchQuery.value) params.search = searchQuery.value
     if (locationFilter.value) params.location_name = locationFilter.value
     if (extractionTypeFilter.value) params.extraction_type = extractionTypeFilter.value
@@ -846,7 +883,7 @@ const toggleVerifiedFilter = (value: boolean) => {
   loadData()
 }
 
-const onTableOptionsUpdate = (options: any) => {
+const onTableOptionsUpdate = (options: TableOptions) => {
   page.value = options.page
   perPage.value = options.itemsPerPage
   if (options.sortBy && options.sortBy.length > 0) {
@@ -870,18 +907,18 @@ const clearFilters = () => {
 
 
 // Actions
-const showDetails = (item: any) => {
+const showDetails = (item: SearchResult) => {
   selectedResult.value = item
   detailsDialog.value = true
 }
 
-const verifyResult = async (item: any) => {
+const verifyResult = async (item: SearchResult) => {
   try {
     await dataApi.verifyExtraction(item.id, { verified: true, verified_by: 'user' })
     showSuccess(t('results.messages.verified'))
 
     // Update the item locally instead of reloading the entire table
-    const index = results.value.findIndex((r: any) => r.id === item.id)
+    const index = results.value.findIndex((r: SearchResult) => r.id === item.id)
     if (index !== -1) {
       results.value[index] = { ...results.value[index], human_verified: true }
     }
@@ -889,8 +926,8 @@ const verifyResult = async (item: any) => {
     // Also update stats
     stats.value.verified = (stats.value.verified || 0) + 1
     stats.value.unverified = Math.max(0, (stats.value.unverified || 0) - 1)
-  } catch (error: any) {
-    showError(error.response?.data?.detail || t('results.messages.errorVerifying'))
+  } catch (error) {
+    showError(getErrorMessage(error) || t('results.messages.errorVerifying'))
   }
 }
 
@@ -906,7 +943,7 @@ const bulkVerify = async () => {
     // Update items locally
     let verifiedCount = 0
     for (const id of verifiedIds) {
-      const index = results.value.findIndex((r: any) => r.id === id)
+      const index = results.value.findIndex((r: SearchResult) => r.id === id)
       if (index !== -1 && !results.value[index].human_verified) {
         results.value[index] = { ...results.value[index], human_verified: true }
         verifiedCount++
@@ -918,14 +955,14 @@ const bulkVerify = async () => {
     stats.value.unverified = Math.max(0, (stats.value.unverified || 0) - verifiedCount)
 
     selectedResults.value = []
-  } catch (error: any) {
-    showError(error.response?.data?.detail || t('results.messages.errorBulkVerifying'))
+  } catch (error) {
+    showError(getErrorMessage(error) || t('results.messages.errorBulkVerifying'))
   } finally {
     bulkVerifying.value = false
   }
 }
 
-const exportJson = (item: any) => {
+const exportJson = (item: SearchResult) => {
   const data = {
     id: item.id,
     document_title: item.document_title,

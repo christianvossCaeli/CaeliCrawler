@@ -7,7 +7,7 @@
         </v-icon>
         {{ t('entityDetail.source') }}
         <v-spacer></v-spacer>
-        <v-btn icon="mdi-close" variant="tonal" @click="modelValue = false" :aria-label="t('common.close')"></v-btn>
+        <v-btn icon="mdi-close" variant="tonal" :aria-label="t('common.close')" @click="modelValue = false"></v-btn>
       </v-card-title>
       <v-card-text v-if="sourceFacet">
         <!-- Source Type Info -->
@@ -173,6 +173,16 @@ import { de } from 'date-fns/locale'
 
 const modelValue = defineModel<boolean>()
 
+// Props
+const props = defineProps<{
+  sourceFacet: SourceFacet | null
+}>()
+
+// Emits
+defineEmits<{
+  (e: 'close'): void
+}>()
+
 // Types
 interface SourceFacet {
   source_type: string
@@ -200,15 +210,6 @@ interface PysisInfo {
   processId?: string
   fieldNames?: string[]
 }
-
-// Props
-const props = defineProps<{
-  sourceFacet: SourceFacet | null
-}>()
-
-// Emits
-defineEmits<{
-}>()
 
 const { t } = useI18n()
 

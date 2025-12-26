@@ -8,7 +8,7 @@
     />
 
     <!-- Stats Cards -->
-    <v-row class="mb-4" v-if="stats">
+    <v-row v-if="stats" class="mb-4">
       <v-col cols="12" md="3">
         <v-card>
           <v-card-text class="d-flex align-center">
@@ -180,7 +180,7 @@
           {{ t('admin.auditLog.changesTitle') }}
         </v-card-title>
         <v-card-text>
-          <v-table density="compact" v-if="selectedLog">
+          <v-table v-if="selectedLog" density="compact">
             <thead>
               <tr>
                 <th>{{ t('admin.auditLog.field') }}</th>
@@ -232,7 +232,7 @@ interface AuditLog {
   entity_type: string
   entity_id: string | null
   entity_name: string | null
-  changes: Record<string, { old: any; new: any }>
+  changes: Record<string, { old: unknown; new: unknown }>
   ip_address: string | null
   created_at: string
 }
@@ -321,7 +321,7 @@ function formatDate(date: string): string {
   })
 }
 
-function formatValue(value: any): string {
+function formatValue(value: unknown): string {
   if (value === null || value === undefined) return '-'
   if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
@@ -342,7 +342,7 @@ function showChanges(log: AuditLog) {
 async function fetchLogs() {
   loading.value = true
   try {
-    const params: Record<string, any> = {
+    const params: Record<string, unknown> = {
       page: page.value,
       per_page: perPage.value,
     }

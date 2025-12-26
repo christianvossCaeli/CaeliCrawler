@@ -1,3 +1,38 @@
+<template>
+  <v-tooltip v-if="showTooltip" location="bottom">
+    <template #activator="{ props: tooltipProps }">
+      <v-btn
+        v-bind="tooltipProps"
+        :color="color"
+        :size="size"
+        :variant="variant"
+        :loading="isLoading"
+        :aria-label="tooltipText"
+        :aria-pressed="isFavorited"
+        :aria-busy="isLoading"
+        @click.stop="toggle"
+      >
+        <v-icon :icon="icon" aria-hidden="true" />
+      </v-btn>
+    </template>
+    {{ tooltipText }}
+  </v-tooltip>
+
+  <v-btn
+    v-else
+    :color="color"
+    :size="size"
+    :variant="variant"
+    :loading="isLoading"
+    :aria-label="tooltipText"
+    :aria-pressed="isFavorited"
+    :aria-busy="isLoading"
+    @click.stop="toggle"
+  >
+    <v-icon :icon="icon" aria-hidden="true" />
+  </v-btn>
+</template>
+
 <script setup lang="ts">
 /**
  * FavoriteButton - Toggle favorite status for an entity
@@ -10,8 +45,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useFavoritesStore } from '@/stores/favorites'
 import { useLogger } from '@/composables/useLogger'
-
-const logger = useLogger('FavoriteButton')
 
 const props = withDefaults(
   defineProps<{
@@ -26,6 +59,8 @@ const props = withDefaults(
     showTooltip: true,
   }
 )
+
+const logger = useLogger('FavoriteButton')
 
 const { t } = useI18n()
 const store = useFavoritesStore()
@@ -67,38 +102,3 @@ onMounted(async () => {
   }
 })
 </script>
-
-<template>
-  <v-tooltip v-if="showTooltip" location="bottom">
-    <template #activator="{ props: tooltipProps }">
-      <v-btn
-        v-bind="tooltipProps"
-        :color="color"
-        :size="size"
-        :variant="variant"
-        :loading="isLoading"
-        :aria-label="tooltipText"
-        :aria-pressed="isFavorited"
-        :aria-busy="isLoading"
-        @click.stop="toggle"
-      >
-        <v-icon :icon="icon" aria-hidden="true" />
-      </v-btn>
-    </template>
-    {{ tooltipText }}
-  </v-tooltip>
-
-  <v-btn
-    v-else
-    :color="color"
-    :size="size"
-    :variant="variant"
-    :loading="isLoading"
-    :aria-label="tooltipText"
-    :aria-pressed="isFavorited"
-    :aria-busy="isLoading"
-    @click.stop="toggle"
-  >
-    <v-icon :icon="icon" aria-hidden="true" />
-  </v-btn>
-</template>

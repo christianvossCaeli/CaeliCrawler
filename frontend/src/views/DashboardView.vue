@@ -226,7 +226,7 @@ const toggleEditMode = () => {
 
 // Crawler dialog state (kept from original)
 const startingCrawlers = ref(false)
-const crawlerCategories = ref<any[]>([])
+const crawlerCategories = ref<{ id: string; name: string }[]>([])
 const filteredSourceCount = ref(0)
 const totalSourceCount = ref(0)
 const countryOptions = ref([
@@ -270,7 +270,7 @@ const { debouncedFn: debouncedUpdateFilteredCount } = useDebounce(
 
 const updateFilteredCount = async () => {
   try {
-    const params: any = { per_page: 1 }
+    const params: Record<string, unknown> = { per_page: 1 }
     if (crawlerFilter.value.category_id) params.category_id = crawlerFilter.value.category_id
     if (crawlerFilter.value.country) params.country = crawlerFilter.value.country
     if (crawlerFilter.value.search) params.search = crawlerFilter.value.search
@@ -294,7 +294,7 @@ const updateFilteredCount = async () => {
 const startFilteredCrawlers = async () => {
   startingCrawlers.value = true
   try {
-    const params: any = {}
+    const params: Record<string, unknown> = {}
     if (crawlerFilter.value.category_id) params.category_id = crawlerFilter.value.category_id
     if (crawlerFilter.value.country) params.country = crawlerFilter.value.country
     if (crawlerFilter.value.search) params.search = crawlerFilter.value.search

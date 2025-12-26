@@ -25,7 +25,7 @@
         >
           <p class="mb-2">{{ errorMessage }}</p>
 
-          <template v-slot:append v-if="retryable">
+          <template v-if="retryable" #append>
             <v-btn
               variant="outlined"
               size="small"
@@ -48,7 +48,7 @@
           :title="emptyTitle"
           :text="emptyText"
         >
-          <template #actions v-if="$slots.emptyActions">
+          <template v-if="$slots.emptyActions" #actions>
             <slot name="emptyActions"></slot>
           </template>
         </v-empty-state>

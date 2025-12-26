@@ -1,3 +1,69 @@
+<template>
+  <BaseWidget
+    :definition="definition"
+    :config="config"
+    :is-editing="isEditing"
+    @refresh="refresh"
+  >
+    <div v-if="loading" class="d-flex justify-center py-6">
+      <v-progress-circular indeterminate size="32" />
+    </div>
+
+    <v-list v-else-if="documents.length > 0" density="compact" class="documents-list" role="list">
+      <v-list-item
+        v-for="doc in documents"
+        :key="doc.id"
+        class="px-2 clickable-item"
+        :class="{ 'non-interactive': isEditing }"
+        role="button"
+        :tabindex="tabIndex"
+        :aria-label="doc.title + ' - ' + formatTime(doc.created_at)"
+        @click="navigateToDocument(doc)"
+        @keydown="handleKeydownDocument($event, doc)"
+      >
+        <template #prepend>
+          <v-icon
+            :icon="getFileIcon(doc.file_type)"
+            :color="getStatusColor(doc.status)"
+            size="small"
+          />
+        </template>
+
+        <v-list-item-title class="text-body-2 text-truncate">
+          {{ doc.title }}
+        </v-list-item-title>
+        <v-list-item-subtitle class="text-caption">
+          <span v-if="doc.source_name">{{ doc.source_name }}</span>
+          <span v-else-if="doc.category_name">{{ doc.category_name }}</span>
+          <span class="ml-2 text-medium-emphasis">{{ formatTime(doc.created_at) }}</span>
+        </v-list-item-subtitle>
+      </v-list-item>
+    </v-list>
+
+    <WidgetEmptyState
+      v-else
+      icon="mdi-file-document-outline"
+      :message="t('dashboard.noDocuments')"
+    />
+
+    <!-- View All Link -->
+    <div
+      v-if="documents.length > 0"
+      class="text-center mt-2 view-all-link"
+      :class="{ 'non-interactive': isEditing }"
+      role="button"
+      :tabindex="tabIndex"
+      :aria-label="t('common.viewAll')"
+      @click="navigateToDocuments"
+      @keydown="handleKeydownViewAll($event)"
+    >
+      <span class="text-caption text-primary">
+        {{ t('common.viewAll') }}
+      </span>
+    </div>
+  </BaseWidget>
+</template>
+
 <script setup lang="ts">
 /**
  * RecentDocuments Widget - Shows recently crawled/added documents
@@ -105,72 +171,6 @@ const handleKeydownViewAll = (event: KeyboardEvent) => {
   handleKeyboardClick(event, () => navigateToDocuments())
 }
 </script>
-
-<template>
-  <BaseWidget
-    :definition="definition"
-    :config="config"
-    :is-editing="isEditing"
-    @refresh="refresh"
-  >
-    <div v-if="loading" class="d-flex justify-center py-6">
-      <v-progress-circular indeterminate size="32" />
-    </div>
-
-    <v-list v-else-if="documents.length > 0" density="compact" class="documents-list" role="list">
-      <v-list-item
-        v-for="doc in documents"
-        :key="doc.id"
-        class="px-2 clickable-item"
-        :class="{ 'non-interactive': isEditing }"
-        role="button"
-        :tabindex="tabIndex"
-        :aria-label="doc.title + ' - ' + formatTime(doc.created_at)"
-        @click="navigateToDocument(doc)"
-        @keydown="handleKeydownDocument($event, doc)"
-      >
-        <template #prepend>
-          <v-icon
-            :icon="getFileIcon(doc.file_type)"
-            :color="getStatusColor(doc.status)"
-            size="small"
-          />
-        </template>
-
-        <v-list-item-title class="text-body-2 text-truncate">
-          {{ doc.title }}
-        </v-list-item-title>
-        <v-list-item-subtitle class="text-caption">
-          <span v-if="doc.source_name">{{ doc.source_name }}</span>
-          <span v-else-if="doc.category_name">{{ doc.category_name }}</span>
-          <span class="ml-2 text-medium-emphasis">{{ formatTime(doc.created_at) }}</span>
-        </v-list-item-subtitle>
-      </v-list-item>
-    </v-list>
-
-    <WidgetEmptyState
-      v-else
-      icon="mdi-file-document-outline"
-      :message="t('dashboard.noDocuments')"
-    />
-
-    <!-- View All Link -->
-    <div
-      v-if="documents.length > 0"
-      class="text-center mt-2 view-all-link"
-      :class="{ 'non-interactive': isEditing }"
-      role="button"
-      :tabindex="tabIndex"
-      :aria-label="t('common.viewAll')"
-      @click="navigateToDocuments"
-      @keydown="handleKeydownViewAll($event)"
-    >
-      <span class="text-caption text-primary">
-        {{ t('common.viewAll') }}
-      </span>
-    </div>
-  </BaseWidget>
-</template>
 
 <style scoped>
 .documents-list {

@@ -21,6 +21,7 @@
             {{ hint.category }}
           </v-chip>
           <span class="input-hints__text">
+            <!-- eslint-disable-next-line vue/no-v-html -- highlightTrigger returns safe <strong> tags only -->
             <span v-html="highlightTrigger(hint.text, hint.trigger)"></span>
           </span>
           <code v-if="hint.example" class="input-hints__example">
@@ -36,6 +37,15 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+const props = defineProps<{
+  inputText: string
+  isWriteMode: boolean
+}>()
+
+defineEmits<{
+  'hint-click': [example: string]
+}>()
+
 const { t, locale } = useI18n()
 
 interface InputHint {
@@ -47,15 +57,6 @@ interface InputHint {
   color: string
   priority: number
 }
-
-const props = defineProps<{
-  inputText: string
-  isWriteMode: boolean
-}>()
-
-const emit = defineEmits<{
-  'hint-click': [example: string]
-}>()
 
 // Define all available hints
 const allHints = computed<InputHint[]>(() => {

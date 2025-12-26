@@ -52,7 +52,7 @@
               variant="tonal"
               color="primary"
               size="small"
-              :to="`/entities/${selectedEvent.entity_id}`"
+              :to="`/entity/${selectedEvent.entity_id}`"
             >
               <v-icon start>mdi-open-in-new</v-icon>
               {{ t('smartQuery.visualization.calendar.viewDetails') }}
@@ -74,17 +74,14 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
-// @ts-ignore - vue-cal types not properly exported
+// @ts-expect-error - vue-cal types not properly exported
 import { VueCal } from 'vue-cal'
 import 'vue-cal/style.css'
 import type { VisualizationConfig } from './types'
 import { getNestedValue } from './types'
 
-const { t, locale: i18nLocale } = useI18n()
-const theme = useTheme()
-
 const props = defineProps<{
-  data: Record<string, any>[]
+  data: Record<string, unknown>[]
   config?: VisualizationConfig & {
     active_view?: 'month' | 'week' | 'day' | 'year'
     date_field?: string
@@ -96,10 +93,12 @@ const props = defineProps<{
     disabled_views?: string[]
   }
 }>()
+const { t, locale: i18nLocale } = useI18n()
+const theme = useTheme()
 
 // Refs
 const showEventDialog = ref(false)
-const selectedEvent = ref<any>(null)
+const selectedEvent = ref<{ title?: string; start?: Date; end?: Date; content?: string; originalItem?: unknown } | null>(null)
 
 // Computed: Dark mode
 const isDarkMode = computed(() => theme.global.current.value.dark)
@@ -156,7 +155,7 @@ const calendarEvents = computed(() => {
   return props.data
     .map((item, index) => {
       // Get start date
-      let startDate = getNestedValue(item, dateField) ||
+      const startDate = getNestedValue(item, dateField) ||
                       getNestedValue(item, `facets.${dateField}.value`) ||
                       item.date ||
                       item.start_date
@@ -218,7 +217,7 @@ const calendarEvents = computed(() => {
 })
 
 // Helper: Parse date string to Date
-function parseDate(value: any): Date | null {
+function parseDate(value: unknown): Date | null {
   if (!value) return null
   if (value instanceof Date) return value
 
@@ -283,18 +282,18 @@ function stringToColor(str: string): string {
 }
 
 // Event handlers
-function onEventClick(event: any, e: Event) {
+function onEventClick(event: { title?: string; start?: Date; end?: Date; content?: string; originalData?: unknown }, e: Event) {
   e.stopPropagation()
   selectedEvent.value = event
   showEventDialog.value = true
 }
 
-function onViewChange(_view: any) {
+function onViewChange(_view: string) {
   // Could emit to parent if needed
 }
 
 // Helper: Format event date for display
-function formatEventDate(event: any): string {
+function formatEventDate(event: { start?: Date | string; end?: Date | string | null } | null): string {
   if (!event?.start) return ''
 
   const start = new Date(event.start)

@@ -1,27 +1,3 @@
-<script setup lang="ts">
-/**
- * ARIA Live Region Component
- *
- * Provides hidden live regions for screen reader announcements.
- * Should be placed once in the app (typically in App.vue).
- *
- * Usage:
- *   <!-- In App.vue -->
- *   <template>
- *     <AriaLiveRegion />
- *     <router-view />
- *   </template>
- *
- * Then use the useAnnouncer composable anywhere:
- *   const { announcePolite } = useAnnouncer()
- *   announcePolite('Data loaded successfully')
- */
-
-import { useAnnouncer } from '@/composables/useAnnouncer'
-
-const { state } = useAnnouncer()
-</script>
-
 <template>
   <!--
     These are visually hidden but accessible to screen readers.
@@ -50,6 +26,30 @@ const { state } = useAnnouncer()
     {{ state.assertiveMessage }}
   </div>
 </template>
+
+<script setup lang="ts">
+/**
+ * ARIA Live Region Component
+ *
+ * Provides hidden live regions for screen reader announcements.
+ * Should be placed once in the app (typically in App.vue).
+ *
+ * Usage:
+ *   <!-- In App.vue -->
+ *   <template>
+ *     <AriaLiveRegion />
+ *     <router-view />
+ *   </template>
+ *
+ * Then use the useAnnouncer composable anywhere:
+ *   const { announcePolite } = useAnnouncer()
+ *   announcePolite('Data loaded successfully')
+ */
+
+import { useAnnouncer } from '@/composables/useAnnouncer'
+
+const { state } = useAnnouncer()
+</script>
 
 <style scoped>
 /*

@@ -52,10 +52,10 @@
     <!-- Compound Query Results -->
     <transition v-if="results?.is_compound" name="compound-result" appear>
       <div class="compound-results-wrapper">
-        <template v-if="(results?.visualizations?.length ?? 0) > 0">
+        <template v-if="compoundVisualizations.length > 0">
           <v-card class="mb-4 content-reveal">
             <CompoundQueryResult
-              :visualizations="results?.visualizations ?? []"
+              :visualizations="compoundVisualizations"
               :explanation="results.explanation"
               :suggested-actions="results.suggested_actions || []"
               @action="(action, params) => $emit('visualization-action', action, params)"
@@ -83,10 +83,10 @@
     <template v-else-if="results?.visualization && !results?.is_compound && results?.mode === 'read'">
       <v-card class="mb-4">
         <SmartQueryResult
-          :data="results.items || results.data || []"
-          :visualization="results.visualization"
+          :data="resultData"
+          :visualization="visualizationConfig"
           :explanation="results.explanation"
-          :source-info="results.source_info"
+          :source-info="sourceInfo"
           :suggested-actions="results.suggested_actions || []"
           @action="(action, params) => $emit('visualization-action', action, params)"
         />
@@ -105,11 +105,11 @@
       <div class="interpretation-bar mb-4 pa-4 d-flex align-center flex-wrap ga-2">
         <v-icon size="20" class="mr-2" color="primary">mdi-brain</v-icon>
         <v-chip size="small" color="primary" variant="flat" class="mr-1">
-          <v-icon start size="14">{{ getEntityTypeIcon(results.query_interpretation?.primary_entity_type) }}</v-icon>
+          <v-icon start size="14">{{ getEntityTypeIcon(String(results.query_interpretation?.primary_entity_type || '')) }}</v-icon>
           {{ results.query_interpretation?.primary_entity_type }}
         </v-chip>
         <v-chip
-          v-for="facet in results.query_interpretation?.facet_types || []"
+          v-for="facet in (results.query_interpretation?.facet_types as string[]) || []"
           :key="facet"
           size="small"
           color="secondary"
@@ -119,12 +119,12 @@
           <v-icon start size="14">mdi-tag</v-icon>
           {{ facet }}
         </v-chip>
-        <v-chip size="small" :color="getTimeFilterColor(results.query_interpretation?.time_filter)" variant="tonal">
+        <v-chip size="small" :color="getTimeFilterColor(String(results.query_interpretation?.time_filter || ''))" variant="tonal">
           <v-icon start size="14">mdi-clock-outline</v-icon>
           {{ results.query_interpretation?.time_filter || 'all' }}
         </v-chip>
         <v-spacer />
-        <span class="text-body-2 text-medium-emphasis" v-if="results.query_interpretation?.explanation">
+        <span v-if="results.query_interpretation?.explanation" class="text-body-2 text-medium-emphasis">
           {{ results.query_interpretation.explanation }}
         </span>
       </div>
@@ -157,9 +157,9 @@
       </v-card>
 
       <!-- Event-grouped Results -->
-      <transition-group name="result-list" tag="div" v-if="results.grouping === 'by_event'">
+      <transition-group v-if="results.grouping === 'by_event'" name="result-list" tag="div">
         <v-card
-          v-for="(event, index) in results.items"
+          v-for="(event, index) in eventItems"
           :key="event.event_name"
           class="result-card mb-4"
           :style="{ '--animation-delay': `${index * 50}ms` }"
@@ -187,14 +187,14 @@
                 :key="attendee.person_id"
                 class="attendee-item"
               >
-                <template v-slot:prepend>
+                <template #prepend>
                   <v-avatar color="primary" size="36" variant="tonal">
                     <span class="text-caption font-weight-bold">{{ getInitials(attendee.person_name) }}</span>
                   </v-avatar>
                 </template>
                 <v-list-item-title class="font-weight-medium">{{ attendee.person_name }}</v-list-item-title>
                 <v-list-item-subtitle>{{ formatAttendeeSubtitle(attendee) }}</v-list-item-subtitle>
-                <template v-slot:append>
+                <template #append>
                   <v-chip v-if="attendee.role" size="x-small" color="info" variant="tonal">
                     {{ attendee.role }}
                   </v-chip>
@@ -209,7 +209,7 @@
       <div v-else class="results-grid">
         <transition-group name="result-list" tag="div" class="results-grid-inner">
           <v-card
-            v-for="(item, index) in results.items"
+            v-for="(item, index) in entityItems"
             :key="item.entity_id"
             class="result-card"
             :style="{ '--animation-delay': `${index * 50}ms` }"
@@ -217,12 +217,12 @@
             <v-card-text class="pa-4">
               <div class="d-flex align-start mb-3">
                 <v-avatar
-                  :color="getEntityTypeColor(item.entity_type)"
+                  :color="getEntityTypeColor(item.entity_type || '')"
                   size="44"
                   variant="tonal"
                   class="mr-3"
                 >
-                  <v-icon size="22">{{ getEntityTypeIcon(item.entity_type) }}</v-icon>
+                  <v-icon size="22">{{ getEntityTypeIcon(item.entity_type || '') }}</v-icon>
                 </v-avatar>
                 <div class="flex-grow-1 overflow-hidden">
                   <div class="text-subtitle-1 font-weight-bold text-truncate">{{ item.entity_name }}</div>
@@ -253,7 +253,7 @@
                         :color="getSourceTypeColor(fv.source_type)"
                       >
                         <v-icon v-if="fv.source_type" start size="10">{{ getSourceTypeIcon(fv.source_type) }}</v-icon>
-                        {{ fv.text?.substring(0, 40) }}{{ fv.text?.length > 40 ? '...' : '' }}
+                        {{ fv.text?.substring(0, 40) }}{{ (fv.text?.length ?? 0) > 40 ? '...' : '' }}
                         <v-tooltip activator="parent" location="top">
                           {{ fv.text }} ({{ getSourceTypeLabel(fv.source_type) }})
                         </v-tooltip>
@@ -304,6 +304,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { SmartQueryResult } from '@/components/smartquery/visualizations'
 import CompoundQueryResult from '@/components/smartquery/CompoundQueryResult.vue'
@@ -311,6 +312,38 @@ import SmartQueryGenerationProgress from '@/components/smartquery/SmartQueryGene
 import SmartQueryPreview from '@/components/smartquery/SmartQueryPreview.vue'
 import SmartQueryWriteResults from '@/components/smartquery/SmartQueryWriteResults.vue'
 import type { QueryMode, SmartQueryResults, SmartQueryPreview as PreviewType } from '@/composables/useSmartQuery'
+
+// Interfaces for result data structures
+interface EventAttendee {
+  person_id: string
+  person_name: string
+  position?: string
+  municipality?: { name: string }
+  topic?: string
+  role?: string
+}
+
+interface EventItem {
+  event_name: string
+  event_date?: string
+  event_location?: string
+  attendees?: EventAttendee[]
+}
+
+interface EntityItem {
+  entity_id: string
+  entity_name?: string
+  entity_type?: string
+  attributes?: Record<string, unknown>
+  relations?: Record<string, { entity_name?: string }>
+  facets?: Record<string, FacetValueItem[]>
+}
+
+interface FacetValueItem {
+  id: string
+  text?: string
+  source_type?: string
+}
 
 interface Props {
   results: SmartQueryResults | null
@@ -322,7 +355,7 @@ interface Props {
   fromAssistant?: boolean
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 defineEmits<{
   'clear-error': []
@@ -330,8 +363,56 @@ defineEmits<{
   'confirm-write': []
   'new-query': []
   'back-to-assistant': []
-  'visualization-action': [action: string, params: Record<string, any>]
+  'visualization-action': [action: string, params: Record<string, unknown>]
 }>()
+
+// Computed properties for typed access to results
+const eventItems = computed((): EventItem[] => {
+  if (!props.results?.items) return []
+  return props.results.items as unknown as EventItem[]
+})
+
+const entityItems = computed((): EntityItem[] => {
+  if (!props.results?.items) return []
+  return props.results.items as unknown as EntityItem[]
+})
+
+const resultData = computed((): Record<string, unknown>[] => {
+  return (props.results?.items || props.results?.data || []) as Record<string, unknown>[]
+})
+
+// Typed visualization config for SmartQueryResult component
+const visualizationConfig = computed(() => {
+  if (!props.results?.visualization) return undefined
+  return {
+    ...props.results.visualization,
+    title: props.results.visualization.title || '',
+  }
+})
+
+// Typed source info for SmartQueryResult component
+const sourceInfo = computed(() => {
+  if (!props.results?.source_info) return undefined
+  const info = props.results.source_info
+  const sourceType = (info.type as string) || 'internal'
+  return {
+    type: sourceType as 'facet_history' | 'live_api' | 'internal',
+    ...info,
+  }
+})
+
+// Compound visualizations with required properties
+const compoundVisualizations = computed(() => {
+  if (!props.results?.visualizations) return []
+  return props.results.visualizations.map((v, index) => ({
+    id: v.id || `viz-${index}`,
+    title: v.title || '',
+    visualization: v.config ? { type: v.type, title: v.title || '', ...v.config } : undefined,
+    data: v.data || [],
+    source_info: v.source_info ? { type: 'internal' as const, ...v.source_info } : undefined,
+    explanation: v.explanation,
+  }))
+})
 
 const { t } = useI18n()
 
@@ -407,8 +488,14 @@ function getInitials(name: string): string {
   return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
 }
 
-function formatAttendeeSubtitle(attendee: any): string {
-  const parts = []
+interface AttendeeData {
+  position?: string
+  municipality?: { name: string }
+  topic?: string
+}
+
+function formatAttendeeSubtitle(attendee: AttendeeData): string {
+  const parts: string[] = []
   if (attendee.position) parts.push(attendee.position)
   if (attendee.municipality?.name) parts.push(attendee.municipality.name)
   if (attendee.topic) parts.push(`"${attendee.topic}"`)

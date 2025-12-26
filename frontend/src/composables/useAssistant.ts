@@ -541,7 +541,7 @@ export function useAssistant() {
 
       // Process response
       const responseData = data.response
-      let assistantContent = responseData.message || 'Keine Antwort erhalten.'
+      const assistantContent = responseData.message || 'Keine Antwort erhalten.'
 
       // Add assistant message
       const assistantMessage: ConversationMessage = {
@@ -702,7 +702,7 @@ export function useAssistant() {
                   // Individual result item - could render progressively
                   break
 
-                case 'complete':
+                case 'complete': {
                   // Final response data - data.data contains {success, response, suggested_actions}
                   // We need to extract the response part for message/type, but keep the full wrapper for suggested_actions
                   const completeWrapper = data.data as { response?: ResponseData; suggested_actions?: SuggestedAction[] } | ResponseData | undefined
@@ -724,6 +724,7 @@ export function useAssistant() {
                   messages.value[assistantMessageIndex].response_type = finalResponseData?.type || 'query_result'
                   messages.value[assistantMessageIndex].response_data = finalResponseData
                   break
+                }
 
                 case 'error':
                   error.value = data.message ?? null

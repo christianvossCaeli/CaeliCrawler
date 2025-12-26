@@ -69,9 +69,9 @@
                   ></v-text-field>
                 </v-col>
                 <v-col
+                  v-if="flags.entityHierarchyEnabled && currentEntityType?.supports_hierarchy"
                   cols="12"
                   md="6"
-                  v-if="flags.entityHierarchyEnabled && currentEntityType?.supports_hierarchy"
                 >
                   <v-select
                     :model-value="entityForm.parent_id"
@@ -240,14 +240,14 @@
                 prepend-inner-icon="mdi-account"
                 @update:model-value="updateEntityForm('owner_id', $event)"
               >
-                <template v-slot:item="{ props, item }">
-                  <v-list-item v-bind="props">
-                    <template v-slot:prepend>
+                <template #item="{ props: itemProps, item }">
+                  <v-list-item v-bind="itemProps">
+                    <template #prepend>
                       <v-avatar color="primary" size="32">
                         <span class="text-caption">{{ item.raw.full_name?.charAt(0) || 'U' }}</span>
                       </v-avatar>
                     </template>
-                    <template v-slot:subtitle>{{ item.raw.email }}</template>
+                    <template #subtitle>{{ item.raw.email }}</template>
                   </v-list-item>
                 </template>
               </v-autocomplete>
@@ -288,16 +288,40 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { EntityForm } from '@/composables/useEntitiesView'
+import type { Entity, EntityType } from '@/types/entity'
+
+interface ParentOption {
+  id: string
+  name: string
+}
+
+interface UserOption {
+  id: string
+  display: string
+  full_name?: string
+  email?: string
+}
+
+interface FeatureFlags {
+  entityHierarchyEnabled?: boolean
+  [key: string]: boolean | undefined
+}
+
+interface VFormRef {
+  validate: () => Promise<{ valid: boolean }>
+  reset: () => void
+  resetValidation: () => void
+}
 
 interface Props {
   modelValue: boolean
   entityForm: EntityForm
   entityTab: string
-  editingEntity: any
-  currentEntityType: any
-  flags: any
-  parentOptions: any[]
-  userOptions: any[]
+  editingEntity: Entity | null
+  currentEntityType: EntityType | null
+  flags: FeatureFlags
+  parentOptions: ParentOption[]
+  userOptions: UserOption[]
   loadingUsers: boolean
   saving: boolean
   isLightColor: (color: string | undefined) => boolean
@@ -307,7 +331,7 @@ interface Emits {
   (e: 'update:model-value', value: boolean): void
   (e: 'update:entity-form', value: EntityForm): void
   (e: 'update:entity-tab', value: string): void
-  (e: 'save', formRef: any): void
+  (e: 'save', formRef: VFormRef | null): void
   (e: 'cancel'): void
 }
 
@@ -316,18 +340,18 @@ const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
 
-const formRef = ref<any>(null)
+const formRef = ref<VFormRef | null>(null)
 
 const localEntityTab = computed({
   get: () => props.entityTab,
   set: (value) => emit('update:entity-tab', value),
 })
 
-function updateEntityForm(field: keyof EntityForm, value: any) {
+function updateEntityForm(field: keyof EntityForm, value: unknown) {
   emit('update:entity-form', { ...props.entityForm, [field]: value })
 }
 
-function updateCoreAttribute(key: string, value: any) {
+function updateCoreAttribute(key: string, value: unknown) {
   emit('update:entity-form', {
     ...props.entityForm,
     core_attributes: { ...props.entityForm.core_attributes, [key]: value },

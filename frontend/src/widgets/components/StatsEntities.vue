@@ -1,62 +1,3 @@
-<script setup lang="ts">
-/**
- * StatsEntities Widget - Shows entity statistics
- */
-
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useDashboardStore } from '@/stores/dashboard'
-import { handleKeyboardClick } from '../composables'
-import BaseWidget from '../BaseWidget.vue'
-import type { WidgetDefinition, WidgetConfig } from '../types'
-
-const props = defineProps<{
-  definition: WidgetDefinition
-  config?: WidgetConfig
-  isEditing?: boolean
-}>()
-
-const router = useRouter()
-const store = useDashboardStore()
-const loading = ref(true)
-const error = ref<string | null>(null)
-
-// Computed for reactive isEditing check
-const isEditMode = computed(() => props.isEditing ?? false)
-const tabIndex = computed(() => (isEditMode.value ? -1 : 0))
-
-const refresh = async () => {
-  loading.value = true
-  error.value = null
-  try {
-    await store.loadStats()
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to load statistics'
-  } finally {
-    loading.value = false
-  }
-}
-
-const navigateTo = (isActive?: boolean) => {
-  if (isEditMode.value) return
-  const query: Record<string, string> = {}
-  if (isActive !== undefined) query.is_active = String(isActive)
-  router.push({ path: '/entities', query })
-}
-
-const handleKeydown = (event: KeyboardEvent, isActive?: boolean) => {
-  handleKeyboardClick(event, () => navigateTo(isActive))
-}
-
-onMounted(() => {
-  if (!store.stats) {
-    refresh()
-  } else {
-    loading.value = false
-  }
-})
-</script>
-
 <template>
   <BaseWidget
     :definition="definition"
@@ -129,6 +70,65 @@ onMounted(() => {
     </div>
   </BaseWidget>
 </template>
+
+<script setup lang="ts">
+/**
+ * StatsEntities Widget - Shows entity statistics
+ */
+
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useDashboardStore } from '@/stores/dashboard'
+import { handleKeyboardClick } from '../composables'
+import BaseWidget from '../BaseWidget.vue'
+import type { WidgetDefinition, WidgetConfig } from '../types'
+
+const props = defineProps<{
+  definition: WidgetDefinition
+  config?: WidgetConfig
+  isEditing?: boolean
+}>()
+
+const router = useRouter()
+const store = useDashboardStore()
+const loading = ref(true)
+const error = ref<string | null>(null)
+
+// Computed for reactive isEditing check
+const isEditMode = computed(() => props.isEditing ?? false)
+const tabIndex = computed(() => (isEditMode.value ? -1 : 0))
+
+const refresh = async () => {
+  loading.value = true
+  error.value = null
+  try {
+    await store.loadStats()
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Failed to load statistics'
+  } finally {
+    loading.value = false
+  }
+}
+
+const navigateTo = (isActive?: boolean) => {
+  if (isEditMode.value) return
+  const query: Record<string, string> = {}
+  if (isActive !== undefined) query.is_active = String(isActive)
+  router.push({ path: '/entities', query })
+}
+
+const handleKeydown = (event: KeyboardEvent, isActive?: boolean) => {
+  handleKeyboardClick(event, () => navigateTo(isActive))
+}
+
+onMounted(() => {
+  if (!store.stats) {
+    refresh()
+  } else {
+    loading.value = false
+  }
+})
+</script>
 
 <style scoped>
 .stats-content {

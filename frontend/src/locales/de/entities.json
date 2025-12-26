@@ -237,7 +237,21 @@
       "documents": "Dokumente",
       "pysis": "PySis",
       "attachments": "Anhänge",
-      "children": "Untergeordnete"
+      "children": "Untergeordnete",
+      "apiData": "API-Daten"
+    },
+    "apiData": {
+      "title": "Externe API-Daten",
+      "externalId": "Externe ID",
+      "lastSync": "Letzte Synchronisierung",
+      "rawResponse": "Rohdaten der API-Antwort",
+      "fields": "Felder",
+      "fieldName": "Feldname",
+      "fieldType": "Typ",
+      "fieldValue": "Wert",
+      "syncStatus": "Sync-Status",
+      "apiType": "API-Typ",
+      "source": "Quelle"
     },
     "children": {
       "empty": "Keine untergeordneten Datensätze",
@@ -276,6 +290,9 @@
     "createNewSourceForEntity": "Neue Datenquelle für diesen Datensatz erstellen",
     "linkSource": "Verknüpfen",
     "directLink": "Direkt verknüpft",
+    "externalApiSource": "API-Datenquelle",
+    "viewApiConfig": "API-Konfiguration anzeigen",
+    "linkedDataSources": "Verknüpfte Datenquellen",
     "unlinkSource": "Verknüpfung aufheben",
     "unlinkSourceTitle": "Verknüpfung aufheben",
     "unlinkSourceConfirm": "Möchten Sie die direkte Verknüpfung zu dieser Datenquelle aufheben? Die Datenquelle wird nicht gelöscht.",

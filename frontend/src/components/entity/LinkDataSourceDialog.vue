@@ -16,7 +16,6 @@
         <!-- Search existing sources -->
         <v-autocomplete
           :model-value="selectedSource"
-          @update:model-value="$emit('update:selectedSource', $event)"
           :items="availableSources"
           item-title="name"
           item-value="id"
@@ -27,11 +26,12 @@
           prepend-inner-icon="mdi-magnify"
           return-object
           clearable
+          @update:model-value="$emit('update:selectedSource', $event)"
           @update:search="$emit('search', $event)"
         >
-          <template v-slot:item="{ props, item }">
+          <template #item="{ props, item }">
             <v-list-item v-bind="props">
-              <template v-slot:prepend>
+              <template #prepend>
                 <v-icon :color="getSourceStatusColor(item.raw.status)">{{ getSourceTypeIcon(item.raw.source_type) }}</v-icon>
               </template>
               <v-list-item-subtitle>{{ item.raw.base_url }}</v-list-item-subtitle>
@@ -71,15 +71,6 @@ import { useI18n } from 'vue-i18n'
 
 const modelValue = defineModel<boolean>()
 
-// Types
-interface DataSource {
-  id: string
-  name: string
-  base_url?: string | null
-  source_type: string
-  status: string
-}
-
 // Props
 defineProps<{
   selectedSource: DataSource | null
@@ -96,6 +87,15 @@ defineEmits<{
   link: []
   createNew: []
 }>()
+
+// Types
+interface DataSource {
+  id: string
+  name: string
+  base_url?: string | null
+  source_type: string
+  status: string
+}
 
 const { t } = useI18n()
 

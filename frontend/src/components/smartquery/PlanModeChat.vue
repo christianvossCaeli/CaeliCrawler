@@ -21,7 +21,7 @@
           <v-avatar color="info" size="64" class="mb-4" aria-hidden="true">
             <v-icon size="32">mdi-lightbulb-on</v-icon>
           </v-avatar>
-          <h2 class="text-h5 mb-2" id="plan-mode-title">{{ t('smartQueryView.plan.welcome.title') }}</h2>
+          <h2 id="plan-mode-title" class="text-h5 mb-2">{{ t('smartQueryView.plan.welcome.title') }}</h2>
           <p class="text-body-1 text-medium-emphasis mb-6 mx-auto" style="max-width: 500px">
             {{ t('smartQueryView.plan.welcome.description') }}
           </p>
@@ -38,13 +38,13 @@
                 variant="outlined"
                 color="info"
                 :disabled="loading"
-                @click="$emit('send', suggestion)"
-                @keydown.enter="$emit('send', suggestion)"
-                @keydown.space.prevent="$emit('send', suggestion)"
                 class="starter-chip"
                 tabindex="0"
                 role="button"
                 :aria-label="t('smartQueryView.plan.suggestionAriaLabel', { suggestion }, `Vorschlag: ${suggestion}`)"
+                @click="$emit('send', suggestion)"
+                @keydown.enter="$emit('send', suggestion)"
+                @keydown.space.prevent="$emit('send', suggestion)"
               >
                 {{ suggestion }}
               </v-chip>
@@ -57,8 +57,8 @@
     <!-- Conversation -->
     <div
       v-else
-      class="conversation-container"
       ref="conversationRef"
+      class="conversation-container"
       role="log"
       aria-live="polite"
       aria-relevant="additions"
@@ -84,6 +84,7 @@
             <v-icon size="18">{{ message.role === 'user' ? 'mdi-account' : 'mdi-lightbulb-on' }}</v-icon>
           </v-avatar>
           <div class="message-content">
+            <!-- eslint-disable-next-line vue/no-v-html -- Content is sanitized via DOMPurify in formatMessage -->
             <div class="message-text" v-html="formatMessage(message.content)"></div>
             <!-- Streaming cursor indicator -->
             <span
@@ -166,10 +167,10 @@
         :aria-label="t('smartQueryView.plan.generatedPromptAriaLabel', 'Generierter Prompt')"
       >
         <v-card
+          ref="generatedPromptRef"
           class="generated-prompt-card"
           color="success"
           variant="tonal"
-          ref="generatedPromptRef"
           tabindex="-1"
         >
           <v-card-title class="d-flex align-center">
@@ -224,8 +225,8 @@
                 variant="outlined"
                 color="info"
                 :loading="validating"
-                @click="$emit('validate', generatedPrompt.prompt, generatedPrompt.suggested_mode || 'read')"
                 :aria-label="t('smartQueryView.plan.testPromptAriaLabel', 'Prompt testen')"
+                @click="$emit('validate', generatedPrompt.prompt, generatedPrompt.suggested_mode || 'read')"
               >
                 <v-icon start aria-hidden="true">mdi-test-tube</v-icon>
                 {{ t('smartQueryView.plan.testPrompt', 'Testen') }}
@@ -235,8 +236,8 @@
                 v-if="generatedPrompt.suggested_mode === 'read' || !generatedPrompt.suggested_mode"
                 color="primary"
                 variant="elevated"
-                @click="$emit('adopt-prompt', generatedPrompt.prompt, 'read')"
                 :aria-label="t('smartQueryView.plan.adoptToReadAriaLabel', 'Prompt im Lese-Modus ausführen')"
+                @click="$emit('adopt-prompt', generatedPrompt.prompt, 'read')"
               >
                 <v-icon start aria-hidden="true">mdi-magnify</v-icon>
                 {{ t('smartQueryView.plan.adoptToRead') }}
@@ -245,8 +246,8 @@
                 v-if="generatedPrompt.suggested_mode === 'write' || !generatedPrompt.suggested_mode"
                 color="warning"
                 variant="elevated"
-                @click="$emit('adopt-prompt', generatedPrompt.prompt, 'write')"
                 :aria-label="t('smartQueryView.plan.adoptToWriteAriaLabel', 'Prompt im Schreib-Modus ausführen')"
+                @click="$emit('adopt-prompt', generatedPrompt.prompt, 'write')"
               >
                 <v-icon start aria-hidden="true">mdi-pencil-plus</v-icon>
                 {{ t('smartQueryView.plan.adoptToWrite') }}
@@ -263,8 +264,8 @@
         variant="text"
         size="small"
         color="medium-emphasis"
-        @click="$emit('reset')"
         :aria-label="t('smartQueryView.plan.newConversationAriaLabel', 'Neue Konversation starten')"
+        @click="$emit('reset')"
       >
         <v-icon start size="16" aria-hidden="true">mdi-refresh</v-icon>
         {{ t('smartQueryView.plan.newConversation') }}
@@ -279,6 +280,25 @@ import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useLogger } from '@/composables/useLogger'
+
+const props = withDefaults(defineProps<{
+  conversation?: Message[]
+  loading?: boolean
+  generatedPrompt?: GeneratedPrompt | null
+  validating?: boolean
+  validationResult?: ValidationResult | null
+}>(), {
+  conversation: () => [],
+  loading: false
+})
+
+defineEmits<{
+  (e: 'send', message: string): void
+  (e: 'adopt-prompt', prompt: string, mode: 'read' | 'write'): void
+  (e: 'validate', prompt: string, mode: 'read' | 'write'): void
+  (e: 'reset'): void
+  (e: 'save-as-summary', prompt: string): void
+}>()
 
 const logger = useLogger('PlanModeChat')
 
@@ -301,25 +321,6 @@ interface ValidationResult {
   warnings: string[]
   original_prompt: string
 }
-
-const props = withDefaults(defineProps<{
-  conversation?: Message[]
-  loading?: boolean
-  generatedPrompt?: GeneratedPrompt | null
-  validating?: boolean
-  validationResult?: ValidationResult | null
-}>(), {
-  conversation: () => [],
-  loading: false
-})
-
-defineEmits<{
-  (e: 'send', message: string): void
-  (e: 'adopt-prompt', prompt: string, mode: 'read' | 'write'): void
-  (e: 'validate', prompt: string, mode: 'read' | 'write'): void
-  (e: 'reset'): void
-  (e: 'save-as-summary', prompt: string): void
-}>()
 
 const { t } = useI18n()
 const conversationRef = ref<HTMLElement | null>(null)
@@ -440,7 +441,7 @@ const purifyConfig = {
   FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'style'] as string[],
   FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onchange', 'onsubmit'] as string[],
   // Only allow safe URL protocols - prevents javascript: and data: URLs
-  ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+  ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
 }
 
 // Add DOMPurify hook to enforce noopener noreferrer on all links
@@ -481,7 +482,7 @@ function formatMessage(content: string): string {
 
   try {
     // Remove summary suggestion blocks - they're shown as a separate card
-    let cleanedContent = content.replace(/\[SUMMARY_SUGGESTION\][\s\S]*?\[\/SUMMARY_SUGGESTION\]/g, '')
+    const cleanedContent = content.replace(/\[SUMMARY_SUGGESTION\][\s\S]*?\[\/SUMMARY_SUGGESTION\]/g, '')
 
     // Parse markdown to HTML
     const html = marked.parse(cleanedContent) as string

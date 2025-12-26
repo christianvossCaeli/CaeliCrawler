@@ -31,7 +31,7 @@
               density="comfortable"
               :rules="[v => v.length > 0 || $t('common.required')]"
             >
-              <template v-slot:chip="{ item, index }">
+              <template #chip="{ item, index }">
                 <v-chip
                   :color="index === 0 ? 'primary' : 'default'"
                   closable
@@ -63,9 +63,9 @@
               density="comfortable"
               prepend-inner-icon="mdi-tag"
             >
-              <template #chip="{ props, item }">
+              <template #chip="{ props: chipProps, item }">
                 <v-chip
-                  v-bind="props"
+                  v-bind="chipProps"
                   :color="getTagColor(item.value)"
                   size="small"
                 >
@@ -130,8 +130,8 @@
           <v-btn
             variant="tonal"
             color="info"
-            @click="parsePreview"
             :disabled="!canPreview"
+            @click="parsePreview"
           >
             <v-icon start>mdi-eye</v-icon>
             {{ $t('sources.bulk.loadPreview') }}
@@ -233,9 +233,9 @@
         <v-btn
           variant="tonal"
           color="primary"
-          @click="executeImport"
           :disabled="!canImport"
           :loading="bulkImport.importing"
+          @click="executeImport"
         >
           <v-icon start>mdi-upload</v-icon>
           {{ bulkImport.validCount }} {{ $t('sources.bulk.sourcesImport') }}
@@ -255,6 +255,16 @@ import type { CategoryResponse } from '@/types/category'
 import { BULK_IMPORT, DIALOG_SIZES } from '@/config/sources'
 import { parseCsv, validateCsvInput } from '@/utils/csvParser'
 
+// defineModel() for two-way binding (Vue 3.4+)
+const dialogOpen = defineModel<boolean>({ default: false })
+
+const props = defineProps<Props>()
+
+// Emits (non-model emits only)
+const emit = defineEmits<{
+  (e: 'import', data: BulkImportState): void
+}>()
+
 const logger = useLogger('BulkImportDialog')
 
 // Props (non-model props only)
@@ -263,16 +273,6 @@ interface Props {
   tagSuggestions: string[]
   existingUrls: string[]
 }
-
-const props = defineProps<Props>()
-
-// defineModel() for two-way binding (Vue 3.4+)
-const dialogOpen = defineModel<boolean>({ default: false })
-
-// Emits (non-model emits only)
-const emit = defineEmits<{
-  (e: 'import', data: BulkImportState): void
-}>()
 
 const { t } = useI18n()
 const { getTypeColor, getTagColor } = useSourceHelpers()

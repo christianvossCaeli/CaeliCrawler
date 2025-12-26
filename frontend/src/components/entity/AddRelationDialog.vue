@@ -10,7 +10,6 @@
           <!-- Relation Type Selection -->
           <v-select
             :model-value="relationTypeId"
-            @update:model-value="$emit('update:relationTypeId', $event)"
             :items="relationTypes"
             item-title="name"
             item-value="id"
@@ -20,10 +19,11 @@
             density="comfortable"
             class="mb-3"
             :loading="loadingRelationTypes"
+            @update:model-value="$emit('update:relationTypeId', $event)"
           >
-            <template v-slot:item="{ item, props }">
+            <template #item="{ item, props }">
               <v-list-item v-bind="props">
-                <template v-slot:prepend>
+                <template #prepend>
                   <v-icon :color="item.raw.color || 'primary'">mdi-link-variant</v-icon>
                 </template>
                 <v-list-item-subtitle v-if="item.raw.description">
@@ -36,10 +36,10 @@
           <!-- Direction Selection -->
           <v-radio-group
             :model-value="direction"
-            @update:model-value="$emit('update:direction', $event as 'outgoing' | 'incoming')"
             :label="t('entityDetail.dialog.relationDirection')"
             inline
             class="mb-3"
+            @update:model-value="$emit('update:direction', $event as 'outgoing' | 'incoming')"
           >
             <v-radio :label="t('entityDetail.dialog.outgoing')" value="outgoing"></v-radio>
             <v-radio :label="t('entityDetail.dialog.incoming')" value="incoming"></v-radio>
@@ -48,7 +48,6 @@
           <!-- Target Entity Selection -->
           <v-autocomplete
             :model-value="targetEntityId"
-            @update:model-value="$emit('update:targetEntityId', $event)"
             :items="targetEntities"
             item-title="name"
             item-value="id"
@@ -57,13 +56,14 @@
             variant="outlined"
             density="comfortable"
             :loading="searchingEntities"
-            @update:search="$emit('search', $event)"
             no-filter
             class="mb-3"
+            @update:model-value="$emit('update:targetEntityId', $event)"
+            @update:search="$emit('search', $event)"
           >
-            <template v-slot:item="{ item, props }">
+            <template #item="{ item, props }">
               <v-list-item v-bind="props">
-                <template v-slot:prepend>
+                <template #prepend>
                   <v-icon color="grey">mdi-domain</v-icon>
                 </template>
                 <v-list-item-subtitle>
@@ -71,7 +71,7 @@
                 </v-list-item-subtitle>
               </v-list-item>
             </template>
-            <template v-slot:no-data>
+            <template #no-data>
               <v-list-item>
                 <v-list-item-title>
                   {{ searchQuery?.length >= 2 ? t('entityDetail.dialog.noEntitiesFound') : t('entityDetail.dialog.typeToSearch') }}
@@ -83,13 +83,13 @@
           <!-- Optional Attributes (JSON) -->
           <v-textarea
             :model-value="attributesJson"
-            @update:model-value="$emit('update:attributesJson', $event)"
             :label="t('entityDetail.dialog.relationAttributes')"
             :hint="t('entityDetail.dialog.relationAttributesHint')"
             persistent-hint
             variant="outlined"
             rows="2"
             class="mb-3"
+            @update:model-value="$emit('update:attributesJson', $event)"
           ></v-textarea>
         </v-form>
       </v-card-text>

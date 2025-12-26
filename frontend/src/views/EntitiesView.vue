@@ -225,7 +225,7 @@
               <v-list-item-subtitle v-if="template.description">
                 {{ template.description }}
               </v-list-item-subtitle>
-              <template v-slot:append>
+              <template #append>
                 <v-chip v-if="template.is_default" size="x-small" color="primary">
                   {{ t('entities.default') }}
                 </v-chip>
@@ -283,11 +283,17 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch } from 'vue'
+import { onMounted, watch, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useEntitiesView } from '@/composables/useEntitiesView'
-import EntityMapView from '@/components/entities/EntityMapView.vue'
+
+// Lazy-load EntityMapView (heavy maplibre-gl dependency ~1MB)
+const EntityMapView = defineAsyncComponent({
+  loader: () => import('@/components/entities/EntityMapView.vue'),
+  delay: 200,
+  timeout: 15000,
+})
 import PageHeader from '@/components/common/PageHeader.vue'
 import EntitiesFilters from '@/components/entities/EntitiesFilters.vue'
 import EntitiesToolbar from '@/components/entities/EntitiesToolbar.vue'
@@ -390,7 +396,7 @@ function applyExtendedFilters() {
 }
 
 // Navigation
-function openEntityDetail(entity: any) {
+function openEntityDetail(entity: { slug?: string }) {
   router.push({
     name: 'entity-detail',
     params: {

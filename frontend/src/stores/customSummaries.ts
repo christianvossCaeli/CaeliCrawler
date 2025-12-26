@@ -22,6 +22,16 @@ export type SummaryStatus = 'draft' | 'active' | 'paused' | 'archived'
 export type SummaryTriggerType = 'manual' | 'cron' | 'crawl_category' | 'crawl_preset'
 export type SummaryWidgetType = 'table' | 'bar_chart' | 'line_chart' | 'pie_chart' | 'stat_card' | 'text' | 'comparison' | 'timeline' | 'map'
 export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
+export type CheckUpdatesStatus = 'pending' | 'crawling' | 'updating' | 'completed' | 'failed'
+
+export interface CheckUpdatesProgress {
+  status: CheckUpdatesStatus
+  total_sources: number
+  completed_sources: number
+  current_source?: string
+  message: string
+  error?: string
+}
 
 export interface WidgetPosition {
   x: number
@@ -33,7 +43,7 @@ export interface WidgetPosition {
 export interface WidgetQueryConfig {
   entity_type?: string
   facet_types?: string[]
-  filters?: Record<string, any>
+  filters?: Record<string, unknown>
   sort_by?: string
   sort_order?: 'asc' | 'desc'
   limit?: number
@@ -80,14 +90,14 @@ export interface SummaryExecution {
   id: string
   status: ExecutionStatus
   triggered_by: string
-  trigger_details?: Record<string, any> | null
+  trigger_details?: Record<string, unknown> | null
   has_changes: boolean
   relevance_score?: number | null
   relevance_reason?: string | null
   duration_ms?: number | null
   created_at: string
   completed_at?: string | null
-  cached_data?: Record<string, any>
+  cached_data?: Record<string, unknown>
   error_message?: string | null
 }
 
@@ -97,8 +107,8 @@ export interface CustomSummary {
   name: string
   description?: string | null
   original_prompt: string
-  interpreted_config: Record<string, any>
-  layout_config: Record<string, any>
+  interpreted_config: Record<string, unknown>
+  layout_config: Record<string, unknown>
   status: SummaryStatus
   trigger_type: SummaryTriggerType
   schedule_cron?: string | null
@@ -140,8 +150,8 @@ export interface SummaryCreate {
   name: string
   description?: string
   original_prompt: string
-  interpreted_config?: Record<string, any>
-  layout_config?: Record<string, any>
+  interpreted_config?: Record<string, unknown>
+  layout_config?: Record<string, unknown>
   trigger_type?: SummaryTriggerType
   schedule_cron?: string
   trigger_category_id?: string
@@ -151,7 +161,7 @@ export interface SummaryCreate {
 export interface SummaryUpdate {
   name?: string
   description?: string
-  layout_config?: Record<string, any>
+  layout_config?: Record<string, unknown>
   trigger_type?: SummaryTriggerType
   schedule_cron?: string
   trigger_category_id?: string
@@ -239,6 +249,11 @@ export const useCustomSummariesStore = defineStore('customSummaries', () => {
   const executingIds = ref<Set<string>>(new Set())
   // Keep isExecuting as computed for backward compatibility
   const isExecuting = computed(() => executingIds.value.size > 0)
+  // Track check-updates state
+  const checkingUpdatesIds = ref<Set<string>>(new Set())
+  const checkUpdatesProgress = ref<CheckUpdatesProgress | null>(null)
+  const checkUpdatesTaskId = ref<string | null>(null)
+  const isCheckingUpdates = computed(() => checkingUpdatesIds.value.size > 0)
   const total = ref(0)
   const page = ref(1)
   const perPage = ref(20)
@@ -418,7 +433,7 @@ export const useCustomSummariesStore = defineStore('customSummaries', () => {
   async function createFromPrompt(data: SummaryCreateFromPrompt): Promise<{
     id: string
     name: string
-    interpretation: Record<string, any>
+    interpretation: Record<string, unknown>
     widgets_created: number
     message: string
   } | null> {
@@ -553,7 +568,7 @@ export const useCustomSummariesStore = defineStore('customSummaries', () => {
     execution_id: string
     status: ExecutionStatus
     has_changes: boolean
-    cached_data?: Record<string, any>
+    cached_data?: Record<string, unknown>
     message: string
   } | null> {
     // Prevent double execution
@@ -594,6 +609,90 @@ export const useCustomSummariesStore = defineStore('customSummaries', () => {
       // Remove from executing set
       executingIds.value.delete(summaryId)
     }
+  }
+
+  /**
+   * Check for updates by crawling relevant data sources
+   * Returns the task ID for progress polling
+   */
+  async function checkForUpdates(summaryId: string): Promise<{
+    task_id: string
+    source_count: number
+    message: string
+  } | null> {
+    // Prevent double execution
+    if (checkingUpdatesIds.value.has(summaryId)) {
+      logger.warn('Already checking updates for summary:', summaryId)
+      return null
+    }
+
+    // Track this specific summary as checking
+    checkingUpdatesIds.value.add(summaryId)
+    checkUpdatesProgress.value = null
+    checkUpdatesTaskId.value = null
+    error.value = null
+
+    try {
+      const response = await customSummariesApi.checkUpdates(summaryId)
+      const result = response.data
+
+      checkUpdatesTaskId.value = result.task_id
+
+      // Initialize progress
+      checkUpdatesProgress.value = {
+        status: 'pending',
+        total_sources: result.source_count,
+        completed_sources: 0,
+        message: result.message,
+      }
+
+      return result
+    } catch (e: unknown) {
+      logger.error('Failed to start check updates:', e)
+      error.value = getErrorMessage(e, 'Fehler beim Starten der Aktualisierungsprüfung')
+      checkingUpdatesIds.value.delete(summaryId)
+      return null
+    }
+  }
+
+  /**
+   * Poll for check-updates progress
+   * Call this periodically after starting checkForUpdates
+   */
+  async function pollCheckUpdatesProgress(summaryId: string, taskId: string): Promise<CheckUpdatesProgress | null> {
+    try {
+      const response = await customSummariesApi.getCheckUpdatesStatus(summaryId, taskId)
+      const progress = response.data
+
+      checkUpdatesProgress.value = progress
+
+      // If completed or failed, cleanup the tracking
+      if (progress.status === 'completed' || progress.status === 'failed') {
+        checkingUpdatesIds.value.delete(summaryId)
+        checkUpdatesTaskId.value = null
+      }
+
+      return progress
+    } catch (e) {
+      logger.error('Failed to poll check updates progress:', e)
+      return null
+    }
+  }
+
+  /**
+   * Stop tracking check-updates (e.g., when dialog is closed)
+   */
+  function cancelCheckUpdates(summaryId: string): void {
+    checkingUpdatesIds.value.delete(summaryId)
+    checkUpdatesProgress.value = null
+    checkUpdatesTaskId.value = null
+  }
+
+  /**
+   * Check if a specific summary is currently checking for updates
+   */
+  function isCheckingUpdatesSummary(summaryId: string): boolean {
+    return checkingUpdatesIds.value.has(summaryId)
   }
 
   /**
@@ -834,9 +933,13 @@ export const useCustomSummariesStore = defineStore('customSummaries', () => {
     currentSummary,
     favoriteIds,
     executingIds,
+    checkingUpdatesIds,
+    checkUpdatesProgress,
+    checkUpdatesTaskId,
     isLoading,
     isCreating,
     isExecuting,
+    isCheckingUpdates,
     total,
     page,
     perPage,
@@ -852,6 +955,7 @@ export const useCustomSummariesStore = defineStore('customSummaries', () => {
     // Actions
     isFavorited,
     isExecutingSummary,
+    isCheckingUpdatesSummary,
     getSummaryById,
     loadSummaries,
     loadSummary,
@@ -860,6 +964,9 @@ export const useCustomSummariesStore = defineStore('customSummaries', () => {
     updateSummary,
     deleteSummary,
     executeSummary,
+    checkForUpdates,
+    pollCheckUpdatesProgress,
+    cancelCheckUpdates,
     toggleFavorite,
     addWidget,
     updateWidget,

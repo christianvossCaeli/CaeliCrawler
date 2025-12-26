@@ -128,6 +128,24 @@ import { useSnackbar } from '@/composables/useSnackbar'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { useLogger } from '@/composables/useLogger'
 
+const props = withDefaults(defineProps<Props>(), {
+  showEditDialog: false,
+  showDeleteDialog: false,
+  showUnlinkDialog: false,
+  sourceToEdit: null,
+  sourceToDelete: null,
+  sourceToUnlink: null,
+})
+
+const emit = defineEmits<{
+  (e: 'update:showEditDialog', value: boolean): void
+  (e: 'update:showDeleteDialog', value: boolean): void
+  (e: 'update:showUnlinkDialog', value: boolean): void
+  (e: 'source-updated'): void
+  (e: 'source-deleted'): void
+  (e: 'source-unlinked'): void
+}>()
+
 const logger = useLogger('EntityDataSourceManager')
 
 interface DataSource {
@@ -160,24 +178,6 @@ interface Props {
   sourceToDelete?: DataSource | null
   sourceToUnlink?: DataSource | null
 }
-
-const props = withDefaults(defineProps<Props>(), {
-  showEditDialog: false,
-  showDeleteDialog: false,
-  showUnlinkDialog: false,
-  sourceToEdit: null,
-  sourceToDelete: null,
-  sourceToUnlink: null,
-})
-
-const emit = defineEmits<{
-  (e: 'update:showEditDialog', value: boolean): void
-  (e: 'update:showDeleteDialog', value: boolean): void
-  (e: 'update:showUnlinkDialog', value: boolean): void
-  (e: 'source-updated'): void
-  (e: 'source-deleted'): void
-  (e: 'source-unlinked'): void
-}>()
 
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
@@ -307,7 +307,7 @@ async function unlinkSource() {
     entityIds = entityIds.filter((id: string) => id !== props.entityId)
 
     // Clean up legacy field and update
-    const { entity_id, ...restExtraData } = currentExtraData
+    const { entity_id: _entity_id, ...restExtraData } = currentExtraData
 
     await adminApi.updateSource(props.sourceToUnlink.id, {
       extra_data: {

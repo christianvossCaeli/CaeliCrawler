@@ -147,21 +147,6 @@ import { facetApi } from '@/services/api'
 import type { EntityHistoryResponse, HistoryTrack } from '@/types/facets'
 import { useLogger } from '@/composables/useLogger'
 
-const logger = useLogger('FacetHistoryChart')
-
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  TimeScale,
-  Filler
-)
-
 const props = defineProps<{
   entityId: string
   facetTypeId: string
@@ -178,6 +163,21 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'updated'): void
 }>()
+
+const logger = useLogger('FacetHistoryChart')
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  TimeScale,
+  Filler
+)
 
 const { locale } = useI18n()
 const theme = useTheme()
@@ -301,7 +301,7 @@ const chartOptions = computed(() => ({
       titleColor: chartColors.value.tooltipText,
       bodyColor: chartColors.value.tooltipText,
       callbacks: {
-        label: (context: any) => {
+        label: (context: { parsed: { y: unknown }; dataset: { label?: string } }) => {
           const value = formatValue(context.parsed.y)
           return `${context.dataset.label}: ${value}`
         },
@@ -404,7 +404,7 @@ function formatPercent(value: number | null | undefined): string {
 async function loadHistory() {
   loading.value = true
   try {
-    const params: Record<string, any> = {}
+    const params: Record<string, unknown> = {}
     if (dateRange.value.from) {
       params.from_date = dateRange.value.from
     }
@@ -423,7 +423,7 @@ async function addDataPoint() {
 
   saving.value = true
   try {
-    const data: any = {
+    const data: Record<string, unknown> = {
       recorded_at: new Date(newDataPoint.value.recorded_at).toISOString(),
       value: newDataPoint.value.value,
       track_key: newDataPoint.value.track_key,

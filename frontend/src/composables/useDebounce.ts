@@ -36,7 +36,7 @@ export interface UseDebounceOptions {
   trailing?: boolean
 }
 
-export interface UseDebounceReturn<T extends (...args: any[]) => any> {
+export interface UseDebounceReturn<T extends (...args: unknown[]) => unknown> {
   /** The debounced function */
   debouncedFn: T
   /** Cancel pending execution */
@@ -79,7 +79,7 @@ export const DEBOUNCE_DELAYS = {
 /**
  * Creates a debounced version of a function
  */
-export function useDebounce<T extends (...args: any[]) => any>(
+export function useDebounce<T extends (...args: unknown[]) => unknown>(
   fn: T,
   options: UseDebounceOptions = {}
 ): UseDebounceReturn<T> {

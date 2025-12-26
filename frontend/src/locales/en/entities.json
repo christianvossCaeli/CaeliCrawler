@@ -237,7 +237,21 @@
       "documents": "Documents",
       "pysis": "PySis",
       "attachments": "Attachments",
-      "children": "Children"
+      "children": "Children",
+      "apiData": "API Data"
+    },
+    "apiData": {
+      "title": "External API Data",
+      "externalId": "External ID",
+      "lastSync": "Last Sync",
+      "rawResponse": "Raw API Response",
+      "fields": "Fields",
+      "fieldName": "Field Name",
+      "fieldType": "Type",
+      "fieldValue": "Value",
+      "syncStatus": "Sync Status",
+      "apiType": "API Type",
+      "source": "Source"
     },
     "children": {
       "empty": "No child entities",
@@ -276,6 +290,9 @@
     "createNewSourceForEntity": "Create new data source for this entity",
     "linkSource": "Link",
     "directLink": "Directly linked",
+    "externalApiSource": "API Data Source",
+    "viewApiConfig": "View API configuration",
+    "linkedDataSources": "Linked Data Sources",
     "unlinkSource": "Unlink",
     "unlinkSourceTitle": "Unlink Data Source",
     "unlinkSourceConfirm": "Do you want to remove the direct link to this data source? The data source will not be deleted.",

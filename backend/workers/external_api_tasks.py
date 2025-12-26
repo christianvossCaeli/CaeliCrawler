@@ -1,7 +1,7 @@
 """Celery tasks for external API synchronization.
 
 This module provides background tasks for:
-- Periodic sync of all enabled external APIs
+- Periodic sync of all enabled API configurations (entity import mode)
 - Manual sync triggers for individual APIs
 - Cleanup of archived records
 """
@@ -19,23 +19,26 @@ logger = structlog.get_logger(__name__)
 
 @celery_app.task(name="workers.external_api_tasks.sync_all_external_apis")
 def sync_all_external_apis():
-    """Check and sync all enabled external API sources.
+    """Check and sync all enabled API configurations with entity import mode.
 
     This task runs periodically (default: every 4 hours) and triggers
-    sync for any external API that is due based on its sync_interval_hours.
+    sync for any API configuration that is due based on its sync_interval_hours.
     """
     from app.database import get_celery_session_context
-    from external_apis.models.external_api_config import ExternalAPIConfig
+    from app.models.api_configuration import APIConfiguration, ImportMode
     from sqlalchemy import select
-    import asyncio
 
     async def _check_and_sync():
         async with get_celery_session_context() as session:
-            # Get all enabled configs
+            # Get all enabled configs with entity import mode
             result = await session.execute(
-                select(ExternalAPIConfig).where(
-                    ExternalAPIConfig.sync_enabled.is_(True),
-                    ExternalAPIConfig.is_active.is_(True),
+                select(APIConfiguration).where(
+                    APIConfiguration.sync_enabled.is_(True),
+                    APIConfiguration.is_active.is_(True),
+                    APIConfiguration.import_mode.in_([
+                        ImportMode.ENTITIES.value,
+                        ImportMode.BOTH.value,
+                    ]),
                 )
             )
             configs = result.scalars().all()
@@ -49,7 +52,7 @@ def sync_all_external_apis():
                     logger.info(
                         "external_api_sync_triggered",
                         config_id=str(config.id),
-                        config_name=config.name,
+                        data_source_id=str(config.data_source_id),
                     )
 
             logger.info(
@@ -70,42 +73,41 @@ def sync_all_external_apis():
     retry_backoff_max=1800,  # 30 minutes max
 )
 def sync_external_api(self, config_id: str):
-    """Sync a single external API source.
+    """Sync a single API configuration (entity import mode).
 
     This task fetches all records from the configured API,
     creates/updates entities, and handles missing records.
 
     Args:
-        config_id: UUID of the ExternalAPIConfig to sync.
+        config_id: UUID of the APIConfiguration to sync.
     """
     from app.database import get_celery_session_context
-    from external_apis.models.external_api_config import ExternalAPIConfig
+    from app.models.api_configuration import APIConfiguration
     from external_apis.sync_service import ExternalAPISyncService
-    import asyncio
 
     async def _sync():
         async with get_celery_session_context() as session:
-            config = await session.get(ExternalAPIConfig, UUID(config_id))
+            config = await session.get(APIConfiguration, UUID(config_id))
 
             if not config:
                 logger.error(
-                    "external_api_config_not_found",
+                    "api_configuration_not_found",
                     config_id=config_id,
                 )
                 return None
 
             if not config.is_active or not config.sync_enabled:
                 logger.warning(
-                    "external_api_config_disabled",
+                    "api_configuration_disabled",
                     config_id=config_id,
-                    config_name=config.name,
+                    data_source_id=str(config.data_source_id),
                 )
                 return None
 
             logger.info(
                 "external_api_sync_starting",
                 config_id=config_id,
-                config_name=config.name,
+                data_source_id=str(config.data_source_id),
                 api_type=config.api_type,
             )
 
@@ -116,7 +118,7 @@ def sync_external_api(self, config_id: str):
                 logger.info(
                     "external_api_sync_completed",
                     config_id=config_id,
-                    config_name=config.name,
+                    data_source_id=str(config.data_source_id),
                     records_fetched=result.records_fetched,
                     entities_created=result.entities_created,
                     entities_updated=result.entities_updated,
@@ -134,7 +136,7 @@ def sync_external_api(self, config_id: str):
                 logger.error(
                     "external_api_sync_failed",
                     config_id=config_id,
-                    config_name=config.name,
+                    data_source_id=str(config.data_source_id),
                     error=str(e),
                 )
                 raise
@@ -166,7 +168,6 @@ def cleanup_archived_records(days_old: int = 90):
     from external_apis.models.sync_record import RecordStatus, SyncRecord
     from sqlalchemy import delete
     from datetime import timedelta
-    import asyncio
 
     async def _cleanup():
         async with get_celery_session_context() as session:
@@ -200,19 +201,18 @@ def test_external_api(config_id: str) -> dict:
     without storing anything. Useful for testing configurations.
 
     Args:
-        config_id: UUID of the ExternalAPIConfig to test.
+        config_id: UUID of the APIConfiguration to test.
 
     Returns:
         Dictionary with test results.
     """
     from app.database import get_celery_session_context
-    from external_apis.models.external_api_config import ExternalAPIConfig
+    from app.models.api_configuration import APIConfiguration
     from external_apis.sync_service import ExternalAPISyncService
-    import asyncio
 
     async def _test():
         async with get_celery_session_context() as session:
-            config = await session.get(ExternalAPIConfig, UUID(config_id))
+            config = await session.get(APIConfiguration, UUID(config_id))
 
             if not config:
                 return {
@@ -255,7 +255,7 @@ def _emit_sync_notification(config, result):
     """Emit notification event for sync completion.
 
     Args:
-        config: ExternalAPIConfig that was synced.
+        config: APIConfiguration that was synced.
         result: SyncResult from the sync operation.
     """
     try:
@@ -270,9 +270,9 @@ def _emit_sync_notification(config, result):
         emit_event.delay(
             event_type,
             {
-                "entity_type": "external_api_config",
+                "entity_type": "api_configuration",
                 "entity_id": str(config.id),
-                "config_name": config.name,
+                "data_source_id": str(config.data_source_id),
                 "api_type": config.api_type,
                 "records_fetched": result.records_fetched,
                 "entities_created": result.entities_created,

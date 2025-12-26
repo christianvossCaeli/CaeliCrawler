@@ -23,7 +23,7 @@
         </div>
 
         <!-- Description -->
-        <div class="mb-4" v-if="category.description">
+        <div v-if="category.description" class="mb-4">
           <div class="text-overline text-medium-emphasis">{{ t('common.description') }}</div>
           <div class="text-body-2">{{ category.description }}</div>
         </div>
@@ -55,7 +55,7 @@
         </v-row>
 
         <!-- Search Terms -->
-        <div class="mb-4" v-if="category.search_terms?.length">
+        <div v-if="category.search_terms?.length" class="mb-4">
           <div class="text-overline text-medium-emphasis">{{ t('sources.dialog.searchTerms') }}</div>
           <div>
             <v-chip
@@ -72,7 +72,7 @@
         </div>
 
         <!-- Document Types -->
-        <div class="mb-4" v-if="category.document_types?.length">
+        <div v-if="category.document_types?.length" class="mb-4">
           <div class="text-overline text-medium-emphasis">{{ t('sources.dialog.documentTypes') }}</div>
           <div>
             <v-chip
@@ -90,9 +90,9 @@
 
         <!-- URL Patterns -->
         <v-expansion-panels
+          v-if="category.url_include_patterns?.length || category.url_exclude_patterns?.length"
           variant="accordion"
           class="mb-4"
-          v-if="category.url_include_patterns?.length || category.url_exclude_patterns?.length"
         >
           <v-expansion-panel>
             <v-expansion-panel-title>
@@ -135,7 +135,7 @@
         </v-expansion-panels>
 
         <!-- AI Extraction Prompt Preview -->
-        <v-expansion-panels variant="accordion" v-if="category.ai_extraction_prompt">
+        <v-expansion-panels v-if="category.ai_extraction_prompt" variant="accordion">
           <v-expansion-panel>
             <v-expansion-panel-title>
               <v-icon size="small" class="mr-2">mdi-robot</v-icon>
@@ -178,10 +178,10 @@ interface Props {
   category: CategoryResponse | null
 }
 
-defineProps<Props>()
-
 // defineModel() for two-way binding (Vue 3.4+)
 const dialogOpen = defineModel<boolean>({ default: false })
+
+defineProps<Props>()
 
 // =============================================================================
 // Composables

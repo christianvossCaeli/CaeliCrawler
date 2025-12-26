@@ -97,8 +97,6 @@ import {
   getVisualizationIcon,
 } from './visualizations/types'
 
-const { t } = useI18n()
-
 const props = defineProps<{
   visualizations: VisualizationWithData[]
   explanation?: string
@@ -106,8 +104,10 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  action: [action: string, params: Record<string, any>]
+  action: [action: string, params: Record<string, unknown>]
 }>()
+
+const { t } = useI18n()
 
 // Combine all data from visualizations for export purposes
 const allData = computed(() => {
@@ -126,7 +126,7 @@ function getColSize(count: number): number {
   return 4
 }
 
-function handleAction(action: string, params: Record<string, any>) {
+function handleAction(action: string, params: Record<string, unknown>) {
   emit('action', action, params)
 }
 </script>

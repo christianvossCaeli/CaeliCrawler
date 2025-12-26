@@ -13,17 +13,17 @@ from typing import Any, Dict, List, Optional, Set, Type
 from uuid import UUID
 
 import structlog
-from sqlalchemy import and_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Entity, EntityType
+from app.models.api_configuration import APIConfiguration, SyncStatus
 from external_apis.base import (
     BaseExternalAPIClient,
     ExternalAPIRecord,
     SyncResult,
 )
 from external_apis.entity_linking import EntityLinkingService
-from external_apis.models.external_api_config import ExternalAPIConfig, SyncStatus
 from external_apis.models.sync_record import RecordStatus, SyncRecord
 from services.entity_facet_service import get_or_create_entity
 
@@ -85,8 +85,8 @@ class ExternalAPISyncService:
         """Async context manager exit."""
         pass
 
-    async def sync_source(self, config: ExternalAPIConfig) -> SyncResult:
-        """Perform full synchronization for an external API configuration.
+    async def sync_source(self, config: APIConfiguration) -> SyncResult:
+        """Perform full synchronization for an API configuration.
 
         This is the main entry point for syncing. It handles:
         - Getting the appropriate API client
@@ -96,7 +96,7 @@ class ExternalAPISyncService:
         - Handling missing records
 
         Args:
-            config: The ExternalAPIConfig to sync.
+            config: The APIConfiguration to sync.
 
         Returns:
             SyncResult with statistics about the sync operation.
@@ -110,8 +110,8 @@ class ExternalAPISyncService:
         logger.info(
             "sync_starting",
             config_id=str(config.id),
-            config_name=config.name,
             api_type=config.api_type,
+            data_source_id=str(config.data_source_id),
         )
 
         try:
@@ -213,12 +213,12 @@ class ExternalAPISyncService:
         return result
 
     async def _get_client(
-        self, config: ExternalAPIConfig
+        self, config: APIConfiguration
     ) -> BaseExternalAPIClient:
         """Get the appropriate API client for a config.
 
         Args:
-            config: The ExternalAPIConfig.
+            config: The APIConfiguration.
 
         Returns:
             Configured API client instance.
@@ -236,7 +236,7 @@ class ExternalAPISyncService:
 
         return client_class(
             auth_token=config.get_auth_token(),
-            base_url=config.api_base_url + config.api_endpoint,
+            base_url=config.get_full_url(),
         )
 
     async def _get_entity_type(self, slug: str) -> Optional[EntityType]:
@@ -263,14 +263,14 @@ class ExternalAPISyncService:
 
     async def _process_record(
         self,
-        config: ExternalAPIConfig,
+        config: APIConfiguration,
         record: ExternalAPIRecord,
         entity_type: EntityType,
     ) -> Dict[str, bool]:
         """Process a single record from the API.
 
         Args:
-            config: The ExternalAPIConfig.
+            config: The APIConfiguration.
             record: The API record to process.
             entity_type: Target entity type.
 
@@ -305,7 +305,7 @@ class ExternalAPISyncService:
 
             # Create sync record
             sync_record = SyncRecord(
-                external_api_config_id=config.id,
+                api_configuration_id=config.id,
                 external_id=record.external_id,
                 entity_id=entity.id,
                 content_hash=content_hash,
@@ -342,7 +342,7 @@ class ExternalAPISyncService:
         """Get existing sync record for an external ID.
 
         Args:
-            config_id: ExternalAPIConfig ID.
+            config_id: APIConfiguration ID.
             external_id: External ID from the API.
 
         Returns:
@@ -350,7 +350,7 @@ class ExternalAPISyncService:
         """
         result = await self.session.execute(
             select(SyncRecord).where(
-                SyncRecord.external_api_config_id == config_id,
+                SyncRecord.api_configuration_id == config_id,
                 SyncRecord.external_id == external_id,
             )
         )
@@ -360,14 +360,14 @@ class ExternalAPISyncService:
         self,
         record: ExternalAPIRecord,
         entity_type: EntityType,
-        config: ExternalAPIConfig,
+        config: APIConfiguration,
     ) -> Entity:
         """Create a new entity from an API record.
 
         Args:
             record: The API record.
             entity_type: Target entity type.
-            config: The ExternalAPIConfig.
+            config: The APIConfiguration.
 
         Returns:
             Created Entity.
@@ -397,8 +397,8 @@ class ExternalAPISyncService:
             longitude=longitude,
         )
 
-        # Set external source reference
-        entity.external_source_id = config.id
+        # Set API source reference
+        entity.api_configuration_id = config.id
         entity.last_seen_at = datetime.now(timezone.utc)
 
         logger.debug(
@@ -414,14 +414,14 @@ class ExternalAPISyncService:
         self,
         entity_id: UUID,
         record: ExternalAPIRecord,
-        config: ExternalAPIConfig,
+        config: APIConfiguration,
     ) -> None:
         """Update an existing entity from an API record.
 
         Args:
             entity_id: ID of the entity to update.
             record: The API record with new data.
-            config: The ExternalAPIConfig.
+            config: The APIConfiguration.
         """
         entity = await self.session.get(Entity, entity_id)
         if not entity:
@@ -535,7 +535,7 @@ class ExternalAPISyncService:
         return linked_ids
 
     async def _handle_missing_records(
-        self, config: ExternalAPIConfig, seen_ids: Set[str]
+        self, config: APIConfiguration, seen_ids: Set[str]
     ) -> tuple[int, int]:
         """Handle records that were not found in the current API response.
 
@@ -543,7 +543,7 @@ class ExternalAPISyncService:
         missing for too long.
 
         Args:
-            config: The ExternalAPIConfig.
+            config: The APIConfiguration.
             seen_ids: Set of external IDs found in this sync.
 
         Returns:
@@ -555,7 +555,7 @@ class ExternalAPISyncService:
         # Find active records not in seen_ids
         result = await self.session.execute(
             select(SyncRecord).where(
-                SyncRecord.external_api_config_id == config.id,
+                SyncRecord.api_configuration_id == config.id,
                 SyncRecord.external_id.notin_(seen_ids),
                 SyncRecord.sync_status.in_(
                     [RecordStatus.ACTIVE.value, RecordStatus.UPDATED.value]
@@ -604,24 +604,30 @@ class ExternalAPISyncService:
         self,
         entity_id: UUID,
         record: ExternalAPIRecord,
-        config: ExternalAPIConfig,
+        config: APIConfiguration,
     ) -> int:
         """Create FacetValues for an entity from API data.
 
         Args:
             entity_id: ID of the entity to add facets to.
             record: The API record with raw data.
-            config: The ExternalAPIConfig with facet_mappings.
+            config: The APIConfiguration with facet_mappings.
 
         Returns:
             Number of facet values created.
         """
-        from app.models import FacetValue, FacetType
+        from app.models import FacetValue
         from app.models.facet_value import FacetValueSourceType
 
         created_count = 0
 
-        for api_field, facet_slug in config.facet_mappings.items():
+        for api_field, facet_config in config.facet_mappings.items():
+            # Handle both simple string and dict config
+            if isinstance(facet_config, str):
+                facet_slug = facet_config
+            else:
+                facet_slug = facet_config.get("facet_type_slug", facet_config)
+
             value = self._get_nested_value(record.raw_data, api_field)
             if value is None:
                 continue
@@ -655,7 +661,7 @@ class ExternalAPISyncService:
                 value=facet_value,
                 text_representation=text_repr,
                 source_type=FacetValueSourceType.IMPORT,
-                source_url=f"external_api:{config.id}",
+                source_url=f"api_config:{config.id}",
                 confidence_score=1.0,  # API data is authoritative
                 human_verified=False,
                 occurrence_count=1,
@@ -676,25 +682,31 @@ class ExternalAPISyncService:
         self,
         entity_id: UUID,
         record: ExternalAPIRecord,
-        config: ExternalAPIConfig,
+        config: APIConfiguration,
     ) -> int:
         """Update existing FacetValues for an entity from API data.
 
         Args:
             entity_id: ID of the entity to update facets for.
             record: The API record with raw data.
-            config: The ExternalAPIConfig with facet_mappings.
+            config: The APIConfiguration with facet_mappings.
 
         Returns:
             Number of facet values updated.
         """
-        from app.models import FacetValue, FacetType
+        from app.models import FacetValue
         from app.models.facet_value import FacetValueSourceType
 
         updated_count = 0
-        source_url = f"external_api:{config.id}"
+        source_url = f"api_config:{config.id}"
 
-        for api_field, facet_slug in config.facet_mappings.items():
+        for api_field, facet_config in config.facet_mappings.items():
+            # Handle both simple string and dict config
+            if isinstance(facet_config, str):
+                facet_slug = facet_config
+            else:
+                facet_slug = facet_config.get("facet_type_slug", facet_config)
+
             value = self._get_nested_value(record.raw_data, api_field)
             if value is None:
                 continue
@@ -762,6 +774,8 @@ class ExternalAPISyncService:
         Returns:
             Human-readable text representation.
         """
+        from app.models import FacetType as FT
+
         # Extract the actual value
         actual_value = value.get("value", value)
 

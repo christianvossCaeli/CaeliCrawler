@@ -142,35 +142,35 @@
       <h3 class="text-h6 mb-3">{{ t('help.smartQuery.write_mode_workflow.title') }}</h3>
       <v-timeline density="compact" side="end" class="mb-4">
         <v-timeline-item dot-color="primary" size="small">
-          <template v-slot:opposite><strong>1</strong></template>
+          <template #opposite><strong>1</strong></template>
           <div>
             <strong>{{ t('help.smartQuery.write_mode_workflow.step1.title') }}</strong><br>
             {{ t('help.smartQuery.write_mode_workflow.step1.description') }}
           </div>
         </v-timeline-item>
         <v-timeline-item dot-color="warning" size="small">
-          <template v-slot:opposite><strong>2</strong></template>
+          <template #opposite><strong>2</strong></template>
           <div>
             <strong>{{ t('help.smartQuery.write_mode_workflow.step2.title') }}</strong><br>
             {{ t('help.smartQuery.write_mode_workflow.step2.description') }}
           </div>
         </v-timeline-item>
         <v-timeline-item dot-color="info" size="small">
-          <template v-slot:opposite><strong>3</strong></template>
+          <template #opposite><strong>3</strong></template>
           <div>
             <strong>{{ t('help.smartQuery.write_mode_workflow.step3.title') }}</strong><br>
             {{ t('help.smartQuery.write_mode_workflow.step3.description') }}
           </div>
         </v-timeline-item>
         <v-timeline-item dot-color="success" size="small">
-          <template v-slot:opposite><strong>4</strong></template>
+          <template #opposite><strong>4</strong></template>
           <div>
             <strong>{{ t('help.smartQuery.write_mode_workflow.step4.title') }}</strong><br>
             {{ t('help.smartQuery.write_mode_workflow.step4.description') }}
           </div>
         </v-timeline-item>
         <v-timeline-item dot-color="primary" size="small">
-          <template v-slot:opposite><strong>5</strong></template>
+          <template #opposite><strong>5</strong></template>
           <div>
             <strong>{{ t('help.smartQuery.write_mode_workflow.step5.title') }}</strong><br>
             {{ t('help.smartQuery.write_mode_workflow.step5.description') }}

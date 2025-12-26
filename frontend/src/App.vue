@@ -16,7 +16,7 @@
           :prepend-icon="item.icon"
           :title="item.title"
         >
-          <template v-slot:append>
+          <template #append>
             <v-badge
               v-if="item.to === '/documents' && pendingDocsCount > 0"
               :content="pendingDocsCount > 99 ? '99+' : pendingDocsCount"
@@ -64,7 +64,7 @@
       </template>
 
       <!-- User Info at Bottom -->
-      <template v-slot:append>
+      <template #append>
         <v-divider></v-divider>
         <div class="pa-3">
           <div class="d-flex align-center mb-2">
@@ -89,12 +89,12 @@
 
     <!-- App Bar -->
     <v-app-bar v-if="auth.isAuthenticated" app color="primary">
-      <v-app-bar-nav-icon @click="drawer = !drawer" :aria-label="$t('common.toggleMenu')"></v-app-bar-nav-icon>
+      <v-app-bar-nav-icon :aria-label="$t('common.toggleMenu')" @click="drawer = !drawer"></v-app-bar-nav-icon>
       <v-toolbar-title>CaeliCrawler</v-toolbar-title>
       <v-spacer></v-spacer>
 
       <!-- Notifications Button -->
-      <v-btn icon variant="tonal" @click="router.push('/notifications')" :title="$t('nav.notifications')" :aria-label="$t('nav.notifications')">
+      <v-btn icon variant="tonal" :title="$t('nav.notifications')" :aria-label="$t('nav.notifications')" @click="router.push('/notifications')">
         <v-badge
           v-if="unreadCount > 0"
           :content="unreadCount > 99 ? '99+' : unreadCount"
@@ -113,17 +113,17 @@
       <v-btn
         :icon="isDark ? 'mdi-weather-sunny' : 'mdi-weather-night'"
         variant="tonal"
-        @click="toggleTheme"
         :title="$t('user.themeToggle')"
         :aria-label="$t('user.themeToggle')"
+        @click="toggleTheme"
       ></v-btn>
 
       <!-- Refresh -->
-      <v-btn icon="mdi-refresh" variant="tonal" @click="refresh" :title="$t('user.reloadPage')" :aria-label="$t('user.reloadPage')"></v-btn>
+      <v-btn icon="mdi-refresh" variant="tonal" :title="$t('user.reloadPage')" :aria-label="$t('user.reloadPage')" @click="refresh"></v-btn>
 
       <!-- User Menu -->
       <v-menu>
-        <template v-slot:activator="{ props }">
+        <template #activator="{ props }">
           <v-btn icon v-bind="props" :title="$t('user.userMenu')" :aria-label="$t('user.userMenu')">
             <v-avatar color="secondary" size="32">
               <span class="text-body-2">{{ userInitials }}</span>
@@ -139,14 +139,14 @@
           </v-list-item>
           <v-divider></v-divider>
           <v-list-item @click="openPasswordDialog">
-            <template v-slot:prepend>
+            <template #prepend>
               <v-icon>mdi-lock-reset</v-icon>
             </template>
             <v-list-item-title>{{ $t('auth.changePassword') }}</v-list-item-title>
           </v-list-item>
           <v-divider></v-divider>
-          <v-list-item @click="logout" class="text-error">
-            <template v-slot:prepend>
+          <v-list-item class="text-error" @click="logout">
+            <template #prepend>
               <v-icon color="error">mdi-logout</v-icon>
             </template>
             <v-list-item-title>{{ $t('auth.logout') }}</v-list-item-title>
@@ -157,7 +157,9 @@
 
     <v-main>
       <v-container fluid>
-        <router-view></router-view>
+        <ErrorBoundary>
+          <router-view></router-view>
+        </ErrorBoundary>
       </v-container>
     </v-main>
 
@@ -218,7 +220,7 @@
       aria-live="polite"
     >
       {{ snackbarText }}
-      <template v-slot:actions>
+      <template #actions>
         <v-btn variant="tonal" :aria-label="$t('common.close')" @click="snackbar = false">
           <v-icon aria-hidden="true">mdi-close</v-icon>
         </v-btn>
@@ -242,6 +244,7 @@ import CaeliWindLogo from './components/CaeliWindLogo.vue'
 import ChatAssistant from './components/assistant/ChatAssistant.vue'
 import LanguageSwitcher from './components/LanguageSwitcher.vue'
 import AriaLiveRegion from './components/AriaLiveRegion.vue'
+import { ErrorBoundary } from './components/common'
 import { useSnackbar } from './composables/useSnackbar'
 import { useAuthStore } from './stores/auth'
 import { useNotifications } from './composables/useNotifications'
@@ -305,7 +308,7 @@ const secondaryNavItems = computed(() => [
 const adminNavItems = computed(() => [
   { title: t('nav.admin.users'), icon: 'mdi-account-group', to: '/admin/users' },
   { title: t('nav.admin.auditLog'), icon: 'mdi-history', to: '/admin/audit-log' },
-  { title: t('nav.admin.apiTemplates'), icon: 'mdi-api', to: '/admin/api-templates' },
+  { title: t('nav.admin.externalApis'), icon: 'mdi-cloud-sync', to: '/admin/external-apis' },
 ])
 
 // User helpers

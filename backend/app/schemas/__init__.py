@@ -150,6 +150,24 @@ from app.schemas.custom_summary import (
     SCHEDULE_PRESETS as SUMMARY_SCHEDULE_PRESETS,
 )
 
+# API Configuration (unified external API management)
+from app.schemas.api_configuration import (
+    APIConfigurationBase,
+    APIConfigurationCreate,
+    APIConfigurationUpdate,
+    APIConfigurationResponse,
+    APIConfigurationDetail,
+    APIConfigurationListResponse,
+    SyncRecordBase,
+    SyncRecordResponse,
+    SyncRecordDetail,
+    SyncRecordListResponse,
+    TriggerSyncRequest,
+    TriggerSyncResponse,
+    TestConnectionResponse,
+    SyncStatsResponse,
+)
+
 __all__ = [
     # Category
     "CategoryCreate",
@@ -281,4 +299,19 @@ __all__ = [
     "SummaryFavoriteToggleResponse",
     "SummarySchedulePreset",
     "SUMMARY_SCHEDULE_PRESETS",
+    # API Configuration
+    "APIConfigurationBase",
+    "APIConfigurationCreate",
+    "APIConfigurationUpdate",
+    "APIConfigurationResponse",
+    "APIConfigurationDetail",
+    "APIConfigurationListResponse",
+    "SyncRecordBase",
+    "SyncRecordResponse",
+    "SyncRecordDetail",
+    "SyncRecordListResponse",
+    "TriggerSyncRequest",
+    "TriggerSyncResponse",
+    "TestConnectionResponse",
+    "SyncStatsResponse",
 ]

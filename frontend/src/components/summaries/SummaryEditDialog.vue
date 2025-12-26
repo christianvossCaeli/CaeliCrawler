@@ -139,21 +139,18 @@ import { useI18n } from 'vue-i18n'
 import { useCustomSummariesStore, type CustomSummary, type SummaryUpdate } from '@/stores/customSummaries'
 import { useDialogFocus } from '@/composables'
 
+const modelValue = defineModel<boolean>()
+const props = defineProps<{
+  summary: CustomSummary
+}>()
+const emit = defineEmits<{
+  updated: []
+}>()
 const { t } = useI18n()
 const store = useCustomSummariesStore()
 
 // ARIA
 const dialogTitleId = `summary-edit-dialog-title-${Math.random().toString(36).slice(2, 9)}`
-
-const modelValue = defineModel<boolean>()
-
-const props = defineProps<{
-  summary: CustomSummary
-}>()
-
-const emit = defineEmits<{
-  updated: []
-}>()
 
 // Focus management for accessibility
 useDialogFocus({ isOpen: modelValue })

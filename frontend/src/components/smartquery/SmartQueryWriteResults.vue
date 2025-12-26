@@ -17,7 +17,7 @@
             :title="item.name || item.type"
             :subtitle="`${item.type}${item.entity_type ? ' (' + item.entity_type + ')' : ''}${item.slug ? ' [' + item.slug + ']' : ''} - ID: ${item.id.substring(0, 8)}...`"
           >
-            <template v-slot:prepend>
+            <template #prepend>
               <v-icon :color="getItemTypeColor(item.type)">
                 {{ getItemTypeIcon(item.type) }}
               </v-icon>
@@ -168,7 +168,7 @@
             :title="opResult.operation"
             :subtitle="opResult.message"
           >
-            <template v-slot:prepend>
+            <template #prepend>
               <v-icon :color="opResult.success ? 'success' : 'error'" size="small">
                 {{ opResult.success ? 'mdi-check' : 'mdi-close' }}
               </v-icon>

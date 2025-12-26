@@ -57,7 +57,6 @@
 
         <!-- AI & Automation -->
         <HelpAiAssistantSection />
-        <HelpApiTemplatesSection />
         <HelpExternalApisSection />
 
         <!-- Export & Notifications -->
@@ -118,7 +117,6 @@ import {
   HelpAiAssistantSection,
   HelpUserManagementSection,
   HelpAuditLogSection,
-  HelpApiTemplatesSection,
   HelpExternalApisSection,
   HelpApiSection,
   HelpTipsSection,

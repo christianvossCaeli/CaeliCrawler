@@ -157,15 +157,8 @@ export const adminApi = {
   importDiscoveredSources: sourcesExports.importDiscoveredSources,
   discoverSourcesV2: sourcesExports.discoverSourcesV2,
   importApiData: sourcesExports.importApiData,
-  // API Templates
-  getApiTemplates: sourcesExports.getApiTemplates,
-  getApiTemplate: sourcesExports.getApiTemplate,
-  createApiTemplate: sourcesExports.createApiTemplate,
-  updateApiTemplate: sourcesExports.updateApiTemplate,
-  deleteApiTemplate: sourcesExports.deleteApiTemplate,
-  testApiTemplate: sourcesExports.testApiTemplate,
-  saveApiTemplateFromDiscovery: sourcesExports.saveApiTemplateFromDiscovery,
-  matchApiTemplates: sourcesExports.matchApiTemplates,
+  // API Configurations (formerly API Templates)
+  saveApiFromDiscovery: sourcesExports.saveApiFromDiscovery,
   // Crawler (from admin.ts)
   getCrawlerJobs: adminExports.getCrawlerJobs,
   getCrawlerJob: adminExports.getCrawlerJob,
@@ -422,6 +415,9 @@ export const customSummariesApi = {
   // Export
   exportPdf: adminExports.exportSummaryPdf,
   exportExcel: adminExports.exportSummaryExcel,
+  // Check Updates
+  checkUpdates: adminExports.checkSummaryUpdates,
+  getCheckUpdatesStatus: adminExports.getCheckUpdatesStatus,
 }
 
 // Dashboard API

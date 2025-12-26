@@ -58,9 +58,9 @@
                     required
                     variant="outlined"
                   >
-                    <template v-slot:item="{ item, props }">
-                      <v-list-item v-bind="props">
-                        <template v-slot:prepend>
+                    <template #item="{ item, props: itemProps }">
+                      <v-list-item v-bind="itemProps">
+                        <template #prepend>
                           <v-icon :color="getTypeColor(item.raw.value)">{{ item.raw.icon }}</v-icon>
                         </template>
                       </v-list-item>
@@ -119,7 +119,7 @@
                       variant="outlined"
                       density="comfortable"
                     >
-                      <template v-slot:chip="{ item, index }">
+                      <template #chip="{ item, index }">
                         <v-chip
                           :color="index === 0 ? 'primary' : 'default'"
                           closable
@@ -164,9 +164,9 @@
                     density="comfortable"
                     prepend-inner-icon="mdi-tag"
                   >
-                    <template #chip="{ props, item }">
+                    <template #chip="{ props: chipProps, item }">
                       <v-chip
-                        v-bind="props"
+                        v-bind="chipProps"
                         :color="getTagColor(item.value)"
                         size="small"
                       >
@@ -230,18 +230,18 @@
                     @update:search="searchEntities"
                     @update:model-value="onEntitySelect"
                   >
-                    <template v-slot:item="{ item, props }">
-                      <v-list-item v-bind="props">
-                        <template v-slot:prepend>
+                    <template #item="{ item, props: itemProps }">
+                      <v-list-item v-bind="itemProps">
+                        <template #prepend>
                           <v-icon color="primary">mdi-domain</v-icon>
                         </template>
-                        <template v-slot:subtitle>
+                        <template #subtitle>
                           <span v-if="item.raw.entity_type_name">{{ item.raw.entity_type_name }}</span>
                           <span v-if="item.raw.hierarchy_path" class="text-caption ml-2">{{ item.raw.hierarchy_path }}</span>
                         </template>
                       </v-list-item>
                     </template>
-                    <template v-slot:no-data>
+                    <template #no-data>
                       <v-list-item>
                         <v-list-item-title>
                           {{ entitySearchText?.length < 2 ? $t('sources.form.typeToSearch') : $t('sources.form.noEntitiesFound') }}
@@ -319,9 +319,9 @@
                     :error="hasInvalidIncludePatterns"
                     :error-messages="invalidIncludePatternsMessage"
                   >
-                    <template v-slot:chip="{ item, props }">
+                    <template #chip="{ item, props: chipProps }">
                       <v-chip
-                        v-bind="props"
+                        v-bind="chipProps"
                         :color="isValidRegexPattern(item.raw) ? 'success' : 'error'"
                         variant="tonal"
                       >
@@ -352,9 +352,9 @@
                     :error="hasInvalidExcludePatterns"
                     :error-messages="invalidExcludePatternsMessage"
                   >
-                    <template v-slot:chip="{ item, props }">
+                    <template #chip="{ item, props: chipProps }">
                       <v-chip
-                        v-bind="props"
+                        v-bind="chipProps"
                         :color="isValidRegexPattern(item.raw) ? 'error' : 'warning'"
                         variant="tonal"
                       >
@@ -408,6 +408,24 @@ import {
 import type { CategoryResponse } from '@/types/category'
 import type { EntityBrief } from '@/stores/entity'
 
+// defineModel() for two-way binding (Vue 3.4+)
+const dialogOpen = defineModel<boolean>({ default: false })
+
+const formData = defineModel<DataSourceFormData>('formData', { required: true })
+
+const selectedEntities = defineModel<EntityBrief[]>('selectedEntities', { default: () => [] })
+
+const props = withDefaults(defineProps<Props>(), {
+  editMode: false,
+  saving: false,
+})
+
+// Emits (non-model emits only)
+const emit = defineEmits<{
+  (e: 'save'): void
+  (e: 'show-category-info', categoryId: string): void
+}>()
+
 const logger = useLogger('SourceFormDialog')
 
 // Props (non-model props only)
@@ -417,22 +435,6 @@ interface Props {
   tagSuggestions: string[]
   saving?: boolean
 }
-
-const props = withDefaults(defineProps<Props>(), {
-  editMode: false,
-  saving: false,
-})
-
-// defineModel() for two-way binding (Vue 3.4+)
-const dialogOpen = defineModel<boolean>({ default: false })
-const formData = defineModel<DataSourceFormData>('formData', { required: true })
-const selectedEntities = defineModel<EntityBrief[]>('selectedEntities', { default: () => [] })
-
-// Emits (non-model emits only)
-const emit = defineEmits<{
-  (e: 'save'): void
-  (e: 'show-category-info', categoryId: string): void
-}>()
 
 const { getTypeColor, getTagColor } = useSourceHelpers()
 const { createRules, usePatternListValidation } = useFormValidation()

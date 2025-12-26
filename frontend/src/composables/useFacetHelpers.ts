@@ -11,7 +11,7 @@
 export interface FacetValue {
   id?: string
   text_representation?: string
-  value: any
+  value: Record<string, unknown>
   confidence_score?: number
   human_verified?: boolean
   source_url?: string
@@ -45,7 +45,7 @@ export function useFacetHelpers() {
   /**
    * Format attribute key for display
    */
-  function formatAttributeKey(key: string, schema?: any): string {
+  function formatAttributeKey(key: string, schema?: { properties?: Record<string, { title?: string }> }): string {
     // First try to get title from entity type's attribute_schema
     if (schema?.properties?.[key]?.title) {
       return schema.properties[key].title
@@ -61,7 +61,7 @@ export function useFacetHelpers() {
   /**
    * Format attribute value for display
    */
-  function formatAttributeValue(value: any): string {
+  function formatAttributeValue(value: unknown): string {
     if (typeof value === 'number') {
       return value.toLocaleString('de-DE')
     }

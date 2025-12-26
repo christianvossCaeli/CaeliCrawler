@@ -25,7 +25,7 @@
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn variant="tonal" @click="closeDialog">{{ t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="secondary" @click="startEnrichment" :loading="enriching">
+          <v-btn variant="tonal" color="secondary" :loading="enriching" @click="startEnrichment">
             <v-icon start>mdi-database-arrow-up</v-icon>
             {{ t('entityDetail.startEnrichment') }}
           </v-btn>
@@ -105,6 +105,16 @@ import { pysisApi, aiTasksApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useLogger } from '@/composables/useLogger'
 
+const props = withDefaults(defineProps<Props>(), {
+  overwrite: false,
+})
+
+const emit = defineEmits<{
+  (e: 'update:showDialog', value: boolean): void
+  (e: 'update:overwrite', value: boolean): void
+  (e: 'enrichment-completed'): void
+}>()
+
 const logger = useLogger('EntityPysisEnrichmentDialog')
 
 interface TaskStatus {
@@ -123,16 +133,6 @@ interface Props {
   showDialog: boolean
   overwrite?: boolean
 }
-
-const props = withDefaults(defineProps<Props>(), {
-  overwrite: false,
-})
-
-const emit = defineEmits<{
-  (e: 'update:showDialog', value: boolean): void
-  (e: 'update:overwrite', value: boolean): void
-  (e: 'enrichment-completed'): void
-}>()
 
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
@@ -210,8 +210,8 @@ async function startEnrichment() {
     } else {
       showError(response.data.message || t('entityDetail.messages.enrichError'))
     }
-  } catch (e: any) {
-    showError(e.response?.data?.error || t('entityDetail.messages.enrichError'))
+  } catch (e) {
+    showError(getErrorMessage(e) || t('entityDetail.messages.enrichError'))
   } finally {
     enriching.value = false
   }

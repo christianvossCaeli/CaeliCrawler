@@ -315,7 +315,7 @@ function processData(data: number[]) {
   return data.map(x => x * 2)
 }
 
-function expensiveTransformation(data: any) {
+function expensiveTransformation(data: unknown) {
   return data
 }
 

@@ -1,6 +1,6 @@
 <template>
   <v-menu>
-    <template v-slot:activator="{ props }">
+    <template #activator="{ props }">
       <v-btn
         icon
         v-bind="props"
@@ -17,11 +17,11 @@
         :active="currentLocale === lang.code"
         @click="changeLanguage(lang.code)"
       >
-        <template v-slot:prepend>
+        <template #prepend>
           <span class="language-flag">{{ lang.flag }}</span>
         </template>
         <v-list-item-title>{{ lang.name }}</v-list-item-title>
-        <template v-slot:append>
+        <template #append>
           <v-icon v-if="currentLocale === lang.code" size="small" color="primary">
             mdi-check
           </v-icon>

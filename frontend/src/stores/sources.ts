@@ -479,7 +479,7 @@ export const useSourcesStore = defineStore('sources', () => {
 
     sharepointTestResult.value = null
 
-    const siteUrl = formData.value.crawl_config.site_url!
+    const siteUrl = formData.value.crawl_config.site_url
     return await withLoadingState(async () => {
       try {
         const response = await adminApi.testSharePointConnection(siteUrl)

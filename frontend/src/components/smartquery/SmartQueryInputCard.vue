@@ -7,12 +7,12 @@
           v-for="attachment in attachments"
           :key="attachment.id"
           closable
-          @click:close="$emit('removeAttachment', attachment.id)"
           color="primary"
           variant="tonal"
           size="small"
+          @click:close="$emit('removeAttachment', attachment.id)"
         >
-          <v-avatar start size="20" v-if="attachment.preview">
+          <v-avatar v-if="attachment.preview" start size="20">
             <v-img :src="attachment.preview" />
           </v-avatar>
           <v-icon v-else start size="16">{{ getAttachmentIcon(attachment.contentType) }}</v-icon>
@@ -100,8 +100,8 @@
         rounded="pill"
         :loading="loading"
         :disabled="!modelValue?.trim() && attachments.length === 0"
-        @click="$emit('submit')"
         class="submit-btn"
+        @click="$emit('submit')"
       >
         <v-icon start>{{ submitButtonIcon }}</v-icon>
         {{ submitButtonText }}

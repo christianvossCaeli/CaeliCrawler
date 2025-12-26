@@ -145,7 +145,7 @@
               :class="`insight-item insight-item--${insight.color}`"
               @click="$emit('insight-action', insight.action)"
             >
-              <template v-slot:prepend>
+              <template #prepend>
                 <v-icon :color="insight.color" size="small">{{ insight.icon }}</v-icon>
               </template>
               <v-list-item-title class="text-body-2">{{ insight.message }}</v-list-item-title>
@@ -304,7 +304,7 @@
         :aria-describedby="isListening ? 'voice-status' : undefined"
         @keydown.enter.exact.prevent="sendMessage"
       >
-        <template v-slot:append-inner>
+        <template #append-inner>
           <!-- Voice Input -->
           <v-btn
             v-if="hasMicrophone"
@@ -323,7 +323,7 @@
       </v-textarea>
 
       <v-btn
-        :icon="true"
+        icon
         color="primary"
         :disabled="!inputText.trim() || isLoading"
         class="ml-2"
@@ -355,10 +355,6 @@ import type { BatchStatus, BatchPreviewEntity } from './BatchActionProgress.vue'
 import { useSpeechRecognition } from '@/composables/useSpeechRecognition'
 import type { ConversationMessage, SuggestedAction, AssistantContext, AttachmentInfo, Insight, ActiveWizard, Reminder, QueryHistoryItem } from '@/composables/useAssistant'
 
-const { t } = useI18n()
-const router = useRouter()
-const queryContextStore = useQueryContextStore()
-
 const props = defineProps<{
   messages: ConversationMessage[]
   context: AssistantContext
@@ -368,7 +364,7 @@ const props = defineProps<{
   streamingStatus?: string
   mode: 'read' | 'write'
   suggestedActions: SuggestedAction[]
-  pendingAction: any
+  pendingAction: SuggestedAction | null
   pendingAttachments?: AttachmentInfo[]
   // Batch operation props
   activeBatch?: BatchStatus | null
@@ -384,7 +380,6 @@ const props = defineProps<{
   // Query history props
   queryHistory?: QueryHistoryItem[]
 }>()
-
 const emit = defineEmits<{
   send: [text: string]
   clear: []
@@ -393,7 +388,7 @@ const emit = defineEmits<{
   'remove-attachment': [attachmentId: string]
   navigate: [route: string]
   action: [action: SuggestedAction]
-  'action-confirm': [action: any]
+  'action-confirm': [action: SuggestedAction]
   'action-cancel': []
   'mode-change': [mode: 'read' | 'write']
   // Batch operation emits
@@ -403,7 +398,7 @@ const emit = defineEmits<{
   // Insights emit
   'insight-action': [action: { type: string; value: string }]
   // Wizard emits
-  'wizard-next': [value: any]
+  'wizard-next': [value: unknown]
   'wizard-back': []
   'wizard-cancel': []
   'start-wizard': [wizardType: string]
@@ -416,6 +411,9 @@ const emit = defineEmits<{
   'history-remove': [id: string]
   'history-clear': []
 }>()
+const { t } = useI18n()
+const router = useRouter()
+const queryContextStore = useQueryContextStore()
 
 // Local state
 const showHistoryPanel = ref(false)
@@ -490,7 +488,7 @@ function handleHistoryRerun(query: string) {
   sendMessage()
 }
 
-function handleItemClick(item: any) {
+function handleItemClick(item: { entity_type?: string; entity_slug?: string; slug?: string; entity_id?: string; entity_name?: string; name?: string }) {
   // Navigate to entity detail page if possible
   if (item.entity_type && (item.entity_slug || item.slug)) {
     const slug = item.entity_slug || item.slug
@@ -507,7 +505,7 @@ function handleEntityClick(entityType: string, entitySlug: string) {
   emit('navigate', `/entities/${entityType}/${entitySlug}`)
 }
 
-function handleSmartQueryRedirect(responseData: any) {
+function handleSmartQueryRedirect(responseData: { prefilled_query?: string; message?: string; write_mode?: boolean } | null) {
   // Set context in store so Smart Query can consume it with the prefilled query
   const query = responseData?.prefilled_query || responseData?.message || ''
   const writeMode = responseData?.write_mode === true

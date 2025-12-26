@@ -482,3 +482,34 @@ SCHEDULE_PRESETS: List[SummarySchedulePreset] = [
     SummarySchedulePreset(label="weekly_monday", cron="0 9 * * 1", description="Weekly on Monday at 9:00 AM"),
     SummarySchedulePreset(label="monthly", cron="0 0 1 * *", description="Monthly on the 1st"),
 ]
+
+
+# --- Check Updates Schemas ---
+
+class CheckUpdatesStatus(str, Enum):
+    """Status of a check-updates task."""
+
+    PENDING = "pending"
+    CRAWLING = "crawling"
+    UPDATING = "updating"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class SummaryCheckUpdatesResponse(BaseModel):
+    """Response from starting a check-updates task."""
+
+    task_id: str = Field(..., description="Celery task ID for progress polling")
+    source_count: int = Field(..., description="Number of sources to check")
+    message: str = Field(..., description="Human-readable status message")
+
+
+class CheckUpdatesProgressResponse(BaseModel):
+    """Response for check-updates progress polling."""
+
+    status: CheckUpdatesStatus = Field(..., description="Current task status")
+    total_sources: int = Field(..., description="Total number of sources to crawl")
+    completed_sources: int = Field(default=0, description="Number of sources already crawled")
+    current_source: Optional[str] = Field(None, description="Name of currently crawling source")
+    message: str = Field(..., description="Human-readable progress message")
+    error: Optional[str] = Field(None, description="Error message if failed")

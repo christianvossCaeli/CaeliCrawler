@@ -1,19 +1,19 @@
 <template>
-  <v-card variant="outlined" v-if="sources.length > 0">
+  <v-card v-if="sources.length > 0" variant="outlined">
     <v-data-table
       :model-value="selectedUrls"
-      @update:model-value="$emit('update:selectedUrls', $event)"
       :headers="tableHeaders"
       :items="sources"
       item-value="base_url"
       show-select
       density="compact"
       :items-per-page="10"
+      @update:model-value="$emit('update:selectedUrls', $event)"
     >
-      <template v-slot:item.name="{ item }">
+      <template #item.name="{ item }">
         <div class="font-weight-medium">{{ item.name }}</div>
       </template>
-      <template v-slot:item.base_url="{ item }">
+      <template #item.base_url="{ item }">
         <a
           :href="item.base_url"
           target="_blank"
@@ -24,7 +24,7 @@
           <v-icon size="x-small" class="ml-1">mdi-open-in-new</v-icon>
         </a>
       </template>
-      <template v-slot:item.tags="{ item }">
+      <template #item.tags="{ item }">
         <v-chip-group>
           <v-chip
             v-for="tag in item.tags.slice(0, 4)"
@@ -39,7 +39,7 @@
           </v-chip>
         </v-chip-group>
       </template>
-      <template v-slot:item.confidence="{ item }">
+      <template #item.confidence="{ item }">
         <v-chip :color="getConfidenceColor(item.confidence)" size="x-small">
           {{ Math.round(item.confidence * 100) }}%
         </v-chip>

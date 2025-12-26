@@ -17,8 +17,8 @@ export interface SmartQueryOperation {
   command_text: string
   command_hash: string
   operation_type: string
-  interpretation: Record<string, any>
-  result_summary: Record<string, any>
+  interpretation: Record<string, unknown>
+  result_summary: Record<string, unknown>
   display_name: string | null
   is_favorite: boolean
   execution_count: number
@@ -126,7 +126,7 @@ export const useSmartQueryHistoryStore = defineStore('smartQueryHistory', () => 
   /**
    * Execute an operation from history
    */
-  async function executeFromHistory(operationId: string): Promise<any> {
+  async function executeFromHistory(operationId: string): Promise<{ success: boolean; data?: unknown }> {
     try {
       const response = await smartQueryHistoryApi.execute(operationId)
 

@@ -117,7 +117,7 @@
               <ScheduleBuilder
                 v-model="formData.schedule_cron"
                 :disabled="saving"
-                :show-advanced="true"
+                show-advanced
               />
             </v-col>
           </v-row>
@@ -147,8 +147,8 @@
       <v-card-actions>
         <v-btn
           variant="text"
-          @click="loadPreview"
           :loading="previewLoading"
+          @click="loadPreview"
         >
           {{ t('crawlPresets.preview') }}
         </v-btn>
@@ -179,6 +179,15 @@ import { useSnackbar } from '@/composables/useSnackbar'
 import ScheduleBuilder from '@/components/common/ScheduleBuilder.vue'
 import { useLogger } from '@/composables/useLogger'
 
+const props = withDefaults(defineProps<Props>(), {
+  preset: null,
+})
+
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
+  saved: [preset: CrawlPreset]
+}>()
+
 const logger = useLogger('CrawlPresetEditor')
 
 const { t } = useI18n()
@@ -189,15 +198,6 @@ interface Props {
   modelValue: boolean
   preset?: CrawlPreset | null
 }
-
-const props = withDefaults(defineProps<Props>(), {
-  preset: null,
-})
-
-const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
-  saved: [preset: CrawlPreset]
-}>()
 
 const dialogVisible = computed({
   get: () => props.modelValue,
@@ -210,7 +210,7 @@ const formRef = ref()
 const formValid = ref(false)
 const saving = ref(false)
 const previewLoading = ref(false)
-const previewData = ref<{ sources_count: number; sources_preview: any[]; has_more: boolean } | null>(null)
+const previewData = ref<{ sources_count: number; sources_preview: Array<{ id: string; name: string; status?: string }>; has_more: boolean } | null>(null)
 
 // Dynamic data from API
 const entityTypes = ref<Array<{ slug: string; name: string }>>([])
@@ -246,7 +246,7 @@ onMounted(async () => {
   entityTypesLoading.value = true
   try {
     const response = await entityApi.getEntityTypes({ per_page: 100 })
-    entityTypes.value = response.data.items.map((et: any) => ({
+    entityTypes.value = response.data.items.map((et: { slug: string; name: string }) => ({
       slug: et.slug,
       name: et.name,
     }))

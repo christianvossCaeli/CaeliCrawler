@@ -21,6 +21,17 @@ from services.summaries.relevance_checker import (
     quick_change_detection,
     should_notify_user,
 )
+from services.summaries.source_resolver import (
+    resolve_sources_for_summary,
+    resolve_all_sources_for_summary,
+    extract_entity_types_from_summary,
+    get_sources_for_category,
+    get_sources_for_preset,
+    get_categories_for_entity_type,
+    get_external_apis_for_entity_type,
+    get_source_names,
+    ResolvedSources,
+)
 
 __all__ = [
     "SummaryExecutor",
@@ -33,4 +44,13 @@ __all__ = [
     "calculate_data_hash",
     "quick_change_detection",
     "should_notify_user",
+    "resolve_sources_for_summary",
+    "resolve_all_sources_for_summary",
+    "extract_entity_types_from_summary",
+    "get_sources_for_category",
+    "get_sources_for_preset",
+    "get_categories_for_entity_type",
+    "get_external_apis_for_entity_type",
+    "get_source_names",
+    "ResolvedSources",
 ]

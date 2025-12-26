@@ -167,7 +167,7 @@ export interface CategoryDetailsPanelProps {
   selectedTags: string[]
   matchMode: 'all' | 'any'
   availableTags: string[]
-  foundSources: any[]
+  foundSources: { id: string; name: string; status?: string; source_type?: string }[]
   loading: boolean
   assigning: boolean
   currentSourceCount?: number

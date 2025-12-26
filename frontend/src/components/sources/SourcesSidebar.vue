@@ -11,34 +11,34 @@
   >
     <div class="pa-3">
       <!-- Collapse Toggle -->
-      <div class="d-flex justify-end mb-2" v-if="!isMobile">
+      <div v-if="!isMobile" class="d-flex justify-end mb-2">
         <v-btn
           :icon="isCollapsed ? 'mdi-chevron-right' : 'mdi-chevron-left'"
           variant="text"
           size="small"
-          @click="isCollapsed = !isCollapsed"
           :title="isCollapsed ? $t('sources.sidebar.expand') : $t('sources.sidebar.collapse')"
           :aria-label="isCollapsed ? $t('sources.sidebar.expand') : $t('sources.sidebar.collapse')"
           :aria-expanded="!isCollapsed"
+          @click="isCollapsed = !isCollapsed"
         />
       </div>
 
       <!-- Categories Section -->
-      <div class="sidebar-section" v-if="!isCollapsed" role="group" aria-labelledby="categories-heading">
+      <div v-if="!isCollapsed" class="sidebar-section" role="group" aria-labelledby="categories-heading">
         <h3 id="categories-heading" class="text-overline text-medium-emphasis mb-2">{{ $t('sources.sidebar.categories') }}</h3>
         <v-list density="compact" nav role="listbox" :aria-label="$t('sources.sidebar.categories')">
           <v-list-item
             :active="!selectedCategory"
-            @click="$emit('update:selectedCategory', null)"
             rounded="lg"
             role="option"
             :aria-selected="!selectedCategory"
+            @click="$emit('update:selectedCategory', null)"
           >
-            <template v-slot:prepend>
+            <template #prepend>
               <v-icon size="small" aria-hidden="true">mdi-folder-multiple</v-icon>
             </template>
             <v-list-item-title>{{ $t('sources.sidebar.all') }}</v-list-item-title>
-            <template v-slot:append>
+            <template #append>
               <v-chip size="x-small" variant="tonal" :aria-label="$t('sources.sidebar.itemCount', { count: counts.total })">{{ counts.total }}</v-chip>
             </template>
           </v-list-item>
@@ -47,26 +47,26 @@
             v-for="cat in displayedCategories"
             :key="cat.id"
             :active="selectedCategory === cat.id"
-            @click="$emit('update:selectedCategory', cat.id)"
             rounded="lg"
             role="option"
             :aria-selected="selectedCategory === cat.id"
+            @click="$emit('update:selectedCategory', cat.id)"
           >
-            <template v-slot:prepend>
+            <template #prepend>
               <v-icon size="small" aria-hidden="true">mdi-folder</v-icon>
             </template>
             <v-list-item-title>{{ cat.name }}</v-list-item-title>
-            <template v-slot:append>
+            <template #append>
               <v-chip size="x-small" variant="tonal" :aria-label="$t('sources.sidebar.itemCount', { count: cat.count })">{{ cat.count }}</v-chip>
             </template>
           </v-list-item>
           <!-- Show more/less button for categories -->
           <v-list-item
             v-if="hasMoreCategories"
-            @click="showAllCategories = !showAllCategories"
             class="text-center"
             role="button"
             :aria-expanded="showAllCategories"
+            @click="showAllCategories = !showAllCategories"
           >
             <v-list-item-title class="text-caption text-primary">
               {{ showAllCategories ? $t('common.showLess') : $t('common.showMore', { count: hiddenCategoriesCount }) }}
@@ -75,24 +75,24 @@
         </v-list>
       </div>
 
-      <v-divider class="my-3" v-if="!isCollapsed" />
+      <v-divider v-if="!isCollapsed" class="my-3" />
 
       <!-- Types Section -->
-      <div class="sidebar-section" v-if="!isCollapsed" role="group" aria-labelledby="types-heading">
+      <div v-if="!isCollapsed" class="sidebar-section" role="group" aria-labelledby="types-heading">
         <h3 id="types-heading" class="text-overline text-medium-emphasis mb-2">{{ $t('sources.sidebar.types') }}</h3>
         <v-list density="compact" nav role="listbox" :aria-label="$t('sources.sidebar.types')">
           <v-list-item
             :active="!selectedType"
-            @click="$emit('update:selectedType', null)"
             rounded="lg"
             role="option"
             :aria-selected="!selectedType"
+            @click="$emit('update:selectedType', null)"
           >
-            <template v-slot:prepend>
+            <template #prepend>
               <v-icon size="small" aria-hidden="true">mdi-shape</v-icon>
             </template>
             <v-list-item-title>{{ $t('sources.sidebar.all') }}</v-list-item-title>
-            <template v-slot:append>
+            <template #append>
               <v-chip size="x-small" variant="tonal" :aria-label="$t('sources.sidebar.itemCount', { count: typesTotal })">{{ typesTotal }}</v-chip>
             </template>
           </v-list-item>
@@ -100,40 +100,40 @@
             v-for="type in counts.types.filter(t => t.type)"
             :key="type.type || 'unknown'"
             :active="selectedType === type.type"
-            @click="toggleType(type.type)"
             rounded="lg"
             role="option"
             :aria-selected="selectedType === type.type"
+            @click="toggleType(type.type)"
           >
-            <template v-slot:prepend>
+            <template #prepend>
               <v-icon size="small" :color="getTypeColor(type.type)" aria-hidden="true">{{ getTypeIcon(type.type) }}</v-icon>
             </template>
             <v-list-item-title>{{ getTypeLabel(type.type) }}</v-list-item-title>
-            <template v-slot:append>
+            <template #append>
               <v-chip size="x-small" variant="tonal" :color="getTypeColor(type.type)" :aria-label="$t('sources.sidebar.itemCount', { count: type.count })">{{ type.count }}</v-chip>
             </template>
           </v-list-item>
         </v-list>
       </div>
 
-      <v-divider class="my-3" v-if="!isCollapsed" />
+      <v-divider v-if="!isCollapsed" class="my-3" />
 
       <!-- Status Section -->
-      <div class="sidebar-section" v-if="!isCollapsed" role="group" aria-labelledby="status-heading">
+      <div v-if="!isCollapsed" class="sidebar-section" role="group" aria-labelledby="status-heading">
         <h3 id="status-heading" class="text-overline text-medium-emphasis mb-2">{{ $t('sources.sidebar.status') }}</h3>
         <v-list density="compact" nav role="listbox" :aria-label="$t('sources.sidebar.status')">
           <v-list-item
             :active="!selectedStatus"
-            @click="$emit('update:selectedStatus', null)"
             rounded="lg"
             role="option"
             :aria-selected="!selectedStatus"
+            @click="$emit('update:selectedStatus', null)"
           >
-            <template v-slot:prepend>
+            <template #prepend>
               <v-icon size="small" aria-hidden="true">mdi-format-list-bulleted</v-icon>
             </template>
             <v-list-item-title>{{ $t('sources.sidebar.all') }}</v-list-item-title>
-            <template v-slot:append>
+            <template #append>
               <v-chip size="x-small" variant="tonal" :aria-label="$t('sources.sidebar.itemCount', { count: statusesTotal })">{{ statusesTotal }}</v-chip>
             </template>
           </v-list-item>
@@ -141,26 +141,26 @@
             v-for="status in counts.statuses.filter(s => s.status)"
             :key="status.status || 'unknown'"
             :active="selectedStatus === status.status"
-            @click="toggleStatus(status.status)"
             rounded="lg"
             role="option"
             :aria-selected="selectedStatus === status.status"
+            @click="toggleStatus(status.status)"
           >
-            <template v-slot:prepend>
+            <template #prepend>
               <v-icon size="small" :color="getStatusColor(status.status)" aria-hidden="true">{{ getStatusIcon(status.status) }}</v-icon>
             </template>
             <v-list-item-title>{{ getStatusLabel(status.status) }}</v-list-item-title>
-            <template v-slot:append>
+            <template #append>
               <v-chip size="x-small" variant="tonal" :color="getStatusColor(status.status)" :aria-label="$t('sources.sidebar.itemCount', { count: status.count })">{{ status.count }}</v-chip>
             </template>
           </v-list-item>
         </v-list>
       </div>
 
-      <v-divider class="my-3" v-if="!isCollapsed && availableTags.length > 0" />
+      <v-divider v-if="!isCollapsed && availableTags.length > 0" class="my-3" />
 
       <!-- Tags Section -->
-      <div class="sidebar-section" v-if="!isCollapsed && availableTags.length > 0" role="group" aria-labelledby="tags-heading">
+      <div v-if="!isCollapsed && availableTags.length > 0" class="sidebar-section" role="group" aria-labelledby="tags-heading">
         <h3 id="tags-heading" class="text-overline text-medium-emphasis mb-2">{{ $t('sources.sidebar.tags') }}</h3>
         <div class="tags-container" role="group" :aria-label="$t('sources.sidebar.tagsFilter')">
           <v-chip
@@ -170,13 +170,13 @@
             :variant="isTagSelected(tag.tag) ? 'flat' : 'outlined'"
             size="small"
             class="ma-1"
-            @click="toggleTag(tag.tag)"
-            @keydown.enter="toggleTag(tag.tag)"
-            @keydown.space.prevent="toggleTag(tag.tag)"
             tabindex="0"
             role="checkbox"
             :aria-checked="isTagSelected(tag.tag)"
             :aria-label="$t('sources.sidebar.tagWithCount', { tag: tag.tag, count: tag.count })"
+            @click="toggleTag(tag.tag)"
+            @keydown.enter="toggleTag(tag.tag)"
+            @keydown.space.prevent="toggleTag(tag.tag)"
           >
             {{ tag.tag }}
             <span class="ml-1 text-caption" aria-hidden="true">({{ tag.count }})</span>
@@ -188,12 +188,12 @@
             variant="text"
             size="small"
             class="ma-1"
-            @click="showAllTags = !showAllTags"
-            @keydown.enter="showAllTags = !showAllTags"
             tabindex="0"
             role="button"
             :aria-expanded="showAllTags"
             :aria-label="showAllTags ? $t('common.showLess') : $t('sources.sidebar.showMoreTags', { count: hiddenTagsCount })"
+            @click="showAllTags = !showAllTags"
+            @keydown.enter="showAllTags = !showAllTags"
           >
             {{ showAllTags ? $t('common.showLess') : `+${hiddenTagsCount}` }}
           </v-chip>
@@ -203,11 +203,11 @@
             variant="text"
             size="small"
             class="ma-1"
-            @click="clearTags"
-            @keydown.enter="clearTags"
             tabindex="0"
             role="button"
             :aria-label="$t('sources.filters.clearAllTags')"
+            @click="clearTags"
+            @keydown.enter="clearTags"
           >
             <v-icon size="x-small" start aria-hidden="true">mdi-close</v-icon>
             {{ $t('sources.filters.clearAll') }}
@@ -217,18 +217,18 @@
 
       <!-- Collapsed Icons -->
       <div v-if="isCollapsed" class="collapsed-icons" role="group" :aria-label="$t('sources.sidebar.quickAccess')">
-        <v-tooltip location="right" v-for="cat in counts.categories.slice(0, 5)" :key="cat.id">
-          <template v-slot:activator="{ props }">
+        <v-tooltip v-for="cat in counts.categories.slice(0, 5)" :key="cat.id" location="right">
+          <template #activator="{ props: activatorProps }">
             <v-btn
-              v-bind="props"
+              v-bind="activatorProps"
               icon="mdi-folder"
               variant="text"
               size="small"
               :color="selectedCategory === cat.id ? 'primary' : undefined"
-              @click="$emit('update:selectedCategory', cat.id)"
               class="mb-1"
               :aria-label="$t('sources.sidebar.selectCategory', { name: cat.name, count: cat.count })"
               :aria-pressed="selectedCategory === cat.id"
+              @click="$emit('update:selectedCategory', cat.id)"
             />
           </template>
           <span>{{ cat.name }} ({{ cat.count }})</span>
@@ -256,6 +256,22 @@ import type {
   SourceStatus,
 } from '@/types/sources'
 
+const props = defineProps<{
+  counts: SidebarCounts
+  selectedCategory: string | null
+  selectedType: SourceType | null
+  selectedStatus: SourceStatus | null
+  selectedTags: string[]
+  availableTags: TagCount[]
+  modelValue?: boolean
+}>()
+const emit = defineEmits<{
+  (e: 'update:selectedCategory', value: string | null): void
+  (e: 'update:selectedType', value: SourceType | null): void
+  (e: 'update:selectedStatus', value: SourceStatus | null): void
+  (e: 'update:selectedTags', value: string[]): void
+  (e: 'update:modelValue', value: boolean): void
+}>()
 const { mobile } = useDisplay()
 const {
   getTypeColor,
@@ -266,24 +282,6 @@ const {
   getStatusLabel,
   getTagColor,
 } = useSourceHelpers()
-
-const props = defineProps<{
-  counts: SidebarCounts
-  selectedCategory: string | null
-  selectedType: SourceType | null
-  selectedStatus: SourceStatus | null
-  selectedTags: string[]
-  availableTags: TagCount[]
-  modelValue?: boolean
-}>()
-
-const emit = defineEmits<{
-  (e: 'update:selectedCategory', value: string | null): void
-  (e: 'update:selectedType', value: SourceType | null): void
-  (e: 'update:selectedStatus', value: SourceStatus | null): void
-  (e: 'update:selectedTags', value: string[]): void
-  (e: 'update:modelValue', value: boolean): void
-}>()
 
 const isCollapsed = ref(false)
 const isMobile = computed(() => mobile.value)

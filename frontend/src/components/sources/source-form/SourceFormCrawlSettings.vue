@@ -11,7 +11,6 @@
           <v-col cols="12" md="6">
             <v-number-input
               :model-value="config.max_depth"
-              @update:model-value="updateConfig('max_depth', $event)"
               :label="$t('sources.form.maxDepth')"
               :hint="$t('sources.form.maxDepthHint')"
               :min="1"
@@ -19,12 +18,12 @@
               variant="outlined"
               control-variant="stacked"
               persistent-hint
+              @update:model-value="updateConfig('max_depth', $event)"
             />
           </v-col>
           <v-col cols="12" md="6">
             <v-number-input
               :model-value="config.max_pages"
-              @update:model-value="updateConfig('max_pages', $event)"
               :label="$t('sources.form.maxPages')"
               :hint="$t('sources.form.maxPagesHint')"
               :min="1"
@@ -32,18 +31,19 @@
               variant="outlined"
               control-variant="stacked"
               persistent-hint
+              @update:model-value="updateConfig('max_pages', $event)"
             />
           </v-col>
         </v-row>
 
         <v-switch
           :model-value="config.render_javascript"
-          @update:model-value="updateConfig('render_javascript', $event ?? false)"
           :label="$t('sources.form.renderJs')"
           :hint="$t('sources.form.renderJsHint')"
           persistent-hint
           color="primary"
           class="mt-4"
+          @update:model-value="updateConfig('render_javascript', $event ?? false)"
         />
       </v-card-text>
     </v-card>
@@ -57,7 +57,6 @@
       <v-card-text class="pt-4">
         <v-combobox
           :model-value="config.url_include_patterns"
-          @update:model-value="updateConfig('url_include_patterns', $event)"
           :hint="$t('sources.form.includeHint')"
           persistent-hint
           multiple
@@ -68,10 +67,11 @@
           density="comfortable"
           :error="hasInvalidIncludePatterns"
           :error-messages="invalidIncludePatternsMessage"
+          @update:model-value="updateConfig('url_include_patterns', $event)"
         >
-          <template v-slot:chip="{ item, props }">
+          <template #chip="{ item, props: chipProps }">
             <v-chip
-              v-bind="props"
+              v-bind="chipProps"
               :color="isValidRegexPattern(item.raw) ? 'success' : 'error'"
               variant="tonal"
             >
@@ -92,7 +92,6 @@
       <v-card-text class="pt-4">
         <v-combobox
           :model-value="config.url_exclude_patterns"
-          @update:model-value="updateConfig('url_exclude_patterns', $event)"
           :hint="$t('sources.form.excludeHint')"
           persistent-hint
           multiple
@@ -103,10 +102,11 @@
           density="comfortable"
           :error="hasInvalidExcludePatterns"
           :error-messages="invalidExcludePatternsMessage"
+          @update:model-value="updateConfig('url_exclude_patterns', $event)"
         >
-          <template v-slot:chip="{ item, props }">
+          <template #chip="{ item, props: chipProps }">
             <v-chip
-              v-bind="props"
+              v-bind="chipProps"
               :color="isValidRegexPattern(item.raw) ? 'error' : 'warning'"
               variant="tonal"
             >

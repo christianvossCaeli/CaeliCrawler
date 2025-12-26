@@ -380,6 +380,69 @@
       "itemCount": "Anzahl Einträge",
       "sampleData": "Beispieldaten"
     },
+    "externalApis": {
+      "title": "Externe APIs",
+      "subtitle": "API-Verbindungen für automatischen Datenimport verwalten",
+      "filters": {
+        "search": "Suche",
+        "apiType": "API-Typ",
+        "status": "Status"
+      },
+      "columns": {
+        "name": "Name",
+        "entityType": "Datentyp",
+        "status": "Status",
+        "syncStatus": "Sync-Status",
+        "lastSync": "Letzte Sync"
+      },
+      "form": {
+        "name": "Name",
+        "description": "Beschreibung",
+        "apiType": "API-Typ",
+        "baseUrl": "Basis-URL",
+        "endpoint": "Endpunkt",
+        "entityType": "Datentyp",
+        "syncInterval": "Sync-Intervall (Stunden)",
+        "syncIntervalHint": "0 = nur manuell",
+        "syncEnabled": "Auto-Sync aktiviert",
+        "idField": "ID-Feld",
+        "idFieldHint": "Feld im API-Response das als ID verwendet wird",
+        "nameField": "Name-Feld",
+        "nameFieldHint": "Feld im API-Response das als Name verwendet wird"
+      },
+      "actions": {
+        "create": "Neue API-Verbindung",
+        "sync": "Jetzt synchronisieren",
+        "test": "Verbindung testen"
+      },
+      "dialog": {
+        "createTitle": "Neue API-Verbindung",
+        "editTitle": "API-Verbindung bearbeiten",
+        "deleteTitle": "API-Verbindung löschen?",
+        "deleteConfirm": "Möchtest du \"{name}\" wirklich löschen? Verknüpfte Entities werden nicht gelöscht."
+      },
+      "detail": {
+        "entities": "Entities",
+        "activeRecords": "Aktive Records",
+        "missingRecords": "Fehlende Records",
+        "archivedRecords": "Archivierte Records",
+        "linkedEntities": "Verknüpfte Entities"
+      },
+      "messages": {
+        "created": "API-Verbindung erstellt",
+        "updated": "API-Verbindung aktualisiert",
+        "deleted": "API-Verbindung gelöscht",
+        "syncStarted": "Synchronisierung gestartet",
+        "saveError": "Fehler beim Speichern",
+        "deleteError": "Fehler beim Löschen",
+        "syncError": "Fehler beim Starten der Synchronisierung"
+      },
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "neverSynced": "Noch nie synchronisiert",
+      "never": "Nie",
+      "manualOnly": "Nur manuell"
+    },
     "crawlPresets": {
       "title": "Sammel-Vorlagen",
       "create": "Neue Vorlage",

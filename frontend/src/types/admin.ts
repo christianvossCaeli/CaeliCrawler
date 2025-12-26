@@ -234,7 +234,7 @@ export interface LocationCreate {
   population?: number
 }
 
-export interface LocationUpdate extends Partial<LocationCreate> {}
+export type LocationUpdate = Partial<LocationCreate>
 
 // =============================================================================
 // Notification Types
@@ -341,7 +341,7 @@ export interface PySisTemplateCreate {
   field_definitions: PySisFieldDefinition[]
 }
 
-export interface PySisTemplateUpdate extends Partial<PySisTemplateCreate> {}
+export type PySisTemplateUpdate = Partial<PySisTemplateCreate>
 
 export interface PySisTemplateListParams extends PaginationParams {
   search?: string

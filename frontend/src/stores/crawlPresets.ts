@@ -18,7 +18,7 @@ export interface CrawlPresetFilters {
   tags?: string[]
   entity_type?: string[]  // Multi-select: array of entity type slugs
   admin_level_1?: string  // Deprecated - use tags instead
-  entity_filters?: Record<string, any>
+  entity_filters?: Record<string, unknown>
   country?: string
   source_type?: string[]  // Multi-select: array of source types
   status?: string

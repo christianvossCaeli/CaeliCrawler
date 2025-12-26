@@ -114,6 +114,24 @@
     "widgetUpdateSuccess": "Widget aktualisiert",
     "widgetRemoveSuccess": "Widget entfernt",
 
+    "columnConfig": {
+      "title": "Spalten konfigurieren",
+      "subtitle": "Wählen Sie die anzuzeigenden Spalten aus und passen Sie deren Reihenfolge und Bezeichnungen an.",
+      "sectionTitle": "Spalten-Konfiguration",
+      "configure": "Spalten konfigurieren",
+      "columnsConfigured": "{count} Spalten konfiguriert",
+      "autoDetect": "Automatische Erkennung",
+      "noColumns": "Keine Spalten verfügbar",
+      "resetDefault": "Zurücksetzen",
+      "selectAll": "Alle",
+      "deselectAll": "Keine",
+      "sortable": "Sortierbar",
+      "width": "Breite",
+      "columns": {
+        "name": "Name"
+      }
+    },
+
     "createDialog": {
       "title": "Neue Zusammenfassung erstellen",
       "step1": "Beschreiben Sie Ihre Zusammenfassung",
@@ -201,6 +219,13 @@
     "backToList": "Zurück zur Liste",
     "refresh": "Aktualisieren",
     "forceRefresh": "Neu laden",
+    "checkUpdates": "Auf neue Änderungen prüfen",
+    "checkUpdatesTitle": "Auf Änderungen prüfen",
+    "checkUpdatesCompleted": "Prüfung abgeschlossen, Zusammenfassung aktualisiert",
+    "checkUpdatesFailed": "Fehler bei der Aktualisierungsprüfung",
+    "of": "von",
+    "sourcesChecked": "Quellen geprüft",
+    "currentlyChecking": "Prüfe gerade",
     "editLayout": "Layout bearbeiten",
     "doneEditing": "Fertig",
     "share": "Teilen",

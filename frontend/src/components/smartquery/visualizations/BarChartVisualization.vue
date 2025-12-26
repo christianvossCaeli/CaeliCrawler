@@ -19,13 +19,13 @@ import {
 import type { VisualizationConfig } from './types'
 import { getNestedValue } from './types'
 
-// Register Chart.js components
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
-
 const props = defineProps<{
-  data: Record<string, any>[]
+  data: Record<string, unknown>[]
   config?: VisualizationConfig
 }>()
+
+// Register Chart.js components
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 const chartData = computed(() => {
   if (!props.data || props.data.length === 0) {
@@ -61,7 +61,7 @@ const chartData = computed(() => {
 
   if (sample.facets) {
     for (const [facetKey, facetValue] of Object.entries(sample.facets)) {
-      if (typeof (facetValue as any)?.value === 'number') {
+      if (typeof (facetValue as { value?: unknown })?.value === 'number') {
         valueKey = `facets.${facetKey}.value`
         valueLabel = formatFacetLabel(facetKey)
         break
@@ -96,7 +96,7 @@ const chartOptions = computed(() => ({
     },
     tooltip: {
       callbacks: {
-        label: (context: any) => {
+        label: (context: { parsed: { y: unknown }; dataset: { label?: string } }) => {
           const value = context.parsed.y
           if (typeof value === 'number') {
             return `${context.dataset.label}: ${value.toLocaleString()}`

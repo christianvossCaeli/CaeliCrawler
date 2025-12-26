@@ -12,9 +12,9 @@
         <v-btn
           icon
           variant="tonal"
-          @click="$emit('update:model-value', false)"
           :title="t('common.close')"
           :aria-label="t('common.close')"
+          @click="$emit('update:model-value', false)"
         >
           <v-icon>mdi-close</v-icon>
         </v-btn>

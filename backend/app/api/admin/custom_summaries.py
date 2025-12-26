@@ -48,11 +48,19 @@ from app.schemas.custom_summary import (
     SummaryFavoriteToggleResponse,
     WidgetPosition,
     SCHEDULE_PRESETS,
+    SummaryCheckUpdatesResponse,
+    CheckUpdatesProgressResponse,
+    CheckUpdatesStatus,
 )
 from app.schemas.common import MessageResponse
 from app.utils.cron import croniter_for_expression, get_schedule_timezone, is_valid_cron_expression
 from fastapi.responses import StreamingResponse
-from services.summaries import SummaryExecutor, SummaryExportService, interpret_summary_prompt, get_schedule_suggestion
+from services.summaries import (
+    SummaryExecutor,
+    SummaryExportService,
+    interpret_summary_prompt,
+    get_schedule_suggestion,
+)
 from services.summaries.export_service import sanitize_filename
 
 logger = structlog.get_logger(__name__)
@@ -392,6 +400,16 @@ async def list_summaries(
     )
 
 
+# --- Schedule Presets (must be before /{summary_id} routes) ---
+
+@router.get("/schedule-presets", response_model=List[dict])
+async def get_schedule_presets(
+    current_user: User = Depends(require_editor),
+):
+    """Get predefined schedule presets for UI convenience."""
+    return [p.model_dump() for p in SCHEDULE_PRESETS]
+
+
 @router.get("/{summary_id}", response_model=SummaryDetailResponse)
 async def get_summary(
     summary_id: UUID,
@@ -574,6 +592,114 @@ async def execute_summary(
         has_changes=execution.has_changes,
         cached_data=execution.cached_data if execution.status == ExecutionStatus.COMPLETED else None,
         message="Ausführung abgeschlossen" if execution.status == ExecutionStatus.COMPLETED else "Keine relevanten Änderungen",
+    )
+
+
+@router.post("/{summary_id}/check-updates", response_model=SummaryCheckUpdatesResponse)
+async def check_summary_updates(
+    summary_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """
+    Start checking for updates by crawling relevant data sources and syncing external APIs.
+
+    This endpoint:
+    1. Resolves all relevant data sources and external APIs for the summary
+    2. Starts crawl jobs for data sources and sync jobs for external APIs
+    3. Returns a task ID for progress polling
+    4. After all jobs complete, automatically updates the summary
+    """
+    await check_rate_limit(request, "summary_check_updates", identifier=str(current_user.id))
+
+    # Load summary with widgets for source resolution
+    result = await session.execute(
+        select(CustomSummary)
+        .options(selectinload(CustomSummary.widgets))
+        .where(CustomSummary.id == summary_id)
+    )
+    summary = result.scalar_one_or_none()
+
+    if not summary or summary.user_id != current_user.id:
+        raise NotFoundError("Zusammenfassung", str(summary_id))
+
+    # Resolve all relevant sources (DataSources + ExternalAPIs)
+    from services.summaries.source_resolver import resolve_all_sources_for_summary
+    resolved = await resolve_all_sources_for_summary(session, summary)
+
+    if resolved.is_empty:
+        raise ValidationError("Keine Datenquellen für diese Zusammenfassung gefunden. "
+                            "Verknüpfen Sie eine Kategorie oder ein Preset, oder fügen Sie Widgets mit Entity-Typen hinzu.")
+
+    # Get source names for progress display
+    source_names = resolved.get_all_names()
+    source_ids = [str(s.id) for s in resolved.data_sources]
+    external_api_ids = [str(api.id) for api in resolved.external_apis]
+
+    # Start background task
+    from workers.summary_tasks import check_summary_updates as check_updates_task
+
+    task = check_updates_task.delay(
+        summary_id=str(summary_id),
+        source_ids=source_ids,
+        external_api_ids=external_api_ids,
+        source_names=source_names,
+        user_id=str(current_user.id),
+    )
+
+    logger.info(
+        "check_updates_started",
+        summary_id=str(summary_id),
+        data_source_count=len(resolved.data_sources),
+        external_api_count=len(resolved.external_apis),
+        task_id=task.id,
+    )
+
+    return SummaryCheckUpdatesResponse(
+        task_id=task.id,
+        source_count=resolved.total_count,
+        message=f"Prüfe {resolved.total_count} Quellen auf Änderungen...",
+    )
+
+
+@router.get("/{summary_id}/check-updates/{task_id}/status", response_model=CheckUpdatesProgressResponse)
+async def get_check_updates_status(
+    summary_id: UUID,
+    task_id: str,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """Get progress status for a check-updates task."""
+    await check_rate_limit(request, "summary_read", identifier=str(current_user.id))
+
+    # Verify ownership
+    summary = await session.get(CustomSummary, summary_id)
+    if not summary or summary.user_id != current_user.id:
+        raise NotFoundError("Zusammenfassung", str(summary_id))
+
+    # Get progress from Redis
+    from workers.summary_tasks import get_check_progress
+
+    progress = get_check_progress(task_id)
+
+    if not progress:
+        # Task might not have started yet or expired
+        return CheckUpdatesProgressResponse(
+            status=CheckUpdatesStatus.PENDING,
+            total_sources=0,
+            completed_sources=0,
+            message="Task wird gestartet...",
+        )
+
+    return CheckUpdatesProgressResponse(
+        status=CheckUpdatesStatus(progress.get("status", "pending")),
+        total_sources=progress.get("total_sources", 0),
+        completed_sources=progress.get("completed_sources", 0),
+        current_source=progress.get("current_source"),
+        message=progress.get("message", ""),
+        error=progress.get("error"),
     )
 
 
@@ -860,16 +986,6 @@ async def toggle_favorite(
         is_favorite=summary.is_favorite,
         message="Als Favorit markiert" if summary.is_favorite else "Favorit entfernt",
     )
-
-
-# --- Schedule Presets ---
-
-@router.get("/schedule-presets", response_model=List[dict])
-async def get_schedule_presets(
-    current_user: User = Depends(require_editor),
-):
-    """Get predefined schedule presets for UI convenience."""
-    return [p.model_dump() for p in SCHEDULE_PRESETS]
 
 
 # --- Export Endpoints ---

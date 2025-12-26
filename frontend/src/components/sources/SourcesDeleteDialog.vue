@@ -57,10 +57,10 @@
         <v-btn
           variant="flat"
           color="error"
-          @click="confirmDelete"
           :disabled="confirmText !== 'DELETE'"
           :loading="deleting"
           :aria-busy="deleting"
+          @click="confirmDelete"
         >
           <v-icon start aria-hidden="true">mdi-delete</v-icon>
           {{ $t('common.delete') }}
@@ -82,12 +82,12 @@ interface Props {
   deleting?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  deleting: false,
-})
-
 // defineModel() for two-way binding (Vue 3.4+)
 const dialogOpen = defineModel<boolean>({ default: false })
+
+withDefaults(defineProps<Props>(), {
+  deleting: false,
+})
 
 // Emits (non-model emits only)
 const emit = defineEmits<{

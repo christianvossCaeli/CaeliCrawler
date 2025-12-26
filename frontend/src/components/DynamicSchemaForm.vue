@@ -196,6 +196,15 @@
 import { computed, watch, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+const props = defineProps<{
+  schema: JsonSchema | null
+  modelValue: Record<string, unknown>
+}>()
+
+const emit = defineEmits<{
+  (e: 'update:modelValue', value: Record<string, unknown>): void
+}>()
+
 const { t } = useI18n()
 
 // ============================================================================
@@ -222,20 +231,11 @@ interface JsonSchema {
   required?: string[]
 }
 
-const props = defineProps<{
-  schema: JsonSchema | null
-  modelValue: Record<string, any>
-}>()
-
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: Record<string, any>): void
-}>()
-
 // ============================================================================
 // State
 // ============================================================================
 
-const formData = ref<Record<string, any>>({})
+const formData = ref<Record<string, unknown>>({})
 const fieldErrors = ref<Record<string, string[]>>({})
 
 // ============================================================================
@@ -285,20 +285,20 @@ function isLongTextField(key: string): boolean {
 }
 
 function getEmailRules(key: string) {
-  const rules: ((v: any) => boolean | string)[] = []
+  const rules: ((v: unknown) => boolean | string)[] = []
   if (isRequired(key)) {
     rules.push(v => !!v || t('validation.required'))
   }
   rules.push(v => {
     if (!v) return true
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    return emailPattern.test(v) || t('validation.email')
+    return emailPattern.test(String(v)) || t('validation.email')
   })
   return rules
 }
 
 function getIntegerRules(key: string) {
-  const rules: ((v: any) => boolean | string)[] = []
+  const rules: ((v: unknown) => boolean | string)[] = []
   if (isRequired(key)) {
     rules.push(v => v !== null && v !== undefined && v !== '' || t('validation.required'))
   }
@@ -310,7 +310,7 @@ function getIntegerRules(key: string) {
 }
 
 function getNumberRules(key: string) {
-  const rules: ((v: any) => boolean | string)[] = []
+  const rules: ((v: unknown) => boolean | string)[] = []
   if (isRequired(key)) {
     rules.push(v => v !== null && v !== undefined && v !== '' || t('validation.required'))
   }
@@ -326,7 +326,7 @@ function getFieldErrors(key: string): string[] {
 }
 
 function initFormData() {
-  const data: Record<string, any> = {}
+  const data: Record<string, unknown> = {}
   for (const [key, field] of Object.entries(schemaProperties.value)) {
     // Initialize with existing value or default based on type
     if (props.modelValue && props.modelValue[key] !== undefined) {
@@ -374,7 +374,7 @@ watch(() => props.modelValue, (newVal) => {
 // Emit changes
 watch(formData, (newVal) => {
   // Filter out empty values for cleaner output
-  const cleanedData: Record<string, any> = {}
+  const cleanedData: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(newVal)) {
     if (value !== '' && value !== null && value !== undefined) {
       // For arrays, only include if not empty

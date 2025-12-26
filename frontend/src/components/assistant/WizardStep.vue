@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-v-html -- formatQuestion returns safe formatted text -->
 <template>
   <v-card class="wizard-step" elevation="1">
     <!-- Header with progress -->
@@ -18,7 +19,7 @@
     />
 
     <v-card-text class="wizard-step__content">
-      <!-- Question -->
+      <!-- Question - eslint-disable-next-line vue/no-v-html -- formatQuestion returns safe formatted text -->
       <div class="wizard-step__question mb-4" v-html="formatQuestion(currentStep.question)" />
 
       <!-- Help text -->
@@ -89,12 +90,12 @@
         density="comfortable"
         autofocus
       >
-        <template v-slot:item="{ item, props }">
-          <v-list-item v-bind="props">
-            <template v-slot:prepend v-if="item.raw.icon">
+        <template #item="{ item, props: itemProps }">
+          <v-list-item v-bind="itemProps">
+            <template v-if="item.raw.icon" #prepend>
               <v-icon :icon="item.raw.icon" size="small" class="mr-2" />
             </template>
-            <template v-slot:subtitle v-if="item.raw.description">
+            <template v-if="item.raw.description" #subtitle>
               {{ item.raw.description }}
             </template>
           </v-list-item>
@@ -120,9 +121,9 @@
       <v-autocomplete
         v-if="currentStep.input_type === 'entity_search'"
         v-model="answer"
+        v-model:search-input="entitySearchQuery"
         :items="entitySearchResults"
         :loading="isSearching"
-        :search-input.sync="entitySearchQuery"
         :placeholder="currentStep.placeholder || t('assistant.wizardSearchEntity')"
         item-title="name"
         item-value="id"
@@ -132,12 +133,12 @@
         return-object
         @update:search="onEntitySearch"
       >
-        <template v-slot:item="{ item, props }">
-          <v-list-item v-bind="props">
-            <template v-slot:prepend>
+        <template #item="{ item, props: itemProps }">
+          <v-list-item v-bind="itemProps">
+            <template #prepend>
               <v-icon size="small" class="mr-2">mdi-file-document-outline</v-icon>
             </template>
-            <template v-slot:subtitle>
+            <template #subtitle>
               {{ item.raw.entity_type }}
             </template>
           </v-list-item>
@@ -154,7 +155,7 @@
               :key="key"
               class="px-0"
             >
-              <template v-slot:prepend>
+              <template #prepend>
                 <v-icon size="small" color="success" class="mr-2">mdi-check</v-icon>
               </template>
               <v-list-item-title class="text-body-2">
@@ -219,6 +220,22 @@ import { useI18n } from 'vue-i18n'
 import { entityApi } from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
 
+const props = defineProps<{
+  wizardState: WizardState
+  currentStep: WizardStepDef
+  canGoBack: boolean
+  progress: number
+  isLoading?: boolean
+  wizardName?: string
+  wizardIcon?: string
+}>()
+
+const emit = defineEmits<{
+  next: [value: unknown]
+  back: []
+  cancel: []
+}>()
+
 const logger = useLogger('WizardStep')
 
 const { t } = useI18n()
@@ -237,9 +254,9 @@ export interface WizardStepDef {
   input_type: 'text' | 'textarea' | 'number' | 'date' | 'select' | 'multi_select' | 'entity_search' | 'confirm'
   options?: WizardStepOption[]
   placeholder?: string
-  validation?: Record<string, any>
+  validation?: Record<string, unknown>
   entity_type?: string
-  default_value?: any
+  default_value?: unknown
   required?: boolean
   help_text?: string
 }
@@ -250,31 +267,22 @@ export interface WizardState {
   current_step_id: string
   current_step_index: number
   total_steps: number
-  answers: Record<string, any>
+  answers: Record<string, unknown>
   completed: boolean
   cancelled: boolean
 }
 
-const props = defineProps<{
-  wizardState: WizardState
-  currentStep: WizardStepDef
-  canGoBack: boolean
-  progress: number
-  isLoading?: boolean
-  wizardName?: string
-  wizardIcon?: string
-}>()
-
-const emit = defineEmits<{
-  next: [value: any]
-  back: []
-  cancel: []
-}>()
+// Entity search result interface
+interface EntitySearchResult {
+  id: string
+  name: string
+  entity_type?: string
+}
 
 // State
-const answer = ref<any>(props.currentStep.default_value ?? '')
+const answer = ref<unknown>(props.currentStep.default_value ?? '')
 const entitySearchQuery = ref('')
-const entitySearchResults = ref<any[]>([])
+const entitySearchResults = ref<EntitySearchResult[]>([])
 const isSearching = ref(false)
 
 // Computed
@@ -288,10 +296,10 @@ const selectOptions = computed<WizardStepOption[]>(() => {
 })
 
 const validationRules = computed(() => {
-  const rules: ((v: any) => boolean | string)[] = []
+  const rules: ((v: unknown) => boolean | string)[] = []
 
   if (props.currentStep.required !== false) {
-    rules.push((v: any) => !!v || t('assistant.wizardRequired'))
+    rules.push((v: unknown) => !!v || t('assistant.wizardRequired'))
   }
 
   if (props.currentStep.validation) {
@@ -359,7 +367,7 @@ function escapeHtml(text: string): string {
 
 function formatQuestion(question: string): string {
   // First escape HTML to prevent XSS, then apply markdown-like formatting
-  let formatted = escapeHtml(question)
+  const formatted = escapeHtml(question)
   return formatted
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/`(.+?)`/g, '<code>$1</code>')
@@ -372,9 +380,10 @@ function formatAnswerKey(key: string): string {
     .replace(/\b\w/g, l => l.toUpperCase())
 }
 
-function formatAnswerValue(value: any): string {
+function formatAnswerValue(value: unknown): string {
   if (typeof value === 'object' && value !== null) {
-    return value.name || value.label || JSON.stringify(value)
+    const obj = value as { name?: string; label?: string }
+    return obj.name || obj.label || JSON.stringify(value)
   }
   return String(value)
 }
@@ -387,13 +396,13 @@ async function onEntitySearch(query: string) {
 
   isSearching.value = true
   try {
-    const params: any = { search: query, per_page: 10 }
+    const params: Record<string, unknown> = { search: query, per_page: 10 }
     if (props.currentStep.entity_type) {
       params.entity_type_slug = props.currentStep.entity_type
     }
 
     const response = await entityApi.getEntities(params)
-    entitySearchResults.value = response.data.items.map((item: any) => ({
+    entitySearchResults.value = response.data.items.map((item: { id: string; name: string; entity_type?: { name?: string }; entity_type_slug?: string }) => ({
       id: item.id,
       name: item.name,
       entity_type: item.entity_type?.name || item.entity_type_slug,

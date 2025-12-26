@@ -50,8 +50,8 @@
 
       <!-- Visualization -->
       <component
-        v-else
         :is="visualizationComponent"
+        v-else
         :data="data"
         :config="visualizationConfig"
       />
@@ -64,6 +64,16 @@ import { computed, defineAsyncComponent, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { SummaryWidget } from '@/stores/customSummaries'
 
+const props = defineProps<{
+  widget: SummaryWidget
+  data: Record<string, unknown>[]
+  editMode?: boolean
+  isLoading?: boolean
+}>()
+defineEmits<{
+  edit: []
+  delete: []
+}>()
 const { t } = useI18n()
 import {
   VISUALIZATION_ICONS,
@@ -95,18 +105,6 @@ const MapVisualization = defineAsyncComponent(
 const CalendarVisualization = defineAsyncComponent(
   () => import('@/components/smartquery/visualizations/CalendarVisualization.vue')
 )
-
-const props = defineProps<{
-  widget: SummaryWidget
-  data: Record<string, any>[]
-  editMode?: boolean
-  isLoading?: boolean
-}>()
-
-defineEmits<{
-  edit: []
-  delete: []
-}>()
 
 const visualizationComponents: Record<string, Component> = {
   table: TableVisualization,

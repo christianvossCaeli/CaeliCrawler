@@ -25,9 +25,9 @@
           ></v-select>
         </v-col>
         <v-col
+          v-if="flags.entityHierarchyEnabled && currentEntityType?.supports_hierarchy"
           cols="12"
           md="2"
-          v-if="flags.entityHierarchyEnabled && currentEntityType?.supports_hierarchy"
         >
           <v-autocomplete
             :model-value="filters.parent_id"
@@ -57,9 +57,9 @@
           <v-btn
             variant="outlined"
             :color="hasExtendedFilters ? 'primary' : undefined"
-            @click="$emit('open-extended-filters')"
             height="56"
             min-width="56"
+            @click="$emit('open-extended-filters')"
           >
             <v-icon>mdi-tune</v-icon>
             <v-badge
@@ -111,19 +111,35 @@
 import { useI18n } from 'vue-i18n'
 import type { EntityFilters } from '@/composables/useEntitiesView'
 
+interface Category {
+  id: string
+  name: string
+}
+
+interface ParentOption {
+  id: string
+  name: string
+}
+
+interface EntityTypeLocal {
+  slug: string
+  name: string
+  supports_hierarchy?: boolean
+}
+
 interface Props {
   searchQuery: string
   filters: EntityFilters
-  categories: any[]
-  parentOptions: any[]
+  categories: Category[]
+  parentOptions: ParentOption[]
   loadingParents: boolean
-  facetFilterOptions: Array<{ label: string; value: any }>
+  facetFilterOptions: Array<{ label: string; value: string }>
   hasExtendedFilters: boolean
   activeExtendedFilterCount: number
   allExtendedFilters: Record<string, string>
   hasAnyFilters: boolean
-  currentEntityType: any
-  flags: any
+  currentEntityType: EntityTypeLocal | null
+  flags: { entityHierarchyEnabled?: boolean }
   getFilterTitle: (key: string) => string
 }
 

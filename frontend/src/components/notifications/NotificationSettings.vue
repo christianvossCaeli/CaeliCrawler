@@ -54,7 +54,7 @@
               class="mb-2 rounded"
               :class="getPrimaryEmailClass(email)"
             >
-              <template v-slot:prepend>
+              <template #prepend>
                 <v-icon :color="email.is_verified ? 'success' : 'warning'">
                   {{ email.is_verified ? 'mdi-email-check' : 'mdi-email-alert' }}
                 </v-icon>
@@ -78,7 +78,7 @@
                 {{ email.label }}
               </v-list-item-subtitle>
 
-              <template v-slot:append>
+              <template #append>
                 <v-btn
                   v-if="!email.is_verified"
                   icon="mdi-email-send"

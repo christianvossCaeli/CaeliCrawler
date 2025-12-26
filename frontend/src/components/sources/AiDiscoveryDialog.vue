@@ -21,9 +21,9 @@
         <v-btn
           icon
           variant="text"
-          @click="close"
           :disabled="isSearching"
           :aria-label="$t('common.close')"
+          @click="close"
         >
           <v-icon>mdi-close</v-icon>
         </v-btn>
@@ -37,8 +37,8 @@
           variant="tonal"
           class="mb-4"
           closable
-          @click:close="errorMessage = ''"
           role="alert"
+          @click:close="errorMessage = ''"
         >
           {{ errorMessage }}
         </v-alert>
@@ -47,9 +47,9 @@
         <AiDiscoveryInputPhase
           v-if="phase === 'input'"
           v-model:prompt="prompt"
-          v-model:searchDepth="searchDepth"
-          v-model:maxResults="maxResults"
-          v-model:skipApiDiscovery="skipApiDiscovery"
+          v-model:search-depth="searchDepth"
+          v-model:max-results="maxResults"
+          v-model:skip-api-discovery="skipApiDiscovery"
           :examples="examples"
           :min-results="AI_DISCOVERY.MAX_RESULTS_MIN"
           :max-results-limit="AI_DISCOVERY.MAX_RESULTS_MAX"
@@ -71,21 +71,21 @@
             <v-tab value="api" :disabled="!discoveryResult?.api_sources?.length">
               <v-icon start>mdi-api</v-icon>
               {{ $t('sources.aiDiscovery.apiSources') }}
-              <v-chip size="x-small" class="ml-2" color="success" v-if="discoveryResult?.api_sources?.length">
+              <v-chip v-if="discoveryResult?.api_sources?.length" size="x-small" class="ml-2" color="success">
                 {{ discoveryResult.api_sources.length }}
               </v-chip>
             </v-tab>
             <v-tab value="web" :disabled="!discoveryResult?.web_sources?.length">
               <v-icon start>mdi-web</v-icon>
               {{ $t('sources.aiDiscovery.webSources') }}
-              <v-chip size="x-small" class="ml-2" v-if="discoveryResult?.web_sources?.length">
+              <v-chip v-if="discoveryResult?.web_sources?.length" size="x-small" class="ml-2">
                 {{ discoveryResult.web_sources.length }}
               </v-chip>
             </v-tab>
             <v-tab value="suggestions">
               <v-icon start>mdi-lightbulb</v-icon>
               {{ $t('sources.aiDiscovery.apiSuggestions') }}
-              <v-chip size="x-small" class="ml-2" v-if="discoveryResult?.api_validations?.length">
+              <v-chip v-if="discoveryResult?.api_validations?.length" size="x-small" class="ml-2">
                 {{ discoveryResult.api_validations.length }}
               </v-chip>
             </v-tab>
@@ -95,8 +95,8 @@
             <!-- API Sources Tab -->
             <v-window-item value="api">
               <AiDiscoveryApiResults
+                v-model:selected-indices="selectedApiSources"
                 :sources="discoveryResult?.api_sources || []"
-                v-model:selectedIndices="selectedApiSources"
                 @save-template="saveAsTemplate"
               />
             </v-window-item>
@@ -104,8 +104,8 @@
             <!-- Web Sources Tab -->
             <v-window-item value="web">
               <AiDiscoveryWebResults
+                v-model:selected-urls="selectedWebSources"
                 :sources="discoveryResult?.web_sources || []"
-                v-model:selectedUrls="selectedWebSources"
               />
             </v-window-item>
 
@@ -118,7 +118,7 @@
           </v-window>
 
           <!-- Category Selection -->
-          <v-card variant="outlined" class="mt-4" v-if="hasResults">
+          <v-card v-if="hasResults" variant="outlined" class="mt-4">
             <v-card-title class="text-subtitle-2 pb-2">
               <v-icon start size="small">mdi-folder-multiple</v-icon>
               {{ $t('sources.aiDiscovery.targetCategories') }}
@@ -145,7 +145,7 @@
 
       <!-- Footer Actions -->
       <v-card-actions class="pa-4">
-        <v-btn variant="text" @click="close" :disabled="isSearching">
+        <v-btn variant="text" :disabled="isSearching" @click="close">
           {{ $t('common.cancel') }}
         </v-btn>
         <v-spacer />
@@ -162,7 +162,7 @@
           </v-btn>
         </template>
         <template v-if="phase === 'results'">
-          <v-btn variant="outlined" @click="phase = 'input'" class="mr-2">
+          <v-btn variant="outlined" class="mr-2" @click="phase = 'input'">
             <v-icon start>mdi-arrow-left</v-icon>
             {{ $t('common.back') }}
           </v-btn>
@@ -230,22 +230,22 @@ import type {
   TemplateFormData,
 } from './ai-discovery/types'
 
-const logger = useLogger('AiDiscoveryDialog')
+// defineModel() for two-way binding (Vue 3.4+)
+const isOpen = defineModel<boolean>({ default: false })
 
 // ============================================================================
 // Props & Emits
 // ============================================================================
 
-const props = defineProps<{
+defineProps<{
   categories: Category[]
 }>()
-
-// defineModel() for two-way binding (Vue 3.4+)
-const isOpen = defineModel<boolean>({ default: false })
 
 const emit = defineEmits<{
   (e: 'imported', count: number): void
 }>()
+
+const logger = useLogger('AiDiscoveryDialog')
 
 const { t } = useI18n()
 
@@ -412,7 +412,7 @@ const importSources = async () => {
     // Import API sources
     const apiImportResults = await Promise.allSettled(
       selectedApiSources.value.map(async (index) => {
-        const source = discoveryResult.value!.api_sources[index]
+        const source = discoveryResult.value?.api_sources[index]
         if (!source) return { imported: 0 }
 
         const response = await adminApi.importApiData({
@@ -492,10 +492,10 @@ const confirmSaveTemplate = async () => {
     const baseUrl = `${url.protocol}//${url.host}`
     const endpoint = url.pathname + url.search
 
-    await adminApi.saveApiTemplateFromDiscovery({
+    await adminApi.saveApiFromDiscovery({
       name: templateForm.value.name,
       description: templateForm.value.description,
-      api_type: source.api_type as 'REST' | 'GRAPHQL' | 'SPARQL' | 'OPARL',
+      api_type: source.api_type,
       base_url: baseUrl,
       endpoint: endpoint,
       field_mapping: source.field_mapping,

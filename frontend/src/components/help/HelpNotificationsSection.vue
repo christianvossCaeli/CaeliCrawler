@@ -124,19 +124,19 @@
 
     <v-timeline density="compact" side="end" class="mb-4">
       <v-timeline-item dot-color="primary" size="small">
-        <template v-slot:opposite><strong>1</strong></template>
+        <template #opposite><strong>1</strong></template>
         <div><strong>{{ t('help.notifications.createRules.step1Title') }}</strong><br>{{ t('help.notifications.createRules.step1Desc') }}</div>
       </v-timeline-item>
       <v-timeline-item dot-color="success" size="small">
-        <template v-slot:opposite><strong>2</strong></template>
+        <template #opposite><strong>2</strong></template>
         <div><strong>{{ t('help.notifications.createRules.step2Title') }}</strong><br>{{ t('help.notifications.createRules.step2Desc') }}</div>
       </v-timeline-item>
       <v-timeline-item dot-color="warning" size="small">
-        <template v-slot:opposite><strong>3</strong></template>
+        <template #opposite><strong>3</strong></template>
         <div><strong>{{ t('help.notifications.createRules.step3Title') }}</strong><br>{{ t('help.notifications.createRules.step3Desc') }}</div>
       </v-timeline-item>
       <v-timeline-item dot-color="info" size="small">
-        <template v-slot:opposite><strong>4</strong></template>
+        <template #opposite><strong>4</strong></template>
         <div><strong>{{ t('help.notifications.createRules.step4Title') }}</strong><br>{{ t('help.notifications.createRules.step4Desc') }}</div>
       </v-timeline-item>
     </v-timeline>

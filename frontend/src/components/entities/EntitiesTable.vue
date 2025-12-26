@@ -6,11 +6,11 @@
     :loading="loading"
     :items-per-page="itemsPerPage"
     :page="currentPage"
-    @update:options="handleOptionsUpdate"
-    @click:row="(_event: Event, { item }: { item: any }) => $emit('entity-click', item)"
     class="cursor-pointer"
+    @update:options="handleOptionsUpdate"
+    @click:row="(_event: Event, { item }: { item: Entity }) => $emit('entity-click', item)"
   >
-    <template v-slot:item.name="{ item }">
+    <template #item.name="{ item }">
       <div class="d-flex align-center">
         <v-icon
           class="mr-2"
@@ -26,41 +26,41 @@
       </div>
     </template>
 
-    <template v-slot:item.hierarchy_path="{ item }">
+    <template #item.hierarchy_path="{ item }">
       <span class="text-medium-emphasis-darken-1 text-caption">{{ item.hierarchy_path || '-' }}</span>
     </template>
 
-    <template v-slot:item.filled_facets="{ item }">
+    <template #item.filled_facets="{ item }">
       <v-chip size="small" color="secondary" variant="tonal">
         <v-icon start size="small">mdi-tag-check</v-icon>
         {{ item.facet_count || 0 }}
       </v-chip>
     </template>
 
-    <template v-slot:item.facet_count="{ item }">
+    <template #item.facet_count="{ item }">
       <v-chip size="small" color="primary" variant="tonal">
         <v-icon start size="small">mdi-tag-multiple</v-icon>
         {{ (item.facet_count || 0) + (item.core_attributes ? Object.keys(item.core_attributes).length : 0) }}
       </v-chip>
     </template>
 
-    <template v-slot:item.relation_count="{ item }">
+    <template #item.relation_count="{ item }">
       <v-chip size="small" color="info" variant="tonal">
         <v-icon start size="small">mdi-sitemap</v-icon>
         {{ (item.relation_count || 0) + (item.children_count || 0) + (item.parent_id ? 1 : 0) }}
       </v-chip>
     </template>
 
-    <template v-slot:item.facet_summary="{ item }">
+    <template #item.facet_summary="{ item }">
       <div class="d-flex ga-1 flex-wrap">
         <v-tooltip
           v-for="facet in getTopFacetCounts(item)"
           :key="facet.slug"
           location="top"
         >
-          <template v-slot:activator="{ props }">
+          <template #activator="{ props: activatorProps }">
             <v-chip
-              v-bind="props"
+              v-bind="activatorProps"
               size="x-small"
               :color="facet.color"
               variant="tonal"
@@ -74,7 +74,7 @@
       </div>
     </template>
 
-    <template v-slot:item.actions="{ item }">
+    <template #item.actions="{ item }">
       <div class="table-actions d-flex justify-end ga-1">
         <v-btn
           icon="mdi-eye"
@@ -110,24 +110,38 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { Entity, EntityType } from '@/types/entity'
+
+interface FacetCount {
+  slug: string
+  name: string
+  icon: string
+  color: string
+  count: number
+}
+
+interface FeatureFlags {
+  entityHierarchyEnabled?: boolean
+  [key: string]: boolean | undefined
+}
 
 interface Props {
-  entities: any[]
+  entities: Entity[]
   totalEntities: number
   loading: boolean
   itemsPerPage: number
   currentPage: number
-  currentEntityType: any
-  flags: any
-  getTopFacetCounts: (entity: any) => Array<{ slug: string; name: string; icon: string; color: string; count: number }>
+  currentEntityType: EntityType | null
+  flags: FeatureFlags
+  getTopFacetCounts: (entity: Entity) => FacetCount[]
 }
 
 interface Emits {
   (e: 'update:items-per-page', value: number): void
   (e: 'update:current-page', value: number): void
-  (e: 'entity-click', entity: any): void
-  (e: 'entity-edit', entity: any): void
-  (e: 'entity-delete', entity: any): void
+  (e: 'entity-click', entity: Entity): void
+  (e: 'entity-edit', entity: Entity): void
+  (e: 'entity-delete', entity: Entity): void
 }
 
 const props = defineProps<Props>()

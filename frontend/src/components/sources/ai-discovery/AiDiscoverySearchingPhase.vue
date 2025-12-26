@@ -9,7 +9,7 @@
     <div class="text-h6 mb-2">{{ $t('sources.aiDiscovery.searching') }}</div>
     <v-list density="compact" class="text-left mx-auto" style="max-width: 400px">
       <v-list-item v-for="(step, index) in steps" :key="index">
-        <template v-slot:prepend>
+        <template #prepend>
           <v-icon
             :color="step.done ? 'success' : (step.active ? 'primary' : 'grey')"
             size="small"

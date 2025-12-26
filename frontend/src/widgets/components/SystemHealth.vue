@@ -1,3 +1,109 @@
+<template>
+  <BaseWidget
+    :definition="definition"
+    :config="config"
+    :is-editing="isEditing"
+    @refresh="refresh"
+  >
+    <div v-if="loading" class="d-flex justify-center py-6">
+      <v-progress-circular indeterminate size="32" />
+    </div>
+
+    <template v-else>
+      <!-- Overall Status -->
+      <v-alert
+        :color="healthColor"
+        variant="tonal"
+        density="compact"
+        class="mb-4"
+      >
+        <template #prepend>
+          <v-icon :icon="healthIcon" />
+        </template>
+        <span class="text-subtitle-2 font-weight-medium">
+          {{ $t(`dashboard.health.${overallHealth}`) }}
+        </span>
+      </v-alert>
+
+      <!-- Stats Grid -->
+      <v-row dense role="group" aria-label="System health statistics">
+        <!-- AI Tasks -->
+        <v-col cols="6">
+          <div
+            class="stat-box pa-2 rounded clickable-box"
+            :class="{ 'non-interactive': isEditing }"
+            role="button"
+            :tabindex="isEditing ? -1 : 0"
+            :aria-label="$t('dashboard.aiTasks') + ': ' + (aiStats?.running || 0) + ' ' + $t('common.running') + ', ' + (aiStats?.completed || 0) + ' ' + $t('common.done') + ', ' + (aiStats?.failed || 0) + ' ' + $t('common.failed')"
+            @click="navigateToResults()"
+            @keydown="handleKeydownResults($event)"
+          >
+            <div class="text-caption text-medium-emphasis mb-1">
+              <v-icon size="x-small" class="mr-1">mdi-robot</v-icon>
+              {{ $t('dashboard.aiTasks') }}
+            </div>
+            <div class="d-flex justify-space-between text-body-2">
+              <span class="text-info">{{ aiStats?.running || 0 }}</span>
+              <span class="text-success">{{ aiStats?.completed || 0 }}</span>
+              <span class="text-error">{{ aiStats?.failed || 0 }}</span>
+            </div>
+            <div class="d-flex justify-space-between text-caption text-medium-emphasis">
+              <span>{{ $t('common.running') }}</span>
+              <span>{{ $t('common.done') }}</span>
+              <span>{{ $t('common.failed') }}</span>
+            </div>
+          </div>
+        </v-col>
+
+        <!-- Crawler -->
+        <v-col cols="6">
+          <div
+            class="stat-box pa-2 rounded clickable-box"
+            :class="{ 'non-interactive': isEditing }"
+            role="button"
+            :tabindex="isEditing ? -1 : 0"
+            :aria-label="$t('dashboard.crawler') + ': ' + (crawlerStats?.running_jobs || 0) + ' ' + $t('common.running') + ', ' + (crawlerStats?.completed_jobs || 0) + ' ' + $t('common.done') + ', ' + (crawlerStats?.failed_jobs || 0) + ' ' + $t('common.failed')"
+            @click="navigateToCrawler()"
+            @keydown="handleKeydownCrawler($event)"
+          >
+            <div class="text-caption text-medium-emphasis mb-1">
+              <v-icon size="x-small" class="mr-1">mdi-web</v-icon>
+              {{ $t('dashboard.crawler') }}
+            </div>
+            <div class="d-flex justify-space-between text-body-2">
+              <span class="text-info">{{ crawlerStats?.running_jobs || 0 }}</span>
+              <span class="text-success">{{ crawlerStats?.completed_jobs || 0 }}</span>
+              <span class="text-error">{{ crawlerStats?.failed_jobs || 0 }}</span>
+            </div>
+            <div class="d-flex justify-space-between text-caption text-medium-emphasis">
+              <span>{{ $t('common.running') }}</span>
+              <span>{{ $t('common.done') }}</span>
+              <span>{{ $t('common.failed') }}</span>
+            </div>
+          </div>
+        </v-col>
+      </v-row>
+
+      <!-- Confidence Score -->
+      <div v-if="aiStats?.avg_confidence" class="mt-3 text-center">
+        <div class="text-caption text-medium-emphasis">
+          {{ $t('dashboard.avgConfidence') }}
+        </div>
+        <v-progress-linear
+          :model-value="aiStats.avg_confidence * 100"
+          color="primary"
+          height="8"
+          rounded
+          class="mt-1"
+        />
+        <div class="text-caption mt-1">
+          {{ Math.round(aiStats.avg_confidence * 100) }}%
+        </div>
+      </div>
+    </template>
+  </BaseWidget>
+</template>
+
 <script setup lang="ts">
 /**
  * SystemHealth Widget - Shows AI task and system health status
@@ -104,112 +210,6 @@ const handleKeydownResults = (event: KeyboardEvent) => {
   handleKeyboardClick(event, () => navigateToResults())
 }
 </script>
-
-<template>
-  <BaseWidget
-    :definition="definition"
-    :config="config"
-    :is-editing="isEditing"
-    @refresh="refresh"
-  >
-    <div v-if="loading" class="d-flex justify-center py-6">
-      <v-progress-circular indeterminate size="32" />
-    </div>
-
-    <template v-else>
-      <!-- Overall Status -->
-      <v-alert
-        :color="healthColor"
-        variant="tonal"
-        density="compact"
-        class="mb-4"
-      >
-        <template #prepend>
-          <v-icon :icon="healthIcon" />
-        </template>
-        <span class="text-subtitle-2 font-weight-medium">
-          {{ $t(`dashboard.health.${overallHealth}`) }}
-        </span>
-      </v-alert>
-
-      <!-- Stats Grid -->
-      <v-row dense role="group" aria-label="System health statistics">
-        <!-- AI Tasks -->
-        <v-col cols="6">
-          <div
-            class="stat-box pa-2 rounded clickable-box"
-            :class="{ 'non-interactive': isEditing }"
-            role="button"
-            :tabindex="isEditing ? -1 : 0"
-            :aria-label="$t('dashboard.aiTasks') + ': ' + (aiStats?.running || 0) + ' ' + $t('common.running') + ', ' + (aiStats?.completed || 0) + ' ' + $t('common.done') + ', ' + (aiStats?.failed || 0) + ' ' + $t('common.failed')"
-            @click="navigateToResults()"
-            @keydown="handleKeydownResults($event)"
-          >
-            <div class="text-caption text-medium-emphasis mb-1">
-              <v-icon size="x-small" class="mr-1">mdi-robot</v-icon>
-              {{ $t('dashboard.aiTasks') }}
-            </div>
-            <div class="d-flex justify-space-between text-body-2">
-              <span class="text-info">{{ aiStats?.running || 0 }}</span>
-              <span class="text-success">{{ aiStats?.completed || 0 }}</span>
-              <span class="text-error">{{ aiStats?.failed || 0 }}</span>
-            </div>
-            <div class="d-flex justify-space-between text-caption text-medium-emphasis">
-              <span>{{ $t('common.running') }}</span>
-              <span>{{ $t('common.done') }}</span>
-              <span>{{ $t('common.failed') }}</span>
-            </div>
-          </div>
-        </v-col>
-
-        <!-- Crawler -->
-        <v-col cols="6">
-          <div
-            class="stat-box pa-2 rounded clickable-box"
-            :class="{ 'non-interactive': isEditing }"
-            role="button"
-            :tabindex="isEditing ? -1 : 0"
-            :aria-label="$t('dashboard.crawler') + ': ' + (crawlerStats?.running_jobs || 0) + ' ' + $t('common.running') + ', ' + (crawlerStats?.completed_jobs || 0) + ' ' + $t('common.done') + ', ' + (crawlerStats?.failed_jobs || 0) + ' ' + $t('common.failed')"
-            @click="navigateToCrawler()"
-            @keydown="handleKeydownCrawler($event)"
-          >
-            <div class="text-caption text-medium-emphasis mb-1">
-              <v-icon size="x-small" class="mr-1">mdi-web</v-icon>
-              {{ $t('dashboard.crawler') }}
-            </div>
-            <div class="d-flex justify-space-between text-body-2">
-              <span class="text-info">{{ crawlerStats?.running_jobs || 0 }}</span>
-              <span class="text-success">{{ crawlerStats?.completed_jobs || 0 }}</span>
-              <span class="text-error">{{ crawlerStats?.failed_jobs || 0 }}</span>
-            </div>
-            <div class="d-flex justify-space-between text-caption text-medium-emphasis">
-              <span>{{ $t('common.running') }}</span>
-              <span>{{ $t('common.done') }}</span>
-              <span>{{ $t('common.failed') }}</span>
-            </div>
-          </div>
-        </v-col>
-      </v-row>
-
-      <!-- Confidence Score -->
-      <div v-if="aiStats?.avg_confidence" class="mt-3 text-center">
-        <div class="text-caption text-medium-emphasis">
-          {{ $t('dashboard.avgConfidence') }}
-        </div>
-        <v-progress-linear
-          :model-value="aiStats.avg_confidence * 100"
-          color="primary"
-          height="8"
-          rounded
-          class="mt-1"
-        />
-        <div class="text-caption mt-1">
-          {{ Math.round(aiStats.avg_confidence * 100) }}%
-        </div>
-      </div>
-    </template>
-  </BaseWidget>
-</template>
 
 <style scoped>
 .stat-box {

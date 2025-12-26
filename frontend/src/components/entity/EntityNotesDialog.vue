@@ -12,18 +12,18 @@
         <v-icon start aria-hidden="true">mdi-note-text</v-icon>
         {{ t('entityDetail.notes') }}
         <v-spacer></v-spacer>
-        <v-btn icon="mdi-close" variant="tonal" @click="modelValue = false" :aria-label="t('common.close')"></v-btn>
+        <v-btn icon="mdi-close" variant="tonal" :aria-label="t('common.close')" @click="modelValue = false"></v-btn>
       </v-card-title>
       <v-card-text>
         <!-- Add Note Form -->
         <v-textarea
           :model-value="newNote"
-          @update:model-value="$emit('update:newNote', $event)"
           :label="t('entityDetail.dialog.addNote')"
           rows="3"
           variant="outlined"
           class="mb-4"
           :aria-label="t('entityDetail.dialog.addNote')"
+          @update:model-value="$emit('update:newNote', $event)"
         ></v-textarea>
         <div class="d-flex justify-end mb-4">
           <v-btn
@@ -95,9 +95,6 @@ interface Note {
 
 const modelValue = defineModel<boolean>({ default: false })
 
-// ARIA
-const dialogTitleId = `entity-notes-dialog-title-${Math.random().toString(36).slice(2, 9)}`
-
 // Props
 defineProps<{
   notes: Note[]
@@ -105,15 +102,18 @@ defineProps<{
   savingNote: boolean
 }>()
 
-// Focus management for accessibility
-useDialogFocus({ isOpen: modelValue })
-
 // Emits
 defineEmits<{
   'update:newNote': [value: string]
   saveNote: []
   deleteNote: [noteId: string]
 }>()
+
+// ARIA
+const dialogTitleId = `entity-notes-dialog-title-${Math.random().toString(36).slice(2, 9)}`
+
+// Focus management for accessibility
+useDialogFocus({ isOpen: modelValue })
 
 const { t } = useI18n()
 

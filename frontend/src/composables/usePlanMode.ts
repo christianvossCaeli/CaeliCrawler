@@ -13,6 +13,29 @@ import { useLogger } from '@/composables/useLogger'
 
 const logger = useLogger('usePlanMode')
 
+// Type for axios-like errors
+interface AxiosLikeError {
+  response?: { status?: number; data?: { detail?: string } }
+  message?: string
+  code?: string
+}
+
+// Helper for type-safe error handling
+function getErrorDetail(err: unknown): string | undefined {
+  if (err && typeof err === 'object') {
+    const e = err as AxiosLikeError
+    return e.response?.data?.detail || e.message
+  }
+  return undefined
+}
+
+function asAxiosError(err: unknown): AxiosLikeError | null {
+  if (err && typeof err === 'object') {
+    return err as AxiosLikeError
+  }
+  return null
+}
+
 // Types
 export interface PlanMessage {
   role: 'user' | 'assistant'
@@ -170,7 +193,7 @@ export function usePlanMode() {
       }
 
       return true
-    } catch (e: any) {
+    } catch (e: unknown) {
       // Remove the optimistic user message on error
       const lastMessage = conversation.value[conversation.value.length - 1]
       if (lastMessage?.role === 'user' && lastMessage?.content === question) {
@@ -178,25 +201,25 @@ export function usePlanMode() {
       }
 
       // Set specific error messages based on error type
-      if (e.response?.status === 429) {
+      const axiosErr = asAxiosError(e)
+      if (axiosErr?.response?.status === 429) {
         error.value = t(
           'smartQueryView.errors.rateLimited',
           'Zu viele Anfragen. Bitte warte einen Moment.'
         )
-      } else if (e.response?.status >= 500) {
+      } else if (axiosErr?.response?.status && axiosErr.response.status >= 500) {
         error.value = t(
           'smartQueryView.errors.serverError',
           'Der Server ist momentan nicht erreichbar. Bitte versuche es später erneut.'
         )
-      } else if (e.code === 'ECONNABORTED' || e.message?.includes('timeout')) {
+      } else if (axiosErr?.code === 'ECONNABORTED' || axiosErr?.message?.includes('timeout')) {
         error.value = t(
           'smartQueryView.errors.timeout',
           'Die Anfrage hat zu lange gedauert. Bitte versuche es erneut.'
         )
       } else {
         error.value =
-          e.response?.data?.detail ||
-          e.message ||
+          getErrorDetail(e) ||
           t('smartQueryView.errors.queryError', 'Fehler bei der Anfrage')
       }
 
@@ -356,17 +379,17 @@ export function usePlanMode() {
       }
 
       return true
-    } catch (e: any) {
+    } catch (e: unknown) {
       // Check if we have partial content in the assistant message
       const lastMessage = conversation.value[conversation.value.length - 1]
       const hasPartialContent = Boolean(
         lastMessage?.role === 'assistant' && lastMessage?.content && lastMessage.content.length > 0
       )
 
-      if (hasPartialContent) {
+      if (hasPartialContent && lastMessage) {
         // Keep partial content but mark as incomplete
-        lastMessage!.isStreaming = false
-        lastMessage!.content += '\n\n⚠️ *Antwort wurde aufgrund eines Fehlers abgebrochen*'
+        lastMessage.isStreaming = false
+        lastMessage.content += '\n\n⚠️ *Antwort wurde aufgrund eines Fehlers abgebrochen*'
       } else {
         // Remove empty optimistic messages on error
         if (lastMessage?.role === 'assistant' && lastMessage?.isStreaming) {
@@ -379,7 +402,9 @@ export function usePlanMode() {
       }
 
       // Handle abort
-      if (e.name === 'AbortError') {
+      const axiosErr = asAxiosError(e)
+      const errName = e instanceof Error ? e.name : undefined
+      if (errName === 'AbortError') {
         // For abort, we might want to keep partial content
         if (hasPartialContent) {
           error.value = t('smartQueryView.errors.cancelledPartial', 'Anfrage abgebrochen - Teilantwort angezeigt')
@@ -390,18 +415,18 @@ export function usePlanMode() {
       }
 
       // Set specific error messages
-      if (e.message?.includes('429')) {
+      if (axiosErr?.message?.includes('429')) {
         error.value = t(
           'smartQueryView.errors.rateLimited',
           'Zu viele Anfragen. Bitte warte einen Moment.'
         )
-      } else if (e.message?.includes('5')) {
+      } else if (axiosErr?.message?.includes('5')) {
         error.value = t(
           'smartQueryView.errors.serverError',
           'Der Server ist momentan nicht erreichbar. Bitte versuche es später erneut.'
         )
       } else {
-        error.value = e.message || t('smartQueryView.errors.queryError', 'Fehler bei der Anfrage')
+        error.value = getErrorDetail(e) || t('smartQueryView.errors.queryError', 'Fehler bei der Anfrage')
       }
 
       // Return true if we have partial content to display
@@ -483,10 +508,9 @@ export function usePlanMode() {
       validationResult.value = result
 
       return result
-    } catch (e: any) {
+    } catch (e: unknown) {
       error.value =
-        e.response?.data?.detail ||
-        e.message ||
+        getErrorDetail(e) ||
         t('smartQueryView.errors.validationError', 'Fehler bei der Validierung')
       return null
     } finally {

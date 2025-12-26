@@ -24,27 +24,27 @@
       {{ t('help.aiSourceDiscovery.kiFirstApproach.description') }}
     </v-alert>
     <v-stepper :items="kiFirstSteps" alt-labels class="mb-4">
-      <template v-slot:item.1>
+      <template #item.1>
         <v-card flat>
           <v-card-text>{{ t('help.aiSourceDiscovery.kiFirstApproach.step1Desc') }}</v-card-text>
         </v-card>
       </template>
-      <template v-slot:item.2>
+      <template #item.2>
         <v-card flat>
           <v-card-text>{{ t('help.aiSourceDiscovery.kiFirstApproach.step2Desc') }}</v-card-text>
         </v-card>
       </template>
-      <template v-slot:item.3>
+      <template #item.3>
         <v-card flat>
           <v-card-text>{{ t('help.aiSourceDiscovery.kiFirstApproach.step3Desc') }}</v-card-text>
         </v-card>
       </template>
-      <template v-slot:item.4>
+      <template #item.4>
         <v-card flat>
           <v-card-text>{{ t('help.aiSourceDiscovery.kiFirstApproach.step4Desc') }}</v-card-text>
         </v-card>
       </template>
-      <template v-slot:item.5>
+      <template #item.5>
         <v-card flat>
           <v-card-text>{{ t('help.aiSourceDiscovery.kiFirstApproach.step5Desc') }}</v-card-text>
         </v-card>
@@ -119,27 +119,27 @@
 
     <h3 class="text-h6 mb-3">{{ t('help.aiSourceDiscovery.workflow.title') }}</h3>
     <v-stepper :items="workflowSteps" alt-labels class="mb-4">
-      <template v-slot:item.1>
+      <template #item.1>
         <v-card flat>
           <v-card-text>{{ t('help.aiSourceDiscovery.workflow.step1Desc') }}</v-card-text>
         </v-card>
       </template>
-      <template v-slot:item.2>
+      <template #item.2>
         <v-card flat>
           <v-card-text>{{ t('help.aiSourceDiscovery.workflow.step2Desc') }}</v-card-text>
         </v-card>
       </template>
-      <template v-slot:item.3>
+      <template #item.3>
         <v-card flat>
           <v-card-text>{{ t('help.aiSourceDiscovery.workflow.step3Desc') }}</v-card-text>
         </v-card>
       </template>
-      <template v-slot:item.4>
+      <template #item.4>
         <v-card flat>
           <v-card-text>{{ t('help.aiSourceDiscovery.workflow.step4Desc') }}</v-card-text>
         </v-card>
       </template>
-      <template v-slot:item.5>
+      <template #item.5>
         <v-card flat>
           <v-card-text>{{ t('help.aiSourceDiscovery.workflow.step5Desc') }}</v-card-text>
         </v-card>

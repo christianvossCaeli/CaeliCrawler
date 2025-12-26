@@ -65,7 +65,7 @@ export interface EntityTypeCreate {
   applicable_facet_types?: string[]
 }
 
-export interface EntityTypeUpdate extends Partial<EntityTypeCreate> {}
+export type EntityTypeUpdate = Partial<EntityTypeCreate>
 
 // =============================================================================
 // Entity
@@ -88,6 +88,7 @@ export interface Entity {
   attributes: Record<string, unknown>
   parent_id?: string
   parent_name?: string
+  parent_slug?: string
   children_count: number
   facet_count: number
   relation_count: number
@@ -96,6 +97,10 @@ export interface Entity {
   is_active: boolean
   created_at: string
   updated_at: string
+  // External data source fields
+  external_id?: string
+  api_configuration_id?: string
+  external_source_name?: string
 }
 
 export interface EntityBrief {
@@ -120,6 +125,7 @@ export interface EntityListParams extends PaginationParams {
   has_facets?: boolean
   sort_by?: 'name' | 'created_at' | 'updated_at' | 'facet_count'
   sort_order?: 'asc' | 'desc'
+  api_configuration_id?: string
 }
 
 export interface EntityCreate {
@@ -137,9 +143,11 @@ export interface EntityCreate {
   attributes?: Record<string, unknown>
   parent_id?: string
   is_active?: boolean
+  external_id?: string
+  api_configuration_id?: string
 }
 
-export interface EntityUpdate extends Partial<EntityCreate> {}
+export type EntityUpdate = Partial<EntityCreate>
 
 export interface EntityGeoJSON {
   type: 'FeatureCollection'
@@ -252,7 +260,7 @@ export interface FacetTypeCreate {
   is_active?: boolean
 }
 
-export interface FacetTypeUpdate extends Partial<FacetTypeCreate> {}
+export type FacetTypeUpdate = Partial<FacetTypeCreate>
 
 export interface FacetSchemaGenerationRequest {
   name: string
@@ -411,7 +419,7 @@ export interface RelationTypeCreate {
   is_active?: boolean
 }
 
-export interface RelationTypeUpdate extends Partial<RelationTypeCreate> {}
+export type RelationTypeUpdate = Partial<RelationTypeCreate>
 
 // =============================================================================
 // Relations (Entity Connections)
@@ -557,7 +565,7 @@ export interface AnalysisTemplateCreate {
   is_active?: boolean
 }
 
-export interface AnalysisTemplateUpdate extends Partial<AnalysisTemplateCreate> {}
+export type AnalysisTemplateUpdate = Partial<AnalysisTemplateCreate>
 
 export interface AnalysisOverview {
   entity_type_slug: string

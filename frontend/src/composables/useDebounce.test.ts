@@ -15,7 +15,7 @@ import {
 
 // Mock @vueuse/core
 vi.mock('@vueuse/core', () => ({
-  useDebounceFn: (fn: Function, delay: number) => {
+  useDebounceFn: (fn: (...args: unknown[]) => unknown, delay: number) => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null
     return (...args: unknown[]) => {
       if (timeoutId) clearTimeout(timeoutId)
@@ -26,7 +26,7 @@ vi.mock('@vueuse/core', () => ({
       })
     }
   },
-  useThrottleFn: (fn: Function, _delay: number) => fn,
+  useThrottleFn: (fn: (...args: unknown[]) => unknown, _delay: number) => fn,
 }))
 
 // Mock Vue lifecycle

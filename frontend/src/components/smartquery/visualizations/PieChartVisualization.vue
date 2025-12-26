@@ -19,13 +19,13 @@ import {
 import type { VisualizationConfig } from './types'
 import { getNestedValue } from './types'
 
-// Register Chart.js components
-ChartJS.register(ArcElement, Title, Tooltip, Legend)
-
 const props = defineProps<{
-  data: Record<string, any>[]
+  data: Record<string, unknown>[]
   config?: VisualizationConfig
 }>()
+
+// Register Chart.js components
+ChartJS.register(ArcElement, Title, Tooltip, Legend)
 
 const chartData = computed(() => {
   if (!props.data || props.data.length === 0) {
@@ -46,7 +46,7 @@ const chartData = computed(() => {
     const sample = props.data[0]
     if (sample.facets) {
       for (const [facetKey, facetValue] of Object.entries(sample.facets)) {
-        if (typeof (facetValue as any)?.value === 'number') {
+        if (typeof (facetValue as { value?: unknown })?.value === 'number') {
           valueKey = `facets.${facetKey}.value`
           break
         }
@@ -90,7 +90,7 @@ const chartOptions = computed(() => ({
     },
     tooltip: {
       callbacks: {
-        label: (context: any) => {
+        label: (context: { parsed: number; label?: string; dataset: { data: number[] } }) => {
           const value = context.parsed
           const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
           const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0

@@ -21,8 +21,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.api_configuration import APIConfiguration
     from app.models.entity import Entity
-    from external_apis.models.external_api_config import ExternalAPIConfig
 
 
 class RecordStatus(str, enum.Enum):
@@ -53,13 +53,13 @@ class SyncRecord(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "external_api_config_id",
+            "api_configuration_id",
             "external_id",
             name="uq_sync_record_config_external_id",
         ),
         Index(
             "ix_sync_records_missing",
-            "external_api_config_id",
+            "api_configuration_id",
             "sync_status",
             "missing_since",
         ),
@@ -72,9 +72,9 @@ class SyncRecord(Base):
     )
 
     # Foreign Keys
-    external_api_config_id: Mapped[uuid.UUID] = mapped_column(
+    api_configuration_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("external_api_configs.id", ondelete="CASCADE"),
+        ForeignKey("api_configurations.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -175,8 +175,8 @@ class SyncRecord(Base):
     )
 
     # Relationships
-    external_api_config: Mapped["ExternalAPIConfig"] = relationship(
-        "ExternalAPIConfig",
+    api_configuration: Mapped["APIConfiguration"] = relationship(
+        "APIConfiguration",
         back_populates="sync_records",
     )
     entity: Mapped[Optional["Entity"]] = relationship(

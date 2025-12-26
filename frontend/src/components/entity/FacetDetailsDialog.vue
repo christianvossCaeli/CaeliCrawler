@@ -5,7 +5,7 @@
         <v-icon :icon="facetGroup.facet_type_icon" :color="facetGroup.facet_type_color" class="mr-2"></v-icon>
         {{ facetGroup.facet_type_name }}
         <v-spacer></v-spacer>
-        <v-btn icon="mdi-close" variant="tonal" @click="modelValue = false" :aria-label="t('common.close')"></v-btn>
+        <v-btn icon="mdi-close" variant="tonal" :aria-label="t('common.close')" @click="modelValue = false"></v-btn>
       </v-card-title>
       <v-card-text>
         <div class="d-flex flex-column ga-3">
@@ -156,6 +156,18 @@ import { de } from 'date-fns/locale'
 
 const modelValue = defineModel<boolean>()
 
+// Props
+defineProps<{
+  facetGroup: FacetGroup | null
+  facetValues: FacetValue[]
+}>()
+
+// Emits
+defineEmits<{
+  verify: [id: string]
+  copyEmail: [email: string]
+}>()
+
 // Types
 interface FacetGroup {
   facet_type_id: string
@@ -177,18 +189,6 @@ interface FacetValue {
   created_at?: string | null
   updated_at?: string | null
 }
-
-// Props
-defineProps<{
-  facetGroup: FacetGroup | null
-  facetValues: FacetValue[]
-}>()
-
-// Emits
-defineEmits<{
-  verify: [id: string]
-  copyEmail: [email: string]
-}>()
 
 const { t } = useI18n()
 

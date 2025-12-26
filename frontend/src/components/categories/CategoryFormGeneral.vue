@@ -99,10 +99,10 @@ export interface CategoryFormGeneralEmits {
   (e: 'update:formData', data: Partial<CategoryFormData>): void
 }
 
-const props = defineProps<CategoryFormGeneralProps>()
+defineProps<CategoryFormGeneralProps>()
 const emit = defineEmits<CategoryFormGeneralEmits>()
 
-const updateField = (field: keyof CategoryFormData, value: any) => {
+const updateField = (field: keyof CategoryFormData, value: unknown) => {
   emit('update:formData', { [field]: value })
 }
 </script>

@@ -8,28 +8,28 @@
       <v-card-text>
         <v-text-field
           :model-value="form.name"
-          @update:model-value="updateForm('name', $event)"
           :label="$t('common.name')"
           variant="outlined"
           class="mb-3"
+          @update:model-value="updateForm('name', $event)"
         ></v-text-field>
         <v-textarea
           :model-value="form.description"
-          @update:model-value="updateForm('description', $event)"
           :label="$t('common.description')"
           variant="outlined"
           rows="2"
           class="mb-3"
+          @update:model-value="updateForm('description', $event)"
         ></v-textarea>
         <v-combobox
           :model-value="form.keywords"
-          @update:model-value="updateForm('keywords', $event)"
           :label="$t('sources.aiDiscovery.keywords')"
           variant="outlined"
           chips
           multiple
           closable-chips
           :hint="$t('sources.aiDiscovery.keywordsHint')"
+          @update:model-value="updateForm('keywords', $event)"
         ></v-combobox>
       </v-card-text>
       <v-card-actions>
@@ -66,10 +66,10 @@ interface Props {
   saving: boolean
 }
 
-const props = defineProps<Props>()
-
 // defineModel() for two-way binding (Vue 3.4+)
 const dialogOpen = defineModel<boolean>({ default: false })
+
+const props = defineProps<Props>()
 
 // Emits (non-model emits only)
 const emit = defineEmits<{

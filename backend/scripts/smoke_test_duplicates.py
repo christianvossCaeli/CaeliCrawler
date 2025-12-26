@@ -6,7 +6,7 @@ Tests all duplicate detection mechanisms:
 - RelationType (AI-based semantic similarity)
 - Entity (EntityMatchingService)
 - Location (Normalization + Geo)
-- AnalysisTemplate, APITemplate, CrawlPreset, NotificationRule (Config-Hash)
+- AnalysisTemplate, APIConfiguration, CrawlPreset, NotificationRule (Config-Hash)
 
 Usage:
     docker-compose exec backend python -m scripts.smoke_test_duplicates
@@ -27,7 +27,7 @@ from app.utils.similarity import (
     find_similar_relation_types,
     find_duplicate_location,
     find_duplicate_analysis_template,
-    find_duplicate_api_template,
+    find_duplicate_api_configuration,
     find_duplicate_crawl_preset,
     find_duplicate_notification_rule,
     compute_config_hash,
@@ -415,29 +415,34 @@ class DuplicateDetectionSmokeTest:
             f"Hashes differ: {hash5} != {hash6}"
         )
 
-    async def test_api_template_duplicate(self, session):
-        """Test APITemplate duplicate detection."""
-        print("\n=== APITemplate Duplicate Detection ===")
+    async def test_api_configuration_duplicate(self, session):
+        """Test APIConfiguration duplicate detection."""
+        print("\n=== APIConfiguration Duplicate Detection ===")
 
-        from app.models import APITemplate
+        from app.models.api_configuration import APIConfiguration
         from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
 
-        # Get an existing API template
+        # Get an existing API configuration
         result = await session.execute(
-            select(APITemplate).limit(1)
+            select(APIConfiguration)
+            .options(selectinload(APIConfiguration.data_source))
+            .limit(1)
         )
         existing = result.scalar_one_or_none()
 
-        if not existing:
-            self.log_skip("APITemplate duplicate", "No existing APITemplates found")
+        if not existing or not existing.data_source:
+            self.log_skip("APIConfiguration duplicate", "No existing APIConfigurations found")
             return
 
-        print(f"    Testing with: '{existing.name}' ({existing.base_url})")
+        config_name = existing.data_source.name
+        base_url = existing.data_source.base_url
+        print(f"    Testing with: '{config_name}' ({base_url})")
 
         # Test: Same URL should find duplicate
-        duplicate = await find_duplicate_api_template(
+        duplicate = await find_duplicate_api_configuration(
             session,
-            base_url=existing.base_url,
+            base_url=base_url,
             endpoint=existing.endpoint,
         )
 
@@ -448,7 +453,7 @@ class DuplicateDetectionSmokeTest:
         )
 
         # Test: Different URL should not find duplicate
-        duplicate = await find_duplicate_api_template(
+        duplicate = await find_duplicate_api_configuration(
             session,
             base_url="https://nonexistent-api-12345.example.com",
             endpoint="/v1/test",
@@ -457,7 +462,7 @@ class DuplicateDetectionSmokeTest:
         self.log_result(
             "Different URL should NOT match",
             duplicate is None,
-            f"Unexpected match: {duplicate[0].name}" if duplicate else ""
+            f"Unexpected match: {duplicate[0].data_source.name}" if duplicate else ""
         )
 
     async def run_all_tests(self):
@@ -486,7 +491,7 @@ class DuplicateDetectionSmokeTest:
             await self.test_location_duplicate_detection(session)
 
             # Config-based duplicate detection
-            await self.test_api_template_duplicate(session)
+            await self.test_api_configuration_duplicate(session)
 
             # Don't commit - rollback to clean up test data
             await session.rollback()

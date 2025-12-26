@@ -4,7 +4,7 @@
 
     <v-timeline density="compact" side="end">
       <v-timeline-item dot-color="primary" size="small">
-        <template v-slot:opposite><strong>{{ t('help.quickstart.step1.label') }}</strong></template>
+        <template #opposite><strong>{{ t('help.quickstart.step1.label') }}</strong></template>
         <v-card variant="outlined">
           <v-card-title class="text-subtitle-1">{{ t('help.quickstart.step1.title') }}</v-card-title>
           <v-card-text>
@@ -20,7 +20,7 @@
       </v-timeline-item>
 
       <v-timeline-item dot-color="success" size="small">
-        <template v-slot:opposite><strong>{{ t('help.quickstart.step2.label') }}</strong></template>
+        <template #opposite><strong>{{ t('help.quickstart.step2.label') }}</strong></template>
         <v-card variant="outlined">
           <v-card-title class="text-subtitle-1">{{ t('help.quickstart.step2.title') }}</v-card-title>
           <v-card-text>
@@ -36,7 +36,7 @@
       </v-timeline-item>
 
       <v-timeline-item dot-color="warning" size="small">
-        <template v-slot:opposite><strong>{{ t('help.quickstart.step3.label') }}</strong></template>
+        <template #opposite><strong>{{ t('help.quickstart.step3.label') }}</strong></template>
         <v-card variant="outlined">
           <v-card-title class="text-subtitle-1">{{ t('help.quickstart.step3.title') }}</v-card-title>
           <v-card-text>
@@ -50,7 +50,7 @@
       </v-timeline-item>
 
       <v-timeline-item dot-color="info" size="small">
-        <template v-slot:opposite><strong>{{ t('help.quickstart.step4.label') }}</strong></template>
+        <template #opposite><strong>{{ t('help.quickstart.step4.label') }}</strong></template>
         <v-card variant="outlined">
           <v-card-title class="text-subtitle-1">{{ t('help.quickstart.step4.title') }}</v-card-title>
           <v-card-text>

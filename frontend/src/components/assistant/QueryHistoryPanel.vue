@@ -119,8 +119,6 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { QueryHistoryItem } from '@/composables/useAssistant'
 
-const { t, locale } = useI18n()
-
 const props = defineProps<{
   queryHistory: QueryHistoryItem[]
 }>()
@@ -132,6 +130,8 @@ const emit = defineEmits<{
   remove: [id: string]
   clear: []
 }>()
+
+const { t, locale } = useI18n()
 
 const filter = ref<'all' | 'favorites'>('all')
 

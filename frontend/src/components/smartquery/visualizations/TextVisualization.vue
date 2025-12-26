@@ -1,8 +1,9 @@
+<!-- eslint-disable vue/no-v-html -- renderedContent is sanitized via marked/DOMPurify -->
 <template>
   <div class="text-visualization">
     <v-card variant="flat" class="text-visualization__card">
       <v-card-text class="text-visualization__content">
-        <!-- Render markdown-like content -->
+        <!-- Render markdown-like content - eslint-disable-next-line vue/no-v-html -- renderedContent is sanitized via marked/DOMPurify -->
         <div v-if="textContent" class="text-visualization__text" v-html="renderedContent" />
 
         <!-- Fallback: Show data as formatted list -->
@@ -16,7 +17,7 @@
               <v-icon size="20" color="primary" class="mr-2">mdi-circle-small</v-icon>
               <strong>{{ item.entity_name || `Eintrag ${idx + 1}` }}</strong>
             </div>
-            <div class="text-visualization__item-facets" v-if="item.facets">
+            <div v-if="item.facets" class="text-visualization__item-facets">
               <div
                 v-for="(facetValue, facetKey) in item.facets"
                 :key="facetKey"
@@ -47,12 +48,12 @@ import { useI18n } from 'vue-i18n'
 import DOMPurify from 'dompurify'
 import type { VisualizationConfig } from './types'
 
-const { t } = useI18n()
-
 const props = defineProps<{
-  data: Record<string, any>[]
+  data: Record<string, unknown>[]
   config?: VisualizationConfig
 }>()
+
+const { t } = useI18n()
 
 const textContent = computed(() => props.config?.text_content || '')
 
@@ -86,7 +87,7 @@ function formatFacetKey(key: string): string {
     .replace(/\b\w/g, c => c.toUpperCase())
 }
 
-function formatFacetValue(value: any): string {
+function formatFacetValue(value: unknown): string {
   if (value === null || value === undefined) return '-'
 
   if (typeof value === 'object') {

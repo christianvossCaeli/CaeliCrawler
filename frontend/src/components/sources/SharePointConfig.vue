@@ -61,8 +61,8 @@
             prepend-inner-icon="mdi-file-document-multiple"
             @update:model-value="emitUpdateImmediate"
           >
-            <template v-slot:chip="{ item, props }">
-              <v-chip v-bind="props" color="teal" variant="tonal" size="small">
+            <template #chip="{ item, props: chipProps }">
+              <v-chip v-bind="chipProps" color="teal" variant="tonal" size="small">
                 {{ item.raw }}
               </v-chip>
             </template>
@@ -106,8 +106,8 @@
         class="mt-4"
         @update:model-value="emitUpdateImmediate"
       >
-        <template v-slot:chip="{ item, props }">
-          <v-chip v-bind="props" color="grey" variant="tonal" size="small">
+        <template #chip="{ item, props: chipProps }">
+          <v-chip v-bind="chipProps" color="grey" variant="tonal" size="small">
             {{ item.raw }}
           </v-chip>
         </template>

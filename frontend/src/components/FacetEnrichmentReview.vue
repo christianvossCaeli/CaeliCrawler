@@ -276,6 +276,15 @@ import { useI18n } from 'vue-i18n'
 import { entityDataApi } from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
 
+const props = defineProps<Props>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
+  'close': []
+  'minimize': []
+  'applied': [result: { created: number; updated: number }]
+}>()
+
 const logger = useLogger('FacetEnrichmentReview')
 
 const { t } = useI18n()
@@ -294,7 +303,7 @@ interface Props {
     new_facets?: Array<{
       facet_type: string
       facet_type_name?: string
-      value: any
+      value: unknown
       text?: string
       confidence?: number
       [key: string]: unknown
@@ -303,8 +312,8 @@ interface Props {
       facet_value_id?: string
       facet_type: string
       facet_type_name?: string
-      current_value?: any
-      proposed_value?: any
+      current_value?: unknown
+      proposed_value?: unknown
       changes?: string[]
       text?: string
       confidence?: number
@@ -318,15 +327,6 @@ interface Props {
     }
   } | null
 }
-
-const props = defineProps<Props>()
-
-const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
-  'close': []
-  'minimize': []
-  'applied': [result: { created: number; updated: number }]
-}>()
 
 const dialogModel = computed({
   get: () => props.modelValue,
@@ -342,9 +342,10 @@ const applying = ref(false)
 watch(() => props.previewData, (newData) => {
   if (newData) {
     // Auto-select all high-confidence items
-    acceptedNewFacets.value = (newData.new_facets || [])
+    const newFacets = newData.new_facets || []
+    acceptedNewFacets.value = newFacets
       .map((_, idx) => idx)
-      .filter((idx) => (newData.new_facets![idx].confidence || 0) >= 0.7)
+      .filter((idx) => (newFacets[idx]?.confidence || 0) >= 0.7)
 
     acceptedUpdates.value = (newData.updates || [])
       .filter((u) => (u.confidence || 0) >= 0.7 && u.facet_value_id)
@@ -468,13 +469,14 @@ function getConfidenceColor(confidence?: number): string {
   return 'error'
 }
 
-function formatValue(value: any): string {
+function formatValue(value: unknown): string {
   if (!value) return '-'
   if (typeof value === 'string') return value
 
   // Format object for display
+  if (typeof value !== 'object') return String(value)
   const display: string[] = []
-  for (const [key, val] of Object.entries(value)) {
+  for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
     if (key.startsWith('pysis_') || key === 'source_fields' || key === 'confidence') continue
     if (val) {
       display.push(`${key}: ${typeof val === 'object' ? JSON.stringify(val) : val}`)

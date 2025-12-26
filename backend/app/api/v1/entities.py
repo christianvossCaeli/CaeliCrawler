@@ -25,7 +25,7 @@ from services.entity_matching_service import EntityMatchingService
 # Import for external API data
 try:
     from external_apis.models.sync_record import SyncRecord
-    from external_apis.models.external_api_config import ExternalAPIConfig
+    from app.models.api_configuration import APIConfiguration
     EXTERNAL_API_AVAILABLE = True
 except ImportError:
     EXTERNAL_API_AVAILABLE = False
@@ -65,6 +65,7 @@ async def list_entities(
     admin_level_1: Annotated[Optional[str], Query(description="Filter by admin level 1 (Bundesland, Region)")] = None,
     admin_level_2: Annotated[Optional[str], Query(description="Filter by admin level 2 (Landkreis, District)")] = None,
     core_attr_filters: Annotated[Optional[str], Query(description="JSON-encoded core_attributes filters, e.g. {\"locality_type\": \"Stadt\"}")] = None,
+    api_configuration_id: Annotated[Optional[UUID], Query(description="Filter by API configuration ID")] = None,
     session: AsyncSession = Depends(get_session),
 ) -> EntityListResponse:
     """List entities with filters."""
@@ -111,6 +112,10 @@ async def list_entities(
                 Entity.core_attributes["admin_level_2"].astext == admin_level_2
             )
         )
+
+    # Filter by API configuration
+    if api_configuration_id:
+        query = query.where(Entity.api_configuration_id == api_configuration_id)
 
     # Filter by core_attributes (dynamic schema-based filtering)
     if core_attr_filters:
@@ -719,6 +724,20 @@ async def get_entity(
             parent_name = parent.name
             parent_slug = parent.slug
 
+    # Get external source info (for API-imported entities)
+    external_source_name = None
+    if entity.api_configuration_id:
+        from app.models.api_configuration import APIConfiguration
+        from sqlalchemy.orm import selectinload
+        api_result = await session.execute(
+            select(APIConfiguration)
+            .options(selectinload(APIConfiguration.data_source))
+            .where(APIConfiguration.id == entity.api_configuration_id)
+        )
+        api_config = api_result.scalar_one_or_none()
+        if api_config and api_config.data_source:
+            external_source_name = api_config.data_source.name
+
     response = EntityResponse.model_validate(entity)
     response.entity_type_name = entity_type.name if entity_type else None
     response.entity_type_slug = entity_type.slug if entity_type else None
@@ -727,6 +746,7 @@ async def get_entity(
     response.facet_count = facet_count
     response.relation_count = relation_count
     response.children_count = children_count
+    response.external_source_name = external_source_name
 
     return response
 
@@ -786,6 +806,20 @@ async def get_entity_by_slug(
             parent_name = parent.name
             parent_slug = parent.slug
 
+    # Get external source info
+    external_source_name = None
+    if entity.api_configuration_id:
+        from app.models.api_configuration import APIConfiguration
+        from sqlalchemy.orm import selectinload
+        api_result = await session.execute(
+            select(APIConfiguration)
+            .options(selectinload(APIConfiguration.data_source))
+            .where(APIConfiguration.id == entity.api_configuration_id)
+        )
+        api_config = api_result.scalar_one_or_none()
+        if api_config and api_config.data_source:
+            external_source_name = api_config.data_source.name
+
     response = EntityResponse.model_validate(entity)
     response.entity_type_name = entity_type.name
     response.entity_type_slug = entity_type.slug
@@ -794,6 +828,7 @@ async def get_entity_by_slug(
     response.facet_count = facet_count
     response.relation_count = relation_count
     response.children_count = children_count
+    response.external_source_name = external_source_name
 
     return response
 
@@ -1323,8 +1358,8 @@ async def get_entity_external_data(
     if not entity:
         raise NotFoundError("Entity", str(entity_id))
 
-    # Check if entity has an external source
-    if not entity.external_source_id:
+    # Check if entity has an API configuration source
+    if not entity.api_configuration_id:
         return {
             "entity_id": str(entity_id),
             "entity_name": entity.name,
@@ -1332,24 +1367,36 @@ async def get_entity_external_data(
             "message": "Entity was not created from an external API",
         }
 
-    # Get the ExternalAPIConfig
-    config = await session.get(ExternalAPIConfig, entity.external_source_id)
+    # Get the APIConfiguration with eager-loaded data_source to avoid async lazy-loading
+    from sqlalchemy.orm import selectinload
+    config_result = await session.execute(
+        select(APIConfiguration)
+        .options(selectinload(APIConfiguration.data_source))
+        .where(APIConfiguration.id == entity.api_configuration_id)
+    )
+    config = config_result.scalar_one_or_none()
 
     # Find the sync record for this entity
     sync_record_query = select(SyncRecord).where(SyncRecord.entity_id == entity_id)
     result = await session.execute(sync_record_query)
     sync_record = result.scalar()
 
+    # Build external source info
+    external_source = None
+    if config:
+        external_source = {
+            "id": str(config.id),
+            "name": config.data_source.name if config.data_source else None,
+            "api_type": config.api_type,
+            "api_base_url": config.get_full_url() if config else None,
+        }
+
     if not sync_record:
         return {
             "entity_id": str(entity_id),
             "entity_name": entity.name,
             "has_external_data": False,
-            "external_source": {
-                "id": str(config.id) if config else None,
-                "name": config.name if config else None,
-                "api_type": config.api_type if config else None,
-            },
+            "external_source": external_source,
             "message": "No sync record found for this entity",
         }
 
@@ -1357,12 +1404,7 @@ async def get_entity_external_data(
         "entity_id": str(entity_id),
         "entity_name": entity.name,
         "has_external_data": True,
-        "external_source": {
-            "id": str(config.id) if config else None,
-            "name": config.name if config else None,
-            "api_type": config.api_type if config else None,
-            "api_base_url": config.api_base_url if config else None,
-        },
+        "external_source": external_source,
         "sync_record": {
             "id": str(sync_record.id),
             "external_id": sync_record.external_id,

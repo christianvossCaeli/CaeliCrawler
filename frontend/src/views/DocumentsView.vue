@@ -1,14 +1,10 @@
 <template>
   <div>
-    <!-- Loading Overlay -->
-    <v-overlay :model-value="loading && initialLoad" class="align-center justify-center" persistent >
-      <v-card class="pa-8 text-center" min-width="320" elevation="24">
-        <v-progress-circular indeterminate size="80" width="6" color="primary" class="mb-4"></v-progress-circular>
-        <div class="text-h6 mb-2">{{ $t('documents.messages.loadingDocuments') }}</div>
-        <div class="text-body-2 text-medium-emphasis">{{ $t('documents.messages.loadingDocuments') }}</div>
-      </v-card>
-    </v-overlay>
+    <!-- Skeleton Loader for initial load -->
+    <DocumentsSkeleton v-if="loading && initialLoad" />
 
+    <!-- Main Content -->
+    <template v-else>
     <PageHeader
       :title="$t('documents.title')"
       :subtitle="$t('documents.subtitle')"
@@ -72,8 +68,8 @@
         <v-card
           :color="statusFilter === 'PENDING' ? 'warning' : undefined"
           :variant="statusFilter === 'PENDING' ? 'elevated' : 'outlined'"
-          @click="toggleStatusFilter('PENDING')"
           class="cursor-pointer"
+          @click="toggleStatusFilter('PENDING')"
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">{{ stats.pending }}</div>
@@ -85,8 +81,8 @@
         <v-card
           :color="statusFilter === 'PROCESSING' ? 'info' : undefined"
           :variant="statusFilter === 'PROCESSING' ? 'elevated' : 'outlined'"
-          @click="toggleStatusFilter('PROCESSING')"
           class="cursor-pointer"
+          @click="toggleStatusFilter('PROCESSING')"
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">
@@ -101,8 +97,8 @@
         <v-card
           :color="statusFilter === 'ANALYZING' ? 'purple' : undefined"
           :variant="statusFilter === 'ANALYZING' ? 'elevated' : 'outlined'"
-          @click="toggleStatusFilter('ANALYZING')"
           class="cursor-pointer"
+          @click="toggleStatusFilter('ANALYZING')"
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">
@@ -117,8 +113,8 @@
         <v-card
           :color="statusFilter === 'COMPLETED' ? 'success' : undefined"
           :variant="statusFilter === 'COMPLETED' ? 'elevated' : 'outlined'"
-          @click="toggleStatusFilter('COMPLETED')"
           class="cursor-pointer"
+          @click="toggleStatusFilter('COMPLETED')"
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">{{ stats.completed }}</div>
@@ -130,8 +126,8 @@
         <v-card
           :color="statusFilter === 'FILTERED' ? 'grey' : undefined"
           :variant="statusFilter === 'FILTERED' ? 'elevated' : 'outlined'"
-          @click="toggleStatusFilter('FILTERED')"
           class="cursor-pointer"
+          @click="toggleStatusFilter('FILTERED')"
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">{{ stats.filtered }}</div>
@@ -143,8 +139,8 @@
         <v-card
           :color="statusFilter === 'FAILED' ? 'error' : undefined"
           :variant="statusFilter === 'FAILED' ? 'elevated' : 'outlined'"
-          @click="toggleStatusFilter('FAILED')"
           class="cursor-pointer"
+          @click="toggleStatusFilter('FAILED')"
         >
           <v-card-text class="text-center py-3">
             <div class="text-h5">{{ stats.failed }}</div>
@@ -247,7 +243,7 @@
         item-value="id"
         @update:options="onTableOptionsUpdate"
       >
-        <template v-slot:item.title="{ item }">
+        <template #item.title="{ item }">
           <div class="py-2">
             <div class="font-weight-medium truncate-md" :title="item.title || item.original_url">
               {{ item.title || $t('documents.detail.noTitle') }}
@@ -258,14 +254,14 @@
           </div>
         </template>
 
-        <template v-slot:item.document_type="{ item }">
+        <template #item.document_type="{ item }">
           <v-chip size="small" :color="getTypeColor(item.document_type)">
             <v-icon size="x-small" class="mr-1">{{ getTypeIcon(item.document_type) }}</v-icon>
             {{ item.document_type }}
           </v-chip>
         </template>
 
-        <template v-slot:item.processing_status="{ item }">
+        <template #item.processing_status="{ item }">
           <v-chip :color="getStatusColor(item.processing_status)" size="small">
             <v-icon v-if="item.processing_status === 'PROCESSING' || item.processing_status === 'ANALYZING'" class="mr-1 mdi-spin" size="small">
               {{ item.processing_status === 'ANALYZING' ? 'mdi-brain' : 'mdi-loading' }}
@@ -277,20 +273,20 @@
           </div>
         </template>
 
-        <template v-slot:item.source_name="{ item }">
+        <template #item.source_name="{ item }">
           <div class="truncate-xs" :title="item.source_name">{{ item.source_name }}</div>
         </template>
 
-        <template v-slot:item.discovered_at="{ item }">
+        <template #item.discovered_at="{ item }">
           <div class="text-caption">{{ formatDate(item.discovered_at) }}</div>
         </template>
 
-        <template v-slot:item.file_size="{ item }">
+        <template #item.file_size="{ item }">
           <span v-if="item.file_size">{{ formatFileSize(item.file_size) }}</span>
           <span v-else class="text-medium-emphasis">-</span>
         </template>
 
-        <template v-slot:item.actions="{ item }">
+        <template #item.actions="{ item }">
           <div class="table-actions d-flex justify-end ga-1">
             <v-btn v-if="item.processing_status === 'PENDING'" icon="mdi-play" size="small" variant="tonal" color="primary" :title="$t('documents.actions.process')" :aria-label="$t('documents.actions.process')" :loading="processingIds.has(item.id)" @click="processDocument(item)"></v-btn>
             <v-btn v-if="item.processing_status === 'COMPLETED' || item.processing_status === 'FILTERED'" icon="mdi-brain" size="small" variant="tonal" color="info" :title="$t('documents.actions.analyze')" :aria-label="$t('documents.actions.analyze')" :loading="analyzingIds.has(item.id)" @click="analyzeDocument(item)"></v-btn>
@@ -397,6 +393,7 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    </template>
   </div>
 </template>
 
@@ -410,7 +407,26 @@ import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
+import DocumentsSkeleton from '@/components/documents/DocumentsSkeleton.vue'
 import { useLogger } from '@/composables/useLogger'
+import { getErrorMessage } from '@/composables/useApiErrorHandler'
+
+// Document types
+interface Document {
+  id: string
+  title?: string
+  file_path?: string
+  status: string
+  source_id?: string
+  created_at: string
+  updated_at?: string
+}
+
+interface TableOptions {
+  page: number
+  itemsPerPage: number
+  sortBy?: Array<{ key: string; order: 'asc' | 'desc' }>
+}
 
 const logger = useLogger('DocumentsView')
 const { t } = useI18n()
@@ -428,10 +444,10 @@ const processingIds = ref(new Set<string>())
 const analyzingIds = ref(new Set<string>())
 
 // Data
-const documents = ref<any[]>([])
+const documents = ref<Document[]>([])
 const totalDocuments = ref(0)
 const locations = ref<string[]>([])
-const categories = ref<any[]>([])
+const categories = ref<{ id: string; name: string }[]>([])
 const selectedDocuments = ref<string[]>([])
 
 // Filters
@@ -444,11 +460,11 @@ const dateFrom = ref<string | null>(null)
 const dateTo = ref<string | null>(null)
 const page = ref(1)
 const perPage = ref(20)
-const sortBy = ref<any[]>([{ key: 'discovered_at', order: 'desc' }])
+const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'discovered_at', order: 'desc' }])
 
 // Dialog
 const detailsDialog = ref(false)
-const selectedDocument = ref<any>(null)
+const selectedDocument = ref<Document | null>(null)
 
 // Auto-refresh
 let refreshInterval: number | null = null
@@ -517,7 +533,7 @@ const formatFileSize = (bytes: number) => {
 const loadData = async () => {
   loading.value = true
   try {
-    const params: any = { page: page.value, per_page: perPage.value }
+    const params: Record<string, unknown> = { page: page.value, per_page: perPage.value }
     if (searchQuery.value) params.search = searchQuery.value
     if (locationFilter.value) params.location_name = locationFilter.value
     if (typeFilter.value) params.document_type = typeFilter.value
@@ -600,7 +616,7 @@ const clearFilters = () => {
   loadData()
 }
 
-const onTableOptionsUpdate = (options: any) => {
+const onTableOptionsUpdate = (options: TableOptions) => {
   page.value = options.page
   perPage.value = options.itemsPerPage
   if (options.sortBy && options.sortBy.length > 0) {
@@ -610,27 +626,27 @@ const onTableOptionsUpdate = (options: any) => {
 }
 
 // Document actions
-const processDocument = async (doc: any) => {
+const processDocument = async (doc: Document) => {
   processingIds.value.add(doc.id)
   try {
     await adminApi.processDocument(doc.id)
     showSuccess(t('documents.processStarted'))
     loadData()
-  } catch (error: any) {
-    showError(error.response?.data?.detail || t('documents.processError'))
+  } catch (error) {
+    showError(getErrorMessage(error) || t('documents.processError'))
   } finally {
     processingIds.value.delete(doc.id)
   }
 }
 
-const analyzeDocument = async (doc: any) => {
+const analyzeDocument = async (doc: Document) => {
   analyzingIds.value.add(doc.id)
   try {
     await adminApi.analyzeDocument(doc.id, true)
     showSuccess(t('documents.analysisStarted'))
     loadData()
-  } catch (error: any) {
-    showError(error.response?.data?.detail || t('documents.analysisError'))
+  } catch (error) {
+    showError(getErrorMessage(error) || t('documents.analysisError'))
   } finally {
     analyzingIds.value.delete(doc.id)
   }
@@ -642,8 +658,8 @@ const processAllPending = async () => {
     await adminApi.processAllPending()
     showSuccess(t('documents.allProcessStarted'))
     loadData()
-  } catch (error: any) {
-    showError(error.response?.data?.detail || t('documents.processError'))
+  } catch (error) {
+    showError(getErrorMessage(error) || t('documents.processError'))
   } finally {
     processingAll.value = false
   }
@@ -655,8 +671,8 @@ const stopAllProcessing = async () => {
     await adminApi.stopAllProcessing()
     showSuccess(t('documents.processingStopping'))
     loadData()
-  } catch (error: any) {
-    showError(error.response?.data?.detail || t('documents.stopError'))
+  } catch (error) {
+    showError(getErrorMessage(error) || t('documents.stopError'))
   } finally {
     stoppingAll.value = false
   }
@@ -672,8 +688,8 @@ const bulkProcess = async () => {
     showSuccess(`${selectedDocuments.value.length} Dokumente werden verarbeitet`)
     selectedDocuments.value = []
     loadData()
-  } catch (error: any) {
-    showError(error.response?.data?.detail || 'Fehler bei Bulk-Verarbeitung')
+  } catch (error) {
+    showError(getErrorMessage(error) || 'Fehler bei Bulk-Verarbeitung')
   } finally {
     bulkProcessing.value = false
   }
@@ -688,24 +704,24 @@ const bulkAnalyze = async () => {
     showSuccess(`${selectedDocuments.value.length} Dokumente werden analysiert`)
     selectedDocuments.value = []
     loadData()
-  } catch (error: any) {
-    showError(error.response?.data?.detail || 'Fehler bei Bulk-Analyse')
+  } catch (error) {
+    showError(getErrorMessage(error) || 'Fehler bei Bulk-Analyse')
   } finally {
     bulkAnalyzing.value = false
   }
 }
 
-const showDetails = async (doc: any) => {
+const showDetails = async (doc: Document) => {
   try {
     const response = await dataApi.getDocument(doc.id)
     selectedDocument.value = response.data
     detailsDialog.value = true
-  } catch (error: any) {
+  } catch (error) {
     showError(t('documents.loadDetailsError'))
   }
 }
 
-const downloadDocument = (doc: any) => {
+const downloadDocument = (doc: Document) => {
   if (doc.file_path) {
     // Construct download URL - assuming backend serves files
     const downloadUrl = `/api/admin/documents/${doc.id}/download`
@@ -760,7 +776,7 @@ onMounted(async () => {
   // Check for document_id query parameter to auto-open document details
   if (route.query.document_id) {
     const docId = route.query.document_id as string
-    const doc = documents.value.find((d: any) => d.id === docId)
+    const doc = documents.value.find((d: Document) => d.id === docId)
     if (doc) {
       selectedDocument.value = doc
       detailsDialog.value = true

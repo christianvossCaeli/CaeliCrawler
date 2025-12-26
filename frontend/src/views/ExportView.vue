@@ -44,7 +44,7 @@
                   thumb-label="always"
                   density="compact"
                 >
-                  <template v-slot:thumb-label="{ modelValue }">{{ modelValue }}%</template>
+                  <template #thumb-label="{ modelValue }">{{ modelValue }}%</template>
                 </v-slider>
                 <div class="text-caption text-medium-emphasis mt-1">
                   {{ t('exportView.minConfidenceHint') }}
@@ -328,12 +328,12 @@
               :items-per-page="10"
               :no-data-text="t('exportView.noChanges')"
             >
-              <template v-slot:item.change_type="{ item }">
+              <template #item.change_type="{ item }">
                 <v-chip :color="getChangeColor(item.change_type)" size="small">
                   {{ t(`exportView.changeTypes.${item.change_type}`) }}
                 </v-chip>
               </template>
-              <template v-slot:item.detected_at="{ item }">
+              <template #item.detected_at="{ item }">
                 {{ formatDate(item.detected_at) }}
               </template>
             </v-data-table>
@@ -354,6 +354,7 @@ import { useSnackbar } from '@/composables/useSnackbar'
 import ExportProgressPanel from '@/components/export/ExportProgressPanel.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useLogger } from '@/composables/useLogger'
+import { getErrorMessage } from '@/composables/useApiErrorHandler'
 
 const logger = useLogger('ExportView')
 
@@ -362,7 +363,27 @@ const { showSuccess, showError } = useSnackbar()
 
 const dateLocale = computed(() => locale.value === 'de' ? de : enUS)
 
-const categories = ref<any[]>([])
+interface CategoryOption {
+  id: string
+  name: string
+}
+
+interface WebhookResult {
+  success: boolean
+  status_code?: number
+  response_time_ms?: number
+  message?: string
+}
+
+interface ChangeRecord {
+  id: string
+  entity_type?: string
+  entity_name?: string
+  change_type?: string
+  timestamp?: string
+}
+
+const categories = ref<CategoryOption[]>([])
 const loadingCategories = ref(false)
 const locationOptions = ref<{ countries: string[]; admin_level_1: string[] }>({
   countries: [],
@@ -373,8 +394,8 @@ const exporting = ref(false)
 const testingWebhook = ref(false)
 const loadingChanges = ref(false)
 const webhookUrl = ref('')
-const webhookResult = ref<any>(null)
-const changes = ref<any[]>([])
+const webhookResult = ref<WebhookResult | null>(null)
+const changes = ref<ChangeRecord[]>([])
 const startingAsyncExport = ref(false)
 const exportProgressRef = ref<InstanceType<typeof ExportProgressPanel> | null>(null)
 
@@ -538,7 +559,7 @@ const loadChanges = async () => {
   try {
     const response = await exportApi.getChangesFeed({ limit: 500 })
     changes.value = response.data.changes
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Failed to load changes feed:', error)
     showError(t('exportView.messages.changesError'))
   } finally {
@@ -559,11 +580,11 @@ const exportQuick = async () => {
       downloadBlob(response.data, 'caelichrawler_export.csv', 'text/csv')
       showSuccess(t('exportView.messages.csvSuccess'))
     }
-  } catch (error: any) {
+  } catch (error) {
     if (quickFormat.value === 'json') {
-      showError(error.response?.data?.error || t('exportView.messages.jsonError'))
+      showError(getErrorMessage(error) || t('exportView.messages.jsonError'))
     } else {
-      showError(error.response?.data?.error || t('exportView.messages.csvError'))
+      showError(getErrorMessage(error) || t('exportView.messages.csvError'))
     }
   } finally {
     exporting.value = false
@@ -595,7 +616,7 @@ const testWebhook = async () => {
     } else {
       showError(t('exportView.messages.webhookError'))
     }
-  } catch (error: any) {
+  } catch (error) {
     webhookResult.value = { success: false, error: error.message }
     showError(t('exportView.messages.webhookError') + ': ' + error.message)
   } finally {
@@ -616,8 +637,8 @@ const startAsyncExport = async () => {
     })
     showSuccess(t('export.messages.success'))
     exportProgressRef.value?.refreshJobs()
-  } catch (error: any) {
-    showError(error.response?.data?.detail || t('export.messages.error'))
+  } catch (error) {
+    showError(getErrorMessage(error) || t('export.messages.error'))
   } finally {
     startingAsyncExport.value = false
   }

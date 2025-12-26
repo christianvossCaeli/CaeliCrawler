@@ -1,6 +1,9 @@
 /**
- * @deprecated This file is now a re-export wrapper for backward compatibility.
- * Import from '@/services/api' to use the modular API structure.
+ * API Service Barrel Export
+ *
+ * This file re-exports all API modules for convenient importing.
+ * Usage: import { adminApi, entityApi } from '@/services/api'
+ *
  * Individual modules are located in '@/services/api/*'
  */
 

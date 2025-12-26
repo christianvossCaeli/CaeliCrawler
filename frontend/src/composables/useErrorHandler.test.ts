@@ -1,8 +1,9 @@
 /**
  * Tests for useErrorHandler composable
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useErrorHandler, ERROR_MESSAGES, type ApiError } from './useErrorHandler'
+import { configureLogger, resetLoggerConfig, type LogEntry } from './useLogger'
 
 // Mock dependencies
 vi.mock('vue-i18n', () => ({
@@ -20,11 +21,21 @@ vi.mock('./useSnackbar', () => ({
   }),
 }))
 
+// Capture log entries for testing
+let logEntries: LogEntry[] = []
+
 describe('useErrorHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Suppress console.error in tests
-    vi.spyOn(console, 'error').mockImplementation(() => {})
+    logEntries = []
+    // Configure logger to capture entries
+    configureLogger({
+      handler: (entry: LogEntry) => logEntries.push(entry),
+    })
+  })
+
+  afterEach(() => {
+    resetLoggerConfig()
   })
 
   describe('extractErrorMessage', () => {
@@ -212,7 +223,10 @@ describe('useErrorHandler', () => {
 
       handleError(error, { showNotification: false, logError: true })
 
-      expect(console.error).toHaveBeenCalledWith('Error handled:', error)
+      const errorLog = logEntries.find((e) => e.level === 'error')
+      expect(errorLog).toBeDefined()
+      expect(errorLog?.message).toBe('Error handled:')
+      expect(errorLog?.data).toBe(error)
     })
 
     it('should not log error when logError is false', () => {
@@ -221,7 +235,8 @@ describe('useErrorHandler', () => {
 
       handleError(error, { showNotification: false, logError: false })
 
-      expect(console.error).not.toHaveBeenCalled()
+      const errorLog = logEntries.find((e) => e.level === 'error')
+      expect(errorLog).toBeUndefined()
     })
 
     it('should rethrow error when rethrow is true', () => {

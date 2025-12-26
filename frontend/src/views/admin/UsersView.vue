@@ -147,7 +147,7 @@
                 <PasswordStrengthIndicator
                   v-if="formData.password"
                   :password="formData.password"
-                  :show-requirements="true"
+                  show-requirements
                   class="mt-2"
                   @update:is-valid="passwordValid = $event"
                 />
@@ -215,7 +215,7 @@
           <PasswordStrengthIndicator
             v-if="newPassword"
             :password="newPassword"
-            :show-requirements="true"
+            show-requirements
             class="mt-2"
             @update:is-valid="newPasswordValid = $event"
           />
@@ -279,6 +279,7 @@ import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useLogger } from '@/composables/useLogger'
+import { getErrorMessage } from '@/composables/useApiErrorHandler'
 
 const logger = useLogger('UsersView')
 
@@ -303,7 +304,7 @@ const activeFilter = ref<boolean | null>(null)
 const dialogOpen = ref(false)
 const passwordDialogOpen = ref(false)
 const deleteDialogOpen = ref(false)
-const formRef = ref<any>(null)
+const formRef = ref<{ validate: () => Promise<{ valid: boolean }>; reset: () => void } | null>(null)
 
 const editingUser = ref<User | null>(null)
 const selectedUser = ref<User | null>(null)
@@ -342,7 +343,7 @@ const activeOptions = computed(() => [
 ])
 
 // Validation rules
-const required = (v: any) => !!v || t('validation.required')
+const required = (v: unknown) => !!v || t('validation.required')
 const emailRule = (v: string) => /.+@.+\..+/.test(v) || t('validation.email')
 const passwordValidRule = () => passwordValid.value || t('admin.users.passwordNotValid')
 const newPasswordValidRule = () => newPasswordValid.value || t('admin.users.passwordNotValid')
@@ -381,7 +382,7 @@ const { debouncedFn: debouncedFetch } = useDebounce(
 async function fetchUsers() {
   loading.value = true
   try {
-    const params: Record<string, any> = {
+    const params: Record<string, unknown> = {
       page: page.value,
       per_page: perPage.value,
     }
@@ -441,9 +442,9 @@ async function saveUser() {
     }
     dialogOpen.value = false
     await fetchUsers()
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Failed to save user:', error)
-    alert(error.response?.data?.detail || t('admin.users.saveError'))
+    alert(getErrorMessage(error) || t('admin.users.saveError'))
   } finally {
     saving.value = false
   }
@@ -464,9 +465,9 @@ async function resetPassword() {
       new_password: newPassword.value,
     })
     passwordDialogOpen.value = false
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Failed to reset password:', error)
-    alert(error.response?.data?.detail || t('admin.users.resetError'))
+    alert(getErrorMessage(error) || t('admin.users.resetError'))
   } finally {
     saving.value = false
   }
@@ -485,9 +486,9 @@ async function deleteUser() {
     await api.delete(`/admin/users/${selectedUser.value.id}`)
     deleteDialogOpen.value = false
     await fetchUsers()
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Failed to delete user:', error)
-    alert(error.response?.data?.detail || t('admin.users.deleteError'))
+    alert(getErrorMessage(error) || t('admin.users.deleteError'))
   } finally {
     saving.value = false
   }

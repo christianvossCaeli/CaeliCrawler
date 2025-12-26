@@ -95,19 +95,16 @@ import { useI18n } from 'vue-i18n'
 import { useCustomSummariesStore, type SummaryExecution } from '@/stores/customSummaries'
 import { useDialogFocus, useStatusColors } from '@/composables'
 
+const modelValue = defineModel<boolean>()
+const props = defineProps<{
+  summaryId: string
+}>()
+
 const { t } = useI18n()
 const store = useCustomSummariesStore()
 
 // ARIA
 const dialogTitleId = `summary-history-dialog-title-${Math.random().toString(36).slice(2, 9)}`
-
-const modelValue = defineModel<boolean>()
-
-const props = defineProps<{
-  summaryId: string
-}>()
-
-const emit = defineEmits<{}>()
 
 // Focus management for accessibility
 useDialogFocus({ isOpen: modelValue })

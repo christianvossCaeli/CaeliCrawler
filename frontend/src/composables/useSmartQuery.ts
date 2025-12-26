@@ -10,6 +10,23 @@ import { useLogger } from '@/composables/useLogger'
 
 const logger = useLogger('useSmartQuery')
 
+// Helper function for type-safe error handling
+function getErrorDetail(err: unknown): string {
+  if (err && typeof err === 'object') {
+    const e = err as { response?: { data?: { detail?: string } }; message?: string }
+    if (e.response?.data?.detail) {
+      return e.response.data.detail
+    }
+    if (e.message) {
+      return e.message
+    }
+  }
+  if (err instanceof Error) {
+    return err.message
+  }
+  return 'Unknown error'
+}
+
 // Types
 export type QueryMode = 'read' | 'write' | 'plan'
 
@@ -21,22 +38,57 @@ export interface AttachmentInfo {
   preview?: string
 }
 
+export interface SmartQueryVisualization {
+  type: 'table' | 'bar_chart' | 'line_chart' | 'pie_chart' | 'stat_card' | 'text' | 'comparison' | 'map' | 'calendar'
+  title?: string
+  subtitle?: string
+  config?: Record<string, unknown>
+  // Properties for compound queries
+  id?: string
+  data?: Record<string, unknown>[]
+  source_info?: Record<string, unknown>
+  explanation?: string
+}
+
+export interface SmartQueryAction {
+  label: string
+  action: string
+  params: Record<string, unknown>
+  icon?: string
+}
+
+export interface SmartQueryInterpretation {
+  operation?: string
+  query?: string
+  entity_type?: string
+  filters?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+export interface CreatedItem {
+  id: string
+  name?: string
+  type: string
+  entity_type?: string
+  slug?: string
+}
+
 export interface SmartQueryResults {
   mode: QueryMode
   success: boolean
   message?: string
   total?: number
-  items?: any[]
-  data?: any[]  // Legacy field for result data
-  created_items?: any[]
-  query_interpretation?: any
-  interpretation?: any
-  visualization?: any
-  visualizations?: any[]
+  items?: Record<string, unknown>[]
+  data?: Record<string, unknown>[]  // Legacy field for result data
+  created_items?: CreatedItem[]
+  query_interpretation?: SmartQueryInterpretation
+  interpretation?: SmartQueryInterpretation
+  visualization?: SmartQueryVisualization
+  visualizations?: SmartQueryVisualization[]
   is_compound?: boolean
   explanation?: string
-  source_info?: any
-  suggested_actions?: any[]
+  source_info?: Record<string, unknown>
+  suggested_actions?: SmartQueryAction[]
   error?: string
   grouping?: string
 }
@@ -44,8 +96,8 @@ export interface SmartQueryResults {
 export interface SmartQueryPreview {
   mode: string
   success: boolean
-  preview: any
-  interpretation: any
+  preview: Record<string, unknown>
+  interpretation: SmartQueryInterpretation
   message?: string
 }
 
@@ -170,8 +222,8 @@ export function useSmartQuery() {
       })
 
       return true
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || e.message || t('assistant.attachmentError')
+    } catch (e: unknown) {
+      error.value = getErrorDetail(e) || t('assistant.attachmentError')
       return false
     } finally {
       isUploading.value = false
@@ -230,8 +282,8 @@ export function useSmartQuery() {
       } else {
         await executeReadQuery()
       }
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || e.message || t('smartQueryView.errors.queryError')
+    } catch (e: unknown) {
+      error.value = getErrorDetail(e) || t('smartQueryView.errors.queryError')
     } finally {
       loading.value = false
     }
@@ -331,8 +383,8 @@ export function useSmartQuery() {
       results.value = response.data
       previewData.value = null
       currentStep.value = 4
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || e.message || t('smartQuery.createError')
+    } catch (e: unknown) {
+      error.value = getErrorDetail(e) || t('smartQuery.createError')
     } finally {
       if (stepInterval) {
         clearInterval(stepInterval)
@@ -363,7 +415,7 @@ export function useSmartQuery() {
     question.value = ''
   }
 
-  function handleVisualizationAction(action: string, params: Record<string, any>) {
+  function handleVisualizationAction(action: string, params: Record<string, unknown>) {
     logger.debug('Visualization action', { action, params })
 
     switch (action) {
@@ -387,7 +439,7 @@ export function useSmartQuery() {
     }
   }
 
-  function handleHistoryRerun(commandText: string, _interpretation: Record<string, any>) {
+  function handleHistoryRerun(commandText: string, _interpretation: Record<string, unknown>) {
     question.value = commandText
     currentMode.value = 'write'
     showHistory.value = false

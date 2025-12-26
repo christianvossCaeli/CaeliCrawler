@@ -115,7 +115,7 @@
 
                 <!-- Error Info -->
                 <v-tooltip v-if="job.error_message" location="top">
-                  <template v-slot:activator="{ props }">
+                  <template #activator="{ props }">
                     <v-icon v-bind="props" color="error" size="small" class="ml-1">
                       mdi-alert-circle
                     </v-icon>
@@ -157,8 +157,8 @@
       <v-btn
         variant="text"
         size="small"
-        @click="refreshJobs"
         :loading="isLoading"
+        @click="refreshJobs"
       >
         <v-icon start size="small">mdi-refresh</v-icon>
         {{ t('common.refresh') }}
@@ -173,6 +173,10 @@ import { useI18n } from 'vue-i18n'
 import { exportApi } from '@/services/api'
 import { useStatusColors } from '@/composables'
 import { useLogger } from '@/composables/useLogger'
+
+defineEmits<{
+  close: []
+}>()
 
 const logger = useLogger('ExportProgressPanel')
 
@@ -194,10 +198,6 @@ interface ExportJob {
   completed_at: string | null
   is_downloadable: boolean
 }
-
-const emit = defineEmits<{
-  close: []
-}>()
 
 const jobs = ref<ExportJob[]>([])
 const isLoading = ref(false)

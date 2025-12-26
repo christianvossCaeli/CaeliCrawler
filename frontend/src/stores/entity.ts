@@ -8,6 +8,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { entityApi, facetApi, relationApi, analysisApi } from '@/services/api'
+import type {
+  EntityCreate,
+  EntityUpdate,
+  FacetTypeCreate,
+  FacetTypeUpdate,
+  FacetValueCreate,
+  FacetValueUpdate,
+} from '@/types/entity'
 
 // ============================================================================
 // Types
@@ -24,8 +32,8 @@ export interface EntityType {
   is_primary: boolean
   supports_hierarchy: boolean
   supports_pysis: boolean
-  hierarchy_config: Record<string, any> | null
-  attribute_schema: Record<string, any> | null
+  hierarchy_config: Record<string, unknown> | null
+  attribute_schema: Record<string, unknown> | null
   display_order: number
   is_active: boolean
   is_system: boolean
@@ -43,12 +51,14 @@ export interface Entity {
   name_normalized: string
   slug: string
   external_id: string | null
+  api_configuration_id: string | null
+  external_source_name: string | null
   parent_id: string | null
   parent_name: string | null
   parent_slug: string | null
   hierarchy_path: string
   hierarchy_level: number
-  core_attributes: Record<string, any>
+  core_attributes: Record<string, unknown>
   latitude: number | null
   longitude: number | null
   is_active: boolean
@@ -75,7 +85,7 @@ export interface FacetType {
   name_plural?: string
   description: string | null
   value_type: string
-  value_schema: Record<string, any> | null
+  value_schema: Record<string, unknown> | null
   applicable_entity_type_slugs: string[]
   icon: string
   color: string
@@ -103,7 +113,7 @@ export interface FacetValue {
   facet_type_name: string | null
   category_id: string | null
   category_name: string | null
-  value: any
+  value: unknown
   text_representation: string
   event_date: string | null
   valid_from: string | null
@@ -139,7 +149,7 @@ export interface RelationType {
   target_entity_type_name: string | null
   target_entity_type_slug: string | null
   cardinality: string
-  attribute_schema: Record<string, any> | null
+  attribute_schema: Record<string, unknown> | null
   icon: string
   color: string
   display_order: number
@@ -161,7 +171,7 @@ export interface EntityRelation {
   target_entity_id: string
   target_entity_name: string | null
   target_entity_type_slug: string | null
-  attributes: Record<string, any>
+  attributes: Record<string, unknown>
   valid_from: string | null
   valid_until: string | null
   source_document_id: string | null
@@ -259,7 +269,39 @@ export interface FacetValueAggregated {
   verified_count: number
   avg_confidence: number
   latest_value: string | null
-  sample_values: any[]
+  sample_values: unknown[]
+}
+
+export interface EntityReport {
+  entity: Entity
+  facets_summary: EntityFacetsSummary
+  relations: EntityRelation[]
+  documents: Array<{
+    id: string
+    title: string
+    url: string
+    analyzed_at: string | null
+  }>
+  sources: Array<{
+    id: string
+    name: string
+    url: string
+    status: string
+  }>
+}
+
+// Helper for extracting error messages
+function getErrorMessage(err: unknown): string {
+  if (err && typeof err === 'object' && 'response' in err) {
+    const response = (err as { response?: { data?: { error?: string } } }).response
+    if (response?.data?.error) {
+      return response.data.error
+    }
+  }
+  if (err instanceof Error) {
+    return err.message
+  }
+  return 'Unknown error'
 }
 
 // ============================================================================
@@ -309,7 +351,7 @@ export const useEntityStore = defineStore('entity', () => {
   const analysisOverviewLoading = ref(false)
 
   // Entity Report
-  const entityReport = ref<any>(null)
+  const entityReport = ref<EntityReport | null>(null)
   const entityReportLoading = ref(false)
 
   // Filter Options
@@ -363,15 +405,15 @@ export const useEntityStore = defineStore('entity', () => {
   // Entity Type Actions
   // ========================================
 
-  async function fetchEntityTypes(params?: any) {
+  async function fetchEntityTypes(params?: Record<string, unknown>) {
     entityTypesLoading.value = true
     error.value = null
     try {
       const response = await entityApi.getEntityTypes(params)
       entityTypes.value = response.data.items
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch entity types'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch entity types'
       throw err
     } finally {
       entityTypesLoading.value = false
@@ -383,8 +425,8 @@ export const useEntityStore = defineStore('entity', () => {
       const response = await entityApi.getEntityType(id)
       selectedEntityType.value = response.data
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch entity type'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch entity type'
       throw err
     }
   }
@@ -394,8 +436,8 @@ export const useEntityStore = defineStore('entity', () => {
       const response = await entityApi.getEntityTypeBySlug(slug)
       selectedEntityType.value = response.data
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch entity type'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch entity type'
       throw err
     }
   }
@@ -404,7 +446,7 @@ export const useEntityStore = defineStore('entity', () => {
   // Entity Actions
   // ========================================
 
-  async function fetchEntities(params?: any) {
+  async function fetchEntities(params?: Record<string, unknown>) {
     entitiesLoading.value = true
     error.value = null
     try {
@@ -412,8 +454,8 @@ export const useEntityStore = defineStore('entity', () => {
       entities.value = response.data.items
       entitiesTotal.value = response.data.total
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch entities'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch entities'
       throw err
     } finally {
       entitiesLoading.value = false
@@ -425,8 +467,8 @@ export const useEntityStore = defineStore('entity', () => {
       const response = await entityApi.getEntity(id)
       selectedEntity.value = response.data
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch entity'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch entity'
       throw err
     }
   }
@@ -436,31 +478,31 @@ export const useEntityStore = defineStore('entity', () => {
       const response = await entityApi.getEntityBySlug(typeSlug, entitySlug)
       selectedEntity.value = response.data
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch entity'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch entity'
       throw err
     }
   }
 
-  async function createEntity(data: any) {
+  async function createEntity(data: EntityCreate) {
     try {
       const response = await entityApi.createEntity(data)
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to create entity'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to create entity'
       throw err
     }
   }
 
-  async function updateEntity(id: string, data: any) {
+  async function updateEntity(id: string, data: EntityUpdate) {
     try {
       const response = await entityApi.updateEntity(id, data)
       if (selectedEntity.value?.id === id) {
         selectedEntity.value = response.data
       }
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to update entity'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to update entity'
       throw err
     }
   }
@@ -472,8 +514,8 @@ export const useEntityStore = defineStore('entity', () => {
       if (selectedEntity.value?.id === id) {
         selectedEntity.value = null
       }
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to delete entity'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to delete entity'
       throw err
     }
   }
@@ -482,15 +524,15 @@ export const useEntityStore = defineStore('entity', () => {
   // Facet Type Actions
   // ========================================
 
-  async function fetchFacetTypes(params?: any) {
+  async function fetchFacetTypes(params?: Record<string, unknown>) {
     facetTypesLoading.value = true
     error.value = null
     try {
       const response = await facetApi.getFacetTypes(params)
       facetTypes.value = response.data.items
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch facet types'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch facet types'
       throw err
     } finally {
       facetTypesLoading.value = false
@@ -501,8 +543,8 @@ export const useEntityStore = defineStore('entity', () => {
     try {
       const response = await facetApi.getFacetType(id)
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch facet type'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch facet type'
       throw err
     }
   }
@@ -511,25 +553,25 @@ export const useEntityStore = defineStore('entity', () => {
     try {
       const response = await facetApi.getFacetTypeBySlug(slug)
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch facet type'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch facet type'
       throw err
     }
   }
 
-  async function createFacetType(data: any) {
+  async function createFacetType(data: FacetTypeCreate) {
     try {
       const response = await facetApi.createFacetType(data)
       // Refresh the list to include the new facet type
       await fetchFacetTypes()
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to create facet type'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to create facet type'
       throw err
     }
   }
 
-  async function updateFacetType(id: string, data: any) {
+  async function updateFacetType(id: string, data: FacetTypeUpdate) {
     try {
       const response = await facetApi.updateFacetType(id, data)
       // Update local state
@@ -538,8 +580,8 @@ export const useEntityStore = defineStore('entity', () => {
         facetTypes.value[index] = response.data
       }
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to update facet type'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to update facet type'
       throw err
     }
   }
@@ -548,8 +590,8 @@ export const useEntityStore = defineStore('entity', () => {
     try {
       await facetApi.deleteFacetType(id)
       facetTypes.value = facetTypes.value.filter(ft => ft.id !== id)
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to delete facet type'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to delete facet type'
       throw err
     }
   }
@@ -563,8 +605,8 @@ export const useEntityStore = defineStore('entity', () => {
     try {
       const response = await facetApi.generateFacetTypeSchema(data)
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to generate facet type schema'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to generate facet type schema'
       throw err
     }
   }
@@ -573,7 +615,7 @@ export const useEntityStore = defineStore('entity', () => {
   // Facet Value Actions
   // ========================================
 
-  async function fetchFacetValues(params?: any) {
+  async function fetchFacetValues(params?: Record<string, unknown>) {
     facetValuesLoading.value = true
     error.value = null
     try {
@@ -581,8 +623,8 @@ export const useEntityStore = defineStore('entity', () => {
       facetValues.value = response.data.items
       facetValuesTotal.value = response.data.total
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch facet values'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch facet values'
       throw err
     } finally {
       facetValuesLoading.value = false
@@ -593,23 +635,23 @@ export const useEntityStore = defineStore('entity', () => {
     try {
       const response = await facetApi.getFacetValue(id)
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch facet value'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch facet value'
       throw err
     }
   }
 
-  async function createFacetValue(data: any) {
+  async function createFacetValue(data: FacetValueCreate) {
     try {
       const response = await facetApi.createFacetValue(data)
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to create facet value'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to create facet value'
       throw err
     }
   }
 
-  async function updateFacetValue(id: string, data: any) {
+  async function updateFacetValue(id: string, data: FacetValueUpdate) {
     try {
       const response = await facetApi.updateFacetValue(id, data)
       const index = facetValues.value.findIndex(fv => fv.id === id)
@@ -617,8 +659,8 @@ export const useEntityStore = defineStore('entity', () => {
         facetValues.value[index] = response.data
       }
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to update facet value'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to update facet value'
       throw err
     }
   }
@@ -631,8 +673,8 @@ export const useEntityStore = defineStore('entity', () => {
         facetValues.value[index] = response.data
       }
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to verify facet value'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to verify facet value'
       throw err
     }
   }
@@ -641,18 +683,18 @@ export const useEntityStore = defineStore('entity', () => {
     try {
       await facetApi.deleteFacetValue(id)
       facetValues.value = facetValues.value.filter(fv => fv.id !== id)
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to delete facet value'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to delete facet value'
       throw err
     }
   }
 
-  async function fetchEntityFacetsSummary(entityId: string, params?: any) {
+  async function fetchEntityFacetsSummary(entityId: string, params?: Record<string, unknown>) {
     try {
       const response = await facetApi.getEntityFacetsSummary(entityId, params)
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch entity facets summary'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch entity facets summary'
       throw err
     }
   }
@@ -666,8 +708,8 @@ export const useEntityStore = defineStore('entity', () => {
     try {
       const response = await facetApi.searchFacetValues(params)
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to search facet values'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to search facet values'
       throw err
     }
   }
@@ -676,15 +718,15 @@ export const useEntityStore = defineStore('entity', () => {
   // Relation Type Actions
   // ========================================
 
-  async function fetchRelationTypes(params?: any) {
+  async function fetchRelationTypes(params?: Record<string, unknown>) {
     relationTypesLoading.value = true
     error.value = null
     try {
       const response = await relationApi.getRelationTypes(params)
       relationTypes.value = response.data.items
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch relation types'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch relation types'
       throw err
     } finally {
       relationTypesLoading.value = false
@@ -695,27 +737,27 @@ export const useEntityStore = defineStore('entity', () => {
   // Entity Relation Actions
   // ========================================
 
-  async function fetchEntityRelations(params?: any) {
+  async function fetchEntityRelations(params?: Record<string, unknown>) {
     entityRelationsLoading.value = true
     error.value = null
     try {
       const response = await relationApi.getRelations(params)
       entityRelations.value = response.data.items
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch entity relations'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch entity relations'
       throw err
     } finally {
       entityRelationsLoading.value = false
     }
   }
 
-  async function fetchEntityRelationsGraph(entityId: string, params?: any) {
+  async function fetchEntityRelationsGraph(entityId: string, params?: Record<string, unknown>) {
     try {
       const response = await relationApi.getEntityRelationsGraph(entityId, params)
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch relations graph'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch relations graph'
       throw err
     }
   }
@@ -724,15 +766,15 @@ export const useEntityStore = defineStore('entity', () => {
   // Analysis Template Actions
   // ========================================
 
-  async function fetchAnalysisTemplates(params?: any) {
+  async function fetchAnalysisTemplates(params?: Record<string, unknown>) {
     analysisTemplatesLoading.value = true
     error.value = null
     try {
       const response = await analysisApi.getTemplates(params)
       analysisTemplates.value = response.data.items
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch analysis templates'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch analysis templates'
       throw err
     } finally {
       analysisTemplatesLoading.value = false
@@ -744,8 +786,8 @@ export const useEntityStore = defineStore('entity', () => {
       const response = await analysisApi.getTemplate(id)
       selectedTemplate.value = response.data
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch analysis template'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch analysis template'
       throw err
     }
   }
@@ -755,8 +797,8 @@ export const useEntityStore = defineStore('entity', () => {
       const response = await analysisApi.getTemplateBySlug(slug)
       selectedTemplate.value = response.data
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch analysis template'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch analysis template'
       throw err
     }
   }
@@ -765,42 +807,42 @@ export const useEntityStore = defineStore('entity', () => {
   // Analysis Overview & Report Actions
   // ========================================
 
-  async function fetchAnalysisOverview(params?: any) {
+  async function fetchAnalysisOverview(params?: Record<string, unknown>) {
     analysisOverviewLoading.value = true
     error.value = null
     try {
       const response = await analysisApi.getOverview(params)
       analysisOverview.value = response.data.entities
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch analysis overview'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch analysis overview'
       throw err
     } finally {
       analysisOverviewLoading.value = false
     }
   }
 
-  async function fetchEntityReport(entityId: string, params?: any) {
+  async function fetchEntityReport(entityId: string, params?: Record<string, unknown>) {
     entityReportLoading.value = true
     error.value = null
     try {
       const response = await analysisApi.getEntityReport(entityId, params)
       entityReport.value = response.data
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch entity report'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch entity report'
       throw err
     } finally {
       entityReportLoading.value = false
     }
   }
 
-  async function fetchAnalysisStats(params?: any) {
+  async function fetchAnalysisStats(params?: Record<string, unknown>) {
     try {
       const response = await analysisApi.getStats(params)
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch analysis stats'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch analysis stats'
       throw err
     }
   }
@@ -815,8 +857,8 @@ export const useEntityStore = defineStore('entity', () => {
       const response = await entityApi.getLocationFilterOptions(params)
       locationFilterOptions.value = response.data
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch location filter options'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch location filter options'
       throw err
     } finally {
       filterOptionsLoading.value = false
@@ -829,8 +871,8 @@ export const useEntityStore = defineStore('entity', () => {
       const response = await entityApi.getAttributeFilterOptions(params)
       attributeFilterOptions.value = response.data
       return response.data
-    } catch (err: any) {
-      error.value = err.response?.data?.error || 'Failed to fetch attribute filter options'
+    } catch (err: unknown) {
+      error.value = getErrorMessage(err) || 'Failed to fetch attribute filter options'
       throw err
     } finally {
       filterOptionsLoading.value = false

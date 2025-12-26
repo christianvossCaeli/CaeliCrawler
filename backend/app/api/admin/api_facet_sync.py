@@ -4,19 +4,19 @@ These endpoints allow managing scheduled API syncs that automatically
 update FacetValueHistory from external APIs.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.core.deps import require_editor
 from app.models import User
-from app.models.api_template import APITemplate, TemplateStatus
+from app.models.api_configuration import APIConfiguration, ImportMode, SyncStatus
 from app.schemas.common import MessageResponse
 
 router = APIRouter()
@@ -41,51 +41,25 @@ class EntityMatchingConfig(BaseModel):
     entity_type_slug: Optional[str] = None
 
 
-class APIFacetSyncCreate(BaseModel):
-    """Create API facet sync configuration."""
-    name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = None
-    api_url: str = Field(..., min_length=1)
-    auth_required: bool = False
-    auth_config: Optional[Dict[str, Any]] = None
-    entity_matching: EntityMatchingConfig
-    facet_mapping: Dict[str, FacetMappingItem]
-    schedule_cron: Optional[str] = None
-    schedule_enabled: bool = False
-    keywords: List[str] = Field(default_factory=list)
-
-
-class APIFacetSyncUpdate(BaseModel):
-    """Update API facet sync configuration."""
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = None
-    api_url: Optional[str] = None
-    auth_required: Optional[bool] = None
-    auth_config: Optional[Dict[str, Any]] = None
-    entity_matching: Optional[EntityMatchingConfig] = None
-    facet_mapping: Optional[Dict[str, FacetMappingItem]] = None
-    schedule_cron: Optional[str] = None
-    schedule_enabled: Optional[bool] = None
-    keywords: Optional[List[str]] = None
-
-
 class APIFacetSyncResponse(BaseModel):
     """API facet sync configuration response."""
     id: UUID
-    name: str
-    description: Optional[str]
-    api_url: str
-    auth_required: bool
+    data_source_id: UUID
+    data_source_name: Optional[str] = None
+    api_type: str
+    endpoint: str
+    full_url: str
+    auth_type: str
     entity_matching: Dict[str, Any]
-    facet_mapping: Dict[str, Any]
-    schedule_enabled: bool
-    schedule_cron: Optional[str]
+    facet_mappings: Dict[str, Any]
+    sync_enabled: bool
+    sync_interval_hours: int
     next_run_at: Optional[datetime]
     last_sync_at: Optional[datetime]
     last_sync_status: Optional[str]
     last_sync_stats: Optional[Dict[str, Any]]
-    status: str
-    usage_count: int
+    is_active: bool
+    import_mode: str
     created_at: datetime
     updated_at: datetime
 
@@ -96,16 +70,46 @@ class SyncTriggerResponse(BaseModel):
     """Response after triggering a sync."""
     message: str
     task_id: str
-    template_id: UUID
-    template_name: str
+    config_id: UUID
+    config_name: str
 
 
 class SyncStatsResponse(BaseModel):
     """Sync statistics response."""
-    total_syncs: int
-    syncs_with_schedule: int
+    total_configs: int
+    configs_with_schedule: int
     last_24h_syncs: int
     last_24h_history_points: int
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+
+def _config_to_response(config: APIConfiguration) -> APIFacetSyncResponse:
+    """Convert APIConfiguration to response model."""
+    return APIFacetSyncResponse(
+        id=config.id,
+        data_source_id=config.data_source_id,
+        data_source_name=config.data_source.name if config.data_source else None,
+        api_type=config.api_type,
+        endpoint=config.endpoint,
+        full_url=config.get_full_url(),
+        auth_type=config.auth_type,
+        entity_matching=config.entity_matching or {},
+        facet_mappings=config.facet_mappings or {},
+        sync_enabled=config.sync_enabled,
+        sync_interval_hours=config.sync_interval_hours,
+        next_run_at=config.next_run_at,
+        last_sync_at=config.last_sync_at,
+        last_sync_status=config.last_sync_status,
+        last_sync_stats=config.last_sync_stats,
+        is_active=config.is_active,
+        import_mode=config.import_mode,
+        created_at=config.created_at,
+        updated_at=config.updated_at,
+    )
 
 
 # =============================================================================
@@ -117,49 +121,38 @@ class SyncStatsResponse(BaseModel):
 async def list_api_facet_syncs(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_editor),
-    schedule_enabled: Optional[bool] = None,
-    status_filter: Optional[str] = None,
+    sync_enabled: Optional[bool] = None,
+    is_active: Optional[bool] = None,
 ):
     """
-    List all API facet sync configurations.
+    List all API configurations with facet sync capability.
 
-    Only returns APITemplates that have facet_mapping configured.
+    Only returns APIConfigurations with import_mode FACETS or BOTH.
     """
-    query = select(APITemplate).where(APITemplate.facet_mapping != {})
+    from sqlalchemy.orm import selectinload
 
-    if schedule_enabled is not None:
-        query = query.where(APITemplate.schedule_enabled == schedule_enabled)
+    query = select(APIConfiguration).options(
+        selectinload(APIConfiguration.data_source)
+    ).where(
+        APIConfiguration.import_mode.in_([
+            ImportMode.FACETS.value,
+            ImportMode.BOTH.value,
+        ]),
+        APIConfiguration.facet_mappings != {},
+    )
 
-    if status_filter:
-        query = query.where(APITemplate.status == TemplateStatus(status_filter))
+    if sync_enabled is not None:
+        query = query.where(APIConfiguration.sync_enabled == sync_enabled)
 
-    query = query.order_by(APITemplate.created_at.desc())
+    if is_active is not None:
+        query = query.where(APIConfiguration.is_active == is_active)
+
+    query = query.order_by(APIConfiguration.created_at.desc())
 
     result = await session.execute(query)
-    templates = result.scalars().all()
+    configs = result.scalars().all()
 
-    return [
-        APIFacetSyncResponse(
-            id=t.id,
-            name=t.name,
-            description=t.description,
-            api_url=t.full_url,
-            auth_required=t.auth_required,
-            entity_matching=t.entity_matching or {},
-            facet_mapping=t.facet_mapping or {},
-            schedule_enabled=t.schedule_enabled,
-            schedule_cron=t.schedule_cron,
-            next_run_at=t.next_run_at,
-            last_sync_at=t.last_sync_at,
-            last_sync_status=t.last_sync_status,
-            last_sync_stats=t.last_sync_stats,
-            status=t.status.value,
-            usage_count=t.usage_count,
-            created_at=t.created_at,
-            updated_at=t.updated_at,
-        )
-        for t in templates
-    ]
+    return [_config_to_response(c) for c in configs]
 
 
 @router.get("/stats", response_model=SyncStatsResponse)
@@ -168,40 +161,46 @@ async def get_sync_stats(
     user: User = Depends(require_editor),
 ):
     """Get statistics about API facet syncs."""
-    from datetime import timedelta
-    from sqlalchemy import func
+    # Base filter for facet-enabled configs
+    base_filter = [
+        APIConfiguration.import_mode.in_([
+            ImportMode.FACETS.value,
+            ImportMode.BOTH.value,
+        ]),
+        APIConfiguration.facet_mappings != {},
+    ]
 
-    # Count total syncs
+    # Count total configs
     total_result = await session.execute(
-        select(func.count(APITemplate.id)).where(APITemplate.facet_mapping != {})
+        select(func.count(APIConfiguration.id)).where(*base_filter)
     )
-    total_syncs = total_result.scalar_one()
+    total_configs = total_result.scalar_one()
 
-    # Count syncs with schedule
+    # Count configs with schedule enabled
     scheduled_result = await session.execute(
-        select(func.count(APITemplate.id)).where(
-            APITemplate.facet_mapping != {},
-            APITemplate.schedule_enabled.is_(True),
+        select(func.count(APIConfiguration.id)).where(
+            *base_filter,
+            APIConfiguration.sync_enabled.is_(True),
         )
     )
-    syncs_with_schedule = scheduled_result.scalar_one()
+    configs_with_schedule = scheduled_result.scalar_one()
 
     # Count syncs in last 24 hours
-    yesterday = datetime.utcnow() - timedelta(days=1)
+    yesterday = datetime.now(timezone.utc) - timedelta(days=1)
     recent_result = await session.execute(
-        select(func.count(APITemplate.id)).where(
-            APITemplate.facet_mapping != {},
-            APITemplate.last_sync_at >= yesterday,
+        select(func.count(APIConfiguration.id)).where(
+            *base_filter,
+            APIConfiguration.last_sync_at >= yesterday,
         )
     )
     last_24h_syncs = recent_result.scalar_one()
 
     # Sum history points from last 24h syncs
     stats_result = await session.execute(
-        select(APITemplate.last_sync_stats).where(
-            APITemplate.facet_mapping != {},
-            APITemplate.last_sync_at >= yesterday,
-            APITemplate.last_sync_stats.isnot(None),
+        select(APIConfiguration.last_sync_stats).where(
+            *base_filter,
+            APIConfiguration.last_sync_at >= yesterday,
+            APIConfiguration.last_sync_stats.isnot(None),
         )
     )
     stats_list = stats_result.scalars().all()
@@ -210,162 +209,165 @@ async def get_sync_stats(
     )
 
     return SyncStatsResponse(
-        total_syncs=total_syncs,
-        syncs_with_schedule=syncs_with_schedule,
+        total_configs=total_configs,
+        configs_with_schedule=configs_with_schedule,
         last_24h_syncs=last_24h_syncs,
         last_24h_history_points=last_24h_history_points,
     )
 
 
-@router.get("/{sync_id}", response_model=APIFacetSyncResponse)
+@router.get("/{config_id}", response_model=APIFacetSyncResponse)
 async def get_api_facet_sync(
-    sync_id: UUID,
+    config_id: UUID,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_editor),
 ):
     """Get a specific API facet sync configuration."""
-    template = await session.get(APITemplate, sync_id)
+    from sqlalchemy.orm import selectinload
 
-    if not template:
-        raise HTTPException(status_code=404, detail="Sync configuration not found")
-
-    if not template.facet_mapping:
-        raise HTTPException(status_code=404, detail="Template has no facet sync configuration")
-
-    return APIFacetSyncResponse(
-        id=template.id,
-        name=template.name,
-        description=template.description,
-        api_url=template.full_url,
-        auth_required=template.auth_required,
-        entity_matching=template.entity_matching or {},
-        facet_mapping=template.facet_mapping or {},
-        schedule_enabled=template.schedule_enabled,
-        schedule_cron=template.schedule_cron,
-        next_run_at=template.next_run_at,
-        last_sync_at=template.last_sync_at,
-        last_sync_status=template.last_sync_status,
-        last_sync_stats=template.last_sync_stats,
-        status=template.status.value,
-        usage_count=template.usage_count,
-        created_at=template.created_at,
-        updated_at=template.updated_at,
+    result = await session.execute(
+        select(APIConfiguration).options(
+            selectinload(APIConfiguration.data_source)
+        ).where(APIConfiguration.id == config_id)
     )
+    config = result.scalar_one_or_none()
+
+    if not config:
+        raise HTTPException(status_code=404, detail="Configuration not found")
+
+    if config.import_mode not in [ImportMode.FACETS.value, ImportMode.BOTH.value]:
+        raise HTTPException(
+            status_code=400,
+            detail="Configuration is not configured for facet sync"
+        )
+
+    if not config.facet_mappings:
+        raise HTTPException(
+            status_code=400,
+            detail="Configuration has no facet_mappings"
+        )
+
+    return _config_to_response(config)
 
 
-@router.post("/{sync_id}/sync-now", response_model=SyncTriggerResponse)
+@router.post("/{config_id}/sync-now", response_model=SyncTriggerResponse)
 async def trigger_sync_now(
-    sync_id: UUID,
+    config_id: UUID,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_editor),
 ):
-    """Manually trigger a sync for an API template."""
-    template = await session.get(APITemplate, sync_id)
+    """Manually trigger a facet sync for an API configuration."""
+    from sqlalchemy.orm import selectinload
 
-    if not template:
-        raise HTTPException(status_code=404, detail="Sync configuration not found")
+    result = await session.execute(
+        select(APIConfiguration).options(
+            selectinload(APIConfiguration.data_source)
+        ).where(APIConfiguration.id == config_id)
+    )
+    config = result.scalar_one_or_none()
 
-    if not template.facet_mapping:
+    if not config:
+        raise HTTPException(status_code=404, detail="Configuration not found")
+
+    if config.import_mode not in [ImportMode.FACETS.value, ImportMode.BOTH.value]:
         raise HTTPException(
             status_code=400,
-            detail="Template has no facet_mapping configured",
+            detail="Configuration is not configured for facet sync"
         )
 
-    if template.status != TemplateStatus.ACTIVE:
+    if not config.facet_mappings:
         raise HTTPException(
             status_code=400,
-            detail=f"Template not active (status: {template.status.value})",
+            detail="Configuration has no facet_mappings configured",
         )
 
-    from workers.api_facet_sync_tasks import sync_api_template_now
+    if not config.is_active:
+        raise HTTPException(
+            status_code=400,
+            detail="Configuration is not active",
+        )
 
-    task = sync_api_template_now.delay(str(template.id))
+    from workers.api_facet_sync_tasks import sync_api_config_now
+
+    task = sync_api_config_now.delay(str(config.id))
+
+    config_name = config.data_source.name if config.data_source else f"Config {str(config.id)[:8]}"
 
     return SyncTriggerResponse(
-        message=f"Sync für '{template.name}' gestartet",
+        message=f"Sync für '{config_name}' gestartet",
         task_id=task.id,
-        template_id=template.id,
-        template_name=template.name,
+        config_id=config.id,
+        config_name=config_name,
     )
 
 
-@router.put("/{sync_id}/schedule", response_model=APIFacetSyncResponse)
+@router.put("/{config_id}/schedule", response_model=APIFacetSyncResponse)
 async def update_schedule(
-    sync_id: UUID,
-    schedule_enabled: bool,
-    schedule_cron: Optional[str] = None,
+    config_id: UUID,
+    sync_enabled: bool,
+    sync_interval_hours: Optional[int] = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_editor),
 ):
-    """Update the schedule for an API facet sync."""
-    template = await session.get(APITemplate, sync_id)
+    """Update the sync schedule for an API configuration."""
+    from sqlalchemy.orm import selectinload
 
-    if not template:
-        raise HTTPException(status_code=404, detail="Sync configuration not found")
+    result = await session.execute(
+        select(APIConfiguration).options(
+            selectinload(APIConfiguration.data_source)
+        ).where(APIConfiguration.id == config_id)
+    )
+    config = result.scalar_one_or_none()
 
-    if schedule_enabled and not schedule_cron and not template.schedule_cron:
-        raise HTTPException(
-            status_code=400,
-            detail="schedule_cron required when enabling schedule",
-        )
+    if not config:
+        raise HTTPException(status_code=404, detail="Configuration not found")
 
-    # Validate cron expression
-    if schedule_cron:
-        from app.utils.cron import croniter_for_expression, get_schedule_timezone
+    config.sync_enabled = sync_enabled
 
-        try:
-            schedule_tz = get_schedule_timezone()
-            cron = croniter_for_expression(schedule_cron, datetime.now(schedule_tz))
-            template.schedule_cron = schedule_cron
-            template.next_run_at = cron.get_next(datetime)
-        except Exception as e:
+    if sync_interval_hours is not None:
+        if sync_interval_hours < 1 or sync_interval_hours > 8760:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid cron expression: {schedule_cron} - {str(e)}",
+                detail="sync_interval_hours must be between 1 and 8760 (1 year)"
             )
+        config.sync_interval_hours = sync_interval_hours
 
-    template.schedule_enabled = schedule_enabled
-
-    if not schedule_enabled:
-        template.next_run_at = None
+    if sync_enabled:
+        # Calculate next run
+        config.next_run_at = datetime.now(timezone.utc) + timedelta(
+            hours=config.sync_interval_hours
+        )
+    else:
+        config.next_run_at = None
 
     await session.commit()
-    await session.refresh(template)
+    await session.refresh(config)
 
-    return APIFacetSyncResponse(
-        id=template.id,
-        name=template.name,
-        description=template.description,
-        api_url=template.full_url,
-        auth_required=template.auth_required,
-        entity_matching=template.entity_matching or {},
-        facet_mapping=template.facet_mapping or {},
-        schedule_enabled=template.schedule_enabled,
-        schedule_cron=template.schedule_cron,
-        next_run_at=template.next_run_at,
-        last_sync_at=template.last_sync_at,
-        last_sync_status=template.last_sync_status,
-        last_sync_stats=template.last_sync_stats,
-        status=template.status.value,
-        usage_count=template.usage_count,
-        created_at=template.created_at,
-        updated_at=template.updated_at,
-    )
+    return _config_to_response(config)
 
 
-@router.delete("/{sync_id}", response_model=MessageResponse)
+@router.delete("/{config_id}", response_model=MessageResponse)
 async def delete_api_facet_sync(
-    sync_id: UUID,
+    config_id: UUID,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_editor),
 ):
-    """Delete an API facet sync configuration."""
-    template = await session.get(APITemplate, sync_id)
+    """Delete an API configuration (and its facet sync settings)."""
+    from sqlalchemy.orm import selectinload
 
-    if not template:
-        raise HTTPException(status_code=404, detail="Sync configuration not found")
+    result = await session.execute(
+        select(APIConfiguration).options(
+            selectinload(APIConfiguration.data_source)
+        ).where(APIConfiguration.id == config_id)
+    )
+    config = result.scalar_one_or_none()
 
-    await session.delete(template)
+    if not config:
+        raise HTTPException(status_code=404, detail="Configuration not found")
+
+    config_name = config.data_source.name if config.data_source else f"Config {str(config.id)[:8]}"
+
+    await session.delete(config)
     await session.commit()
 
-    return MessageResponse(message=f"Sync '{template.name}' gelöscht")
+    return MessageResponse(message=f"Configuration '{config_name}' gelöscht")

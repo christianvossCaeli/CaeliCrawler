@@ -12,13 +12,13 @@
       color="primary"
       variant="tonal"
       role="button"
+      tabindex="0"
+      :aria-label="$t('sources.filters.removeCategory', { name: categoryName })"
       @click:close="$emit('clear:category')"
       @keydown.enter.prevent="$emit('clear:category')"
       @keydown.space.prevent="$emit('clear:category')"
       @keydown.delete="$emit('clear:category')"
       @keydown.backspace="$emit('clear:category')"
-      tabindex="0"
-      :aria-label="$t('sources.filters.removeCategory', { name: categoryName })"
     >
       <v-icon start size="x-small" aria-hidden="true">mdi-folder</v-icon>
       {{ categoryName }}
@@ -31,13 +31,13 @@
       :color="getTypeColor(sourceType)"
       variant="tonal"
       role="button"
+      tabindex="0"
+      :aria-label="$t('sources.filters.removeType', { name: getTypeLabel(sourceType) })"
       @click:close="$emit('clear:type')"
       @keydown.enter.prevent="$emit('clear:type')"
       @keydown.space.prevent="$emit('clear:type')"
       @keydown.delete="$emit('clear:type')"
       @keydown.backspace="$emit('clear:type')"
-      tabindex="0"
-      :aria-label="$t('sources.filters.removeType', { name: getTypeLabel(sourceType) })"
     >
       <v-icon start size="x-small" aria-hidden="true">{{ getTypeIcon(sourceType) }}</v-icon>
       {{ getTypeLabel(sourceType) }}
@@ -50,13 +50,13 @@
       :color="getStatusColor(status)"
       variant="tonal"
       role="button"
+      tabindex="0"
+      :aria-label="$t('sources.filters.removeStatus', { name: getStatusLabel(status) })"
       @click:close="$emit('clear:status')"
       @keydown.enter.prevent="$emit('clear:status')"
       @keydown.space.prevent="$emit('clear:status')"
       @keydown.delete="$emit('clear:status')"
       @keydown.backspace="$emit('clear:status')"
-      tabindex="0"
-      :aria-label="$t('sources.filters.removeStatus', { name: getStatusLabel(status) })"
     >
       <v-icon start size="x-small" aria-hidden="true">{{ getStatusIcon(status) }}</v-icon>
       {{ getStatusLabel(status) }}
@@ -70,13 +70,13 @@
       :color="getTagColor(tag)"
       variant="tonal"
       role="button"
+      tabindex="0"
+      :aria-label="$t('sources.filters.removeTag', { name: tag })"
       @click:close="$emit('clear:tag', tag)"
       @keydown.enter.prevent="$emit('clear:tag', tag)"
       @keydown.space.prevent="$emit('clear:tag', tag)"
       @keydown.delete="$emit('clear:tag', tag)"
       @keydown.backspace="$emit('clear:tag', tag)"
-      tabindex="0"
-      :aria-label="$t('sources.filters.removeTag', { name: tag })"
     >
       <v-icon start size="x-small" aria-hidden="true">mdi-tag</v-icon>
       {{ tag }}
@@ -87,8 +87,8 @@
       variant="text"
       size="small"
       color="grey"
-      @click="$emit('clear:all')"
       :aria-label="$t('sources.filters.clearAllFilters')"
+      @click="$emit('clear:all')"
     >
       <v-icon start size="small" aria-hidden="true">mdi-close-circle</v-icon>
       {{ $t('sources.filters.clearAll') }}

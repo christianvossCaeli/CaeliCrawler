@@ -1,26 +1,3 @@
-<script setup lang="ts">
-/**
- * WidgetRenderer - Dynamically renders a widget based on its config
- *
- * Looks up the widget type in the registry and renders the appropriate component.
- */
-
-import { computed, Suspense } from 'vue'
-import type { WidgetConfig } from './types'
-import { getWidget } from './registry'
-
-const props = defineProps<{
-  config: WidgetConfig
-  isEditing?: boolean
-}>()
-
-// Get the widget definition from the registry
-const definition = computed(() => getWidget(props.config.type))
-
-// Check if widget exists
-const hasWidget = computed(() => !!definition.value)
-</script>
-
 <template>
   <div v-if="hasWidget && definition" class="widget-renderer">
     <Suspense>
@@ -51,6 +28,29 @@ const hasWidget = computed(() => !!definition.value)
     </v-card-text>
   </v-card>
 </template>
+
+<script setup lang="ts">
+/**
+ * WidgetRenderer - Dynamically renders a widget based on its config
+ *
+ * Looks up the widget type in the registry and renders the appropriate component.
+ */
+
+import { computed } from 'vue'
+import type { WidgetConfig } from './types'
+import { getWidget } from './registry'
+
+const props = defineProps<{
+  config: WidgetConfig
+  isEditing?: boolean
+}>()
+
+// Get the widget definition from the registry
+const definition = computed(() => getWidget(props.config.type))
+
+// Check if widget exists
+const hasWidget = computed(() => !!definition.value)
+</script>
 
 <style scoped>
 .widget-renderer {

@@ -8,9 +8,9 @@
         </p>
         <v-switch
           :model-value="reanalyzeAll"
-          @update:model-value="handleReanalyzeAllChange"
           :label="t('categories.dialog.reanalyzeAll')"
           color="warning"
+          @update:model-value="handleReanalyzeAllChange"
         ></v-switch>
         <v-alert type="info" variant="tonal" class="mt-2">
           {{ reanalyzeAll ? t('categories.dialog.reanalyzeAllDocs') : t('categories.dialog.reanalyzeOnlyLow') }} {{ t('categories.dialog.reanalyzeInfo') }}

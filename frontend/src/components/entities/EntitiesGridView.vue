@@ -66,16 +66,30 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 
+interface EntityLocal {
+  id: string
+  name: string
+  slug?: string
+  external_id?: string
+}
+
+interface EntityTypeLocal {
+  slug: string
+  name: string
+  icon?: string
+  color?: string
+}
+
 interface Props {
-  entities: any[]
+  entities: EntityLocal[]
   currentPage: number
   totalPages: number
-  currentEntityType: any
+  currentEntityType: EntityTypeLocal | null
 }
 
 interface Emits {
   (e: 'update:current-page', value: number): void
-  (e: 'entity-click', entity: any): void
+  (e: 'entity-click', entity: EntityLocal): void
 }
 
 defineProps<Props>()

@@ -10,9 +10,11 @@ from urllib.parse import urlparse
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models import EntityType, FacetType
-from app.models.api_template import APITemplate, APIType, TemplateStatus
+from app.models.data_source import DataSource, SourceType
+from app.models.api_configuration import APIConfiguration, ImportMode, AuthType
 from app.utils.cron import croniter_for_expression, get_schedule_timezone
 from .base import BaseCommand, CommandResult
 from .registry import default_registry
@@ -25,7 +27,7 @@ class SetupAPIFacetSyncCommand(BaseCommand):
     """
     Command to set up scheduled API-to-Facet synchronization.
 
-    This command creates an APITemplate configured for automatic
+    This command creates an APIConfiguration configured for automatic
     facet synchronization from an external API.
 
     Example Command:
@@ -154,33 +156,57 @@ class SetupAPIFacetSyncCommand(BaseCommand):
                     value_type="history" if is_history else "number",
                 )
 
-        # Check if template with same name already exists
-        existing_template = await self.session.execute(
-            select(APITemplate).where(APITemplate.name == name)
+        # Check if DataSource with same name already exists
+        existing_ds = await self.session.execute(
+            select(DataSource).where(DataSource.name == name)
         )
-        if existing_template.scalar_one_or_none():
+        if existing_ds.scalar_one_or_none():
             return CommandResult.failure(
-                message=f"API-Template mit Name '{name}' existiert bereits"
+                message=f"Datenquelle mit Name '{name}' existiert bereits"
             )
 
-        # Create APITemplate with facet sync config
-        template = APITemplate(
+        # Create DataSource first
+        data_source = DataSource(
             name=name,
             description=description,
-            api_type=APIType.REST,
             base_url=base_url,
+            source_type=SourceType.REST_API,
+            is_active=True,
+        )
+        self.session.add(data_source)
+        await self.session.flush()  # Get the ID
+
+        # Calculate sync interval from cron (approximate)
+        sync_interval_hours = 24  # Default daily
+        if schedule_cron:
+            # Simple heuristic: weekly = 168h, daily = 24h, hourly = 1h
+            parts = schedule_cron.split()
+            if len(parts) >= 5:
+                if parts[4] != '*':  # Day of week specified
+                    sync_interval_hours = 168
+                elif parts[2] != '*':  # Day of month specified
+                    sync_interval_hours = 720  # ~monthly
+                elif parts[1] != '*':  # Hour specified (daily)
+                    sync_interval_hours = 24
+                elif parts[0] != '*':  # Minute specified (hourly)
+                    sync_interval_hours = 1
+
+        # Create APIConfiguration with facet sync config
+        api_config = APIConfiguration(
+            data_source_id=data_source.id,
+            api_type="rest",
             endpoint=endpoint,
-            auth_required=False,  # Can be extended later
-            auth_config=None,
-            field_mapping={},  # Not used for facet sync
-            facet_mapping=facet_mapping,
+            auth_type=AuthType.NONE.value,
+            auth_config={},
+            request_config={},
+            import_mode=ImportMode.FACETS.value,
+            facet_mappings=facet_mapping,
             entity_matching=entity_matching,
             keywords=keywords,
-            default_tags=[],
-            schedule_enabled=bool(schedule_cron),
-            schedule_cron=schedule_cron,
-            status=TemplateStatus.ACTIVE,
-            source="smart_query",
+            sync_enabled=bool(schedule_cron),
+            sync_interval_hours=sync_interval_hours,
+            is_template=True,  # Mark as template for discovery
+            is_active=True,
             confidence=0.9,
         )
 
@@ -188,9 +214,9 @@ class SetupAPIFacetSyncCommand(BaseCommand):
         if schedule_cron:
             schedule_tz = get_schedule_timezone()
             cron = croniter_for_expression(schedule_cron, datetime.now(schedule_tz))
-            template.next_run_at = cron.get_next(datetime)
+            api_config.next_run_at = cron.get_next(datetime)
 
-        self.session.add(template)
+        self.session.add(api_config)
         await self.session.flush()
 
         # Build response message
@@ -199,14 +225,15 @@ class SetupAPIFacetSyncCommand(BaseCommand):
         if created_facet_types:
             message_parts.append(f"Facet-Typen erstellt: {', '.join(created_facet_types)}.")
 
-        if schedule_cron and template.next_run_at:
+        if schedule_cron and api_config.next_run_at:
             message_parts.append(
-                f"Nächster Sync: {template.next_run_at.strftime('%d.%m.%Y %H:%M')}."
+                f"Nächster Sync: {api_config.next_run_at.strftime('%d.%m.%Y %H:%M')}."
             )
 
         logger.info(
             "api_facet_sync_configured",
-            template_id=str(template.id),
+            config_id=str(api_config.id),
+            data_source_id=str(data_source.id),
             name=name,
             api_url=api_url,
             schedule_cron=schedule_cron,
@@ -217,12 +244,13 @@ class SetupAPIFacetSyncCommand(BaseCommand):
             message=" ".join(message_parts),
             created_items=[
                 {
-                    "type": "api_template",
-                    "id": str(template.id),
+                    "type": "api_configuration",
+                    "id": str(api_config.id),
+                    "data_source_id": str(data_source.id),
                     "name": name,
-                    "api_url": template.full_url,
-                    "schedule_enabled": template.schedule_enabled,
-                    "next_run": template.next_run_at.isoformat() if template.next_run_at else None,
+                    "api_url": api_config.get_full_url(),
+                    "sync_enabled": api_config.sync_enabled,
+                    "next_run": api_config.next_run_at.isoformat() if api_config.next_run_at else None,
                 }
             ],
         )
@@ -236,71 +264,83 @@ class TriggerAPISyncCommand(BaseCommand):
     Example Command:
         {
             "operation": "trigger_api_sync",
-            "template_id": "uuid-here"
+            "config_id": "uuid-here"
         }
         or
         {
             "operation": "trigger_api_sync",
-            "template_name": "Bundesliga Tabelle Sync"
+            "config_name": "Bundesliga Tabelle Sync"
         }
     """
 
     async def validate(self) -> Optional[str]:
         """Validate trigger request."""
-        if not self.data.get("template_id") and not self.data.get("template_name"):
-            return "template_id oder template_name erforderlich"
+        if not self.data.get("config_id") and not self.data.get("config_name"):
+            return "config_id oder config_name erforderlich"
         return None
 
     async def execute(self) -> CommandResult:
         """Trigger the sync."""
-        from workers.api_facet_sync_tasks import sync_api_template_now
+        from workers.api_facet_sync_tasks import sync_api_config_now
 
-        template_id = self.data.get("template_id")
-        template_name = self.data.get("template_name")
+        config_id = self.data.get("config_id")
+        config_name = self.data.get("config_name")
 
-        # Find template
-        if template_id:
+        # Find configuration
+        if config_id:
             from uuid import UUID
-            template = await self.session.get(APITemplate, UUID(template_id))
-        else:
             result = await self.session.execute(
-                select(APITemplate).where(APITemplate.name == template_name)
+                select(APIConfiguration)
+                .options(selectinload(APIConfiguration.data_source))
+                .where(APIConfiguration.id == UUID(config_id))
             )
-            template = result.scalar_one_or_none()
+            api_config = result.scalar_one_or_none()
+        else:
+            # Search by DataSource name
+            result = await self.session.execute(
+                select(APIConfiguration)
+                .options(selectinload(APIConfiguration.data_source))
+                .join(DataSource)
+                .where(DataSource.name == config_name)
+            )
+            api_config = result.scalar_one_or_none()
 
-        if not template:
+        if not api_config:
             return CommandResult.failure(
-                message=f"API-Template nicht gefunden"
+                message="API-Konfiguration nicht gefunden"
             )
 
-        if template.status != TemplateStatus.ACTIVE:
+        if not api_config.is_active:
             return CommandResult.failure(
-                message=f"API-Template nicht aktiv (Status: {template.status.value})"
+                message="API-Konfiguration ist nicht aktiv"
             )
 
-        if not template.facet_mapping:
+        if not api_config.facet_mappings:
             return CommandResult.failure(
-                message="API-Template hat kein facet_mapping konfiguriert"
+                message="API-Konfiguration hat kein facet_mappings konfiguriert"
             )
+
+        # Get name for logging/response
+        config_display_name = api_config.data_source.name if api_config.data_source else f"Config {str(api_config.id)[:8]}"
 
         # Trigger async sync
-        task = sync_api_template_now.delay(str(template.id))
+        task = sync_api_config_now.delay(str(api_config.id))
 
         logger.info(
             "api_sync_triggered_manually",
-            template_id=str(template.id),
-            template_name=template.name,
+            config_id=str(api_config.id),
+            config_name=config_display_name,
             task_id=task.id,
         )
 
         return CommandResult.success_result(
-            message=f"Sync für '{template.name}' gestartet.",
+            message=f"Sync für '{config_display_name}' gestartet.",
             created_items=[
                 {
                     "type": "celery_task",
                     "id": task.id,
-                    "template_id": str(template.id),
-                    "template_name": template.name,
+                    "config_id": str(api_config.id),
+                    "config_name": config_display_name,
                 }
             ],
         )

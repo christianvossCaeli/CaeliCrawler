@@ -33,9 +33,9 @@ export interface QueryResultData {
   /** Total number of results */
   total: number
   /** Result items (first few for preview) */
-  items: any[]
+  items: Record<string, unknown>[]
   /** Query interpretation */
-  interpretation?: any
+  interpretation?: Record<string, unknown>
   /** Whether the operation was successful */
   success: boolean
   /** Mode of the query */

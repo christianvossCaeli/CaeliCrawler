@@ -13,7 +13,7 @@ from redis.asyncio import Redis
 from app import __version__
 from app.config import settings
 from app.database import close_db, init_db
-from app.api.admin import categories, sources, crawler, pysis, locations, users, versions, audit, notifications, external_apis, api_import, ai_discovery, api_templates, crawl_presets, api_facet_sync, sharepoint, custom_summaries
+from app.api.admin import categories, sources, crawler, pysis, locations, users, versions, audit, notifications, external_apis, api_import, ai_discovery, crawl_presets, api_facet_sync, sharepoint, custom_summaries
 from app.api.v1 import export, entity_types, entities, facets, relations, assistant, pysis_facets, dashboard, ai_tasks, entity_data, attachments, favorites, smart_query_history, summaries as public_summaries
 from app.api.v1.data_api import router as data_router
 from app.api.v1.analysis_api import router as analysis_router
@@ -347,11 +347,6 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         ai_discovery.router,
         prefix=f"{settings.admin_api_prefix}/ai-discovery",
         tags=["Admin - AI Discovery"],
-    )
-    app.include_router(
-        api_templates.router,
-        prefix=f"{settings.admin_api_prefix}/api-templates",
-        tags=["Admin - API Templates"],
     )
     app.include_router(
         crawl_presets.router,

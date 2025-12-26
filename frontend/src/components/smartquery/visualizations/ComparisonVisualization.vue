@@ -14,7 +14,7 @@
           <div class="comparison-card__title">
             <router-link
               v-if="entity.entity_id"
-              :to="`/entities/${entity.entity_id}`"
+              :to="`/entity/${entity.entity_id}`"
               class="text-h6 text-primary text-decoration-none"
             >
               {{ entity.entity_name }}
@@ -94,12 +94,12 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { VisualizationConfig } from './types'
 
-const { t } = useI18n()
-
 const props = defineProps<{
-  data: Record<string, any>[]
+  data: Record<string, unknown>[]
   config?: VisualizationConfig
 }>()
+
+const { t } = useI18n()
 
 const entitiesToCompare = computed(() => {
   // Use configured entities or data
@@ -160,7 +160,7 @@ function getEntityColor(index: number): string {
   return colors[index % colors.length]
 }
 
-function getFacetValue(entity: Record<string, any>, facetKey: string): string {
+function getFacetValue(entity: Record<string, unknown>, facetKey: string): string {
   const facets = entity.facets || {}
   const facetValue = facets[facetKey]
 
@@ -181,7 +181,7 @@ function getFacetValue(entity: Record<string, any>, facetKey: string): string {
   return String(facetValue)
 }
 
-function getNumericFacetValue(entity: Record<string, any>, facetKey: string): number {
+function getNumericFacetValue(entity: Record<string, unknown>, facetKey: string): number {
   const facets = entity.facets || {}
   const facetValue = facets[facetKey]
 
@@ -204,7 +204,7 @@ function formatAttrKey(key: string): string {
     .replace(/\b\w/g, c => c.toUpperCase())
 }
 
-function formatAttrValue(value: any): string {
+function formatAttrValue(value: unknown): string {
   if (value === null || value === undefined) return '-'
   if (typeof value === 'number') return value.toLocaleString()
   if (typeof value === 'boolean') return value ? t('common.yes') : t('common.no')

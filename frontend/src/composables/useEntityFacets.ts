@@ -9,12 +9,44 @@ import { useLogger } from '@/composables/useLogger'
 
 const logger = useLogger('useEntityFacets')
 
+// Helper for type-safe error handling
+function getErrorDetail(err: unknown): string | undefined {
+  if (err && typeof err === 'object') {
+    const e = err as { response?: { data?: { detail?: string } }; message?: string }
+    return e.response?.data?.detail || e.message
+  }
+  return undefined
+}
+
 export interface NewFacet {
   facet_type_id: string
   text_representation: string
   source_url: string
   confidence_score: number
-  value: Record<string, any>
+  value: Record<string, unknown>
+}
+
+export interface FacetGroup {
+  facet_type_id: string
+  facet_type_slug: string
+  facet_type_name: string
+  value_type?: string
+  icon?: string
+  color?: string
+}
+
+export interface FacetDetail {
+  id: string
+  text_representation?: string
+  value?: Record<string, unknown>
+  confidence_score?: number
+  human_verified?: boolean
+  source_url?: string
+}
+
+export interface FacetSchema {
+  properties?: Record<string, { title?: string; type?: string; description?: string }>
+  required?: string[]
 }
 
 export function useEntityFacets(
@@ -26,13 +58,13 @@ export function useEntityFacets(
   const { showSuccess, showError } = useSnackbar()
   const store = useEntityStore()
 
-  const selectedFacetGroup = ref<any>(null)
-  const facetDetails = ref<any[]>([])
-  const facetToDelete = ref<any>(null)
-  const editingFacet = ref<any>(null)
-  const editingFacetValue = ref<Record<string, any>>({})
+  const selectedFacetGroup = ref<FacetGroup | null>(null)
+  const facetDetails = ref<FacetDetail[]>([])
+  const facetToDelete = ref<FacetDetail | null>(null)
+  const editingFacet = ref<FacetDetail | null>(null)
+  const editingFacetValue = ref<Record<string, unknown>>({})
   const editingFacetTextValue = ref('')
-  const editingFacetSchema = ref<any>(null)
+  const editingFacetSchema = ref<FacetSchema | null>(null)
 
   const newFacet = ref<NewFacet>({
     facet_type_id: '',
@@ -79,7 +111,7 @@ export function useEntityFacets(
     }
   }
 
-  function openAddFacetValueDialog(facetGroup: any) {
+  function openAddFacetValueDialog(facetGroup: FacetGroup) {
     resetAddFacetForm()
     newFacet.value.facet_type_id = facetGroup.facet_type_id
   }
@@ -90,7 +122,7 @@ export function useEntityFacets(
     const facetType = selectedFacetTypeForForm.value
     if (!facetType) return false
 
-    let valueToSave: Record<string, any>
+    let valueToSave: Record<string, unknown>
     let textRepresentation: string
 
     if (facetType.value_schema?.properties) {
@@ -122,8 +154,8 @@ export function useEntityFacets(
       resetAddFacetForm()
       await onFacetsSummaryUpdate()
       return true
-    } catch (e: any) {
-      showError(e.response?.data?.detail || t('entityDetail.messages.facetSaveError'))
+    } catch (e: unknown) {
+      showError(getErrorDetail(e) || t('entityDetail.messages.facetSaveError'))
       return false
     } finally {
       savingFacet.value = false
@@ -143,7 +175,7 @@ export function useEntityFacets(
     }
   }
 
-  async function loadFacetDetails(facetGroup: any) {
+  async function loadFacetDetails(facetGroup: FacetGroup) {
     if (!entity) return
     selectedFacetGroup.value = facetGroup
     try {
@@ -177,8 +209,8 @@ export function useEntityFacets(
         await loadFacetDetails(selectedFacetGroup.value)
       }
       return true
-    } catch (e: any) {
-      showError(e.response?.data?.detail || t('entityDetail.messages.facetSaveError'))
+    } catch (e: unknown) {
+      showError(getErrorDetail(e) || t('entityDetail.messages.facetSaveError'))
       return false
     } finally {
       savingFacet.value = false
@@ -198,8 +230,8 @@ export function useEntityFacets(
       }
       await onFacetsSummaryUpdate()
       return true
-    } catch (e: any) {
-      showError(e.response?.data?.detail || t('entityDetail.messages.deleteError'))
+    } catch (e: unknown) {
+      showError(getErrorDetail(e) || t('entityDetail.messages.deleteError'))
       return false
     } finally {
       deletingFacet.value = false

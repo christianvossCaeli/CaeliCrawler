@@ -18,6 +18,7 @@
  * ```
  */
 
+/* eslint-disable vue/one-component-per-file */
 import { defineAsyncComponent, defineComponent, ref, h, type Component, type AsyncComponentLoader } from 'vue'
 import { VProgressCircular, VCard, VCardText } from 'vuetify/components'
 

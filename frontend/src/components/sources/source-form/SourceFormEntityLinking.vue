@@ -51,18 +51,18 @@
         @update:search="onSearch"
         @update:model-value="onEntitySelect"
       >
-        <template v-slot:item="{ item, props }">
-          <v-list-item v-bind="props">
-            <template v-slot:prepend>
+        <template #item="{ item, props: itemProps }">
+          <v-list-item v-bind="itemProps">
+            <template #prepend>
               <v-icon color="primary">mdi-domain</v-icon>
             </template>
-            <template v-slot:subtitle>
+            <template #subtitle>
               <span v-if="item.raw.entity_type_name">{{ item.raw.entity_type_name }}</span>
               <span v-if="item.raw.hierarchy_path" class="text-caption ml-2">{{ item.raw.hierarchy_path }}</span>
             </template>
           </v-list-item>
         </template>
-        <template v-slot:no-data>
+        <template #no-data>
           <v-list-item>
             <v-list-item-title>
               {{ entitySearchText?.length < 2 ? $t('sources.form.typeToSearch') : $t('sources.form.noEntitiesFound') }}
@@ -86,18 +86,18 @@ import { ENTITY_SEARCH } from '@/config/sources'
 import type { EntityBrief } from '@/stores/entity'
 import { useLogger } from '@/composables/useLogger'
 
-const logger = useLogger('SourceFormEntityLinking')
-
-interface Props {
-  selectedEntities: EntityBrief[]
-}
-
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
   (e: 'update:selectedEntities', value: EntityBrief[]): void
   (e: 'entityIdsChange', ids: string[]): void
 }>()
+
+const logger = useLogger('SourceFormEntityLinking')
+
+interface Props {
+  selectedEntities: EntityBrief[]
+}
 
 // Search state
 const entitySearchQuery = ref<EntityBrief | null>(null)

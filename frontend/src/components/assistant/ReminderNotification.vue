@@ -23,7 +23,7 @@
           :key="reminder.id"
           class="reminder-item"
         >
-          <template v-slot:prepend>
+          <template #prepend>
             <v-avatar size="32" :color="getReminderColor(reminder)" variant="tonal">
               <v-icon size="small">mdi-bell</v-icon>
             </v-avatar>
@@ -42,7 +42,7 @@
             {{ t('assistant.reminderRelatedTo', { entity: reminder.entity_name }) }}
           </v-list-item-subtitle>
 
-          <template v-slot:append>
+          <template #append>
             <div class="reminder-actions">
               <!-- Go to Entity -->
               <v-btn
@@ -60,9 +60,9 @@
 
               <!-- Snooze Menu -->
               <v-menu>
-                <template v-slot:activator="{ props }">
+                <template #activator="{ props: activatorProps }">
                   <v-btn
-                    v-bind="props"
+                    v-bind="activatorProps"
                     icon
                     variant="tonal"
                     size="x-small"
@@ -116,6 +116,16 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+const props = defineProps<{
+  dueReminders: Reminder[]
+}>()
+
+defineEmits<{
+  dismiss: [reminderId: string]
+  snooze: [reminderId: string, minutes: number]
+  navigate: [route: string]
+}>()
+
 const { t } = useI18n()
 
 export interface Reminder {
@@ -131,16 +141,6 @@ export interface Reminder {
   entity_slug?: string
   created_at: string
 }
-
-const props = defineProps<{
-  dueReminders: Reminder[]
-}>()
-
-defineEmits<{
-  dismiss: [reminderId: string]
-  snooze: [reminderId: string, minutes: number]
-  navigate: [route: string]
-}>()
 
 const expanded = ref(false)
 

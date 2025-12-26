@@ -40,19 +40,51 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
 # Install only runtime dependencies (no build tools)
+# Note: WeasyPrint requires pango, fontconfig, and related libraries for PDF generation
+# Note: Playwright requires additional browser dependencies for map screenshots in PDF export
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
+    libpangocairo-1.0-0 \
+    libcairo2 \
+    libgdk-pixbuf-2.0-0 \
+    libffi-dev \
+    shared-mime-info \
+    fonts-dejavu-core \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libdbus-1-3 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser
+
+# Set Playwright browser path to shared location
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
 
 WORKDIR /app
 
 # Install Python packages from pre-built wheels
 COPY --from=builder /wheels /wheels
 RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
+
+# Install Playwright browsers in shared location accessible to appuser
+RUN pip install --no-cache-dir playwright && \
+    playwright install chromium && \
+    chmod -R 755 /opt/playwright
 
 # Copy application code
 COPY --chown=appuser:appuser . .

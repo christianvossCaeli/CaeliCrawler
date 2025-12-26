@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-v-html -- All v-html content is sanitized via DOMPurify in formatMessage -->
 <template>
   <div
     class="chat-message"
@@ -21,10 +22,11 @@
     <!-- Content -->
     <div class="chat-message__content">
       <!-- Text content with markdown-like formatting -->
+      <!-- eslint-disable-next-line vue/no-v-html -- Content is sanitized via DOMPurify in formatMessage -->
       <div
         class="chat-message__text"
-        v-html="formatMessage(message.content)"
         @click="handleTextClick"
+        v-html="formatMessage(message.content)"
       ></div>
 
       <!-- Query Results -->
@@ -184,22 +186,22 @@ import DOMPurify from 'dompurify'
 import type { ConversationMessage } from '@/composables/useAssistant'
 import { useLogger } from '@/composables/useLogger'
 
-const logger = useLogger('ChatMessage')
-
-const { t, locale } = useI18n()
-
 const props = defineProps<{
   message: ConversationMessage
 }>()
 
 const emit = defineEmits<{
-  'item-click': [item: any]
+  'item-click': [item: { entity_type?: string; entity_slug?: string; slug?: string }]
   'navigate': [route: string]
   'command': [command: string]
   'entity-click': [entityType: string, entitySlug: string]
   'suggestion-click': [correctedQuery: string]
-  'smart-query-redirect': [responseData: any]
+  'smart-query-redirect': [responseData: Record<string, unknown>]
 }>()
+
+const logger = useLogger('ChatMessage')
+
+const { t, locale } = useI18n()
 
 // Copy functionality
 const copied = ref(false)

@@ -5,9 +5,11 @@ This module provides background tasks for:
 - Executing summaries based on their cron schedules
 - Triggering summaries on crawl events
 - Cleanup of old executions
+- Checking for updates from data sources
 """
 
 from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 import structlog
@@ -17,6 +19,9 @@ from workers.celery_app import celery_app
 from workers.async_runner import run_async
 
 logger = structlog.get_logger(__name__)
+
+# Redis key prefix for check-updates progress tracking
+CHECK_UPDATES_PROGRESS_PREFIX = "summary:check_updates:"
 
 
 def calculate_next_run(cron_expression: str, from_time: datetime = None) -> datetime:
@@ -501,6 +506,350 @@ def cleanup_old_executions(self, max_age_days: int = 30):
         logger.exception(
             "cleanup_old_executions_failed",
             max_age_days=max_age_days,
+            error=str(e),
+        )
+        raise self.retry(exc=e)
+
+
+def _get_redis_client():
+    """Get Redis client for progress tracking."""
+    from workers.celery_app import celery_app
+    return celery_app.backend.client
+
+
+def _update_check_progress(
+    task_id: str,
+    status: str,
+    total_sources: int,
+    completed_sources: int = 0,
+    current_source: Optional[str] = None,
+    message: str = "",
+    error: Optional[str] = None,
+):
+    """Update progress in Redis for a check-updates task."""
+    import json
+    redis = _get_redis_client()
+    key = f"{CHECK_UPDATES_PROGRESS_PREFIX}{task_id}"
+    data = {
+        "status": status,
+        "total_sources": total_sources,
+        "completed_sources": completed_sources,
+        "current_source": current_source,
+        "message": message,
+        "error": error,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    redis.setex(key, 3600, json.dumps(data))  # Expire after 1 hour
+
+
+def get_check_progress(task_id: str) -> Optional[Dict[str, Any]]:
+    """Get progress for a check-updates task from Redis."""
+    import json
+    redis = _get_redis_client()
+    key = f"{CHECK_UPDATES_PROGRESS_PREFIX}{task_id}"
+    data = redis.get(key)
+    if data:
+        return json.loads(data)
+    return None
+
+
+@celery_app.task(
+    bind=True,
+    name="workers.summary_tasks.check_summary_updates",
+    max_retries=2,
+    default_retry_delay=60,
+    retry_backoff=True,
+    retry_backoff_max=300,
+    time_limit=1800,  # 30 minutes max
+    soft_time_limit=1500,  # 25 minutes soft limit
+    acks_late=True,
+    reject_on_worker_lost=True,
+)
+def check_summary_updates(
+    self,
+    summary_id: str,
+    source_ids: List[str],
+    source_names: List[str],
+    user_id: str,
+    external_api_ids: List[str] = None,
+):
+    """
+    Check for updates by crawling relevant data sources, syncing external APIs,
+    and refreshing the summary.
+
+    This task:
+    1. Creates crawl jobs for all provided data sources
+    2. Syncs all provided external APIs
+    3. Tracks progress as each source completes
+    4. After all jobs complete, executes the summary with force=True
+
+    Args:
+        summary_id: UUID of the CustomSummary
+        source_ids: List of DataSource UUIDs to crawl
+        source_names: List of source names for progress display
+        user_id: UUID of the user who triggered this
+        external_api_ids: List of APIConfiguration UUIDs to sync (optional)
+    """
+    import time
+    from app.database import get_celery_session_context
+    from app.models import CrawlJob, JobStatus, DataSource
+    from app.models.data_source_category import DataSourceCategory
+    from sqlalchemy import select, and_
+    from workers.crawl_tasks import create_crawl_job
+
+    external_api_ids = external_api_ids or []
+    task_id = self.request.id
+    total_sources = len(source_ids) + len(external_api_ids)
+
+    # Initialize progress
+    _update_check_progress(
+        task_id=task_id,
+        status="pending",
+        total_sources=total_sources,
+        message=f"Starte Prüfung von {total_sources} Quellen...",
+    )
+
+    logger.info(
+        "check_summary_updates_started",
+        summary_id=summary_id,
+        source_count=total_sources,
+        task_id=task_id,
+    )
+
+    async def _check_updates():
+        async with get_celery_session_context() as session:
+            # Create crawl jobs for each data source
+            job_ids = []
+            source_to_name = dict(zip(source_ids, source_names))
+
+            _update_check_progress(
+                task_id=task_id,
+                status="crawling",
+                total_sources=total_sources,
+                completed_sources=0,
+                message=f"Starte Aktualisierung von {total_sources} Quellen...",
+            )
+
+            # 1. Process DataSource crawl jobs
+            for i, source_id in enumerate(source_ids):
+                # Get the primary category for this source
+                cat_result = await session.execute(
+                    select(DataSourceCategory.category_id)
+                    .where(DataSourceCategory.data_source_id == UUID(source_id))
+                    .limit(1)
+                )
+                cat_row = cat_result.first()
+                if not cat_row:
+                    logger.warning(
+                        "source_has_no_category",
+                        source_id=source_id,
+                    )
+                    continue
+
+                category_id = str(cat_row[0])
+
+                # Create crawl job (will skip if already running)
+                job_id = create_crawl_job(source_id, category_id, force=False)
+                if job_id:
+                    job_ids.append((job_id, source_id))
+
+                _update_check_progress(
+                    task_id=task_id,
+                    status="crawling",
+                    total_sources=total_sources,
+                    completed_sources=0,
+                    current_source=source_to_name.get(source_id, source_id),
+                    message=f"Jobs erstellt: {i + 1} von {len(source_ids)} Crawl-Jobs",
+                )
+
+            # 2. Sync external APIs
+            api_sync_results = []
+            if external_api_ids:
+                from external_apis.sync_service import ExternalAPISyncService
+                from app.models.api_configuration import APIConfiguration
+
+                for i, api_id in enumerate(external_api_ids):
+                    # Use selectinload to eagerly load data_source relationship
+                    from sqlalchemy.orm import selectinload
+                    api_result = await session.execute(
+                        select(APIConfiguration)
+                        .options(selectinload(APIConfiguration.data_source))
+                        .where(APIConfiguration.id == UUID(api_id))
+                    )
+                    api_config = api_result.scalar_one_or_none()
+                    if not api_config:
+                        logger.warning("api_configuration_not_found", api_id=api_id)
+                        continue
+
+                    config_name = api_config.data_source.name if api_config.data_source else f"API {api_id[:8]}"
+                    api_name = f"API: {config_name}"
+                    _update_check_progress(
+                        task_id=task_id,
+                        status="crawling",
+                        total_sources=total_sources,
+                        completed_sources=len(job_ids) + i,
+                        current_source=api_name,
+                        message=f"Synchronisiere {api_name}...",
+                    )
+
+                    try:
+                        async with ExternalAPISyncService(session) as sync_service:
+                            result = await sync_service.sync_source(api_config)
+                            api_sync_results.append({
+                                "api_id": api_id,
+                                "success": True,
+                                "created": result.entities_created,
+                                "updated": result.entities_updated,
+                            })
+                            logger.info(
+                                "external_api_synced",
+                                api_id=api_id,
+                                api_name=config_name,
+                                created=result.entities_created,
+                                updated=result.entities_updated,
+                            )
+                    except Exception as e:
+                        logger.error(
+                            "external_api_sync_failed",
+                            api_id=api_id,
+                            error=str(e),
+                        )
+                        api_sync_results.append({
+                            "api_id": api_id,
+                            "success": False,
+                            "error": str(e),
+                        })
+
+            total_jobs = len(job_ids) + len(api_sync_results)
+            if total_jobs == 0 and not external_api_ids:
+                _update_check_progress(
+                    task_id=task_id,
+                    status="completed",
+                    total_sources=total_sources,
+                    completed_sources=total_sources,
+                    message="Keine neuen Jobs erstellt (alle bereits aktiv)",
+                )
+                # Still execute the summary to refresh with existing data
+                execute_summary_task.delay(summary_id, "check_updates", {"task_id": task_id})
+                return {"success": True, "jobs_created": 0}
+
+            # External APIs are already synced, count them as completed
+            api_completed = len(api_sync_results)
+
+            # Wait for crawl jobs to complete
+            crawl_completed = 0
+            max_wait_seconds = 1200  # 20 minutes max wait
+            poll_interval = 5  # Check every 5 seconds
+            elapsed = 0
+
+            while job_ids and crawl_completed < len(job_ids) and elapsed < max_wait_seconds:
+                await session.expire_all()
+
+                crawl_completed = 0
+                for job_id, source_id in job_ids:
+                    job = await session.get(CrawlJob, UUID(job_id))
+                    if job and job.status in (JobStatus.COMPLETED, JobStatus.FAILED):
+                        crawl_completed += 1
+
+                current_source_name = None
+                for job_id, source_id in job_ids:
+                    job = await session.get(CrawlJob, UUID(job_id))
+                    if job and job.status == JobStatus.RUNNING:
+                        current_source_name = source_to_name.get(source_id, source_id)
+                        break
+
+                total_completed = api_completed + crawl_completed
+                _update_check_progress(
+                    task_id=task_id,
+                    status="crawling",
+                    total_sources=total_sources,
+                    completed_sources=total_completed,
+                    current_source=current_source_name,
+                    message=f"{total_completed} von {total_sources} Quellen geprüft",
+                )
+
+                if crawl_completed < len(job_ids):
+                    time.sleep(poll_interval)
+                    elapsed += poll_interval
+
+            # All jobs done (or timeout), now update the summary
+            total_completed = api_completed + crawl_completed
+            _update_check_progress(
+                task_id=task_id,
+                status="updating",
+                total_sources=total_sources,
+                completed_sources=total_completed,
+                message="Aktualisiere Zusammenfassung...",
+            )
+
+            # Execute summary with force=True to ensure update
+            from services.summaries import SummaryExecutor
+            from app.models import CustomSummary
+
+            summary = await session.get(CustomSummary, UUID(summary_id))
+            if summary:
+                executor = SummaryExecutor(session)
+                execution = await executor.execute_summary(
+                    summary_id=UUID(summary_id),
+                    triggered_by="check_updates",
+                    trigger_details={
+                        "task_id": task_id,
+                        "crawls_completed": crawl_completed,
+                        "apis_synced": api_completed,
+                    },
+                    force=True,
+                )
+
+                _update_check_progress(
+                    task_id=task_id,
+                    status="completed",
+                    total_sources=total_sources,
+                    completed_sources=total_completed,
+                    message=f"Fertig! {total_completed} Quellen geprüft, Zusammenfassung aktualisiert.",
+                )
+
+                logger.info(
+                    "check_summary_updates_completed",
+                    summary_id=summary_id,
+                    task_id=task_id,
+                    crawls_completed=crawl_completed,
+                    apis_synced=api_completed,
+                    execution_id=str(execution.id),
+                )
+
+                return {
+                    "success": True,
+                    "crawl_jobs": len(job_ids),
+                    "crawls_completed": crawl_completed,
+                    "apis_synced": api_completed,
+                    "execution_id": str(execution.id),
+                }
+            else:
+                _update_check_progress(
+                    task_id=task_id,
+                    status="failed",
+                    total_sources=total_sources,
+                    completed_sources=total_completed,
+                    message="Zusammenfassung nicht gefunden",
+                    error="Summary not found",
+                )
+                return {"success": False, "error": "Summary not found"}
+
+    try:
+        return run_async(_check_updates())
+    except Exception as e:
+        logger.exception(
+            "check_summary_updates_failed",
+            summary_id=summary_id,
+            task_id=task_id,
+            error=str(e),
+        )
+        _update_check_progress(
+            task_id=task_id,
+            status="failed",
+            total_sources=total_sources,
+            completed_sources=0,
+            message="Fehler bei der Aktualisierung",
             error=str(e),
         )
         raise self.retry(exc=e)

@@ -1,5 +1,10 @@
 <template>
   <div>
+    <!-- Skeleton Loader for initial load -->
+    <CategoriesSkeleton v-if="loading && initialLoad" />
+
+    <!-- Main Content -->
+    <template v-else>
     <PageHeader
       :title="$t('categories.title')"
       :subtitle="$t('categories.subtitle')"
@@ -64,8 +69,8 @@
     <!-- Reanalyze Confirmation -->
     <CategoryReanalyzeDialog
       v-model="reanalyzeDialog"
-      :category-name="selectedCategory?.name || ''"
       v-model:reanalyze-all="reanalyzeAll"
+      :category-name="selectedCategory?.name || ''"
       @confirm="handleReanalyzeDocuments"
     />
 
@@ -113,6 +118,8 @@
       @created="handleSummaryCreated"
     />
 
+    </template>
+
     <!-- Snackbar for feedback -->
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000">
       {{ snackbar.text }}
@@ -131,8 +138,10 @@ import {
   useCategoryDataSources,
   type CategoryFormData,
   type Category,
+  type DataSourcesTabState,
 } from '@/composables/useCategoriesView'
 import { useLogger } from '@/composables/useLogger'
+import { getErrorMessage } from '@/composables/useApiErrorHandler'
 import PageHeader from '@/components/common/PageHeader.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import CategoriesToolbar from '@/components/categories/CategoriesToolbar.vue'
@@ -143,8 +152,12 @@ import CategoryCrawlerDialog from '@/components/categories/CategoryCrawlerDialog
 import CategoryAiPreviewDialog from '@/components/categories/CategoryAiPreviewDialog.vue'
 import CategoryReanalyzeDialog from '@/components/categories/CategoryReanalyzeDialog.vue'
 import SummaryCreateDialog from '@/components/summaries/SummaryCreateDialog.vue'
+import CategoriesSkeleton from '@/components/categories/CategoriesSkeleton.vue'
 
 const logger = useLogger('CategoriesView')
+
+// Initial load state
+const initialLoad = ref(true)
 const { t } = useI18n()
 const router = useRouter()
 
@@ -211,9 +224,19 @@ const selectedCategoryForSources = ref<Category | null>(null)
 const summaryInitialPrompt = ref('')
 const summaryTriggerCategory = ref<Category | null>(null)
 
+// AI Preview data interface
+interface AiPreviewData {
+  suggested_extraction_prompt?: string
+  suggested_facet_types: Array<{ selected?: boolean; name?: string; slug?: string }>
+  suggested_entity_type: { is_new: boolean; id?: string; name?: string }
+  suggested_search_terms?: string[]
+  suggested_url_include_patterns?: string[]
+  suggested_url_exclude_patterns?: string[]
+}
+
 // AI Preview states
 const aiPreviewLoading = ref(false)
-const aiPreviewData = ref<any>(null)
+const aiPreviewData = ref<AiPreviewData | null>(null)
 const savingWithAi = ref(false)
 const selectedEntityTypeOption = ref<string>('new')
 const selectedFacetTypes = ref<boolean[]>([])
@@ -305,14 +328,14 @@ const showAiPreview = async () => {
 
     aiPreviewData.value = response.data
     editableExtractionPrompt.value = response.data.suggested_extraction_prompt || ''
-    selectedFacetTypes.value = response.data.suggested_facet_types.map((ft: any) => ft.selected !== false)
+    selectedFacetTypes.value = response.data.suggested_facet_types.map((ft: { selected?: boolean }) => ft.selected !== false)
     selectedEntityTypeOption.value = response.data.suggested_entity_type.is_new ? 'new' : (response.data.suggested_entity_type.id || 'new')
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Failed to get AI preview:', error)
     aiPreviewDialog.value = false
     dialog.value = true
 
-    const errorMessage = error.response?.data?.detail || t('categories.aiPreview.error')
+    const errorMessage = getErrorMessage(error) || t('categories.aiPreview.error')
     showSnackbar(errorMessage, 'error')
   } finally {
     aiPreviewLoading.value = false
@@ -419,7 +442,7 @@ const handleFacetTypeUpdate = (payload: { index: number; value: boolean }) => {
   selectedFacetTypes.value[payload.index] = payload.value
 }
 
-const handleDataSourcesStateUpdate = (newState: any) => {
+const handleDataSourcesStateUpdate = (newState: DataSourcesTabState) => {
   const oldTags = dataSourcesTab.value.selectedTags
   dataSourcesTab.value = newState
 
@@ -465,8 +488,9 @@ const handleSummaryCreated = (result: { id: string; name: string }) => {
 }
 
 // Lifecycle
-onMounted(() => {
-  loadCategories()
+onMounted(async () => {
+  await loadCategories()
+  initialLoad.value = false
 })
 </script>
 

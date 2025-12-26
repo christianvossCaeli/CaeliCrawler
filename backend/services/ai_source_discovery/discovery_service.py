@@ -73,7 +73,7 @@ async def call_claude_api(prompt: str, max_tokens: int = 4000) -> Optional[str]:
         return None
 
 if TYPE_CHECKING:
-    from app.models.api_template import APITemplate
+    from app.models.api_configuration import APIConfiguration
 
 from .models import (
     APISuggestion,
@@ -970,44 +970,55 @@ class AISourceDiscoveryService:
         Returns:
             List of APISuggestion objects from matching templates
         """
-        from app.models.api_template import APITemplate, TemplateStatus
+        from sqlalchemy.orm import selectinload
+        from app.models.api_configuration import APIConfiguration
 
         try:
-            # Get all active templates
+            # Get all active template configurations
             result = await db.execute(
-                select(APITemplate).where(APITemplate.status == TemplateStatus.ACTIVE)
+                select(APIConfiguration)
+                .options(selectinload(APIConfiguration.data_source))
+                .where(
+                    APIConfiguration.is_active == True,
+                    APIConfiguration.is_template == True,
+                )
             )
-            templates = result.scalars().all()
+            configs = result.scalars().all()
 
-            if not templates:
+            if not configs:
                 return []
 
-            # Score templates against prompt
-            matched_templates = []
-            for template in templates:
-                score = template.matches_prompt(prompt)
+            # Score configurations against prompt
+            matched_configs = []
+            for config in configs:
+                score = config.matches_prompt(prompt)
                 if score >= min_match_score:
-                    matched_templates.append((template, score))
+                    matched_configs.append((config, score))
 
-            if not matched_templates:
+            if not matched_configs:
                 return []
 
             # Sort by score (highest first)
-            matched_templates.sort(key=lambda x: x[1], reverse=True)
+            matched_configs.sort(key=lambda x: x[1], reverse=True)
 
-            # Convert templates to APISuggestion objects
+            # Convert configurations to APISuggestion objects
             suggestions = []
-            for template, score in matched_templates:
+            for config, score in matched_configs:
+                # Get name and base_url from associated data_source
+                api_name = config.data_source.name if config.data_source else f"API {str(config.id)[:8]}"
+                base_url = config.data_source.base_url if config.data_source else ""
+                description = config.data_source.description if config.data_source else ""
+
                 suggestion = APISuggestion(
-                    api_name=template.name,
-                    base_url=template.base_url,
-                    endpoint=template.endpoint,
-                    description=template.description or "",
-                    api_type=template.api_type.value,
-                    auth_required=template.auth_required,
-                    confidence=min(1.0, score + template.confidence * 0.5),  # Combine scores
-                    expected_fields=list(template.field_mapping.keys()),
-                    documentation_url=template.documentation_url,
+                    api_name=api_name,
+                    base_url=base_url,
+                    endpoint=config.endpoint,
+                    description=description,
+                    api_type=config.api_type,
+                    auth_required=config.auth_type != "none",
+                    confidence=min(1.0, score + config.confidence * 0.5),  # Combine scores
+                    expected_fields=list(config.field_mappings.keys()) if config.field_mappings else [],
+                    documentation_url=config.documentation_url,
                 )
                 suggestions.append(suggestion)
 

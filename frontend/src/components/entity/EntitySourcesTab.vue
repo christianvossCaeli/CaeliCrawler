@@ -3,7 +3,7 @@
     <v-card-title class="d-flex align-center">
       <v-icon start>mdi-web</v-icon>
       {{ t('entityDetail.tabs.dataSources') }}
-      <v-chip v-if="dataSources.length" size="small" class="ml-2">{{ dataSources.length }}</v-chip>
+      <v-chip v-if="totalSourcesCount" size="small" class="ml-2">{{ totalSourcesCount }}</v-chip>
       <v-spacer></v-spacer>
       <v-btn variant="tonal" color="primary" size="small" @click="$emit('linkSource')">
         <v-icon start>mdi-link-plus</v-icon>
@@ -11,6 +11,54 @@
       </v-btn>
     </v-card-title>
     <v-card-text>
+      <!-- External API Source (if entity imported from API) -->
+      <div v-if="externalSourceName" class="mb-4">
+        <div class="text-subtitle-2 text-medium-emphasis mb-2">
+          <v-icon size="small" class="mr-1">mdi-api</v-icon>
+          {{ t('entityDetail.externalApiSource') }}
+        </div>
+        <v-card
+          variant="outlined"
+          class="pa-3"
+          :class="{ 'cursor-pointer': apiConfigurationId }"
+          @click="apiConfigurationId && navigateToApiConfig()"
+        >
+          <div class="d-flex align-center">
+            <v-avatar color="primary" size="40" class="mr-3">
+              <v-icon color="white">mdi-cloud-sync</v-icon>
+            </v-avatar>
+            <div>
+              <div class="font-weight-medium">{{ externalSourceName }}</div>
+              <div v-if="externalId" class="text-caption text-medium-emphasis">
+                External ID: {{ externalId }}
+              </div>
+            </div>
+            <v-spacer />
+            <v-chip size="small" color="info" variant="outlined">
+              <v-icon start size="x-small">mdi-sync</v-icon>
+              API Import
+            </v-chip>
+            <v-btn
+              v-if="apiConfigurationId"
+              icon="mdi-open-in-new"
+              size="small"
+              variant="text"
+              class="ml-2"
+              :title="t('entityDetail.viewApiConfig')"
+              @click.stop="navigateToApiConfig()"
+            />
+          </div>
+        </v-card>
+      </div>
+
+      <!-- Traditional Data Sources -->
+      <div v-if="dataSources.length" class="mb-2">
+        <div v-if="externalSourceName" class="text-subtitle-2 text-medium-emphasis mb-2">
+          <v-icon size="small" class="mr-1">mdi-web</v-icon>
+          {{ t('entityDetail.linkedDataSources') }}
+        </div>
+      </div>
+
       <div v-if="loading" class="text-center pa-4">
         <v-progress-circular indeterminate></v-progress-circular>
       </div>
@@ -21,7 +69,7 @@
             :key="source.id"
             class="mb-2"
           >
-            <template v-slot:prepend>
+            <template #prepend>
               <v-avatar :color="getSourceStatusColor(source.status)" size="40">
                 <v-icon color="white">{{ getSourceTypeIcon(source.source_type) }}</v-icon>
               </v-avatar>
@@ -53,7 +101,7 @@
                 {{ formatDate(source.last_crawl) }}
               </span>
             </v-list-item-subtitle>
-            <template v-slot:append>
+            <template #append>
               <div class="d-flex ga-1">
                 <v-btn
                   icon="mdi-pencil"
@@ -69,8 +117,8 @@
                   variant="tonal"
                   color="success"
                   :title="t('entityDetail.crawl')"
-                  @click="$emit('startCrawl', source)"
                   :loading="startingCrawlId === source.id"
+                  @click="$emit('startCrawl', source)"
                 ></v-btn>
                 <v-btn
                   v-if="source.is_direct_link"
@@ -95,7 +143,7 @@
         </v-list>
       </div>
       <!-- Empty State for Data Sources -->
-      <div v-else class="text-center pa-8">
+      <div v-else-if="!externalSourceName" class="text-center pa-8">
         <v-icon size="80" color="grey-lighten-1" class="mb-4">mdi-web-off</v-icon>
         <h3 class="text-h6 mb-2">{{ t('entityDetail.emptyState.noDataSources') }}</h3>
         <p class="text-body-2 text-medium-emphasis mb-4">
@@ -111,7 +159,9 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 
@@ -129,10 +179,13 @@ interface DataSource {
 }
 
 // Props
-defineProps<{
+const props = defineProps<{
   dataSources: DataSource[]
   loading: boolean
   startingCrawlId: string | null
+  apiConfigurationId?: string | null
+  externalSourceName?: string | null
+  externalId?: string | null
 }>()
 
 // Emits
@@ -143,6 +196,22 @@ defineEmits<{
   unlinkSource: [source: DataSource]
   deleteSource: [source: DataSource]
 }>()
+
+const router = useRouter()
+
+// Navigation
+function navigateToApiConfig() {
+  if (props.apiConfigurationId) {
+    router.push({ name: 'admin-external-apis', query: { id: props.apiConfigurationId } })
+  }
+}
+
+// Computed
+const totalSourcesCount = computed(() => {
+  let count = props.dataSources.length
+  if (props.externalSourceName) count += 1
+  return count
+})
 
 const { t } = useI18n()
 
@@ -176,3 +245,12 @@ function formatDate(dateString?: string): string {
   }
 }
 </script>
+
+<style scoped>
+.cursor-pointer {
+  cursor: pointer;
+}
+.cursor-pointer:hover {
+  background-color: rgba(var(--v-theme-primary), 0.04);
+}
+</style>

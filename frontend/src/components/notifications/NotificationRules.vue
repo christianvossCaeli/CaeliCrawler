@@ -18,37 +18,37 @@
         :loading="loading"
         class="elevation-0"
       >
-        <template v-slot:item.event_type="{ item }">
+        <template #item.event_type="{ item }">
           <v-chip size="small" :color="getEventTypeColor(item.event_type)">
             {{ getEventTypeLabel(item.event_type) }}
           </v-chip>
         </template>
 
-        <template v-slot:item.channel="{ item }">
+        <template #item.channel="{ item }">
           <v-chip size="small" :color="getChannelColor(item.channel)">
             <v-icon start size="small">{{ getChannelIcon(item.channel) }}</v-icon>
             {{ getChannelLabel(item.channel) }}
           </v-chip>
         </template>
 
-        <template v-slot:item.is_active="{ item }">
+        <template #item.is_active="{ item }">
           <v-switch
             :model-value="item.is_active"
-            @update:model-value="handleToggleActive(item)"
             color="success"
             hide-details
             density="compact"
+            @update:model-value="handleToggleActive(item)"
           />
         </template>
 
-        <template v-slot:item.trigger_count="{ item }">
+        <template #item.trigger_count="{ item }">
           <span>{{ item.trigger_count }}</span>
           <span v-if="item.last_triggered" class="text-caption text-medium-emphasis ml-1">
             ({{ t('notifications.rules.lastTriggered') }}: {{ formatDate(item.last_triggered) }})
           </span>
         </template>
 
-        <template v-slot:item.actions="{ item }">
+        <template #item.actions="{ item }">
           <div class="d-flex justify-end">
             <v-btn
               icon="mdi-pencil"
@@ -102,9 +102,9 @@
             :rules="[v => !!v || t('notifications.rules.eventTypeRequired')]"
             class="mb-2"
           >
-            <template v-slot:item="{ item, props }">
+            <template #item="{ item, props }">
               <v-list-item v-bind="props">
-                <template v-slot:subtitle>
+                <template #subtitle>
                   {{ item.raw.description }}
                 </template>
               </v-list-item>
@@ -118,9 +118,9 @@
             :rules="[v => !!v || t('notifications.rules.channelRequired')]"
             class="mb-2"
           >
-            <template v-slot:item="{ item, props }">
+            <template #item="{ item, props }">
               <v-list-item v-bind="props" :disabled="!item.raw.available">
-                <template v-slot:subtitle>
+                <template #subtitle>
                   {{ item.raw.description }}
                 </template>
               </v-list-item>
@@ -189,8 +189,8 @@
               variant="outlined"
               size="small"
               :loading="testingWebhook"
-              @click="handleTestWebhook"
               class="mt-2"
+              @click="handleTestWebhook"
             >
               <v-icon start>mdi-test-tube</v-icon>
               {{ t('notifications.rules.testWebhook') }}
@@ -463,7 +463,7 @@ const saveRule = async () => {
   if (!valid) return
 
   // Build the rule data
-  const data: any = {
+  const data: Record<string, unknown> = {
     name: formData.value.name,
     description: formData.value.description || null,
     event_type: formData.value.event_type,
@@ -552,7 +552,7 @@ const handleTestWebhook = async () => {
 
     const result = await testWebhook(formData.value.channel_config.url, auth)
     webhookTestResult.value = result
-  } catch (e: any) {
+  } catch (e) {
     webhookTestResult.value = { success: false, error: e.message }
   } finally {
     testingWebhook.value = false

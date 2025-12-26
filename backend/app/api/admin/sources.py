@@ -13,8 +13,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 logger = structlog.get_logger(__name__)
 from pydantic import BaseModel, field_validator
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -268,20 +266,6 @@ def build_source_response(
 
 
 # =============================================================================
-# Rate Limiting Configuration
-# =============================================================================
-
-def get_rate_limit_key(request: Request) -> str:
-    """Get rate limit key - prefer user ID over IP for authenticated requests."""
-    user = getattr(request.state, 'user', None)
-    if user and hasattr(user, 'id'):
-        return f"user:{user.id}"
-    return get_remote_address(request)
-
-limiter = Limiter(key_func=get_rate_limit_key)
-
-
-# =============================================================================
 # Tag Validation Constants
 # =============================================================================
 
@@ -316,9 +300,8 @@ router = APIRouter()
 
 
 @router.get("", response_model=DataSourceListResponse)
-@limiter.limit("60/minute")  # Read operations: higher limit
 async def list_sources(
-    request: Request,  # Required for slowapi
+    request: Request,
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=10000),
     category_id: Optional[UUID] = Query(default=None, description="Filter by category (N:M)"),
@@ -399,9 +382,8 @@ async def list_sources(
 
 
 @router.post("", response_model=DataSourceResponse, status_code=201)
-@limiter.limit("20/minute")  # Write operations: stricter limit
 async def create_source(
-    request: Request,  # Required for slowapi - must be first
+    request: Request,
     data: DataSourceCreate,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_editor),
@@ -519,9 +501,8 @@ class SourceBriefResponse(BaseModel):
 
 
 @router.get("/by-tags", response_model=List[SourceBriefResponse])
-@limiter.limit("30/minute")
 async def get_sources_by_tags(
-    request: Request,  # Required for slowapi
+    request: Request,
     tags: List[str] = Query(..., min_length=1, description="Tags to filter by"),
     match_mode: str = Query(default="all", regex="^(all|any)$", description="Match mode: 'all' (AND) or 'any' (OR)"),
     exclude_category_id: Optional[UUID] = Query(default=None, description="Exclude sources already in this category"),
@@ -586,9 +567,8 @@ async def get_sources_by_tags(
 
 
 @router.get("/{source_id}", response_model=DataSourceResponse)
-@limiter.limit("60/minute")
 async def get_source(
-    request: Request,  # Required for slowapi
+    request: Request,
     source_id: UUID,
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
@@ -609,9 +589,8 @@ async def get_source(
 
 
 @router.put("/{source_id}", response_model=DataSourceResponse)
-@limiter.limit("20/minute")  # Write operations: stricter limit
 async def update_source(
-    request: Request,  # Required for slowapi - must be first
+    request: Request,
     source_id: UUID,
     data: DataSourceUpdate,
     session: AsyncSession = Depends(get_session),
@@ -706,9 +685,8 @@ async def update_source(
 
 
 @router.delete("/{source_id}", response_model=MessageResponse)
-@limiter.limit("10/minute")  # Delete operations: very strict limit
 async def delete_source(
-    request: Request,  # Required for slowapi - must be first
+    request: Request,
     source_id: UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_admin),
@@ -753,9 +731,8 @@ async def delete_source(
 
 
 @router.post("/bulk-import", response_model=DataSourceBulkImportResult)
-@limiter.limit("5/minute")  # Bulk operations: very strict limit
 async def bulk_import_sources(
-    request: Request,  # Required for slowapi - must be first
+    request: Request,
     data: DataSourceBulkImport,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_admin),
@@ -884,9 +861,8 @@ async def bulk_import_sources(
 
 
 @router.post("/{source_id}/reset", response_model=MessageResponse)
-@limiter.limit("20/minute")
 async def reset_source(
-    request: Request,  # Required for slowapi
+    request: Request,
     source_id: UUID,
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
@@ -904,9 +880,8 @@ async def reset_source(
 
 
 @router.get("/meta/counts", response_model=SourceCountsResponse)
-@limiter.limit("60/minute")
 async def get_source_counts(
-    request: Request,  # Required for slowapi
+    request: Request,
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
@@ -980,9 +955,8 @@ async def get_source_counts(
 
 
 @router.get("/meta/tags", response_model=TagsResponse)
-@limiter.limit("60/minute")
 async def get_available_tags(
-    request: Request,  # Required for slowapi
+    request: Request,
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):

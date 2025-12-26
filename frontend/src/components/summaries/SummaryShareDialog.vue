@@ -120,6 +120,12 @@ import { useSnackbar } from '@/composables/useSnackbar'
 import { useDialogFocus } from '@/composables'
 import { useLogger } from '@/composables/useLogger'
 
+const modelValue = defineModel<boolean>()
+
+const props = defineProps<{
+  summary: CustomSummary
+}>()
+
 const logger = useLogger('SummaryShareDialog')
 
 const { t } = useI18n()
@@ -128,14 +134,6 @@ const { showSuccess, showError } = useSnackbar()
 
 // ARIA
 const dialogTitleId = `summary-share-dialog-title-${Math.random().toString(36).slice(2, 9)}`
-
-const modelValue = defineModel<boolean>()
-
-const props = defineProps<{
-  summary: CustomSummary
-}>()
-
-const emit = defineEmits<{}>()
 
 // Focus management for accessibility
 useDialogFocus({ isOpen: modelValue })

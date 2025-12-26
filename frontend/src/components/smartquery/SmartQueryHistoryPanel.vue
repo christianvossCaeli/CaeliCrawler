@@ -196,14 +196,13 @@ import { useI18n } from 'vue-i18n'
 import { useSmartQueryHistoryStore, type SmartQueryOperation } from '@/stores/smartQueryHistory'
 import { useSnackbar } from '@/composables/useSnackbar'
 
+const emit = defineEmits<{
+  close: []
+  rerun: [command: string, interpretation: Record<string, unknown>]
+}>()
 const { t, locale } = useI18n()
 const historyStore = useSmartQueryHistoryStore()
 const { showSuccess, showError } = useSnackbar()
-
-const emit = defineEmits<{
-  close: []
-  rerun: [command: string, interpretation: Record<string, any>]
-}>()
 
 const filter = ref<'all' | 'favorites'>('all')
 const showClearDialog = ref(false)

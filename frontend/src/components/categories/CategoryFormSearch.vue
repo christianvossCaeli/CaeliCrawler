@@ -50,7 +50,7 @@
     <v-card-text class="pt-4">
       <ScheduleBuilder
         :model-value="formData.schedule_cron"
-        :show-advanced="true"
+        show-advanced
         @update:model-value="updateField('schedule_cron', $event)"
       />
     </v-card-text>
@@ -69,10 +69,10 @@ export interface CategoryFormSearchEmits {
   (e: 'update:formData', data: Partial<CategoryFormData>): void
 }
 
-const props = defineProps<CategoryFormSearchProps>()
+defineProps<CategoryFormSearchProps>()
 const emit = defineEmits<CategoryFormSearchEmits>()
 
-const updateField = (field: keyof CategoryFormData, value: any) => {
+const updateField = (field: keyof CategoryFormData, value: unknown) => {
   emit('update:formData', { [field]: value })
 }
 </script>

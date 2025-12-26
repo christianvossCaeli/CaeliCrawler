@@ -69,8 +69,6 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/services/api'
 
-const { t } = useI18n()
-
 const props = withDefaults(
   defineProps<{
     password: string
@@ -87,6 +85,8 @@ const emit = defineEmits<{
   (e: 'update:isValid', value: boolean): void
   (e: 'update:score', value: number): void
 }>()
+
+const { t } = useI18n()
 
 // State
 const loading = ref(false)

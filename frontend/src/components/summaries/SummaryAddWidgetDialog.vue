@@ -150,6 +150,13 @@ import { useCustomSummariesStore, type WidgetCreate } from '@/stores/customSumma
 import { VISUALIZATION_ICONS, VISUALIZATION_COLORS } from '@/components/smartquery/visualizations/types'
 import { useDialogFocus } from '@/composables'
 
+const modelValue = defineModel<boolean>()
+const props = defineProps<{
+  summaryId: string
+}>()
+const emit = defineEmits<{
+  added: []
+}>()
 const { t } = useI18n()
 const store = useCustomSummariesStore()
 
@@ -159,18 +166,8 @@ onUnmounted(() => {
   isMounted = false
 })
 
-const modelValue = defineModel<boolean>()
-
-const props = defineProps<{
-  summaryId: string
-}>()
-
 // Focus management for accessibility
 useDialogFocus({ isOpen: modelValue })
-
-const emit = defineEmits<{
-  added: []
-}>()
 
 const dialogTitleId = `summary-add-widget-dialog-title-${Math.random().toString(36).slice(2, 9)}`
 
@@ -208,10 +205,31 @@ const widgetTypeOptions = computed(() => [
 
 // Parse facet types from comma-separated string
 watch(facetTypesInput, (val) => {
-  form.value.query_config!.facet_types = val
-    .split(',')
-    .map(s => s.trim())
-    .filter(s => s.length > 0)
+  if (form.value.query_config) {
+    form.value.query_config.facet_types = val
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s.length > 0)
+  }
+})
+
+// Auto-adjust size for certain widget types
+watch(() => form.value.widget_type, (widgetType) => {
+  if (widgetType === 'map') {
+    // Map widgets should be full width for better visibility
+    form.value.width = 4
+    form.value.height = 3
+    form.value.position_x = 0
+  } else if (widgetType === 'stat_card') {
+    // Stat cards are typically small
+    form.value.width = 1
+    form.value.height = 1
+  } else if (widgetType === 'table' || widgetType === 'comparison') {
+    // Tables and comparisons benefit from more width
+    form.value.width = 4
+    form.value.height = 2
+    form.value.position_x = 0
+  }
 })
 
 async function save() {

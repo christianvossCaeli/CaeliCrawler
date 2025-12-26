@@ -1,110 +1,3 @@
-<script setup lang="ts">
-/**
- * CrawlerStatus Widget - Shows live crawler status and recent jobs
- * Auto-refresh is handled by BaseWidget via refreshInterval in registry
- */
-
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useI18n } from 'vue-i18n'
-import { adminApi } from '@/services/api'
-import { useStatusColors } from '@/composables'
-import { handleKeyboardClick } from '../composables'
-import BaseWidget from '../BaseWidget.vue'
-import WidgetEmptyState from './WidgetEmptyState.vue'
-import type { WidgetDefinition, WidgetConfig, CrawlerJob, CrawlerStatusData } from '../types'
-
-const props = defineProps<{
-  definition: WidgetDefinition
-  config?: WidgetConfig
-  isEditing?: boolean
-}>()
-
-const { t } = useI18n()
-const router = useRouter()
-const loading = ref(true)
-const error = ref<string | null>(null)
-const status = ref<CrawlerStatusData | null>(null)
-const runningJobs = ref<CrawlerJob[]>([])
-const recentJobs = ref<CrawlerJob[]>([])
-
-const refresh = async () => {
-  error.value = null
-  const errors: string[] = []
-
-  try {
-    const [statusResult, runningResult, jobsResult] = await Promise.allSettled([
-      adminApi.getCrawlerStatus(),
-      adminApi.getRunningJobs(),
-      adminApi.getCrawlerJobs({ per_page: 5, status: 'COMPLETED,FAILED' }),
-    ])
-
-    // Handle status result
-    if (statusResult.status === 'fulfilled') {
-      status.value = statusResult.value.data
-    } else {
-      errors.push('Status')
-    }
-
-    // Handle running jobs result
-    if (runningResult.status === 'fulfilled') {
-      runningJobs.value = runningResult.value.data || []
-    } else {
-      errors.push('Running Jobs')
-    }
-
-    // Handle recent jobs result
-    if (jobsResult.status === 'fulfilled') {
-      recentJobs.value = jobsResult.value.data?.items || []
-    } else {
-      errors.push('Recent Jobs')
-    }
-
-    // Set partial error message if some requests failed
-    if (errors.length > 0 && errors.length < 3) {
-      error.value = t('common.partialLoadError', { components: errors.join(', ') })
-    } else if (errors.length === 3) {
-      error.value = t('common.loadError')
-    }
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : t('common.loadError')
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(() => {
-  refresh()
-  // Note: Auto-refresh is handled by BaseWidget (refreshInterval: 10000 in registry)
-})
-
-const hasRunningJobs = computed(() => runningJobs.value.length > 0)
-
-// Use centralized status colors/icons
-const { getStatusColor, getStatusIcon } = useStatusColors()
-
-const navigateToCrawler = (status?: string) => {
-  if (props.isEditing) return
-  const query: Record<string, string> = {}
-  if (status) query.status = status
-  router.push({ path: '/crawler', query })
-}
-
-const navigateToJob = (jobId: string) => {
-  if (props.isEditing) return
-  // Navigate to crawler page with job_id to auto-open details
-  router.push({ path: '/crawler', query: { job_id: jobId } })
-}
-
-const handleKeydownStatus = (event: KeyboardEvent, status?: string) => {
-  handleKeyboardClick(event, () => navigateToCrawler(status))
-}
-
-const handleKeydownJob = (event: KeyboardEvent, jobId: string) => {
-  handleKeyboardClick(event, () => navigateToJob(jobId))
-}
-</script>
-
 <template>
   <BaseWidget
     :definition="definition"
@@ -229,6 +122,113 @@ const handleKeydownJob = (event: KeyboardEvent, jobId: string) => {
     </template>
   </BaseWidget>
 </template>
+
+<script setup lang="ts">
+/**
+ * CrawlerStatus Widget - Shows live crawler status and recent jobs
+ * Auto-refresh is handled by BaseWidget via refreshInterval in registry
+ */
+
+import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { adminApi } from '@/services/api'
+import { useStatusColors } from '@/composables'
+import { handleKeyboardClick } from '../composables'
+import BaseWidget from '../BaseWidget.vue'
+import WidgetEmptyState from './WidgetEmptyState.vue'
+import type { WidgetDefinition, WidgetConfig, CrawlerJob, CrawlerStatusData } from '../types'
+
+const props = defineProps<{
+  definition: WidgetDefinition
+  config?: WidgetConfig
+  isEditing?: boolean
+}>()
+
+const { t } = useI18n()
+const router = useRouter()
+const loading = ref(true)
+const error = ref<string | null>(null)
+const status = ref<CrawlerStatusData | null>(null)
+const runningJobs = ref<CrawlerJob[]>([])
+const recentJobs = ref<CrawlerJob[]>([])
+
+const refresh = async () => {
+  error.value = null
+  const errors: string[] = []
+
+  try {
+    const [statusResult, runningResult, jobsResult] = await Promise.allSettled([
+      adminApi.getCrawlerStatus(),
+      adminApi.getRunningJobs(),
+      adminApi.getCrawlerJobs({ per_page: 5, status: 'COMPLETED,FAILED' }),
+    ])
+
+    // Handle status result
+    if (statusResult.status === 'fulfilled') {
+      status.value = statusResult.value.data
+    } else {
+      errors.push('Status')
+    }
+
+    // Handle running jobs result
+    if (runningResult.status === 'fulfilled') {
+      runningJobs.value = runningResult.value.data || []
+    } else {
+      errors.push('Running Jobs')
+    }
+
+    // Handle recent jobs result
+    if (jobsResult.status === 'fulfilled') {
+      recentJobs.value = jobsResult.value.data?.items || []
+    } else {
+      errors.push('Recent Jobs')
+    }
+
+    // Set partial error message if some requests failed
+    if (errors.length > 0 && errors.length < 3) {
+      error.value = t('common.partialLoadError', { components: errors.join(', ') })
+    } else if (errors.length === 3) {
+      error.value = t('common.loadError')
+    }
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : t('common.loadError')
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  refresh()
+  // Note: Auto-refresh is handled by BaseWidget (refreshInterval: 10000 in registry)
+})
+
+const hasRunningJobs = computed(() => runningJobs.value.length > 0)
+
+// Use centralized status colors/icons
+const { getStatusColor, getStatusIcon } = useStatusColors()
+
+const navigateToCrawler = (status?: string) => {
+  if (props.isEditing) return
+  const query: Record<string, string> = {}
+  if (status) query.status = status
+  router.push({ path: '/crawler', query })
+}
+
+const navigateToJob = (jobId: string) => {
+  if (props.isEditing) return
+  // Navigate to crawler page with job_id to auto-open details
+  router.push({ path: '/crawler', query: { job_id: jobId } })
+}
+
+const handleKeydownStatus = (event: KeyboardEvent, status?: string) => {
+  handleKeyboardClick(event, () => navigateToCrawler(status))
+}
+
+const handleKeydownJob = (event: KeyboardEvent, jobId: string) => {
+  handleKeyboardClick(event, () => navigateToJob(jobId))
+}
+</script>
 
 <style scoped>
 .stat-summary {

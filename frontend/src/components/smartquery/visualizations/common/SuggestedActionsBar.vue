@@ -27,16 +27,16 @@
 import { useI18n } from 'vue-i18n'
 import type { SuggestedAction } from '../types'
 
-const { t } = useI18n()
-
 const props = defineProps<{
   actions: SuggestedAction[]
-  data?: Record<string, any>[]
+  data?: Record<string, unknown>[]
 }>()
 
 const emit = defineEmits<{
-  action: [action: string, params: Record<string, any>]
+  action: [action: string, params: Record<string, unknown>]
 }>()
+
+const { t } = useI18n()
 
 function getActionColor(action: string): string {
   const colors: Record<string, string> = {
@@ -109,8 +109,8 @@ function exportToJson() {
   URL.revokeObjectURL(url)
 }
 
-function flattenObject(obj: Record<string, any>, prefix = ''): Record<string, any> {
-  const result: Record<string, any> = {}
+function flattenObject(obj: Record<string, unknown>, prefix = ''): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
 
   for (const [key, value] of Object.entries(obj)) {
     const newKey = prefix ? `${prefix}.${key}` : key

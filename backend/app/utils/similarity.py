@@ -1077,14 +1077,14 @@ async def find_duplicate_analysis_template(
     return None
 
 
-async def find_duplicate_api_template(
+async def find_duplicate_api_configuration(
     session: AsyncSession,
     base_url: str,
     endpoint: str,
     exclude_id: Optional[uuid.UUID] = None,
-) -> Optional[Tuple["APITemplate", str]]:
+) -> Optional[Tuple["APIConfiguration", str]]:
     """
-    Find duplicate APITemplate by URL.
+    Find duplicate APIConfiguration by URL.
 
     Args:
         session: Database session
@@ -1093,28 +1093,37 @@ async def find_duplicate_api_template(
         exclude_id: ID to exclude
 
     Returns:
-        Tuple of (APITemplate, reason) if duplicate found
+        Tuple of (APIConfiguration, reason) if duplicate found
     """
-    from app.models import APITemplate
+    from sqlalchemy.orm import selectinload
+    from app.models.api_configuration import APIConfiguration
 
     # Normalize URLs
     base_url_normalized = base_url.rstrip("/").lower()
     endpoint_normalized = endpoint.strip("/").lower()
 
-    query = select(APITemplate).where(APITemplate.status != "INACTIVE")
+    query = (
+        select(APIConfiguration)
+        .options(selectinload(APIConfiguration.data_source))
+        .where(APIConfiguration.is_active == True)
+    )
 
     if exclude_id:
-        query = query.where(APITemplate.id != exclude_id)
+        query = query.where(APIConfiguration.id != exclude_id)
 
     result = await session.execute(query)
-    templates = result.scalars().all()
+    configs = result.scalars().all()
 
-    for template in templates:
-        existing_base = template.base_url.rstrip("/").lower()
-        existing_endpoint = template.endpoint.strip("/").lower()
+    for config in configs:
+        if not config.data_source:
+            continue
+
+        existing_base = config.data_source.base_url.rstrip("/").lower()
+        existing_endpoint = config.endpoint.strip("/").lower()
+        config_name = config.data_source.name
 
         if existing_base == base_url_normalized and existing_endpoint == endpoint_normalized:
-            return template, f"Identische API-URL: '{template.name}'"
+            return config, f"Identische API-URL: '{config_name}'"
 
     return None
 

@@ -3,7 +3,6 @@
     <!-- Prompt Input -->
     <v-textarea
       :model-value="prompt"
-      @update:model-value="$emit('update:prompt', $event)"
       :label="$t('sources.aiDiscovery.prompt')"
       :placeholder="$t('sources.aiDiscovery.promptPlaceholder')"
       variant="outlined"
@@ -11,6 +10,7 @@
       prepend-inner-icon="mdi-magnify"
       class="mb-4"
       auto-grow
+      @update:model-value="$emit('update:prompt', $event)"
     ></v-textarea>
 
     <!-- Examples -->
@@ -39,15 +39,15 @@
       <v-col cols="12" md="4">
         <v-select
           :model-value="searchDepth"
-          @update:model-value="$emit('update:searchDepth', $event)"
           :items="searchDepthOptions"
           :label="$t('sources.aiDiscovery.searchDepth')"
           variant="outlined"
           density="comfortable"
+          @update:model-value="$emit('update:searchDepth', $event)"
         >
-          <template v-slot:item="{ item, props }">
-            <v-list-item v-bind="props">
-              <template v-slot:prepend>
+          <template #item="{ item, props: itemProps }">
+            <v-list-item v-bind="itemProps">
+              <template #prepend>
                 <v-icon :color="item.raw.color">{{ item.raw.icon }}</v-icon>
               </template>
             </v-list-item>
@@ -57,24 +57,24 @@
       <v-col cols="12" md="4">
         <v-text-field
           :model-value="maxResults"
-          @update:model-value="$emit('update:maxResults', Number($event))"
           :label="$t('sources.aiDiscovery.maxResults')"
           type="number"
           variant="outlined"
           density="comfortable"
           :min="minResults"
           :max="maxResultsLimit"
+          @update:model-value="$emit('update:maxResults', Number($event))"
         ></v-text-field>
       </v-col>
       <v-col cols="12" md="4">
         <v-switch
           :model-value="skipApiDiscovery"
-          @update:model-value="$emit('update:skipApiDiscovery', $event ?? false)"
           :label="$t('sources.aiDiscovery.skipApiDiscovery')"
           color="warning"
           density="comfortable"
           hide-details
           class="mt-2"
+          @update:model-value="$emit('update:skipApiDiscovery', $event ?? false)"
         ></v-switch>
       </v-col>
     </v-row>
@@ -101,7 +101,7 @@ interface Props {
   maxResultsLimit?: number
 }
 
-const props = withDefaults(defineProps<Props>(), {
+const _props = withDefaults(defineProps<Props>(), {
   examples: () => [],
   minResults: 10,
   maxResultsLimit: 200,

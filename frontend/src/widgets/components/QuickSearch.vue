@@ -1,3 +1,84 @@
+<template>
+  <BaseWidget
+    :definition="definition"
+    :config="config"
+    :is-editing="isEditing"
+  >
+    <div class="quick-search-content">
+      <!-- Search Input -->
+      <v-text-field
+        v-model="searchQuery"
+        :placeholder="t('dashboard.searchPlaceholder')"
+        density="compact"
+        variant="outlined"
+        hide-details
+        prepend-inner-icon="mdi-magnify"
+        :append-inner-icon="searchQuery ? 'mdi-close' : undefined"
+        :loading="searching"
+        :disabled="isEditing"
+        class="mb-3"
+        @keydown="handleSearchKeydown"
+        @click:append-inner="clearSearch"
+      />
+
+      <!-- Results -->
+      <div v-if="searching" class="d-flex justify-center py-4">
+        <v-progress-circular indeterminate size="24" />
+      </div>
+
+      <v-list v-else-if="results.length > 0" density="compact" class="results-list" role="list">
+        <v-list-item
+          v-for="result in results"
+          :key="result.id"
+          class="px-2 clickable-item"
+          :class="{ 'non-interactive': isEditing }"
+          role="button"
+          :tabindex="tabIndex"
+          :aria-label="result.title"
+          @click="navigateToResult(result)"
+          @keydown="handleKeydownResult($event, result)"
+        >
+          <template #prepend>
+            <v-icon :icon="getResultIcon(result.type)" size="small" color="primary" />
+          </template>
+
+          <v-list-item-title class="text-body-2 text-truncate">
+            {{ result.title }}
+          </v-list-item-title>
+          <v-list-item-subtitle v-if="result.type_name" class="text-caption">
+            {{ result.type_name }}
+          </v-list-item-subtitle>
+        </v-list-item>
+
+        <!-- View All Results -->
+        <v-list-item
+          class="px-2 clickable-item"
+          :class="{ 'non-interactive': isEditing }"
+          role="button"
+          :tabindex="tabIndex"
+          :aria-label="t('dashboard.viewAllResults')"
+          @click="navigateToFullSearch"
+          @keydown="handleKeydownFullSearch($event)"
+        >
+          <v-list-item-title class="text-body-2 text-primary">
+            {{ t('dashboard.viewAllResults') }}
+          </v-list-item-title>
+        </v-list-item>
+      </v-list>
+
+      <div v-else-if="hasSearched && !searching" class="text-center py-4 text-medium-emphasis">
+        <v-icon size="24" class="mb-1">mdi-magnify-close</v-icon>
+        <div class="text-caption">{{ t('common.noResults') }}</div>
+      </div>
+
+      <div v-else class="text-center py-4 text-medium-emphasis">
+        <v-icon size="24" class="mb-1">mdi-magnify</v-icon>
+        <div class="text-caption">{{ t('dashboard.searchHint') }}</div>
+      </div>
+    </div>
+  </BaseWidget>
+</template>
+
 <script setup lang="ts">
 /**
  * QuickSearch Widget - Search directly from the dashboard
@@ -120,87 +201,6 @@ const clearSearch = () => {
   hasSearched.value = false
 }
 </script>
-
-<template>
-  <BaseWidget
-    :definition="definition"
-    :config="config"
-    :is-editing="isEditing"
-  >
-    <div class="quick-search-content">
-      <!-- Search Input -->
-      <v-text-field
-        v-model="searchQuery"
-        :placeholder="t('dashboard.searchPlaceholder')"
-        density="compact"
-        variant="outlined"
-        hide-details
-        prepend-inner-icon="mdi-magnify"
-        :append-inner-icon="searchQuery ? 'mdi-close' : undefined"
-        :loading="searching"
-        :disabled="isEditing"
-        class="mb-3"
-        @keydown="handleSearchKeydown"
-        @click:append-inner="clearSearch"
-      />
-
-      <!-- Results -->
-      <div v-if="searching" class="d-flex justify-center py-4">
-        <v-progress-circular indeterminate size="24" />
-      </div>
-
-      <v-list v-else-if="results.length > 0" density="compact" class="results-list" role="list">
-        <v-list-item
-          v-for="result in results"
-          :key="result.id"
-          class="px-2 clickable-item"
-          :class="{ 'non-interactive': isEditing }"
-          role="button"
-          :tabindex="tabIndex"
-          :aria-label="result.title"
-          @click="navigateToResult(result)"
-          @keydown="handleKeydownResult($event, result)"
-        >
-          <template #prepend>
-            <v-icon :icon="getResultIcon(result.type)" size="small" color="primary" />
-          </template>
-
-          <v-list-item-title class="text-body-2 text-truncate">
-            {{ result.title }}
-          </v-list-item-title>
-          <v-list-item-subtitle v-if="result.type_name" class="text-caption">
-            {{ result.type_name }}
-          </v-list-item-subtitle>
-        </v-list-item>
-
-        <!-- View All Results -->
-        <v-list-item
-          class="px-2 clickable-item"
-          :class="{ 'non-interactive': isEditing }"
-          role="button"
-          :tabindex="tabIndex"
-          :aria-label="t('dashboard.viewAllResults')"
-          @click="navigateToFullSearch"
-          @keydown="handleKeydownFullSearch($event)"
-        >
-          <v-list-item-title class="text-body-2 text-primary">
-            {{ t('dashboard.viewAllResults') }}
-          </v-list-item-title>
-        </v-list-item>
-      </v-list>
-
-      <div v-else-if="hasSearched && !searching" class="text-center py-4 text-medium-emphasis">
-        <v-icon size="24" class="mb-1">mdi-magnify-close</v-icon>
-        <div class="text-caption">{{ t('common.noResults') }}</div>
-      </div>
-
-      <div v-else class="text-center py-4 text-medium-emphasis">
-        <v-icon size="24" class="mb-1">mdi-magnify</v-icon>
-        <div class="text-caption">{{ t('dashboard.searchHint') }}</div>
-      </div>
-    </div>
-  </BaseWidget>
-</template>
 
 <style scoped>
 .quick-search-content {

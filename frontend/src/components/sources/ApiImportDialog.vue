@@ -35,9 +35,9 @@
               density="comfortable"
               @update:model-value="onApiTypeChange"
             >
-              <template v-slot:item="{ item, props }">
-                <v-list-item v-bind="props">
-                  <template v-slot:prepend>
+              <template #item="{ item, props: itemProps }">
+                <v-list-item v-bind="itemProps">
+                  <template #prepend>
                     <v-icon :color="item.raw.color">{{ item.raw.icon }}</v-icon>
                   </template>
                 </v-list-item>
@@ -56,8 +56,8 @@
               clearable
               @update:model-value="onTemplateSelect"
             >
-              <template v-slot:item="{ item, props }">
-                <v-list-item v-bind="props">
+              <template #item="{ item, props: itemProps }">
+                <v-list-item v-bind="itemProps">
                   <v-list-item-subtitle>{{ item.raw.description }}</v-list-item-subtitle>
                 </v-list-item>
               </template>
@@ -114,7 +114,7 @@
               density="comfortable"
               :rules="[v => v.length > 0 || $t('common.required')]"
             >
-              <template v-slot:chip="{ item, index }">
+              <template #chip="{ item, index }">
                 <v-chip
                   :color="index === 0 ? 'primary' : 'default'"
                   closable
@@ -146,9 +146,9 @@
               density="comfortable"
               prepend-inner-icon="mdi-tag"
             >
-              <template #chip="{ props, item }">
+              <template #chip="{ props: chipProps, item }">
                 <v-chip
-                  v-bind="props"
+                  v-bind="chipProps"
                   :color="getTagColor(item.value)"
                   size="small"
                 >
@@ -164,9 +164,9 @@
           <v-btn
             variant="tonal"
             color="info"
-            @click="loadPreview"
             :loading="loadingPreview"
             :disabled="!canPreview"
+            @click="loadPreview"
           >
             <v-icon start>mdi-eye</v-icon>
             {{ $t('sources.bulk.loadPreview') }}
@@ -182,7 +182,7 @@
             </span>
             <span class="text-caption">
               <v-chip size="x-small" color="success" class="mr-1">{{ validCount }} {{ $t('sources.bulk.valid') }}</v-chip>
-              <v-chip size="x-small" color="error" v-if="errorCount > 0">{{ errorCount }} {{ $t('sources.bulk.errors') }}</v-chip>
+              <v-chip v-if="errorCount > 0" size="x-small" color="error">{{ errorCount }} {{ $t('sources.bulk.errors') }}</v-chip>
             </span>
           </v-card-title>
           <v-card-text class="pa-0">
@@ -237,9 +237,9 @@
         <v-btn
           variant="tonal"
           color="primary"
-          @click="executeImport"
           :disabled="!canImport"
           :loading="importing"
+          @click="executeImport"
         >
           <v-icon start>mdi-download</v-icon>
           {{ totalAvailable }} {{ $t('sources.bulk.sourcesImport') }}
@@ -262,6 +262,16 @@ import { useSourceHelpers } from '@/composables/useSourceHelpers'
 import { useLogger } from '@/composables/useLogger'
 import { DIALOG_SIZES } from '@/config/sources'
 import type { CategoryResponse } from '@/types/category'
+
+// defineModel() for two-way binding (Vue 3.4+)
+const isOpen = defineModel<boolean>({ default: false })
+
+const _props = defineProps<Props>()
+
+// Emits (non-model emits only)
+const emit = defineEmits<{
+  (e: 'imported', count: number): void
+}>()
 
 const logger = useLogger('ApiImportDialog')
 
@@ -289,16 +299,6 @@ interface Props {
   categories: CategoryResponse[]
   availableTags: string[]
 }
-
-const props = defineProps<Props>()
-
-// defineModel() for two-way binding (Vue 3.4+)
-const isOpen = defineModel<boolean>({ default: false })
-
-// Emits (non-model emits only)
-const emit = defineEmits<{
-  (e: 'imported', count: number): void
-}>()
 
 const { t } = useI18n()
 const { getTagColor } = useSourceHelpers()

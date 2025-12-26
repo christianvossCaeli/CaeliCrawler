@@ -25,13 +25,13 @@
             {{ t('visualization.map.featuresOnMap') }}
           </div>
         </div>
-        <!-- Geometry type breakdown -->
-        <div v-if="polygonCount > 0 || pointCount > 0" class="d-flex ga-2 mt-1">
-          <v-chip v-if="pointCount > 0" size="x-small" color="primary" variant="flat">
+        <!-- Geometry type breakdown (only show when both types exist) -->
+        <div v-if="polygonCount > 0 && pointCount > 0" class="d-flex ga-2 mt-1">
+          <v-chip size="x-small" color="primary" variant="flat">
             <v-icon start size="x-small">mdi-map-marker</v-icon>
             {{ pointCount }}
           </v-chip>
-          <v-chip v-if="polygonCount > 0" size="x-small" color="success" variant="flat">
+          <v-chip size="x-small" color="success" variant="flat">
             <v-icon start size="x-small">mdi-vector-polygon</v-icon>
             {{ polygonCount }}
           </v-chip>
@@ -132,6 +132,11 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import type { VisualizationConfig } from './types'
 import { useLogger } from '@/composables/useLogger'
 
+const props = defineProps<{
+  data: Record<string, unknown>[]
+  config?: VisualizationConfig
+}>()
+
 const logger = useLogger('MapVisualization')
 
 // =============================================================================
@@ -144,7 +149,7 @@ interface SelectedFeatureInfo {
   entity_type?: string
   icon?: string
   color?: string
-  attributes: Record<string, any>
+  attributes: Record<string, unknown>
 }
 
 interface PopupPosition {
@@ -159,11 +164,6 @@ interface PopupPosition {
 const { t } = useI18n()
 const router = useRouter()
 const theme = useTheme()
-
-const props = defineProps<{
-  data: Record<string, any>[]
-  config?: VisualizationConfig
-}>()
 
 // =============================================================================
 // Constants
@@ -273,7 +273,7 @@ const CLUSTER_COLORS = {
 const clusterColors = computed(() => isDark.value ? CLUSTER_COLORS.dark : CLUSTER_COLORS.light)
 
 // Convert Smart Query data to GeoJSON
-function convertToGeoJSON(data: Record<string, any>[]): GeoJSON.FeatureCollection {
+function convertToGeoJSON(data: Record<string, unknown>[]): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = []
 
   for (const item of data) {
@@ -300,8 +300,8 @@ function convertToGeoJSON(data: Record<string, any>[]): GeoJSON.FeatureCollectio
     // Check for facets with geo data
     else if (item.facets) {
       const geoFacet = Object.values(item.facets).find(
-        (f: any) => f?.latitude != null && f?.longitude != null
-      ) as any
+        (f: unknown) => (f as { latitude?: number; longitude?: number })?.latitude != null && (f as { latitude?: number; longitude?: number })?.longitude != null
+      ) as { latitude: number; longitude: number } | undefined
       if (geoFacet) {
         geometry = {
           type: 'Point',
@@ -312,7 +312,7 @@ function convertToGeoJSON(data: Record<string, any>[]): GeoJSON.FeatureCollectio
 
     if (geometry) {
       // Build properties for popup
-      const attributes: Record<string, any> = {}
+      const attributes: Record<string, unknown> = {}
 
       // Extract relevant display attributes
       const skipKeys = ['geometry', 'latitude', 'longitude', 'coordinates', 'entity_id', 'entity_name', 'name', 'facets']
@@ -325,8 +325,8 @@ function convertToGeoJSON(data: Record<string, any>[]): GeoJSON.FeatureCollectio
       // Add some facet values if available
       if (item.facets) {
         for (const [key, facetValue] of Object.entries(item.facets)) {
-          if (facetValue && typeof facetValue === 'object' && 'value' in (facetValue as any)) {
-            attributes[key] = (facetValue as any).value
+          if (facetValue && typeof facetValue === 'object' && 'value' in (facetValue as Record<string, unknown>)) {
+            attributes[key] = (facetValue as { value: unknown }).value
           } else if (facetValue != null && typeof facetValue !== 'object') {
             attributes[key] = facetValue
           }
@@ -369,7 +369,7 @@ async function initMap() {
   })
 
   // Add navigation controls
-  // @ts-ignore - MapLibre types cause deep instantiation error
+  // @ts-expect-error - MapLibre types cause deep instantiation error
   map.value.addControl(new maplibregl.NavigationControl(), 'top-right')
   map.value.addControl(new maplibregl.ScaleControl(), 'bottom-right')
 
@@ -600,14 +600,15 @@ function setupMapInteractions() {
 
   // Click on cluster to zoom in
   map.value.on('click', 'clusters', async (e) => {
-    const features = map.value!.queryRenderedFeatures(e.point, { layers: ['clusters'] })
+    if (!map.value) return
+    const features = map.value.queryRenderedFeatures(e.point, { layers: ['clusters'] })
     if (!features.length) return
 
     const clusterId = features[0].properties?.cluster_id
-    const source = map.value!.getSource('smart-query-points') as maplibregl.GeoJSONSource
+    const source = map.value.getSource('smart-query-points') as maplibregl.GeoJSONSource
 
     const zoom = await source.getClusterExpansionZoom(clusterId)
-    map.value!.easeTo({
+    map.value.easeTo({
       center: (features[0].geometry as GeoJSON.Point).coordinates as [number, number],
       zoom: zoom,
     })
@@ -637,19 +638,22 @@ function setupMapInteractions() {
 
   map.value.on('mouseenter', 'polygon-fill', (e) => {
     setCursor('pointer')
-    if (e.features?.length) {
-      map.value!.setFilter('polygon-highlight', ['==', ['get', 'id'], e.features[0].properties?.id || ''])
+    if (e.features?.length && map.value) {
+      map.value.setFilter('polygon-highlight', ['==', ['get', 'id'], e.features[0].properties?.id || ''])
     }
   })
   map.value.on('mouseleave', 'polygon-fill', () => {
     setCursor('')
-    map.value!.setFilter('polygon-highlight', ['==', ['get', 'id'], ''])
+    if (map.value) {
+      map.value.setFilter('polygon-highlight', ['==', ['get', 'id'], ''])
+    }
   })
 
   // Close popup when clicking elsewhere
   map.value.on('click', (e) => {
+    if (!map.value) return
     const layers = ['unclustered-point', 'clusters', 'polygon-fill'].filter(l => map.value?.getLayer(l))
-    const features = map.value!.queryRenderedFeatures(e.point, { layers })
+    const features = map.value.queryRenderedFeatures(e.point, { layers })
     if (!features.length) {
       selectedFeature.value = null
     }
@@ -681,7 +685,7 @@ function formatAttributeKey(key: string): string {
     .replace(/\b\w/g, c => c.toUpperCase())
 }
 
-function formatAttributeValue(value: any): string {
+function formatAttributeValue(value: unknown): string {
   if (value === null || value === undefined) return '-'
   if (typeof value === 'number') return value.toLocaleString()
   if (typeof value === 'boolean') return value ? t('common.yes') : t('common.no')
@@ -689,7 +693,7 @@ function formatAttributeValue(value: any): string {
   return String(value)
 }
 
-function navigateToEntity(feature: any) {
+function navigateToEntity(feature: { entity_id?: string }) {
   if (feature.entity_id) {
     // Use /entity/:id route for direct access by ID
     router.push(`/entity/${feature.entity_id}`)

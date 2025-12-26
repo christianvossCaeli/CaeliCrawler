@@ -168,6 +168,42 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type {
+  FacetType,
+  FacetValue,
+  FacetTypeValueSchema,
+  RelationType,
+  Relation,
+  EntityBrief,
+} from '@/types/entity'
+import type { DataSourceResponse } from '@/types/sources'
+
+// Local interfaces for props without global type definitions
+interface FacetGroup {
+  facet_type_id: string
+  facet_type_slug: string
+  facet_type_name: string
+  value_type: string
+  icon?: string
+  color?: string
+  values: FacetValue[]
+}
+
+interface EntityNote {
+  id: string
+  content: string
+  created_at: string
+  updated_at: string
+  created_by?: string
+}
+
+interface ExportOptions {
+  includeFacets: boolean
+  includeRelations: boolean
+  includeHistory: boolean
+  format: string
+}
+
 import AddFacetDialog from './AddFacetDialog.vue'
 import FacetDetailsDialog from './FacetDetailsDialog.vue'
 import EntityEditDialog from './EntityEditDialog.vue'
@@ -183,9 +219,9 @@ const props = defineProps<{
   // Add Facet Dialog
   addFacetDialog: boolean
   facetTypeId: string
-  facetTypes: any[]
-  selectedFacetType: any | null
-  facetValue: Record<string, any>
+  facetTypes: FacetType[]
+  selectedFacetType: FacetType | null
+  facetValue: Record<string, unknown>
   textRepresentation: string
   sourceUrl: string
   confidenceScore: number
@@ -193,8 +229,8 @@ const props = defineProps<{
 
   // Facet Details Dialog
   facetDetailsDialog: boolean
-  facetGroup: any
-  facetValues: any[]
+  facetGroup: FacetGroup | null
+  facetValues: FacetValue[]
 
   // Edit Entity Dialog
   editDialog: boolean
@@ -210,8 +246,8 @@ const props = defineProps<{
   direction: 'outgoing' | 'incoming'
   targetEntityId: string
   attributesJson: string
-  relationTypes: any[]
-  targetEntities: any[]
+  relationTypes: RelationType[]
+  targetEntities: EntityBrief[]
   loadingRelationTypes: boolean
   searchingEntities: boolean
   searchQuery: string
@@ -219,30 +255,30 @@ const props = defineProps<{
 
   // Delete Relation
   deleteRelationConfirm: boolean
-  relationToDelete: any
+  relationToDelete: Relation | null
   deletingRelation: boolean
 
   // Export Dialog
   exportDialog: boolean
   exportFormat: string
-  exportOptions: any
+  exportOptions: ExportOptions
   exporting: boolean
 
   // Link Data Source Dialog
   linkDataSourceDialog: boolean
-  selectedSource: any
-  availableSources: any[]
+  selectedSource: DataSourceResponse | null
+  availableSources: DataSourceResponse[]
   searching: boolean
   sourceSearchQuery: string
   linking: boolean
 
   // Source Details Dialog
   sourceDetailsDialog: boolean
-  sourceFacet: any
+  sourceFacet: FacetValue | null
 
   // Notes Dialog
   notesDialog: boolean
-  notes: any[]
+  notes: EntityNote[]
   newNote: string
   savingNote: boolean
 
@@ -252,9 +288,9 @@ const props = defineProps<{
 
   // Edit Facet Dialog
   editFacetDialog: boolean
-  editingFacet: any
-  editingFacetSchema: any
-  editingFacetValue: Record<string, any>
+  editingFacet: FacetValue | null
+  editingFacetSchema: FacetTypeValueSchema | null
+  editingFacetValue: Record<string, unknown>
   editingFacetTextValue: string
   savingFacet: boolean
 }>()
@@ -262,7 +298,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:add-facet-dialog': [value: boolean]
   'update:facet-type-id': [value: string]
-  'update:value': [value: Record<string, any>]
+  'update:value': [value: Record<string, unknown>]
   'update:text-representation': [value: string]
   'update:source-url': [value: string]
   'update:confidence-score': [value: number]
@@ -287,10 +323,10 @@ const emit = defineEmits<{
   'delete-relation': []
   'update:export-dialog': [value: boolean]
   'update:export-format': [value: string]
-  'update:export-options': [value: any]
+  'update:export-options': [value: ExportOptions]
   'export': []
   'update:link-data-source-dialog': [value: boolean]
-  'update:selected-source': [value: any]
+  'update:selected-source': [value: DataSourceResponse | null]
   'search-sources': [query: string]
   'link-source': []
   'create-new-source': []
@@ -302,7 +338,7 @@ const emit = defineEmits<{
   'update:single-delete-confirm': [value: boolean]
   'delete-single-facet': []
   'update:edit-facet-dialog': [value: boolean]
-  'update:editing-facet-value': [value: Record<string, any>]
+  'update:editing-facet-value': [value: Record<string, unknown>]
   'update:editing-facet-text-value': [value: string]
   'save-edited-facet': []
 }>()

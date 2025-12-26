@@ -76,7 +76,7 @@
               :key="idx"
               class="text-caption"
             >
-              <template v-slot:prepend>
+              <template #prepend>
                 <v-icon size="small" color="error">mdi-alert-circle</v-icon>
               </template>
               {{ err.entity_name }}: {{ err.error }}
@@ -153,6 +153,17 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useStatusColors } from '@/composables'
 
+const props = defineProps<{
+  status: BatchStatus
+  preview?: BatchPreviewEntity[]
+  isDryRun?: boolean
+  isCancelling?: boolean
+}>()
+defineEmits<{
+  cancel: []
+  close: []
+  confirm: []
+}>()
 const { t } = useI18n()
 const { getStatusColor: getBaseStatusColor, getStatusIcon: getBaseStatusIcon } = useStatusColors()
 
@@ -170,19 +181,6 @@ export interface BatchPreviewEntity {
   entity_name: string
   entity_type: string
 }
-
-const props = defineProps<{
-  status: BatchStatus
-  preview?: BatchPreviewEntity[]
-  isDryRun?: boolean
-  isCancelling?: boolean
-}>()
-
-defineEmits<{
-  cancel: []
-  close: []
-  confirm: []
-}>()
 
 const showErrors = ref(false)
 

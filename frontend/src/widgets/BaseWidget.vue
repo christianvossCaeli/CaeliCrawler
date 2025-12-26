@@ -1,3 +1,106 @@
+<template>
+  <v-card
+    :data-testid="`widget-${definition.type}`"
+    :class="['widget-card', { 'widget-editing': isEditing }]"
+    :elevation="isEditing ? 4 : 1"
+    rounded="lg"
+  >
+    <v-card-title class="d-flex align-center py-2 px-3">
+      <v-icon :icon="definition.icon" size="small" class="mr-2" />
+      <span class="text-subtitle-2 font-weight-medium">{{ widgetTitle }}</span>
+
+      <v-spacer />
+
+      <v-tooltip v-if="timeSinceRefresh" location="bottom">
+        <template #activator="{ props: tooltipProps }">
+          <v-chip
+            v-bind="tooltipProps"
+            size="x-small"
+            variant="text"
+            class="text-caption text-medium-emphasis"
+          >
+            {{ timeSinceRefresh }}
+          </v-chip>
+        </template>
+        {{ $t('dashboard.lastUpdated') }}
+      </v-tooltip>
+
+      <v-btn
+        icon
+        size="x-small"
+        variant="text"
+        :loading="loading"
+        data-testid="widget-refresh-btn"
+        @click="refresh"
+      >
+        <v-icon size="small">mdi-refresh</v-icon>
+      </v-btn>
+
+      <v-btn
+        v-if="definition.configurable"
+        icon
+        size="x-small"
+        variant="text"
+        data-testid="widget-config-btn"
+        @click="emit('configure')"
+      >
+        <v-icon size="small">mdi-cog</v-icon>
+      </v-btn>
+    </v-card-title>
+
+    <v-divider />
+
+    <v-card-text class="widget-content pa-3" data-testid="widget-content">
+      <!-- Loading State (only show if no slot content provided) -->
+      <div
+        v-if="loading && !$slots.default"
+        class="d-flex justify-center py-4"
+        role="status"
+        :aria-label="$t('common.loading')"
+      >
+        <v-progress-circular indeterminate size="32" />
+      </div>
+
+      <!-- Error State -->
+      <v-alert
+        v-else-if="error"
+        type="error"
+        density="compact"
+        variant="tonal"
+        class="mb-0"
+        role="alert"
+      >
+        {{ error }}
+        <template #append>
+          <v-btn size="small" variant="text" @click="refresh">
+            {{ $t('common.retry') }}
+          </v-btn>
+        </template>
+      </v-alert>
+
+      <!-- Content - pass setError and setLoading to children via slot props -->
+      <slot
+        v-else
+        :loading="loading"
+        :refresh="refresh"
+        :set-error="(msg: string | null) => error = msg"
+        :set-loading="(val: boolean) => loading = val"
+      />
+    </v-card-text>
+
+    <!-- Edit Mode Overlay -->
+    <v-overlay
+      v-if="isEditing"
+      :model-value="true"
+      contained
+      persistent
+      class="align-center justify-center edit-overlay"
+    >
+      <v-icon size="32" class="text-medium-emphasis">mdi-drag</v-icon>
+    </v-overlay>
+  </v-card>
+</template>
+
 <script setup lang="ts">
 /**
  * BaseWidget - Wrapper component for all dashboard widgets
@@ -127,109 +230,6 @@ defineExpose({
   },
 })
 </script>
-
-<template>
-  <v-card
-    :data-testid="`widget-${definition.type}`"
-    :class="['widget-card', { 'widget-editing': isEditing }]"
-    :elevation="isEditing ? 4 : 1"
-    rounded="lg"
-  >
-    <v-card-title class="d-flex align-center py-2 px-3">
-      <v-icon :icon="definition.icon" size="small" class="mr-2" />
-      <span class="text-subtitle-2 font-weight-medium">{{ widgetTitle }}</span>
-
-      <v-spacer />
-
-      <v-tooltip v-if="timeSinceRefresh" location="bottom">
-        <template #activator="{ props: tooltipProps }">
-          <v-chip
-            v-bind="tooltipProps"
-            size="x-small"
-            variant="text"
-            class="text-caption text-medium-emphasis"
-          >
-            {{ timeSinceRefresh }}
-          </v-chip>
-        </template>
-        {{ $t('dashboard.lastUpdated') }}
-      </v-tooltip>
-
-      <v-btn
-        icon
-        size="x-small"
-        variant="text"
-        :loading="loading"
-        data-testid="widget-refresh-btn"
-        @click="refresh"
-      >
-        <v-icon size="small">mdi-refresh</v-icon>
-      </v-btn>
-
-      <v-btn
-        v-if="definition.configurable"
-        icon
-        size="x-small"
-        variant="text"
-        data-testid="widget-config-btn"
-        @click="emit('configure')"
-      >
-        <v-icon size="small">mdi-cog</v-icon>
-      </v-btn>
-    </v-card-title>
-
-    <v-divider />
-
-    <v-card-text class="widget-content pa-3" data-testid="widget-content">
-      <!-- Loading State (only show if no slot content provided) -->
-      <div
-        v-if="loading && !$slots.default"
-        class="d-flex justify-center py-4"
-        role="status"
-        :aria-label="$t('common.loading')"
-      >
-        <v-progress-circular indeterminate size="32" />
-      </div>
-
-      <!-- Error State -->
-      <v-alert
-        v-else-if="error"
-        type="error"
-        density="compact"
-        variant="tonal"
-        class="mb-0"
-        role="alert"
-      >
-        {{ error }}
-        <template #append>
-          <v-btn size="small" variant="text" @click="refresh">
-            {{ $t('common.retry') }}
-          </v-btn>
-        </template>
-      </v-alert>
-
-      <!-- Content - pass setError and setLoading to children via slot props -->
-      <slot
-        v-else
-        :loading="loading"
-        :refresh="refresh"
-        :set-error="(msg: string | null) => error = msg"
-        :set-loading="(val: boolean) => loading = val"
-      />
-    </v-card-text>
-
-    <!-- Edit Mode Overlay -->
-    <v-overlay
-      v-if="isEditing"
-      :model-value="true"
-      contained
-      persistent
-      class="align-center justify-center edit-overlay"
-    >
-      <v-icon size="32" class="text-medium-emphasis">mdi-drag</v-icon>
-    </v-overlay>
-  </v-card>
-</template>
 
 <style scoped>
 .widget-card {

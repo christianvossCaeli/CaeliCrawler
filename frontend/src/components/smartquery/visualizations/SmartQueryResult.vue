@@ -31,8 +31,8 @@
       :aria-labelledby="headerId"
     >
       <component
-        v-if="visualizationComponent"
         :is="visualizationComponent"
+        v-if="visualizationComponent"
         :data="data"
         :config="visualization"
       />
@@ -93,6 +93,18 @@ import TableVisualization from './TableVisualization.vue'
 import StatCardVisualization from './StatCardVisualization.vue'
 import TextVisualization from './TextVisualization.vue'
 
+const props = defineProps<{
+  data: Record<string, unknown>[]
+  visualization?: VisualizationConfig
+  explanation?: string
+  sourceInfo?: SourceInfo
+  suggestedActions?: SuggestedAction[]
+}>()
+
+const emit = defineEmits<{
+  action: [action: string, params: Record<string, unknown>]
+}>()
+
 // Lazy-loaded (heavy, chart.js dependency)
 const BarChartVisualization = defineAsyncComponent({
   loader: () => import('./BarChartVisualization.vue'),
@@ -133,18 +145,6 @@ import SuggestedActionsBar from './common/SuggestedActionsBar.vue'
 
 const { t } = useI18n()
 
-const props = defineProps<{
-  data: Record<string, any>[]
-  visualization?: VisualizationConfig
-  explanation?: string
-  sourceInfo?: SourceInfo
-  suggestedActions?: SuggestedAction[]
-}>()
-
-const emit = defineEmits<{
-  action: [action: string, params: Record<string, any>]
-}>()
-
 // Generate unique ID for accessibility
 const headerId = computed(() => {
   const title = props.visualization?.title || 'result'
@@ -173,7 +173,7 @@ const visualizationComponent = computed(() => {
 
 const suggestedActions = computed(() => props.suggestedActions || [])
 
-function handleAction(action: string, params: Record<string, any>) {
+function handleAction(action: string, params: Record<string, unknown>) {
   emit('action', action, params)
 }
 </script>

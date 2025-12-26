@@ -1,6 +1,7 @@
 {
   "categories": {
     "title": "Analysethemen",
+    "loading": "Analysethemen werden geladen...",
     "subtitle": "Themen für die automatische Dokumentenanalyse verwalten",
     "category": "Analysethema",
     "categories": "Analysethemen",

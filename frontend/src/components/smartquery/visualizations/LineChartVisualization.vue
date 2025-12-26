@@ -24,6 +24,11 @@ import { de } from 'date-fns/locale'
 import type { VisualizationConfig } from './types'
 import { getNestedValue } from './types'
 
+const props = defineProps<{
+  data: Record<string, unknown>[]
+  config?: VisualizationConfig
+}>()
+
 // Register Chart.js components
 ChartJS.register(
   CategoryScale,
@@ -36,11 +41,6 @@ ChartJS.register(
   Legend,
   Filler
 )
-
-const props = defineProps<{
-  data: Record<string, any>[]
-  config?: VisualizationConfig
-}>()
 
 const chartData = computed(() => {
   if (!props.data || props.data.length === 0) {
@@ -58,13 +58,13 @@ const chartData = computed(() => {
     // Multi-entity time series
     const datasets = props.data.map((entity, idx) => {
       const history = entity.history || []
-      const sortedHistory = [...history].sort((a: any, b: any) =>
+      const sortedHistory = [...history].sort((a: { recorded_at: string }, b: { recorded_at: string }) =>
         new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
       )
 
       return {
         label: entity.entity_name || `Serie ${idx + 1}`,
-        data: sortedHistory.map((point: any) => ({
+        data: sortedHistory.map((point: { recorded_at: string; value: number }) => ({
           x: new Date(point.recorded_at).getTime(), // Use timestamp for Chart.js time scale
           y: point.value,
         })),
@@ -111,7 +111,7 @@ const chartData = computed(() => {
 
   if (sample.facets) {
     for (const [facetKey, facetValue] of Object.entries(sample.facets)) {
-      if (typeof (facetValue as any)?.value === 'number') {
+      if (typeof (facetValue as { value?: unknown })?.value === 'number') {
         valueKey = `facets.${facetKey}.value`
         valueLabel = formatFacetLabel(facetKey)
         break
@@ -163,7 +163,7 @@ const chartOptions = computed(() => {
       },
       tooltip: {
         callbacks: {
-          title: (context: any) => {
+          title: (context: Array<{ label?: string }>) => {
             const label = context[0]?.label
             if (label && isTimeSeries) {
               try {
@@ -179,7 +179,7 @@ const chartOptions = computed(() => {
             }
             return label
           },
-          label: (context: any) => {
+          label: (context: { parsed: { y: unknown }; dataset: { label?: string } }) => {
             const value = context.parsed.y
             if (typeof value === 'number') {
               return `${context.dataset.label}: ${value.toLocaleString()}`

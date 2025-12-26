@@ -37,7 +37,7 @@
                 class="py-1 pl-6"
                 @click="$emit('navigate', section.id)"
               >
-                <template v-slot:prepend>
+                <template #prepend>
                   <v-icon :color="section.color" size="x-small">{{ section.icon }}</v-icon>
                 </template>
                 <v-list-item-title class="text-caption">{{ t(section.title) }}</v-list-item-title>
@@ -55,8 +55,6 @@ import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { HelpSectionGroup } from './helpSections'
 
-const { t } = useI18n()
-
 const props = defineProps<{
   groups: HelpSectionGroup[]
   activeSection: string
@@ -65,6 +63,8 @@ const props = defineProps<{
 defineEmits<{
   (e: 'navigate', sectionId: string): void
 }>()
+
+const { t } = useI18n()
 
 // Initially expand the group containing the active section
 const expandedGroups = ref<string[]>([])

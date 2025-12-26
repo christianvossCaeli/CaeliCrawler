@@ -7,9 +7,9 @@
       size="large"
       class="chat-fab"
       elevation="8"
-      @click="isOpen = !isOpen"
       :aria-label="isOpen ? t('assistant.close') : t('assistant.open')"
       :aria-expanded="isOpen"
+      @click="isOpen = !isOpen"
     >
       <v-badge v-if="hasUnread && !isOpen" color="error" dot floating>
         <v-icon>mdi-robot-happy</v-icon>
@@ -37,38 +37,38 @@
             <div class="mode-toggle mode-toggle--triple" role="group" :aria-label="t('assistant.modeToggle')">
               <button
                 :class="{ active: localMode === 'read' }"
-                @click="localMode = 'read'"
                 :title="t('assistant.modeRead')"
                 :aria-label="t('assistant.modeRead')"
                 :aria-pressed="localMode === 'read'"
+                @click="localMode = 'read'"
               >
                 <v-icon size="18">mdi-magnify</v-icon>
               </button>
               <button
                 :class="{ active: localMode === 'write' }"
-                @click="localMode = 'write'"
                 :title="t('assistant.modeWrite')"
                 :aria-label="t('assistant.modeWrite')"
                 :aria-pressed="localMode === 'write'"
+                @click="localMode = 'write'"
               >
                 <v-icon size="18">mdi-pencil</v-icon>
               </button>
               <button
                 :class="{ active: localMode === 'plan' }"
-                @click="localMode = 'plan'"
                 :title="t('assistant.modePlan')"
                 :aria-label="t('assistant.modePlan')"
                 :aria-pressed="localMode === 'plan'"
+                @click="localMode = 'plan'"
               >
                 <v-icon size="18">mdi-lightbulb-on</v-icon>
               </button>
             </div>
 
-            <button class="header-btn" @click="clearConversation" :title="t('assistant.clear')" :aria-label="t('assistant.clear')">
+            <button class="header-btn" :title="t('assistant.clear')" :aria-label="t('assistant.clear')" @click="clearConversation">
               <v-icon size="small">mdi-refresh</v-icon>
             </button>
 
-            <button class="header-btn" @click="isOpen = false" :title="t('assistant.close')" :aria-label="t('assistant.close')">
+            <button class="header-btn" :title="t('assistant.close')" :aria-label="t('assistant.close')" @click="isOpen = false">
               <v-icon size="small">mdi-close</v-icon>
             </button>
           </div>
@@ -133,6 +133,7 @@
                 'message__bubble--error': msg.response_type === 'error'
               }"
             >
+              <!-- eslint-disable-next-line vue/no-v-html -- Content is sanitized via DOMPurify in formatMessage -->
               <div v-html="formatMessage(msg.content)"></div>
 
               <!-- Query Results -->
@@ -212,8 +213,8 @@
             <span class="attachment-name">{{ attachment.filename }}</span>
             <button
               class="attachment-remove"
-              @click="removeAttachment(attachment.id)"
               :title="t('assistant.removeAttachment')"
+              @click="removeAttachment(attachment.id)"
             >
               <v-icon size="14">mdi-close</v-icon>
             </button>
@@ -225,9 +226,9 @@
           <!-- Attachment Button -->
           <button
             class="attachment-btn"
-            @click="triggerFileInput"
             :title="t('assistant.attachFile')"
             :disabled="isUploading"
+            @click="triggerFileInput"
           >
             <v-icon size="20">{{ isUploading ? 'mdi-loading mdi-spin' : 'mdi-paperclip' }}</v-icon>
           </button>
@@ -236,18 +237,18 @@
             type="file"
             accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"
             style="display: none"
-            @change="handleFileSelect"
             multiple
+            @change="handleFileSelect"
           />
 
           <textarea
+            ref="textareaRef"
             v-model="inputText"
             :placeholder="getPlaceholder"
             rows="4"
             @keydown.enter.exact.prevent="sendMessage"
             @input="autoResize"
             @paste="handlePaste"
-            ref="textareaRef"
           ></textarea>
           <button
             class="send-btn"
@@ -389,7 +390,7 @@ function handleNavigate(route: string) {
   isOpen.value = false
 }
 
-function handleSmartQueryRedirect(responseData: any) {
+function handleSmartQueryRedirect(responseData: { prefilled_query?: string; message?: string; write_mode?: boolean } | null) {
   // Set context in store so Smart Query can consume it
   const query = responseData?.prefilled_query || responseData?.message || ''
   const writeMode = responseData?.write_mode === true
@@ -406,7 +407,7 @@ function handleSmartQueryRedirect(responseData: any) {
   isOpen.value = false
 }
 
-function handleItemClick(item: any) {
+function handleItemClick(item: { entity_type?: string; entity_slug?: string; slug?: string }) {
   if (item.entity_type && (item.entity_slug || item.slug)) {
     const slug = item.entity_slug || item.slug
     handleNavigate(`/entities/${item.entity_type}/${slug}`)

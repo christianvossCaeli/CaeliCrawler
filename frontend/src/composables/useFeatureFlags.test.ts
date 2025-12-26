@@ -2,9 +2,12 @@
  * Tests for useFeatureFlags composable
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type { LogEntry } from './useLogger'
 
 // We need to reset the module state between tests
 let useFeatureFlags: typeof import('./useFeatureFlags').useFeatureFlags
+let configureLogger: typeof import('./useLogger').configureLogger
+let resetLoggerConfig: typeof import('./useLogger').resetLoggerConfig
 
 // Mock API
 const mockApiGet = vi.fn()
@@ -20,12 +23,19 @@ describe('useFeatureFlags', () => {
 
     // Reset module state by re-importing
     vi.resetModules()
+
+    // Import logger config functions from the same module instance
+    const loggerModule = await import('./useLogger')
+    configureLogger = loggerModule.configureLogger
+    resetLoggerConfig = loggerModule.resetLoggerConfig
+
     const module = await import('./useFeatureFlags')
     useFeatureFlags = module.useFeatureFlags
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
+    resetLoggerConfig()
   })
 
   describe('initial state', () => {
@@ -92,7 +102,11 @@ describe('useFeatureFlags', () => {
     })
 
     it('should handle API errors gracefully', async () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const logEntries: LogEntry[] = []
+      configureLogger({
+        handler: (entry: LogEntry) => logEntries.push(entry),
+      })
+
       mockApiGet.mockRejectedValue(new Error('Network error'))
 
       const { flags, loaded, loadFeatureFlags } = useFeatureFlags()
@@ -102,12 +116,14 @@ describe('useFeatureFlags', () => {
       // Should not throw, flags should remain default
       expect(flags.value.entityLevelFacets).toBe(false)
       expect(loaded.value).toBe(false)
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Failed to load feature flags',
-        expect.any(Error)
-      )
 
-      consoleSpy.mockRestore()
+      // Check logger was called with error
+      const errorLog = logEntries.find((e) => e.level === 'error')
+      expect(errorLog).toBeDefined()
+      expect(errorLog?.message).toBe('Failed to load feature flags')
+      expect(errorLog?.data).toBeInstanceOf(Error)
+
+      resetLoggerConfig()
     })
 
     it('should share state between composable instances', async () => {

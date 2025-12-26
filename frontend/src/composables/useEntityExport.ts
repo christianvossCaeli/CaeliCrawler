@@ -15,18 +15,46 @@ export interface ExportOptions {
   notes: boolean
 }
 
+interface FacetExportItem {
+  value: unknown
+  recorded_at?: string
+  source_type?: string
+  confidence_score?: number
+}
+
+interface RelationExportItem {
+  id: string
+  relation_type_name: string
+  target_entity_name: string
+  target_entity_id: string
+}
+
+interface DataSourceExportItem {
+  id: string
+  name: string
+  url?: string
+  source_type?: string
+}
+
+interface NoteExportItem {
+  id: string
+  content: string
+  created_at: string
+  created_by?: string
+}
+
 export interface ExportData {
   entity: {
     id: string
     name: string
     type?: string
     external_id?: string
-    attributes: any
+    attributes: Record<string, unknown>
   }
-  facets?: Record<string, any[]>
-  relations?: any[]
-  dataSources?: any[]
-  notes?: any[]
+  facets?: Record<string, FacetExportItem[]>
+  relations?: RelationExportItem[]
+  dataSources?: DataSourceExportItem[]
+  notes?: NoteExportItem[]
 }
 
 export function useEntityExport() {
@@ -57,7 +85,7 @@ export function useEntityExport() {
       for (const [typeName, facets] of Object.entries(data.facets)) {
         lines.push(`# ${typeName}`)
         lines.push(`${t('entityDetail.csv.value')},${t('entityDetail.csv.type')},${t('entityDetail.csv.severity')},${t('entityDetail.csv.verified')},${t('entityDetail.csv.confidence')}`)
-        for (const f of facets as any[]) {
+        for (const f of facets as { value?: string; type?: string; severity?: string; verified?: boolean; confidence?: number }[]) {
           lines.push([
             escapeCSV(f.value || ''),
             escapeCSV(f.type || ''),
@@ -103,10 +131,10 @@ export function useEntityExport() {
   async function exportData(
     entity: Entity,
     entityType: EntityType | null,
-    facetsSummary: any,
-    relations: any[],
-    dataSources: any[],
-    notes: any[]
+    facetsSummary: { facets_by_type?: Array<{ facet_type_slug: string; facet_type_name: string }> } | null,
+    relations: Array<{ relation_type_name: string; source_entity_id: string; target_entity_name: string; source_entity_name: string; human_verified: boolean }>,
+    dataSources: Array<{ name: string; url?: string }>,
+    notes: Array<{ created_at: string; created_by?: string; content: string }>
   ) {
     exporting.value = true
 
@@ -131,7 +159,7 @@ export function useEntityExport() {
             facet_type_slug: group.facet_type_slug,
             per_page: 10000,
           })
-          data.facets[group.facet_type_name] = (response.data.items || []).map((f: any) => ({
+          data.facets[group.facet_type_name] = (response.data.items || []).map((f: { text_representation?: string; human_verified?: boolean; confidence_score?: number; source_url?: string }) => ({
             value: f.text_representation || getStructuredDescription(f),
             type: getStructuredType(f),
             severity: getStructuredSeverity(f),

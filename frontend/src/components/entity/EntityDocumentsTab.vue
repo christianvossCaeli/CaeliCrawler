@@ -15,12 +15,12 @@
         :items="documents"
         :items-per-page="10"
       >
-        <template v-slot:item.title="{ item }">
+        <template #item.title="{ item }">
           <a :href="item.url" target="_blank" class="text-decoration-none">
             {{ item.title || t('entityDetail.document') }}
           </a>
         </template>
-        <template v-slot:item.created_at="{ item }">
+        <template #item.created_at="{ item }">
           {{ formatDate(item.created_at) }}
         </template>
       </v-data-table>

@@ -12,7 +12,7 @@
         />
       </v-col>
 
-      <v-col cols="12" md="8" v-if="mode === 'interval'">
+      <v-col v-if="mode === 'interval'" cols="12" md="8">
         <v-row>
           <v-col cols="12" md="4">
             <v-text-field
@@ -35,7 +35,7 @@
               :disabled="disabled"
             />
           </v-col>
-          <v-col cols="12" md="4" v-if="intervalUnit !== 'seconds'">
+          <v-col v-if="intervalUnit !== 'seconds'" cols="12" md="4">
             <v-select
               v-model="intervalSecond"
               :items="secondItems"
@@ -45,7 +45,7 @@
               :disabled="disabled"
             />
           </v-col>
-          <v-col cols="12" md="4" v-if="intervalUnit === 'hours'">
+          <v-col v-if="intervalUnit === 'hours'" cols="12" md="4">
             <v-select
               v-model="intervalMinute"
               :items="minuteItems"
@@ -58,7 +58,7 @@
         </v-row>
       </v-col>
 
-      <v-col cols="12" md="8" v-else-if="mode === 'daily'">
+      <v-col v-else-if="mode === 'daily'" cols="12" md="8">
         <v-row>
           <v-col cols="12" md="4">
             <v-select
@@ -93,7 +93,7 @@
         </v-row>
       </v-col>
 
-      <v-col cols="12" md="8" v-else-if="mode === 'weekly'">
+      <v-col v-else-if="mode === 'weekly'" cols="12" md="8">
         <v-row>
           <v-col cols="12" md="4">
             <v-select
@@ -142,7 +142,7 @@
         </v-row>
       </v-col>
 
-      <v-col cols="12" md="8" v-else-if="mode === 'monthly'">
+      <v-col v-else-if="mode === 'monthly'" cols="12" md="8">
         <v-row>
           <v-col cols="12" md="4">
             <v-select
@@ -191,7 +191,7 @@
         </v-row>
       </v-col>
 
-      <v-col cols="12" v-else>
+      <v-col v-else cols="12">
         <v-text-field
           v-model="customCron"
           :label="t('common.scheduleBuilder.customLabel')"
@@ -228,7 +228,7 @@ type ScheduleMode = 'interval' | 'daily' | 'weekly' | 'monthly' | 'custom'
 type IntervalUnit = 'seconds' | 'minutes' | 'hours'
 
 interface Props {
-  modelValue: string
+  modelValue?: string
   disabled?: boolean
   showPreview?: boolean
   showAdvanced?: boolean

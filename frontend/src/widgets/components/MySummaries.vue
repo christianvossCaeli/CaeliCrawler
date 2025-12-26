@@ -1,3 +1,123 @@
+<template>
+  <BaseWidget
+    :definition="definition"
+    :config="config"
+    :is-editing="isEditing"
+    @refresh="refresh"
+  >
+    <div v-if="loading" class="d-flex justify-center py-6">
+      <v-progress-circular indeterminate size="32" />
+    </div>
+
+    <template v-else-if="displayedSummaries.length > 0">
+      <v-list density="compact" class="summaries-list" role="list">
+        <v-list-item
+          v-for="summary in displayedSummaries"
+          :key="summary.id"
+          class="px-2 clickable-item"
+          :class="{ 'non-interactive': isEditing }"
+          role="button"
+          :tabindex="tabIndex"
+          :aria-label="summary.name"
+          @click="navigateToSummary(summary)"
+          @keydown="handleKeydownSummary($event, summary)"
+        >
+          <template #prepend>
+            <v-icon
+              v-if="summary.is_favorite"
+              icon="mdi-star"
+              color="amber-darken-2"
+              size="small"
+            />
+            <v-icon
+              v-else
+              :icon="getStatusIcon(summary.status)"
+              :color="getStatusColor(summary.status)"
+              size="small"
+            />
+          </template>
+
+          <v-list-item-title class="text-body-2 text-truncate">
+            {{ summary.name }}
+          </v-list-item-title>
+          <v-list-item-subtitle class="text-caption">
+            <span v-if="summary.last_executed_at">
+              {{ t('summaries.executed') }}: {{ formatTime(summary.last_executed_at) }}
+            </span>
+            <span v-else class="text-medium-emphasis">
+              {{ t('summaries.neverExecuted') }}
+            </span>
+          </v-list-item-subtitle>
+
+          <template #append>
+            <v-btn
+              icon
+              size="x-small"
+              variant="text"
+              :loading="store.isExecutingSummary(summary.id)"
+              :disabled="isEditing"
+              :aria-label="t('summaries.execute')"
+              @click="executeSummary(summary, $event)"
+            >
+              <v-icon size="small">mdi-play</v-icon>
+            </v-btn>
+          </template>
+        </v-list-item>
+      </v-list>
+
+      <!-- Actions -->
+      <div class="d-flex justify-space-between mt-2">
+        <div
+          class="view-all-link"
+          :class="{ 'non-interactive': isEditing }"
+          role="button"
+          :tabindex="tabIndex"
+          :aria-label="t('common.viewAll')"
+          @click="navigateToSummaries"
+          @keydown="handleKeydownViewAll($event)"
+        >
+          <span class="text-caption text-primary">
+            {{ t('common.viewAll') }}
+          </span>
+        </div>
+
+        <div
+          class="view-all-link"
+          :class="{ 'non-interactive': isEditing }"
+          role="button"
+          :tabindex="tabIndex"
+          :aria-label="t('summaries.createNew')"
+          @click="navigateToCreate"
+          @keydown="handleKeydownCreate($event)"
+        >
+          <span class="text-caption text-primary">
+            <v-icon size="x-small" class="mr-1">mdi-plus</v-icon>
+            {{ t('summaries.createNew') }}
+          </span>
+        </div>
+      </div>
+    </template>
+
+    <WidgetEmptyState
+      v-else
+      icon="mdi-chart-box-outline"
+      :message="t('summaries.noSummaries')"
+    >
+      <v-btn
+        variant="tonal"
+        color="primary"
+        size="small"
+        class="mt-3"
+        :disabled="isEditing"
+        @click="navigateToCreate"
+      >
+        <v-icon start size="small">mdi-plus</v-icon>
+        {{ t('summaries.createFirst') }}
+      </v-btn>
+    </WidgetEmptyState>
+  </BaseWidget>
+</template>
+
 <script setup lang="ts">
 /**
  * MySummaries Widget - Shows user's custom summaries with quick access
@@ -125,126 +245,6 @@ const executeSummary = async (summary: CustomSummary, event: Event) => {
   await store.executeSummary(summary.id)
 }
 </script>
-
-<template>
-  <BaseWidget
-    :definition="definition"
-    :config="config"
-    :is-editing="isEditing"
-    @refresh="refresh"
-  >
-    <div v-if="loading" class="d-flex justify-center py-6">
-      <v-progress-circular indeterminate size="32" />
-    </div>
-
-    <template v-else-if="displayedSummaries.length > 0">
-      <v-list density="compact" class="summaries-list" role="list">
-        <v-list-item
-          v-for="summary in displayedSummaries"
-          :key="summary.id"
-          class="px-2 clickable-item"
-          :class="{ 'non-interactive': isEditing }"
-          role="button"
-          :tabindex="tabIndex"
-          :aria-label="summary.name"
-          @click="navigateToSummary(summary)"
-          @keydown="handleKeydownSummary($event, summary)"
-        >
-          <template #prepend>
-            <v-icon
-              v-if="summary.is_favorite"
-              icon="mdi-star"
-              color="amber-darken-2"
-              size="small"
-            />
-            <v-icon
-              v-else
-              :icon="getStatusIcon(summary.status)"
-              :color="getStatusColor(summary.status)"
-              size="small"
-            />
-          </template>
-
-          <v-list-item-title class="text-body-2 text-truncate">
-            {{ summary.name }}
-          </v-list-item-title>
-          <v-list-item-subtitle class="text-caption">
-            <span v-if="summary.last_executed_at">
-              {{ t('summaries.executed') }}: {{ formatTime(summary.last_executed_at) }}
-            </span>
-            <span v-else class="text-medium-emphasis">
-              {{ t('summaries.neverExecuted') }}
-            </span>
-          </v-list-item-subtitle>
-
-          <template #append>
-            <v-btn
-              icon
-              size="x-small"
-              variant="text"
-              :loading="store.isExecutingSummary(summary.id)"
-              :disabled="isEditing"
-              :aria-label="t('summaries.execute')"
-              @click="executeSummary(summary, $event)"
-            >
-              <v-icon size="small">mdi-play</v-icon>
-            </v-btn>
-          </template>
-        </v-list-item>
-      </v-list>
-
-      <!-- Actions -->
-      <div class="d-flex justify-space-between mt-2">
-        <div
-          class="view-all-link"
-          :class="{ 'non-interactive': isEditing }"
-          role="button"
-          :tabindex="tabIndex"
-          :aria-label="t('common.viewAll')"
-          @click="navigateToSummaries"
-          @keydown="handleKeydownViewAll($event)"
-        >
-          <span class="text-caption text-primary">
-            {{ t('common.viewAll') }}
-          </span>
-        </div>
-
-        <div
-          class="view-all-link"
-          :class="{ 'non-interactive': isEditing }"
-          role="button"
-          :tabindex="tabIndex"
-          :aria-label="t('summaries.createNew')"
-          @click="navigateToCreate"
-          @keydown="handleKeydownCreate($event)"
-        >
-          <span class="text-caption text-primary">
-            <v-icon size="x-small" class="mr-1">mdi-plus</v-icon>
-            {{ t('summaries.createNew') }}
-          </span>
-        </div>
-      </div>
-    </template>
-
-    <WidgetEmptyState
-      v-else
-      icon="mdi-chart-box-outline"
-      :message="t('summaries.noSummaries')"
-    >
-      <v-btn
-        variant="tonal"
-        color="primary"
-        size="small"
-        class="mt-3"
-        :disabled="isEditing"
-        @click="navigateToCreate"
-      >
-        <v-icon start size="small">mdi-plus</v-icon>
-        {{ t('summaries.createFirst') }}
-      </v-btn>
-    </WidgetEmptyState>
-  </BaseWidget>
-</template>
 
 <style scoped>
 .summaries-list {

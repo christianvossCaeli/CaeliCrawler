@@ -33,10 +33,10 @@ export interface CategoryFormAiEmits {
   (e: 'update:formData', data: Partial<CategoryFormData>): void
 }
 
-const props = defineProps<CategoryFormAiProps>()
+defineProps<CategoryFormAiProps>()
 const emit = defineEmits<CategoryFormAiEmits>()
 
-const updateField = (field: keyof CategoryFormData, value: any) => {
+const updateField = (field: keyof CategoryFormData, value: unknown) => {
   emit('update:formData', { [field]: value })
 }
 </script>

@@ -147,9 +147,14 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
+      // Redirect deprecated api-templates to external-apis
       path: '/admin/api-templates',
-      name: 'admin-api-templates',
-      component: () => import('@/views/admin/ApiTemplatesView.vue'),
+      redirect: '/admin/external-apis'
+    },
+    {
+      path: '/admin/external-apis',
+      name: 'admin-external-apis',
+      component: () => import('@/views/admin/ExternalApisView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
     },
 

@@ -158,8 +158,8 @@ export function useEntitiesFilters() {
   /**
    * Build query params from filters for API calls
    */
-  function buildFilterParams(searchQuery: string): Record<string, any> {
-    const params: Record<string, any> = {}
+  function buildFilterParams(searchQuery: string): Record<string, unknown> {
+    const params: Record<string, unknown> = {}
 
     if (searchQuery) params.search = searchQuery
     if (filters.value.category_id) params.category_id = filters.value.category_id

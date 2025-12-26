@@ -10,38 +10,38 @@
 
         <v-select
           :model-value="format"
-          @update:model-value="$emit('update:format', $event)"
           :items="formats"
           item-title="label"
           item-value="value"
           :label="t('entityDetail.dialog.format')"
           variant="outlined"
           class="mb-4"
+          @update:model-value="$emit('update:format', $event)"
         ></v-select>
 
         <v-checkbox
           :model-value="options.facets"
-          @update:model-value="updateOption('facets', $event)"
           :label="t('entityDetail.dialog.exportProperties')"
           hide-details
+          @update:model-value="updateOption('facets', $event)"
         ></v-checkbox>
         <v-checkbox
           :model-value="options.relations"
-          @update:model-value="updateOption('relations', $event)"
           :label="t('entityDetail.dialog.exportRelations')"
           hide-details
+          @update:model-value="updateOption('relations', $event)"
         ></v-checkbox>
         <v-checkbox
           :model-value="options.dataSources"
-          @update:model-value="updateOption('dataSources', $event)"
           :label="t('entityDetail.dialog.exportDataSources')"
           hide-details
+          @update:model-value="updateOption('dataSources', $event)"
         ></v-checkbox>
         <v-checkbox
           :model-value="options.notes"
-          @update:model-value="updateOption('notes', $event)"
           :label="t('entityDetail.dialog.exportNotes')"
           hide-details
+          @update:model-value="updateOption('notes', $event)"
         ></v-checkbox>
       </v-card-text>
       <v-card-actions>

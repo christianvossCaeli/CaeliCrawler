@@ -33,6 +33,16 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AssistantContext } from '@/composables/useAssistant'
 
+const props = defineProps<{
+  context: AssistantContext
+  mode: 'read' | 'write'
+}>()
+
+const emit = defineEmits<{
+  action: [action: QuickAction]
+  'start-wizard': [wizardType: string]
+}>()
+
 const { t } = useI18n()
 
 export interface QuickAction {
@@ -43,16 +53,6 @@ export interface QuickAction {
   action?: string  // 'edit', 'create', 'wizard'
   wizardType?: string  // For wizard actions
 }
-
-const props = defineProps<{
-  context: AssistantContext
-  mode: 'read' | 'write'
-}>()
-
-const emit = defineEmits<{
-  action: [action: QuickAction]
-  'start-wizard': [wizardType: string]
-}>()
 
 const isExpanded = ref(true)
 

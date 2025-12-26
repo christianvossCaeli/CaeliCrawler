@@ -39,7 +39,7 @@
             />
             <!-- Import Dropdown Menu -->
             <v-menu>
-              <template v-slot:activator="{ props }">
+              <template #activator="{ props }">
                 <v-btn v-bind="props" variant="tonal" color="secondary">
                   <v-icon start>mdi-import</v-icon>
                   {{ $t('sources.import.title') }}
@@ -48,14 +48,14 @@
               </template>
               <v-list density="compact">
                 <v-list-item @click="bulkDialog = true">
-                  <template v-slot:prepend>
+                  <template #prepend>
                     <v-icon color="secondary">mdi-file-upload</v-icon>
                   </template>
                   <v-list-item-title>{{ $t('sources.import.bulkImport') }}</v-list-item-title>
                   <v-list-item-subtitle>{{ $t('sources.import.bulkImportDesc') }}</v-list-item-subtitle>
                 </v-list-item>
                 <v-list-item @click="apiImportDialog = true">
-                  <template v-slot:prepend>
+                  <template #prepend>
                     <v-icon color="info">mdi-api</v-icon>
                   </template>
                   <v-list-item-title>{{ $t('sources.import.apiImport') }}</v-list-item-title>
@@ -63,7 +63,7 @@
                 </v-list-item>
                 <v-divider />
                 <v-list-item @click="aiDiscoveryDialog = true">
-                  <template v-slot:prepend>
+                  <template #prepend>
                     <v-icon color="primary">mdi-robot</v-icon>
                   </template>
                   <v-list-item-title class="text-primary font-weight-bold">{{ $t('sources.import.aiDiscovery') }}</v-list-item-title>
@@ -121,7 +121,7 @@
             :page="store.currentPage"
             @update:options="onTableOptionsUpdate"
           >
-            <template v-slot:item.categories="{ item }">
+            <template #item.categories="{ item }">
               <div class="d-flex flex-wrap gap-1">
                 <v-chip
                   v-for="cat in (item.categories || [])"
@@ -139,23 +139,23 @@
               </div>
             </template>
 
-            <template v-slot:item.source_type="{ item }">
+            <template #item.source_type="{ item }">
               <v-chip :color="getTypeColor(item.source_type)" size="small">
                 {{ getTypeLabel(item.source_type) }}
               </v-chip>
             </template>
 
-            <template v-slot:item.status="{ item }">
+            <template #item.status="{ item }">
               <v-chip :color="getStatusColor(item.status)" size="small">
                 {{ getStatusLabel(item.status) }}
               </v-chip>
             </template>
 
-            <template v-slot:item.last_crawl="{ item }">
+            <template #item.last_crawl="{ item }">
               {{ item.last_crawl ? formatDate(item.last_crawl) : $t('sources.never') }}
             </template>
 
-            <template v-slot:item.actions="{ item }">
+            <template #item.actions="{ item }">
               <SourcesTableActions
                 :source="item"
                 :is-starting="isStartingCrawl(item.id)"
@@ -168,7 +168,7 @@
             </template>
 
             <!-- Empty State -->
-            <template v-slot:no-data>
+            <template #no-data>
               <div class="text-center py-8">
                 <v-icon size="64" color="grey-lighten-1" class="mb-4">
                   {{ store.hasActiveFilters ? 'mdi-filter-off' : 'mdi-database-off' }}

@@ -61,18 +61,18 @@
           :items-per-page="25"
           class="elevation-0"
         >
-          <template v-slot:item.icon="{ item }">
+          <template #item.icon="{ item }">
             <v-icon :icon="item.icon" :color="item.color" size="24"></v-icon>
           </template>
 
-          <template v-slot:item.name="{ item }">
+          <template #item.name="{ item }">
             <div>
               <strong>{{ item.name }}</strong>
               <div class="text-caption text-medium-emphasis">{{ item.slug }}</div>
             </div>
           </template>
 
-          <template v-slot:item.applicable_entity_types="{ item }">
+          <template #item.applicable_entity_types="{ item }">
             <div class="d-flex flex-wrap gap-1">
               <v-chip
                 v-for="slug in (item.applicable_entity_type_slugs || [])"
@@ -93,19 +93,19 @@
             </div>
           </template>
 
-          <template v-slot:item.value_type="{ item }">
+          <template #item.value_type="{ item }">
             <v-chip size="small" variant="outlined">
               {{ item.value_type }}
             </v-chip>
           </template>
 
-          <template v-slot:item.value_count="{ item }">
+          <template #item.value_count="{ item }">
             <v-chip size="small" variant="tonal">
               {{ item.value_count || 0 }}
             </v-chip>
           </template>
 
-          <template v-slot:item.ai_extraction_enabled="{ item }">
+          <template #item.ai_extraction_enabled="{ item }">
             <v-icon
               :icon="item.ai_extraction_enabled ? 'mdi-robot' : 'mdi-robot-off'"
               :color="item.ai_extraction_enabled ? 'success' : 'grey'"
@@ -113,7 +113,7 @@
             ></v-icon>
           </template>
 
-          <template v-slot:item.is_system="{ item }">
+          <template #item.is_system="{ item }">
             <v-icon
               v-if="item.is_system"
               color="warning"
@@ -124,7 +124,7 @@
             <span v-else>-</span>
           </template>
 
-          <template v-slot:item.is_active="{ item }">
+          <template #item.is_active="{ item }">
             <v-icon
               :icon="item.is_active ? 'mdi-check-circle' : 'mdi-close-circle'"
               :color="item.is_active ? 'success' : 'error'"
@@ -132,7 +132,7 @@
             ></v-icon>
           </template>
 
-          <template v-slot:item.actions="{ item }">
+          <template #item.actions="{ item }">
             <div class="d-flex justify-end ga-1">
               <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="t('common.edit')" :aria-label="t('common.edit')" @click="openEditDialog(item)"></v-btn>
               <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="t('common.delete')" :aria-label="t('common.delete')" :disabled="item.is_system || (item.value_count || 0) > 0" @click="confirmDelete(item)"></v-btn>
@@ -253,7 +253,7 @@
                         :placeholder="t('admin.facetTypes.form.iconPlaceholder')"
                         variant="outlined"
                       >
-                        <template v-slot:prepend-inner>
+                        <template #prepend-inner>
                           <v-icon :icon="form.icon || 'mdi-help'" :color="form.color"></v-icon>
                         </template>
                       </v-text-field>
@@ -504,20 +504,57 @@ import { useLogger } from '@/composables/useLogger'
 
 const logger = useLogger('FacetTypesView')
 
+// Local interfaces
+interface FacetTypeLocal {
+  id: string
+  slug?: string
+  name: string
+  name_plural?: string
+  description?: string
+  icon?: string
+  color?: string
+  value_type?: string
+  value_schema?: Record<string, unknown> | null
+  applicable_entity_type_slugs?: string[]
+  aggregation_method?: string
+  deduplication_fields?: string[]
+  is_time_based?: boolean
+  time_field_path?: string
+  default_time_filter?: string
+  ai_extraction_enabled?: boolean
+  ai_extraction_prompt?: string
+  is_active?: boolean
+  is_system?: boolean
+  display_order?: number
+  value_count?: number
+}
+
+interface EntityTypeLocal {
+  id: string
+  slug: string
+  name: string
+}
+
+interface VFormRef {
+  validate: () => boolean | Promise<{ valid: boolean }>
+  reset: () => void
+  resetValidation: () => void
+}
+
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
 
 // State
-const facetTypes = ref<any[]>([])
-const entityTypes = ref<any[]>([])
+const facetTypes = ref<FacetTypeLocal[]>([])
+const entityTypes = ref<EntityTypeLocal[]>([])
 const loading = ref(false)
 const dialog = ref(false)
 const deleteDialog = ref(false)
-const editingItem = ref<any>(null)
-const itemToDelete = ref<any>(null)
+const editingItem = ref<FacetTypeLocal | null>(null)
+const itemToDelete = ref<FacetTypeLocal | null>(null)
 const saving = ref(false)
 const deleting = ref(false)
-const formRef = ref<any>(null)
+const formRef = ref<VFormRef | null>(null)
 const activeTab = ref('basic')
 const schemaJson = ref('')
 const schemaError = ref('')
@@ -560,7 +597,7 @@ const form = ref({
   icon: 'mdi-tag',
   color: '#9E9E9E',
   value_type: 'structured',
-  value_schema: null as any,
+  value_schema: null as Record<string, unknown> | null,
   applicable_entity_type_slugs: [] as string[],
   aggregation_method: 'dedupe',
   deduplication_fields: [] as string[],
@@ -616,7 +653,7 @@ const entityTypeOptions = computed(() =>
 async function loadFacetTypes() {
   loading.value = true
   try {
-    const params: any = { per_page: 100 }
+    const params: Record<string, unknown> = { per_page: 100 }
     if (filters.value.search) params.search = filters.value.search
     if (filters.value.isActive !== null) params.is_active = filters.value.isActive
 
@@ -624,10 +661,11 @@ async function loadFacetTypes() {
     let items = response.data.items || []
 
     // Filter by entity type if selected
-    if (filters.value.entityTypeSlug) {
-      items = items.filter((ft: any) =>
+    const entityTypeSlugFilter = filters.value.entityTypeSlug
+    if (entityTypeSlugFilter) {
+      items = items.filter((ft: FacetTypeLocal) =>
         !ft.applicable_entity_type_slugs?.length ||
-        ft.applicable_entity_type_slugs.includes(filters.value.entityTypeSlug)
+        ft.applicable_entity_type_slugs.includes(entityTypeSlugFilter)
       )
     }
 
@@ -687,7 +725,7 @@ function openCreateDialog() {
   dialog.value = true
 }
 
-function openEditDialog(item: any) {
+function openEditDialog(item: FacetTypeLocal) {
   editingItem.value = item
   activeTab.value = 'basic'
   schemaError.value = ''
@@ -761,15 +799,15 @@ async function save() {
 
     closeDialog()
     await loadFacetTypes()
-  } catch (e: any) {
-    const detail = e.response?.data?.detail || t('admin.facetTypes.messages.saveError')
+  } catch (e) {
+    const detail = getErrorMessage(e) || t('admin.facetTypes.messages.saveError')
     showError(detail)
   } finally {
     saving.value = false
   }
 }
 
-function confirmDelete(item: any) {
+function confirmDelete(item: FacetTypeLocal) {
   itemToDelete.value = item
   deleteDialog.value = true
 }
@@ -784,8 +822,8 @@ async function deleteItem() {
     deleteDialog.value = false
     itemToDelete.value = null
     await loadFacetTypes()
-  } catch (e: any) {
-    const detail = e.response?.data?.detail || t('admin.facetTypes.messages.deleteError')
+  } catch (e) {
+    const detail = getErrorMessage(e) || t('admin.facetTypes.messages.deleteError')
     showError(detail)
   } finally {
     deleting.value = false
@@ -841,8 +879,8 @@ async function generateSchemaWithAI() {
     }
 
     showSuccess(t('admin.facetTypes.messages.schemaGenerated'))
-  } catch (e: any) {
-    const detail = e.response?.data?.detail || t('admin.facetTypes.messages.schemaGenerationError')
+  } catch (e) {
+    const detail = getErrorMessage(e) || t('admin.facetTypes.messages.schemaGenerationError')
     showError(detail)
   } finally {
     generatingSchema.value = false

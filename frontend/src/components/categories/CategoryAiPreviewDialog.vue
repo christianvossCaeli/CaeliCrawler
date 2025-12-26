@@ -25,9 +25,9 @@
             {{ t('categories.aiPreview.entityType') }}
           </v-card-title>
           <v-card-text>
-            <v-radio-group :model-value="selectedEntityTypeOption" @update:model-value="handleEntityTypeChange" hide-details>
+            <v-radio-group :model-value="selectedEntityTypeOption" hide-details @update:model-value="handleEntityTypeChange">
               <v-radio value="new" :label="t('categories.aiPreview.createNew')">
-                <template v-slot:label>
+                <template #label>
                   <div>
                     <span class="font-weight-medium">{{ t('categories.aiPreview.createNew') }}: </span>
                     <v-chip size="small" color="success" class="ml-1">{{ previewData.suggested_entity_type.name }}</v-chip>
@@ -40,7 +40,7 @@
                 :key="et.id"
                 :value="et.id"
               >
-                <template v-slot:label>
+                <template #label>
                   <div>
                     <span class="font-weight-medium">{{ t('categories.aiPreview.useExisting') }}: </span>
                     <v-chip size="small" color="primary" class="ml-1">{{ et.name }}</v-chip>
@@ -64,11 +64,11 @@
               v-for="(ft, index) in previewData.suggested_facet_types"
               :key="ft.slug"
               :model-value="selectedFacetTypes[index] ?? false"
-              @update:model-value="updateFacetType(index, $event ?? false)"
               hide-details
               density="compact"
+              @update:model-value="updateFacetType(index, $event ?? false)"
             >
-              <template v-slot:label>
+              <template #label>
                 <div class="d-flex align-center">
                   <v-icon :color="ft.color" size="small" class="mr-2">{{ ft.icon }}</v-icon>
                   <span class="font-weight-medium">{{ ft.name }}</span>
@@ -90,11 +90,11 @@
           <v-card-text>
             <v-textarea
               :model-value="extractionPrompt"
-              @update:model-value="$emit('update:extractionPrompt', $event)"
               rows="8"
               variant="outlined"
               :hint="t('categories.aiPreview.promptHint')"
               persistent-hint
+              @update:model-value="$emit('update:extractionPrompt', $event)"
             ></v-textarea>
           </v-card-text>
         </v-card>
@@ -197,6 +197,25 @@ import { useI18n } from 'vue-i18n'
 
 const modelValue = defineModel<boolean>()
 
+// Props
+defineProps<{
+  loading: boolean
+  saving: boolean
+  previewData: AiPreviewData | null
+  selectedEntityTypeOption: string
+  selectedFacetTypes: boolean[]
+  extractionPrompt: string
+}>()
+
+// Emits
+const emit = defineEmits<{
+  'update:selectedEntityTypeOption': [value: string]
+  'update:extractionPrompt': [value: string]
+  'updateFacetType': [payload: { index: number; value: boolean }]
+  'saveWithoutAi': []
+  'saveWithAi': []
+}>()
+
 // Types
 interface EntityType {
   id: string
@@ -229,25 +248,6 @@ interface AiPreviewData {
   suggested_url_exclude_patterns?: string[]
   reasoning?: string
 }
-
-// Props
-defineProps<{
-  loading: boolean
-  saving: boolean
-  previewData: AiPreviewData | null
-  selectedEntityTypeOption: string
-  selectedFacetTypes: boolean[]
-  extractionPrompt: string
-}>()
-
-// Emits
-const emit = defineEmits<{
-  'update:selectedEntityTypeOption': [value: string]
-  'update:extractionPrompt': [value: string]
-  'updateFacetType': [payload: { index: number; value: boolean }]
-  'saveWithoutAi': []
-  'saveWithAi': []
-}>()
 
 const { t } = useI18n()
 

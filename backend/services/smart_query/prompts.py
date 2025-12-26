@@ -137,7 +137,7 @@ Für Live-Daten von externen APIs (ohne Speicherung):
   "query_config": {{
     "prompt": "Aktuelle Bundesliga Tabelle"  // KI findet passende API
     // ODER: "api_url": "https://api.example.com/data"
-    // ODER: "api_template_id": "uuid-hier"
+    // ODER: "api_configuration_id": "uuid-hier"
   }},
   "user_query": "Zeige mir live die aktuelle Tabelle"
 }}

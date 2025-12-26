@@ -50,8 +50,8 @@
             hide-details
             @update:model-value="updateFilter('language', $event)"
           >
-            <template #item="{ item, props }">
-              <v-list-item v-bind="props">
+            <template #item="{ item, props: itemProps }">
+              <v-list-item v-bind="itemProps">
                 <template #prepend>
                   <span class="mr-2">{{ item.raw.flag }}</span>
                 </template>
@@ -81,7 +81,7 @@ export interface CategoriesToolbarEmits {
 const props = defineProps<CategoriesToolbarProps>()
 const emit = defineEmits<CategoriesToolbarEmits>()
 
-const updateFilter = (key: keyof CategoryFilters, value: any) => {
+const updateFilter = (key: keyof CategoryFilters, value: unknown) => {
   emit('update:filters', {
     ...props.filters,
     [key]: value,

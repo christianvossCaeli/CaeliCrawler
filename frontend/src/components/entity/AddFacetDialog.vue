@@ -10,7 +10,6 @@
           <!-- Facet Type Selection -->
           <v-select
             :model-value="facetTypeId"
-            @update:model-value="$emit('update:facetTypeId', $event)"
             :items="facetTypes"
             item-title="name"
             item-value="id"
@@ -19,15 +18,16 @@
             variant="outlined"
             density="comfortable"
             class="mb-4"
+            @update:model-value="$emit('update:facetTypeId', $event)"
           >
-            <template v-slot:item="{ item, props }">
-              <v-list-item v-bind="props">
-                <template v-slot:prepend>
+            <template #item="{ item, props: itemProps }">
+              <v-list-item v-bind="itemProps">
+                <template #prepend>
                   <v-icon :icon="item.raw.icon ?? 'mdi-tag'" :color="item.raw.color ?? undefined" size="small"></v-icon>
                 </template>
               </v-list-item>
             </template>
-            <template v-slot:selection="{ item }">
+            <template #selection="{ item }">
               <v-icon :icon="item.raw.icon ?? 'mdi-tag'" :color="item.raw.color ?? undefined" size="small" class="mr-2"></v-icon>
               {{ item.raw.name }}
             </template>
@@ -41,8 +41,8 @@
             </div>
             <DynamicSchemaForm
               :model-value="value"
-              @update:model-value="$emit('update:value', $event)"
               :schema="selectedFacetType.value_schema"
+              @update:model-value="$emit('update:value', $event)"
             />
           </template>
 
@@ -50,13 +50,13 @@
           <template v-else-if="facetTypeId">
             <v-textarea
               :model-value="textRepresentation"
-              @update:model-value="$emit('update:textRepresentation', $event)"
               :label="t('entityDetail.dialog.facetValue')"
               :rules="[v => !!v || t('entityDetail.dialog.facetValueRequired')]"
               rows="3"
               variant="outlined"
               density="comfortable"
               class="mb-3"
+              @update:model-value="$emit('update:textRepresentation', $event)"
             ></v-textarea>
           </template>
 
@@ -65,13 +65,13 @@
           <!-- Source URL -->
           <v-text-field
             :model-value="sourceUrl"
-            @update:model-value="$emit('update:sourceUrl', $event)"
             :label="t('entityDetail.dialog.sourceUrl')"
             placeholder="https://..."
             variant="outlined"
             density="comfortable"
             class="mb-3"
             prepend-inner-icon="mdi-link"
+            @update:model-value="$emit('update:sourceUrl', $event)"
           ></v-text-field>
 
           <!-- Confidence Score -->
@@ -79,7 +79,6 @@
             <span class="text-body-2">{{ t('entityDetail.dialog.confidence') }}:</span>
             <v-slider
               :model-value="confidenceScore"
-              @update:model-value="$emit('update:confidenceScore', $event)"
               :min="0"
               :max="1"
               :step="0.1"
@@ -87,6 +86,7 @@
               :color="getConfidenceColor(confidenceScore)"
               hide-details
               class="flex-grow-1"
+              @update:model-value="$emit('update:confidenceScore', $event)"
             ></v-slider>
             <v-chip size="small" :color="getConfidenceColor(confidenceScore)">
               {{ Math.round(confidenceScore * 100) }}%

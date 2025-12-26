@@ -5,7 +5,7 @@
     variant="tonal"
     class="mb-4"
   >
-    <template v-slot:prepend>
+    <template #prepend>
       <v-icon>{{ hasResults ? 'mdi-check-circle' : 'mdi-alert' }}</v-icon>
     </template>
     <div class="d-flex align-center flex-wrap ga-2">

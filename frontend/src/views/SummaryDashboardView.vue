@@ -11,7 +11,7 @@
       :model-value="true"
       contained
       class="align-center justify-center"
-      :persistent="true"
+      persistent
     >
       <v-progress-circular indeterminate size="48" color="primary" />
     </v-overlay>
@@ -116,20 +116,20 @@
             variant="flat"
             :loading="isExecuting"
             :aria-busy="isExecuting"
-            @click="executeSummary(false)"
+            @click="executeSummary(true)"
           >
-            <v-icon start aria-hidden="true">mdi-play</v-icon>
+            <v-icon start aria-hidden="true">mdi-refresh</v-icon>
             {{ t('summaries.refresh') }}
           </v-btn>
 
           <v-btn
-            variant="tonal"
-            @click="executeSummary(true)"
-            :loading="isExecuting"
-            :aria-busy="isExecuting"
+            variant="outlined"
+            :loading="isCheckingUpdates"
+            :aria-busy="isCheckingUpdates"
+            @click="startCheckUpdates"
           >
-            <v-icon start aria-hidden="true">mdi-refresh</v-icon>
-            {{ t('summaries.forceRefresh') }}
+            <v-icon start aria-hidden="true">mdi-cloud-refresh</v-icon>
+            {{ t('summaries.checkUpdates') }}
           </v-btn>
 
           <v-spacer />
@@ -240,6 +240,7 @@
       v-model="showEditWidget"
       :summary-id="summary.id"
       :widget="editingWidget"
+      :widget-data="getWidgetData(editingWidget.id)"
       @updated="onWidgetUpdated"
     />
 
@@ -267,6 +268,58 @@
           </v-btn>
           <v-btn color="error" variant="flat" @click="confirmDeleteWidget">
             {{ t('common.delete') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Check Updates Progress Dialog -->
+    <v-dialog v-model="showCheckUpdatesDialog" max-width="450" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="primary" class="mr-2" aria-hidden="true">mdi-cloud-refresh</v-icon>
+          {{ t('summaries.checkUpdatesTitle') }}
+        </v-card-title>
+        <v-card-text>
+          <v-progress-linear
+            v-if="checkUpdatesProgress"
+            :model-value="checkUpdatesProgressPercent"
+            color="primary"
+            height="8"
+            rounded
+            class="mb-4"
+          />
+          <div class="text-center mb-2">
+            <span v-if="checkUpdatesProgress">
+              {{ checkUpdatesProgress.completed_sources }} {{ t('summaries.of') }} {{ checkUpdatesProgress.total_sources }} {{ t('summaries.sourcesChecked') }}
+            </span>
+          </div>
+          <div class="text-caption text-center text-medium-emphasis">
+            <template v-if="checkUpdatesProgress?.current_source">
+              {{ t('summaries.currentlyChecking') }}: {{ checkUpdatesProgress.current_source }}
+            </template>
+            <template v-else-if="checkUpdatesProgress?.message">
+              {{ checkUpdatesProgress.message }}
+            </template>
+          </div>
+          <v-alert
+            v-if="checkUpdatesProgress?.error"
+            type="error"
+            variant="tonal"
+            density="compact"
+            class="mt-4"
+          >
+            {{ checkUpdatesProgress.error }}
+          </v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            variant="text"
+            :disabled="checkUpdatesProgress?.status === 'crawling' || checkUpdatesProgress?.status === 'updating'"
+            @click="closeCheckUpdatesDialog"
+          >
+            {{ checkUpdatesProgress?.status === 'completed' || checkUpdatesProgress?.status === 'failed' ? t('common.close') : t('common.cancel') }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -312,6 +365,8 @@ const editingWidget = ref<SummaryWidget | null>(null)
 const isExporting = ref(false)
 const showDeleteDialog = ref(false)
 const widgetToDelete = ref<SummaryWidget | null>(null)
+const showCheckUpdatesDialog = ref(false)
+let checkUpdatesPollingInterval: ReturnType<typeof setInterval> | null = null
 
 // Computed
 const summary = computed(() => store.currentSummary)
@@ -319,6 +374,13 @@ const widgets = computed(() => summary.value?.widgets || [])
 const lastExecution = computed(() => summary.value?.last_execution)
 const isLoading = computed(() => store.isLoading)
 const isExecuting = computed(() => store.isExecuting)
+const isCheckingUpdates = computed(() => store.isCheckingUpdates)
+const checkUpdatesProgress = computed(() => store.checkUpdatesProgress)
+const checkUpdatesProgressPercent = computed(() => {
+  const progress = store.checkUpdatesProgress
+  if (!progress || progress.total_sources === 0) return 0
+  return (progress.completed_sources / progress.total_sources) * 100
+})
 
 const statusColor = computed(() => {
   switch (summary.value?.status) {
@@ -358,7 +420,60 @@ async function toggleFavorite() {
   await store.toggleFavorite(summary.value.id)
 }
 
-function getWidgetData(widgetId: string): Record<string, any>[] {
+async function startCheckUpdates() {
+  if (!summary.value) return
+
+  showCheckUpdatesDialog.value = true
+
+  try {
+    const result = await store.checkForUpdates(summary.value.id)
+    if (!result) {
+      showCheckUpdatesDialog.value = false
+      // Show error from store if available
+      if (store.error) {
+        showError(store.error)
+      }
+      return
+    }
+
+    // Start polling for progress
+    const taskId = result.task_id
+    checkUpdatesPollingInterval = setInterval(async () => {
+      if (!summary.value) return
+
+      const progress = await store.pollCheckUpdatesProgress(summary.value.id, taskId)
+
+      if (progress?.status === 'completed') {
+        stopCheckUpdatesPolling()
+        showSuccess(t('summaries.checkUpdatesCompleted'))
+        await loadSummary()
+      } else if (progress?.status === 'failed') {
+        stopCheckUpdatesPolling()
+        showError(progress.error || t('summaries.checkUpdatesFailed'))
+      }
+    }, 2000) // Poll every 2 seconds
+  } catch (e) {
+    showCheckUpdatesDialog.value = false
+    showError(t('summaries.checkUpdatesFailed'))
+  }
+}
+
+function stopCheckUpdatesPolling() {
+  if (checkUpdatesPollingInterval) {
+    clearInterval(checkUpdatesPollingInterval)
+    checkUpdatesPollingInterval = null
+  }
+}
+
+function closeCheckUpdatesDialog() {
+  stopCheckUpdatesPolling()
+  showCheckUpdatesDialog.value = false
+  if (summary.value) {
+    store.cancelCheckUpdates(summary.value.id)
+  }
+}
+
+function getWidgetData(widgetId: string): Record<string, unknown>[] {
   const widgetKey = `widget_${widgetId}`
   const cachedData = lastExecution.value?.cached_data?.[widgetKey]
   return cachedData?.data || []
@@ -382,6 +497,14 @@ function getWidgetStyle(widget: SummaryWidget): Record<string, string> {
     return {
       gridColumn: '1 / -1',
       gridRow: 'auto',
+    }
+  }
+
+  // Map and table widgets always get full width for better visibility
+  if (widget.widget_type === 'map' || widget.widget_type === 'table') {
+    return {
+      gridColumn: '1 / -1',
+      gridRow: `${pos.y + 1} / span ${Math.max(pos.h, widget.widget_type === 'map' ? 3 : 2)}`,
     }
   }
 
@@ -498,6 +621,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  stopCheckUpdatesPolling()
 })
 
 watch(() => route.params.id, () => {

@@ -22,9 +22,9 @@
             location="bottom end"
             @update:model-value="onEnrichmentMenuOpen"
           >
-            <template v-slot:activator="{ props }">
+            <template #activator="{ props: activatorProps }">
               <v-btn
-                v-bind="props"
+                v-bind="activatorProps"
                 color="secondary"
                 size="small"
                 variant="tonal"
@@ -51,7 +51,7 @@
                   density="compact"
                   class="mb-1"
                 >
-                  <template v-slot:label>
+                  <template #label>
                     <div class="d-flex align-center justify-space-between w-100">
                       <span class="d-flex align-center">
                         <v-icon start size="small" color="deep-purple">mdi-database</v-icon>
@@ -74,7 +74,7 @@
                   density="compact"
                   class="mb-1"
                 >
-                  <template v-slot:label>
+                  <template #label>
                     <div class="d-flex align-center justify-space-between w-100">
                       <span class="d-flex align-center">
                         <v-icon start size="small" color="blue">mdi-link-variant</v-icon>
@@ -97,7 +97,7 @@
                   density="compact"
                   class="mb-1"
                 >
-                  <template v-slot:label>
+                  <template #label>
                     <div class="d-flex align-center justify-space-between w-100">
                       <span class="d-flex align-center">
                         <v-icon start size="small" color="orange">mdi-file-document-multiple</v-icon>
@@ -120,7 +120,7 @@
                   density="compact"
                   class="mb-1"
                 >
-                  <template v-slot:label>
+                  <template #label>
                     <div class="d-flex align-center justify-space-between w-100">
                       <span class="d-flex align-center">
                         <v-icon start size="small" color="teal">mdi-brain</v-icon>
@@ -143,7 +143,7 @@
                   density="compact"
                   class="mb-1"
                 >
-                  <template v-slot:label>
+                  <template #label>
                     <div class="d-flex align-center justify-space-between w-100">
                       <span class="d-flex align-center">
                         <v-icon start size="small" color="deep-purple">mdi-paperclip</v-icon>
@@ -256,10 +256,10 @@
                     <v-checkbox
                       v-if="bulkMode"
                       :model-value="selectedFacetIds.includes(sample.id)"
-                      @update:model-value="toggleFacetSelection(sample.id)"
                       hide-details
                       density="compact"
                       class="mr-2 mt-0"
+                      @update:model-value="toggleFacetSelection(sample.id)"
                     ></v-checkbox>
                     <div class="flex-grow-1">
                       <!-- Structured Value Display for Pain Points -->
@@ -392,8 +392,8 @@
                             size="x-small"
                             color="success"
                             variant="tonal"
-                            @click.stop="verifyFacet(sample.id)"
                             :title="t('entityDetail.verifyAction')"
+                            @click.stop="verifyFacet(sample.id)"
                           >
                             <v-icon size="small">mdi-check</v-icon>
                           </v-btn>
@@ -403,8 +403,8 @@
                             size="x-small"
                             color="primary"
                             variant="tonal"
-                            @click.stop="openEditFacetDialog(sample, facetGroup)"
                             :title="t('common.edit')"
+                            @click.stop="openEditFacetDialog(sample, facetGroup)"
                           >
                             <v-icon size="small">mdi-pencil</v-icon>
                           </v-btn>
@@ -414,8 +414,8 @@
                             size="x-small"
                             color="error"
                             variant="tonal"
-                            @click.stop="confirmDeleteFacet(sample)"
                             :title="t('common.delete')"
+                            @click.stop="confirmDeleteFacet(sample)"
                           >
                             <v-icon size="small">mdi-delete</v-icon>
                           </v-btn>
@@ -470,8 +470,8 @@
                       size="small"
                       color="success"
                       variant="tonal"
-                      @click="bulkVerify"
                       :loading="bulkActionLoading"
+                      @click="bulkVerify"
                     >
                       <v-icon start>mdi-check-all</v-icon>
                       {{ t('entityDetail.verifyAll') }}
@@ -480,8 +480,8 @@
                       size="small"
                       color="error"
                       variant="tonal"
-                      @click="bulkDeleteConfirm = true"
                       :loading="bulkActionLoading"
+                      @click="bulkDeleteConfirm = true"
                     >
                       <v-icon start>mdi-delete</v-icon>
                       {{ t('common.delete') }}
@@ -599,6 +599,24 @@ import DynamicSchemaForm from '@/components/DynamicSchemaForm.vue'
 import SourceDetailsDialog from '@/components/entity/SourceDetailsDialog.vue'
 import { useLogger } from '@/composables/useLogger'
 
+// =============================================================================
+// Props & Emits
+// =============================================================================
+
+const props = defineProps<{
+  entity: Entity | null
+  entityType: EntityType | null
+  facetsSummary: FacetsSummary | null
+}>()
+
+const emit = defineEmits<{
+  (e: 'facets-updated'): void
+  (e: 'add-facet'): void
+  (e: 'add-facet-value', facetGroup: FacetGroup): void
+  (e: 'switch-tab', tab: string): void
+  (e: 'enrichment-started', taskId: string): void
+}>()
+
 const logger = useLogger('EntityFacetsTab')
 
 // =============================================================================
@@ -647,24 +665,6 @@ interface SourceFacet {
   human_verified?: boolean
   value?: Record<string, unknown> | null
 }
-
-// =============================================================================
-// Props & Emits
-// =============================================================================
-
-const props = defineProps<{
-  entity: Entity | null
-  entityType: EntityType | null
-  facetsSummary: FacetsSummary | null
-}>()
-
-const emit = defineEmits<{
-  (e: 'facets-updated'): void
-  (e: 'add-facet'): void
-  (e: 'add-facet-value', facetGroup: FacetGroup): void
-  (e: 'switch-tab', tab: string): void
-  (e: 'enrichment-started', taskId: string): void
-}>()
 
 // =============================================================================
 // Composables

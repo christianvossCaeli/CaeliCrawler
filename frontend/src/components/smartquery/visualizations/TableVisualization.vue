@@ -6,22 +6,35 @@
       :items-per-page="15"
       :sort-by="sortBy"
       density="comfortable"
-      class="elevation-0"
+      class="elevation-0 clickable-rows"
       hover
       role="table"
-      :aria-label="t('smartQuery.visualization.tableLabel')"
+      :aria-label="t('visualization.tableLabel')"
       :aria-rowcount="tableItems.length"
+      @click:row="onRowClick"
     >
       <!-- Entity Name Column with Link -->
       <template #item.entity_name="{ item }">
         <router-link
           v-if="item.entity_id"
-          :to="`/entities/${item.entity_id}`"
+          :to="`/entity/${item.entity_id}`"
           class="text-primary text-decoration-none font-weight-medium"
         >
           {{ item.entity_name }}
         </router-link>
         <span v-else class="font-weight-medium">{{ item.entity_name }}</span>
+      </template>
+
+      <!-- Name Column with Link (alternative for summaries) -->
+      <template #item.name="{ item }">
+        <router-link
+          v-if="item.entity_id"
+          :to="`/entity/${item.entity_id}`"
+          class="text-primary text-decoration-none font-weight-medium"
+        >
+          {{ item.name }}
+        </router-link>
+        <span v-else class="font-weight-medium">{{ item.name }}</span>
       </template>
 
       <!-- Dynamic Facet Columns -->
@@ -33,7 +46,7 @@
 
       <!-- Tags Column -->
       <template #item.tags="{ item }">
-        <div class="d-flex flex-wrap gap-1" v-if="item.tags?.length">
+        <div v-if="item.tags?.length" class="d-flex flex-wrap gap-1">
           <v-chip
             v-for="tag in item.tags.slice(0, 3)"
             :key="tag"
@@ -66,15 +79,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import type { VisualizationConfig, VisualizationColumn, ColumnType } from './types'
 import { getNestedValue, formatValue } from './types'
 
-const { t } = useI18n()
-
 const props = defineProps<{
-  data: Record<string, any>[]
+  data: Record<string, unknown>[]
   config?: VisualizationConfig
 }>()
+const { t } = useI18n()
+const router = useRouter()
 
 // Build table headers from config or auto-detect
 const tableHeaders = computed(() => {
@@ -92,13 +106,19 @@ const tableHeaders = computed(() => {
   if (!props.data || props.data.length === 0) return []
 
   const sample = props.data[0]
-  const headers: any[] = []
+  const headers: Array<{ title: string; key: string; sortable?: boolean; align?: string; width?: string }> = []
 
-  // Always add entity_name first if present
+  // Always add name column first if present (entity_name or name)
   if ('entity_name' in sample) {
     headers.push({
       title: t('smartQuery.visualization.columns.name'),
       key: 'entity_name',
+      sortable: true,
+    })
+  } else if ('name' in sample) {
+    headers.push({
+      title: t('smartQuery.visualization.columns.name'),
+      key: 'name',
       sortable: true,
     })
   }
@@ -106,7 +126,7 @@ const tableHeaders = computed(() => {
   // Add facet columns
   if (sample.facets) {
     for (const [facetKey, facetValue] of Object.entries(sample.facets)) {
-      const isNumeric = typeof (facetValue as any)?.value === 'number'
+      const isNumeric = typeof (facetValue as { value?: unknown })?.value === 'number'
       headers.push({
         title: formatFacetLabel(facetKey),
         key: `facets.${facetKey}.value`,
@@ -151,7 +171,7 @@ const facetColumns = computed(() => {
 
   if (sample.facets) {
     for (const [facetKey, facetValue] of Object.entries(sample.facets)) {
-      const isNumeric = typeof (facetValue as any)?.value === 'number'
+      const isNumeric = typeof (facetValue as { value?: unknown })?.value === 'number'
       columns.push({
         key: `facets.${facetKey}.value`,
         label: formatFacetLabel(facetKey),
@@ -166,14 +186,20 @@ const facetColumns = computed(() => {
 // Flatten nested data for v-data-table
 const tableItems = computed(() => {
   return props.data.map(item => {
-    const flat: Record<string, any> = { ...item }
+    const flat: Record<string, unknown> = { ...item }
+
+    // Ensure entity_id is always available (could be named differently in source)
+    if (!flat.entity_id && item.id) {
+      flat.entity_id = item.id
+    }
 
     // Flatten facets for direct access
     if (item.facets) {
       for (const [facetKey, facetValue] of Object.entries(item.facets)) {
         if (typeof facetValue === 'object' && facetValue !== null) {
-          flat[`facets.${facetKey}.value`] = (facetValue as any).value
-          flat[`facets.${facetKey}.recorded_at`] = (facetValue as any).recorded_at
+          const fv = facetValue as { value?: unknown; recorded_at?: unknown }
+          flat[`facets.${facetKey}.value`] = fv.value
+          flat[`facets.${facetKey}.recorded_at`] = fv.recorded_at
         } else {
           flat[`facets.${facetKey}.value`] = facetValue
         }
@@ -202,7 +228,7 @@ function formatFacetLabel(slug: string): string {
     .replace(/\b\w/g, c => c.toUpperCase())
 }
 
-function formatCellValue(item: Record<string, any>, col: VisualizationColumn): string {
+function formatCellValue(item: Record<string, unknown>, col: VisualizationColumn): string {
   const value = getNestedValue(item, col.key) ?? item[col.key]
   return formatValue(value, col.type, col.format)
 }
@@ -212,6 +238,18 @@ function getValueClass(type: ColumnType): string {
     return 'text-end font-weight-medium'
   }
   return ''
+}
+
+function onRowClick(event: Event, { item }: { item: Record<string, unknown> }) {
+  // Don't navigate if clicking on an existing link (entity_name column has router-link)
+  if ((event.target as HTMLElement).closest('a')) {
+    return
+  }
+
+  const entityId = item.entity_id
+  if (entityId) {
+    router.push(`/entity/${entityId}`)
+  }
 }
 </script>
 
@@ -231,5 +269,13 @@ function getValueClass(type: ColumnType): string {
 
 .table-visualization :deep(.v-data-table__tr:hover) {
   background: rgba(var(--v-theme-primary), 0.04);
+}
+
+.clickable-rows :deep(.v-data-table__tr) {
+  cursor: pointer;
+}
+
+.clickable-rows :deep(.v-data-table__tr:hover) {
+  background: rgba(var(--v-theme-primary), 0.08);
 }
 </style>

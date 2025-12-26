@@ -10,7 +10,7 @@ export interface HistoryDataPoint {
   recorded_at: string
   value: number
   value_label?: string
-  annotations: Record<string, any>
+  annotations: Record<string, unknown>
   source_type: string
   source_document_id?: string
   source_url?: string
@@ -114,7 +114,7 @@ export interface HistoryDataPointCreate {
   value: number
   track_key?: string
   value_label?: string
-  annotations?: Record<string, any>
+  annotations?: Record<string, unknown>
   source_type?: string
   source_url?: string
   confidence_score?: number

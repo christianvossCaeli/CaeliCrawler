@@ -117,15 +117,17 @@ export class BasePage {
       '[aria-busy="true"]'
     ]
 
+    const perSelectorTimeout = Math.min(timeout / loadingSelectors.length, 5000)
+
     for (const selector of loadingSelectors) {
       try {
-        await this.page.locator(selector).waitFor({ state: 'hidden', timeout: 5000 })
+        await this.page.locator(selector).waitFor({ state: 'hidden', timeout: perSelectorTimeout })
       } catch {
         // Continue if selector not found
       }
     }
 
-    await this.waitForNavigation()
+    await this.waitForNavigation(timeout)
   }
 
   /**

@@ -2,6 +2,7 @@
   "common": {
     "command": "Command",
     "save": "Save",
+    "apply": "Apply",
     "cancel": "Cancel",
     "delete": "Delete",
     "edit": "Edit",
@@ -167,7 +168,8 @@
       "title": "Administration",
       "users": "User Management",
       "auditLog": "Change History",
-      "apiTemplates": "API Templates"
+      "apiTemplates": "API Templates",
+      "externalApis": "External APIs"
     }
   },
   "auth": {

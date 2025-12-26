@@ -1,3 +1,185 @@
+<template>
+  <v-dialog v-model="dialog" max-width="700" scrollable>
+    <v-card>
+      <v-card-title class="d-flex align-center py-4">
+        <v-icon icon="mdi-view-dashboard-edit" class="mr-3" size="28" />
+        <div>
+          <div>{{ $t('dashboard.customize') }}</div>
+          <div class="text-caption text-medium-emphasis">
+            {{ enabledCount }} {{ $t('dashboard.widgetsActive') }}
+          </div>
+        </div>
+      </v-card-title>
+
+      <v-divider />
+
+      <!-- Hint -->
+      <v-alert
+        type="info"
+        variant="tonal"
+        density="compact"
+        class="mx-4 mt-4"
+        closable
+      >
+        <v-icon size="small" class="mr-1">mdi-gesture-swipe</v-icon>
+        {{ $t('dashboard.dragToReorder') }}
+      </v-alert>
+
+      <v-card-text class="py-4" style="max-height: 55vh; overflow-y: auto">
+        <div class="widget-list">
+          <div
+            v-for="(widget, index) in widgetList"
+            :key="widget.id"
+            class="widget-item"
+            :class="{
+              'widget-item--enabled': widget.enabled,
+              'widget-item--dragging': draggedIndex === index,
+              'widget-item--drag-over': dragOverIndex === index && draggedIndex !== index,
+            }"
+            draggable="true"
+            @dragstart="onDragStart(index, $event)"
+            @dragover="onDragOver(index, $event)"
+            @dragleave="onDragLeave"
+            @drop="onDrop(index, $event)"
+            @dragend="onDragEnd"
+          >
+            <!-- Drag Handle -->
+            <div class="widget-item__handle">
+              <v-icon size="small" class="text-medium-emphasis">mdi-drag</v-icon>
+            </div>
+
+            <!-- Enable/Disable Toggle -->
+            <v-switch
+              :model-value="widget.enabled"
+              hide-details
+              density="compact"
+              color="primary"
+              class="widget-item__switch"
+              @update:model-value="toggleWidget(widget)"
+            />
+
+            <!-- Widget Info -->
+            <div class="widget-item__info" :class="{ 'text-medium-emphasis': !widget.enabled }">
+              <div class="d-flex align-center">
+                <v-icon :icon="widget.definition.icon" size="small" class="mr-2" />
+                <span class="font-weight-medium">{{ $t(widget.definition.name) }}</span>
+              </div>
+              <div class="text-caption text-medium-emphasis mt-1">
+                {{ $t(widget.definition.description) }}
+              </div>
+            </div>
+
+            <!-- Size Selector -->
+            <div class="widget-item__size">
+              <v-btn-toggle
+                :model-value="widget.width"
+                mandatory
+                density="compact"
+                variant="outlined"
+                divided
+                :disabled="!widget.enabled"
+                @update:model-value="setWidgetSize(widget, $event)"
+              >
+                <v-btn
+                  v-for="size in sizeOptions"
+                  :key="size.value"
+                  :value="size.value"
+                  size="small"
+                  min-width="36"
+                >
+                  <v-tooltip activator="parent" location="top">
+                    {{ $t(size.label) }}
+                  </v-tooltip>
+                  {{ size.value }}
+                </v-btn>
+              </v-btn-toggle>
+            </div>
+
+            <!-- Move Buttons (for accessibility) -->
+            <div class="widget-item__move">
+              <v-btn
+                icon
+                size="x-small"
+                variant="text"
+                :disabled="index === 0"
+                @click="moveWidget(index, 'up')"
+              >
+                <v-icon size="x-small">mdi-chevron-up</v-icon>
+              </v-btn>
+              <v-btn
+                icon
+                size="x-small"
+                variant="text"
+                :disabled="index === widgetList.length - 1"
+                @click="moveWidget(index, 'down')"
+              >
+                <v-icon size="x-small">mdi-chevron-down</v-icon>
+              </v-btn>
+            </div>
+          </div>
+        </div>
+      </v-card-text>
+
+      <!-- Preview -->
+      <v-divider />
+
+      <div class="px-4 py-3">
+        <div class="text-caption text-medium-emphasis mb-2">
+          <v-icon size="14" class="mr-1">mdi-eye</v-icon>
+          {{ $t('dashboard.preview') }}
+        </div>
+        <div class="preview-grid">
+          <template v-for="widget in widgetList" :key="widget.id">
+            <div
+              v-if="widget.enabled"
+              class="preview-item"
+              :style="{
+                flex: `0 0 ${(widget.width / 4) * 100}%`,
+                maxWidth: `${(widget.width / 4) * 100}%`
+              }"
+            >
+              <div class="preview-item__content">
+                <v-icon :icon="widget.definition.icon" size="12" class="mr-1" />
+                <span class="text-truncate">{{ $t(widget.definition.name) }}</span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <v-divider />
+
+      <v-card-actions class="pa-4">
+        <v-btn
+          variant="tonal"
+          color="warning"
+          :loading="resetting"
+          prepend-icon="mdi-restore"
+          @click="resetToDefaults"
+        >
+          {{ $t('dashboard.resetToDefaults') }}
+        </v-btn>
+
+        <v-spacer />
+
+        <v-btn variant="text" @click="cancel">
+          {{ $t('common.cancel') }}
+        </v-btn>
+
+        <v-btn
+          color="primary"
+          variant="flat"
+          :loading="saving"
+          prepend-icon="mdi-check"
+          @click="save"
+        >
+          {{ $t('common.save') }}
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+</template>
+
 <script setup lang="ts">
 /**
  * WidgetConfigurator - Dialog for customizing dashboard widgets
@@ -211,188 +393,6 @@ const cancel = () => {
   dialog.value = false
 }
 </script>
-
-<template>
-  <v-dialog v-model="dialog" max-width="700" scrollable>
-    <v-card>
-      <v-card-title class="d-flex align-center py-4">
-        <v-icon icon="mdi-view-dashboard-edit" class="mr-3" size="28" />
-        <div>
-          <div>{{ $t('dashboard.customize') }}</div>
-          <div class="text-caption text-medium-emphasis">
-            {{ enabledCount }} {{ $t('dashboard.widgetsActive') }}
-          </div>
-        </div>
-      </v-card-title>
-
-      <v-divider />
-
-      <!-- Hint -->
-      <v-alert
-        type="info"
-        variant="tonal"
-        density="compact"
-        class="mx-4 mt-4"
-        closable
-      >
-        <v-icon size="small" class="mr-1">mdi-gesture-swipe</v-icon>
-        {{ $t('dashboard.dragToReorder') }}
-      </v-alert>
-
-      <v-card-text class="py-4" style="max-height: 55vh; overflow-y: auto">
-        <div class="widget-list">
-          <div
-            v-for="(widget, index) in widgetList"
-            :key="widget.id"
-            class="widget-item"
-            :class="{
-              'widget-item--enabled': widget.enabled,
-              'widget-item--dragging': draggedIndex === index,
-              'widget-item--drag-over': dragOverIndex === index && draggedIndex !== index,
-            }"
-            draggable="true"
-            @dragstart="onDragStart(index, $event)"
-            @dragover="onDragOver(index, $event)"
-            @dragleave="onDragLeave"
-            @drop="onDrop(index, $event)"
-            @dragend="onDragEnd"
-          >
-            <!-- Drag Handle -->
-            <div class="widget-item__handle">
-              <v-icon size="small" class="text-medium-emphasis">mdi-drag</v-icon>
-            </div>
-
-            <!-- Enable/Disable Toggle -->
-            <v-switch
-              :model-value="widget.enabled"
-              hide-details
-              density="compact"
-              color="primary"
-              class="widget-item__switch"
-              @update:model-value="toggleWidget(widget)"
-            />
-
-            <!-- Widget Info -->
-            <div class="widget-item__info" :class="{ 'text-medium-emphasis': !widget.enabled }">
-              <div class="d-flex align-center">
-                <v-icon :icon="widget.definition.icon" size="small" class="mr-2" />
-                <span class="font-weight-medium">{{ $t(widget.definition.name) }}</span>
-              </div>
-              <div class="text-caption text-medium-emphasis mt-1">
-                {{ $t(widget.definition.description) }}
-              </div>
-            </div>
-
-            <!-- Size Selector -->
-            <div class="widget-item__size">
-              <v-btn-toggle
-                :model-value="widget.width"
-                mandatory
-                density="compact"
-                variant="outlined"
-                divided
-                :disabled="!widget.enabled"
-                @update:model-value="setWidgetSize(widget, $event)"
-              >
-                <v-btn
-                  v-for="size in sizeOptions"
-                  :key="size.value"
-                  :value="size.value"
-                  size="small"
-                  min-width="36"
-                >
-                  <v-tooltip activator="parent" location="top">
-                    {{ $t(size.label) }}
-                  </v-tooltip>
-                  {{ size.value }}
-                </v-btn>
-              </v-btn-toggle>
-            </div>
-
-            <!-- Move Buttons (for accessibility) -->
-            <div class="widget-item__move">
-              <v-btn
-                icon
-                size="x-small"
-                variant="text"
-                :disabled="index === 0"
-                @click="moveWidget(index, 'up')"
-              >
-                <v-icon size="x-small">mdi-chevron-up</v-icon>
-              </v-btn>
-              <v-btn
-                icon
-                size="x-small"
-                variant="text"
-                :disabled="index === widgetList.length - 1"
-                @click="moveWidget(index, 'down')"
-              >
-                <v-icon size="x-small">mdi-chevron-down</v-icon>
-              </v-btn>
-            </div>
-          </div>
-        </div>
-      </v-card-text>
-
-      <!-- Preview -->
-      <v-divider />
-
-      <div class="px-4 py-3">
-        <div class="text-caption text-medium-emphasis mb-2">
-          <v-icon size="14" class="mr-1">mdi-eye</v-icon>
-          {{ $t('dashboard.preview') }}
-        </div>
-        <div class="preview-grid">
-          <template v-for="widget in widgetList" :key="widget.id">
-            <div
-              v-if="widget.enabled"
-              class="preview-item"
-              :style="{
-                flex: `0 0 ${(widget.width / 4) * 100}%`,
-                maxWidth: `${(widget.width / 4) * 100}%`
-              }"
-            >
-              <div class="preview-item__content">
-                <v-icon :icon="widget.definition.icon" size="12" class="mr-1" />
-                <span class="text-truncate">{{ $t(widget.definition.name) }}</span>
-              </div>
-            </div>
-          </template>
-        </div>
-      </div>
-
-      <v-divider />
-
-      <v-card-actions class="pa-4">
-        <v-btn
-          variant="tonal"
-          color="warning"
-          :loading="resetting"
-          prepend-icon="mdi-restore"
-          @click="resetToDefaults"
-        >
-          {{ $t('dashboard.resetToDefaults') }}
-        </v-btn>
-
-        <v-spacer />
-
-        <v-btn variant="text" @click="cancel">
-          {{ $t('common.cancel') }}
-        </v-btn>
-
-        <v-btn
-          color="primary"
-          variant="flat"
-          :loading="saving"
-          prepend-icon="mdi-check"
-          @click="save"
-        >
-          {{ $t('common.save') }}
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
-</template>
 
 <style scoped>
 .widget-list {

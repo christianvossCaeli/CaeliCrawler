@@ -118,6 +118,8 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { entityApi } from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
 
+const props = defineProps<Props>()
+
 const logger = useLogger('EntityMapView')
 
 interface Props {
@@ -127,8 +129,6 @@ interface Props {
   adminLevel2?: string
   search?: string
 }
-
-const props = defineProps<Props>()
 
 const router = useRouter()
 const theme = useTheme()
@@ -144,7 +144,7 @@ const totalWithCoords = ref(0)
 const totalWithoutCoords = ref(0)
 const pointCount = ref(0)
 const polygonCount = ref(0)
-const selectedEntity = ref<any>(null)
+const selectedEntity = ref<{ id?: string; name?: string; entity_type?: string; slug?: string } | null>(null)
 const popupPosition = ref({ x: 0, y: 0 })
 
 // Map Styles - CartoDB free styles (MapLibre-compatible)
@@ -201,7 +201,7 @@ async function initMap() {
 }
 
 // Helper to extend bounds with any geometry type
-function extendBoundsWithGeometry(bounds: maplibregl.LngLatBounds, geometry: any) {
+function extendBoundsWithGeometry(bounds: maplibregl.LngLatBounds, geometry: { type: string; coordinates: unknown }) {
   if (geometry.type === 'Point') {
     bounds.extend(geometry.coordinates as [number, number])
   } else if (geometry.type === 'Polygon') {
@@ -244,8 +244,8 @@ async function loadGeoData() {
     totalWithoutCoords.value = geojson.total_without_coords
 
     // Separate points from polygons
-    const points: any[] = []
-    const polygons: any[] = []
+    const points: GeoJSON.Feature[] = []
+    const polygons: GeoJSON.Feature[] = []
 
     for (const feature of geojson.features) {
       const geomType = feature.geometry?.type
@@ -397,7 +397,7 @@ async function loadGeoData() {
     // Fit bounds to all data
     if (geojson.features.length > 0) {
       const bounds = new maplibregl.LngLatBounds()
-      geojson.features.forEach((feature: any) => {
+      geojson.features.forEach((feature: GeoJSON.Feature) => {
         extendBoundsWithGeometry(bounds, feature.geometry)
       })
       map.value.fitBounds(bounds, { padding: 50, maxZoom: 10 })
@@ -415,15 +415,16 @@ function setupMapInteractions() {
 
   // Click on cluster to zoom in
   map.value.on('click', 'clusters', async (e) => {
-    const features = map.value!.queryRenderedFeatures(e.point, { layers: ['clusters'] })
+    if (!map.value) return
+    const features = map.value.queryRenderedFeatures(e.point, { layers: ['clusters'] })
     if (!features.length) return
 
     const clusterId = features[0].properties?.cluster_id
-    const source = map.value!.getSource('entities-points') as maplibregl.GeoJSONSource
+    const source = map.value.getSource('entities-points') as maplibregl.GeoJSONSource
 
     const zoom = await source.getClusterExpansionZoom(clusterId)
-    map.value!.easeTo({
-      center: (features[0].geometry as any).coordinates,
+    map.value.easeTo({
+      center: (features[0].geometry as GeoJSON.Point).coordinates as [number, number],
       zoom: zoom,
     })
   })
@@ -475,8 +476,9 @@ function setupMapInteractions() {
 
   // Close popup when clicking elsewhere
   map.value.on('click', (e) => {
+    if (!map.value) return
     const layers = ['unclustered-point', 'clusters', 'polygon-fill'].filter(l => map.value?.getLayer(l))
-    const features = map.value!.queryRenderedFeatures(e.point, { layers })
+    const features = map.value.queryRenderedFeatures(e.point, { layers })
     if (!features.length) {
       selectedEntity.value = null
     }
@@ -484,7 +486,7 @@ function setupMapInteractions() {
 }
 
 // Show entity popup
-function showEntityPopup(feature: any, point: maplibregl.Point) {
+function showEntityPopup(feature: maplibregl.MapGeoJSONFeature, point: maplibregl.Point) {
   selectedEntity.value = {
     id: feature.properties?.id,
     name: feature.properties?.name,
@@ -507,7 +509,7 @@ function showEntityPopup(feature: any, point: maplibregl.Point) {
 }
 
 // Navigate to entity detail
-function navigateToEntity(entity: any) {
+function navigateToEntity(entity: { entity_type_slug?: string; slug?: string }) {
   if (entity.entity_type_slug && entity.slug) {
     router.push({
       name: 'entity-detail',
@@ -543,11 +545,12 @@ watch(isDark, async () => {
 
     // Wait for new style to load, then restore data and view
     map.value.once('style.load', async () => {
+      if (!map.value) return
       // Restore view state
-      map.value!.setCenter(center)
-      map.value!.setZoom(zoom)
-      map.value!.setBearing(bearing)
-      map.value!.setPitch(pitch)
+      map.value.setCenter(center)
+      map.value.setZoom(zoom)
+      map.value.setBearing(bearing)
+      map.value.setPitch(pitch)
 
       // Reload geo data (re-adds sources and layers)
       await loadGeoData()

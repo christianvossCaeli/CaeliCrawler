@@ -1,3 +1,90 @@
+<template>
+  <BaseWidget
+    :definition="definition"
+    :config="config"
+    :is-editing="isEditing"
+    @refresh="refresh"
+  >
+    <div v-if="loading" class="d-flex justify-center py-6">
+      <v-progress-circular indeterminate size="32" />
+    </div>
+
+    <template v-else-if="sources.length > 0">
+      <!-- Summary Bar -->
+      <div class="d-flex justify-space-around mb-3 pa-2 summary-bar rounded" role="group" aria-label="Data freshness summary">
+        <div class="text-center">
+          <div class="text-h6 text-success">{{ summaryStats.fresh }}</div>
+          <div class="text-caption">{{ t('dashboard.fresh') }}</div>
+        </div>
+        <v-divider vertical />
+        <div class="text-center">
+          <div class="text-h6 text-warning">{{ summaryStats.stale }}</div>
+          <div class="text-caption">{{ t('dashboard.stale') }}</div>
+        </div>
+        <v-divider vertical />
+        <div class="text-center">
+          <div class="text-h6 text-error">{{ summaryStats.outdated }}</div>
+          <div class="text-caption">{{ t('dashboard.outdated') }}</div>
+        </div>
+      </div>
+
+      <!-- Source List -->
+      <v-list density="compact" class="sources-list" role="list">
+        <v-list-item
+          v-for="source in sources"
+          :key="source.id"
+          class="px-2 clickable-item"
+          :class="{ 'non-interactive': isEditing }"
+          role="button"
+          :tabindex="tabIndex"
+          :aria-label="source.name + ' - ' + formatLastCrawl(source.last_crawl)"
+          @click="navigateToSource(source)"
+          @keydown="handleKeydownSource($event, source)"
+        >
+          <template #prepend>
+            <v-icon
+              :icon="getFreshnessIcon(source.freshness)"
+              :color="getFreshnessColor(source.freshness)"
+              size="small"
+            />
+          </template>
+
+          <v-list-item-title class="text-body-2 text-truncate">
+            {{ source.name }}
+          </v-list-item-title>
+          <v-list-item-subtitle class="text-caption">
+            {{ formatLastCrawl(source.last_crawl) }}
+            <span class="text-medium-emphasis ml-1">
+              ({{ source.document_count }} {{ t('common.documents') }})
+            </span>
+          </v-list-item-subtitle>
+        </v-list-item>
+      </v-list>
+
+      <!-- View All Link -->
+      <div
+        class="text-center mt-2 view-all-link"
+        :class="{ 'non-interactive': isEditing }"
+        role="button"
+        :tabindex="tabIndex"
+        :aria-label="t('common.viewAll')"
+        @click="navigateToSources"
+        @keydown="handleKeydownViewAll($event)"
+      >
+        <span class="text-caption text-primary">
+          {{ t('common.viewAll') }}
+        </span>
+      </div>
+    </template>
+
+    <WidgetEmptyState
+      v-else
+      icon="mdi-database-off"
+      :message="t('dashboard.noSources')"
+    />
+  </BaseWidget>
+</template>
+
 <script setup lang="ts">
 /**
  * DataFreshness Widget - Shows data freshness per source
@@ -140,93 +227,6 @@ const summaryStats = computed(() => {
   return { fresh, stale, outdated }
 })
 </script>
-
-<template>
-  <BaseWidget
-    :definition="definition"
-    :config="config"
-    :is-editing="isEditing"
-    @refresh="refresh"
-  >
-    <div v-if="loading" class="d-flex justify-center py-6">
-      <v-progress-circular indeterminate size="32" />
-    </div>
-
-    <template v-else-if="sources.length > 0">
-      <!-- Summary Bar -->
-      <div class="d-flex justify-space-around mb-3 pa-2 summary-bar rounded" role="group" aria-label="Data freshness summary">
-        <div class="text-center">
-          <div class="text-h6 text-success">{{ summaryStats.fresh }}</div>
-          <div class="text-caption">{{ t('dashboard.fresh') }}</div>
-        </div>
-        <v-divider vertical />
-        <div class="text-center">
-          <div class="text-h6 text-warning">{{ summaryStats.stale }}</div>
-          <div class="text-caption">{{ t('dashboard.stale') }}</div>
-        </div>
-        <v-divider vertical />
-        <div class="text-center">
-          <div class="text-h6 text-error">{{ summaryStats.outdated }}</div>
-          <div class="text-caption">{{ t('dashboard.outdated') }}</div>
-        </div>
-      </div>
-
-      <!-- Source List -->
-      <v-list density="compact" class="sources-list" role="list">
-        <v-list-item
-          v-for="source in sources"
-          :key="source.id"
-          class="px-2 clickable-item"
-          :class="{ 'non-interactive': isEditing }"
-          role="button"
-          :tabindex="tabIndex"
-          :aria-label="source.name + ' - ' + formatLastCrawl(source.last_crawl)"
-          @click="navigateToSource(source)"
-          @keydown="handleKeydownSource($event, source)"
-        >
-          <template #prepend>
-            <v-icon
-              :icon="getFreshnessIcon(source.freshness)"
-              :color="getFreshnessColor(source.freshness)"
-              size="small"
-            />
-          </template>
-
-          <v-list-item-title class="text-body-2 text-truncate">
-            {{ source.name }}
-          </v-list-item-title>
-          <v-list-item-subtitle class="text-caption">
-            {{ formatLastCrawl(source.last_crawl) }}
-            <span class="text-medium-emphasis ml-1">
-              ({{ source.document_count }} {{ t('common.documents') }})
-            </span>
-          </v-list-item-subtitle>
-        </v-list-item>
-      </v-list>
-
-      <!-- View All Link -->
-      <div
-        class="text-center mt-2 view-all-link"
-        :class="{ 'non-interactive': isEditing }"
-        role="button"
-        :tabindex="tabIndex"
-        :aria-label="t('common.viewAll')"
-        @click="navigateToSources"
-        @keydown="handleKeydownViewAll($event)"
-      >
-        <span class="text-caption text-primary">
-          {{ t('common.viewAll') }}
-        </span>
-      </div>
-    </template>
-
-    <WidgetEmptyState
-      v-else
-      icon="mdi-database-off"
-      :message="t('dashboard.noSources')"
-    />
-  </BaseWidget>
-</template>
 
 <style scoped>
 .summary-bar {

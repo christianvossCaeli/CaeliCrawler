@@ -23,18 +23,18 @@
           :items-per-page="25"
           class="elevation-0"
         >
-          <template v-slot:item.icon="{ item }">
+          <template #item.icon="{ item }">
             <v-icon :icon="item.icon" :color="item.color" size="24"></v-icon>
           </template>
 
-          <template v-slot:item.name="{ item }">
+          <template #item.name="{ item }">
             <div>
               <strong>{{ item.name }}</strong>
               <div class="text-caption text-medium-emphasis">{{ item.name_plural }}</div>
             </div>
           </template>
 
-          <template v-slot:item.facets="{ item }">
+          <template #item.facets="{ item }">
             <div class="d-flex flex-wrap gap-1">
               <v-chip
                 v-for="facet in getFacetsForEntityType(item.slug)"
@@ -57,24 +57,24 @@
             </div>
           </template>
 
-          <template v-slot:item.color="{ item }">
+          <template #item.color="{ item }">
             <v-chip :color="item.color" size="small" variant="flat">
               {{ item.color }}
             </v-chip>
           </template>
 
-          <template v-slot:item.entity_count="{ item }">
+          <template #item.entity_count="{ item }">
             <v-chip size="small" variant="tonal">
               {{ item.entity_count || 0 }}
             </v-chip>
           </template>
 
-          <template v-slot:item.is_system="{ item }">
+          <template #item.is_system="{ item }">
             <v-icon v-if="item.is_system" color="warning" icon="mdi-lock" size="small" :title="t('admin.entityTypes.systemType')"></v-icon>
             <span v-else>-</span>
           </template>
 
-          <template v-slot:item.is_active="{ item }">
+          <template #item.is_active="{ item }">
             <v-icon
               :icon="item.is_active ? 'mdi-check-circle' : 'mdi-close-circle'"
               :color="item.is_active ? 'success' : 'error'"
@@ -82,7 +82,7 @@
             ></v-icon>
           </template>
 
-          <template v-slot:item.actions="{ item }">
+          <template #item.actions="{ item }">
             <div class="d-flex justify-end ga-1">
               <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="t('common.edit')" :aria-label="t('common.edit')" @click="openEditDialog(item)"></v-btn>
               <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="t('common.delete')" :aria-label="t('common.delete')" :disabled="item.is_system || (item.entity_count || 0) > 0" @click="confirmDelete(item)"></v-btn>
@@ -187,7 +187,7 @@
                         :placeholder="t('admin.entityTypes.form.iconPlaceholder')"
                         variant="outlined"
                       >
-                        <template v-slot:prepend-inner>
+                        <template #prepend-inner>
                           <v-icon :icon="form.icon || 'mdi-help'" :color="form.color"></v-icon>
                         </template>
                       </v-text-field>
@@ -253,7 +253,7 @@
                       :value="facet.id"
                       @click="toggleFacet(facet.id)"
                     >
-                      <template v-slot:prepend>
+                      <template #prepend>
                         <v-checkbox-btn
                           :model-value="selectedFacetIds.includes(facet.id)"
                           @click.stop="toggleFacet(facet.id)"
@@ -271,7 +271,7 @@
                         </v-chip>
                       </v-list-item-subtitle>
 
-                      <template v-slot:append>
+                      <template #append>
                         <v-chip
                           v-if="!facet.applicable_entity_type_slugs?.length"
                           size="x-small"
@@ -457,22 +457,53 @@ import { getContrastColor } from '@/composables/useColorHelpers'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useLogger } from '@/composables/useLogger'
 
+// Local interfaces
+interface EntityTypeLocal {
+  id: string
+  slug: string
+  name: string
+  name_plural?: string
+  description?: string
+  icon?: string
+  color?: string
+  is_primary?: boolean
+  supports_hierarchy?: boolean
+  supports_pysis?: boolean
+  is_active?: boolean
+  display_order?: number
+  entity_count?: number
+}
+
+interface FacetTypeLocal {
+  id: string
+  slug?: string
+  name: string
+  description?: string
+  applicable_entity_type_slugs?: string[]
+}
+
+interface VFormRef {
+  validate: () => boolean | Promise<{ valid: boolean }>
+  reset: () => void
+  resetValidation: () => void
+}
+
 const logger = useLogger('EntityTypesView')
 
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
 
 // State
-const entityTypes = ref<any[]>([])
-const facetTypes = ref<any[]>([])
+const entityTypes = ref<EntityTypeLocal[]>([])
+const facetTypes = ref<FacetTypeLocal[]>([])
 const loading = ref(false)
 const dialog = ref(false)
 const deleteDialog = ref(false)
-const editingItem = ref<any>(null)
-const itemToDelete = ref<any>(null)
+const editingItem = ref<EntityTypeLocal | null>(null)
+const itemToDelete = ref<EntityTypeLocal | null>(null)
 const saving = ref(false)
 const deleting = ref(false)
-const formRef = ref<any>(null)
+const formRef = ref<VFormRef | null>(null)
 
 // Dialog state
 const activeTab = ref('basic')
@@ -555,7 +586,7 @@ function selectAllFacets() {
 }
 
 // Get facets that are applicable to a given entity type
-function getFacetsForEntityType(entityTypeSlug: string): any[] {
+function getFacetsForEntityType(entityTypeSlug: string): FacetTypeLocal[] {
   return facetTypes.value.filter(ft =>
     ft.applicable_entity_type_slugs?.length === 0 ||
     ft.applicable_entity_type_slugs?.includes(entityTypeSlug)
@@ -619,7 +650,7 @@ function openCreateDialog() {
   dialog.value = true
 }
 
-function openEditDialog(item: any) {
+function openEditDialog(item: EntityTypeLocal) {
   editingItem.value = item
   activeTab.value = 'basic'
   facetSearch.value = ''
@@ -692,8 +723,8 @@ async function save() {
 
     closeDialog()
     await Promise.all([loadEntityTypes(), loadFacetTypes()])
-  } catch (e: any) {
-    const detail = e.response?.data?.detail || t('admin.entityTypes.messages.saveError')
+  } catch (e) {
+    const detail = getErrorMessage(e) || t('admin.entityTypes.messages.saveError')
     showError(detail)
   } finally {
     saving.value = false
@@ -752,7 +783,7 @@ async function updateFacetAssignments(entityTypeSlug: string) {
   }
 }
 
-function confirmDelete(item: any) {
+function confirmDelete(item: EntityTypeLocal) {
   itemToDelete.value = item
   deleteDialog.value = true
 }
@@ -767,8 +798,8 @@ async function deleteItem() {
     deleteDialog.value = false
     itemToDelete.value = null
     await loadEntityTypes()
-  } catch (e: any) {
-    const detail = e.response?.data?.detail || t('admin.entityTypes.messages.deleteError')
+  } catch (e) {
+    const detail = getErrorMessage(e) || t('admin.entityTypes.messages.deleteError')
     showError(detail)
   } finally {
     deleting.value = false

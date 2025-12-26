@@ -9,7 +9,7 @@
         :color="card.color || 'primary'"
       >
         <v-card-text class="stat-card__content">
-          <div class="stat-card__icon" v-if="card.icon">
+          <div v-if="card.icon" class="stat-card__icon">
             <v-icon size="28" :color="card.color || 'primary'">{{ card.icon }}</v-icon>
           </div>
           <div class="stat-card__main">
@@ -35,7 +35,7 @@ import { computed } from 'vue'
 import type { VisualizationConfig, StatCard } from './types'
 
 const props = defineProps<{
-  data: Record<string, any>[]
+  data: Record<string, unknown>[]
   config?: VisualizationConfig
 }>()
 
@@ -50,13 +50,14 @@ const statCards = computed((): StatCard[] => {
 
   return props.data.slice(0, 4).map(item => {
     // Find first numeric facet value
-    let value: any = null
+    let value: unknown = null
     let unit: string | undefined
 
     if (item.facets) {
       for (const [, facetValue] of Object.entries(item.facets)) {
-        if (typeof (facetValue as any)?.value === 'number') {
-          value = (facetValue as any).value
+        const fv = facetValue as { value?: unknown }
+        if (typeof fv?.value === 'number') {
+          value = fv.value
           break
         }
       }
@@ -81,7 +82,7 @@ const statCards = computed((): StatCard[] => {
   })
 })
 
-function formatStatValue(value: any, unit?: string): string {
+function formatStatValue(value: unknown, unit?: string): string {
   if (value === null || value === undefined) return '-'
 
   let formatted: string
@@ -105,7 +106,7 @@ function getTrendIcon(trend: string): string {
   }
 }
 
-function getDefaultIcon(item: Record<string, any>): string {
+function getDefaultIcon(item: Record<string, unknown>): string {
   // Try to determine a sensible icon based on entity type or facets
   const type = item.entity_type?.toLowerCase() || ''
 

@@ -78,7 +78,7 @@
 
     <h3 class="text-h6 mt-4 mb-3">{{ t('help.documents.availableFilters') }}</h3>
     <v-chip-group>
-      <v-chip size="small" variant="outlined" v-for="(filter, index) in (tm('help.documents.filters') as string[])" :key="index">
+      <v-chip v-for="(filter, index) in (tm('help.documents.filters') as string[])" :key="index" size="small" variant="outlined">
         {{ filter }}
       </v-chip>
     </v-chip-group>

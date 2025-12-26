@@ -117,7 +117,7 @@
             v-for="task in runningAiTasks"
             :key="task.id"
           >
-            <template v-slot:prepend>
+            <template #prepend>
               <v-icon color="info" class="mdi-spin" size="small">mdi-brain</v-icon>
             </template>
             <v-list-item-title>{{ task.name }}</v-list-item-title>
@@ -126,7 +126,7 @@
               <span v-else>{{ $t('crawler.processing') }}</span>
               <span class="ml-2">{{ task.progress_current }}/{{ task.progress_total }}</span>
             </v-list-item-subtitle>
-            <template v-slot:append>
+            <template #append>
               <div class="d-flex align-center">
                 <v-progress-linear
                   :model-value="task.progress_percent"
@@ -142,9 +142,9 @@
                   size="small"
                   color="error"
                   variant="tonal"
-                  @click.stop="cancelAiTask(task)"
                   :title="$t('crawler.cancel')"
                   :aria-label="$t('common.stopTask')"
+                  @click.stop="cancelAiTask(task)"
                 ></v-btn>
               </div>
             </template>
@@ -188,7 +188,7 @@
                   <v-chip size="x-small" color="success" class="mr-1">
                     {{ rj.documents_found }} {{ $t('crawler.docs') }}
                   </v-chip>
-                  <v-chip size="x-small" color="warning" v-if="rj.error_count > 0">
+                  <v-chip v-if="rj.error_count > 0" size="x-small" color="warning">
                     {{ rj.error_count }} {{ $t('crawler.errors') }}
                   </v-chip>
                 </div>
@@ -197,9 +197,9 @@
                   size="small"
                   color="error"
                   variant="tonal"
-                  @click.stop="cancelJob(rj)"
                   :title="$t('crawler.cancel')"
                   :aria-label="$t('common.stopTask')"
+                  @click.stop="cancelJob(rj)"
                 ></v-btn>
               </div>
             </v-expansion-panel-title>
@@ -216,7 +216,7 @@
                   height="200"
                   item-height="32"
                 >
-                  <template v-slot:default="{ item }">
+                  <template #default="{ item }">
                     <div class="d-flex align-center py-1" style="font-family: monospace; font-size: 11px;">
                       <v-icon
                         :color="item.status === 'document' ? 'success' : (item.status === 'error' ? 'error' : 'grey')"
@@ -263,22 +263,22 @@
         :loading="loading"
         :items-per-page="20"
       >
-        <template v-slot:item.status="{ item }">
+        <template #item.status="{ item }">
           <v-chip :color="getStatusColor(item.status)" size="small">
             <v-icon v-if="item.status === 'RUNNING'" class="mr-1" size="small">mdi-loading mdi-spin</v-icon>
             {{ item.status }}
           </v-chip>
         </template>
 
-        <template v-slot:item.scheduled_at="{ item }">
+        <template #item.scheduled_at="{ item }">
           {{ formatDate(item.scheduled_at) }}
         </template>
 
-        <template v-slot:item.duration="{ item }">
+        <template #item.duration="{ item }">
           {{ item.duration_seconds ? formatDuration(item.duration_seconds) : '-' }}
         </template>
 
-        <template v-slot:item.progress="{ item }">
+        <template #item.progress="{ item }">
           <div class="d-flex align-center">
             <span class="mr-2">{{ item.documents_processed }}/{{ item.documents_found }}</span>
             <v-progress-linear
@@ -291,7 +291,7 @@
           </div>
         </template>
 
-        <template v-slot:item.actions="{ item }">
+        <template #item.actions="{ item }">
           <div class="table-actions">
             <v-btn
               v-if="item.status === 'RUNNING'"
@@ -423,6 +423,7 @@ import { useAuthStore } from '@/stores/auth'
 import CrawlPresetsTab from '@/components/crawler/CrawlPresetsTab.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useLogger } from '@/composables/useLogger'
+import { getErrorMessage } from '@/composables/useApiErrorHandler'
 
 const logger = useLogger('CrawlerView')
 
@@ -437,6 +438,27 @@ interface JobLog {
   log_entries: LogEntry[]
 }
 
+interface CrawlerJob {
+  id: string
+  source_name?: string
+  category_name?: string
+  status: string
+  scheduled_at?: string
+  started_at?: string
+  completed_at?: string
+  pages_crawled?: number
+  documents_found?: number
+  duration?: number
+}
+
+interface AiTask {
+  id: string
+  task_type?: string
+  status: string
+  started_at?: string
+  progress?: number
+}
+
 const { t } = useI18n()
 const route = useRoute()
 const { showSuccess, showError } = useSnackbar()
@@ -447,9 +469,9 @@ const loading = ref(true)
 const presetsDrawer = ref(false)
 const initialLoad = ref(true)
 const stoppingAll = ref(false)
-const jobs = ref<any[]>([])
-const runningJobs = ref<any[]>([])
-const runningAiTasks = ref<any[]>([])
+const jobs = ref<CrawlerJob[]>([])
+const runningJobs = ref<CrawlerJob[]>([])
+const runningAiTasks = ref<AiTask[]>([])
 const jobLogs = ref<Record<string, JobLog>>({})
 const statusFilter = ref('')
 const detailsDialog = ref(false)
@@ -457,7 +479,7 @@ const confirmDialog = ref(false)
 const confirmAction = ref<(() => Promise<void>) | null>(null)
 const confirmMessage = ref('')
 const confirmTitle = ref('')
-const selectedJob = ref<any>(null)
+const selectedJob = ref<CrawlerJob | null>(null)
 let refreshInterval: number | null = null
 let logRefreshInterval: number | null = null
 let eventSource: EventSource | null = null
@@ -584,23 +606,23 @@ const refreshRunningJobLogs = async () => {
   }
 }
 
-const cancelJob = async (job: any) => {
+const cancelJob = async (job: CrawlerJob) => {
   try {
     await adminApi.cancelJob(job.id)
     showSuccess(t('crawler.jobCancelling'))
     loadData()
-  } catch (error: any) {
-    showError(error.response?.data?.error || t('crawler.cancelJobError'))
+  } catch (error) {
+    showError(getErrorMessage(error) || t('crawler.cancelJobError'))
   }
 }
 
-const cancelAiTask = async (task: any) => {
+const cancelAiTask = async (task: AiTask) => {
   try {
     await adminApi.cancelAiTask(task.id)
     showSuccess(t('crawler.aiTaskCancelling'))
     loadData()
-  } catch (error: any) {
-    showError(error.response?.data?.error || t('crawler.cancelAiTaskError'))
+  } catch (error) {
+    showError(getErrorMessage(error) || t('crawler.cancelAiTaskError'))
   }
 }
 
@@ -664,7 +686,7 @@ const doStopAllCrawlers = async () => {
     }
     showSuccess(t('crawler.jobsStopped', { count: cancelledCount }))
     await loadData()
-  } catch (error: any) {
+  } catch (error) {
     showError(t('crawler.stopError'))
   } finally {
     stoppingAll.value = false
@@ -715,7 +737,7 @@ const connectSSE = async () => {
   eventSource.addEventListener('jobs', (event) => {
     const data = JSON.parse(event.data)
     // Update running jobs from SSE
-    runningJobs.value = data.map((j: any) => ({
+    runningJobs.value = data.map((j: CrawlerJob) => ({
       ...j,
       id: j.id,
       source_name: j.source_name || 'Unknown',
@@ -754,7 +776,7 @@ const stopPolling = () => {
   }
 }
 
-const showJobDetails = async (job: any) => {
+const showJobDetails = async (job: CrawlerJob) => {
   const response = await adminApi.getCrawlerJob(job.id)
   selectedJob.value = response.data
   detailsDialog.value = true
@@ -775,7 +797,7 @@ onMounted(async () => {
   // Check for job_id query parameter to auto-open job details
   if (route.query.job_id) {
     const jobId = route.query.job_id as string
-    const job = jobs.value.find((j: any) => j.id === jobId)
+    const job = jobs.value.find((j) => j.id === jobId)
     if (job) {
       selectedJob.value = job
       detailsDialog.value = true

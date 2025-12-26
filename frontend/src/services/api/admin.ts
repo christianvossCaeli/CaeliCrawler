@@ -188,14 +188,14 @@ export const getCrawlPreset = (presetId: string) =>
 export const createCrawlPreset = (data: {
   name: string
   description?: string
-  filters: Record<string, any>
+  filters: Record<string, unknown>
   schedule_cron?: string
   schedule_enabled?: boolean
 }) => api.post('/admin/crawl-presets', data)
 export const updateCrawlPreset = (presetId: string, data: {
   name?: string
   description?: string
-  filters?: Record<string, any>
+  filters?: Record<string, unknown>
   schedule_cron?: string
   schedule_enabled?: boolean
   is_favorite?: boolean
@@ -220,7 +220,7 @@ export const toggleCrawlPresetFavorite = (presetId: string) =>
 export const createCrawlPresetFromFilters = (data: {
   name: string
   description?: string
-  filters: Record<string, any>
+  filters: Record<string, unknown>
   schedule_cron?: string
   schedule_enabled?: boolean
 }) => api.post('/admin/crawl-presets/from-filters', data)
@@ -233,7 +233,7 @@ export const previewCrawlPreset = (presetId: string) =>
   }>(`/admin/crawl-presets/${presetId}/preview`)
 export const getCrawlPresetSchedulePresets = () =>
   api.get<Array<{ label: string; cron: string; description: string }>>('/admin/crawl-presets/schedule-presets')
-export const previewCrawlPresetFilters = (filters: Record<string, any>) =>
+export const previewCrawlPresetFilters = (filters: Record<string, unknown>) =>
   api.post<{
     sources_count: number
     sources_preview: Array<{ id: string; name: string; url: string }>
@@ -245,7 +245,7 @@ export const createSummaryFromPrompt = (data: { prompt: string; name?: string })
   api.post<{
     id: string
     name: string
-    interpretation: Record<string, any>
+    interpretation: Record<string, unknown>
     widgets_created: number
     message: string
   }>('/admin/summaries/from-prompt', data)
@@ -253,8 +253,8 @@ export const createSummary = (data: {
   name: string
   description?: string
   original_prompt: string
-  interpreted_config?: Record<string, any>
-  layout_config?: Record<string, any>
+  interpreted_config?: Record<string, unknown>
+  layout_config?: Record<string, unknown>
   trigger_type?: string
   schedule_cron?: string
   trigger_category_id?: string
@@ -278,7 +278,7 @@ export const getSummary = (summaryId: string, params?: {
 export const updateSummary = (summaryId: string, data: {
   name?: string
   description?: string
-  layout_config?: Record<string, any>
+  layout_config?: Record<string, unknown>
   trigger_type?: string
   schedule_cron?: string
   trigger_category_id?: string
@@ -296,7 +296,7 @@ export const executeSummary = (summaryId: string, options?: { force?: boolean })
     execution_id: string
     status: string
     has_changes: boolean
-    cached_data?: Record<string, any>
+    cached_data?: Record<string, unknown>
     message: string
   }>(`/admin/summaries/${summaryId}/execute`, options || {})
 export const listSummaryExecutions = (summaryId: string, params?: { limit?: number }) =>
@@ -315,8 +315,8 @@ export const addSummaryWidget = (summaryId: string, data: {
   position_y?: number
   width?: number
   height?: number
-  query_config?: Record<string, any>
-  visualization_config?: Record<string, any>
+  query_config?: Record<string, unknown>
+  visualization_config?: Record<string, unknown>
 }) => api.post(`/admin/summaries/${summaryId}/widgets`, data)
 export const updateSummaryWidget = (summaryId: string, widgetId: string, data: {
   title?: string
@@ -325,8 +325,8 @@ export const updateSummaryWidget = (summaryId: string, widgetId: string, data: {
   position_y?: number
   width?: number
   height?: number
-  query_config?: Record<string, any>
-  visualization_config?: Record<string, any>
+  query_config?: Record<string, unknown>
+  visualization_config?: Record<string, unknown>
 }) => api.put(`/admin/summaries/${summaryId}/widgets/${widgetId}`, data)
 export const deleteSummaryWidget = (summaryId: string, widgetId: string) =>
   api.delete(`/admin/summaries/${summaryId}/widgets/${widgetId}`)
@@ -345,6 +345,21 @@ export const exportSummaryPdf = (summaryId: string) =>
   api.get(`/admin/summaries/${summaryId}/export/pdf`, { responseType: 'blob' })
 export const exportSummaryExcel = (summaryId: string) =>
   api.get(`/admin/summaries/${summaryId}/export/excel`, { responseType: 'blob' })
+export const checkSummaryUpdates = (summaryId: string) =>
+  api.post<{
+    task_id: string
+    source_count: number
+    message: string
+  }>(`/admin/summaries/${summaryId}/check-updates`)
+export const getCheckUpdatesStatus = (summaryId: string, taskId: string) =>
+  api.get<{
+    status: 'pending' | 'crawling' | 'updating' | 'completed' | 'failed'
+    total_sources: number
+    completed_sources: number
+    current_source?: string
+    message: string
+    error?: string
+  }>(`/admin/summaries/${summaryId}/check-updates/${taskId}/status`)
 
 // Dashboard
 export const getDashboardPreferences = () => api.get('/v1/dashboard/preferences')

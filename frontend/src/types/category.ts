@@ -89,9 +89,7 @@ export interface CategoryCreate {
 /**
  * Request body for updating a category (all fields optional)
  */
-export interface CategoryUpdate extends Partial<CategoryBase> {
-  // All fields from CategoryBase are optional
-}
+export type CategoryUpdate = Partial<CategoryBase>
 
 /**
  * Category response from API

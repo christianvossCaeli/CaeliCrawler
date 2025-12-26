@@ -180,20 +180,21 @@ class QueryExternalCommand(BaseCommand):
         """Validate external query configuration."""
         config = self.data.get("query_config", {})
 
-        # Need at least one of: prompt, api_template_id, or api_url
+        # Need at least one of: prompt, api_configuration_id, or api_url
         if not any([
             config.get("prompt"),
-            config.get("api_template_id"),
+            config.get("api_configuration_id"),
             config.get("api_url"),
         ]):
-            return "Mindestens prompt, api_template_id oder api_url ist erforderlich"
+            return "Mindestens prompt, api_configuration_id oder api_url ist erforderlich"
 
         return None
 
     async def execute(self) -> CommandResult:
         """Execute external API query."""
         from sqlalchemy import select
-        from app.models.api_template import APITemplate, TemplateStatus
+        from sqlalchemy.orm import selectinload
+        from app.models.api_configuration import APIConfiguration
 
         config_data = self.data.get("query_config", {})
         user_query = self.data.get("user_query", config_data.get("prompt", ""))
@@ -201,41 +202,49 @@ class QueryExternalCommand(BaseCommand):
 
         # Determine which API to use
         api_url = config_data.get("api_url")
-        api_template_id = config_data.get("api_template_id")
+        api_configuration_id = config_data.get("api_configuration_id")
         prompt = config_data.get("prompt")
 
-        template = None
+        api_config = None
         api_name = "Externe API"
 
         # Option 1: Direct URL
         if api_url:
             api_name = api_url.split("/")[2] if "/" in api_url else "Externe API"
 
-        # Option 2: Template ID
-        elif api_template_id:
-            template = await self.session.get(APITemplate, UUID(api_template_id))
-            if not template:
+        # Option 2: Configuration ID
+        elif api_configuration_id:
+            result = await self.session.execute(
+                select(APIConfiguration)
+                .options(selectinload(APIConfiguration.data_source))
+                .where(APIConfiguration.id == UUID(api_configuration_id))
+            )
+            api_config = result.scalar_one_or_none()
+            if not api_config:
                 return CommandResult.failure(
-                    message=f"API-Template '{api_template_id}' nicht gefunden"
+                    message=f"API-Konfiguration '{api_configuration_id}' nicht gefunden"
                 )
-            api_url = template.full_url
-            api_name = template.name
+            api_url = api_config.get_full_url()
+            api_name = api_config.data_source.name if api_config.data_source else f"API {str(api_config.id)[:8]}"
 
         # Option 3: Search by prompt
         elif prompt:
-            # Find matching template by keywords
+            # Find matching configuration by keywords
             result = await self.session.execute(
-                select(APITemplate).where(
-                    APITemplate.status == TemplateStatus.ACTIVE
+                select(APIConfiguration)
+                .options(selectinload(APIConfiguration.data_source))
+                .where(
+                    APIConfiguration.is_active == True,
+                    APIConfiguration.is_template == True,
                 )
             )
-            templates = result.scalars().all()
+            configs = result.scalars().all()
 
-            for t in templates:
-                if t.matches_prompt(prompt):
-                    template = t
-                    api_url = t.full_url
-                    api_name = t.name
+            for cfg in configs:
+                if cfg.matches_prompt(prompt):
+                    api_config = cfg
+                    api_url = cfg.get_full_url()
+                    api_name = cfg.data_source.name if cfg.data_source else f"API {str(cfg.id)[:8]}"
                     break
 
             if not api_url:

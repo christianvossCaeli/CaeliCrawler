@@ -146,6 +146,11 @@ class EntityResponse(EntityBase):
     relation_count: int = Field(default=0, description="Number of relations")
     children_count: int = Field(default=0, description="Number of child entities")
 
+    # External source info (for entities imported from APIs)
+    api_configuration_id: Optional[UUID] = Field(None, description="ID of the API configuration")
+    external_source_name: Optional[str] = Field(None, description="Name of the data source")
+    external_id: Optional[str] = Field(None, description="ID in the external system")
+
     model_config = {"from_attributes": True}
 
 
@@ -246,7 +251,7 @@ class EntityExternalDataResponse(BaseModel):
     entity_id: UUID
     entity_name: str
     has_external_data: bool = False
-    external_source_id: Optional[UUID] = None
+    api_configuration_id: Optional[UUID] = None
     external_source_name: Optional[str] = None
     external_id: Optional[str] = None
     raw_data: Optional[Dict[str, Any]] = None

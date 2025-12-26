@@ -1,6 +1,6 @@
 <template>
   <v-breadcrumbs :items="breadcrumbs" class="px-0">
-    <template v-slot:prepend>
+    <template #prepend>
       <v-icon icon="mdi-home" size="small"></v-icon>
     </template>
   </v-breadcrumbs>

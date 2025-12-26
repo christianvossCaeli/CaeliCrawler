@@ -29,11 +29,11 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { SourceInfo } from '../types'
 
-const { t, locale } = useI18n()
-
 const props = defineProps<{
   sourceInfo: SourceInfo
 }>()
+
+const { t, locale } = useI18n()
 
 const chipColor = computed(() => {
   switch (props.sourceInfo.type) {

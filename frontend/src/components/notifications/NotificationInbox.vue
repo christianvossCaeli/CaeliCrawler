@@ -57,12 +57,12 @@
           v-for="notification in notifications"
           :key="notification.id"
           :class="getUnreadClass(notification)"
-          @click="openNotification(notification)"
           class="mb-2 rounded"
           role="listitem"
           :aria-label="`${notification.title} - ${notification.read_at ? t('notifications.read') : t('notifications.unread')}`"
+          @click="openNotification(notification)"
         >
-          <template v-slot:prepend>
+          <template #prepend>
             <v-icon :color="getEventTypeColor(notification.event_type)" class="mr-3" aria-hidden="true">
               {{ getEventTypeIcon(notification.event_type) }}
             </v-icon>
@@ -84,7 +84,7 @@
             {{ notification.body.substring(0, 150) }}{{ notification.body.length > 150 ? '...' : '' }}
           </v-list-item-subtitle>
 
-          <template v-slot:append>
+          <template #append>
             <div class="text-caption text-right">
               <div>{{ formatDate(notification.created_at) }}</div>
               <v-chip size="x-small" :color="getChannelColor(notification.channel)" class="mt-1">

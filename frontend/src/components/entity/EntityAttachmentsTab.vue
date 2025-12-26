@@ -68,8 +68,8 @@
                 size="small"
                 variant="text"
                 color="primary"
-                @click="analyzeAttachment(att)"
                 :loading="analyzingIds.includes(att.id)"
+                @click="analyzeAttachment(att)"
               >
                 <v-icon>mdi-brain</v-icon>
                 <v-tooltip activator="parent">{{ t('entityDetail.attachments.analyze') }}</v-tooltip>
@@ -140,9 +140,9 @@
           <v-btn
             color="primary"
             variant="tonal"
-            @click="uploadFile"
             :loading="uploading"
             :disabled="!selectedFile"
+            @click="uploadFile"
           >
             {{ t('entityDetail.attachments.upload') }}
           </v-btn>
@@ -196,7 +196,7 @@
             </div>
 
             <!-- Facet Suggestions -->
-            <v-divider class="my-4" v-if="hasFacetSuggestions"></v-divider>
+            <v-divider v-if="hasFacetSuggestions" class="my-4"></v-divider>
             <div v-if="hasFacetSuggestions" class="mb-4">
               <h4 class="text-subtitle-2 mb-2 d-flex align-center">
                 <v-icon start size="small">mdi-lightbulb-on</v-icon>
@@ -276,8 +276,8 @@
             v-if="hasFacetSuggestions && selectedFacetIndices.length > 0"
             color="primary"
             variant="tonal"
-            @click="applySelectedFacets"
             :loading="applyingFacets"
+            @click="applySelectedFacets"
           >
             <v-icon start>mdi-check-all</v-icon>
             {{ t('entityDetail.attachments.applyFacets') }} ({{ selectedFacetIndices.length }})
@@ -298,7 +298,7 @@
           <v-btn variant="text" @click="deleteDialog = false">
             {{ t('common.cancel') }}
           </v-btn>
-          <v-btn color="error" variant="tonal" @click="deleteAttachment" :loading="deleting">
+          <v-btn color="error" variant="tonal" :loading="deleting" @click="deleteAttachment">
             {{ t('common.delete') }}
           </v-btn>
         </v-card-actions>
@@ -318,6 +318,16 @@ import { useI18n } from 'vue-i18n'
 import { attachmentApi } from '@/services/api'
 import { useStatusColors } from '@/composables'
 import { useLogger } from '@/composables/useLogger'
+import { getErrorMessage } from '@/composables/useApiErrorHandler'
+
+const props = defineProps<{
+  entityId: string
+}>()
+
+const emit = defineEmits<{
+  (e: 'attachments-changed'): void
+  (e: 'facets-applied'): void
+}>()
 
 const logger = useLogger('EntityAttachmentsTab')
 
@@ -325,7 +335,7 @@ interface FacetSuggestion {
   facet_type_id?: string
   facet_type_slug: string
   facet_type_name?: string
-  value: Record<string, any>
+  value: Record<string, unknown>
   text_representation?: string
   confidence?: number
   source_text?: string
@@ -350,15 +360,6 @@ interface Attachment {
   is_image: boolean
   is_pdf: boolean
 }
-
-const props = defineProps<{
-  entityId: string
-}>()
-
-const emit = defineEmits<{
-  (e: 'attachments-changed'): void
-  (e: 'facets-applied'): void
-}>()
 
 const { t } = useI18n()
 const { getStatusColor } = useStatusColors()
@@ -475,9 +476,9 @@ async function uploadFile() {
     await loadAttachments()
     emit('attachments-changed')
     showSnackbar(t('entityDetail.attachments.uploadSuccess'), 'success')
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Upload failed:', error)
-    showSnackbar(error.response?.data?.detail || t('entityDetail.attachments.uploadError'), 'error')
+    showSnackbar(getErrorMessage(error) || t('entityDetail.attachments.uploadError'), 'error')
   } finally {
     uploading.value = false
   }
@@ -494,9 +495,9 @@ async function onDrop(event: DragEvent) {
       await loadAttachments()
       emit('attachments-changed')
       showSnackbar(t('entityDetail.attachments.uploadSuccess'), 'success')
-    } catch (error: any) {
+    } catch (error) {
       logger.error('Upload failed:', error)
-      showSnackbar(error.response?.data?.detail || t('entityDetail.attachments.uploadError'), 'error')
+      showSnackbar(getErrorMessage(error) || t('entityDetail.attachments.uploadError'), 'error')
     } finally {
       uploading.value = false
     }
@@ -511,9 +512,9 @@ async function analyzeAttachment(att: Attachment) {
     // Update local status
     att.analysis_status = 'ANALYZING'
     showSnackbar(t('entityDetail.attachments.analysisStarted'), 'info')
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Analysis failed:', error)
-    showSnackbar(error.response?.data?.detail || t('entityDetail.attachments.analysisError'), 'error')
+    showSnackbar(getErrorMessage(error) || t('entityDetail.attachments.analysisError'), 'error')
   } finally {
     analyzingIds.value = analyzingIds.value.filter((id) => id !== att.id)
   }
@@ -556,9 +557,9 @@ async function applySelectedFacets() {
     analysisDialog.value = false
 
     emit('facets-applied')
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Apply facets failed:', error)
-    showSnackbar(error.response?.data?.detail || t('entityDetail.attachments.facetsApplyError'), 'error')
+    showSnackbar(getErrorMessage(error) || t('entityDetail.attachments.facetsApplyError'), 'error')
   } finally {
     applyingFacets.value = false
   }

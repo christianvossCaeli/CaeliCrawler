@@ -1,3 +1,102 @@
+<template>
+  <BaseWidget
+    :definition="definition"
+    :config="config"
+    :is-editing="isEditing"
+  >
+    <!-- Storage Error Alert -->
+    <v-alert
+      v-if="storageError"
+      type="warning"
+      density="compact"
+      variant="tonal"
+      class="mb-2"
+      closable
+      @click:close="storageError = null"
+    >
+      {{ storageError }}
+    </v-alert>
+
+    <v-list v-if="sortedSearches.length > 0" density="compact" class="searches-list" role="list">
+      <v-list-item
+        v-for="search in sortedSearches"
+        :key="search.id"
+        class="px-2 clickable-item"
+        :class="{ 'non-interactive': isEditing }"
+        role="button"
+        :tabindex="tabIndex"
+        :aria-label="search.query"
+        @click="navigateToSearch(search)"
+        @keydown="handleKeydownSearch($event, search)"
+      >
+        <template #prepend>
+          <v-icon
+            :icon="search.isPinned ? 'mdi-pin' : 'mdi-magnify'"
+            :color="search.isPinned ? 'primary' : undefined"
+            size="small"
+          />
+        </template>
+
+        <v-list-item-title class="text-body-2 text-truncate">
+          {{ search.query }}
+        </v-list-item-title>
+        <v-list-item-subtitle class="text-caption">
+          {{ formatTime(search.lastUsed) }}
+          <span v-if="search.useCount > 1" class="text-medium-emphasis ml-1">
+            ({{ search.useCount }}x)
+          </span>
+        </v-list-item-subtitle>
+
+        <template #append>
+          <div class="d-flex">
+            <v-btn
+              icon
+              size="x-small"
+              variant="text"
+              :color="search.isPinned ? 'primary' : undefined"
+              :aria-label="search.isPinned ? t('common.unpin') : t('common.pin')"
+              @click="togglePin(search, $event)"
+            >
+              <v-icon size="small">{{ search.isPinned ? 'mdi-pin-off' : 'mdi-pin' }}</v-icon>
+            </v-btn>
+            <v-btn
+              icon
+              size="x-small"
+              variant="text"
+              :aria-label="t('common.remove')"
+              @click="removeSearch(search, $event)"
+            >
+              <v-icon size="small">mdi-close</v-icon>
+            </v-btn>
+          </div>
+        </template>
+      </v-list-item>
+    </v-list>
+
+    <WidgetEmptyState
+      v-else
+      icon="mdi-magnify"
+      :message="t('dashboard.noSavedSearches')"
+      :hint="t('dashboard.savedSearchesHint')"
+    />
+
+    <!-- View All / New Search Link -->
+    <div
+      class="text-center mt-2 view-all-link"
+      :class="{ 'non-interactive': isEditing }"
+      role="button"
+      :tabindex="tabIndex"
+      :aria-label="t('dashboard.newSearch')"
+      @click="navigateToSearchPage"
+      @keydown="handleKeydownViewAll($event)"
+    >
+      <span class="text-caption text-primary">
+        {{ t('dashboard.newSearch') }}
+      </span>
+    </div>
+  </BaseWidget>
+</template>
+
 <script setup lang="ts">
 /**
  * SavedSearches Widget - Shows user's saved/recent searches
@@ -13,13 +112,13 @@ import WidgetEmptyState from './WidgetEmptyState.vue'
 import type { WidgetDefinition, WidgetConfig, SavedSearch } from '../types'
 import { MAX_SAVED_SEARCHES, WIDGET_DEFAULT_LIMIT } from '../types'
 
-const STORAGE_KEY = 'caeli-saved-searches'
-
 const props = defineProps<{
   definition: WidgetDefinition
   config?: WidgetConfig
   isEditing?: boolean
 }>()
+
+const STORAGE_KEY = 'caeli-saved-searches'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -230,105 +329,6 @@ const formatTime = (timestamp: string): string => {
   return t('common.daysAgo', { n: Math.floor(diff / 86400000) })
 }
 </script>
-
-<template>
-  <BaseWidget
-    :definition="definition"
-    :config="config"
-    :is-editing="isEditing"
-  >
-    <!-- Storage Error Alert -->
-    <v-alert
-      v-if="storageError"
-      type="warning"
-      density="compact"
-      variant="tonal"
-      class="mb-2"
-      closable
-      @click:close="storageError = null"
-    >
-      {{ storageError }}
-    </v-alert>
-
-    <v-list v-if="sortedSearches.length > 0" density="compact" class="searches-list" role="list">
-      <v-list-item
-        v-for="search in sortedSearches"
-        :key="search.id"
-        class="px-2 clickable-item"
-        :class="{ 'non-interactive': isEditing }"
-        role="button"
-        :tabindex="tabIndex"
-        :aria-label="search.query"
-        @click="navigateToSearch(search)"
-        @keydown="handleKeydownSearch($event, search)"
-      >
-        <template #prepend>
-          <v-icon
-            :icon="search.isPinned ? 'mdi-pin' : 'mdi-magnify'"
-            :color="search.isPinned ? 'primary' : undefined"
-            size="small"
-          />
-        </template>
-
-        <v-list-item-title class="text-body-2 text-truncate">
-          {{ search.query }}
-        </v-list-item-title>
-        <v-list-item-subtitle class="text-caption">
-          {{ formatTime(search.lastUsed) }}
-          <span v-if="search.useCount > 1" class="text-medium-emphasis ml-1">
-            ({{ search.useCount }}x)
-          </span>
-        </v-list-item-subtitle>
-
-        <template #append>
-          <div class="d-flex">
-            <v-btn
-              icon
-              size="x-small"
-              variant="text"
-              :color="search.isPinned ? 'primary' : undefined"
-              :aria-label="search.isPinned ? t('common.unpin') : t('common.pin')"
-              @click="togglePin(search, $event)"
-            >
-              <v-icon size="small">{{ search.isPinned ? 'mdi-pin-off' : 'mdi-pin' }}</v-icon>
-            </v-btn>
-            <v-btn
-              icon
-              size="x-small"
-              variant="text"
-              :aria-label="t('common.remove')"
-              @click="removeSearch(search, $event)"
-            >
-              <v-icon size="small">mdi-close</v-icon>
-            </v-btn>
-          </div>
-        </template>
-      </v-list-item>
-    </v-list>
-
-    <WidgetEmptyState
-      v-else
-      icon="mdi-magnify"
-      :message="t('dashboard.noSavedSearches')"
-      :hint="t('dashboard.savedSearchesHint')"
-    />
-
-    <!-- View All / New Search Link -->
-    <div
-      class="text-center mt-2 view-all-link"
-      :class="{ 'non-interactive': isEditing }"
-      role="button"
-      :tabindex="tabIndex"
-      :aria-label="t('dashboard.newSearch')"
-      @click="navigateToSearchPage"
-      @keydown="handleKeydownViewAll($event)"
-    >
-      <span class="text-caption text-primary">
-        {{ t('dashboard.newSearch') }}
-      </span>
-    </div>
-  </BaseWidget>
-</template>
 
 <style scoped>
 .searches-list {

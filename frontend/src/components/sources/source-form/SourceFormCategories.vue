@@ -9,7 +9,6 @@
       <div class="d-flex align-center">
         <v-select
           :model-value="categoryIds"
-          @update:model-value="$emit('update:categoryIds', $event)"
           :items="categories"
           item-title="name"
           item-value="id"
@@ -19,8 +18,9 @@
           class="flex-grow-1"
           variant="outlined"
           density="comfortable"
+          @update:model-value="$emit('update:categoryIds', $event)"
         >
-          <template v-slot:chip="{ item, index }">
+          <template #chip="{ item, index }">
             <v-chip
               :color="index === 0 ? 'primary' : 'default'"
               closable

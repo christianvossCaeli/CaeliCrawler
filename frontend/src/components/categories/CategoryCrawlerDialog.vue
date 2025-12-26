@@ -27,18 +27,17 @@
           <v-col cols="12" md="6">
             <v-text-field
               :model-value="filter.search"
-              @update:model-value="$emit('update:filter', { ...filter, search: $event })"
               :label="t('categories.crawler.search')"
               prepend-inner-icon="mdi-magnify"
               clearable
               density="comfortable"
               :hint="t('categories.crawler.searchHint')"
+              @update:model-value="$emit('update:filter', { ...filter, search: $event })"
             ></v-text-field>
           </v-col>
           <v-col cols="12" md="6">
             <v-number-input
               :model-value="filter.limit"
-              @update:model-value="$emit('update:filter', { ...filter, limit: $event })"
               :label="t('categories.crawler.maxLimit')"
               :min="1"
               :max="10000"
@@ -48,6 +47,7 @@
               :hint="t('categories.crawler.limitHint')"
               persistent-hint
               control-variant="stacked"
+              @update:model-value="$emit('update:filter', { ...filter, limit: $event })"
             ></v-number-input>
           </v-col>
         </v-row>
@@ -56,25 +56,25 @@
           <v-col cols="12" md="6">
             <v-select
               :model-value="filter.status"
-              @update:model-value="$emit('update:filter', { ...filter, status: $event })"
               :items="statusOptions"
               item-title="label"
               item-value="value"
               :label="t('categories.filters.status')"
               clearable
               density="comfortable"
+              @update:model-value="$emit('update:filter', { ...filter, status: $event })"
             ></v-select>
           </v-col>
           <v-col cols="12" md="6">
             <v-select
               :model-value="filter.source_type"
-              @update:model-value="$emit('update:filter', { ...filter, source_type: $event })"
               :items="sourceTypeOptions"
               item-title="label"
               item-value="value"
               :label="t('categories.crawler.typeFilter')"
               clearable
               density="comfortable"
+              @update:model-value="$emit('update:filter', { ...filter, source_type: $event })"
             ></v-select>
           </v-col>
         </v-row>

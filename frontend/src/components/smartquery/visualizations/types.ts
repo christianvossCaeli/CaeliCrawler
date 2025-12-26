@@ -54,7 +54,7 @@ export interface ChartSeries {
 
 export interface StatCard {
   label: string
-  value: any
+  value: unknown
   unit?: string
   trend?: 'up' | 'down' | 'stable'
   trend_value?: string
@@ -66,8 +66,8 @@ export interface ComparisonEntity {
   entity_id: string
   entity_name: string
   entity_type?: string
-  facets: Record<string, any>
-  core_attributes: Record<string, any>
+  facets: Record<string, unknown>
+  core_attributes: Record<string, unknown>
   tags?: string[]
 }
 
@@ -110,7 +110,7 @@ export interface SuggestedAction {
   label: string
   action: string
   icon?: string
-  params: Record<string, any>
+  params: Record<string, unknown>
   description?: string
 }
 
@@ -119,7 +119,7 @@ export interface QueryDataResponse {
   error?: string
   data_source: 'internal' | 'external_api'
   entity_type?: string
-  data: Record<string, any>[]
+  data: Record<string, unknown>[]
   total_count: number
   returned_count: number
   visualization?: VisualizationConfig
@@ -135,7 +135,7 @@ export interface VisualizationWithData {
   id: string
   title: string
   visualization?: VisualizationConfig
-  data: Record<string, any>[]
+  data: Record<string, unknown>[]
   source_info?: SourceInfo
   explanation?: string
 }
@@ -155,14 +155,14 @@ export interface CompoundQueryResponse {
  * Get a nested value from an object using dot notation
  * e.g., getNestedValue({ facets: { points: { value: 42 } } }, 'facets.points.value') => 42
  */
-export function getNestedValue(obj: Record<string, any>, path: string): any {
-  return path.split('.').reduce((acc, part) => acc?.[part], obj)
+export function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+  return path.split('.').reduce((acc: unknown, part) => (acc as Record<string, unknown>)?.[part], obj)
 }
 
 /**
  * Format a value based on column type
  */
-export function formatValue(value: any, type: ColumnType, format?: string): string {
+export function formatValue(value: unknown, type: ColumnType, format?: string): string {
   if (value === null || value === undefined) return '-'
 
   switch (type) {

@@ -1,3 +1,64 @@
+<template>
+  <BaseWidget
+    :definition="definition"
+    :config="config"
+    :is-editing="isEditing"
+    @refresh="refresh"
+  >
+    <div v-if="loading" class="d-flex justify-center py-6">
+      <v-progress-circular indeterminate size="32" />
+    </div>
+
+    <div v-else-if="items.length > 0" class="insights-list" role="list">
+      <v-card
+        v-for="(item, index) in items"
+        :key="index"
+        variant="tonal"
+        :color="getInsightColor(item.type)"
+        class="mb-2 insight-card"
+        :class="{
+          'clickable-card': item.link,
+          'non-interactive': isEditing
+        }"
+        :role="item.link ? 'button' : 'article'"
+        :tabindex="isClickable(item.link) ? 0 : -1"
+        :aria-label="item.title + ': ' + item.message + ' (' + item.count + ')'"
+        @click="navigateToLink(item.link)"
+        @keydown="handleKeydown($event, item.link)"
+      >
+        <v-card-text class="d-flex align-center py-2 px-3">
+          <v-icon
+            :icon="getInsightIcon(item.type)"
+            :color="getInsightColor(item.type)"
+            size="small"
+            class="mr-3"
+          />
+          <div class="flex-grow-1">
+            <div class="text-body-2 font-weight-medium">
+              {{ item.title }}
+            </div>
+            <div class="text-caption">
+              {{ item.message }}
+            </div>
+          </div>
+          <v-chip
+            :color="getInsightColor(item.type)"
+            size="small"
+            class="ml-2"
+          >
+            {{ item.count }}
+          </v-chip>
+        </v-card-text>
+      </v-card>
+    </div>
+
+    <div v-else class="text-center py-6 text-medium-emphasis">
+      <v-icon size="32" class="mb-2">mdi-check-circle</v-icon>
+      <div>{{ $t('dashboard.noNewInsights') }}</div>
+    </div>
+  </BaseWidget>
+</template>
+
 <script setup lang="ts">
 /**
  * InsightsWidget - Shows personalized insights for the user
@@ -76,67 +137,6 @@ const handleKeydown = (event: KeyboardEvent, link?: string) => {
   handleKeyboardClick(event, () => navigateToLink(link))
 }
 </script>
-
-<template>
-  <BaseWidget
-    :definition="definition"
-    :config="config"
-    :is-editing="isEditing"
-    @refresh="refresh"
-  >
-    <div v-if="loading" class="d-flex justify-center py-6">
-      <v-progress-circular indeterminate size="32" />
-    </div>
-
-    <div v-else-if="items.length > 0" class="insights-list" role="list">
-      <v-card
-        v-for="(item, index) in items"
-        :key="index"
-        variant="tonal"
-        :color="getInsightColor(item.type)"
-        class="mb-2 insight-card"
-        :class="{
-          'clickable-card': item.link,
-          'non-interactive': isEditing
-        }"
-        :role="item.link ? 'button' : 'article'"
-        :tabindex="isClickable(item.link) ? 0 : -1"
-        :aria-label="item.title + ': ' + item.message + ' (' + item.count + ')'"
-        @click="navigateToLink(item.link)"
-        @keydown="handleKeydown($event, item.link)"
-      >
-        <v-card-text class="d-flex align-center py-2 px-3">
-          <v-icon
-            :icon="getInsightIcon(item.type)"
-            :color="getInsightColor(item.type)"
-            size="small"
-            class="mr-3"
-          />
-          <div class="flex-grow-1">
-            <div class="text-body-2 font-weight-medium">
-              {{ item.title }}
-            </div>
-            <div class="text-caption">
-              {{ item.message }}
-            </div>
-          </div>
-          <v-chip
-            :color="getInsightColor(item.type)"
-            size="small"
-            class="ml-2"
-          >
-            {{ item.count }}
-          </v-chip>
-        </v-card-text>
-      </v-card>
-    </div>
-
-    <div v-else class="text-center py-6 text-medium-emphasis">
-      <v-icon size="32" class="mb-2">mdi-check-circle</v-icon>
-      <div>{{ $t('dashboard.noNewInsights') }}</div>
-    </div>
-  </BaseWidget>
-</template>
 
 <style scoped>
 .insights-list {

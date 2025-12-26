@@ -15,14 +15,14 @@
         <v-form ref="formRef" @submit.prevent="handleSave">
           <v-text-field
             :model-value="name"
-            @update:model-value="$emit('update:name', $event)"
             :label="t('entityDetail.dialog.name')"
             :rules="[v => !!v || t('entityDetail.dialog.nameRequired')]"
+            @update:model-value="$emit('update:name', $event)"
           ></v-text-field>
           <v-text-field
             :model-value="externalId"
-            @update:model-value="$emit('update:externalId', $event)"
             :label="t('entityDetail.dialog.externalId')"
+            @update:model-value="$emit('update:externalId', $event)"
           ></v-text-field>
         </v-form>
       </v-card-text>
@@ -44,9 +44,6 @@ import { useDialogFocus } from '@/composables'
 
 const modelValue = defineModel<boolean>({ default: false })
 
-// ARIA
-const dialogTitleId = `entity-edit-dialog-title-${Math.random().toString(36).slice(2, 9)}`
-
 // Props
 defineProps<{
   name: string
@@ -61,6 +58,9 @@ const emit = defineEmits<{
   'update:externalId': [value: string]
   save: []
 }>()
+
+// ARIA
+const dialogTitleId = `entity-edit-dialog-title-${Math.random().toString(36).slice(2, 9)}`
 
 const { t } = useI18n()
 const formRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)

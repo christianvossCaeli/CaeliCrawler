@@ -1,3 +1,32 @@
+<template>
+  <v-row class="dashboard-grid">
+    <v-col
+      v-for="widget in sortedWidgets"
+      :key="widget.id"
+      v-bind="getColProps(widget)"
+      class="widget-col"
+      :style="{ minHeight: getMinHeight(widget) }"
+    >
+      <WidgetRenderer :config="widget" :is-editing="isEditing" />
+    </v-col>
+
+    <!-- Empty State -->
+    <v-col v-if="sortedWidgets.length === 0" cols="12">
+      <v-card rounded="lg" class="pa-8 text-center">
+        <v-icon size="64" class="mb-4 text-disabled">
+          mdi-widgets-outline
+        </v-icon>
+        <div class="text-h6 text-medium-emphasis">
+          {{ $t('dashboard.noWidgets') }}
+        </div>
+        <div class="text-body-2 text-disabled mt-2">
+          {{ $t('dashboard.noWidgetsHint') }}
+        </div>
+      </v-card>
+    </v-col>
+  </v-row>
+</template>
+
 <script setup lang="ts">
 /**
  * DashboardGrid - Responsive grid layout for widgets
@@ -38,35 +67,6 @@ const getMinHeight = (widget: WidgetConfig) => {
   return `${widget.position.h * baseHeight}px`
 }
 </script>
-
-<template>
-  <v-row class="dashboard-grid">
-    <v-col
-      v-for="widget in sortedWidgets"
-      :key="widget.id"
-      v-bind="getColProps(widget)"
-      class="widget-col"
-      :style="{ minHeight: getMinHeight(widget) }"
-    >
-      <WidgetRenderer :config="widget" :is-editing="isEditing" />
-    </v-col>
-
-    <!-- Empty State -->
-    <v-col v-if="sortedWidgets.length === 0" cols="12">
-      <v-card rounded="lg" class="pa-8 text-center">
-        <v-icon size="64" class="mb-4 text-disabled">
-          mdi-widgets-outline
-        </v-icon>
-        <div class="text-h6 text-medium-emphasis">
-          {{ $t('dashboard.noWidgets') }}
-        </div>
-        <div class="text-body-2 text-disabled mt-2">
-          {{ $t('dashboard.noWidgetsHint') }}
-        </div>
-      </v-card>
-    </v-col>
-  </v-row>
-</template>
 
 <style scoped>
 .dashboard-grid {

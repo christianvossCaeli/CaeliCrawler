@@ -14,10 +14,11 @@
 import { test, expect } from '@playwright/test'
 import { LoginPage } from './pages/LoginPage'
 import { EntitiesPage } from './pages/EntitiesPage'
+import type { Page } from '@playwright/test'
 import { TEST_USERS, TIMEOUTS } from './fixtures/test-data'
 
 // Helper function to login before each test
-async function loginAsAdmin(page: any) {
+async function loginAsAdmin(page: Page) {
   const loginPage = new LoginPage(page)
   await loginPage.navigate()
   await loginPage.loginWithUserAndWait(TEST_USERS.admin)
@@ -105,9 +106,6 @@ test.describe('Entity Management', () => {
 
       const entitiesPage = new EntitiesPage(page)
       await entitiesPage.navigate()
-
-      // Get initial count
-      const initialCount = await entitiesPage.getEntityCardsCount()
 
       // Perform search
       await entitiesPage.search('Test')
@@ -288,10 +286,8 @@ test.describe('Entity Management', () => {
 
         // Verify detail page loaded
         await expect(page.locator('main, .v-main')).toBeVisible()
-      } else {
-        // No entities to test with
-        console.log('No entities available for testing entity details')
       }
+      // If no entities available, test passes - nothing to click
     })
 
     test('should load entity detail page directly via URL', async ({ page }) => {
@@ -409,9 +405,6 @@ test.describe('Entity Management', () => {
 
       const entitiesPage = new EntitiesPage(page)
       await entitiesPage.navigate()
-
-      // Get initial count
-      const initialCount = await entitiesPage.getEntityCount()
 
       // Apply search filter
       await entitiesPage.search('Test')

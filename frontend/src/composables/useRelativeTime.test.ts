@@ -7,7 +7,7 @@ import { useRelativeTime } from './useRelativeTime'
 // Mock vue-i18n
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
-    t: (key: string, params?: Record<string, any>) => {
+    t: (key: string, params?: Record<string, unknown>) => {
       // Simulate i18n translations
       const translations: Record<string, string> = {
         'summaries.time.justNow': 'just now',

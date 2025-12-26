@@ -24,7 +24,7 @@ defineProps<Props>()
 
 defineEmits<{
   'update:modelValue': [value: boolean]
-  'rerun': [commandText: string, interpretation: Record<string, any>]
+  'rerun': [commandText: string, interpretation: Record<string, unknown>]
 }>()
 </script>
 

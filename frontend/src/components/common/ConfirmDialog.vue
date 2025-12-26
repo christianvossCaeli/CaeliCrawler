@@ -38,9 +38,6 @@ import { useDialogFocus } from '@/composables'
 
 const modelValue = defineModel<boolean>({ default: false })
 
-// ARIA
-const dialogTitleId = `confirm-dialog-title-${Math.random().toString(36).slice(2, 9)}`
-
 withDefaults(defineProps<{
   title: string
   message: string
@@ -65,6 +62,9 @@ withDefaults(defineProps<{
 defineEmits<{
   confirm: []
 }>()
+
+// ARIA
+const dialogTitleId = `confirm-dialog-title-${Math.random().toString(36).slice(2, 9)}`
 
 // Focus management for accessibility
 useDialogFocus({ isOpen: modelValue })

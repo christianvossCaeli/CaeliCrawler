@@ -1,3 +1,75 @@
+<template>
+  <BaseWidget
+    :definition="definition"
+    :config="config"
+    :is-editing="isEditing"
+    @refresh="refresh"
+  >
+    <div v-if="loading" class="d-flex justify-center py-6">
+      <v-progress-circular indeterminate size="32" />
+    </div>
+
+    <v-list v-else-if="favorites.length > 0" density="compact" class="favorites-list" role="list">
+      <v-list-item
+        v-for="fav in favorites"
+        :key="fav.id"
+        class="px-2 clickable-item"
+        :class="{ 'non-interactive': isEditing }"
+        role="button"
+        :tabindex="isEditing ? -1 : 0"
+        :aria-label="fav.entity.name + ' - ' + fav.entity.entity_type_name"
+        @click="navigateToEntity(fav)"
+        @keydown="handleKeydownEntity($event, fav)"
+      >
+        <template #prepend>
+          <v-avatar
+            size="32"
+            :color="fav.entity.entity_type_color || 'grey'"
+            variant="tonal"
+          >
+            <v-icon
+              :icon="fav.entity.entity_type_icon || 'mdi-folder'"
+              size="small"
+            />
+          </v-avatar>
+        </template>
+
+        <v-list-item-title class="text-body-2">
+          {{ fav.entity.name }}
+        </v-list-item-title>
+        <v-list-item-subtitle class="text-caption">
+          {{ fav.entity.entity_type_name }}
+        </v-list-item-subtitle>
+
+        <template #append>
+          <v-icon icon="mdi-star" color="amber-darken-2" size="small" />
+        </template>
+      </v-list-item>
+
+      <v-list-item
+        v-if="hasMore"
+        class="px-2 clickable-item"
+        :class="{ 'non-interactive': isEditing }"
+        role="button"
+        :tabindex="isEditing ? -1 : 0"
+        :aria-label="t('favorites.showAll', { count: store.total })"
+        @click="navigateToFavorites"
+        @keydown="handleKeydownShowAll($event)"
+      >
+        <v-list-item-title class="text-body-2 text-primary">
+          {{ t('favorites.showAll', { count: store.total }) }}
+        </v-list-item-title>
+      </v-list-item>
+    </v-list>
+
+    <div v-else class="text-center py-6 text-medium-emphasis">
+      <v-icon size="32" class="mb-2">mdi-star-outline</v-icon>
+      <div>{{ t('favorites.noFavorites') }}</div>
+      <div class="text-caption mt-1">{{ t('favorites.noFavoritesHint') }}</div>
+    </div>
+  </BaseWidget>
+</template>
+
 <script setup lang="ts">
 /**
  * FavoritesWidget - Dashboard widget showing user's favorite entities
@@ -73,78 +145,6 @@ function handleKeydownShowAll(event: KeyboardEvent) {
   handleKeyboardClick(event, () => navigateToFavorites())
 }
 </script>
-
-<template>
-  <BaseWidget
-    :definition="definition"
-    :config="config"
-    :is-editing="isEditing"
-    @refresh="refresh"
-  >
-    <div v-if="loading" class="d-flex justify-center py-6">
-      <v-progress-circular indeterminate size="32" />
-    </div>
-
-    <v-list v-else-if="favorites.length > 0" density="compact" class="favorites-list" role="list">
-      <v-list-item
-        v-for="fav in favorites"
-        :key="fav.id"
-        class="px-2 clickable-item"
-        :class="{ 'non-interactive': isEditing }"
-        role="button"
-        :tabindex="isEditing ? -1 : 0"
-        :aria-label="fav.entity.name + ' - ' + fav.entity.entity_type_name"
-        @click="navigateToEntity(fav)"
-        @keydown="handleKeydownEntity($event, fav)"
-      >
-        <template #prepend>
-          <v-avatar
-            size="32"
-            :color="fav.entity.entity_type_color || 'grey'"
-            variant="tonal"
-          >
-            <v-icon
-              :icon="fav.entity.entity_type_icon || 'mdi-folder'"
-              size="small"
-            />
-          </v-avatar>
-        </template>
-
-        <v-list-item-title class="text-body-2">
-          {{ fav.entity.name }}
-        </v-list-item-title>
-        <v-list-item-subtitle class="text-caption">
-          {{ fav.entity.entity_type_name }}
-        </v-list-item-subtitle>
-
-        <template #append>
-          <v-icon icon="mdi-star" color="amber-darken-2" size="small" />
-        </template>
-      </v-list-item>
-
-      <v-list-item
-        v-if="hasMore"
-        class="px-2 clickable-item"
-        :class="{ 'non-interactive': isEditing }"
-        role="button"
-        :tabindex="isEditing ? -1 : 0"
-        :aria-label="t('favorites.showAll', { count: store.total })"
-        @click="navigateToFavorites"
-        @keydown="handleKeydownShowAll($event)"
-      >
-        <v-list-item-title class="text-body-2 text-primary">
-          {{ t('favorites.showAll', { count: store.total }) }}
-        </v-list-item-title>
-      </v-list-item>
-    </v-list>
-
-    <div v-else class="text-center py-6 text-medium-emphasis">
-      <v-icon size="32" class="mb-2">mdi-star-outline</v-icon>
-      <div>{{ t('favorites.noFavorites') }}</div>
-      <div class="text-caption mt-1">{{ t('favorites.noFavoritesHint') }}</div>
-    </div>
-  </BaseWidget>
-</template>
 
 <style scoped>
 .favorites-list {

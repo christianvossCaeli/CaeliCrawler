@@ -1,3 +1,81 @@
+<template>
+  <BaseWidget
+    :definition="definition"
+    :config="config"
+    :is-editing="isEditing"
+    @refresh="refresh"
+  >
+    <div v-if="loading" class="d-flex justify-center py-6">
+      <v-progress-circular indeterminate size="32" />
+    </div>
+
+    <v-timeline
+      v-else-if="items.length > 0"
+      density="compact"
+      side="end"
+      class="activity-timeline"
+    >
+      <v-timeline-item
+        v-for="item in items"
+        :key="item.id"
+        :dot-color="getActionColor(item.action)"
+        size="x-small"
+      >
+        <template #icon>
+          <v-icon :icon="getActionIcon(item.action)" size="x-small" />
+        </template>
+
+        <div
+          class="d-flex align-start activity-item"
+          :class="{
+            'clickable-item': isClickable(item),
+            'non-interactive': isEditing
+          }"
+          :role="isClickable(item) ? 'button' : undefined"
+          :tabindex="isClickable(item) && !isEditing ? 0 : -1"
+          :aria-label="item.message + ' - ' + formatTime(item.timestamp)"
+          @click="navigateToItem(item)"
+          @keydown="handleKeydownItem($event, item)"
+        >
+          <div class="flex-grow-1">
+            <div class="text-body-2">{{ item.message }}</div>
+            <div class="text-caption text-medium-emphasis">
+              {{ formatTime(item.timestamp) }}
+            </div>
+          </div>
+          <v-icon
+            v-if="isClickable(item)"
+            icon="mdi-chevron-right"
+            size="x-small"
+            class="text-medium-emphasis ml-1"
+          />
+        </div>
+      </v-timeline-item>
+    </v-timeline>
+
+    <div v-else class="text-center py-6 text-medium-emphasis">
+      <v-icon size="32" class="mb-2">mdi-history</v-icon>
+      <div>{{ $t('dashboard.noActivity') }}</div>
+    </div>
+
+    <!-- View All Link -->
+    <div
+      v-if="items.length > 0"
+      class="text-center mt-2 view-all-link"
+      :class="{ 'non-interactive': isEditing }"
+      role="button"
+      :tabindex="isEditing ? -1 : 0"
+      :aria-label="$t('common.viewAll')"
+      @click="navigateToAuditLog"
+      @keydown="handleKeydownAuditLog($event)"
+    >
+      <span class="text-caption text-primary">
+        {{ $t('common.viewAll') }}
+      </span>
+    </div>
+  </BaseWidget>
+</template>
+
 <script setup lang="ts">
 /**
  * ActivityFeed Widget - Shows recent system activity
@@ -119,84 +197,6 @@ const handleKeydownAuditLog = (event: KeyboardEvent) => {
   handleKeyboardClick(event, () => navigateToAuditLog())
 }
 </script>
-
-<template>
-  <BaseWidget
-    :definition="definition"
-    :config="config"
-    :is-editing="isEditing"
-    @refresh="refresh"
-  >
-    <div v-if="loading" class="d-flex justify-center py-6">
-      <v-progress-circular indeterminate size="32" />
-    </div>
-
-    <v-timeline
-      v-else-if="items.length > 0"
-      density="compact"
-      side="end"
-      class="activity-timeline"
-    >
-      <v-timeline-item
-        v-for="item in items"
-        :key="item.id"
-        :dot-color="getActionColor(item.action)"
-        size="x-small"
-      >
-        <template #icon>
-          <v-icon :icon="getActionIcon(item.action)" size="x-small" />
-        </template>
-
-        <div
-          class="d-flex align-start activity-item"
-          :class="{
-            'clickable-item': isClickable(item),
-            'non-interactive': isEditing
-          }"
-          :role="isClickable(item) ? 'button' : undefined"
-          :tabindex="isClickable(item) && !isEditing ? 0 : -1"
-          :aria-label="item.message + ' - ' + formatTime(item.timestamp)"
-          @click="navigateToItem(item)"
-          @keydown="handleKeydownItem($event, item)"
-        >
-          <div class="flex-grow-1">
-            <div class="text-body-2">{{ item.message }}</div>
-            <div class="text-caption text-medium-emphasis">
-              {{ formatTime(item.timestamp) }}
-            </div>
-          </div>
-          <v-icon
-            v-if="isClickable(item)"
-            icon="mdi-chevron-right"
-            size="x-small"
-            class="text-medium-emphasis ml-1"
-          />
-        </div>
-      </v-timeline-item>
-    </v-timeline>
-
-    <div v-else class="text-center py-6 text-medium-emphasis">
-      <v-icon size="32" class="mb-2">mdi-history</v-icon>
-      <div>{{ $t('dashboard.noActivity') }}</div>
-    </div>
-
-    <!-- View All Link -->
-    <div
-      v-if="items.length > 0"
-      class="text-center mt-2 view-all-link"
-      :class="{ 'non-interactive': isEditing }"
-      role="button"
-      :tabindex="isEditing ? -1 : 0"
-      :aria-label="$t('common.viewAll')"
-      @click="navigateToAuditLog"
-      @keydown="handleKeydownAuditLog($event)"
-    >
-      <span class="text-caption text-primary">
-        {{ $t('common.viewAll') }}
-      </span>
-    </div>
-  </BaseWidget>
-</template>
 
 <style scoped>
 .activity-timeline {

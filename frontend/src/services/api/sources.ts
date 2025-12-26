@@ -60,13 +60,13 @@ export const getApiImportTemplate = (templateId: string) => api.get(`/admin/api-
 export const previewApiImport = (data: {
   api_type: string
   api_url: string
-  params?: Record<string, any>
+  params?: Record<string, unknown>
   sample_size?: number
 }) => api.post('/admin/api-import/preview', data)
 export const executeApiImport = (data: {
   api_type: string
   api_url: string
-  params?: Record<string, any>
+  params?: Record<string, unknown>
   category_ids: string[]
   default_tags?: string[]
   field_mapping?: Record<string, string>
@@ -114,47 +114,12 @@ export const importApiData = (data: {
   skip_duplicates?: boolean
 }) => api.post('/admin/ai-discovery/import-api-data', data)
 
-// API Templates
-export const getApiTemplates = (params?: {
-  status?: 'ACTIVE' | 'INACTIVE' | 'FAILED' | 'PENDING'
-  api_type?: 'REST' | 'GRAPHQL' | 'SPARQL' | 'OPARL'
-  limit?: number
-  offset?: number
-}) => api.get('/admin/api-templates', { params })
-export const getApiTemplate = (id: string) => api.get(`/admin/api-templates/${id}`)
-export const createApiTemplate = (data: {
+// API Configurations (formerly API Templates)
+// Save discovered API as a new configuration
+export const saveApiFromDiscovery = (data: {
   name: string
   description?: string
-  api_type?: 'REST' | 'GRAPHQL' | 'SPARQL' | 'OPARL'
-  base_url: string
-  endpoint: string
-  documentation_url?: string
-  auth_required?: boolean
-  auth_config?: Record<string, any>
-  field_mapping?: Record<string, string>
-  keywords?: string[]
-  default_tags?: string[]
-}) => api.post('/admin/api-templates', data)
-export const updateApiTemplate = (id: string, data: {
-  name?: string
-  description?: string
-  api_type?: 'REST' | 'GRAPHQL' | 'SPARQL' | 'OPARL'
-  base_url?: string
-  endpoint?: string
-  documentation_url?: string
-  auth_required?: boolean
-  auth_config?: Record<string, any>
-  field_mapping?: Record<string, string>
-  keywords?: string[]
-  default_tags?: string[]
-  status?: 'ACTIVE' | 'INACTIVE' | 'FAILED' | 'PENDING'
-}) => api.put(`/admin/api-templates/${id}`, data)
-export const deleteApiTemplate = (id: string) => api.delete(`/admin/api-templates/${id}`)
-export const testApiTemplate = (id: string) => api.post(`/admin/api-templates/${id}/test`)
-export const saveApiTemplateFromDiscovery = (data: {
-  name: string
-  description?: string
-  api_type?: 'REST' | 'GRAPHQL' | 'SPARQL' | 'OPARL'
+  api_type?: string
   base_url: string
   endpoint: string
   documentation_url?: string
@@ -164,8 +129,7 @@ export const saveApiTemplateFromDiscovery = (data: {
   default_tags?: string[]
   confidence?: number
   validation_item_count?: number
-}) => api.post('/admin/api-templates/save-from-discovery', data)
-export const matchApiTemplates = (prompt: string) => api.get(`/admin/api-templates/match/${encodeURIComponent(prompt)}`)
+}) => api.post('/admin/external-apis/save-from-discovery', data)
 
 // External APIs
 export const listExternalApis = (params?: { is_active?: boolean; api_type?: string }) =>
@@ -178,15 +142,15 @@ export const createExternalApi = (data: {
   api_base_url: string
   api_endpoint?: string
   auth_type?: string
-  auth_config?: Record<string, any>
+  auth_config?: Record<string, unknown>
   sync_interval_hours?: number
   sync_enabled?: boolean
   entity_type_slug?: string
   id_field?: string
   name_field?: string
-  field_mappings?: Record<string, any>
+  field_mappings?: Record<string, unknown>
   location_fields?: Record<string, string>
-  request_config?: Record<string, any>
+  request_config?: Record<string, unknown>
   mark_missing_inactive?: boolean
   inactive_after_days?: number
   ai_linking_enabled?: boolean
@@ -199,16 +163,16 @@ export const updateExternalApi = (id: string, data: Partial<{
   api_base_url: string
   api_endpoint: string
   auth_type: string
-  auth_config: Record<string, any>
+  auth_config: Record<string, unknown>
   sync_interval_hours: number
   sync_enabled: boolean
   is_active: boolean
   entity_type_slug: string
   id_field: string
   name_field: string
-  field_mappings: Record<string, any>
+  field_mappings: Record<string, unknown>
   location_fields: Record<string, string>
-  request_config: Record<string, any>
+  request_config: Record<string, unknown>
   mark_missing_inactive: boolean
   inactive_after_days: number
   ai_linking_enabled: boolean

@@ -4,6 +4,17 @@ import { useLogger } from '@/composables/useLogger'
 
 const logger = useLogger('useNotifications')
 
+// Helper for type-safe error handling
+function getErrorDetail(err: unknown): string | undefined {
+  if (err && typeof err === 'object') {
+    const e = err as { response?: { data?: { detail?: string } }; message?: string }
+    if (e.response?.data?.detail) return e.response.data.detail
+    if (e.message) return e.message
+  }
+  if (err instanceof Error) return err.message
+  return undefined
+}
+
 // Types
 export interface Notification {
   id: string
@@ -25,8 +36,8 @@ export interface NotificationRule {
   description?: string
   event_type: string
   channel: string
-  conditions: Record<string, any>
-  channel_config: Record<string, any>
+  conditions: Record<string, unknown>
+  channel_config: Record<string, unknown>
   digest_enabled: boolean
   digest_frequency?: string
   is_active: boolean
@@ -99,8 +110,8 @@ export function useNotifications() {
       totalNotifications.value = response.data.total
       currentPage.value = response.data.page
       perPage.value = response.data.per_page
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || 'Fehler beim Laden der Benachrichtigungen'
+    } catch (e: unknown) {
+      error.value = getErrorDetail(e) || 'Fehler beim Laden der Benachrichtigungen'
       throw e
     } finally {
       loading.value = false
@@ -124,8 +135,8 @@ export function useNotifications() {
     try {
       const response = await notificationApi.getRules()
       rules.value = response.data
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || 'Fehler beim Laden der Regeln'
+    } catch (e: unknown) {
+      error.value = getErrorDetail(e) || 'Fehler beim Laden der Regeln'
       throw e
     } finally {
       loading.value = false
@@ -137,8 +148,8 @@ export function useNotifications() {
     try {
       const response = await notificationApi.getEmailAddresses()
       emailAddresses.value = response.data
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || 'Fehler beim Laden der Email-Adressen'
+    } catch (e: unknown) {
+      error.value = getErrorDetail(e) || 'Fehler beim Laden der Email-Adressen'
       throw e
     }
   }
@@ -177,8 +188,8 @@ export function useNotifications() {
         notification.status = 'READ'
         if (unreadCount.value > 0) unreadCount.value--
       }
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || 'Fehler beim Markieren als gelesen'
+    } catch (e: unknown) {
+      error.value = getErrorDetail(e) || 'Fehler beim Markieren als gelesen'
       throw e
     }
   }
@@ -194,8 +205,8 @@ export function useNotifications() {
         }
       })
       unreadCount.value = 0
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || 'Fehler beim Markieren aller als gelesen'
+    } catch (e: unknown) {
+      error.value = getErrorDetail(e) || 'Fehler beim Markieren aller als gelesen'
       throw e
     }
   }
@@ -207,8 +218,8 @@ export function useNotifications() {
       const response = await notificationApi.createRule(data)
       rules.value.unshift(response.data)
       return response.data
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || 'Fehler beim Erstellen der Regel'
+    } catch (e: unknown) {
+      error.value = getErrorDetail(e) || 'Fehler beim Erstellen der Regel'
       throw e
     } finally {
       loading.value = false
@@ -225,8 +236,8 @@ export function useNotifications() {
         rules.value[index] = response.data
       }
       return response.data
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || 'Fehler beim Aktualisieren der Regel'
+    } catch (e: unknown) {
+      error.value = getErrorDetail(e) || 'Fehler beim Aktualisieren der Regel'
       throw e
     } finally {
       loading.value = false
@@ -238,8 +249,8 @@ export function useNotifications() {
     try {
       await notificationApi.deleteRule(id)
       rules.value = rules.value.filter((r) => r.id !== id)
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || 'Fehler beim Loeschen der Regel'
+    } catch (e: unknown) {
+      error.value = getErrorDetail(e) || 'Fehler beim Loeschen der Regel'
       throw e
     }
   }
@@ -255,8 +266,8 @@ export function useNotifications() {
       const response = await notificationApi.addEmailAddress(data)
       emailAddresses.value.unshift(response.data)
       return response.data
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || 'Fehler beim Hinzufuegen der Email-Adresse'
+    } catch (e: unknown) {
+      error.value = getErrorDetail(e) || 'Fehler beim Hinzufuegen der Email-Adresse'
       throw e
     }
   }
@@ -266,8 +277,8 @@ export function useNotifications() {
     try {
       await notificationApi.deleteEmailAddress(id)
       emailAddresses.value = emailAddresses.value.filter((ea) => ea.id !== id)
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || 'Fehler beim Loeschen der Email-Adresse'
+    } catch (e: unknown) {
+      error.value = getErrorDetail(e) || 'Fehler beim Loeschen der Email-Adresse'
       throw e
     }
   }
@@ -278,19 +289,19 @@ export function useNotifications() {
       const response = await notificationApi.updatePreferences(data)
       preferences.value = response.data
       return response.data
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || 'Fehler beim Aktualisieren der Einstellungen'
+    } catch (e: unknown) {
+      error.value = getErrorDetail(e) || 'Fehler beim Aktualisieren der Einstellungen'
       throw e
     }
   }
 
   // Test webhook
-  const testWebhook = async (url: string, auth?: any) => {
+  const testWebhook = async (url: string, auth?: { type?: string; username?: string; password?: string; token?: string }) => {
     try {
       const response = await notificationApi.testWebhook({ url, auth })
       return response.data
-    } catch (e: any) {
-      error.value = e.response?.data?.detail || 'Fehler beim Testen des Webhooks'
+    } catch (e: unknown) {
+      error.value = getErrorDetail(e) || 'Fehler beim Testen des Webhooks'
       throw e
     }
   }

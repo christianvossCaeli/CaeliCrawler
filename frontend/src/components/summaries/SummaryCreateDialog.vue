@@ -121,8 +121,8 @@
       <v-card-actions>
         <v-btn
           variant="text"
-          @click="close"
           :disabled="isCreating"
+          @click="close"
         >
           {{ step === 3 ? t('common.close') : t('common.cancel') }}
         </v-btn>
@@ -159,14 +159,6 @@ import { useCustomSummariesStore } from '@/stores/customSummaries'
 import { useDialogFocus } from '@/composables'
 import { useLogger } from '@/composables/useLogger'
 
-const logger = useLogger('SummaryCreateDialog')
-
-const { t, tm } = useI18n()
-const store = useCustomSummariesStore()
-
-// ARIA
-const dialogTitleId = `summary-create-dialog-title-${Math.random().toString(36).slice(2, 9)}`
-
 const modelValue = defineModel<boolean>()
 
 const props = defineProps<{
@@ -176,6 +168,14 @@ const props = defineProps<{
 const emit = defineEmits<{
   created: [result: { id: string; name: string }]
 }>()
+
+const logger = useLogger('SummaryCreateDialog')
+
+const { t, tm } = useI18n()
+const store = useCustomSummariesStore()
+
+// ARIA
+const dialogTitleId = `summary-create-dialog-title-${Math.random().toString(36).slice(2, 9)}`
 
 // Focus management for accessibility
 useDialogFocus({ isOpen: modelValue })
@@ -188,7 +188,7 @@ const promptError = ref('')
 const interpretationResult = ref<{
   id: string
   name: string
-  interpretation: Record<string, any>
+  interpretation: Record<string, unknown>
   widgets_created: number
   message: string
 } | null>(null)

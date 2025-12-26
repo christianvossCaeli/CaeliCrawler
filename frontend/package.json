@@ -18,7 +18,7 @@
     "test:e2e:auth": "playwright test auth.spec.ts",
     "test:e2e:entities": "playwright test entities.spec.ts",
     "test:e2e:smart-query": "playwright test smart-query.spec.ts",
-    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
+    "lint": "eslint . --fix",
     "format": "prettier --write src/"
   },
   "dependencies": {

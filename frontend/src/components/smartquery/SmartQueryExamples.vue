@@ -12,9 +12,9 @@
         :key="example.question"
         class="example-card"
         :class="{ 'example-card--write': writeMode }"
-        @click="$emit('select', example.question)"
         hover
         variant="outlined"
+        @click="$emit('select', example.question)"
       >
         <v-card-text class="example-card-content pa-4">
           <div class="example-main">

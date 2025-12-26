@@ -1,7 +1,7 @@
 """Service for syncing API data to Facet values.
 
 This service fetches data from external APIs and updates FacetValueHistory
-entries for matched entities. It bridges the gap between the API discovery
+entries for matched entities. It bridges the gap between the API configuration
 system and the facet history system.
 """
 
@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Entity, EntityType, FacetType
-from app.models.api_template import APITemplate, TemplateStatus
+from app.models.api_configuration import APIConfiguration, AuthType, ImportMode, SyncStatus
 from app.models.facet_value import FacetValueSourceType
 from services.facet_history_service import FacetHistoryService
 from services.smart_query.api_fetcher import RESTAPIClient, FetchResult
@@ -62,16 +62,19 @@ class APIFacetSyncService:
 
     Example usage:
         service = APIFacetSyncService(session)
-        result = await service.sync_template(template)
+        result = await service.sync_config(config)
     """
 
     def __init__(self, session: AsyncSession):
         self.session = session
         self.history_service = FacetHistoryService(session)
 
-    async def sync_template(self, template: APITemplate) -> APIFacetSyncResult:
+    async def sync_config(self, config: APIConfiguration) -> APIFacetSyncResult:
         """
-        Execute a full sync for an API template.
+        Execute a full sync for an API configuration (facet mode).
+
+        This method is used for APIConfigurations with import_mode=FACETS or BOTH.
+        It fetches data from the API and updates facet values on matched entities.
 
         Steps:
         1. Fetch data from the API
@@ -79,7 +82,7 @@ class APIFacetSyncService:
         3. For each facet_mapping, create a history data point
 
         Args:
-            template: The APITemplate to sync
+            config: The APIConfiguration to sync
 
         Returns:
             APIFacetSyncResult with sync statistics
@@ -87,24 +90,27 @@ class APIFacetSyncService:
         result = APIFacetSyncResult()
 
         try:
-            # Validate template has facet_mapping
-            if not template.facet_mapping:
-                result.warnings.append("Template has no facet_mapping configured")
+            # Validate config has facet_mappings
+            if not config.facet_mappings:
+                result.warnings.append("Configuration has no facet_mappings configured")
                 return result
 
-            if not template.entity_matching:
-                result.warnings.append("Template has no entity_matching configured")
+            if not config.entity_matching:
+                result.warnings.append("Configuration has no entity_matching configured")
                 return result
+
+            # Get the full URL for logging
+            full_url = config.get_full_url()
 
             # Step 1: Fetch API data
             logger.info(
                 "api_facet_sync_starting",
-                template_id=str(template.id),
-                template_name=template.name,
-                api_url=template.full_url,
+                config_id=str(config.id),
+                data_source_id=str(config.data_source_id),
+                api_url=full_url,
             )
 
-            fetch_result = await self._fetch_api_data(template)
+            fetch_result = await self._fetch_api_data(config)
             if not fetch_result.success:
                 result.errors.append({
                     "stage": "fetch",
@@ -120,18 +126,23 @@ class APIFacetSyncService:
                 return result
 
             # Step 2: Get entity matching configuration
-            entity_matching = template.entity_matching
+            entity_matching = config.entity_matching
             match_by = entity_matching.get("match_by", "name")
             api_match_field = entity_matching.get("api_field", "name")
             entity_type_slug = entity_matching.get("entity_type_slug")
 
             # Step 3: Get facet mapping configuration
-            facet_mapping = template.facet_mapping
+            facet_mappings = config.facet_mappings
 
             # Pre-load facet types
-            facet_types_cache = await self._load_facet_types(
-                [m.get("facet_type_slug") for m in facet_mapping.values() if m.get("facet_type_slug")]
-            )
+            facet_type_slugs = []
+            for mapping in facet_mappings.values():
+                if isinstance(mapping, dict) and mapping.get("facet_type_slug"):
+                    facet_type_slugs.append(mapping["facet_type_slug"])
+                elif isinstance(mapping, str):
+                    facet_type_slugs.append(mapping)
+
+            facet_types_cache = await self._load_facet_types(facet_type_slugs)
 
             # Step 4: Process each record
             for record in fetch_result.items:
@@ -168,9 +179,9 @@ class APIFacetSyncService:
                     sync_counts = await self._sync_facets_for_entity(
                         entity=entity,
                         record=record,
-                        facet_mapping=facet_mapping,
+                        facet_mappings=facet_mappings,
                         facet_types_cache=facet_types_cache,
-                        source_url=template.full_url,
+                        source_url=full_url,
                     )
 
                     result.history_points_added += sync_counts["history_points"]
@@ -189,19 +200,17 @@ class APIFacetSyncService:
                         record=record.get(api_match_field),
                     )
 
-            # Update template statistics
-            template.last_sync_at = datetime.now(timezone.utc)
-            template.last_sync_status = "success" if not result.errors else "partial"
-            template.last_sync_stats = result.to_dict()
-            template.usage_count += 1
-            template.last_used = datetime.now(timezone.utc)
+            # Update config statistics
+            config.last_sync_at = datetime.now(timezone.utc)
+            config.last_sync_status = SyncStatus.SUCCESS.value if not result.errors else SyncStatus.PARTIAL.value
+            config.last_sync_stats = result.to_dict()
 
             await self.session.flush()
             result.success = True
 
             logger.info(
                 "api_facet_sync_completed",
-                template_id=str(template.id),
+                config_id=str(config.id),
                 records_fetched=result.records_fetched,
                 entities_matched=result.entities_matched,
                 history_points_added=result.history_points_added,
@@ -210,26 +219,36 @@ class APIFacetSyncService:
         except Exception as e:
             logger.exception(
                 "api_facet_sync_failed",
-                template_id=str(template.id),
+                config_id=str(config.id),
                 error=str(e),
             )
             result.errors.append({
                 "stage": "sync",
                 "error": str(e),
             })
-            template.last_sync_status = "failed"
+            config.last_sync_status = SyncStatus.FAILED.value
 
         return result
 
-    async def _fetch_api_data(self, template: APITemplate) -> FetchResult:
-        """Fetch data from the API configured in the template."""
+    async def _fetch_api_data(self, config: APIConfiguration) -> FetchResult:
+        """Fetch data from the API configured in the configuration."""
+        # Get base URL from data source
+        base_url = ""
+        if config.data_source:
+            base_url = config.data_source.base_url or ""
+
+        # Determine if auth is required
+        auth_config = None
+        if config.auth_type != AuthType.NONE.value:
+            auth_config = config.auth_config
+
         client = RESTAPIClient(
-            base_url=template.base_url,
-            auth_config=template.auth_config if template.auth_required else None,
+            base_url=base_url,
+            auth_config=auth_config,
         )
 
         try:
-            return await client.fetch(endpoint=template.endpoint)
+            return await client.fetch(endpoint=config.endpoint)
         finally:
             await client.close()
 
@@ -294,7 +313,7 @@ class APIFacetSyncService:
         self,
         entity: Entity,
         record: Dict[str, Any],
-        facet_mapping: Dict[str, Any],
+        facet_mappings: Dict[str, Any],
         facet_types_cache: Dict[str, FacetType],
         source_url: str,
     ) -> Dict[str, int]:
@@ -304,7 +323,7 @@ class APIFacetSyncService:
         Args:
             entity: The entity to update
             record: The API record data
-            facet_mapping: Mapping from API fields to facet types
+            facet_mappings: Mapping from API fields to facet types
             facet_types_cache: Pre-loaded facet types
             source_url: URL of the source API
 
@@ -313,12 +332,21 @@ class APIFacetSyncService:
         """
         counts = {"history_points": 0, "created": 0, "updated": 0}
 
-        for api_field, mapping_config in facet_mapping.items():
+        for api_field, mapping_config in facet_mappings.items():
             api_value = record.get(api_field)
             if api_value is None:
                 continue
 
-            facet_type_slug = mapping_config.get("facet_type_slug")
+            # Handle both string and dict config formats
+            if isinstance(mapping_config, str):
+                facet_type_slug = mapping_config
+                track_key = "default"
+                is_history = True
+            else:
+                facet_type_slug = mapping_config.get("facet_type_slug")
+                track_key = mapping_config.get("track_key", "default")
+                is_history = mapping_config.get("is_history", True)
+
             if not facet_type_slug:
                 continue
 
@@ -330,9 +358,6 @@ class APIFacetSyncService:
                     entity=entity.name,
                 )
                 continue
-
-            track_key = mapping_config.get("track_key", "default")
-            is_history = mapping_config.get("is_history", True)
 
             # Only process history facets for now
             if facet_type.value_type == "history" and is_history:
@@ -366,29 +391,47 @@ class APIFacetSyncService:
 
         return counts
 
-    async def sync_template_by_id(self, template_id: UUID) -> APIFacetSyncResult:
+    async def sync_config_by_id(self, config_id: UUID) -> APIFacetSyncResult:
         """
-        Sync a template by its ID.
+        Sync a configuration by its ID.
 
         Args:
-            template_id: The template UUID
+            config_id: The configuration UUID
 
         Returns:
             APIFacetSyncResult
         """
-        template = await self.session.get(APITemplate, template_id)
+        config = await self.session.get(APIConfiguration, config_id)
 
-        if not template:
+        if not config:
             result = APIFacetSyncResult()
-            result.errors.append({"stage": "load", "error": "Template not found"})
+            result.errors.append({"stage": "load", "error": "Configuration not found"})
             return result
 
-        if template.status != TemplateStatus.ACTIVE:
+        if not config.is_active:
             result = APIFacetSyncResult()
             result.errors.append({
                 "stage": "validate",
-                "error": f"Template not active (status: {template.status.value})",
+                "error": "Configuration is not active",
             })
             return result
 
-        return await self.sync_template(template)
+        # Verify this config is meant for facet sync
+        if config.import_mode not in [ImportMode.FACETS.value, ImportMode.BOTH.value]:
+            result = APIFacetSyncResult()
+            result.errors.append({
+                "stage": "validate",
+                "error": f"Configuration import_mode is {config.import_mode}, expected 'facets' or 'both'",
+            })
+            return result
+
+        return await self.sync_config(config)
+
+    # Keep backward compatibility aliases
+    async def sync_template(self, config: APIConfiguration) -> APIFacetSyncResult:
+        """Backward compatibility alias for sync_config."""
+        return await self.sync_config(config)
+
+    async def sync_template_by_id(self, config_id: UUID) -> APIFacetSyncResult:
+        """Backward compatibility alias for sync_config_by_id."""
+        return await self.sync_config_by_id(config_id)

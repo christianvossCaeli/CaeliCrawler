@@ -34,8 +34,8 @@
             primary-color="#deeec6"
             secondary-color="#92a0ff"
             animation-style="combined"
-            :show-glow="true"
-            :show-glass-background="true"
+            show-glow
+            show-glass-background
           />
         </div>
 
@@ -48,7 +48,7 @@
 
         <!-- Login Card -->
         <div class="login-card" :class="{ 'animate-in': isLoaded }">
-          <v-form @submit.prevent="handleLogin" ref="formRef">
+          <v-form ref="formRef" @submit.prevent="handleLogin">
             <!-- Email Field -->
             <div class="input-group">
               <label for="email-input" class="input-label">{{ $t('auth.email') }}</label>
@@ -168,16 +168,22 @@ const errorMessage = ref<string | null>(null)
 // Computed
 const currentYear = computed(() => new Date().getFullYear())
 
+// Email validation regex (basic but effective)
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+const isEmailValid = computed(() => emailRegex.test(email.value))
+
 const isFormValid = computed(() => {
-  return email.value.length > 0 && password.value.length > 0
+  return isEmailValid.value && password.value.length > 0
 })
 
-// Particle style generator
-function getParticleStyle(_index: number) {
-  const size = 2 + Math.random() * 4
-  const left = Math.random() * 100
-  const delay = Math.random() * 5
-  const duration = 5 + Math.random() * 5
+// Particle style generator - uses index for deterministic, varied positions
+function getParticleStyle(index: number) {
+  // Use index-based seeded values for consistent particle appearance
+  const size = 2 + ((index * 7) % 5)
+  const left = ((index * 17) % 100)
+  const delay = ((index * 3) % 5)
+  const duration = 5 + ((index * 11) % 5)
 
   return {
     width: `${size}px`,

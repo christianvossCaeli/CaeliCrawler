@@ -239,8 +239,12 @@ class SummaryExecutor:
             # Calculate data hash for change detection
             data_hash = self._calculate_data_hash(cached_data)
 
-            # Check for changes
-            has_changes = summary.last_data_hash != data_hash
+            # Check for changes (only if there was a previous execution)
+            # First execution has no "changes" because there's nothing to compare to
+            has_changes = (
+                summary.last_data_hash is not None
+                and summary.last_data_hash != data_hash
+            )
 
             # Relevance check (if enabled and not forced)
             if summary.check_relevance and not force and has_changes:
@@ -745,7 +749,11 @@ class SummaryExecutor:
         return truncated_data
 
     def _calculate_data_hash(self, data: Dict[str, Any]) -> str:
-        """Calculate SHA256 hash of data for change detection."""
+        """Calculate SHA256 hash of data for change detection.
+
+        Excludes non-deterministic fields like query_time_ms that change
+        on every execution even when the actual data is the same.
+        """
 
         def consistent_json_encoder(obj: Any) -> Any:
             """Encode objects consistently for deterministic hashing."""
@@ -765,8 +773,23 @@ class SummaryExecutor:
                 return str(type(obj).__name__)
             return str(obj)
 
+        def remove_non_deterministic_fields(obj: Any) -> Any:
+            """Remove fields that change on every execution."""
+            if isinstance(obj, dict):
+                return {
+                    k: remove_non_deterministic_fields(v)
+                    for k, v in obj.items()
+                    if k not in ("query_time_ms", "executed_at", "cached_at")
+                }
+            elif isinstance(obj, list):
+                return [remove_non_deterministic_fields(item) for item in obj]
+            return obj
+
+        # Remove non-deterministic fields before hashing
+        cleaned_data = remove_non_deterministic_fields(data)
+
         # Sort keys for deterministic hashing
-        json_str = json.dumps(data, sort_keys=True, default=consistent_json_encoder)
+        json_str = json.dumps(cleaned_data, sort_keys=True, default=consistent_json_encoder)
         return hashlib.sha256(json_str.encode()).hexdigest()
 
     def _calculate_duration(self, execution: SummaryExecution) -> int:

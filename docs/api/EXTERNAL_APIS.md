@@ -139,7 +139,7 @@ DELETE /admin/external-apis/{config_id}
 
 **Response:** `204 No Content`
 
-**Hinweis:** Loescht auch alle Sync-Records. Entities bleiben erhalten, aber ihr `external_source_id` wird auf NULL gesetzt.
+**Hinweis:** Loescht auch alle Sync-Records. Entities bleiben erhalten, aber ihr `api_configuration_id` wird auf NULL gesetzt.
 
 ---
 
@@ -295,8 +295,55 @@ GET /admin/external-apis/types/available
 
 **Response:**
 ```json
-["wikidata", "oparl", "custom", "govdata"]
+["wikidata", "oparl", "custom", "govdata", "rest", "auction"]
 ```
+
+---
+
+### Verfuegbare Import-Modi
+
+```http
+GET /admin/external-apis/import-modes/available
+```
+
+**Response:**
+```json
+["entities", "facets", "both"]
+```
+
+---
+
+### Von AI-Discovery speichern
+
+Speichert eine durch AI-Discovery gefundene API als neue APIConfiguration.
+
+```http
+POST /admin/external-apis/save-from-discovery
+```
+
+**Request Body:**
+```json
+{
+  "name": "OpenLigaDB Bundesliga",
+  "description": "Via AI-Discovery erstellt",
+  "api_type": "rest",
+  "base_url": "https://api.openligadb.de",
+  "endpoint": "/getbltable/bl1/2024",
+  "documentation_url": "https://api.openligadb.de",
+  "auth_required": false,
+  "field_mapping": {
+    "teamName": "name",
+    "points": "points"
+  },
+  "keywords": ["bundesliga", "fußball", "tabelle"],
+  "default_tags": ["sport"],
+  "confidence": 0.9
+}
+```
+
+**Response:** `201 Created` mit erstellter APIConfiguration
+
+**Hinweis:** Erstellt automatisch eine DataSource und verknuepfte APIConfiguration mit `is_template=true`.
 
 ---
 
@@ -333,4 +380,15 @@ GET /admin/external-apis/types/available
 
 ---
 
-**Letzte Aktualisierung:** 2025-12-21
+**Letzte Aktualisierung:** 2025-12-25
+
+---
+
+## Architektur-Hinweis
+
+Ab Version 2025-12 nutzt das System das vereinheitlichte `APIConfiguration`-Modell, das die frueheren `ExternalAPIConfig` und `APITemplate` Modelle zusammenfuehrt. Jede APIConfiguration ist zwingend mit einer `DataSource` verknuepft.
+
+**Import-Modi:**
+- `entities`: Erstellt/aktualisiert Entities aus API-Daten
+- `facets`: Aktualisiert nur Facet-Werte auf bestehenden Entities
+- `both`: Kombiniert beide Modi

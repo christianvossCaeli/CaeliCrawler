@@ -162,7 +162,7 @@ const props = defineProps<CategoryEditFormProps>()
 const emit = defineEmits<CategoryEditFormEmits>()
 
 const activeTab = ref('general')
-const form = ref<any>(null)
+const form = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
 const updateFormData = (data: Partial<CategoryFormData>) => {
   emit('update:formData', {

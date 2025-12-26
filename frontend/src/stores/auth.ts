@@ -6,10 +6,20 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
 
 const logger = useLogger('AuthStore')
+
+// Helper for type-safe error handling
+function getErrorDetail(err: unknown): string | undefined {
+  if (err && typeof err === 'object') {
+    const e = err as { response?: { data?: { detail?: string } } }
+    return e.response?.data?.detail
+  }
+  return undefined
+}
 
 // Types
 export type UserRole = 'VIEWER' | 'EDITOR' | 'ADMIN'
@@ -41,12 +51,15 @@ const REFRESH_TOKEN_KEY = 'caeli_refresh_token'
 const TOKEN_EXPIRY_KEY = 'caeli_token_expiry'
 
 export const useAuthStore = defineStore('auth', () => {
+  // i18n for error messages
+  const { t } = useI18n()
+
   // State
   const user = ref<User | null>(null)
   const token = ref<string | null>(localStorage.getItem(TOKEN_KEY))
   const refreshToken = ref<string | null>(localStorage.getItem(REFRESH_TOKEN_KEY))
   const tokenExpiry = ref<number | null>(
-    localStorage.getItem(TOKEN_EXPIRY_KEY) ? parseInt(localStorage.getItem(TOKEN_EXPIRY_KEY)!) : null
+    localStorage.getItem(TOKEN_EXPIRY_KEY) ? parseInt(localStorage.getItem(TOKEN_EXPIRY_KEY) || '0') : null
   )
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -107,8 +120,8 @@ export const useAuthStore = defineStore('auth', () => {
       setAuthHeader(response.data.access_token)
 
       return true
-    } catch (err: any) {
-      error.value = err.response?.data?.detail || 'Login fehlgeschlagen'
+    } catch (err: unknown) {
+      error.value = getErrorDetail(err) || t('common.loginFailed')
       return false
     } finally {
       isLoading.value = false
@@ -142,8 +155,9 @@ export const useAuthStore = defineStore('auth', () => {
       setAuthHeader(response.data.access_token)
 
       return true
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Refresh token is invalid, log out
+      logger.warn('Token refresh failed', err)
       await logout()
       return false
     } finally {
@@ -219,10 +233,10 @@ export const useAuthStore = defineStore('auth', () => {
         new_password: newPassword,
       })
       return { success: true }
-    } catch (err: any) {
+    } catch (err: unknown) {
       return {
         success: false,
-        error: err.response?.data?.detail || 'Passwortänderung fehlgeschlagen',
+        error: getErrorDetail(err) || t('common.passwordChangeError'),
       }
     }
   }

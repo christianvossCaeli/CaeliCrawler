@@ -22,7 +22,7 @@
               :key="idx"
               :title="detail"
             >
-              <template v-slot:prepend>
+              <template #prepend>
                 <v-icon size="small" color="primary">mdi-check</v-icon>
               </template>
             </v-list-item>

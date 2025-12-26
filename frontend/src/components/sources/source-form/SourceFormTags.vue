@@ -7,7 +7,6 @@
     <v-card-text>
       <v-combobox
         :model-value="tags"
-        @update:model-value="$emit('update:tags', $event)"
         :items="suggestions"
         :label="$t('sources.form.tagsLabel')"
         :hint="$t('sources.form.tagsHint')"
@@ -18,6 +17,7 @@
         variant="outlined"
         density="comfortable"
         prepend-inner-icon="mdi-tag"
+        @update:model-value="$emit('update:tags', $event)"
       >
         <template #chip="{ props, item }">
           <v-chip

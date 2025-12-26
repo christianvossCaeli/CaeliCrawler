@@ -29,7 +29,7 @@ import { useI18n } from 'vue-i18n'
 
 interface Props {
   viewMode: 'table' | 'cards' | 'map'
-  currentEntityType: any
+  currentEntityType: { slug?: string; name?: string; icon?: string; color?: string } | null
   hasGeoData: boolean
 }
 

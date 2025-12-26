@@ -22,11 +22,11 @@
             variant="tonal"
             show-tooltip
           />
-          <v-btn variant="tonal" @click="$emit('openNotes')" :title="t('entityDetail.notes')">
+          <v-btn variant="tonal" :title="t('entityDetail.notes')" @click="$emit('openNotes')">
             <v-icon>mdi-note-text</v-icon>
             <v-badge v-if="notesCount" :content="notesCount" color="primary" floating></v-badge>
           </v-btn>
-          <v-btn variant="tonal" @click="$emit('openExport')" :title="t('entityDetail.export')">
+          <v-btn variant="tonal" :title="t('entityDetail.export')" @click="$emit('openExport')">
             <v-icon>mdi-export</v-icon>
           </v-btn>
           <v-btn variant="outlined" @click="$emit('openEdit')">
@@ -34,8 +34,8 @@
             {{ t('entityDetail.edit') }}
           </v-btn>
           <v-menu>
-            <template v-slot:activator="{ props }">
-              <v-btn variant="tonal" color="primary" v-bind="props">
+            <template #activator="{ props: activatorProps }">
+              <v-btn variant="tonal" color="primary" v-bind="activatorProps">
                 <v-icon start>mdi-plus</v-icon>
                 {{ t('entityDetail.addFacet') }}
                 <v-icon end>mdi-chevron-down</v-icon>
@@ -47,17 +47,17 @@
                 :key="facetGroup.facet_type_id"
                 @click="$emit('addFacetValue', facetGroup)"
               >
-                <template v-slot:prepend>
+                <template #prepend>
                   <v-icon :icon="facetGroup.facet_type_icon" :color="facetGroup.facet_type_color" size="small"></v-icon>
                 </template>
                 <v-list-item-title>{{ facetGroup.facet_type_name }}</v-list-item-title>
-                <template v-slot:append>
+                <template #append>
                   <v-chip size="x-small" variant="text">{{ facetGroup.value_count }}</v-chip>
                 </template>
               </v-list-item>
               <v-divider v-if="facetGroups?.length" class="my-1"></v-divider>
               <v-list-item @click="$emit('addFacet')">
-                <template v-slot:prepend>
+                <template #prepend>
                   <v-icon icon="mdi-tag-plus" color="grey" size="small"></v-icon>
                 </template>
                 <v-list-item-title class="text-medium-emphasis">{{ t('entities.facet.title') }}</v-list-item-title>

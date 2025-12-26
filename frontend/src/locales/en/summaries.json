@@ -114,6 +114,24 @@
     "widgetUpdateSuccess": "Widget updated",
     "widgetRemoveSuccess": "Widget removed",
 
+    "columnConfig": {
+      "title": "Configure Columns",
+      "subtitle": "Select the columns to display and adjust their order and labels.",
+      "sectionTitle": "Column Configuration",
+      "configure": "Configure Columns",
+      "columnsConfigured": "{count} columns configured",
+      "autoDetect": "Auto-detect",
+      "noColumns": "No columns available",
+      "resetDefault": "Reset",
+      "selectAll": "All",
+      "deselectAll": "None",
+      "sortable": "Sortable",
+      "width": "Width",
+      "columns": {
+        "name": "Name"
+      }
+    },
+
     "createDialog": {
       "title": "Create New Summary",
       "step1": "Describe your summary",
@@ -201,6 +219,13 @@
     "backToList": "Back to list",
     "refresh": "Refresh",
     "forceRefresh": "Force refresh",
+    "checkUpdates": "Check for updates",
+    "checkUpdatesTitle": "Checking for updates",
+    "checkUpdatesCompleted": "Check completed, summary updated",
+    "checkUpdatesFailed": "Error checking for updates",
+    "of": "of",
+    "sourcesChecked": "sources checked",
+    "currentlyChecking": "Currently checking",
     "editLayout": "Edit layout",
     "doneEditing": "Done",
     "share": "Share",

@@ -4,6 +4,7 @@
  * Handles blob creation, download triggering, and cleanup to prevent memory leaks.
  */
 
+/* eslint-disable no-control-regex -- Intentional: sanitize control characters in filenames */
 import { ref } from 'vue'
 
 export function useFileDownload() {
@@ -21,7 +22,8 @@ export function useFileDownload() {
       isDownloading.value = true
       downloadError.value = null
 
-      // Sanitize filename - remove dangerous characters
+      // Sanitize filename - remove dangerous characters (including control chars \x00-\x1f)
+       
       const safeFilename = filename
         .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
         .slice(0, 200)

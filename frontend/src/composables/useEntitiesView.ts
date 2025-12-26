@@ -7,6 +7,33 @@ import { useSnackbar } from '@/composables/useSnackbar'
 import { useFeatureFlags } from '@/composables/useFeatureFlags'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import { useLogger } from '@/composables/useLogger'
+import type { Entity } from '@/types/entity'
+
+// Local interfaces for API responses
+interface UserResponse {
+  id: string
+  full_name: string
+  email: string
+}
+
+interface VFormRef {
+  validate: () => Promise<{ valid: boolean }> | boolean
+}
+
+interface EntityTemplate {
+  id: string
+  name: string
+  fields?: Record<string, unknown>
+}
+
+// Helper for type-safe error handling
+function getErrorDetail(err: unknown): string | undefined {
+  if (err && typeof err === 'object') {
+    const e = err as { response?: { data?: { detail?: string } } }
+    return e.response?.data?.detail
+  }
+  return undefined
+}
 
 export interface EntityFilters {
   category_id: string | null
@@ -19,7 +46,7 @@ export interface EntityForm {
   name: string
   external_id: string
   parent_id: string | null
-  core_attributes: Record<string, any>
+  core_attributes: Record<string, unknown>
   latitude: number | null
   longitude: number | null
   owner_id: string | null
@@ -68,10 +95,10 @@ export function useEntitiesView() {
   const hasGeoData = ref(false)
 
   // Data
-  const categories = ref<any[]>([])
-  const parentOptions = ref<any[]>([])
+  const categories = ref<{ id: string; name: string }[]>([])
+  const parentOptions = ref<{ id: string; name: string }[]>([])
   const loadingParents = ref(false)
-  const userOptions = ref<any[]>([])
+  const userOptions = ref<{ id: string; display: string; full_name?: string; email?: string }[]>([])
   const loadingUsers = ref(false)
 
   // Dialogs
@@ -80,8 +107,8 @@ export function useEntitiesView() {
   const deleteDialog = ref(false)
   const extendedFilterDialog = ref(false)
   const entityTab = ref('general')
-  const editingEntity = ref<any>(null)
-  const entityToDelete = ref<any>(null)
+  const editingEntity = ref<Entity | null>(null)
+  const entityToDelete = ref<Entity | null>(null)
   const saving = ref(false)
   const deleting = ref(false)
 
@@ -205,7 +232,7 @@ export function useEntitiesView() {
 
     loading.value = true
     try {
-      const params: any = {
+      const params: Record<string, unknown> = {
         entity_type_slug: currentEntityType.value.slug,
         page,
         per_page: itemsPerPage.value,
@@ -284,7 +311,7 @@ export function useEntitiesView() {
     loadingUsers.value = true
     try {
       const response = await userApi.getUsers({ per_page: 100, is_active: true })
-      userOptions.value = (response.data.items || []).map((u: any) => ({
+      userOptions.value = (response.data.items || []).map((u: UserResponse) => ({
         id: u.id,
         full_name: u.full_name,
         email: u.email,
@@ -320,7 +347,7 @@ export function useEntitiesView() {
       loadingParents.value = true
       try {
         const response = await store.fetchEntities({
-          entity_type_slug: currentEntityType.value!.slug,
+          entity_type_slug: currentEntityType.value?.slug || '',
           search: query || undefined,
           per_page: 50,
         })
@@ -385,7 +412,7 @@ export function useEntitiesView() {
 
   async function loadLocationOptions() {
     try {
-      const params: any = {}
+      const params: Record<string, unknown> = {}
       if (tempExtendedFilters.value.country) {
         params.country = tempExtendedFilters.value.country
       }
@@ -405,7 +432,7 @@ export function useEntitiesView() {
   }
 
   // Methods - Entity Actions
-  async function saveEntity(formRef: any) {
+  async function saveEntity(formRef: VFormRef | null) {
     if (!formRef?.validate()) return
     if (!currentEntityType.value) return
 
@@ -414,12 +441,10 @@ export function useEntitiesView() {
       const data = {
         entity_type_id: currentEntityType.value.id,
         name: entityForm.value.name,
-        external_id: entityForm.value.external_id || null,
-        parent_id: entityForm.value.parent_id,
-        core_attributes: entityForm.value.core_attributes,
-        latitude: entityForm.value.latitude,
-        longitude: entityForm.value.longitude,
-        owner_id: entityForm.value.owner_id,
+        parent_id: entityForm.value.parent_id ?? undefined,
+        attributes: entityForm.value.core_attributes,
+        latitude: entityForm.value.latitude ?? undefined,
+        longitude: entityForm.value.longitude ?? undefined,
       }
 
       if (editingEntity.value) {
@@ -432,8 +457,8 @@ export function useEntitiesView() {
 
       closeDialog()
       await loadEntities()
-    } catch (e: any) {
-      showError(e.response?.data?.detail || t('entities.saveError'))
+    } catch (e: unknown) {
+      showError(getErrorDetail(e) || t('entities.saveError'))
     } finally {
       saving.value = false
     }
@@ -449,8 +474,8 @@ export function useEntitiesView() {
       deleteDialog.value = false
       entityToDelete.value = null
       await loadEntities()
-    } catch (e: any) {
-      const detail = e.response?.data?.detail || t('entities.deleteError')
+    } catch (e: unknown) {
+      const detail = getErrorDetail(e) || t('entities.deleteError')
       showError(detail)
     } finally {
       deleting.value = false
@@ -458,7 +483,7 @@ export function useEntitiesView() {
   }
 
   // Methods - Dialog Management
-  function openEditDialog(entity: any) {
+  function openEditDialog(entity: Entity) {
     editingEntity.value = entity
     entityForm.value = {
       name: entity.name,
@@ -486,12 +511,12 @@ export function useEntitiesView() {
     }
   }
 
-  function confirmDelete(entity: any) {
+  function confirmDelete(entity: Entity) {
     entityToDelete.value = entity
     deleteDialog.value = true
   }
 
-  function selectTemplate(template: any) {
+  function selectTemplate(template: EntityTemplate) {
     store.selectedTemplate = template
     templateDialog.value = false
     loadEntities()
@@ -559,7 +584,7 @@ export function useEntitiesView() {
     return luminance > 0.6
   }
 
-  function getTopFacetCounts(_entity: any): Array<{ slug: string; name: string; icon: string; color: string; count: number }> {
+  function getTopFacetCounts(_entity: Entity): Array<{ slug: string; name: string; icon: string; color: string; count: number }> {
     return []
   }
 

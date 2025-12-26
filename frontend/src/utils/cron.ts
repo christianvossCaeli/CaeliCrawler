@@ -8,8 +8,8 @@ import 'cronstrue/locales/de'
 
 export const DEFAULT_SCHEDULE_TIMEZONE = 'Europe/Berlin'
 
-const CRON_FIELD_PATTERN = /^[A-Za-z0-9*\/,\-?#]+$/
-const SIMPLE_FIELD_PATTERN = /^[0-9*,/\-]+$/
+const CRON_FIELD_PATTERN = /^[A-Za-z0-9*/,?#-]+$/
+const SIMPLE_FIELD_PATTERN = /^[0-9*,/-]+$/
 const ADVANCED_TOKEN_PATTERN = /[A-Za-z?#]/i
 
 function splitCronExpression(

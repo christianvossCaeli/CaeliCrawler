@@ -22,6 +22,7 @@ from pgvector.sqlalchemy import Vector
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.api_configuration import APIConfiguration
     from app.models.entity_attachment import EntityAttachment
     from app.models.entity_relation import EntityRelation
     from app.models.entity_type import EntityType
@@ -29,7 +30,6 @@ if TYPE_CHECKING:
     from app.models.reminder import Reminder
     from app.models.user import User
     from app.models.user_favorite import UserFavorite
-    from external_apis.models.external_api_config import ExternalAPIConfig
 
 
 class Entity(Base):
@@ -192,18 +192,18 @@ class Entity(Base):
         comment="User who owns/is responsible for this entity",
     )
 
-    # External API sync tracking
+    # API sync tracking
     last_seen_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
-        comment="When this entity was last seen in external API sync",
+        comment="When this entity was last seen in API sync",
     )
-    external_source_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    api_configuration_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("external_api_configs.id", ondelete="SET NULL"),
+        ForeignKey("api_configurations.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
-        comment="ExternalAPIConfig that created/manages this entity",
+        comment="APIConfiguration that created/manages this entity",
     )
 
     # Timestamps
@@ -277,11 +277,11 @@ class Entity(Base):
         cascade="all, delete-orphan",
         order_by="EntityAttachment.created_at.desc()",
     )
-    # External API source that manages this entity
-    external_source: Mapped[Optional["ExternalAPIConfig"]] = relationship(
-        "ExternalAPIConfig",
+    # API configuration that manages this entity
+    api_source: Mapped[Optional["APIConfiguration"]] = relationship(
+        "APIConfiguration",
         back_populates="managed_entities",
-        foreign_keys=[external_source_id],
+        foreign_keys=[api_configuration_id],
     )
     # Users who favorited this entity
     favorited_by: Mapped[List["UserFavorite"]] = relationship(

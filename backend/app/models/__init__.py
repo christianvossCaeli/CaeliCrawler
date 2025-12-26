@@ -65,8 +65,14 @@ from app.models.user_favorite import UserFavorite
 # Smart Query History
 from app.models.smart_query_operation import SmartQueryOperation, OperationType
 
-# API Templates (KI-First Discovery)
-from app.models.api_template import APITemplate, APIType, TemplateStatus
+# API Configuration (unified API integration)
+from app.models.api_configuration import (
+    APIConfiguration,
+    APIType,
+    AuthType,
+    ImportMode,
+    SyncStatus,
+)
 
 # Crawl Presets
 from app.models.crawl_preset import CrawlPreset, PresetStatus
@@ -77,8 +83,7 @@ from app.models.summary_widget import SummaryWidget, SummaryWidgetType
 from app.models.summary_execution import SummaryExecution, ExecutionStatus
 from app.models.summary_share import SummaryShare
 
-# External API Integration
-from external_apis.models.external_api_config import ExternalAPIConfig, AuthType, SyncStatus
+# Sync Records (for API synchronization tracking)
 from external_apis.models.sync_record import SyncRecord, RecordStatus
 
 __all__ = [
@@ -160,10 +165,12 @@ __all__ = [
     # Smart Query History
     "SmartQueryOperation",
     "OperationType",
-    # API Templates (KI-First Discovery)
-    "APITemplate",
+    # API Configuration (unified API integration)
+    "APIConfiguration",
     "APIType",
-    "TemplateStatus",
+    "AuthType",
+    "ImportMode",
+    "SyncStatus",
     # Crawl Presets
     "CrawlPreset",
     "PresetStatus",
@@ -176,10 +183,7 @@ __all__ = [
     "SummaryExecution",
     "ExecutionStatus",
     "SummaryShare",
-    # External API Integration
-    "ExternalAPIConfig",
-    "AuthType",
-    "SyncStatus",
+    # Sync Records
     "SyncRecord",
     "RecordStatus",
 ]

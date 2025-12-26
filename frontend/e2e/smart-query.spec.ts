@@ -12,12 +12,13 @@
  */
 
 import { test, expect } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import { LoginPage } from './pages/LoginPage'
 import { SmartQueryPage } from './pages/SmartQueryPage'
-import { TEST_USERS, TEST_QUERIES, TIMEOUTS } from './fixtures/test-data'
+import { TEST_USERS, TEST_QUERIES } from './fixtures/test-data'
 
 // Helper function to login before each test
-async function loginAsAdmin(page: any) {
+async function loginAsAdmin(page: Page) {
   const loginPage = new LoginPage(page)
   await loginPage.navigate()
   await loginPage.loginWithUserAndWait(TEST_USERS.admin)
@@ -249,7 +250,7 @@ test.describe('Smart Query', () => {
 
       // Check for loading state (might be fast)
       try {
-        const isLoading = await smartQueryPage.isLoading()
+        await smartQueryPage.isLoading()
         // Loading state may or may not be visible depending on speed
       } catch {
         // Loading might be too fast to catch

@@ -38,13 +38,13 @@
           @click.stop="$emit('toggle-favorite')"
         />
         <v-menu location="bottom end">
-          <template #activator="{ props }">
+          <template #activator="{ props: activatorProps }">
             <v-btn
               icon="mdi-dots-vertical"
               variant="text"
               size="small"
               :aria-label="t('summaries.moreActions')"
-              v-bind="props"
+              v-bind="activatorProps"
               @click.stop
             />
           </template>
@@ -152,15 +152,10 @@ import { useRelativeTime } from '@/composables/useRelativeTime'
 import { capitalize } from '@/composables/useStringUtils'
 import { useStatusColors } from '@/composables'
 
-const { t } = useI18n()
-const { formatRelativeTime } = useRelativeTime()
-const { getStatusColor } = useStatusColors()
-
 const props = defineProps<{
   summary: CustomSummary
   isExecuting?: boolean
 }>()
-
 defineEmits<{
   click: []
   execute: []
@@ -169,6 +164,9 @@ defineEmits<{
   delete: []
   share: []
 }>()
+const { t } = useI18n()
+const { formatRelativeTime } = useRelativeTime()
+const { getStatusColor } = useStatusColors()
 
 // Use centralized status colors
 const statusColor = computed(() => getStatusColor(props.summary.status))

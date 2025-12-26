@@ -20,7 +20,7 @@
         variant="tonal"
         class="mb-3"
       >
-        <template v-slot:prepend>
+        <template #prepend>
           <v-icon>mdi-alert</v-icon>
         </template>
         {{ t('assistant.deleteWarning') }}
@@ -34,7 +34,7 @@
         variant="tonal"
         class="mb-3"
       >
-        <template v-slot:prepend>
+        <template #prepend>
           <v-icon>mdi-history</v-icon>
         </template>
         {{ t('assistant.undoInfo') }}
@@ -51,7 +51,7 @@
           :key="field"
           class="px-0"
         >
-          <template v-slot:prepend>
+          <template #prepend>
             <v-icon size="small" :color="changeIconColor">{{ changeIcon }}</v-icon>
           </template>
           <v-list-item-title class="text-body-2">
@@ -139,8 +139,6 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-const { t } = useI18n()
-
 const props = defineProps<{
   message: string
   action: {
@@ -148,7 +146,7 @@ const props = defineProps<{
     target_id?: string
     target_name?: string
     target_type?: string
-    changes?: Record<string, { from: any; to: any }>
+    changes?: Record<string, { from: unknown; to: unknown }>
     // Delete-specific fields
     delete_target?: string
     delete_count?: number
@@ -165,6 +163,8 @@ defineEmits<{
   confirm: []
   cancel: []
 }>()
+
+const { t } = useI18n()
 
 // Computed properties for different operation types
 const isDeleteOperation = computed(() =>

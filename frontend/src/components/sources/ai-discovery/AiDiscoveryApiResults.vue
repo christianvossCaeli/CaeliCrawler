@@ -59,10 +59,10 @@
       <v-card-actions>
         <v-checkbox
           :model-value="isSelected(index)"
-          @update:model-value="toggleSelection(index, $event)"
           :label="$t('sources.aiDiscovery.selectForImport')"
           density="compact"
           hide-details
+          @update:model-value="toggleSelection(index, $event)"
         ></v-checkbox>
         <v-spacer />
         <v-btn

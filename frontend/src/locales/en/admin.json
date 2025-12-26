@@ -380,6 +380,69 @@
       "itemCount": "Item Count",
       "sampleData": "Sample Data"
     },
+    "externalApis": {
+      "title": "External APIs",
+      "subtitle": "Manage API connections for automatic data import",
+      "filters": {
+        "search": "Search",
+        "apiType": "API Type",
+        "status": "Status"
+      },
+      "columns": {
+        "name": "Name",
+        "entityType": "Entity Type",
+        "status": "Status",
+        "syncStatus": "Sync Status",
+        "lastSync": "Last Sync"
+      },
+      "form": {
+        "name": "Name",
+        "description": "Description",
+        "apiType": "API Type",
+        "baseUrl": "Base URL",
+        "endpoint": "Endpoint",
+        "entityType": "Entity Type",
+        "syncInterval": "Sync Interval (hours)",
+        "syncIntervalHint": "0 = manual only",
+        "syncEnabled": "Auto-sync enabled",
+        "idField": "ID Field",
+        "idFieldHint": "Field in API response used as ID",
+        "nameField": "Name Field",
+        "nameFieldHint": "Field in API response used as name"
+      },
+      "actions": {
+        "create": "New API Connection",
+        "sync": "Sync Now",
+        "test": "Test Connection"
+      },
+      "dialog": {
+        "createTitle": "New API Connection",
+        "editTitle": "Edit API Connection",
+        "deleteTitle": "Delete API Connection?",
+        "deleteConfirm": "Do you really want to delete \"{name}\"? Linked entities will not be deleted."
+      },
+      "detail": {
+        "entities": "Entities",
+        "activeRecords": "Active Records",
+        "missingRecords": "Missing Records",
+        "archivedRecords": "Archived Records",
+        "linkedEntities": "Linked Entities"
+      },
+      "messages": {
+        "created": "API connection created",
+        "updated": "API connection updated",
+        "deleted": "API connection deleted",
+        "syncStarted": "Sync started",
+        "saveError": "Error saving",
+        "deleteError": "Error deleting",
+        "syncError": "Error starting sync"
+      },
+      "active": "Active",
+      "inactive": "Inactive",
+      "neverSynced": "Never synced",
+      "never": "Never",
+      "manualOnly": "Manual only"
+    },
     "crawlPresets": {
       "title": "Crawl Presets",
       "create": "New Preset",

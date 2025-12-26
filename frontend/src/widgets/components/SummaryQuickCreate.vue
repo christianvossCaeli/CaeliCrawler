@@ -1,100 +1,3 @@
-<script setup lang="ts">
-/**
- * SummaryQuickCreate Widget - Quick creation of custom summaries from dashboard
- */
-
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useI18n } from 'vue-i18n'
-import { useCustomSummariesStore } from '@/stores/customSummaries'
-import BaseWidget from '../BaseWidget.vue'
-import type { WidgetDefinition, WidgetConfig } from '../types'
-
-const props = defineProps<{
-  definition: WidgetDefinition
-  config?: WidgetConfig
-  isEditing?: boolean
-}>()
-
-const { t } = useI18n()
-const router = useRouter()
-const store = useCustomSummariesStore()
-
-/** Prompt length constraints */
-const MIN_PROMPT_LENGTH = 10
-const MAX_PROMPT_LENGTH = 2000
-
-const prompt = ref('')
-const creating = ref(false)
-const error = ref<string | null>(null)
-const success = ref<{ id: string; name: string } | null>(null)
-
-const isEditMode = computed(() => props.isEditing ?? false)
-
-const examplePrompts = [
-  'dashboard.summaryExamples.topEntities',
-  'dashboard.summaryExamples.recentChanges',
-  'dashboard.summaryExamples.dataOverview',
-]
-
-const createSummary = async () => {
-  if (!prompt.value.trim() || creating.value || isEditMode.value) return
-
-  const trimmedLength = prompt.value.trim().length
-  if (trimmedLength < MIN_PROMPT_LENGTH) {
-    error.value = t('summaries.promptTooShort', { min: MIN_PROMPT_LENGTH })
-    return
-  }
-  if (trimmedLength > MAX_PROMPT_LENGTH) {
-    error.value = t('summaries.promptTooLong', { max: MAX_PROMPT_LENGTH })
-    return
-  }
-
-  creating.value = true
-  error.value = null
-  success.value = null
-
-  try {
-    const result = await store.createFromPrompt({
-      prompt: prompt.value.trim(),
-    })
-
-    if (result) {
-      success.value = { id: result.id, name: result.name }
-      prompt.value = ''
-    } else {
-      error.value = store.error || t('summaries.createError')
-    }
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : t('summaries.createError')
-  } finally {
-    creating.value = false
-  }
-}
-
-const handleKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Enter' && !event.shiftKey) {
-    event.preventDefault()
-    createSummary()
-  }
-}
-
-const openSummary = () => {
-  if (success.value) {
-    router.push({ path: `/summaries/${success.value.id}` })
-  }
-}
-
-const useExample = (exampleKey: string) => {
-  if (isEditMode.value) return
-  prompt.value = t(exampleKey)
-}
-
-const clearSuccess = () => {
-  success.value = null
-}
-</script>
-
 <template>
   <BaseWidget
     :definition="definition"
@@ -191,6 +94,103 @@ const clearSuccess = () => {
     </div>
   </BaseWidget>
 </template>
+
+<script setup lang="ts">
+/**
+ * SummaryQuickCreate Widget - Quick creation of custom summaries from dashboard
+ */
+
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { useCustomSummariesStore } from '@/stores/customSummaries'
+import BaseWidget from '../BaseWidget.vue'
+import type { WidgetDefinition, WidgetConfig } from '../types'
+
+const props = defineProps<{
+  definition: WidgetDefinition
+  config?: WidgetConfig
+  isEditing?: boolean
+}>()
+
+const { t } = useI18n()
+const router = useRouter()
+const store = useCustomSummariesStore()
+
+/** Prompt length constraints */
+const MIN_PROMPT_LENGTH = 10
+const MAX_PROMPT_LENGTH = 2000
+
+const prompt = ref('')
+const creating = ref(false)
+const error = ref<string | null>(null)
+const success = ref<{ id: string; name: string } | null>(null)
+
+const isEditMode = computed(() => props.isEditing ?? false)
+
+const examplePrompts = [
+  'dashboard.summaryExamples.topEntities',
+  'dashboard.summaryExamples.recentChanges',
+  'dashboard.summaryExamples.dataOverview',
+]
+
+const createSummary = async () => {
+  if (!prompt.value.trim() || creating.value || isEditMode.value) return
+
+  const trimmedLength = prompt.value.trim().length
+  if (trimmedLength < MIN_PROMPT_LENGTH) {
+    error.value = t('summaries.promptTooShort', { min: MIN_PROMPT_LENGTH })
+    return
+  }
+  if (trimmedLength > MAX_PROMPT_LENGTH) {
+    error.value = t('summaries.promptTooLong', { max: MAX_PROMPT_LENGTH })
+    return
+  }
+
+  creating.value = true
+  error.value = null
+  success.value = null
+
+  try {
+    const result = await store.createFromPrompt({
+      prompt: prompt.value.trim(),
+    })
+
+    if (result) {
+      success.value = { id: result.id, name: result.name }
+      prompt.value = ''
+    } else {
+      error.value = store.error || t('summaries.createError')
+    }
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : t('summaries.createError')
+  } finally {
+    creating.value = false
+  }
+}
+
+const handleKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault()
+    createSummary()
+  }
+}
+
+const openSummary = () => {
+  if (success.value) {
+    router.push({ path: `/summaries/${success.value.id}` })
+  }
+}
+
+const useExample = (exampleKey: string) => {
+  if (isEditMode.value) return
+  prompt.value = t(exampleKey)
+}
+
+const clearSuccess = () => {
+  success.value = null
+}
+</script>
 
 <style scoped>
 .quick-create-content {

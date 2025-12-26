@@ -390,7 +390,7 @@ class QueryExternalConfig(BaseModel):
     """Configuration for query_external operation."""
     # Drei Optionen für API-Auswahl
     prompt: Optional[str] = Field(None, description="Freitext für KI-API-Suche")
-    api_template_id: Optional[str] = Field(None, description="Spezifisches API-Template")
+    api_configuration_id: Optional[str] = Field(None, description="Spezifische API-Konfiguration")
     api_url: Optional[str] = Field(None, description="Direkte API-URL")
 
     # Optionale Speicherung

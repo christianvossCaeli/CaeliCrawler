@@ -2,7 +2,7 @@
   <div class="table-actions d-flex justify-end ga-1" role="group" :aria-label="$t('sources.actions.rowActions')">
     <!-- Edit Button -->
     <v-tooltip location="top" :text="$t('common.edit')">
-      <template v-slot:activator="{ props: tooltipProps }">
+      <template #activator="{ props: tooltipProps }">
         <v-btn
           v-bind="tooltipProps"
           icon="mdi-pencil"
@@ -16,7 +16,7 @@
 
     <!-- Start Crawl Button -->
     <v-tooltip location="top" :text="$t('sources.actions.startCrawl')">
-      <template v-slot:activator="{ props: tooltipProps }">
+      <template #activator="{ props: tooltipProps }">
         <v-btn
           v-bind="tooltipProps"
           :icon="isStarting ? undefined : 'mdi-play'"
@@ -34,7 +34,7 @@
 
     <!-- Reset Button (only for ERROR status) -->
     <v-tooltip v-if="source.status === 'ERROR'" location="top" :text="$t('sources.actions.reset')">
-      <template v-slot:activator="{ props: tooltipProps }">
+      <template #activator="{ props: tooltipProps }">
         <v-btn
           v-bind="tooltipProps"
           :icon="isResetting ? undefined : 'mdi-refresh'"
@@ -52,7 +52,7 @@
 
     <!-- Delete Button -->
     <v-tooltip location="top" :text="$t('common.delete')">
-      <template v-slot:activator="{ props: tooltipProps }">
+      <template #activator="{ props: tooltipProps }">
         <v-btn
           v-bind="tooltipProps"
           icon="mdi-delete"

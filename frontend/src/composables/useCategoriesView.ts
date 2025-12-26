@@ -49,10 +49,20 @@ export interface CategoryFilters {
   language: string | null
 }
 
+export interface CategorySource {
+  id: string
+  name: string
+  status?: string
+  source_type?: string
+  base_url?: string
+  last_crawled_at?: string
+  is_assigned?: boolean
+}
+
 export interface DataSourcesTabState {
   selectedTags: string[]
   matchMode: 'all' | 'any'
-  foundSources: any[]
+  foundSources: CategorySource[]
   loading: boolean
   assigning: boolean
   availableTags: string[]
@@ -82,7 +92,7 @@ export function useCategoriesView() {
   const loading = ref(false)
   const categories = ref<Category[]>([])
   const selectedCategory = ref<Category | null>(null)
-  const categorySources = ref<any[]>([])
+  const categorySources = ref<CategorySource[]>([])
   const categorySourcesLoading = ref(false)
 
   // Filters
@@ -327,7 +337,7 @@ export function useCategoryCrawler() {
     if (!selectedCategoryForCrawler.value) return
 
     try {
-      const params: any = {
+      const params: Record<string, unknown> = {
         category_id: selectedCategoryForCrawler.value.id,
         per_page: 1,
       }
@@ -392,7 +402,7 @@ export function useCategoryCrawler() {
 
     startingCrawler.value = true
     try {
-      const params: any = {
+      const params: Record<string, unknown> = {
         category_id: selectedCategoryForCrawler.value.id,
       }
       if (crawlerFilter.value.search) params.search = crawlerFilter.value.search
@@ -458,7 +468,7 @@ export function useCategoryDataSources() {
     }
   }
 
-  const searchSourcesByTags = async (categoryId: string, assignedSources: any[]) => {
+  const searchSourcesByTags = async (categoryId: string, assignedSources: CategorySource[]) => {
     if (!dataSourcesTab.value.selectedTags.length) {
       dataSourcesTab.value.foundSources = []
       return
@@ -474,7 +484,7 @@ export function useCategoryDataSources() {
       })
 
       const assignedSourceIds = new Set(assignedSources.map(s => s.id))
-      dataSourcesTab.value.foundSources = response.data.map((source: any) => ({
+      dataSourcesTab.value.foundSources = response.data.map((source: CategorySource) => ({
         ...source,
         is_assigned: assignedSourceIds.has(source.id),
       }))

@@ -41,7 +41,7 @@ import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
   activeTab: string
-  facetsSummary: any
+  facetsSummary: { facets_by_type?: Array<{ facet_type_id: string; count: number }> } | null
   totalConnectionsCount: number
   dataSourcesCount: number
   attachmentCount: number

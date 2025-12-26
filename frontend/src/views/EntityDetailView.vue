@@ -84,6 +84,9 @@
           :data-sources="dataSources"
           :loading="loadingDataSources"
           :starting-crawl-id="startingCrawl"
+          :api-configuration-id="entity?.api_configuration_id"
+          :external-source-name="entity?.external_source_name"
+          :external-id="entity?.external_id"
           @link-source="linkDataSourceDialog = true"
           @edit-source="openEditSourceDialog"
           @start-crawl="dataSourceHandlers.startCrawl"
@@ -214,10 +217,10 @@
     <!-- Data Source Management Dialogs -->
     <EntityDataSourceManager
       v-if="entity"
-      :entity-id="entity.id"
       v-model:show-edit-dialog="editSourceDialog"
       v-model:show-delete-dialog="deleteSourceConfirm"
       v-model:show-unlink-dialog="unlinkSourceConfirm"
+      :entity-id="entity.id"
       :source-to-edit="editingSource"
       :source-to-delete="sourceToDelete"
       :source-to-unlink="sourceToUnlink"
@@ -229,10 +232,10 @@
     <!-- PySis Enrichment Dialogs -->
     <EntityPysisEnrichmentDialog
       v-if="entity"
-      :entity-id="entity.id"
-      :entity-name="entity.name"
       v-model:show-dialog="showEnrichFromPysisDialog"
       v-model:overwrite="enrichPysisOverwrite"
+      :entity-id="entity.id"
+      :entity-name="entity.name"
       @enrichment-completed="onPysisEnrichmentCompleted"
     />
 
@@ -254,7 +257,7 @@
       color="info"
       location="bottom end"
     >
-      <div class="d-flex align-center" @click="enrichmentHandlers.reopenEnrichmentReview" style="cursor: pointer">
+      <div class="d-flex align-center" style="cursor: pointer" @click="enrichmentHandlers.reopenEnrichmentReview">
         <v-icon class="mr-2">mdi-cog-sync</v-icon>
         {{ t('facetEnrichment.taskMinimized') }}
         <v-btn variant="text" size="small" class="ml-2">
@@ -298,6 +301,51 @@ import EntityTabsNavigation from '@/components/entity/EntityTabsNavigation.vue'
 import EntityDialogsManager from '@/components/entity/EntityDialogsManager.vue'
 import { useLogger } from '@/composables/useLogger'
 
+// Local interfaces
+interface FacetGroup {
+  facet_type_id: string
+  facet_type_slug: string
+  facet_type_name: string
+  value_type: string
+  icon?: string
+  color?: string
+}
+
+interface FacetsSummary {
+  facets_by_type?: FacetGroup[]
+  total_count?: number
+}
+
+interface DataSourceLocal {
+  id: string
+  name: string
+  base_url?: string
+  status?: string
+  last_crawled_at?: string
+}
+
+interface RelationLocal {
+  id: string
+  relation_type_name: string
+  source_entity_id: string
+  target_entity_id: string
+  source_entity_name?: string
+  target_entity_name?: string
+  source_entity_type_slug?: string
+  target_entity_type_slug?: string
+  source_entity_slug?: string
+  target_entity_slug?: string
+  human_verified?: boolean
+}
+
+interface FacetValueLocal {
+  id: string
+  facet_type_id: string
+  facet_type_name?: string
+  text_representation?: string
+  value?: unknown
+}
+
 const logger = useLogger('EntityDetailView')
 
 const { t } = useI18n()
@@ -317,9 +365,9 @@ const loading = ref(true)
 const activeTab = ref('facets')
 const entity = computed<Entity | null>(() => store.selectedEntity)
 const entityType = computed<EntityType | null>(() => store.selectedEntityType)
-const facetsSummary = ref<any>(null)
-const documents = ref<any[]>([])
-const externalData = ref<any>(null)
+const facetsSummary = ref<FacetsSummary | null>(null)
+const documents = ref<{ id: string; title?: string; url?: string; created_at?: string }[]>([])
+const externalData = ref<Record<string, unknown> | null>(null)
 const attachmentCount = ref(0)
 
 // Async function for facet summary refresh
@@ -424,10 +472,10 @@ const showEnrichFromPysisDialog = ref(false)
 const enrichPysisOverwrite = ref(false)
 
 // Form states
-const editingSource = ref<any>(null)
-const sourceToDelete = ref<any>(null)
-const sourceToUnlink = ref<any>(null)
-const selectedSourceFacet = ref<any>(null)
+const editingSource = ref<DataSourceLocal | null>(null)
+const sourceToDelete = ref<DataSourceLocal | null>(null)
+const sourceToUnlink = ref<DataSourceLocal | null>(null)
+const selectedSourceFacet = ref<FacetValueLocal | null>(null)
 
 const editForm = ref({
   name: '',
@@ -560,7 +608,7 @@ function closeAddFacetDialog() {
   resetAddFacetForm()
 }
 
-function handleOpenAddFacetValueDialog(facetGroup: any) {
+function handleOpenAddFacetValueDialog(facetGroup: FacetGroup) {
   openAddFacetValueDialog(facetGroup)
   addFacetDialog.value = true
 }
@@ -601,7 +649,7 @@ async function deleteRelation() {
   }
 }
 
-function navigateToRelatedEntity(rel: any) {
+function navigateToRelatedEntity(rel: RelationLocal) {
   const targetId = rel.source_entity_id === entity.value?.id ? rel.target_entity_id : rel.source_entity_id
   const targetSlug = rel.source_entity_id === entity.value?.id ? rel.target_entity_type_slug : rel.source_entity_type_slug
   const targetEntitySlug = rel.source_entity_id === entity.value?.id ? rel.target_entity_slug || targetId : rel.source_entity_slug || targetId
@@ -629,17 +677,17 @@ async function handleExport() {
 }
 
 // Data source management
-function openEditSourceDialog(source: any) {
+function openEditSourceDialog(source: DataSourceLocal) {
   editingSource.value = source
   editSourceDialog.value = true
 }
 
-function confirmDeleteSource(source: any) {
+function confirmDeleteSource(source: DataSourceLocal) {
   sourceToDelete.value = source
   deleteSourceConfirm.value = true
 }
 
-function confirmUnlinkSource(source: any) {
+function confirmUnlinkSource(source: DataSourceLocal) {
   sourceToUnlink.value = source
   unlinkSourceConfirm.value = true
 }
@@ -680,12 +728,13 @@ async function saveEntity() {
   try {
     await store.updateEntity(entity.value.id, {
       name: editForm.value.name,
-      external_id: editForm.value.external_id || null,
+      external_id: editForm.value.external_id || undefined,
     })
     showSuccess(t('entityDetail.messages.entityUpdated'))
     editDialog.value = false
-  } catch (e: any) {
-    showError(e.response?.data?.detail || t('entityDetail.messages.entitySaveError'))
+  } catch (e: unknown) {
+    const error = e as { response?: { data?: { detail?: string } } }
+    showError(error.response?.data?.detail || t('entityDetail.messages.entitySaveError'))
   } finally {
     savingEntity.value = false
   }

@@ -9,7 +9,7 @@
           class="ma-4"
           :title="$t('common.errorOccurred')"
         >
-          <template v-slot:prepend>
+          <template #prepend>
             <v-icon>mdi-alert-circle</v-icon>
           </template>
 
@@ -30,7 +30,7 @@
             </v-expansion-panel>
           </v-expansion-panels>
 
-          <template v-slot:append>
+          <template #append>
             <v-btn
               variant="outlined"
               size="small"
@@ -75,6 +75,15 @@
 import { ref, computed, onErrorCaptured } from 'vue'
 import { useLogger } from '@/composables/useLogger'
 
+const props = withDefaults(defineProps<Props>(), {
+  showDetails: import.meta.env.DEV,
+})
+
+const emit = defineEmits<{
+  (e: 'error', error: Error, info: string): void
+  (e: 'reset'): void
+}>()
+
 const logger = useLogger('ErrorBoundary')
 
 interface Props {
@@ -85,15 +94,6 @@ interface Props {
   /** Callback when error is caught */
   onError?: (error: Error, info: string) => void
 }
-
-const props = withDefaults(defineProps<Props>(), {
-  showDetails: import.meta.env.DEV,
-})
-
-const emit = defineEmits<{
-  (e: 'error', error: Error, info: string): void
-  (e: 'reset'): void
-}>()
 
 const error = ref<Error | null>(null)
 const errorInfo = ref<string>('')

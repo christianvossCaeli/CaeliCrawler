@@ -7,6 +7,15 @@ import { useLogger } from '@/composables/useLogger'
 
 const logger = useLogger('useEntityDataSources')
 
+// Helper for type-safe error handling
+function getErrorDetail(err: unknown): string | undefined {
+  if (err && typeof err === 'object') {
+    const e = err as { response?: { data?: { detail?: string } } }
+    return e.response?.data?.detail
+  }
+  return undefined
+}
+
 export interface DataSource {
   id: string
   name: string
@@ -24,8 +33,8 @@ export function useEntityDataSources(entityIdRef: MaybeRefOrGetter<string | unde
   const { showSuccess, showError } = useSnackbar()
 
   const dataSources = ref<DataSource[]>([])
-  const availableSourcesForLink = ref<any[]>([])
-  const selectedSourceToLink = ref<any>(null)
+  const availableSourcesForLink = ref<DataSource[]>([])
+  const selectedSourceToLink = ref<DataSource | null>(null)
   const sourceSearchQuery = ref('')
 
   const loadingDataSources = ref(false)
@@ -78,9 +87,9 @@ export function useEntityDataSources(entityIdRef: MaybeRefOrGetter<string | unde
       try {
         const response = await adminApi.getSources({ search: query, per_page: 20 })
         // Filter out already linked sources
-        const linkedIds = new Set(dataSources.value.map((s: any) => s.id))
+        const linkedIds = new Set(dataSources.value.map((s) => s.id))
         availableSourcesForLink.value = (response.data.items || []).filter(
-          (s: any) => !linkedIds.has(s.id)
+          (s: DataSource) => !linkedIds.has(s.id)
         )
       } catch (e) {
         logger.error('Failed to search sources:', e)
@@ -136,14 +145,14 @@ export function useEntityDataSources(entityIdRef: MaybeRefOrGetter<string | unde
     }
   }
 
-  async function startCrawl(source: any) {
+  async function startCrawl(source: DataSource) {
     startingCrawl.value = source.id
     try {
       await adminApi.startCrawl({ source_ids: [source.id] })
       showSuccess(t('entityDetail.messages.crawlStarted', { name: source.name }))
       source.hasRunningJob = true
-    } catch (e: any) {
-      showError(e.response?.data?.detail || t('entityDetail.messages.crawlStartError'))
+    } catch (e: unknown) {
+      showError(getErrorDetail(e) || t('entityDetail.messages.crawlStartError'))
     } finally {
       startingCrawl.value = null
     }

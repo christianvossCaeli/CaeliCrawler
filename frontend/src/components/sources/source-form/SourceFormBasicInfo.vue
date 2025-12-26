@@ -5,18 +5,17 @@
       <v-col cols="12" md="8">
         <v-text-field
           :model-value="name"
-          @update:model-value="emitName($event)"
           :label="$t('sources.form.name')"
           :rules="nameRules"
           required
           variant="outlined"
           prepend-inner-icon="mdi-database"
+          @update:model-value="emitName($event)"
         />
       </v-col>
       <v-col cols="12" md="4">
         <v-select
           :model-value="sourceType"
-          @update:model-value="emitSourceType($event)"
           :items="sourceTypeOptions"
           item-title="label"
           item-value="value"
@@ -24,10 +23,11 @@
           :rules="[v => !!v || $t('sources.validation.sourceTypeRequired')]"
           required
           variant="outlined"
+          @update:model-value="emitSourceType($event)"
         >
-          <template v-slot:item="{ item, props }">
+          <template #item="{ item, props }">
             <v-list-item v-bind="props">
-              <template v-slot:prepend>
+              <template #prepend>
                 <v-icon :color="getTypeColor(item.raw.value)">{{ item.raw.icon }}</v-icon>
               </template>
             </v-list-item>
@@ -40,7 +40,6 @@
     <v-text-field
       v-if="sourceType !== 'SHAREPOINT'"
       :model-value="baseUrl"
-      @update:model-value="emitBaseUrl($event)"
       :label="$t('sources.form.baseUrl')"
       :rules="urlRules"
       required
@@ -48,17 +47,18 @@
       :hint="$t('sources.form.baseUrlHint')"
       persistent-hint
       prepend-inner-icon="mdi-link"
+      @update:model-value="emitBaseUrl($event)"
     />
 
     <!-- API Endpoint (for API types) -->
     <v-text-field
       v-if="sourceType === 'OPARL_API' || sourceType === 'CUSTOM_API'"
       :model-value="apiEndpoint"
-      @update:model-value="emitApiEndpoint($event)"
       :label="$t('sources.form.apiEndpoint')"
       variant="outlined"
       prepend-inner-icon="mdi-api"
       class="mt-3"
+      @update:model-value="emitApiEndpoint($event)"
     />
   </div>
 </template>

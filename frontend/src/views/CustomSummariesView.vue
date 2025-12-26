@@ -133,11 +133,11 @@
 
     <!-- Loading Overlay (pagination) -->
     <v-overlay
+      v-if="isLoading && summaries.length > 0"
       v-model="isLoading"
       contained
       class="align-center justify-center"
-      :persistent="true"
-      v-if="isLoading && summaries.length > 0"
+      persistent
     >
       <v-progress-circular indeterminate size="48" color="primary" />
     </v-overlay>
@@ -421,7 +421,7 @@ onMounted(() => {
 
   // Check for create query parameter from MySummaries widget
   if (route.query.create === 'true') {
-    createDialog.value = true
+    showCreateDialog.value = true
   }
 })
 

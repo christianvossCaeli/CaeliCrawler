@@ -17,8 +17,8 @@
               variant="outlined"
               class="tree-node tree-node-parent mx-auto"
               max-width="400"
-              @click="navigateToParent"
               style="cursor: pointer;"
+              @click="navigateToParent"
             >
               <v-card-text class="d-flex align-center pa-3">
                 <v-avatar :color="entityType?.color || 'primary'" size="44" class="mr-3">
@@ -76,7 +76,6 @@
             <v-text-field
               v-if="children.length > 5"
               :model-value="childrenSearchQuery"
-              @update:model-value="$emit('update:childrenSearchQuery', $event)"
               prepend-inner-icon="mdi-magnify"
               :label="t('common.search')"
               clearable
@@ -85,6 +84,7 @@
               variant="outlined"
               class="mb-3 mx-auto"
               style="max-width: 400px;"
+              @update:model-value="$emit('update:childrenSearchQuery', $event)"
             ></v-text-field>
 
             <!-- Children Grid -->
@@ -119,10 +119,10 @@
             <div v-if="childrenTotalPages > 1" class="d-flex justify-center mt-4">
               <v-pagination
                 :model-value="childrenPage"
-                @update:model-value="(page: number) => { $emit('update:childrenPage', page); $emit('loadChildren') }"
                 :length="childrenTotalPages"
                 :total-visible="5"
                 density="compact"
+                @update:model-value="(page: number) => { $emit('update:childrenPage', page); $emit('loadChildren') }"
               ></v-pagination>
             </div>
           </div>
@@ -150,8 +150,8 @@
               :key="rel.id"
               variant="outlined"
               class="relation-card"
-              @click="$emit('navigateRelation', rel)"
               style="cursor: pointer;"
+              @click="$emit('navigateRelation', rel)"
             >
               <v-card-text class="d-flex align-center pa-3">
                 <v-avatar :color="rel.relation_type_color || 'info'" size="36" class="mr-3">
@@ -216,6 +216,7 @@ interface Entity {
   external_id?: string | null
   parent_id?: string | null
   parent_name?: string | null
+  parent_slug?: string | null
   slug?: string | null
   children_count?: number
 }
@@ -300,8 +301,9 @@ const filteredChildren = computed(() => {
 // Methods
 function navigateToParent() {
   if (props.entity?.parent_id) {
-    // Navigate using parent slug if available, otherwise construct the route
-    router.push(`/entities/${props.typeSlug}/${props.entity.parent_id}`)
+    // Navigate using parent slug if available, otherwise fall back to parent_id
+    const parentSlug = props.entity.parent_slug || props.entity.parent_id
+    router.push(`/entities/${props.typeSlug}/${parentSlug}`)
   }
 }
 </script>

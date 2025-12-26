@@ -33,14 +33,14 @@
               hide-details
               @update:model-value="loadFavorites(1)"
             >
-              <template v-slot:item="{ item, props }">
+              <template #item="{ item, props }">
                 <v-list-item v-bind="props">
-                  <template v-slot:prepend>
+                  <template #prepend>
                     <v-icon :icon="item.raw.icon" :color="item.raw.color" size="small"></v-icon>
                   </template>
                 </v-list-item>
               </template>
-              <template v-slot:selection="{ item }">
+              <template #selection="{ item }">
                 <v-icon :icon="item.raw.icon" :color="item.raw.color" size="small" class="mr-2"></v-icon>
                 {{ item.raw.name }}
               </template>
@@ -95,11 +95,11 @@
         :loading="loading"
         :items-per-page="itemsPerPage"
         :page="currentPage"
+        class="cursor-pointer"
         @update:options="onTableOptionsUpdate"
         @click:row="(_event: Event, { item }: { item: any }) => navigateToEntity(item)"
-        class="cursor-pointer"
       >
-        <template v-slot:item.entity="{ item }">
+        <template #item.entity="{ item }">
           <div class="d-flex align-center py-2">
             <v-avatar
               :color="item.entity.entity_type_color || 'grey'"
@@ -118,7 +118,7 @@
           </div>
         </template>
 
-        <template v-slot:item.entity_type="{ item }">
+        <template #item.entity_type="{ item }">
           <v-chip
             size="small"
             :color="item.entity.entity_type_color || 'grey'"
@@ -129,13 +129,13 @@
           </v-chip>
         </template>
 
-        <template v-slot:item.created_at="{ item }">
+        <template #item.created_at="{ item }">
           <span class="text-caption">
             {{ formatDate(item.created_at) }}
           </span>
         </template>
 
-        <template v-slot:item.actions="{ item }">
+        <template #item.actions="{ item }">
           <div class="d-flex justify-end ga-1">
             <v-btn
               icon="mdi-eye"

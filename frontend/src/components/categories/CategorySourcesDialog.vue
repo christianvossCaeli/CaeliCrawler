@@ -33,12 +33,12 @@
             :title="source.name"
             :subtitle="source.base_url"
           >
-            <template v-slot:prepend>
+            <template #prepend>
               <v-avatar :color="getStatusColor(source.status)" size="36">
                 <v-icon size="small" :color="getContrastColor(getStatusColor(source.status))">{{ getSourceTypeIcon(source.source_type) }}</v-icon>
               </v-avatar>
             </template>
-            <template v-slot:append>
+            <template #append>
               <div class="d-flex align-center">
                 <v-chip size="x-small" class="mr-2" :color="getStatusColor(source.status)">
                   {{ source.status }}
