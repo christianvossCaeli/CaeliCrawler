@@ -191,11 +191,14 @@ async def list_locations_with_sources(
     if admin_level_2:
         main_query = main_query.where(Location.admin_level_2 == admin_level_2)
     if search:
+        # Escape SQL wildcards to prevent injection
+        safe_search = search.replace('%', '\\%').replace('_', '\\_')
         search_normalized = Location.normalize_name(search, country or "DE")
+        safe_search_normalized = search_normalized.replace('%', '\\%').replace('_', '\\_')
         main_query = main_query.where(
             or_(
-                Location.name.ilike(f"%{search}%"),
-                Location.name_normalized.ilike(f"%{search_normalized}%"),
+                Location.name.ilike(f"%{safe_search}%", escape='\\'),
+                Location.name_normalized.ilike(f"%{safe_search_normalized}%", escape='\\'),
             )
         )
 
@@ -208,11 +211,11 @@ async def list_locations_with_sources(
     if admin_level_2:
         count_query = count_query.where(Location.admin_level_2 == admin_level_2)
     if search:
-        search_normalized = Location.normalize_name(search, country or "DE")
+        # Use already escaped values from above
         count_query = count_query.where(
             or_(
-                Location.name.ilike(f"%{search}%"),
-                Location.name_normalized.ilike(f"%{search_normalized}%"),
+                Location.name.ilike(f"%{safe_search}%", escape='\\'),
+                Location.name_normalized.ilike(f"%{safe_search_normalized}%", escape='\\'),
             )
         )
     total = (await session.execute(count_query)).scalar() or 0
@@ -273,15 +276,17 @@ async def search_locations(
     if country:
         country = country.upper()
 
-    # Normalize the search query
+    # Normalize the search query and escape SQL wildcards
     search_normalized = Location.normalize_name(q, country or "DE")
+    safe_q = q.replace('%', '\\%').replace('_', '\\_')
+    safe_search_normalized = search_normalized.replace('%', '\\%').replace('_', '\\_')
 
     # Build query
     query = select(Location).where(
         Location.is_active.is_(True),
         or_(
-            Location.name.ilike(f"%{q}%"),
-            Location.name_normalized.ilike(f"%{search_normalized}%"),
+            Location.name.ilike(f"%{safe_q}%", escape='\\'),
+            Location.name_normalized.ilike(f"%{safe_search_normalized}%", escape='\\'),
         ),
     )
 
@@ -293,10 +298,10 @@ async def search_locations(
     if admin_level_1:
         query = query.where(Location.admin_level_1 == admin_level_1)
 
-    # Order by relevance
+    # Order by relevance (use escaped patterns)
     query = query.order_by(
-        Location.name_normalized.ilike(search_normalized).desc(),
-        Location.name_normalized.ilike(f"{search_normalized}%").desc(),
+        Location.name_normalized.ilike(safe_search_normalized, escape='\\').desc(),
+        Location.name_normalized.ilike(f"{safe_search_normalized}%", escape='\\').desc(),
         Location.name,
     ).limit(limit)
 
@@ -307,8 +312,8 @@ async def search_locations(
     count_query = select(func.count(Location.id)).where(
         Location.is_active.is_(True),
         or_(
-            Location.name.ilike(f"%{q}%"),
-            Location.name_normalized.ilike(f"%{search_normalized}%"),
+            Location.name.ilike(f"%{safe_q}%", escape='\\'),
+            Location.name_normalized.ilike(f"%{safe_search_normalized}%", escape='\\'),
         ),
     )
     if country:
@@ -356,10 +361,13 @@ async def list_locations(
 
     # Search filter
     if search:
+        # Escape SQL wildcards to prevent injection
+        safe_search = search.replace('%', '\\%').replace('_', '\\_')
         search_normalized = Location.normalize_name(search, country or "DE")
+        safe_search_normalized = search_normalized.replace('%', '\\%').replace('_', '\\_')
         search_filter = or_(
-            Location.name.ilike(f"%{search}%"),
-            Location.name_normalized.ilike(f"%{search_normalized}%"),
+            Location.name.ilike(f"%{safe_search}%", escape='\\'),
+            Location.name_normalized.ilike(f"%{safe_search_normalized}%", escape='\\'),
         )
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)

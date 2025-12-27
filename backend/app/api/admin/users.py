@@ -102,11 +102,13 @@ async def list_users(
     role: Optional[UserRole] = None,
     is_active: Optional[bool] = None,
     search: Optional[str] = None,
+    sort_by: Optional[str] = Query(default=None, description="Sort by field (email, full_name, role, is_active, last_login, created_at)"),
+    sort_order: Optional[str] = Query(default="desc", description="Sort order (asc, desc)"),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_admin),
 ):
     """
-    List all users with pagination and filtering.
+    List all users with pagination, filtering and sorting.
 
     Admin only.
     """
@@ -118,13 +120,33 @@ async def list_users(
     if is_active is not None:
         query = query.where(User.is_active == is_active)
     if search:
-        search_filter = f"%{search}%"
+        # Escape SQL wildcards to prevent injection
+        search_pattern = f"%{search.replace('%', '\\%').replace('_', '\\_')}%"
         query = query.where(
-            (User.email.ilike(search_filter)) | (User.full_name.ilike(search_filter))
+            (User.email.ilike(search_pattern, escape='\\')) |
+            (User.full_name.ilike(search_pattern, escape='\\'))
         )
 
-    # Add ordering before pagination
-    query = query.order_by(User.created_at.desc())
+    # Handle sorting
+    sort_desc = sort_order == "desc"
+    sort_column_map = {
+        "email": User.email,
+        "full_name": User.full_name,
+        "role": User.role,
+        "is_active": User.is_active,
+        "last_login": User.last_login,
+        "created_at": User.created_at,
+    }
+
+    if sort_by and sort_by in sort_column_map:
+        order_col = sort_column_map[sort_by]
+        if sort_desc:
+            query = query.order_by(order_col.desc().nulls_last(), User.created_at.desc())
+        else:
+            query = query.order_by(order_col.asc().nulls_last(), User.created_at.desc())
+    else:
+        # Default ordering
+        query = query.order_by(User.created_at.desc())
 
     # Use pagination helper
     pagination = PaginationParams(page=page, per_page=per_page)

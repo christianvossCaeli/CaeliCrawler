@@ -175,8 +175,10 @@ async def list_location_processes(
     _: User = Depends(require_editor),
 ):
     """List all PySis processes for a location."""
+    # Escape SQL wildcards to prevent injection
+    safe_name = location_name.replace('%', '\\%').replace('_', '\\_')
     query = select(PySisProcess).where(
-        PySisProcess.entity_name.ilike(f"%{location_name}%")
+        PySisProcess.entity_name.ilike(f"%{safe_name}%", escape='\\')
     ).order_by(PySisProcess.created_at.desc())
 
     result = await session.execute(query)

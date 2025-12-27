@@ -205,7 +205,7 @@ async def list_presets(
     if search:
         # Sanitize search input to prevent SQL LIKE injection
         safe_search = sanitize_search_input(search)
-        query = query.where(CrawlPreset.name.ilike(f"%{safe_search}%"))
+        query = query.where(CrawlPreset.name.ilike(f"%{safe_search}%", escape='\\'))
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())

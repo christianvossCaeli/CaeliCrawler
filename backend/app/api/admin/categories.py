@@ -138,9 +138,11 @@ async def list_categories(
         query = query.where(Category.is_active.is_(is_active))
 
     if search:
+        # Escape SQL wildcards to prevent injection
+        safe_search = search.replace('%', '\\%').replace('_', '\\_')
         query = query.where(
-            Category.name.ilike(f"%{search}%") |
-            Category.description.ilike(f"%{search}%")
+            Category.name.ilike(f"%{safe_search}%", escape='\\') |
+            Category.description.ilike(f"%{safe_search}%", escape='\\')
         )
 
     # Count total
