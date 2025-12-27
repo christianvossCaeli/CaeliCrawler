@@ -87,9 +87,10 @@ async def start_crawl(
             source = sources[source_id]
             category_ids = source_categories.get(source_id, [])
 
-            # If no N:M assignments, fall back to primary category
-            if not category_ids and source.category_id:
-                category_ids = [source.category_id]
+            # If no N:M assignments found, skip source (no category = no crawl)
+            if not category_ids:
+                logger.warning(f"Source {source.name} has no category assignments, skipping")
+                continue
 
             # Create a job for each category
             for cat_id in category_ids:
@@ -158,13 +159,30 @@ async def start_crawl(
                 message="No sources found matching the filters",
             )
 
-        for source in sources:
-            # If filtering by category, use that category_id
-            # Otherwise, fall back to legacy category_id (if set)
-            cat_id = crawl_request.category_id or source.category_id
-            if cat_id:
-                create_crawl_job.delay(str(source.id), str(cat_id))
+        # If filtering by specific category, use that for all sources
+        if crawl_request.category_id:
+            for source in sources:
+                create_crawl_job.delay(str(source.id), str(crawl_request.category_id))
                 job_ids.append(source.id)
+        else:
+            # Get N:M category assignments for all sources
+            source_ids = [s.id for s in sources]
+            cat_result = await session.execute(
+                select(DataSourceCategory.data_source_id, DataSourceCategory.category_id)
+                .where(DataSourceCategory.data_source_id.in_(source_ids))
+            )
+            source_categories = {}
+            for row in cat_result.fetchall():
+                source_categories.setdefault(row[0], []).append(row[1])
+
+            for source in sources:
+                category_ids = source_categories.get(source.id, [])
+                if not category_ids:
+                    logger.warning(f"Source {source.name} has no category assignments, skipping")
+                    continue
+                for cat_id in category_ids:
+                    create_crawl_job.delay(str(source.id), str(cat_id))
+                    job_ids.append(source.id)
 
     # Audit log for crawler start
     if job_ids:
@@ -200,6 +218,47 @@ async def start_crawl(
         job_ids=job_ids,
         message=f"Started {len(job_ids)} crawl job(s)",
     )
+
+
+@router.post("/jobs/{job_id}/retry", response_model=MessageResponse)
+async def retry_job(
+    job_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """Retry a failed or cancelled crawl job by creating a new job with the same parameters."""
+    from workers.crawl_tasks import create_crawl_job
+
+    job = await session.get(CrawlJob, job_id)
+    if not job:
+        raise NotFoundError("Crawl Job", str(job_id))
+
+    if job.status not in (JobStatus.FAILED, JobStatus.CANCELLED):
+        raise ValidationError("Can only retry failed or cancelled jobs")
+
+    # Get source and category for audit log
+    source = await session.get(DataSource, job.source_id) if job.source_id else None
+    category = await session.get(Category, job.category_id) if job.category_id else None
+
+    # Create a new crawl job with the same source and category
+    create_crawl_job.delay(str(job.source_id), str(job.category_id))
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.CRAWLER_START,
+            entity_type="CrawlJob",
+            entity_name=source.name if source else str(job_id),
+            changes={
+                "retry_of_job": str(job_id),
+                "source_name": source.name if source else None,
+                "category_name": category.name if category else None,
+                "original_status": job.status.value,
+            },
+        )
+        await session.commit()
+
+    return MessageResponse(message="Job retry started")
 
 
 @router.post("/jobs/{job_id}/cancel", response_model=MessageResponse)

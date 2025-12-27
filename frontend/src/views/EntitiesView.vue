@@ -143,9 +143,10 @@
         :current-page="currentPage"
         :current-entity-type="currentEntityType"
         :flags="flags"
-        :get-top-facet-counts="getTopFacetCounts"
+        :sort-by="sortBy"
         @update:items-per-page="itemsPerPage = $event"
         @update:current-page="loadEntities"
+        @update:sort-by="handleSortChange"
         @entity-click="openEntityDetail"
         @entity-edit="openEditDialog"
         @entity-delete="confirmDelete"
@@ -373,7 +374,8 @@ const {
   onAdminLevel1Change,
   debouncedLoadEntities,
   isLightColor,
-  getTopFacetCounts,
+  sortBy,
+  handleSortChange,
 } = useEntitiesView()
 
 // Extended filter dialog management

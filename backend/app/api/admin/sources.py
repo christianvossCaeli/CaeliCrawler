@@ -309,6 +309,8 @@ async def list_sources(
     source_type: Optional[SourceType] = Query(default=None),
     search: Optional[str] = Query(default=None, max_length=200),
     tags: Optional[List[str]] = Query(default=None, description="Filter by tags (OR logic)"),
+    sort_by: Optional[str] = Query(default=None, description="Sort by field (name, status, source_type, last_crawl, document_count)"),
+    sort_order: Optional[str] = Query(default="asc", description="Sort order (asc, desc)"),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
@@ -343,8 +345,49 @@ async def list_sources(
     count_query = select(func.count()).select_from(query.subquery())
     total = (await session.execute(count_query)).scalar()
 
+    # Handle sorting
+    sort_desc = sort_order and sort_order.lower() == "desc"
+    sortable_columns = {
+        "name": DataSource.name,
+        "status": DataSource.status,
+        "source_type": DataSource.source_type,
+        "last_crawl": DataSource.last_crawl,
+        "created_at": DataSource.created_at,
+        "updated_at": DataSource.updated_at,
+    }
+
+    # Note: document_count sorting requires a subquery
+    if sort_by == "document_count":
+        doc_count_subq = (
+            select(
+                Document.source_id,
+                func.count(Document.id).label("doc_count")
+            )
+            .group_by(Document.source_id)
+            .subquery()
+        )
+        query = query.outerjoin(doc_count_subq, DataSource.id == doc_count_subq.c.source_id)
+        order_col = func.coalesce(doc_count_subq.c.doc_count, 0)
+        if sort_desc:
+            query = query.order_by(order_col.desc(), DataSource.name)
+        else:
+            query = query.order_by(order_col, DataSource.name)
+    elif sort_by and sort_by in sortable_columns:
+        order_col = sortable_columns[sort_by]
+        if sort_desc:
+            query = query.order_by(order_col.desc(), DataSource.name)
+        else:
+            query = query.order_by(order_col, DataSource.name)
+    else:
+        # Default sorting: last_crawl DESC (NULL last), then by name
+        # This shows recently crawled sources first, with uncrawled sources at the end
+        query = query.order_by(
+            DataSource.last_crawl.desc().nulls_last(),
+            DataSource.name
+        )
+
     # Paginate
-    query = query.order_by(DataSource.name).offset((page - 1) * per_page).limit(per_page)
+    query = query.offset((page - 1) * per_page).limit(per_page)
     result = await session.execute(query)
     sources = result.scalars().all()
 
@@ -446,7 +489,6 @@ async def create_source(
 
     async with AuditContext(session, current_user, request) as audit:
         source = DataSource(
-            category_id=primary_category_id,  # Legacy field
             name=data.name,
             source_type=data.source_type,
             base_url=data.base_url,

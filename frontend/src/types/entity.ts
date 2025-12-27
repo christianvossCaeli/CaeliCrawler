@@ -250,6 +250,10 @@ export interface FacetType {
   ai_extraction_enabled?: boolean
   ai_extraction_prompt?: string | null  // Can be null from API
   display_order?: number
+  // Entity reference configuration (for linking facets to other entities)
+  allows_entity_reference?: boolean
+  target_entity_type_slugs?: string[]
+  auto_create_entity?: boolean
 }
 
 export interface FacetTypeValueSchema {
@@ -353,6 +357,11 @@ export interface FacetValue {
   notes?: string
   created_at?: string
   updated_at?: string
+  // Target entity reference (for linking to other entities like persons, organizations)
+  target_entity_id?: string
+  target_entity_name?: string
+  target_entity_slug?: string
+  target_entity_type_slug?: string
 }
 
 // Facet group for entity detail views (matches API response)
@@ -415,6 +424,7 @@ export interface FacetValueUpdate {
   source_url?: string
   notes?: string
   human_verified?: boolean
+  target_entity_id?: string | null  // For linking to another entity
 }
 
 export interface FacetValueVerify {

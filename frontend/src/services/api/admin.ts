@@ -27,6 +27,7 @@ export const getCrawlerJobs = (params?: CrawlJobListParams) => api.get('/admin/c
 export const getCrawlerJob = (id: string) => api.get(`/admin/crawler/jobs/${id}`)
 export const startCrawl = (data: CrawlStartRequest) => api.post('/admin/crawler/start', data)
 export const cancelJob = (id: string) => api.post(`/admin/crawler/jobs/${id}/cancel`)
+export const retryJob = (id: string) => api.post(`/admin/crawler/jobs/${id}/retry`)
 export const getCrawlerStats = () => api.get('/admin/crawler/stats')
 export const getCrawlerStatus = () => api.get('/admin/crawler/status')
 export const reanalyzeDocuments = (params?: { category_id?: string; reanalyze_all?: boolean; limit?: number }) =>

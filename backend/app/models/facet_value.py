@@ -155,6 +155,15 @@ class FacetValue(Base):
         comment="Original URL where this was found",
     )
 
+    # Entity reference (optional link to another entity, e.g., a Person for a contact facet)
+    target_entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("entities.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Optional reference to another Entity (e.g., Person for contact facet)",
+    )
+
     # AI metadata
     confidence_score: Mapped[float] = mapped_column(
         Float,
@@ -231,6 +240,7 @@ class FacetValue(Base):
     entity: Mapped["Entity"] = relationship(
         "Entity",
         back_populates="facet_values",
+        foreign_keys=[entity_id],
     )
     facet_type: Mapped["FacetType"] = relationship(
         "FacetType",
@@ -239,6 +249,11 @@ class FacetValue(Base):
     category: Mapped[Optional["Category"]] = relationship("Category")
     source_document: Mapped[Optional["Document"]] = relationship("Document")
     source_attachment: Mapped[Optional["EntityAttachment"]] = relationship("EntityAttachment")
+    target_entity: Mapped[Optional["Entity"]] = relationship(
+        "Entity",
+        foreign_keys=[target_entity_id],
+        lazy="joined",
+    )
 
     @property
     def final_value(self) -> Dict[str, Any]:

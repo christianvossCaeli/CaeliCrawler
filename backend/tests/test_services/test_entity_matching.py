@@ -156,13 +156,16 @@ class TestCompositeEntityResolution:
                 # Second call for composite resolution returns existing entity
                 mock_find.side_effect = [None, mock_existing_entity]
 
-                with patch.object(service, '_resolve_composite_entity', new_callable=AsyncMock) as mock_resolve:
-                    mock_resolve.return_value = mock_existing_entity
+                with patch.object(service, '_find_by_core_name', new_callable=AsyncMock) as mock_core:
+                    mock_core.return_value = None  # No core name match
 
-                    result = await service.get_or_create_entity(
-                        entity_type_slug="territorial_entity",
-                        name="Region Oberfranken-West, Gemeinde Litzendorf",
-                    )
+                    with patch.object(service, '_resolve_composite_entity', new_callable=AsyncMock) as mock_resolve:
+                        mock_resolve.return_value = mock_existing_entity
+
+                        result = await service.get_or_create_entity(
+                            entity_type_slug="territorial_entity",
+                            name="Region Oberfranken-West, Gemeinde Litzendorf",
+                        )
 
         assert result is not None
         assert result.id == existing_entity_id
@@ -185,19 +188,22 @@ class TestCompositeEntityResolution:
             with patch.object(service, '_find_by_normalized_name', new_callable=AsyncMock) as mock_find:
                 mock_find.return_value = None
 
-                with patch.object(service, '_resolve_composite_entity', new_callable=AsyncMock) as mock_resolve:
-                    mock_resolve.return_value = None
+                with patch.object(service, '_find_by_core_name', new_callable=AsyncMock) as mock_core:
+                    mock_core.return_value = None  # No core name match
 
-                    with patch.object(service, '_create_entity_safe', new_callable=AsyncMock) as mock_create:
-                        mock_new_entity = MagicMock()
-                        mock_new_entity.id = uuid4()
-                        mock_new_entity.name = "Region X, Gemeinde New"
-                        mock_create.return_value = mock_new_entity
+                    with patch.object(service, '_resolve_composite_entity', new_callable=AsyncMock) as mock_resolve:
+                        mock_resolve.return_value = None
 
-                        result = await service.get_or_create_entity(
-                            entity_type_slug="territorial_entity",
-                            name="Region X, Gemeinde New",
-                        )
+                        with patch.object(service, '_create_entity_safe', new_callable=AsyncMock) as mock_create:
+                            mock_new_entity = MagicMock()
+                            mock_new_entity.id = uuid4()
+                            mock_new_entity.name = "Region X, Gemeinde New"
+                            mock_create.return_value = mock_new_entity
+
+                            result = await service.get_or_create_entity(
+                                entity_type_slug="territorial_entity",
+                                name="Region X, Gemeinde New",
+                            )
 
         assert result is not None
         mock_create.assert_called_once()

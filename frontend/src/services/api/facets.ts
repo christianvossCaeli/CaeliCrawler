@@ -85,3 +85,10 @@ export const updateHistoryDataPoint = (entityId: string, facetTypeId: string, po
 
 export const deleteHistoryDataPoint = (entityId: string, facetTypeId: string, pointId: string) =>
   api.delete(`/v1/facets/entity/${entityId}/history/${facetTypeId}/${pointId}`)
+
+// Get facets that reference a specific entity (via target_entity_id)
+export const getFacetsReferencingEntity = (entityId: string, params?: {
+  page?: number
+  per_page?: number
+  facet_type_slug?: string
+}) => api.get(`/v1/facets/entity/${entityId}/referenced-by`, { params })

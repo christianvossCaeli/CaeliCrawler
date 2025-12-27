@@ -36,6 +36,7 @@
       :attachment-count="attachmentCount"
       :supports-pysis="entityType?.supports_pysis || false"
       :has-external-data="externalData?.has_external_data || false"
+      :referenced-by-count="referencedByCount"
     />
 
     <v-window v-model="activeTab">
@@ -68,8 +69,8 @@
           :loading-relations="loadingRelations"
           :loading-children="loadingChildren"
           :hierarchy-enabled="flags.entityHierarchyEnabled"
-          @add-relation="relationHandlers.openAddRelationDialog"
-          @edit-relation="relationHandlers.editRelation"
+          @add-relation="() => { relationHandlers.openAddRelationDialog(); addRelationDialog = true }"
+          @edit-relation="(rel) => { relationHandlers.editRelation(rel); addRelationDialog = true }"
           @delete-relation="relationHandlers.confirmDeleteRelation"
           @navigate-relation="navigateToRelatedEntity"
           @load-children="loadChildren"
@@ -116,6 +117,15 @@
           v-if="entity"
           :entity-id="entity.id"
           @attachments-changed="loadAttachmentCount"
+        />
+      </v-window-item>
+
+      <!-- Referenced By Tab (shows facets that reference this entity) -->
+      <v-window-item v-if="referencedByCount > 0" value="referenced-by">
+        <EntityReferencedByTab
+          v-if="entity"
+          :entity-id="entity.id"
+          :entity-name="entity.name"
         />
       </v-window-item>
     </v-window>
@@ -273,7 +283,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useEntityStore, type Entity, type EntityType } from '@/stores/entity'
-import { entityApi, attachmentApi } from '@/services/api'
+import { entityApi, attachmentApi, facetApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useFeatureFlags } from '@/composables/useFeatureFlags'
 import { useEntityExport } from '@/composables/useEntityExport'
@@ -306,6 +316,7 @@ import EntityLoadingOverlay from '@/components/entity/EntityLoadingOverlay.vue'
 import EntityBreadcrumbs from '@/components/entity/EntityBreadcrumbs.vue'
 import EntityTabsNavigation from '@/components/entity/EntityTabsNavigation.vue'
 import EntityDialogsManager from '@/components/entity/EntityDialogsManager.vue'
+import EntityReferencedByTab from '@/components/entity/EntityReferencedByTab.vue'
 import { useLogger } from '@/composables/useLogger'
 
 // Local type aliases (using shared types from entity.ts)
@@ -341,6 +352,7 @@ const facetsSummary = ref<FacetsSummary | null>(null)
 const documents = ref<EntityDocument[]>([])
 const externalData = ref<ExternalData | null>(null)
 const attachmentCount = ref(0)
+const referencedByCount = ref(0)
 
 // Async function for facet summary refresh
 async function refreshFacetsSummary() {
@@ -503,6 +515,7 @@ async function loadEntityData() {
 
     loadExternalData()
     loadAttachmentCount()
+    loadReferencedByCount()
 
     if (activeTab.value === 'connections') {
       loadChildren()
@@ -549,6 +562,17 @@ async function loadAttachmentCount() {
   } catch (e) {
     logger.error('Failed to load attachment count', e)
     attachmentCount.value = 0
+  }
+}
+
+async function loadReferencedByCount() {
+  if (!entity.value) return
+  try {
+    const response = await facetApi.getFacetsReferencingEntity(entity.value.id, { per_page: 1 })
+    referencedByCount.value = response.data.total || 0
+  } catch (e) {
+    logger.error('Failed to load referenced-by count', e)
+    referencedByCount.value = 0
   }
 }
 

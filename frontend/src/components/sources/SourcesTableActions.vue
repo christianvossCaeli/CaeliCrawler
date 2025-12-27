@@ -32,8 +32,8 @@
       </template>
     </v-tooltip>
 
-    <!-- Reset Button (only for ERROR status) -->
-    <v-tooltip v-if="source.status === 'ERROR'" location="top" :text="$t('sources.actions.reset')">
+    <!-- Reset Button -->
+    <v-tooltip location="top" :text="$t('sources.actions.reset')">
       <template #activator="{ props: tooltipProps }">
         <v-btn
           v-bind="tooltipProps"

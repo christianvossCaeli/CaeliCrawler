@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_session
 from app.models.user import User, UserRole
 from app.core.rate_limit import check_rate_limit
+from app.core.cache import assistant_attachment_cache, assistant_batch_cache
 from app.schemas.assistant import (
     AssistantChatRequest,
     AssistantChatResponse,
@@ -30,90 +31,18 @@ from app.core.deps import get_current_user_optional, get_current_user
 from app.utils.validation import AssistantConstants
 from services.assistant_service import AssistantService
 
-# In-memory storage for attachments with timestamps for cleanup
-# Structure: {attachment_id: {"data": {...}, "created_at": timestamp}}
-_attachment_store: Dict[str, Dict] = {}
 
-# In-memory storage for batch job status with timestamps
-# Structure: {batch_id: {"data": {...}, "created_at": timestamp}}
-_batch_store: Dict[str, Dict] = {}
+def _noop_cleanup() -> None:
+    """No-op function - TTLCache handles cleanup automatically.
 
-# Cleanup interval in seconds (1 hour)
-_CLEANUP_INTERVAL_SECONDS = AssistantConstants.ATTACHMENT_EXPIRY_HOURS * 3600
-_last_cleanup_time = time.time()
-
-# Maximum number of entries to prevent memory exhaustion
-_MAX_ATTACHMENTS = 1000  # Max concurrent temp attachments across all users
-_MAX_BATCHES = 500  # Max concurrent batch jobs
-_BATCH_TIMEOUT_SECONDS = 1800  # 30 minutes timeout for running batches
-
-
-def _cleanup_expired_stores() -> None:
-    """Clean up expired entries from in-memory stores.
-
-    Called periodically during request handling to prevent memory leaks.
-    Removes entries older than ATTACHMENT_EXPIRY_HOURS.
-    Also enforces max size limits by evicting oldest entries.
+    This function is kept for backwards compatibility in case
+    any code still calls _cleanup_expired_stores().
     """
-    global _last_cleanup_time
-    current_time = time.time()
+    pass
 
-    # Only run cleanup every 5 minutes to avoid performance impact
-    if current_time - _last_cleanup_time < 300:
-        return
 
-    _last_cleanup_time = current_time
-    expiry_threshold = current_time - _CLEANUP_INTERVAL_SECONDS
-
-    # Clean up attachments
-    expired_attachments = [
-        key for key, value in _attachment_store.items()
-        if value.get("created_at", 0) < expiry_threshold
-    ]
-    for key in expired_attachments:
-        del _attachment_store[key]
-
-    # Enforce max size for attachments - evict oldest if over limit
-    if len(_attachment_store) > _MAX_ATTACHMENTS:
-        sorted_attachments = sorted(
-            _attachment_store.items(),
-            key=lambda x: x[1].get("created_at", 0)
-        )
-        evict_count = len(_attachment_store) - _MAX_ATTACHMENTS
-        for key, _ in sorted_attachments[:evict_count]:
-            del _attachment_store[key]
-
-    # Clean up completed/failed batch jobs (keep running ones)
-    expired_batches = [
-        key for key, value in _batch_store.items()
-        if value.get("created_at", 0) < expiry_threshold
-        and value.get("status") in ("completed", "failed", "cancelled")
-    ]
-    for key in expired_batches:
-        del _batch_store[key]
-
-    # Timeout stale running batches (mark as failed after 30 minutes)
-    batch_timeout_threshold = current_time - _BATCH_TIMEOUT_SECONDS
-    stale_running_batches = [
-        key for key, value in _batch_store.items()
-        if value.get("status") == "running"
-        and value.get("created_at", 0) < batch_timeout_threshold
-    ]
-    for key in stale_running_batches:
-        _batch_store[key]["status"] = "failed"
-        _batch_store[key]["message"] = "Batch-Operation hat das Timeout überschritten"
-
-    # Enforce max size for batches - evict oldest completed/failed
-    if len(_batch_store) > _MAX_BATCHES:
-        # Only evict non-running batches
-        completed_batches = sorted(
-            [(k, v) for k, v in _batch_store.items()
-             if v.get("status") in ("completed", "failed", "cancelled")],
-            key=lambda x: x[1].get("created_at", 0)
-        )
-        evict_count = len(_batch_store) - _MAX_BATCHES
-        for key, _ in completed_batches[:evict_count]:
-            del _batch_store[key]
+# Legacy alias for backwards compatibility
+_cleanup_expired_stores = _noop_cleanup
 
 router = APIRouter()
 
@@ -336,27 +265,16 @@ async def upload_attachment(
             detail=f"Datei zu groß. Maximum: {MAX_ATTACHMENT_SIZE // (1024 * 1024)}MB"
         )
 
-    # Run periodic cleanup
-    _cleanup_expired_stores()
-
-    # Check if we're at capacity (prevent memory exhaustion)
-    if len(_attachment_store) >= _MAX_ATTACHMENTS:
-        raise HTTPException(
-            status_code=503,
-            detail="Server temporär überlastet. Bitte versuchen Sie es später erneut."
-        )
-
     # Generate unique ID
     attachment_id = str(uuid4())
 
-    # Store attachment with timestamp for cleanup
-    _attachment_store[attachment_id] = {
+    # Store attachment in cache (TTLCache handles cleanup and size limits automatically)
+    assistant_attachment_cache.set(attachment_id, {
         "content": content,
         "filename": file.filename or "unnamed",
         "content_type": file.content_type,
         "size": len(content),
-        "created_at": time.time(),
-    }
+    })
 
     return AttachmentUploadResponse(
         success=True,
@@ -379,15 +297,14 @@ async def delete_attachment(
 
     This is optional - attachments are automatically cleaned up after 1 hour.
     """
-    if attachment_id in _attachment_store:
-        del _attachment_store[attachment_id]
+    if assistant_attachment_cache.delete(attachment_id):
         return {"success": True, "message": "Attachment gelöscht"}
     return {"success": False, "message": "Attachment nicht gefunden"}
 
 
 def get_attachment(attachment_id: str) -> Optional[Dict]:
     """Get attachment content by ID (for internal use)."""
-    return _attachment_store.get(attachment_id)
+    return assistant_attachment_cache.get(attachment_id)
 
 
 # ============================================================================
@@ -450,8 +367,7 @@ async def save_temp_attachments_to_entity(
             saved_ids.append(str(attachment.id))
 
             # Remove from temp store after successful save
-            if temp_id in _attachment_store:
-                del _attachment_store[temp_id]
+            assistant_attachment_cache.delete(temp_id)
 
         except ValueError as e:
             errors.append(f"Fehler bei {temp_data['filename']}: {str(e)}")
@@ -781,21 +697,14 @@ async def batch_action(
     # Run periodic cleanup
     _cleanup_expired_stores()
 
-    # Store batch status if not dry run
+    # Store batch status if not dry run (TTLCache handles cleanup and size limits)
     if not request.dry_run and result.get("batch_id"):
-        # Check if we're at capacity (prevent memory exhaustion)
-        if len(_batch_store) >= _MAX_BATCHES:
-            raise HTTPException(
-                status_code=503,
-                detail="Zu viele gleichzeitige Batch-Operationen. Bitte warten Sie."
-            )
-        _batch_store[result["batch_id"]] = {
+        assistant_batch_cache.set(result["batch_id"], {
             "status": "running",
             "processed": 0,
             "total": result.get("affected_count", 0),
             "errors": [],
-            "created_at": time.time(),
-        }
+        })
 
     return BatchActionResponse(
         success=result.get("success", True),
@@ -816,13 +725,13 @@ async def get_batch_status(
 
     Returns progress information and any errors that occurred.
     """
-    if batch_id not in _batch_store:
+    status = assistant_batch_cache.get(batch_id)
+    if status is None:
         raise HTTPException(
             status_code=404,
             detail=f"Batch-Operation nicht gefunden: {batch_id}"
         )
 
-    status = _batch_store[batch_id]
     return BatchStatusResponse(
         batch_id=batch_id,
         status=status.get("status", "pending"),
@@ -843,14 +752,17 @@ async def cancel_batch(
 
     Note: Already processed items cannot be rolled back.
     """
-    if batch_id not in _batch_store:
+    status = assistant_batch_cache.get(batch_id)
+    if status is None:
         raise HTTPException(
             status_code=404,
             detail=f"Batch-Operation nicht gefunden: {batch_id}"
         )
 
-    _batch_store[batch_id]["status"] = "cancelled"
-    _batch_store[batch_id]["message"] = "Batch-Operation wurde abgebrochen"
+    # Update the status and re-store
+    status["status"] = "cancelled"
+    status["message"] = "Batch-Operation wurde abgebrochen"
+    assistant_batch_cache.set(batch_id, status)
 
     return {"success": True, "message": "Batch-Operation abgebrochen"}
 

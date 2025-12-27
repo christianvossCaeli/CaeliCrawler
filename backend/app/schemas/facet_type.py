@@ -54,6 +54,20 @@ class FacetTypeBase(BaseModel):
     ai_extraction_enabled: bool = Field(default=True, description="Enable AI extraction")
     ai_extraction_prompt: Optional[str] = Field(None, description="AI prompt template")
 
+    # Entity reference configuration
+    allows_entity_reference: bool = Field(
+        default=False,
+        description="Can this FacetType reference another Entity?"
+    )
+    target_entity_type_slugs: List[str] = Field(
+        default_factory=list,
+        description="Allowed entity type slugs for reference (empty = all)"
+    )
+    auto_create_entity: bool = Field(
+        default=False,
+        description="Automatically create Entity if none found during matching?"
+    )
+
     is_active: bool = Field(default=True, description="Whether facet type is active")
 
 
@@ -89,6 +103,9 @@ class FacetTypeUpdate(BaseModel):
     default_time_filter: Optional[TimeFilter] = None
     ai_extraction_enabled: Optional[bool] = None
     ai_extraction_prompt: Optional[str] = None
+    allows_entity_reference: Optional[bool] = None
+    target_entity_type_slugs: Optional[List[str]] = None
+    auto_create_entity: Optional[bool] = None
     is_active: Optional[bool] = None
 
 
@@ -122,6 +139,9 @@ class FacetTypeResponse(BaseModel):
     default_time_filter: str = Field(default="all")
     ai_extraction_enabled: bool = Field(default=True)
     ai_extraction_prompt: Optional[str] = None
+    allows_entity_reference: bool = Field(default=False)
+    target_entity_type_slugs: List[str] = Field(default_factory=list)
+    auto_create_entity: bool = Field(default=False)
     is_active: bool = Field(default=True)
 
     # Computed fields

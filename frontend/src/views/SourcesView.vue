@@ -120,6 +120,7 @@
             :loading="store.sourcesLoading"
             :items-per-page="store.itemsPerPage"
             :page="store.currentPage"
+            :sort-by="store.sortBy"
             @update:options="onTableOptionsUpdate"
           >
             <template #item.categories="{ item }">
@@ -496,9 +497,13 @@ const clearAllFilters = () => {
 /**
  * Handle table pagination/sorting changes
  */
-const onTableOptionsUpdate = (options: { page: number; itemsPerPage: number }) => {
+const onTableOptionsUpdate = (options: { page: number; itemsPerPage: number; sortBy: Array<{ key: string; order: 'asc' | 'desc' }> }) => {
   if (options.itemsPerPage !== store.itemsPerPage) {
     store.itemsPerPage = options.itemsPerPage
+  }
+  // Handle sorting changes
+  if (JSON.stringify(options.sortBy) !== JSON.stringify(store.sortBy)) {
+    store.sortBy = options.sortBy
   }
   store.fetchSources(options.page, options.itemsPerPage)
 }

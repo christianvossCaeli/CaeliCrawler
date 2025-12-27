@@ -96,8 +96,11 @@ async def create_facet_value(
     source_url: Optional[str] = None,
     event_date: Optional[datetime] = None,
     source_type: FacetValueSourceType = FacetValueSourceType.DOCUMENT,
+    target_entity_id: Optional[UUID] = None,
+    facet_type: Optional[FacetType] = None,
+    resolve_entity_reference: bool = True,
 ) -> Optional[FacetValue]:
-    """Create a new facet value.
+    """Create a new facet value with optional entity reference resolution.
 
     Args:
         session: Database session
@@ -110,11 +113,26 @@ async def create_facet_value(
         source_url: Optional source URL
         event_date: Optional event date
         source_type: How this value was created (default: DOCUMENT for AI extraction)
+        target_entity_id: Optional pre-resolved target entity UUID
+        facet_type: Optional FacetType for entity reference resolution
+        resolve_entity_reference: Whether to auto-resolve entity references (default: True)
 
     Returns:
         Created FacetValue, or None if duplicate was detected by database constraint
     """
     from sqlalchemy.exc import IntegrityError
+
+    # Auto-resolve entity reference if configured
+    resolved_target_entity_id = target_entity_id
+    if resolve_entity_reference and not target_entity_id and facet_type:
+        if facet_type.allows_entity_reference:
+            from services.entity_matching_service import EntityMatchingService
+            matching_service = EntityMatchingService(session)
+            resolved_target_entity_id = await matching_service.resolve_target_entity_for_facet(
+                facet_type=facet_type,
+                facet_value_data=value,
+                source_entity_id=entity_id,
+            )
 
     facet_value = FacetValue(
         entity_id=entity_id,
@@ -126,6 +144,7 @@ async def create_facet_value(
         source_url=source_url,
         event_date=event_date,
         source_type=source_type,
+        target_entity_id=resolved_target_entity_id,
     )
     session.add(facet_value)
 
@@ -358,6 +377,8 @@ async def convert_extraction_to_facets(
                 text_representation=text_repr,
                 confidence_score=min(0.9, base_confidence),
                 source_document_id=extracted_data.document_id,
+                facet_type=contact_type,  # Pass facet_type for entity reference resolution
+                resolve_entity_reference=True,
             )
             counts["contact"] += 1
 

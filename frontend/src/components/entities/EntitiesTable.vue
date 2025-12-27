@@ -6,6 +6,7 @@
     :loading="loading"
     :items-per-page="itemsPerPage"
     :page="currentPage"
+    :sort-by="sortBy"
     class="cursor-pointer"
     @update:options="handleOptionsUpdate"
     @click:row="(_event: Event, { item }: { item: Entity }) => $emit('entity-click', item)"
@@ -30,17 +31,10 @@
       <span class="text-medium-emphasis-darken-1 text-caption">{{ item.hierarchy_path || '-' }}</span>
     </template>
 
-    <template #item.filled_facets="{ item }">
+    <template #item.facet_count="{ item }">
       <v-chip size="small" color="secondary" variant="tonal">
         <v-icon start size="small">mdi-tag-check</v-icon>
         {{ item.facet_count || 0 }}
-      </v-chip>
-    </template>
-
-    <template #item.facet_count="{ item }">
-      <v-chip size="small" color="primary" variant="tonal">
-        <v-icon start size="small">mdi-tag-multiple</v-icon>
-        {{ (item.facet_count || 0) + (item.core_attributes ? Object.keys(item.core_attributes).length : 0) }}
       </v-chip>
     </template>
 
@@ -49,29 +43,6 @@
         <v-icon start size="small">mdi-sitemap</v-icon>
         {{ (item.relation_count || 0) + (item.children_count || 0) + (item.parent_id ? 1 : 0) }}
       </v-chip>
-    </template>
-
-    <template #item.facet_summary="{ item }">
-      <div class="d-flex ga-1 flex-wrap">
-        <v-tooltip
-          v-for="facet in getTopFacetCounts(item)"
-          :key="facet.slug"
-          location="top"
-        >
-          <template #activator="{ props: activatorProps }">
-            <v-chip
-              v-bind="activatorProps"
-              size="x-small"
-              :color="facet.color"
-              variant="tonal"
-            >
-              <v-icon start size="x-small" :icon="facet.icon"></v-icon>
-              {{ facet.count }}
-            </v-chip>
-          </template>
-          <span>{{ facet.name }}: {{ facet.count }}</span>
-        </v-tooltip>
-      </div>
     </template>
 
     <template #item.actions="{ item }">
@@ -112,17 +83,14 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Entity, EntityType } from '@/types/entity'
 
-interface FacetCount {
-  slug: string
-  name: string
-  icon: string
-  color: string
-  count: number
-}
-
 interface FeatureFlags {
   entityHierarchyEnabled?: boolean
   [key: string]: boolean | undefined
+}
+
+interface SortItem {
+  key: string
+  order: 'asc' | 'desc'
 }
 
 interface Props {
@@ -133,45 +101,49 @@ interface Props {
   currentPage: number
   currentEntityType: EntityType | null
   flags: FeatureFlags
-  getTopFacetCounts: (entity: Entity) => FacetCount[]
+  sortBy?: SortItem[]
 }
 
 interface Emits {
   (e: 'update:items-per-page', value: number): void
   (e: 'update:current-page', value: number): void
+  (e: 'update:sort-by', value: SortItem[]): void
   (e: 'entity-click', entity: Entity): void
   (e: 'entity-edit', entity: Entity): void
   (e: 'entity-delete', entity: Entity): void
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  sortBy: () => []
+})
 const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
 
 const tableHeaders = computed(() => {
   const headers: Array<{ title: string; key: string; align?: 'start' | 'center' | 'end'; sortable?: boolean }> = [
-    { title: t('common.name'), key: 'name' },
+    { title: t('common.name'), key: 'name', sortable: true },
   ]
 
   if (props.flags.entityHierarchyEnabled && props.currentEntityType?.supports_hierarchy) {
-    headers.push({ title: t('entities.path'), key: 'hierarchy_path' })
+    headers.push({ title: t('entities.path'), key: 'hierarchy_path', sortable: true })
   }
 
   headers.push(
-    { title: t('entities.filledFacets'), key: 'filled_facets', align: 'center' },
-    { title: t('entities.properties'), key: 'facet_count', align: 'center' },
-    { title: t('entities.connections', 'Verknüpfungen'), key: 'relation_count', align: 'center' },
-    { title: t('entities.summary'), key: 'facet_summary', sortable: false },
+    { title: t('entities.filledFacets'), key: 'facet_count', align: 'center', sortable: true },
+    { title: t('entities.connections', 'Verknüpfungen'), key: 'relation_count', align: 'center', sortable: true },
     { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' },
   )
 
   return headers
 })
 
-function handleOptionsUpdate(options: { page: number; itemsPerPage: number }) {
+function handleOptionsUpdate(options: { page: number; itemsPerPage: number; sortBy: SortItem[] }) {
   if (options.itemsPerPage !== props.itemsPerPage) {
     emit('update:items-per-page', options.itemsPerPage)
+  }
+  if (JSON.stringify(options.sortBy) !== JSON.stringify(props.sortBy)) {
+    emit('update:sort-by', options.sortBy)
   }
   emit('update:current-page', options.page)
 }

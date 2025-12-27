@@ -134,27 +134,56 @@ class SetupAPIFacetSyncCommand(BaseCommand):
             existing_ft = ft_result.scalar_one_or_none()
 
             if not existing_ft:
-                # Create the facet type
+                # Check for semantically similar FacetTypes before creating
+                from app.utils.similarity import find_similar_facet_types, generate_embedding
+
                 is_history = mapping.get("is_history", True)
                 ft_name = ft_slug.replace("-", " ").replace("_", " ").title()
 
-                new_ft = FacetType(
-                    slug=ft_slug,
-                    name=ft_name,
-                    name_plural=ft_name,
-                    value_type="history" if is_history else "number",
-                    is_time_based=is_history,
-                    applicable_entity_type_slugs=[entity_type_slug] if entity_type_slug else [],
+                similar_types = await find_similar_facet_types(
+                    self.session, ft_name, threshold=0.7
                 )
-                self.session.add(new_ft)
-                created_facet_types.append(ft_name)
 
-                logger.info(
-                    "facet_type_created_for_sync",
-                    slug=ft_slug,
-                    name=ft_name,
-                    value_type="history" if is_history else "number",
-                )
+                if similar_types:
+                    # Use existing similar FacetType instead of creating duplicate
+                    best_match, score, reason = similar_types[0]
+                    if entity_type_slug and entity_type_slug not in (best_match.applicable_entity_type_slugs or []):
+                        best_match.applicable_entity_type_slugs = (
+                            best_match.applicable_entity_type_slugs or []
+                        ) + [entity_type_slug]
+                    created_facet_types.append(f"{ft_name} (matched: {best_match.name})")
+
+                    logger.info(
+                        "facet_type_matched_for_sync",
+                        requested_slug=ft_slug,
+                        matched_slug=best_match.slug,
+                        similarity_score=score,
+                    )
+                else:
+                    # Create the facet type - no similar type found
+                    new_ft = FacetType(
+                        slug=ft_slug,
+                        name=ft_name,
+                        name_plural=ft_name,
+                        value_type="history" if is_history else "number",
+                        is_time_based=is_history,
+                        applicable_entity_type_slugs=[entity_type_slug] if entity_type_slug else [],
+                    )
+                    self.session.add(new_ft)
+
+                    # Generate embedding for future similarity checks
+                    embedding = await generate_embedding(ft_name)
+                    if embedding:
+                        new_ft.name_embedding = embedding
+
+                    created_facet_types.append(ft_name)
+
+                    logger.info(
+                        "facet_type_created_for_sync",
+                        slug=ft_slug,
+                        name=ft_name,
+                        value_type="history" if is_history else "number",
+                    )
 
         # Check if DataSource with same name already exists
         existing_ds = await self.session.execute(

@@ -23,6 +23,9 @@ export default [
       'vue/multi-word-component-names': 'off',
       'vue/no-v-html': 'warn',
       'vue/require-default-prop': 'off',
+      // Disable deprecated filter check - causes false positives with TypeScript union types
+      // e.g., `formData[key] as string | null` is incorrectly flagged as a Vue 2 filter
+      'vue/no-deprecated-filter': 'off',
       'vue/no-unused-vars': 'error',
       'vue/valid-v-slot': ['error', { allowModifiers: true }], // Allow Vuetify data table slot syntax (#item.name)
       'vue/block-order': ['error', {

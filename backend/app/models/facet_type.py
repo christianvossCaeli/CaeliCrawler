@@ -176,6 +176,26 @@ class FacetType(Base):
         comment="AI prompt template for extracting this facet",
     )
 
+    # Entity reference configuration
+    allows_entity_reference: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="Can this FacetType reference another Entity?",
+    )
+    target_entity_type_slugs: Mapped[List[str]] = mapped_column(
+        ARRAY(String(100)),
+        default=list,
+        nullable=False,
+        comment="Allowed entity type slugs for reference (empty = all)",
+    )
+    auto_create_entity: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="Automatically create Entity if none found during matching?",
+    )
+
     # Status
     is_active: Mapped[bool] = mapped_column(
         Boolean,

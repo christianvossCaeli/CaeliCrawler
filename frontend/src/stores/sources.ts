@@ -75,6 +75,11 @@ export const useSourcesStore = defineStore('sources', () => {
   const sourcesTotal = ref(0)
   const currentPage = ref(1)
   const itemsPerPage = ref(50)
+  // Default: Sort by last_crawl descending (sources with recent activity first)
+  const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([
+    { key: 'last_crawl', order: 'desc' }
+  ])
+
 
   // Categories
   const categories = ref<CategoryResponse[]>([])
@@ -179,6 +184,11 @@ export const useSourcesStore = defineStore('sources', () => {
           // Don't send empty tags array
           if (!params.tags || params.tags.length === 0) {
             delete params.tags
+          }
+          // Add sorting parameters
+          if (sortBy.value.length > 0) {
+            params.sort_by = sortBy.value[0].key
+            params.sort_order = sortBy.value[0].order
           }
           const response = await adminApi.getSources(params)
           sources.value = response.data.items
@@ -700,6 +710,7 @@ export const useSourcesStore = defineStore('sources', () => {
     sourcesTotal,
     currentPage,
     itemsPerPage,
+    sortBy,
     categories,
     categoriesLoading,
     availableTags,

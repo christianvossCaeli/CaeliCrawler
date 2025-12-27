@@ -94,6 +94,8 @@ export const facetApi = {
   addHistoryDataPointsBulk: facetExports.addHistoryDataPointsBulk,
   updateHistoryDataPoint: facetExports.updateHistoryDataPoint,
   deleteHistoryDataPoint: facetExports.deleteHistoryDataPoint,
+  // Entity References
+  getFacetsReferencingEntity: facetExports.getFacetsReferencingEntity,
 }
 
 // Relation API
@@ -164,6 +166,7 @@ export const adminApi = {
   getCrawlerJob: adminExports.getCrawlerJob,
   startCrawl: adminExports.startCrawl,
   cancelJob: adminExports.cancelJob,
+  retryJob: adminExports.retryJob,
   getCrawlerStats: adminExports.getCrawlerStats,
   getCrawlerStatus: adminExports.getCrawlerStatus,
   reanalyzeDocuments: adminExports.reanalyzeDocuments,

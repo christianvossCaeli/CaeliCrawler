@@ -84,12 +84,12 @@ export interface TableHeaderConfig {
 
 /** Table headers configuration (keys for i18n) */
 export const TABLE_HEADERS: TableHeaderConfig[] = [
-  { key: 'name', i18nKey: 'sources.columns.name' },
-  { key: 'categories', i18nKey: 'sources.columns.categories' },
-  { key: 'source_type', i18nKey: 'sources.columns.type' },
-  { key: 'status', i18nKey: 'sources.columns.status' },
-  { key: 'last_crawl', i18nKey: 'sources.columns.lastCrawl' },
-  { key: 'document_count', i18nKey: 'sources.columns.documents' },
+  { key: 'name', i18nKey: 'sources.columns.name', sortable: true },
+  { key: 'categories', i18nKey: 'sources.columns.categories', sortable: false },
+  { key: 'source_type', i18nKey: 'sources.columns.type', sortable: true },
+  { key: 'status', i18nKey: 'sources.columns.status', sortable: true },
+  { key: 'last_crawl', i18nKey: 'sources.columns.lastCrawl', sortable: true },
+  { key: 'document_count', i18nKey: 'sources.columns.documents', sortable: true },
   { key: 'actions', i18nKey: 'sources.columns.actions', sortable: false, align: 'end' },
 ]
 

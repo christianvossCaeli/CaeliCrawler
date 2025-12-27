@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import structlog
 
 from app.config import settings
+from app.core.cache import TTLCache
 from app.schemas.visualization import (
     VisualizationType,
     VisualizationConfig,
@@ -111,8 +112,15 @@ def _generate_cache_key(
     return hashlib.sha256(key_string.encode()).hexdigest()[:32]
 
 
-# In-memory cache for AI responses (simple dict with TTL would be better for production)
-_ai_response_cache: Dict[str, Dict[str, Any]] = {}
+# In-memory cache for AI responses with TTL and max size
+# TTL: 30 min, max 128 entries (visualization choices are context-dependent)
+_ai_response_cache: TTLCache[Dict[str, Any]] = TTLCache(default_ttl=1800, max_size=AI_CACHE_SIZE)
+
+
+def invalidate_visualization_cache() -> None:
+    """Invalidate visualization selection cache."""
+    _ai_response_cache.clear()
+    logger.info("Visualization cache invalidated")
 
 
 # =============================================================================
@@ -394,9 +402,10 @@ class VisualizationSelector:
             )
 
             # Check cache
-            if cache_key in _ai_response_cache:
+            cached = _ai_response_cache.get(cache_key)
+            if cached is not None:
                 logger.debug("Cache hit for visualization selection", cache_key=cache_key[:8])
-                return _ai_response_cache[cache_key]
+                return cached
 
         client = get_openai_client()
 
@@ -435,13 +444,9 @@ class VisualizationSelector:
             cache_key=cache_key[:8] if cache_key else None,
         )
 
-        # Store in cache (with size limit)
+        # Store in cache (TTLCache handles size limit automatically)
         if AI_CACHE_ENABLED and cache_key:
-            if len(_ai_response_cache) >= AI_CACHE_SIZE:
-                # Simple eviction: remove oldest entry (FIFO)
-                oldest_key = next(iter(_ai_response_cache))
-                del _ai_response_cache[oldest_key]
-            _ai_response_cache[cache_key] = result
+            _ai_response_cache.set(cache_key, result)
 
         return result
 

@@ -248,6 +248,26 @@ ai_discovery_cache: TTLCache[Any] = TTLCache(default_ttl=1800, max_size=200)
 # Search strategy cache - 1 hour TTL
 search_strategy_cache: TTLCache[Any] = TTLCache(default_ttl=3600, max_size=100)
 
+# ============================================================================
+# Assistant Caches
+# ============================================================================
+
+# Assistant attachment cache - 1 hour TTL, max 200 attachments
+# Stores temporary attachments uploaded via the assistant chat
+assistant_attachment_cache: TTLCache[Any] = TTLCache(
+    default_ttl=3600,  # 1 hour
+    max_size=200,
+    cleanup_interval=300,  # 5 minute cleanup interval
+)
+
+# Assistant batch operation cache - 30 minute TTL, max 50 batch jobs
+# Stores status information for batch operations
+assistant_batch_cache: TTLCache[Any] = TTLCache(
+    default_ttl=1800,  # 30 minutes
+    max_size=50,
+    cleanup_interval=60,  # 1 minute cleanup interval
+)
+
 
 def get_cache_stats() -> Dict[str, Dict[str, Any]]:
     """Get statistics for all caches."""
@@ -257,6 +277,8 @@ def get_cache_stats() -> Dict[str, Dict[str, Any]]:
         "categories": category_cache.stats,
         "ai_discovery": ai_discovery_cache.stats,
         "search_strategy": search_strategy_cache.stats,
+        "assistant_attachments": assistant_attachment_cache.stats,
+        "assistant_batches": assistant_batch_cache.stats,
     }
 
 
@@ -267,6 +289,8 @@ def clear_all_caches() -> None:
     category_cache.clear()
     ai_discovery_cache.clear()
     search_strategy_cache.clear()
+    assistant_attachment_cache.clear()
+    assistant_batch_cache.clear()
     logger.info("All caches cleared")
 
 

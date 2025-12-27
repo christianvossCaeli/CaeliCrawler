@@ -32,6 +32,11 @@
       {{ t('entityDetail.tabs.attachments') }}
       <v-chip v-if="attachmentCount" size="x-small" class="ml-2">{{ attachmentCount }}</v-chip>
     </v-tab>
+    <v-tab v-if="referencedByCount > 0" value="referenced-by">
+      <v-icon start>mdi-link-variant</v-icon>
+      {{ t('entityDetail.tabs.referencedBy', 'Referenziert in') }}
+      <v-chip v-if="referencedByCount" size="x-small" class="ml-2">{{ referencedByCount }}</v-chip>
+    </v-tab>
   </v-tabs>
 </template>
 
@@ -48,6 +53,7 @@ const props = defineProps<{
   attachmentCount: number
   supportsPysis: boolean
   hasExternalData: boolean
+  referencedByCount: number
 }>()
 
 const emit = defineEmits<{

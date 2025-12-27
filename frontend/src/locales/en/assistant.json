@@ -13,6 +13,8 @@
     "modeRead": "Read mode",
     "modeWrite": "Write mode",
     "modePlan": "Plan mode",
+    "planModeHint": "In plan mode, you will be redirected to Smart Query for interactive workflow planning.",
+    "planModeRedirect": "Opening Smart Query in plan mode...",
     "modeToggle": "Toggle mode",
     "toggleQuickActions": "Toggle quick actions",
     "welcomeTitle": "Hello! I'm your assistant.",

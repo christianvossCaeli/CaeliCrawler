@@ -173,6 +173,11 @@
               {{ t('admin.facetTypes.tabs.ai') }}
               <v-icon v-if="form.ai_extraction_enabled" size="x-small" color="success" class="ml-1">mdi-check-circle</v-icon>
             </v-tab>
+            <v-tab value="entity-ref">
+              <v-icon start>mdi-link-variant</v-icon>
+              {{ t('admin.facetTypes.tabs.entityRef', 'Entity-Referenz') }}
+              <v-icon v-if="form.allows_entity_reference" size="x-small" color="success" class="ml-1">mdi-check-circle</v-icon>
+            </v-tab>
           </v-tabs>
 
           <v-card-text class="pa-6 dialog-content-lg">
@@ -455,6 +460,65 @@
                     {{ t('admin.facetTypes.form.aiDisabledInfo') }}
                   </v-alert>
                 </v-window-item>
+
+                <!-- Entity Reference Tab -->
+                <v-window-item value="entity-ref">
+                  <v-card variant="outlined" class="mb-4">
+                    <v-card-text class="d-flex align-center">
+                      <v-avatar color="primary" size="48" class="mr-4">
+                        <v-icon color="on-primary">mdi-link-variant</v-icon>
+                      </v-avatar>
+                      <div class="flex-grow-1">
+                        <div class="text-body-1 font-weight-medium">{{ t('admin.facetTypes.form.allowsEntityReference', 'Entity-Referenz erlauben') }}</div>
+                        <div class="text-caption text-medium-emphasis">{{ t('admin.facetTypes.form.allowsEntityReferenceHint', 'Facet-Werte können auf andere Datensätze verweisen (z.B. Kontakt → Person)') }}</div>
+                      </div>
+                      <v-switch
+                        v-model="form.allows_entity_reference"
+                        color="primary"
+                        hide-details
+                      ></v-switch>
+                    </v-card-text>
+                  </v-card>
+
+                  <v-expand-transition>
+                    <div v-if="form.allows_entity_reference">
+                      <v-alert type="info" variant="tonal" class="mb-4">
+                        {{ t('admin.facetTypes.form.entityRefInfo', 'Wenn aktiviert, können Facet-Werte auf andere Entities verweisen. Zum Beispiel kann ein Kontakt-Facet auf eine Person-Entity verweisen.') }}
+                      </v-alert>
+
+                      <v-select
+                        v-model="form.target_entity_type_slugs"
+                        :items="entityTypes"
+                        :label="t('admin.facetTypes.form.targetEntityTypes', 'Erlaubte Ziel-Entity-Typen')"
+                        :hint="t('admin.facetTypes.form.targetEntityTypesHint', 'Leer = alle Typen erlaubt')"
+                        item-title="name"
+                        item-value="slug"
+                        multiple
+                        chips
+                        closable-chips
+                        persistent-hint
+                        variant="outlined"
+                        class="mb-4"
+                      ></v-select>
+
+                      <v-card variant="outlined" class="pa-4">
+                        <v-switch
+                          v-model="form.auto_create_entity"
+                          :label="t('admin.facetTypes.form.autoCreateEntity', 'Entities automatisch erstellen')"
+                          color="primary"
+                          hide-details
+                        ></v-switch>
+                        <div class="text-caption text-medium-emphasis mt-2">
+                          {{ t('admin.facetTypes.form.autoCreateEntityHint', 'Wenn aktiviert, wird automatisch eine neue Entity erstellt, wenn keine passende gefunden wird.') }}
+                        </div>
+                      </v-card>
+                    </div>
+                  </v-expand-transition>
+
+                  <v-alert v-if="!form.allows_entity_reference" type="info" variant="tonal" class="mt-4">
+                    {{ t('admin.facetTypes.form.entityRefDisabledInfo', 'Facet-Werte dieses Typs werden nicht mit anderen Entities verknüpft.') }}
+                  </v-alert>
+                </v-window-item>
               </v-window>
             </v-form>
           </v-card-text>
@@ -529,6 +593,10 @@ interface FacetTypeLocal {
   is_system?: boolean
   display_order?: number
   value_count?: number
+  // Entity reference configuration
+  allows_entity_reference?: boolean
+  target_entity_type_slugs?: string[]
+  auto_create_entity?: boolean
 }
 
 interface EntityTypeLocal {
@@ -610,17 +678,21 @@ const form = ref({
   ai_extraction_prompt: '',
   is_active: true,
   display_order: 0,
+  // Entity reference configuration
+  allows_entity_reference: false,
+  target_entity_type_slugs: [] as string[],
+  auto_create_entity: false,
 })
 
 const headers = computed(() => [
   { title: '', key: 'icon', width: '50px', sortable: false },
-  { title: t('admin.facetTypes.columns.name'), key: 'name' },
+  { title: t('admin.facetTypes.columns.name'), key: 'name', sortable: true },
   { title: t('admin.facetTypes.columns.entityTypes'), key: 'applicable_entity_types', sortable: false },
-  { title: t('admin.facetTypes.columns.valueType'), key: 'value_type', width: '120px' },
-  { title: t('admin.facetTypes.columns.values'), key: 'value_count', width: '100px', align: 'center' as const },
-  { title: t('admin.facetTypes.columns.ai'), key: 'ai_extraction_enabled', width: '60px', align: 'center' as const },
-  { title: t('admin.facetTypes.columns.system'), key: 'is_system', width: '80px', align: 'center' as const },
-  { title: t('admin.facetTypes.columns.active'), key: 'is_active', width: '80px', align: 'center' as const },
+  { title: t('admin.facetTypes.columns.valueType'), key: 'value_type', width: '120px', sortable: true },
+  { title: t('admin.facetTypes.columns.values'), key: 'value_count', width: '100px', align: 'center' as const, sortable: true },
+  { title: t('admin.facetTypes.columns.ai'), key: 'ai_extraction_enabled', width: '60px', align: 'center' as const, sortable: true },
+  { title: t('admin.facetTypes.columns.system'), key: 'is_system', width: '80px', align: 'center' as const, sortable: true },
+  { title: t('admin.facetTypes.columns.active'), key: 'is_active', width: '80px', align: 'center' as const, sortable: true },
   { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' as const },
 ])
 
@@ -723,6 +795,9 @@ function openCreateDialog() {
     ai_extraction_prompt: '',
     is_active: true,
     display_order: 0,
+    allows_entity_reference: false,
+    target_entity_type_slugs: [],
+    auto_create_entity: false,
   }
   dialog.value = true
 }
@@ -752,6 +827,10 @@ function openEditDialog(item: FacetTypeLocal) {
     ai_extraction_prompt: item.ai_extraction_prompt || '',
     is_active: item.is_active ?? true,
     display_order: item.display_order ?? 0,
+    // Entity reference configuration
+    allows_entity_reference: item.allows_entity_reference ?? false,
+    target_entity_type_slugs: item.target_entity_type_slugs || [],
+    auto_create_entity: item.auto_create_entity ?? false,
   }
   schemaJson.value = item.value_schema ? JSON.stringify(item.value_schema, null, 2) : ''
   dialog.value = true

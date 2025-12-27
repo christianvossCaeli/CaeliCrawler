@@ -96,6 +96,7 @@
         :loading="loading"
         :items-per-page="itemsPerPage"
         :page="currentPage"
+        :sort-by="sortBy"
         class="cursor-pointer"
         @update:options="onTableOptionsUpdate"
         @click:row="(_event: Event, { item }: { item: any }) => navigateToEntity(item)"
@@ -188,6 +189,7 @@ const entityTypeFilter = ref<string | null>(null)
 const currentPage = ref(1)
 const itemsPerPage = ref(25)
 const removingId = ref<string | null>(null)
+const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'created_at', order: 'desc' }])
 
 // Computed
 const favorites = computed(() => favoritesStore.favorites)
@@ -203,9 +205,9 @@ const entityTypeOptions = computed(() => {
 })
 
 const headers = computed(() => [
-  { title: t('favorites.entity'), key: 'entity', sortable: false },
+  { title: t('favorites.entity'), key: 'entity', sortable: true },
   { title: t('favorites.type'), key: 'entity_type', sortable: false },
-  { title: t('favorites.addedAt'), key: 'created_at' },
+  { title: t('favorites.addedAt'), key: 'created_at', sortable: true },
   { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' as const },
 ])
 
@@ -218,11 +220,23 @@ async function loadFavorites(page = currentPage.value) {
 
   loading.value = true
   try {
+    // Map frontend sort keys to backend keys
+    let sortByKey: string | undefined
+    let sortOrder: 'asc' | 'desc' | undefined
+    if (sortBy.value.length > 0) {
+      const sortItem = sortBy.value[0]
+      // Map 'entity' column to 'entity_name' for backend
+      sortByKey = sortItem.key === 'entity' ? 'entity_name' : sortItem.key
+      sortOrder = sortItem.order
+    }
+
     await favoritesStore.loadFavorites({
       page,
       per_page: itemsPerPage.value,
       search: searchQuery.value || undefined,
       entity_type_slug: entityTypeFilter.value || undefined,
+      sort_by: sortByKey,
+      sort_order: sortOrder,
     })
     currentPage.value = page
   } catch (e) {
@@ -233,12 +247,13 @@ async function loadFavorites(page = currentPage.value) {
   }
 }
 
-function onTableOptionsUpdate(options: { page: number; itemsPerPage: number }) {
+function onTableOptionsUpdate(options: { page: number; itemsPerPage: number; sortBy: Array<{ key: string; order: 'asc' | 'desc' }> }) {
   // Prevent unnecessary reloads that cause infinite loops
   const pageChanged = options.page !== currentPage.value
   const perPageChanged = options.itemsPerPage !== itemsPerPage.value
+  const sortChanged = JSON.stringify(options.sortBy) !== JSON.stringify(sortBy.value)
 
-  if (!pageChanged && !perPageChanged) {
+  if (!pageChanged && !perPageChanged && !sortChanged) {
     return // No actual change, skip reload
   }
 
@@ -246,7 +261,11 @@ function onTableOptionsUpdate(options: { page: number; itemsPerPage: number }) {
     itemsPerPage.value = options.itemsPerPage
   }
 
-  if (pageChanged || perPageChanged) {
+  if (sortChanged) {
+    sortBy.value = options.sortBy
+  }
+
+  if (pageChanged || perPageChanged || sortChanged) {
     loadFavorites(options.page)
   }
 }

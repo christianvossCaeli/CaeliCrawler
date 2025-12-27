@@ -238,6 +238,7 @@ class Entity(Base):
     facet_values: Mapped[List["FacetValue"]] = relationship(
         "FacetValue",
         back_populates="entity",
+        foreign_keys="FacetValue.entity_id",
         cascade="all, delete-orphan",
     )
     # Relations where this entity is the source

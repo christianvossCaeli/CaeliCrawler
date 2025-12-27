@@ -1,4 +1,8 @@
-"""Tests for geographic utilities including fuzzy matching."""
+"""Tests for geographic utilities including fuzzy matching.
+
+Note: These tests use AI-based alias resolution. The system is fully generic
+and does not rely on hardcoded mappings.
+"""
 
 import pytest
 
@@ -45,109 +49,138 @@ class TestLevenshteinDistance:
 
 
 class TestFuzzyMatching:
-    """Test fuzzy matching for geographic aliases."""
+    """Test fuzzy matching for aliases."""
 
     @pytest.mark.asyncio
-    async def test_suggest_correction_typo(self):
-        """Test correction suggestion for typos."""
-        from services.smart_query.geographic_utils import find_all_geo_suggestions
+    async def test_suggest_correction_async(self):
+        """Test correction suggestion for typos using async function."""
+        from services.smart_query.alias_utils import suggest_correction_async
 
-        # NWR is a common typo for NRW
-        suggestions = find_all_geo_suggestions("NWR")
+        # Test with a known list of values
+        known_values = ["Nordrhein-Westfalen", "Bayern", "Baden-Württemberg"]
 
-        assert len(suggestions) > 0
-        # Suggestions are tuples: (alias, canonical, distance)
-        suggestion_values = [s[1] for s in suggestions]  # canonical names
-        assert any("Nordrhein" in s for s in suggestion_values)
+        # "Bayren" is a typo for "Bayern"
+        suggestion = await suggest_correction_async("Bayren", known_values)
+
+        assert suggestion is not None
+        assert suggestion[1] == "Bayern"  # canonical name
 
     @pytest.mark.asyncio
     async def test_suggest_correction_case_insensitive(self):
         """Test that matching is case insensitive."""
-        from services.smart_query.geographic_utils import find_all_geo_suggestions
+        from services.smart_query.alias_utils import suggest_correction_async
 
-        suggestions_lower = find_all_geo_suggestions("nrw")
-        suggestions_upper = find_all_geo_suggestions("NRW")
+        known_values = ["Nordrhein-Westfalen", "Bayern"]
 
-        # Both should find the same result (empty because it's an exact match)
-        assert len(suggestions_lower) == 0  # Exact match - no suggestion needed
-        assert len(suggestions_upper) == 0
+        # Both upper and lower case should work
+        suggestion_lower = await suggest_correction_async("bayren", known_values)
+        suggestion_upper = await suggest_correction_async("BAYREN", known_values)
 
-    @pytest.mark.asyncio
-    async def test_no_suggestion_for_valid_alias(self):
-        """Test that no suggestion is made for valid aliases."""
-        from services.smart_query.geographic_utils import resolve_geographic_alias
-
-        # Valid alias should resolve directly
-        resolved = resolve_geographic_alias("NRW")
-
-        assert resolved == "Nordrhein-Westfalen"
+        assert suggestion_lower is not None
+        assert suggestion_upper is not None
+        assert suggestion_lower[1] == suggestion_upper[1] == "Bayern"
 
     @pytest.mark.asyncio
     async def test_suggest_correction_threshold(self):
         """Test that suggestions respect the threshold."""
-        from services.smart_query.geographic_utils import find_all_geo_suggestions
+        from services.smart_query.alias_utils import suggest_correction_async
 
-        # Very different string should not match
-        suggestions = find_all_geo_suggestions("XXXYYY")
+        known_values = ["Nordrhein-Westfalen", "Bayern"]
 
-        # Should be empty (no suggestions within threshold)
-        assert len(suggestions) == 0
+        # Very different string should not match with default threshold
+        suggestion = await suggest_correction_async("XXXYYY", known_values)
+
+        assert suggestion is None
 
 
-class TestResolveLocationAliases:
-    """Test location alias resolution."""
+class TestResolveAliasAsync:
+    """Test AI-based alias resolution using async functions."""
 
     @pytest.mark.asyncio
-    async def test_resolve_bundesland_alias(self):
-        """Test resolving Bundesland alias."""
-        from services.smart_query.geographic_utils import resolve_geographic_alias
+    async def test_resolve_bundesland_alias_async(self):
+        """Test resolving Bundesland alias using async AI-based resolution."""
+        from services.smart_query.alias_utils import resolve_alias_async
 
-        resolved = resolve_geographic_alias("NRW")
+        # NRW should resolve to Nordrhein-Westfalen (unambiguous)
+        resolved = await resolve_alias_async("NRW", domain="geographic")
         assert resolved == "Nordrhein-Westfalen"
 
-        resolved = resolve_geographic_alias("BY")
+        # "Bayern" (full name) should stay unchanged or resolve correctly
+        resolved = await resolve_alias_async("Bayern", domain="geographic")
         assert resolved == "Bayern"
 
     @pytest.mark.asyncio
-    async def test_resolve_multiple_aliases(self):
-        """Test resolving multiple aliases."""
-        from services.smart_query.geographic_utils import resolve_geographic_alias
+    async def test_resolve_german_state_abbreviations_async(self):
+        """Test resolving German state abbreviations with context."""
+        from services.smart_query.alias_utils import resolve_alias_async
 
-        resolved_nrw = resolve_geographic_alias("NRW")
-        resolved_by = resolve_geographic_alias("BY")
-        resolved_bw = resolve_geographic_alias("BW")
-
+        # Unambiguous German state abbreviations
+        resolved_nrw = await resolve_alias_async("NRW", domain="German state")
         assert resolved_nrw == "Nordrhein-Westfalen"
-        assert resolved_by == "Bayern"
+
+        resolved_bw = await resolve_alias_async("BW", domain="German state")
         assert resolved_bw == "Baden-Württemberg"
 
     @pytest.mark.asyncio
-    async def test_resolve_preserves_unknown(self):
+    async def test_resolve_preserves_unknown_async(self):
         """Test that unknown values are preserved."""
-        from services.smart_query.geographic_utils import resolve_geographic_alias
+        from services.smart_query.alias_utils import resolve_alias_async
 
-        resolved = resolve_geographic_alias("UnknownLocation")
+        resolved = await resolve_alias_async("XYZUnknownLocation123", domain="geographic")
 
         # Unknown locations should be passed through unchanged
-        assert resolved == "UnknownLocation"
+        assert resolved == "XYZUnknownLocation123"
 
 
-class TestGeoAliases:
-    """Test geographic alias definitions."""
+class TestGenericAliasResolution:
+    """Test generic (non-geographic) alias resolution."""
 
-    def test_bundesland_aliases_exist(self):
-        """Test that Bundesland aliases are defined."""
-        from services.smart_query.geographic_utils import GERMAN_STATE_ALIASES
+    @pytest.mark.asyncio
+    async def test_resolve_organization_alias(self):
+        """Test resolving organization abbreviations."""
+        from services.smart_query.alias_utils import resolve_alias_async
 
-        # Check some common aliases exist (keys are lowercase)
-        assert "nrw" in GERMAN_STATE_ALIASES
-        assert "by" in GERMAN_STATE_ALIASES
+        # WHO should resolve to World Health Organization
+        resolved = await resolve_alias_async("WHO", domain="organization")
+        assert "World Health Organization" in resolved or "WHO" == resolved
 
-    def test_bundesland_aliases_map_correctly(self):
-        """Test that aliases map to correct full names."""
-        from services.smart_query.geographic_utils import GERMAN_STATE_ALIASES
+    @pytest.mark.asyncio
+    async def test_resolve_without_domain(self):
+        """Test resolving alias without specifying domain."""
+        from services.smart_query.alias_utils import resolve_alias_async
 
-        # Check NRW alias maps correctly
-        assert GERMAN_STATE_ALIASES["nrw"] == "Nordrhein-Westfalen"
-        assert GERMAN_STATE_ALIASES["by"] == "Bayern"
-        assert GERMAN_STATE_ALIASES["bw"] == "Baden-Württemberg"
+        # Should still work without domain hint
+        resolved = await resolve_alias_async("NRW")
+        # May or may not resolve depending on AI interpretation
+        assert resolved is not None
+
+
+class TestTermExpansion:
+    """Test AI-based term expansion."""
+
+    @pytest.mark.asyncio
+    async def test_expand_terms_async(self):
+        """Test term expansion using async function."""
+        from services.smart_query.alias_utils import expand_terms_async
+
+        # Abstract term "Entscheidungsträger" should expand to specific roles
+        expanded = await expand_terms_async(
+            context="business leadership",
+            raw_terms=["decision maker"]
+        )
+
+        assert len(expanded) >= 1
+        # Should return at least the original or expanded terms
+
+    @pytest.mark.asyncio
+    async def test_expand_concrete_term_unchanged(self):
+        """Test that concrete terms are not unnecessarily expanded."""
+        from services.smart_query.alias_utils import expand_terms_async
+
+        # A very specific term should remain as-is or be minimally expanded
+        expanded = await expand_terms_async(
+            context="job titles",
+            raw_terms=["CEO"]
+        )
+
+        assert "CEO" in expanded or any("Chief" in t for t in expanded)

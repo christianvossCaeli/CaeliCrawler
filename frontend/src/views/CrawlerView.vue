@@ -280,14 +280,28 @@
 
         <template #item.progress="{ item }">
           <div class="d-flex align-center">
-            <span class="mr-2">{{ item.documents_processed ?? 0 }}/{{ item.documents_found ?? 0 }}</span>
-            <v-progress-linear
-              :model-value="(item.documents_found ?? 0) > 0 ? ((item.documents_processed ?? 0) / (item.documents_found ?? 1)) * 100 : 0"
-              height="8"
-              rounded
-              color="primary"
-              style="width: 100px"
-            ></v-progress-linear>
+            <!-- For completed/failed jobs, show actual results -->
+            <template v-if="item.status === 'COMPLETED' || item.status === 'FAILED' || item.status === 'CANCELLED'">
+              <v-chip v-if="(item.documents_new ?? 0) > 0" size="x-small" color="success" class="mr-1">
+                {{ item.documents_new }} {{ $t('crawler.newDocuments') }}
+              </v-chip>
+              <v-chip size="x-small" color="info" class="mr-1">
+                {{ item.documents_found ?? 0 }} {{ $t('crawler.documentsFound') }}
+              </v-chip>
+              <v-icon v-if="item.status === 'COMPLETED'" color="success" size="small">mdi-check-circle</v-icon>
+              <v-icon v-else-if="item.status === 'FAILED'" color="error" size="small">mdi-alert-circle</v-icon>
+              <v-icon v-else color="grey" size="small">mdi-cancel</v-icon>
+            </template>
+            <!-- For running/pending jobs, show progress bar -->
+            <template v-else>
+              <span class="mr-2">{{ item.pages_crawled ?? 0 }} {{ $t('crawler.pages') }}</span>
+              <v-progress-circular
+                indeterminate
+                size="16"
+                width="2"
+                color="primary"
+              ></v-progress-circular>
+            </template>
           </div>
         </template>
 
@@ -302,6 +316,16 @@
               :title="$t('common.cancel')"
               :aria-label="$t('common.stopTask')"
               @click="cancelJob(item)"
+            ></v-btn>
+            <v-btn
+              v-if="item.status === 'FAILED' || item.status === 'CANCELLED'"
+              icon="mdi-refresh"
+              size="small"
+              variant="tonal"
+              color="warning"
+              :title="$t('crawler.retry')"
+              :aria-label="$t('crawler.retryJob')"
+              @click="retryJob(item)"
             ></v-btn>
             <v-btn
               icon="mdi-information"
@@ -402,6 +426,15 @@
           </div>
         </v-card-text>
         <v-card-actions>
+          <v-btn
+            v-if="selectedJob.status === 'FAILED' || selectedJob.status === 'CANCELLED'"
+            color="warning"
+            variant="tonal"
+            prepend-icon="mdi-refresh"
+            @click="retryJob(selectedJob); detailsDialog = false"
+          >
+            {{ $t('crawler.retry') }}
+          </v-btn>
           <v-spacer></v-spacer>
           <v-btn variant="tonal" @click="detailsDialog = false">{{ $t('crawler.close') }}</v-btn>
         </v-card-actions>
@@ -519,12 +552,12 @@ const stats = ref({
 })
 
 const headers = [
-  { title: t('crawler.source'), key: 'source_name' },
-  { title: t('crawler.category'), key: 'category_name' },
-  { title: t('crawler.status'), key: 'status' },
-  { title: t('crawler.startedAt'), key: 'scheduled_at' },
-  { title: t('crawler.duration'), key: 'duration' },
-  { title: t('crawler.progress'), key: 'progress' },
+  { title: t('crawler.source'), key: 'source_name', sortable: true },
+  { title: t('crawler.category'), key: 'category_name', sortable: true },
+  { title: t('crawler.status'), key: 'status', sortable: true },
+  { title: t('crawler.startedAt'), key: 'scheduled_at', sortable: true },
+  { title: t('crawler.duration'), key: 'duration', sortable: true },
+  { title: t('crawler.progress'), key: 'progress', sortable: false },
   { title: t('common.actions'), key: 'actions', sortable: false },
 ]
 
@@ -631,6 +664,16 @@ const cancelJob = async (job: CrawlerJob) => {
     loadData()
   } catch (error) {
     showError(getErrorMessage(error) || t('crawler.cancelJobError'))
+  }
+}
+
+const retryJob = async (job: CrawlerJob) => {
+  try {
+    await adminApi.retryJob(job.id)
+    showSuccess(t('crawler.jobRetryStarted'))
+    loadData()
+  } catch (error) {
+    showError(getErrorMessage(error) || t('crawler.retryJobError'))
   }
 }
 

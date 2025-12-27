@@ -179,14 +179,6 @@
           </div>
         </div>
 
-        <!-- Add Relation Button (wenn keine Relations aber noch keine children angezeigt werden) -->
-        <div v-if="relations.length === 0 && childrenCount === 0 && !entity?.parent_id" class="text-center mt-4">
-          <v-btn variant="tonal" color="primary" @click="$emit('addRelation')">
-            <v-icon start>mdi-link-plus</v-icon>
-            {{ t('entityDetail.addRelation') }}
-          </v-btn>
-        </div>
-
         <!-- Empty State when no connections at all -->
         <div v-if="totalConnectionsCount === 0" class="text-center pa-8">
           <v-icon size="80" color="grey-lighten-1" class="mb-4">mdi-sitemap</v-icon>

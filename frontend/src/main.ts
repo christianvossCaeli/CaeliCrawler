@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
+import { setupApiInterceptors } from './services/api/client'
 
 // Vuetify
 import 'vuetify/styles'
@@ -110,6 +111,9 @@ app.use(createPinia())
 app.use(router)
 app.use(vuetify)
 app.use(i18n)
+
+// Setup API interceptors for automatic 401 handling (after Pinia is initialized)
+setupApiInterceptors(router)
 
 // Set HTML lang attribute
 document.documentElement.lang = getLocale()

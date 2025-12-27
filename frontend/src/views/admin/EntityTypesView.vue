@@ -601,13 +601,13 @@ function getFacetsForEntityType(entityTypeSlug: string): FacetTypeLocal[] {
 
 const headers = computed(() => [
   { title: '', key: 'icon', width: '50px', sortable: false },
-  { title: t('admin.entityTypes.columns.name'), key: 'name' },
-  { title: t('admin.entityTypes.columns.slug'), key: 'slug' },
+  { title: t('admin.entityTypes.columns.name'), key: 'name', sortable: true },
+  { title: t('admin.entityTypes.columns.slug'), key: 'slug', sortable: true },
   { title: t('admin.entityTypes.facets'), key: 'facets', sortable: false },
-  { title: t('admin.entityTypes.columns.color'), key: 'color', width: '120px' },
-  { title: t('admin.entityTypes.columns.entities'), key: 'entity_count', width: '100px', align: 'center' as const },
-  { title: t('admin.entityTypes.columns.system'), key: 'is_system', width: '80px', align: 'center' as const },
-  { title: t('admin.entityTypes.columns.active'), key: 'is_active', width: '80px', align: 'center' as const },
+  { title: t('admin.entityTypes.columns.color'), key: 'color', width: '120px', sortable: true },
+  { title: t('admin.entityTypes.columns.entities'), key: 'entity_count', width: '100px', align: 'center' as const, sortable: true },
+  { title: t('admin.entityTypes.columns.system'), key: 'is_system', width: '80px', align: 'center' as const, sortable: true },
+  { title: t('admin.entityTypes.columns.active'), key: 'is_active', width: '80px', align: 'center' as const, sortable: true },
   { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' as const },
 ])
 

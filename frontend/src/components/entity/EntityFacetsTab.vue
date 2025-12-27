@@ -312,7 +312,56 @@
                         <div class="d-flex align-start ga-2 mb-2">
                           <v-icon size="small" color="primary">mdi-account-tie</v-icon>
                           <div class="flex-grow-1">
-                            <div class="text-body-1 font-weight-medium">{{ getContactName(sample) }}</div>
+                            <!-- Contact Name with optional Entity Link -->
+                            <div class="d-flex align-center ga-2">
+                              <span class="text-body-1 font-weight-medium">{{ getContactName(sample) }}</span>
+                              <!-- Link to referenced entity -->
+                              <v-chip
+                                v-if="sample.target_entity_id"
+                                size="small"
+                                variant="tonal"
+                                color="primary"
+                                class="cursor-pointer"
+                                @click.stop="navigateToTargetEntity(sample)"
+                              >
+                                <v-icon start size="small">mdi-link-variant</v-icon>
+                                {{ sample.target_entity_name || t('entityDetail.viewEntity') }}
+                              </v-chip>
+                              <!-- Entity Link Management Menu -->
+                              <v-menu location="bottom">
+                                <template #activator="{ props: menuProps }">
+                                  <v-btn
+                                    icon
+                                    size="x-small"
+                                    variant="text"
+                                    v-bind="menuProps"
+                                    @click.stop
+                                  >
+                                    <v-icon size="small">mdi-dots-vertical</v-icon>
+                                  </v-btn>
+                                </template>
+                                <v-list density="compact">
+                                  <v-list-item
+                                    v-if="!sample.target_entity_id"
+                                    prepend-icon="mdi-link-plus"
+                                    :title="t('entityDetail.facets.linkToEntity', 'Mit Entity verknüpfen')"
+                                    @click="openEntityLinkDialog(sample)"
+                                  ></v-list-item>
+                                  <v-list-item
+                                    v-if="sample.target_entity_id"
+                                    prepend-icon="mdi-link-off"
+                                    :title="t('entityDetail.facets.unlinkEntity', 'Verknüpfung entfernen')"
+                                    @click="unlinkEntity(sample)"
+                                  ></v-list-item>
+                                  <v-list-item
+                                    v-if="sample.target_entity_id"
+                                    prepend-icon="mdi-swap-horizontal"
+                                    :title="t('entityDetail.facets.changeEntityLink', 'Andere Entity verknüpfen')"
+                                    @click="openEntityLinkDialog(sample)"
+                                  ></v-list-item>
+                                </v-list>
+                              </v-menu>
+                            </div>
                             <div v-if="getContactRole(sample)" class="text-body-2 text-medium-emphasis">{{ getContactRole(sample) }}</div>
                             <div class="d-flex flex-wrap ga-2 mt-2">
                               <v-chip v-if="getContactEmail(sample)" size="small" variant="outlined" @click.stop="copyToClipboard(getContactEmail(sample)!)">
@@ -591,15 +640,72 @@
       v-model="sourceDetailsDialog"
       :source-facet="selectedSourceFacet"
     />
+
+    <!-- Entity Link Dialog for Facets -->
+    <v-dialog v-model="entityLinkDialog" max-width="600" scrollable>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon start>mdi-link-plus</v-icon>
+          {{ t('entityDetail.facets.linkEntityTitle', 'Facet mit Entity verknüpfen') }}
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="info" variant="tonal" class="mb-4">
+            {{ t('entityDetail.facets.linkEntityDescription', 'Suchen Sie nach einer Entity, um dieses Facet zu verknüpfen.') }}
+          </v-alert>
+
+          <v-autocomplete
+            v-model="selectedTargetEntityId"
+            v-model:search="entitySearchQuery"
+            :items="entitySearchResults"
+            :loading="searchingEntities"
+            item-title="name"
+            item-value="id"
+            :label="t('entityDetail.facets.searchEntity', 'Entity suchen...')"
+            prepend-inner-icon="mdi-magnify"
+            variant="outlined"
+            clearable
+            no-filter
+            @update:search="searchEntities"
+          >
+            <template #item="{ item, props: itemProps }">
+              <v-list-item v-bind="itemProps">
+                <template #prepend>
+                  <v-avatar size="32" :color="item.raw.entity_type_color || 'primary'">
+                    <v-icon size="small" color="white">{{ item.raw.entity_type_icon || 'mdi-folder' }}</v-icon>
+                  </v-avatar>
+                </template>
+                <template #subtitle>
+                  {{ item.raw.entity_type_name }}
+                </template>
+              </v-list-item>
+            </template>
+          </v-autocomplete>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="tonal" @click="entityLinkDialog = false">{{ t('common.cancel') }}</v-btn>
+          <v-btn
+            color="primary"
+            variant="tonal"
+            :loading="savingEntityLink"
+            :disabled="!selectedTargetEntityId"
+            @click="saveEntityLink"
+          >
+            {{ t('common.save') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { useEntityStore, type Entity, type EntityType } from '@/stores/entity'
 import type { FacetValue, FacetGroup, FacetsSummary } from '@/types/entity'
-import { facetApi, entityDataApi } from '@/services/api'
+import { facetApi, entityDataApi, entityApi } from '@/services/api'
 import { format, formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
@@ -662,6 +768,7 @@ interface SourceFacet {
 // =============================================================================
 
 const { t } = useI18n()
+const router = useRouter()
 const store = useEntityStore()
 const { showSuccess, showError } = useSnackbar()
 
@@ -697,6 +804,21 @@ const editingFacetTypeName = computed(() => editingFacetGroup.value?.facet_type_
 // Source Details
 const sourceDetailsDialog = ref(false)
 const selectedSourceFacet = ref<SourceFacet | null>(null)
+
+// Entity Linking for Facets
+const entityLinkDialog = ref(false)
+const facetToLink = ref<FacetValue | null>(null)
+const selectedTargetEntityId = ref<string | null>(null)
+const entitySearchQuery = ref('')
+const entitySearchResults = ref<Array<{
+  id: string
+  name: string
+  entity_type_name: string
+  entity_type_icon?: string
+  entity_type_color?: string
+}>>([])
+const searchingEntities = ref(false)
+const savingEntityLink = ref(false)
 
 // Enrichment System
 const enrichmentMenuOpen = ref(false)
@@ -1189,6 +1311,106 @@ function getSentimentColor(sentiment: string | null): string {
 function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text)
   showSuccess(t('entityDetail.messages.copiedToClipboard'))
+}
+
+// Navigate to a referenced (target) entity
+function navigateToTargetEntity(facet: FacetValue) {
+  if (!facet.target_entity_id || !facet.target_entity_slug) return
+
+  const entityTypeSlug = facet.target_entity_type_slug || 'entity'
+  router.push({
+    name: 'EntityDetail',
+    params: {
+      entityType: entityTypeSlug,
+      slug: facet.target_entity_slug,
+    },
+  })
+}
+
+// =============================================================================
+// ENTITY LINKING FUNCTIONS
+// =============================================================================
+
+// Open the entity link dialog for a facet
+function openEntityLinkDialog(facet: FacetValue) {
+  facetToLink.value = facet
+  selectedTargetEntityId.value = facet.target_entity_id || null
+  entitySearchQuery.value = ''
+  entitySearchResults.value = []
+  entityLinkDialog.value = true
+}
+
+// Search for entities to link
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
+async function searchEntities(query: string) {
+  if (searchTimeout) clearTimeout(searchTimeout)
+
+  if (!query || query.length < 2) {
+    entitySearchResults.value = []
+    return
+  }
+
+  searchTimeout = setTimeout(async () => {
+    searchingEntities.value = true
+    try {
+      const response = await entityApi.searchEntities({ q: query, per_page: 20 })
+      const items = response.data.items || []
+      // Don't include the current entity
+      entitySearchResults.value = items
+        .filter((e: { id: string }) => e.id !== props.entity?.id)
+        .map((e: {
+          id: string
+          name: string
+          entity_type_name?: string
+          entity_type?: { name?: string; icon?: string; color?: string }
+        }) => ({
+          id: e.id,
+          name: e.name,
+          entity_type_name: e.entity_type_name || e.entity_type?.name || 'Entity',
+          entity_type_icon: e.entity_type?.icon || 'mdi-folder',
+          entity_type_color: e.entity_type?.color || 'primary',
+        }))
+    } catch (e) {
+      logger.error('Failed to search entities', e)
+      showError(t('entityDetail.messages.entitySearchError', 'Fehler bei der Entity-Suche'))
+    } finally {
+      searchingEntities.value = false
+    }
+  }, 300)
+}
+
+// Save the entity link
+async function saveEntityLink() {
+  if (!facetToLink.value || !selectedTargetEntityId.value) return
+
+  savingEntityLink.value = true
+  try {
+    await facetApi.updateFacetValue(facetToLink.value.id, {
+      target_entity_id: selectedTargetEntityId.value,
+    })
+    showSuccess(t('entityDetail.facets.entityLinked', 'Entity erfolgreich verknüpft'))
+    entityLinkDialog.value = false
+    emit('facets-updated')
+  } catch (e) {
+    logger.error('Failed to link entity', e)
+    showError(t('entityDetail.messages.linkError', 'Fehler beim Verknüpfen'))
+  } finally {
+    savingEntityLink.value = false
+  }
+}
+
+// Remove the entity link from a facet
+async function unlinkEntity(facet: FacetValue) {
+  try {
+    await facetApi.updateFacetValue(facet.id, {
+      target_entity_id: null,
+    })
+    showSuccess(t('entityDetail.facets.entityUnlinked', 'Verknüpfung entfernt'))
+    emit('facets-updated')
+  } catch (e) {
+    logger.error('Failed to unlink entity', e)
+    showError(t('entityDetail.messages.unlinkError', 'Fehler beim Entfernen der Verknüpfung'))
+  }
 }
 
 // =============================================================================

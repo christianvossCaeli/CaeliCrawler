@@ -62,8 +62,8 @@
         :items="users"
         :items-length="totalUsers"
         :loading="loading"
-        @update:page="fetchUsers"
-        @update:items-per-page="fetchUsers"
+        :sort-by="sortBy"
+        @update:options="onTableOptionsUpdate"
       >
         <!-- Role Column -->
         <template #item.role="{ item }">
@@ -300,6 +300,7 @@ const perPage = ref(20)
 const search = ref('')
 const roleFilter = ref<string | null>(null)
 const activeFilter = ref<boolean | null>(null)
+const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'created_at', order: 'desc' }])
 
 // Dialogs
 const dialogOpen = ref(false)
@@ -323,11 +324,11 @@ const formData = reactive({
 
 // Table headers
 const headers = computed(() => [
-  { title: t('admin.users.columns.email'), key: 'email', sortable: false },
-  { title: t('admin.users.columns.name'), key: 'full_name', sortable: false },
-  { title: t('admin.users.columns.role'), key: 'role', sortable: false, width: 120 },
-  { title: t('admin.users.columns.active'), key: 'is_active', sortable: false, width: 80 },
-  { title: t('admin.users.columns.lastLogin'), key: 'last_login', sortable: false, width: 180 },
+  { title: t('admin.users.columns.email'), key: 'email', sortable: true },
+  { title: t('admin.users.columns.name'), key: 'full_name', sortable: true },
+  { title: t('admin.users.columns.role'), key: 'role', sortable: true, width: 120 },
+  { title: t('admin.users.columns.active'), key: 'is_active', sortable: true, width: 80 },
+  { title: t('admin.users.columns.lastLogin'), key: 'last_login', sortable: true, width: 180 },
   { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' as const },
 ])
 
@@ -379,6 +380,17 @@ const { debouncedFn: debouncedFetch } = useDebounce(
   { delay: DEBOUNCE_DELAYS.SEARCH }
 )
 
+// Table options handler
+function onTableOptionsUpdate(options: { page: number; itemsPerPage: number; sortBy: Array<{ key: string; order: 'asc' | 'desc' }> }) {
+  const sortChanged = JSON.stringify(options.sortBy) !== JSON.stringify(sortBy.value)
+  page.value = options.page
+  perPage.value = options.itemsPerPage
+  sortBy.value = options.sortBy
+  if (sortChanged) {
+    fetchUsers()
+  }
+}
+
 // API calls
 async function fetchUsers() {
   loading.value = true
@@ -390,6 +402,10 @@ async function fetchUsers() {
     if (search.value) params.search = search.value
     if (roleFilter.value) params.role = roleFilter.value
     if (activeFilter.value !== null) params.is_active = activeFilter.value
+    if (sortBy.value.length > 0) {
+      params.sort_by = sortBy.value[0].key
+      params.sort_order = sortBy.value[0].order
+    }
 
     const response = await api.get('/admin/users', { params })
     users.value = response.data.items

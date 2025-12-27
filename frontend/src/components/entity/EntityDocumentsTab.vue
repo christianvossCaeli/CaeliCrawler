@@ -61,9 +61,9 @@ const { t } = useI18n()
 
 // Computed
 const headers = computed(() => [
-  { title: t('entityDetail.documentHeaders.title'), key: 'title' },
-  { title: t('entityDetail.documentHeaders.type'), key: 'document_type' },
-  { title: t('entityDetail.documentHeaders.date'), key: 'created_at' },
+  { title: t('entityDetail.documentHeaders.title'), key: 'title', sortable: true },
+  { title: t('entityDetail.documentHeaders.type'), key: 'document_type', sortable: true },
+  { title: t('entityDetail.documentHeaders.date'), key: 'created_at', sortable: true },
 ])
 
 // Helper functions

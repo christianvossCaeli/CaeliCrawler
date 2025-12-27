@@ -30,7 +30,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # Re-export main functions for backwards compatibility
 from .geographic_utils import (
-    GERMAN_STATE_ALIASES,
     resolve_geographic_alias,
     expand_search_terms,
 )
@@ -490,7 +489,6 @@ __all__ = [
     "smart_write",
     "smart_plan",
     # Geographic utilities
-    "GERMAN_STATE_ALIASES",
     "resolve_geographic_alias",
     "expand_search_terms",
     # Utilities

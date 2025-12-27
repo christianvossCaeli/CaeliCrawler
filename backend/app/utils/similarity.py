@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from app.models.relation_type import RelationType
 
 from app.database import Base
+from app.core.cache import TTLCache
 
 logger = structlog.get_logger(__name__)
 
@@ -65,6 +66,163 @@ EMBEDDING_DIMENSIONS = 1536
 
 # Cache configuration
 EMBEDDING_CACHE_SIZE = int(os.getenv("EMBEDDING_CACHE_SIZE", "1000"))
+
+# =============================================================================
+# Cross-Lingual Similarity Check
+# =============================================================================
+# Instead of hardcoded synonyms, we use AI to check if terms are semantically
+# equivalent across languages. This is done by generating a "canonical" English
+# translation/concept for comparison.
+
+async def get_canonical_concept(term: str) -> Optional[str]:
+    """
+    Get a canonical English concept/translation for a term using AI.
+
+    This helps match cross-lingual synonyms by normalizing terms
+    in any language to a common English concept.
+
+    Returns: English canonical form or None if generation fails.
+    """
+    from services.ai_client import AzureOpenAIClientFactory
+    from app.config import settings
+
+    try:
+        client = AzureOpenAIClientFactory.create_client()
+
+        response = await client.chat.completions.create(
+            model=settings.azure_openai_deployment_name,
+            messages=[
+                {
+                    "role": "system",
+                    "content": """You are a concept normalizer for database schema deduplication.
+
+Your task: Given a term in ANY language, return the single most common English noun that represents this concept.
+
+RULES:
+1. Return ONLY ONE English word (or two-word compound noun if necessary)
+2. Use singular form, lowercase, no articles
+3. Use the most generic/common English term for that concept domain
+4. Translations of the same concept MUST return the same English term
+5. Focus on the core semantic meaning, not literal translation
+6. For business/software terms, prefer standard industry terminology
+
+OUTPUT FORMAT: Just the English term, nothing else."""
+                },
+                {
+                    "role": "user",
+                    "content": term
+                }
+            ],
+            temperature=0,
+            max_tokens=20,
+        )
+
+        canonical = response.choices[0].message.content.strip().lower()
+        logger.debug(
+            "canonical_concept_generated",
+            original_term=term,
+            canonical=canonical,
+        )
+        return canonical
+
+    except Exception as e:
+        logger.warning("canonical_concept_generation_failed", term=term, error=str(e))
+        return None
+
+
+# Cache for canonical concepts to avoid repeated API calls
+# TTL: 1 hour, max 500 entries (concepts are stable)
+_canonical_concept_cache: TTLCache[str] = TTLCache(default_ttl=3600, max_size=500)
+
+async def get_cached_canonical_concept(term: str) -> Optional[str]:
+    """Get canonical concept with caching."""
+    term_lower = term.lower().strip()
+
+    cached = _canonical_concept_cache.get(term_lower)
+    if cached is not None:
+        return cached
+
+    canonical = await get_canonical_concept(term)
+    if canonical:
+        _canonical_concept_cache.set(term_lower, canonical)
+
+    return canonical
+
+
+# Cache for concept equivalence checks
+# TTL: 1 hour, max 1000 entries (equivalence checks are stable)
+_concept_equivalence_cache: TTLCache[bool] = TTLCache(default_ttl=3600, max_size=1000)
+
+
+async def are_concepts_equivalent(term1: str, term2: str) -> bool:
+    """
+    Check if two terms represent the same concept using AI.
+
+    This is more reliable than comparing canonical translations because
+    it directly evaluates semantic equivalence.
+
+    Returns: True if the terms represent the same concept, False otherwise.
+    """
+    from services.ai_client import AzureOpenAIClientFactory
+    from app.config import settings
+
+    # Normalize and create cache key (sorted to make symmetric)
+    t1, t2 = term1.lower().strip(), term2.lower().strip()
+    if t1 == t2:
+        return True
+
+    cache_key = "|".join(sorted([t1, t2]))
+    cached = _concept_equivalence_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        client = AzureOpenAIClientFactory.create_client()
+
+        response = await client.chat.completions.create(
+            model=settings.azure_openai_deployment_name,
+            messages=[
+                {
+                    "role": "system",
+                    "content": """You determine if two terms represent the SAME concept for database deduplication.
+
+Answer ONLY "yes" or "no".
+
+Consider terms equivalent if they:
+- Are translations of each other across languages
+- Are synonyms referring to the same category of data
+- Are spelling or plural variations of the same concept
+
+Consider terms NOT equivalent if they:
+- Refer to different concepts even if related
+- Have distinctly different meanings in context"""
+                },
+                {
+                    "role": "user",
+                    "content": f"Are these the same concept?\nTerm 1: {term1}\nTerm 2: {term2}"
+                }
+            ],
+            temperature=0,
+            max_tokens=5,
+        )
+
+        answer = response.choices[0].message.content.strip().lower()
+        is_equivalent = answer.startswith("yes")
+
+        _concept_equivalence_cache.set(cache_key, is_equivalent)
+
+        logger.debug(
+            "concept_equivalence_check",
+            term1=term1,
+            term2=term2,
+            is_equivalent=is_equivalent,
+        )
+        return is_equivalent
+
+    except Exception as e:
+        logger.warning("concept_equivalence_check_failed", term1=term1, term2=term2, error=str(e))
+        # Don't cache errors - allow retry on next call
+        return False
 
 # =============================================================================
 # Thread-safe Statistics
@@ -149,6 +307,28 @@ def clear_embedding_cache() -> None:
     global _embedding_cache
     with _cache_lock:
         _embedding_cache = OrderedDict()
+
+
+def invalidate_concept_caches() -> None:
+    """Invalidate all concept-related caches (canonical concepts and equivalence)."""
+    _canonical_concept_cache.clear()
+    _concept_equivalence_cache.clear()
+    logger.info("Concept caches invalidated")
+
+
+def invalidate_hierarchy_cache() -> None:
+    """Invalidate hierarchy mapping cache."""
+    _hierarchy_mapping_cache.clear()
+    logger.info("Hierarchy mapping cache invalidated")
+
+
+def invalidate_all_similarity_caches() -> None:
+    """Invalidate all similarity-related caches. Call after schema changes."""
+    clear_embedding_cache()
+    _canonical_concept_cache.clear()
+    _concept_equivalence_cache.clear()
+    _hierarchy_mapping_cache.clear()
+    logger.info("All similarity caches invalidated")
 
 
 # =============================================================================
@@ -258,6 +438,19 @@ async def generate_embeddings_batch(texts: List[str]) -> List[Optional[List[floa
 
 def _cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
     """Calculate cosine similarity between two vectors."""
+    # Handle numpy arrays and None values
+    if vec1 is None or vec2 is None:
+        return 0.0
+
+    # Convert to list if numpy array
+    try:
+        if hasattr(vec1, 'tolist'):
+            vec1 = vec1.tolist()
+        if hasattr(vec2, 'tolist'):
+            vec2 = vec2.tolist()
+    except Exception:
+        pass
+
     if not vec1 or not vec2 or len(vec1) != len(vec2):
         return 0.0
 
@@ -375,6 +568,11 @@ async def find_similar_types(
     This replaces the separate find_similar_entity_types, find_similar_facet_types,
     find_similar_categories functions with a single generic implementation.
 
+    IMPORTANT: This function uses a two-step approach for cross-lingual matching:
+    1. First, try embedding-based similarity (fast, works well for same language)
+    2. If no high-confidence match, use AI to directly check concept equivalence
+       (catches cross-lingual synonyms across any language pair)
+
     Args:
         session: Database session
         model_class: SQLAlchemy model class (EntityType, FacetType, Category, RelationType)
@@ -416,12 +614,16 @@ async def find_similar_types(
     if exclude_id:
         query = query.where(model_class.id != exclude_id)
 
-    # If model has stored embeddings, use pgvector
+    matches: List[Tuple[T, float, str]] = []
+
+    # ==========================================================================
+    # STEP 1: Embedding-based similarity (fast)
+    # ==========================================================================
     if has_stored_embedding:
         max_distance = 1.0 - threshold
         distance_expr = model_class.name_embedding.cosine_distance(new_embedding)
 
-        query = (
+        emb_query = (
             select(model_class, (literal(1.0) - distance_expr).label("similarity"))
             .where(
                 model_class.is_active.is_(True),
@@ -433,10 +635,9 @@ async def find_similar_types(
         )
 
         if exclude_id:
-            query = query.where(model_class.id != exclude_id)
+            emb_query = emb_query.where(model_class.id != exclude_id)
 
-        result = await session.execute(query)
-        matches: List[Tuple[T, float, str]] = []
+        result = await session.execute(emb_query)
 
         for row in result:
             item = row[0]
@@ -456,18 +657,46 @@ async def find_similar_types(
                 top_match=matches[0][0].name,
                 top_score=round(matches[0][1], 3),
             )
+            return matches
 
-        return matches
+    # ==========================================================================
+    # STEP 2: Cross-lingual check via direct AI concept equivalence
+    # ==========================================================================
+    # Only do this if we didn't find any embedding matches - this catches
+    # cross-lingual synonyms by directly asking the AI if the concepts
+    # are equivalent (works across any language pair).
 
-    # Fallback: compute similarity in Python (for items without stored embeddings)
+    # Get all active items
     result = await session.execute(query)
     items = result.scalars().all()
 
     if not items:
         return []
 
-    matches: List[Tuple[T, float, str]] = []
+    # Check concept equivalence with each existing item
+    for item in items:
+        is_equivalent = await are_concepts_equivalent(name, item.name)
+        
+        if is_equivalent:
+            matches.append((
+                item,
+                0.95,  # High score for concept equivalence
+                f"Konzept-Match: '{name}' ≡ '{item.name}'"
+            ))
+            _increment_stat("matches_found")
+            logger.info(
+                f"{model_class.__name__} cross-lingual match found",
+                search_name=name,
+                matched_name=item.name,
+            )
 
+    if matches:
+        matches.sort(key=lambda x: x[1], reverse=True)
+        return matches
+
+    # ==========================================================================
+    # STEP 3: Fallback - compute similarity in Python (for items without embeddings)
+    # ==========================================================================
     for item in items:
         best_similarity = 0.0
         best_match_name = item.name
@@ -1094,64 +1323,10 @@ async def populate_all_embeddings(
 
 
 # =============================================================================
-# Hierarchy Level Mappings (for territorial entities)
+# Hierarchy Level Detection (AI-based, no hardcoded values)
 # =============================================================================
-
-HIERARCHY_LEVEL_MAPPINGS = {
-    # German territorial hierarchy
-    "bundesland": {"parent_type_slug": "territorial_entity", "hierarchy_level": 1, "level_name": "Bundesland"},
-    "bundesländer": {"parent_type_slug": "territorial_entity", "hierarchy_level": 1, "level_name": "Bundesland"},
-    "land": {"parent_type_slug": "territorial_entity", "hierarchy_level": 1, "level_name": "Bundesland"},
-    "länder": {"parent_type_slug": "territorial_entity", "hierarchy_level": 1, "level_name": "Bundesland"},
-    "state": {"parent_type_slug": "territorial_entity", "hierarchy_level": 1, "level_name": "Bundesland"},
-    "states": {"parent_type_slug": "territorial_entity", "hierarchy_level": 1, "level_name": "Bundesland"},
-
-    "landkreis": {"parent_type_slug": "territorial_entity", "hierarchy_level": 2, "level_name": "Landkreis"},
-    "landkreise": {"parent_type_slug": "territorial_entity", "hierarchy_level": 2, "level_name": "Landkreis"},
-    "kreis": {"parent_type_slug": "territorial_entity", "hierarchy_level": 2, "level_name": "Landkreis"},
-    "kreise": {"parent_type_slug": "territorial_entity", "hierarchy_level": 2, "level_name": "Landkreis"},
-    "county": {"parent_type_slug": "territorial_entity", "hierarchy_level": 2, "level_name": "Landkreis"},
-    "counties": {"parent_type_slug": "territorial_entity", "hierarchy_level": 2, "level_name": "Landkreis"},
-    "bezirk": {"parent_type_slug": "territorial_entity", "hierarchy_level": 2, "level_name": "Landkreis"},
-    "bezirke": {"parent_type_slug": "territorial_entity", "hierarchy_level": 2, "level_name": "Landkreis"},
-
-    "gemeinde": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Gemeinde"},
-    "gemeinden": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Gemeinde"},
-    "kommune": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Gemeinde"},
-    "kommunen": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Gemeinde"},
-    "municipality": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Gemeinde"},
-    "municipalities": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Gemeinde"},
-
-    "stadt": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Stadt"},
-    "städte": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Stadt"},
-    "stadte": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Stadt"},
-    "city": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Stadt"},
-    "cities": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Stadt"},
-
-    "ort": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Ort"},
-    "orte": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Ort"},
-    "standort": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Standort"},
-    "standorte": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Standort"},
-    "location": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Ort"},
-    "locations": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Ort"},
-    "place": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Ort"},
-    "places": {"parent_type_slug": "territorial_entity", "hierarchy_level": 3, "level_name": "Ort"},
-
-    "ortsteil": {"parent_type_slug": "territorial_entity", "hierarchy_level": 4, "level_name": "Ortsteil"},
-    "ortsteile": {"parent_type_slug": "territorial_entity", "hierarchy_level": 4, "level_name": "Ortsteil"},
-    "stadtteil": {"parent_type_slug": "territorial_entity", "hierarchy_level": 4, "level_name": "Stadtteil"},
-    "stadtteile": {"parent_type_slug": "territorial_entity", "hierarchy_level": 4, "level_name": "Stadtteil"},
-    "district": {"parent_type_slug": "territorial_entity", "hierarchy_level": 4, "level_name": "Stadtteil"},
-    "districts": {"parent_type_slug": "territorial_entity", "hierarchy_level": 4, "level_name": "Stadtteil"},
-
-    # Organization hierarchy
-    "abteilung": {"parent_type_slug": "organization", "hierarchy_level": 2, "level_name": "Abteilung"},
-    "abteilungen": {"parent_type_slug": "organization", "hierarchy_level": 2, "level_name": "Abteilung"},
-    "department": {"parent_type_slug": "organization", "hierarchy_level": 2, "level_name": "Abteilung"},
-    "departments": {"parent_type_slug": "organization", "hierarchy_level": 2, "level_name": "Abteilung"},
-    "team": {"parent_type_slug": "organization", "hierarchy_level": 3, "level_name": "Team"},
-    "teams": {"parent_type_slug": "organization", "hierarchy_level": 3, "level_name": "Team"},
-}
+# The hierarchy mapping is now detected dynamically via AI using
+# get_hierarchy_mapping_async() - see above.
 
 
 def _normalize_type_name(name: str) -> str:
@@ -1172,10 +1347,113 @@ def _normalize_type_name(name: str) -> str:
     return result.strip()
 
 
-def get_hierarchy_mapping(name: str) -> Optional[Dict]:
-    """Check if a name maps to a hierarchy level of an existing EntityType."""
+
+# Cache for hierarchy mappings
+# TTL: 30 min, max 200 entries (hierarchy info is relatively stable)
+_hierarchy_mapping_cache: TTLCache[Optional[Dict]] = TTLCache(default_ttl=1800, max_size=200)
+
+
+async def get_hierarchy_mapping_async(name: str) -> Optional[Dict]:
+    """
+    Check if a name represents a territorial/geographic hierarchy level using AI.
+
+    Returns a dict with parent_type_slug, hierarchy_level, and level_name
+    if the term represents a territorial concept, otherwise None.
+    """
+    from services.ai_client import AzureOpenAIClientFactory
+    from app.config import settings
+
+    if not name or len(name) < 2:
+        return None
+
     normalized = _normalize_type_name(name)
-    return HIERARCHY_LEVEL_MAPPINGS.get(normalized)
+
+    # Check cache first (use sentinel for "checked but not territorial")
+    cached = _hierarchy_mapping_cache.get(normalized)
+    if cached is not None:
+        return cached if cached != "__NOT_TERRITORIAL__" else None
+
+    try:
+        client = AzureOpenAIClientFactory.create_client()
+
+        response = await client.chat.completions.create(
+            model=settings.azure_openai_deployment_name,
+            messages=[
+                {
+                    "role": "system",
+                    "content": """You classify terms as territorial/geographic administrative divisions.
+
+If the term represents a territorial/administrative division (in any language), respond with JSON:
+{"is_territorial": true, "level": <1-4>, "level_name": "<English name for this level>"}
+
+Hierarchy levels (from largest to smallest):
+- Level 1: State/Province level (first-level administrative division of a country)
+- Level 2: County/District level (second-level administrative division)
+- Level 3: Municipality/City level (third-level, local government unit)
+- Level 4: Neighborhood/Borough level (subdivision of a city)
+
+If the term is NOT a territorial/geographic term, respond: {"is_territorial": false}
+
+Respond ONLY with valid JSON, nothing else."""
+                },
+                {
+                    "role": "user",
+                    "content": name
+                }
+            ],
+            temperature=0,
+            max_tokens=100,
+        )
+
+        import json
+        result_text = response.choices[0].message.content.strip()
+        result = json.loads(result_text)
+
+        if result.get("is_territorial"):
+            mapping = {
+                "parent_type_slug": "territorial_entity",
+                "hierarchy_level": result.get("level", 3),
+                "level_name": result.get("level_name", name),
+            }
+            _hierarchy_mapping_cache.set(normalized, mapping)
+            logger.debug(
+                "hierarchy_mapping_detected",
+                term=name,
+                level=mapping["hierarchy_level"],
+                level_name=mapping["level_name"],
+            )
+            return mapping
+        else:
+            # Cache "not territorial" with sentinel
+            _hierarchy_mapping_cache.set(normalized, "__NOT_TERRITORIAL__")
+            return None
+
+    except Exception as e:
+        logger.warning("hierarchy_mapping_detection_failed", term=name, error=str(e))
+        # Don't cache errors - allow retry on next call
+        return None
+
+def get_hierarchy_mapping(name: str) -> Optional[Dict]:
+    """
+    Check if a name maps to a hierarchy level of an existing EntityType.
+
+    Synchronous wrapper for get_hierarchy_mapping_async.
+    Note: If called from an async context, returns None.
+    In async code, use get_hierarchy_mapping_async() directly.
+    """
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            logger.debug(
+                "get_hierarchy_mapping_sync_in_async_context",
+                name=name,
+                hint="Use get_hierarchy_mapping_async() in async code"
+            )
+            return None
+        return loop.run_until_complete(get_hierarchy_mapping_async(name))
+    except RuntimeError:
+        return asyncio.run(get_hierarchy_mapping_async(name))
 
 
 # =============================================================================

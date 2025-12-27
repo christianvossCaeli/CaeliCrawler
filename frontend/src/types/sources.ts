@@ -355,6 +355,8 @@ export interface DataSourceListParams {
   status?: SourceStatus | null
   search?: string
   tags?: string[]
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
 }
 
 // =============================================================================

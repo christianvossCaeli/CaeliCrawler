@@ -120,8 +120,8 @@
         :items="logs"
         :items-length="totalLogs"
         :loading="loading"
-        @update:page="fetchLogs"
-        @update:items-per-page="fetchLogs"
+        :sort-by="sortBy"
+        @update:options="onTableOptionsUpdate"
       >
         <!-- Action Column -->
         <template #item.action="{ item }">
@@ -136,7 +136,7 @@
         </template>
 
         <!-- Entity Column -->
-        <template #item.entity="{ item }">
+        <template #item.entity_type="{ item }">
           <div>
             <span class="font-weight-medium">{{ item.entity_type }}</span>
             <span v-if="item.entity_name" class="text-medium-emphasis ml-1">
@@ -259,6 +259,7 @@ const actionFilter = ref<string | null>(null)
 const entityTypeFilter = ref('')
 const startDate = ref('')
 const endDate = ref('')
+const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'created_at', order: 'desc' }])
 
 // Dialog
 const changesDialogOpen = ref(false)
@@ -266,11 +267,11 @@ const selectedLog = ref<AuditLog | null>(null)
 
 // Table headers
 const headers = computed(() => [
-  { title: t('admin.auditLog.columns.action'), key: 'action', sortable: false, width: 130 },
-  { title: t('admin.auditLog.columns.entity'), key: 'entity', sortable: false },
-  { title: t('admin.auditLog.columns.user'), key: 'user_email', sortable: false, width: 200 },
+  { title: t('admin.auditLog.columns.action'), key: 'action', sortable: true, width: 130 },
+  { title: t('admin.auditLog.columns.entity'), key: 'entity_type', sortable: true },
+  { title: t('admin.auditLog.columns.user'), key: 'user_email', sortable: true, width: 200 },
   { title: t('admin.auditLog.columns.changes'), key: 'changes', sortable: false, width: 120 },
-  { title: t('admin.auditLog.columns.timestamp'), key: 'created_at', sortable: false, width: 180 },
+  { title: t('admin.auditLog.columns.timestamp'), key: 'created_at', sortable: true, width: 180 },
 ])
 
 const actionOptions = computed(() => [
@@ -338,6 +339,17 @@ function showChanges(log: AuditLog) {
   changesDialogOpen.value = true
 }
 
+// Table options handler
+function onTableOptionsUpdate(options: { page: number; itemsPerPage: number; sortBy: Array<{ key: string; order: 'asc' | 'desc' }> }) {
+  const sortChanged = JSON.stringify(options.sortBy) !== JSON.stringify(sortBy.value)
+  page.value = options.page
+  perPage.value = options.itemsPerPage
+  sortBy.value = options.sortBy
+  if (sortChanged) {
+    fetchLogs()
+  }
+}
+
 // API calls
 async function fetchLogs() {
   loading.value = true
@@ -350,6 +362,10 @@ async function fetchLogs() {
     if (entityTypeFilter.value) params.entity_type = entityTypeFilter.value
     if (startDate.value) params.start_date = new Date(startDate.value).toISOString()
     if (endDate.value) params.end_date = new Date(endDate.value).toISOString()
+    if (sortBy.value.length > 0) {
+      params.sort_by = sortBy.value[0].key
+      params.sort_order = sortBy.value[0].order
+    }
 
     const response = await api.get('/admin/audit', { params })
     logs.value = response.data.items

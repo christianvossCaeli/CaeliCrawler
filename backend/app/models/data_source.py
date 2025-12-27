@@ -57,26 +57,19 @@ class DataSource(Base):
     Data source configuration for crawling.
 
     Can be a website URL, OParl API endpoint, RSS feed, or custom API.
+    Categories are managed via N:M relationship through data_source_categories table.
     """
 
     __tablename__ = "data_sources"
     __table_args__ = (
-        UniqueConstraint("category_id", "base_url", name="uq_source_category_url"),
+        # Unique constraint on base_url only (category handled via N:M)
+        UniqueConstraint("base_url", name="uq_source_base_url"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
-    )
-    # Legacy category_id kept for backwards compatibility
-    # New sources should use the N:M categories relationship instead
-    category_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("categories.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-        comment="Legacy primary category - use categories relationship for N:M",
     )
     # Basic info
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -164,13 +157,6 @@ class DataSource(Base):
     )
 
     # Relationships
-    # Legacy 1:N relationship (kept for backwards compatibility)
-    category: Mapped[Optional["Category"]] = relationship(
-        "Category",
-        back_populates="data_sources",
-        foreign_keys=[category_id],
-    )
-
     # N:M relationship via junction table
     categories: Mapped[List["Category"]] = relationship(
         "Category",

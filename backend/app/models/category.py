@@ -171,14 +171,6 @@ class Category(Base):
     )
 
     # Relationships
-    # Legacy 1:N relationship (for backwards compatibility)
-    data_sources: Mapped[List["DataSource"]] = relationship(
-        "DataSource",
-        back_populates="category",
-        foreign_keys="DataSource.category_id",
-        passive_deletes=True,
-    )
-
     # N:M relationship via junction table
     sources: Mapped[List["DataSource"]] = relationship(
         "DataSource",

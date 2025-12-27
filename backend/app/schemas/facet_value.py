@@ -28,6 +28,12 @@ class FacetValueBase(BaseModel):
     )
     source_url: Optional[str] = Field(None, description="Original URL where this was found")
 
+    # Entity reference (optional link to another entity)
+    target_entity_id: Optional[UUID] = Field(
+        None,
+        description="Optional reference to another Entity (e.g., Person for contact facet)"
+    )
+
     # AI metadata
     confidence_score: float = Field(default=0.0, ge=0.0, le=1.0, description="AI confidence")
 
@@ -53,6 +59,7 @@ class FacetValueUpdate(BaseModel):
     valid_from: Optional[datetime] = None
     valid_until: Optional[datetime] = None
     source_url: Optional[str] = None
+    target_entity_id: Optional[UUID] = None
     confidence_score: Optional[float] = Field(None, ge=0.0, le=1.0)
     human_verified: Optional[bool] = None
     human_corrections: Optional[Dict[str, Any]] = None
@@ -90,6 +97,11 @@ class FacetValueResponse(FacetValueBase):
     category_name: Optional[str] = Field(None, description="Category name")
     document_title: Optional[str] = Field(None, description="Source document title")
     document_url: Optional[str] = Field(None, description="Source document URL")
+
+    # Target entity info (for referenced entities)
+    target_entity_name: Optional[str] = Field(None, description="Referenced entity name")
+    target_entity_slug: Optional[str] = Field(None, description="Referenced entity slug")
+    target_entity_type_slug: Optional[str] = Field(None, description="Referenced entity type slug")
 
     model_config = {"from_attributes": True}
 

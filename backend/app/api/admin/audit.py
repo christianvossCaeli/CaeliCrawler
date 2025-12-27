@@ -76,11 +76,13 @@ async def list_audit_logs(
     user_id: Optional[UUID] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
+    sort_by: Optional[str] = Query(default=None, description="Sort by field (action, entity_type, user_email, created_at)"),
+    sort_order: Optional[str] = Query(default="desc", description="Sort order (asc, desc)"),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_admin),
 ):
     """
-    List audit log entries with filtering and pagination.
+    List audit log entries with filtering, pagination and sorting.
 
     Admin only.
     """
@@ -109,8 +111,26 @@ async def list_audit_logs(
     count_query = select(func.count()).select_from(query.subquery())
     total = (await session.execute(count_query)).scalar() or 0
 
-    # Apply pagination and ordering
-    query = query.order_by(desc(AuditLog.created_at))
+    # Handle sorting
+    sort_desc = sort_order == "desc"
+    sort_column_map = {
+        "action": AuditLog.action,
+        "entity_type": AuditLog.entity_type,
+        "user_email": AuditLog.user_email,
+        "created_at": AuditLog.created_at,
+    }
+
+    if sort_by and sort_by in sort_column_map:
+        order_col = sort_column_map[sort_by]
+        if sort_desc:
+            query = query.order_by(order_col.desc().nulls_last(), AuditLog.created_at.desc())
+        else:
+            query = query.order_by(order_col.asc().nulls_last(), AuditLog.created_at.desc())
+    else:
+        # Default ordering
+        query = query.order_by(desc(AuditLog.created_at))
+
+    # Apply pagination
     query = query.offset((page - 1) * per_page).limit(per_page)
 
     # Execute query

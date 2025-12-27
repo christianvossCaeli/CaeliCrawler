@@ -497,9 +497,9 @@ const formatItems = [
 ]
 
 const changeHeaders = computed(() => [
-  { title: t('common.type'), key: 'change_type' },
-  { title: 'URL', key: 'affected_url', maxWidth: '400px' },
-  { title: t('exportView.detected'), key: 'detected_at' },
+  { title: t('common.type'), key: 'change_type', sortable: true },
+  { title: 'URL', key: 'affected_url', maxWidth: '400px', sortable: true },
+  { title: t('exportView.detected'), key: 'detected_at', sortable: true },
 ])
 
 const getChangeColor = (type?: string) => {

@@ -169,42 +169,100 @@ async def create_category_setup_with_ai(
         name = et_config.get("name", "Neue Kategorie").strip()
         slug = generate_slug(name)
 
-        # Check for duplicates
-        existing_et = await session.execute(
-            select(EntityType).where(
-                or_(EntityType.name == name, EntityType.slug == slug)
-            )
-        )
-        if existing_et.scalar():
-            # Add suffix to make unique
-            name = f"{name} ({geographic_context})"
-            slug = generate_slug(name)
+        # Import similarity functions for duplicate detection
+        from app.utils.similarity import get_hierarchy_mapping, find_similar_entity_types
 
-        entity_type = EntityType(
-            id=uuid_module.uuid4(),
-            name=name,
-            slug=slug,
-            name_plural=et_config.get("name_plural", name),
-            description=et_config.get("description", user_intent),
-            icon=et_config.get("icon", "mdi-folder"),
-            color=et_config.get("color", "#2196F3"),
-            display_order=100,
-            is_primary=True,
-            supports_hierarchy=False,
-            attribute_schema=et_config.get("attribute_schema", {}),
-            is_active=True,
-            is_system=False,
-            is_public=True,  # Always visible in frontend
-            created_by_id=current_user_id,
-            owner_id=current_user_id,
-        )
-        session.add(entity_type)
-        await session.flush()
+        entity_type = None
+        entity_type_created = False
+
+        # 1. Check if this is actually a hierarchy level of an existing type
+        # E.g., "Stadt" should use "territorial_entity" instead of creating a new type
+        hierarchy_mapping = get_hierarchy_mapping(name)
+        if hierarchy_mapping:
+            parent_type_slug = hierarchy_mapping["parent_type_slug"]
+            hierarchy_level = hierarchy_mapping["hierarchy_level"]
+            level_name = hierarchy_mapping["level_name"]
+
+            parent_type_result = await session.execute(
+                select(EntityType).where(
+                    EntityType.slug == parent_type_slug,
+                    EntityType.is_active.is_(True),
+                )
+            )
+            parent_type = parent_type_result.scalar_one_or_none()
+
+            if parent_type:
+                logger.info(
+                    "Using existing hierarchical EntityType instead of creating duplicate",
+                    requested_name=name,
+                    parent_type=parent_type.name,
+                    hierarchy_level=hierarchy_level,
+                )
+                entity_type = parent_type
+                result["steps"][-1]["result"] = (
+                    f"'{level_name}' ist Hierarchie-Level {hierarchy_level} von '{parent_type.name}'. "
+                    f"Verwende bestehenden Typ."
+                )
+
+        # 2. Check for exact duplicates (if not already found via hierarchy)
+        if not entity_type:
+            existing_et = await session.execute(
+                select(EntityType).where(
+                    or_(EntityType.name == name, EntityType.slug == slug)
+                )
+            )
+            existing_type = existing_et.scalar()
+            if existing_type:
+                logger.info(
+                    "Using existing EntityType (exact match)",
+                    requested_name=name,
+                    existing_name=existing_type.name,
+                )
+                entity_type = existing_type
+                result["steps"][-1]["result"] = f"EntityType '{existing_type.name}' existiert bereits"
+
+        # 3. Check for semantically similar EntityTypes (AI-based)
+        if not entity_type:
+            similar_types = await find_similar_entity_types(session, name, threshold=0.7)
+            if similar_types:
+                best_match, score, reason = similar_types[0]
+                logger.info(
+                    "Using existing EntityType (semantic similarity)",
+                    requested_name=name,
+                    matched_name=best_match.name,
+                    similarity_score=score,
+                )
+                entity_type = best_match
+                result["steps"][-1]["result"] = f"Ähnlicher EntityType '{best_match.name}' gefunden ({reason})"
+
+        # 4. Only create new EntityType if no existing match found
+        if not entity_type:
+            entity_type = EntityType(
+                id=uuid_module.uuid4(),
+                name=name,
+                slug=slug,
+                name_plural=et_config.get("name_plural", name),
+                description=et_config.get("description", user_intent),
+                icon=et_config.get("icon", "mdi-folder"),
+                color=et_config.get("color", "#2196F3"),
+                display_order=100,
+                is_primary=True,
+                supports_hierarchy=False,
+                attribute_schema=et_config.get("attribute_schema", {}),
+                is_active=True,
+                is_system=False,
+                is_public=True,
+                created_by_id=current_user_id,
+                owner_id=current_user_id,
+            )
+            session.add(entity_type)
+            await session.flush()
+            entity_type_created = True
+            result["steps"][-1]["result"] = f"EntityType '{name}' erstellt"
 
         result["entity_type_id"] = str(entity_type.id)
         result["entity_type_name"] = entity_type.name
         result["entity_type_slug"] = entity_type.slug
-        result["steps"][-1]["result"] = f"EntityType '{name}' erstellt"
 
         # =========================================================================
         # STEP 2/3: Generate Category Configuration
@@ -606,40 +664,78 @@ async def create_category_setup_with_ai(
                             entity_type=entity_type.slug,
                         )
                 else:
-                    # Create new FacetType
-                    new_facet_type = FacetType(
-                        id=uuid_module.uuid4(),
-                        name=ft_name,
-                        slug=ft_slug,
-                        name_plural=ft_data.get("name_plural", f"{ft_name}s"),
-                        description=ft_data.get("description", f"FacetType: {ft_name}"),
-                        icon=ft_data.get("icon", "mdi-tag"),
-                        color=ft_data.get("color", "#2196F3"),
-                        value_type=ft_data.get("value_type", "object"),
-                        value_schema=ft_data.get("value_schema", {}),
-                        applicable_entity_type_slugs=[entity_type.slug],
-                        is_time_based=ft_data.get("is_time_based", True),
-                        ai_extraction_enabled=True,
-                        ai_extraction_prompt=ft_data.get(
-                            "ai_extraction_prompt",
-                            f"Extrahiere {ft_name} aus dem Dokument."
-                        ),
-                        is_active=True,
-                        is_system=False,
+                    # Check for semantically similar FacetTypes before creating
+                    from app.utils.similarity import find_similar_facet_types
+
+                    similar_types = await find_similar_facet_types(
+                        session, ft_name, threshold=0.7
                     )
-                    session.add(new_facet_type)
-                    facet_types_created.append({
-                        "id": str(new_facet_type.id),
-                        "name": new_facet_type.name,
-                        "slug": new_facet_type.slug,
-                        "is_new": True,
-                    })
-                    facet_types_count += 1
-                    logger.info(
-                        "Created new FacetType",
-                        facet_type=new_facet_type.slug,
-                        entity_type=entity_type.slug,
-                    )
+
+                    if similar_types:
+                        # Use existing similar FacetType instead of creating duplicate
+                        best_match, score, reason = similar_types[0]
+                        if entity_type.slug not in (best_match.applicable_entity_type_slugs or []):
+                            best_match.applicable_entity_type_slugs = (
+                                best_match.applicable_entity_type_slugs or []
+                            ) + [entity_type.slug]
+                        facet_types_created.append({
+                            "id": str(best_match.id),
+                            "name": best_match.name,
+                            "slug": best_match.slug,
+                            "is_new": False,
+                            "matched_from": ft_name,
+                            "similarity_score": score,
+                        })
+                        facet_types_count += 1
+                        logger.info(
+                            "Linked similar FacetType to EntityType (avoided duplicate)",
+                            requested_name=ft_name,
+                            matched_name=best_match.name,
+                            similarity_score=score,
+                            entity_type=entity_type.slug,
+                        )
+                    else:
+                        # Create new FacetType - no similar type found
+                        new_facet_type = FacetType(
+                            id=uuid_module.uuid4(),
+                            name=ft_name,
+                            slug=ft_slug,
+                            name_plural=ft_data.get("name_plural", f"{ft_name}s"),
+                            description=ft_data.get("description", f"FacetType: {ft_name}"),
+                            icon=ft_data.get("icon", "mdi-tag"),
+                            color=ft_data.get("color", "#2196F3"),
+                            value_type=ft_data.get("value_type", "object"),
+                            value_schema=ft_data.get("value_schema", {}),
+                            applicable_entity_type_slugs=[entity_type.slug],
+                            is_time_based=ft_data.get("is_time_based", True),
+                            ai_extraction_enabled=True,
+                            ai_extraction_prompt=ft_data.get(
+                                "ai_extraction_prompt",
+                                f"Extrahiere {ft_name} aus dem Dokument."
+                            ),
+                            is_active=True,
+                            is_system=False,
+                        )
+                        session.add(new_facet_type)
+
+                        # Generate embedding for future similarity checks
+                        from app.utils.similarity import generate_embedding
+                        embedding = await generate_embedding(ft_name)
+                        if embedding:
+                            new_facet_type.name_embedding = embedding
+
+                        facet_types_created.append({
+                            "id": str(new_facet_type.id),
+                            "name": new_facet_type.name,
+                            "slug": new_facet_type.slug,
+                            "is_new": True,
+                        })
+                        facet_types_count += 1
+                        logger.info(
+                            "Created new FacetType",
+                            facet_type=new_facet_type.slug,
+                            entity_type=entity_type.slug,
+                        )
 
             await session.flush()
             result["steps"][-1]["result"] = f"{facet_types_count} FacetTypes erstellt/verknüpft"

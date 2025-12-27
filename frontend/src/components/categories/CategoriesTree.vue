@@ -125,12 +125,12 @@ const emit = defineEmits<CategoriesTreeEmits>()
 const { t } = useI18n()
 
 const headers = computed(() => [
-  { title: t('categories.columns.name'), key: 'name' },
-  { title: t('categories.columns.purpose'), key: 'purpose', maxWidth: '300px' },
-  { title: t('categories.columns.languages') },
-  { title: t('categories.columns.status'), key: 'is_active' },
-  { title: t('categories.columns.sources'), key: 'source_count' },
-  { title: t('categories.columns.documents'), key: 'document_count' },
+  { title: t('categories.columns.name'), key: 'name', sortable: true },
+  { title: t('categories.columns.purpose'), key: 'purpose', maxWidth: '300px', sortable: true },
+  { title: t('categories.columns.languages'), key: 'languages', sortable: false },
+  { title: t('categories.columns.status'), key: 'is_active', sortable: true },
+  { title: t('categories.columns.sources'), key: 'source_count', sortable: true },
+  { title: t('categories.columns.documents'), key: 'document_count', sortable: true },
   { title: t('categories.columns.actions'), key: 'actions', sortable: false, align: 'end' as const },
 ])
 

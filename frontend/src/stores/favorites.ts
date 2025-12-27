@@ -67,6 +67,8 @@ export const useFavoritesStore = defineStore('favorites', () => {
     per_page?: number
     entity_type_slug?: string
     search?: string
+    sort_by?: string
+    sort_order?: 'asc' | 'desc'
   }): Promise<void> {
     isLoading.value = true
     error.value = null
@@ -82,6 +84,8 @@ export const useFavoritesStore = defineStore('favorites', () => {
         per_page: perPage.value,
         entity_type_slug: options?.entity_type_slug,
         search: options?.search,
+        sort_by: options?.sort_by,
+        sort_order: options?.sort_order,
       })
 
       favorites.value = response.data.items

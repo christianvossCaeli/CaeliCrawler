@@ -13,6 +13,8 @@
     "modeRead": "Lese-Modus",
     "modeWrite": "Schreib-Modus",
     "modePlan": "Plan-Modus",
+    "planModeHint": "Im Plan-Modus wirst du zur Smart Query weitergeleitet für interaktive Workflow-Planung.",
+    "planModeRedirect": "Öffne Smart Query im Plan-Modus...",
     "modeToggle": "Modus wechseln",
     "toggleQuickActions": "Schnellaktionen ein-/ausblenden",
     "welcomeTitle": "Hallo! Ich bin dein Assistent.",

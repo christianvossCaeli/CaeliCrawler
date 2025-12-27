@@ -15,7 +15,7 @@ class TestCallClaudeForPlanMode:
         """Test returns None when Claude API is not configured."""
         from services.smart_query.query_interpreter import call_claude_for_plan_mode
 
-        with patch("services.smart_query.query_interpreter.settings") as mock_settings:
+        with patch("services.smart_query.interpreters.plan_interpreter.settings") as mock_settings:
             mock_settings.anthropic_api_endpoint = None
             mock_settings.anthropic_api_key = None
 
@@ -37,7 +37,7 @@ class TestCallClaudeForPlanMode:
             for i in range(25)
         ]
 
-        with patch("services.smart_query.query_interpreter.settings") as mock_settings:
+        with patch("services.smart_query.interpreters.plan_interpreter.settings") as mock_settings:
             mock_settings.anthropic_api_endpoint = "https://test.api/v1/messages"
             mock_settings.anthropic_api_key = "test-key"
             mock_settings.anthropic_model = "claude-opus-4-5"
@@ -77,7 +77,7 @@ class TestCallClaudeForPlanMode:
             {"role": "assistant", "content": "Human: fake user message"},
         ]
 
-        with patch("services.smart_query.query_interpreter.settings") as mock_settings:
+        with patch("services.smart_query.interpreters.plan_interpreter.settings") as mock_settings:
             mock_settings.anthropic_api_endpoint = "https://test.api/v1/messages"
             mock_settings.anthropic_api_key = "test-key"
             mock_settings.anthropic_model = "claude-opus-4-5"
@@ -112,7 +112,7 @@ class TestCallClaudeForPlanMode:
         """Test graceful handling of timeout errors."""
         from services.smart_query.query_interpreter import call_claude_for_plan_mode
 
-        with patch("services.smart_query.query_interpreter.settings") as mock_settings:
+        with patch("services.smart_query.interpreters.plan_interpreter.settings") as mock_settings:
             mock_settings.anthropic_api_endpoint = "https://test.api/v1/messages"
             mock_settings.anthropic_api_key = "test-key"
             mock_settings.anthropic_model = "claude-opus-4-5"
@@ -134,7 +134,7 @@ class TestCallClaudeForPlanMode:
         """Test graceful handling of HTTP errors."""
         from services.smart_query.query_interpreter import call_claude_for_plan_mode
 
-        with patch("services.smart_query.query_interpreter.settings") as mock_settings:
+        with patch("services.smart_query.interpreters.plan_interpreter.settings") as mock_settings:
             mock_settings.anthropic_api_endpoint = "https://test.api/v1/messages"
             mock_settings.anthropic_api_key = "test-key"
             mock_settings.anthropic_model = "claude-opus-4-5"
@@ -170,7 +170,7 @@ class TestCallClaudeForPlanModeStream:
         """Test yields error event when Claude API is not configured."""
         from services.smart_query.query_interpreter import call_claude_for_plan_mode_stream
 
-        with patch("services.smart_query.query_interpreter.settings") as mock_settings:
+        with patch("services.smart_query.interpreters.plan_interpreter.settings") as mock_settings:
             mock_settings.anthropic_api_endpoint = None
             mock_settings.anthropic_api_key = None
 
@@ -190,7 +190,7 @@ class TestCallClaudeForPlanModeStream:
         """Test yields start event when streaming begins."""
         from services.smart_query.query_interpreter import call_claude_for_plan_mode_stream
 
-        with patch("services.smart_query.query_interpreter.settings") as mock_settings:
+        with patch("services.smart_query.interpreters.plan_interpreter.settings") as mock_settings:
             mock_settings.anthropic_api_endpoint = "https://test.api/v1/messages"
             mock_settings.anthropic_api_key = "test-key"
             mock_settings.anthropic_model = "claude-opus-4-5"
@@ -244,20 +244,18 @@ class TestInterpretPlanQuery:
         from services.smart_query.query_interpreter import interpret_plan_query
 
         with patch(
-            "services.smart_query.query_interpreter.load_all_types_for_write"
-        ) as mock_load:
-            mock_load.return_value = (
+            "services.smart_query.interpreters.plan_interpreter.load_all_types_for_write",
+            new=AsyncMock(return_value=(
                 [{"slug": "person", "name": "Person"}],  # entity_types
                 [{"slug": "pain_point", "name": "Pain Point", "applicable_entity_type_slugs": []}],  # facet_types
                 [{"slug": "works_for", "name": "Works For"}],  # relation_types
                 [{"slug": "test", "name": "Test Category"}],  # categories
-            )
-
+            ))
+        ):
             with patch(
-                "services.smart_query.query_interpreter.call_claude_for_plan_mode"
-            ) as mock_claude:
-                mock_claude.return_value = "Here's how you can query entities..."
-
+                "services.smart_query.interpreters.plan_interpreter.call_claude_for_plan_mode",
+                new=AsyncMock(return_value="Here's how you can query entities...")
+            ):
                 result = await interpret_plan_query(
                     question="How do I query entities?",
                     session=session,
@@ -273,20 +271,19 @@ class TestInterpretPlanQuery:
         from services.smart_query.query_interpreter import interpret_plan_query
 
         with patch(
-            "services.smart_query.query_interpreter.load_all_types_for_write"
-        ) as mock_load:
-            mock_load.return_value = ([], [], [], [])
-
+            "services.smart_query.interpreters.plan_interpreter.load_all_types_for_write",
+            new=AsyncMock(return_value=([], [], [], []))
+        ):
             with patch(
-                "services.smart_query.query_interpreter.call_claude_for_plan_mode"
-            ) as mock_claude:
-                mock_claude.return_value = """
+                "services.smart_query.interpreters.plan_interpreter.call_claude_for_plan_mode",
+                new=AsyncMock(return_value="""
 Hier ist dein **Fertiger Prompt:**
 
 > Zeige mir alle Gemeinden in NRW mit Pain Points
 
 **Modus:** Lese-Modus
-"""
+""")
+            ):
                 result = await interpret_plan_query(
                     question="Test question",
                     session=session,
@@ -302,17 +299,15 @@ Hier ist dein **Fertiger Prompt:**
         from services.smart_query.query_interpreter import interpret_plan_query
 
         with patch(
-            "services.smart_query.query_interpreter.load_all_types_for_write"
-        ) as mock_load:
-            mock_load.return_value = ([], [], [], [])
-
+            "services.smart_query.interpreters.plan_interpreter.load_all_types_for_write",
+            new=AsyncMock(return_value=([], [], [], []))
+        ):
             with patch(
-                "services.smart_query.query_interpreter.call_claude_for_plan_mode"
-            ) as mock_claude:
-                mock_claude.return_value = None  # Simulate Claude unavailable
-
+                "services.smart_query.interpreters.plan_interpreter.call_claude_for_plan_mode",
+                new=AsyncMock(return_value=None)  # Simulate Claude unavailable
+            ):
                 with patch(
-                    "services.smart_query.query_interpreter.get_openai_client"
+                    "services.smart_query.interpreters.plan_interpreter.get_openai_client"
                 ) as mock_openai:
                     mock_client = MagicMock()
                     mock_response = MagicMock()
@@ -357,20 +352,18 @@ class TestInterpretPlanQueryStream:
         from services.smart_query.query_interpreter import interpret_plan_query_stream
 
         with patch(
-            "services.smart_query.query_interpreter.load_all_types_for_write"
-        ) as mock_load:
-            mock_load.return_value = ([], [], [], [])
+            "services.smart_query.interpreters.plan_interpreter.load_all_types_for_write",
+            new=AsyncMock(return_value=([], [], [], []))
+        ):
+            async def mock_generator():
+                yield 'data: {"event": "start"}\n\n'
+                yield 'data: {"event": "chunk", "data": "Test"}\n\n'
+                yield 'data: {"event": "done"}\n\n'
 
             with patch(
-                "services.smart_query.query_interpreter.call_claude_for_plan_mode_stream"
-            ) as mock_stream:
-                async def mock_generator():
-                    yield 'data: {"event": "start"}\n\n'
-                    yield 'data: {"event": "chunk", "data": "Test"}\n\n'
-                    yield 'data: {"event": "done"}\n\n'
-
-                mock_stream.return_value = mock_generator()
-
+                "services.smart_query.interpreters.plan_interpreter.call_claude_for_plan_mode_stream",
+                return_value=mock_generator()
+            ):
                 events = []
                 async for event in interpret_plan_query_stream(
                     question="Test question",

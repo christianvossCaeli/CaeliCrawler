@@ -134,6 +134,8 @@ export const listFavorites = (params?: {
   per_page?: number
   entity_type_slug?: string
   search?: string
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
 }) => api.get('/v1/favorites', { params })
 
 export const addFavorite = (entityId: string) =>
