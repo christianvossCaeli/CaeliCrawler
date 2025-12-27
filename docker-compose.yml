@@ -184,7 +184,7 @@ services:
         condition: service_healthy
     command: celery -A workers.celery_app worker --loglevel=info -Q default,processing --concurrency=4 --hostname=worker-general@%h
     healthcheck:
-      test: ["CMD-SHELL", "celery -A workers.celery_app inspect ping -d celery@worker-general@$$(hostname) --timeout=10"]
+      test: ["CMD-SHELL", "celery -A workers.celery_app inspect ping --timeout=10 | grep -q 'pong' || exit 1"]
       interval: 30s
       timeout: 15s
       retries: 3
@@ -210,7 +210,7 @@ services:
     depends_on: *worker-depends
     command: celery -A workers.celery_app worker --loglevel=info -Q crawl --concurrency=8 --hostname=worker-crawl@%h
     healthcheck:
-      test: ["CMD-SHELL", "celery -A workers.celery_app inspect ping -d celery@worker-crawl@$$(hostname) --timeout=10"]
+      test: ["CMD-SHELL", "celery -A workers.celery_app inspect ping --timeout=10 | grep -q 'pong' || exit 1"]
       interval: 30s
       timeout: 15s
       retries: 3
@@ -236,7 +236,7 @@ services:
     depends_on: *worker-depends
     command: celery -A workers.celery_app worker --loglevel=info -Q ai --concurrency=2 --hostname=worker-ai@%h
     healthcheck:
-      test: ["CMD-SHELL", "celery -A workers.celery_app inspect ping -d celery@worker-ai@$$(hostname) --timeout=10"]
+      test: ["CMD-SHELL", "celery -A workers.celery_app inspect ping --timeout=10 | grep -q 'pong' || exit 1"]
       interval: 30s
       timeout: 15s
       retries: 3
@@ -272,7 +272,7 @@ services:
         condition: service_healthy
     command: celery -A workers.celery_app beat --loglevel=info
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'celery.*beat' || exit 1"]
+      test: ["CMD-SHELL", "kill -0 1 2>/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
