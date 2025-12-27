@@ -1,4 +1,4 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useEntityStore } from '@/stores/entity'
@@ -88,6 +88,8 @@ export function useEntitiesView() {
   const itemsPerPage = ref(25)
   const viewMode = ref<'table' | 'cards' | 'map'>('table')
   const hasGeoData = ref(false)
+  const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([])
+
 
   // Data
   const categories = ref<{ id: string; name: string }[]>([])
@@ -267,6 +269,12 @@ export function useEntitiesView() {
         }
       }
 
+      // Sorting
+      if (sortBy.value.length > 0) {
+        params.sort_by = sortBy.value[0].key
+        params.sort_order = sortBy.value[0].order
+      }
+
       await store.fetchEntities(params)
       currentPage.value = page
       await loadStats()
@@ -355,6 +363,14 @@ export function useEntitiesView() {
       }
     }, 300)
   }
+
+  // Cleanup timeout on unmount to prevent memory leaks
+  onUnmounted(() => {
+    if (parentSearchTimeout) {
+      clearTimeout(parentSearchTimeout)
+      parentSearchTimeout = null
+    }
+  })
 
   async function checkGeoDataAvailable() {
     if (!currentEntityType.value?.slug) {
@@ -580,8 +596,9 @@ export function useEntitiesView() {
     return luminance > 0.6
   }
 
-  function getTopFacetCounts(_entity: Entity): Array<{ slug: string; name: string; icon: string; color: string; count: number }> {
-    return []
+  function handleSortChange(newSortBy: Array<{ key: string; order: 'asc' | 'desc' }>) {
+    sortBy.value = newSortBy
+    loadEntities(1)
   }
 
   // Watchers
@@ -611,6 +628,7 @@ export function useEntitiesView() {
     itemsPerPage,
     viewMode,
     hasGeoData,
+    sortBy,
 
     // Data
     categories,
@@ -684,6 +702,6 @@ export function useEntitiesView() {
     onAdminLevel1Change,
     debouncedLoadEntities,
     isLightColor,
-    getTopFacetCounts,
+    handleSortChange,
   }
 }

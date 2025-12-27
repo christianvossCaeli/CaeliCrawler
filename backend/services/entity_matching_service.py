@@ -28,7 +28,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Entity, EntityType
-from app.utils.text import normalize_entity_name, create_slug
+from app.models.facet_type import FacetType
+from app.utils.text import normalize_entity_name, normalize_core_entity_name, create_slug
 
 logger = structlog.get_logger()
 
@@ -157,6 +158,10 @@ class EntityMatchingService:
         self.session = session
         self._entity_type_cache: Dict[str, EntityType] = {}
 
+    # Default threshold for AI-based embedding similarity search
+    # 0.85 = high confidence match (same entity, different formatting)
+    DEFAULT_SIMILARITY_THRESHOLD = 0.85
+
     async def get_or_create_entity(
         self,
         entity_type_slug: str,
@@ -169,22 +174,25 @@ class EntityMatchingService:
         longitude: Optional[float] = None,
         admin_level_1: Optional[str] = None,
         admin_level_2: Optional[str] = None,
-        similarity_threshold: float = 1.0,
+        similarity_threshold: float = None,
+        auto_deduplicate: bool = True,
         created_by_id: Optional[uuid.UUID] = None,
         owner_id: Optional[uuid.UUID] = None,
     ) -> Optional[Entity]:
         """
-        Get or create an entity with consistent matching.
+        Get or create an entity with intelligent duplicate detection.
 
-        Matching order:
+        Matching order (with auto_deduplicate=True):
         1. external_id (if provided) - exact match
         2. name_normalized + entity_type - exact match
-        3. similarity matching (if threshold < 1.0) - fuzzy match
-        4. Composite name detection - returns existing entity if found
-        5. Create new entity if not found
+        3. Core name match - structural patterns (parentheses, commas)
+        4. AI embedding similarity - semantic matching via OpenAI embeddings
+        5. Composite name detection - returns existing entity if found
+        6. Create new entity if not found
 
-        The creation is race-condition-safe using IntegrityError handling
-        combined with the unique constraint on (entity_type_id, name_normalized).
+        The AI embedding search uses pgvector's cosine similarity to find
+        semantically similar names, even across languages or naming conventions.
+        E.g., "Windpark Nordsee" might match "North Sea Wind Farm".
 
         Args:
             entity_type_slug: The entity type slug (e.g., "territorial_entity", "person")
@@ -197,13 +205,19 @@ class EntityMatchingService:
             longitude: Optional longitude for geo-entities
             admin_level_1: Optional admin level 1 (e.g., Bundesland)
             admin_level_2: Optional admin level 2 (e.g., Landkreis)
-            similarity_threshold: Threshold for fuzzy matching (1.0 = exact only)
+            similarity_threshold: Threshold for AI matching (default: 0.85).
+                                  Set to 1.0 to disable AI matching.
+            auto_deduplicate: Enable automatic duplicate detection (default: True)
             created_by_id: Optional user ID who created this entity
             owner_id: Optional owner user ID
 
         Returns:
             Entity if found or created, None if entity_type not found
         """
+        # Use default threshold if not specified and auto_deduplicate is enabled
+        if similarity_threshold is None:
+            similarity_threshold = self.DEFAULT_SIMILARITY_THRESHOLD if auto_deduplicate else 1.0
+
         # 1. Get entity type
         entity_type = await self._get_entity_type(entity_type_slug)
         if not entity_type:
@@ -238,8 +252,25 @@ class EntityMatchingService:
             )
             return entity
 
-        # 5. Try embedding-based similarity match (if threshold < 1.0)
-        # This uses semantic embeddings for entity-type-agnostic matching
+        # 5. Try core name match (catches "Markt X" vs "X", "X (Region Y)" vs "X")
+        # This is a fast pattern-based check that runs automatically
+        core_match = await self._find_by_core_name(
+            entity_type.id, name, country, name_normalized
+        )
+        if core_match:
+            entity, reason = core_match
+            logger.info(
+                "Found entity by core name match",
+                entity_id=str(entity.id),
+                search_name=name,
+                matched_name=entity.name,
+                reason=reason,
+            )
+            return entity
+
+        # 6. Try embedding-based semantic similarity match (if threshold < 1.0)
+        # This uses AI embeddings to find semantically similar names
+        # E.g., "Windkraftanlage Nordsee" might match "Offshore Wind Farm North Sea"
         if similarity_threshold < 1.0:
             similar_entity = await self._find_similar_entity(
                 entity_type.id, name, similarity_threshold
@@ -253,7 +284,7 @@ class EntityMatchingService:
                 )
                 return similar_entity
 
-        # 6. Check for composite entity names (e.g., "Gemeinden X und Y")
+        # 7. Check for composite entity names (e.g., "Gemeinden X und Y")
         # If detected and component entities exist, return one of them instead
         composite = detect_composite_entity_name(name)
         if composite.is_composite:
@@ -271,7 +302,7 @@ class EntityMatchingService:
                 )
                 return existing_entity
 
-        # 7. Create new entity (race-condition-safe, with embedding)
+        # 8. Create new entity (race-condition-safe, with embedding)
         return await self._create_entity_safe(
             entity_type=entity_type,
             name=name,
@@ -426,6 +457,79 @@ class EntityMatchingService:
         )
         return result.scalar_one_or_none()
 
+    async def _find_by_core_name(
+        self,
+        entity_type_id: uuid.UUID,
+        name: str,
+        country: str = "DE",
+        name_normalized: str = None,
+    ) -> Optional[Tuple[Entity, str]]:
+        """
+        Find entity by normalized core name.
+
+        This helps detect duplicates where entities have different administrative
+        prefixes or suffixes but the same core name, such as:
+        - "Markt Erlbach" vs "Erlbach"
+        - "Region Oberfranken-West" vs "Oberfranken-West (Region 4), Bayern"
+        - "Acme Corp (US Division)" vs "Acme Corp"
+
+        Uses an efficient two-step approach:
+        1. Quick filter using LIKE on normalized name (substring match)
+        2. Precise match using normalized core name comparison
+
+        Args:
+            entity_type_id: The entity type UUID
+            name: The entity name to search for
+            country: Country code for normalization
+            name_normalized: Pre-computed normalized name (optional)
+
+        Returns:
+            Tuple of (Entity, match_reason) if found, None otherwise
+        """
+        from app.utils.text import extract_core_entity_name
+
+        core_name = extract_core_entity_name(name, country=country)
+        core_normalized = normalize_core_entity_name(name, country=country)
+
+        # Skip if core name is too short (likely not meaningful) or same as original
+        if len(core_normalized) < 4:
+            return None
+
+        # If core name equals the full normalized name, no point in searching
+        if name_normalized and core_normalized == name_normalized:
+            return None
+
+        # Efficient query: Use LIKE with the core_normalized as substring
+        # This leverages indexes and reduces the result set
+        result = await self.session.execute(
+            select(Entity).where(
+                Entity.entity_type_id == entity_type_id,
+                Entity.is_active.is_(True),
+                Entity.name_normalized.contains(core_normalized),
+            ).limit(50)  # Reasonable limit for performance
+        )
+        candidates = result.scalars().all()
+
+        for entity in candidates:
+            existing_core = normalize_core_entity_name(entity.name, country=country)
+            if existing_core == core_normalized:
+                # Skip if it's an exact name match (already handled by _find_by_normalized_name)
+                if entity.name_normalized == (name_normalized or normalize_entity_name(name, country)):
+                    continue
+                logger.info(
+                    "Found duplicate by core name",
+                    search_name=name,
+                    search_core=core_name,
+                    matched_name=entity.name,
+                    entity_id=str(entity.id),
+                )
+                return (
+                    entity,
+                    f"Core name match: '{entity.name}' has same core '{core_name}' as '{name}'",
+                )
+
+        return None
+
     async def _find_similar_entity(
         self, entity_type_id: uuid.UUID, name: str, threshold: float
     ) -> Optional[Entity]:
@@ -479,10 +583,12 @@ class EntityMatchingService:
             
             # Also try searching with the full extracted name (might have location suffixes)
             # e.g., "Bad Rodach" from "insbesondere Gemeinde Bad Rodach, Landkreis Coburg"
+            # Escape SQL wildcards to prevent injection
+            safe_name = extracted_name.replace('%', '\\%').replace('_', '\\_')
             result = await self.session.execute(
                 select(Entity).where(
                     Entity.entity_type_id == entity_type_id,
-                    Entity.name.ilike(f"%{extracted_name}%"),
+                    Entity.name.ilike(f"%{safe_name}%", escape='\\'),
                     Entity.is_active.is_(True),
                 ).limit(1)
             )
@@ -605,3 +711,305 @@ class EntityMatchingService:
                 name=entity.name,
                 error=str(e),
             )
+
+    # =========================================================================
+    # FACET-TO-ENTITY REFERENCE METHODS
+    # =========================================================================
+
+    async def resolve_target_entity_for_facet(
+        self,
+        facet_type: FacetType,
+        facet_value_data: Dict[str, Any],
+        source_entity_id: Optional[uuid.UUID] = None,
+    ) -> Optional[uuid.UUID]:
+        """
+        Resolve or create a target entity for a facet value.
+
+        This is the main entry point for linking facet values to entities.
+        For example, a "contact" facet can be linked to a "person" entity.
+
+        Args:
+            facet_type: The FacetType configuration
+            facet_value_data: The facet value's structured data (e.g., {name: "Max", role: "CEO"})
+            source_entity_id: The entity this facet belongs to (for context/logging)
+
+        Returns:
+            target_entity_id if matched/created, None otherwise
+
+        Example:
+            >>> service = EntityMatchingService(session)
+            >>> target_id = await service.resolve_target_entity_for_facet(
+            ...     facet_type=contact_facet_type,
+            ...     facet_value_data={"name": "Max Mustermann", "role": "Bürgermeister"},
+            ... )
+        """
+        if not facet_type.allows_entity_reference:
+            return None
+
+        # Extract name from facet value data
+        name = self._extract_name_from_facet_value(facet_value_data)
+        if not name:
+            logger.debug(
+                "No name found in facet value data",
+                facet_type=facet_type.slug,
+                value_keys=list(facet_value_data.keys()),
+            )
+            return None
+
+        # Determine entity type to search/create
+        target_entity_type_slugs = facet_type.target_entity_type_slugs or []
+
+        # Classify the name to determine if it's a person or organization
+        entity_type_slug = self._classify_entity_type(name, facet_value_data, target_entity_type_slugs)
+
+        if not entity_type_slug:
+            logger.debug(
+                "Could not determine entity type for facet value",
+                facet_type=facet_type.slug,
+                name=name,
+            )
+            return None
+
+        # Extract additional attributes for matching
+        core_attributes = self._extract_core_attributes_from_facet(facet_value_data)
+
+        # Use existing get_or_create_entity method
+        entity = await self.get_or_create_entity(
+            entity_type_slug=entity_type_slug,
+            name=name,
+            core_attributes=core_attributes,
+            auto_deduplicate=True,
+            # Only create if auto_create_entity is enabled
+            similarity_threshold=0.85 if facet_type.auto_create_entity else 1.0,
+        )
+
+        if entity:
+            logger.info(
+                "Resolved target entity for facet",
+                facet_type=facet_type.slug,
+                entity_id=str(entity.id),
+                entity_name=entity.name,
+                source_entity_id=str(source_entity_id) if source_entity_id else None,
+            )
+            return entity.id
+
+        # If we didn't find/create an entity and auto_create is enabled,
+        # create a new entity explicitly
+        if facet_type.auto_create_entity:
+            entity_type = await self.get_entity_type(entity_type_slug)
+            if entity_type:
+                entity = await self._create_entity_safe(
+                    entity_type=entity_type,
+                    name=name,
+                    name_normalized=normalize_entity_name(name),
+                    slug=create_slug(name),
+                    core_attributes=core_attributes,
+                )
+                if entity:
+                    logger.info(
+                        "Created new entity from facet value",
+                        facet_type=facet_type.slug,
+                        entity_id=str(entity.id),
+                        entity_name=entity.name,
+                        entity_type=entity_type_slug,
+                    )
+                    return entity.id
+
+        return None
+
+    def _extract_name_from_facet_value(self, value: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract entity name from facet value data.
+
+        Supports common contact/person/organization data structures.
+        """
+        # Try direct name fields
+        for field in ['name', 'full_name', 'display_name', 'title',
+                      'organisation', 'organization', 'company', 'firma']:
+            if field in value and value[field]:
+                return str(value[field]).strip()
+
+        # Try combining first/last name (for persons)
+        first_name = value.get('first_name', '') or value.get('vorname', '') or value.get('given_name', '')
+        last_name = value.get('last_name', '') or value.get('nachname', '') or value.get('family_name', '')
+        if first_name or last_name:
+            full_name = f"{first_name} {last_name}".strip()
+            if full_name:
+                return full_name
+
+        # Try role-based name (e.g., "Bürgermeister")
+        role = value.get('role', '') or value.get('position', '') or value.get('funktion', '')
+        if role:
+            return str(role).strip()
+
+        return None
+
+    def _classify_entity_type(
+        self,
+        name: str,
+        value: Dict[str, Any],
+        allowed_types: List[str]
+    ) -> Optional[str]:
+        """
+        Classify whether a name/value represents a person or organization.
+
+        Uses heuristics to determine entity type:
+        - Names with typical person patterns (first+last name) → person
+        - Names with organization patterns (GmbH, AG, e.V., etc.) → organization
+        - Roles/positions → organization (usually refers to a department)
+        """
+        import re
+        name_lower = name.lower()
+
+        # Check for organization indicators (comprehensive list)
+        org_patterns = [
+            'gmbh', 'ag', 'e.v.', 'ev', 'verein', 'verband', 'gesellschaft',
+            'behörde', 'amt', 'ministerium', 'direktion', 'abteilung',
+            'regierung', 'verwaltung', 'bundesland', 'kreis', 'landkreis',
+            'stadt', 'gemeinde', 'kommune', 'region', 'bezirk',
+            'universität', 'hochschule', 'institut', 'stiftung',
+            'zuständig', 'planungsbehörde', 'regionalverband',
+            # Additional patterns
+            'planungsverband', 'landesamt', 'landtag', 'landesregierung',
+            'landesplanungsbehörde', 'verbandsversammlung', 'genehmigungsdirektion',
+            'regionaldirektion', 'planungsausschuss', 'bezirksregierung',
+            'regierungsbezirk', 'fachkommission', 'bundesamt', 'sekretariat',
+            'ausschuss', 'kommission', 'träger',
+        ]
+
+        for pattern in org_patterns:
+            if pattern in name_lower:
+                if 'organization' in allowed_types:
+                    return 'organization'
+                elif allowed_types:
+                    return allowed_types[0]
+
+        # Check for person name patterns first (titles, hyphenated names, etc.)
+        person_patterns = [
+            # Title + Name (Dr., Prof., Dipl.-Geogr., Dr.-Ing.)
+            r'^(dr\.?\-?ing\.?|dr\.|prof\.|dipl\.?\-?\w*\.?)\s',
+            # Two words starting with capital letters (including hyphens in names)
+            r'^[A-ZÄÖÜ][a-zäöüß]+[\-]?[A-ZÄÖÜ]?[a-zäöüß]*\s+[A-ZÄÖÜ][a-zäöüß\-]+$',
+            # Three words with nobility particles
+            r'^[A-ZÄÖÜ][a-zäöüß]+\s+(von|van|de|zu|vom)\s+[A-ZÄÖÜ]',
+        ]
+
+        for pattern in person_patterns:
+            if re.search(pattern, name, re.IGNORECASE):
+                if 'person' in allowed_types:
+                    return 'person'
+                elif allowed_types:
+                    return allowed_types[0]
+
+        # Check if it looks like a person name (2-4 words, capitalized)
+        words = name.split()
+        if len(words) >= 2 and len(words) <= 4:
+            # Allow hyphenated names and umlauts
+            def is_name_word(word: str) -> bool:
+                # Remove common titles
+                word = re.sub(r'^(dr|prof|dipl|ing|herr|frau)\.?\-?', '', word, flags=re.IGNORECASE)
+                if not word:
+                    return True
+                # Check if word starts with uppercase and contains only letters/hyphens
+                return bool(re.match(r'^[A-ZÄÖÜ][a-zäöüß\-]*$', word))
+
+            looks_like_person = all(is_name_word(w) for w in words if w)
+            if looks_like_person:
+                if 'person' in allowed_types:
+                    return 'person'
+                elif allowed_types:
+                    return allowed_types[0]
+
+        # Check for explicit type hints in the value
+        entity_type_hint = value.get('entity_type') or value.get('type')
+        if entity_type_hint:
+            hint_lower = str(entity_type_hint).lower()
+            if 'person' in hint_lower and 'person' in allowed_types:
+                return 'person'
+            if 'org' in hint_lower and 'organization' in allowed_types:
+                return 'organization'
+
+        # Default to first allowed type
+        return allowed_types[0] if allowed_types else None
+
+    def _extract_core_attributes_from_facet(self, value: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Extract core attributes from facet value for entity creation.
+
+        These attributes are stored in entity.core_attributes for matching
+        and display purposes.
+        """
+        attrs = {}
+
+        # Email
+        email = value.get('email') or value.get('e_mail') or value.get('mail')
+        if email:
+            attrs['email'] = str(email).lower().strip()
+
+        # Phone
+        phone = value.get('phone') or value.get('telefon') or value.get('tel')
+        if phone:
+            attrs['phone'] = str(phone).strip()
+
+        # Role/Position
+        role = value.get('role') or value.get('position') or value.get('funktion')
+        if role:
+            attrs['role'] = str(role).strip()
+
+        # Department
+        department = value.get('department') or value.get('abteilung')
+        if department:
+            attrs['department'] = str(department).strip()
+
+        # Website
+        website = value.get('website') or value.get('url') or value.get('homepage')
+        if website:
+            attrs['website'] = str(website).strip()
+
+        return attrs
+
+    async def batch_resolve_target_entities(
+        self,
+        facet_type: FacetType,
+        facet_values: List[Dict[str, Any]],
+    ) -> Dict[int, Optional[uuid.UUID]]:
+        """
+        Batch resolve target entities for multiple facet values.
+
+        Optimized for bulk processing with deduplication.
+
+        Args:
+            facet_type: The FacetType configuration
+            facet_values: List of facet value data dicts
+
+        Returns:
+            Dict mapping index to target_entity_id (or None)
+        """
+        if not facet_type.allows_entity_reference:
+            return {i: None for i in range(len(facet_values))}
+
+        results: Dict[int, Optional[uuid.UUID]] = {}
+        name_to_entity: Dict[str, uuid.UUID] = {}
+
+        for i, value in enumerate(facet_values):
+            name = self._extract_name_from_facet_value(value)
+            if not name:
+                results[i] = None
+                continue
+
+            # Check cache first
+            name_normalized = normalize_entity_name(name)
+            if name_normalized in name_to_entity:
+                results[i] = name_to_entity[name_normalized]
+                continue
+
+            # Resolve entity
+            entity_id = await self.resolve_target_entity_for_facet(
+                facet_type=facet_type,
+                facet_value_data=value,
+            )
+            results[i] = entity_id
+            if entity_id:
+                name_to_entity[name_normalized] = entity_id
+
+        return results

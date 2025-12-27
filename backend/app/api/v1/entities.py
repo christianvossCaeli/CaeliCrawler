@@ -66,6 +66,9 @@ async def list_entities(
     admin_level_2: Annotated[Optional[str], Query(description="Filter by admin level 2 (Landkreis, District)")] = None,
     core_attr_filters: Annotated[Optional[str], Query(description="JSON-encoded core_attributes filters, e.g. {\"locality_type\": \"Stadt\"}")] = None,
     api_configuration_id: Annotated[Optional[UUID], Query(description="Filter by API configuration ID")] = None,
+    has_facets: Annotated[Optional[bool], Query(description="Filter by whether entity has facet values")] = None,
+    sort_by: Annotated[Optional[str], Query(description="Sort by field (name, hierarchy_path, facet_count, relation_count)")] = None,
+    sort_order: Annotated[Optional[str], Query(description="Sort order (asc, desc)")] = "asc",
     session: AsyncSession = Depends(get_session),
 ) -> EntityListResponse:
     """List entities with filters."""
@@ -135,20 +138,100 @@ async def list_entities(
             )
 
     if search:
+        # Use parameterized query pattern to prevent SQL injection
+        search_pattern = f"%{search.replace('%', '\\%').replace('_', '\\_')}%"
         query = query.where(
             or_(
-                Entity.name.ilike(f"%{search}%"),
-                Entity.name_normalized.ilike(f"%{search}%"),
-                Entity.external_id.ilike(f"%{search}%")
+                Entity.name.ilike(search_pattern, escape='\\'),
+                Entity.name_normalized.ilike(search_pattern, escape='\\'),
+                Entity.external_id.ilike(search_pattern, escape='\\')
             )
         )
+
+    # Filter by has_facets
+    if has_facets is not None:
+        entities_with_facets = (
+            select(FacetValue.entity_id)
+            .group_by(FacetValue.entity_id)
+            .subquery()
+        )
+        if has_facets:
+            # Only entities that have at least one facet value
+            query = query.where(Entity.id.in_(select(entities_with_facets.c.entity_id)))
+        else:
+            # Only entities that have no facet values
+            query = query.where(Entity.id.notin_(select(entities_with_facets.c.entity_id)))
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
     total = (await session.execute(count_query)).scalar()
 
+    # Handle sorting
+    sort_desc = sort_order and sort_order.lower() == "desc"
+
+    # Sortable columns mapping
+    sortable_columns = {
+        "name": Entity.name,
+        "hierarchy_path": Entity.hierarchy_path,
+        "external_id": Entity.external_id,
+        "created_at": Entity.created_at,
+        "updated_at": Entity.updated_at,
+    }
+
+    # Handle sorting for computed fields (facet_count, relation_count)
+    if sort_by == "facet_count":
+        # Create subquery for facet counts
+        facet_count_subq = (
+            select(
+                FacetValue.entity_id,
+                func.count(FacetValue.id).label("facet_count")
+            )
+            .group_by(FacetValue.entity_id)
+            .subquery()
+        )
+        query = query.outerjoin(facet_count_subq, Entity.id == facet_count_subq.c.entity_id)
+        order_col = func.coalesce(facet_count_subq.c.facet_count, 0)
+        if sort_desc:
+            query = query.order_by(order_col.desc(), Entity.name)
+        else:
+            query = query.order_by(order_col, Entity.name)
+    elif sort_by == "relation_count":
+        # Create subquery for relation counts (source + target)
+        source_count_subq = (
+            select(
+                EntityRelation.source_entity_id.label("entity_id"),
+                func.count(EntityRelation.id).label("rel_count")
+            )
+            .group_by(EntityRelation.source_entity_id)
+            .subquery()
+        )
+        target_count_subq = (
+            select(
+                EntityRelation.target_entity_id.label("entity_id"),
+                func.count(EntityRelation.id).label("rel_count")
+            )
+            .group_by(EntityRelation.target_entity_id)
+            .subquery()
+        )
+        query = query.outerjoin(source_count_subq, Entity.id == source_count_subq.c.entity_id)
+        query = query.outerjoin(target_count_subq, Entity.id == target_count_subq.c.entity_id)
+        total_rel_count = func.coalesce(source_count_subq.c.rel_count, 0) + func.coalesce(target_count_subq.c.rel_count, 0)
+        if sort_desc:
+            query = query.order_by(total_rel_count.desc(), Entity.name)
+        else:
+            query = query.order_by(total_rel_count, Entity.name)
+    elif sort_by and sort_by in sortable_columns:
+        order_col = sortable_columns[sort_by]
+        if sort_desc:
+            query = query.order_by(order_col.desc(), Entity.name)
+        else:
+            query = query.order_by(order_col, Entity.name)
+    else:
+        # Default sorting
+        query = query.order_by(Entity.hierarchy_path, Entity.name)
+
     # Paginate
-    query = query.order_by(Entity.hierarchy_path, Entity.name).offset((page - 1) * per_page).limit(per_page)
+    query = query.offset((page - 1) * per_page).limit(per_page)
     result = await session.execute(query)
     entities = result.scalars().all()
 
@@ -607,7 +690,9 @@ async def get_entities_geojson(
         query = query.where(Entity.admin_level_2 == admin_level_2)
 
     if search:
-        query = query.where(Entity.name.ilike(f"%{search}%"))
+        # Use parameterized query pattern to prevent SQL injection
+        search_pattern = f"%{search.replace('%', '\\%').replace('_', '\\_')}%"
+        query = query.where(Entity.name.ilike(search_pattern, escape='\\'))
 
     # Limit results
     query = query.limit(limit)
@@ -689,17 +774,18 @@ async def get_entities_geojson(
 # ============================================================================
 
 
-@router.get("/{entity_id}", response_model=EntityResponse)
-async def get_entity(
-    entity_id: UUID,
-    session: AsyncSession = Depends(get_session),
-):
-    """Get a single entity by ID."""
-    entity = await session.get(Entity, entity_id)
-    if not entity:
-        raise NotFoundError("Entity", str(entity_id))
+async def _build_entity_response(
+    entity: Entity,
+    entity_type: Optional[EntityType],
+    session: AsyncSession,
+) -> EntityResponse:
+    """
+    Build a complete EntityResponse with counts, parent info, and external source.
 
-    entity_type = await session.get(EntityType, entity.entity_type_id)
+    This helper function centralizes the response building logic to avoid
+    code duplication between get_entity and get_entity_by_slug endpoints.
+    """
+    from sqlalchemy.orm import selectinload
 
     # Count facet values
     facet_count = (await session.execute(
@@ -734,7 +820,6 @@ async def get_entity(
     external_source_name = None
     if entity.api_configuration_id:
         from app.models.api_configuration import APIConfiguration
-        from sqlalchemy.orm import selectinload
         api_result = await session.execute(
             select(APIConfiguration)
             .options(selectinload(APIConfiguration.data_source))
@@ -755,6 +840,20 @@ async def get_entity(
     response.external_source_name = external_source_name
 
     return response
+
+
+@router.get("/{entity_id}", response_model=EntityResponse)
+async def get_entity(
+    entity_id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    """Get a single entity by ID."""
+    entity = await session.get(Entity, entity_id)
+    if not entity:
+        raise NotFoundError("Entity", str(entity_id))
+
+    entity_type = await session.get(EntityType, entity.entity_type_id)
+    return await _build_entity_response(entity, entity_type, session)
 
 
 @router.get("/by-slug/{entity_type_slug}/{entity_slug}", response_model=EntityResponse)
@@ -785,58 +884,7 @@ async def get_entity_by_slug(
     if not entity:
         raise NotFoundError("Entity", f"{entity_type_slug}/{entity_slug}")
 
-    # Get counts
-    facet_count = (await session.execute(
-        select(func.count()).where(FacetValue.entity_id == entity.id)
-    )).scalar()
-
-    relation_count = (await session.execute(
-        select(func.count()).where(
-            or_(
-                EntityRelation.source_entity_id == entity.id,
-                EntityRelation.target_entity_id == entity.id
-            )
-        )
-    )).scalar()
-
-    children_count = (await session.execute(
-        select(func.count()).where(Entity.parent_id == entity.id)
-    )).scalar()
-
-    # Get parent info
-    parent_name = None
-    parent_slug = None
-    if entity.parent_id:
-        parent = await session.get(Entity, entity.parent_id)
-        if parent:
-            parent_name = parent.name
-            parent_slug = parent.slug
-
-    # Get external source info
-    external_source_name = None
-    if entity.api_configuration_id:
-        from app.models.api_configuration import APIConfiguration
-        from sqlalchemy.orm import selectinload
-        api_result = await session.execute(
-            select(APIConfiguration)
-            .options(selectinload(APIConfiguration.data_source))
-            .where(APIConfiguration.id == entity.api_configuration_id)
-        )
-        api_config = api_result.scalar_one_or_none()
-        if api_config and api_config.data_source:
-            external_source_name = api_config.data_source.name
-
-    response = EntityResponse.model_validate(entity)
-    response.entity_type_name = entity_type.name
-    response.entity_type_slug = entity_type.slug
-    response.parent_name = parent_name
-    response.parent_slug = parent_slug
-    response.facet_count = facet_count
-    response.relation_count = relation_count
-    response.children_count = children_count
-    response.external_source_name = external_source_name
-
-    return response
+    return await _build_entity_response(entity, entity_type, session)
 
 
 @router.get("/{entity_id}/children", response_model=EntityListResponse)
