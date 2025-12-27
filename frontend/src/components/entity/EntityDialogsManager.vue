@@ -25,6 +25,7 @@
       v-model="internalFacetDetailsDialog"
       :facet-group="facetGroup"
       :facet-values="facetValues"
+      :can-edit="canEdit"
       @verify="$emit('verify-facet', $event)"
       @copy-email="$emit('copy-email', $event)"
     />
@@ -216,7 +217,8 @@ import SourceDetailsDialog from './SourceDetailsDialog.vue'
 import EntityNotesDialog from './EntityNotesDialog.vue'
 import DynamicSchemaForm from '@/components/DynamicSchemaForm.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
+  canEdit?: boolean
   // Add Facet Dialog
   addFacetDialog: boolean
   facetTypeId: string
@@ -294,7 +296,9 @@ const props = defineProps<{
   editingFacetValue: Record<string, unknown>
   editingFacetTextValue: string
   savingFacet: boolean
-}>()
+}>(), {
+  canEdit: true,
+})
 
 const emit = defineEmits<{
   'update:add-facet-dialog': [value: boolean]

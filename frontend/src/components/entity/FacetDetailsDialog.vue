@@ -120,7 +120,7 @@
               </v-chip>
               <v-spacer></v-spacer>
               <v-btn
-                v-if="!fv.human_verified"
+                v-if="canEdit && !fv.human_verified"
                 size="small"
                 color="success"
                 variant="tonal"
@@ -156,10 +156,13 @@ import { useDateFormatter } from '@/composables/useDateFormatter'
 const modelValue = defineModel<boolean>()
 
 // Props
-defineProps<{
+withDefaults(defineProps<{
   facetGroup: FacetGroup | null
   facetValues: FacetValue[]
-}>()
+  canEdit?: boolean
+}>(), {
+  canEdit: true,
+})
 
 // Emits
 defineEmits<{

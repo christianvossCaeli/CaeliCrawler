@@ -156,8 +156,8 @@ interface DataSource {
   source_type?: string
   is_direct_link?: boolean
   document_count?: number
-  last_crawl?: string
-  last_crawled_at?: string
+  last_crawl?: string | null
+  last_crawled_at?: string | null
   hasRunningJob?: boolean
   crawl_config?: {
     max_depth: number

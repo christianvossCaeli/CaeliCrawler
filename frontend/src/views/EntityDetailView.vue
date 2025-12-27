@@ -137,6 +137,7 @@
 
     <!-- All Dialogs -->
     <EntityDialogsManager
+      :can-edit="canEdit"
       v-model:add-facet-dialog="addFacetDialog"
       v-model:facet-details-dialog="facetDetailsDialog"
       v-model:edit-dialog="editDialog"
@@ -294,15 +295,13 @@ import { useSnackbar } from '@/composables/useSnackbar'
 import { useFeatureFlags } from '@/composables/useFeatureFlags'
 import { useEntityExport } from '@/composables/useEntityExport'
 import { useEntityNotes } from '@/composables/useEntityNotes'
-import { useEntityRelations } from '@/composables/useEntityRelations'
-import { useEntityDataSources } from '@/composables/useEntityDataSources'
+import { useEntityRelations, type Relation } from '@/composables/useEntityRelations'
+import { useEntityDataSources, type DataSource } from '@/composables/useEntityDataSources'
 import { useEntityEnrichment } from '@/composables/useEntityEnrichment'
 import { useEntityFacets, type FacetGroup } from '@/composables/useEntityFacets'
 import type {
   FacetValue,
-  Relation,
   EntityDocument,
-  DataSource,
 } from '@/types/entity'
 import type { EntityFacetsSummary } from '@/stores/types/entity'
 
