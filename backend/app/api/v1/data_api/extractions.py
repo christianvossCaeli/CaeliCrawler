@@ -5,7 +5,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import String, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import require_editor
@@ -59,10 +59,13 @@ def apply_extraction_filters(
     if search:
         safe_search = search.replace('%', '\\%').replace('_', '\\_')
         search_pattern = f"%{safe_search}%"
-        query = query.where(
-            (Document.title.ilike(search_pattern, escape='\\')) |
-            (Document.original_url.ilike(search_pattern, escape='\\'))
-        )
+        query = query.where(or_(
+            Document.title.ilike(search_pattern, escape='\\'),
+            Document.original_url.ilike(search_pattern, escape='\\'),
+            ExtractedData.extracted_content.cast(String).ilike(search_pattern, escape='\\'),
+            ExtractedData.human_corrections.cast(String).ilike(search_pattern, escape='\\'),
+            ExtractedData.entity_references.cast(String).ilike(search_pattern, escape='\\'),
+        ))
 
     return query
 
@@ -78,7 +81,10 @@ async def list_extracted_data(
     human_verified: Optional[bool] = Query(default=None),
     created_from: Optional[date] = Query(default=None, description="Filter by created date from (YYYY-MM-DD)"),
     created_to: Optional[date] = Query(default=None, description="Filter by created date to (YYYY-MM-DD)"),
-    search: Optional[str] = Query(default=None, description="Search in document title and URL"),
+    search: Optional[str] = Query(
+        default=None,
+        description="Search in document title, URL, extracted content, corrections, and entity references",
+    ),
     sort_by: Optional[str] = Query(default="created_at", description="Field to sort by"),
     sort_order: Optional[str] = Query(default="desc", description="Sort order: asc or desc"),
     session: AsyncSession = Depends(get_session),
@@ -175,7 +181,10 @@ async def get_extraction_stats(
     human_verified: Optional[bool] = Query(default=None),
     created_from: Optional[date] = Query(default=None, description="Filter by created date from (YYYY-MM-DD)"),
     created_to: Optional[date] = Query(default=None, description="Filter by created date to (YYYY-MM-DD)"),
-    search: Optional[str] = Query(default=None, description="Search in document title and URL"),
+    search: Optional[str] = Query(
+        default=None,
+        description="Search in document title, URL, extracted content, corrections, and entity references",
+    ),
     session: AsyncSession = Depends(get_session),
 ):
     """Get extraction statistics."""

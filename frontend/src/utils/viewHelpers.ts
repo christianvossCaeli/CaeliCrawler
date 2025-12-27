@@ -5,14 +5,21 @@
  * used across multiple views to eliminate code duplication.
  */
 
+import { getLocale } from '@/locales'
+
 // Re-export status colors from the centralized composable
 export { STATUS_COLORS, STATUS_ICONS, getStatusColor, getStatusIcon } from '@/composables/useStatusColors'
+
+function getIntlLocale(): string {
+  const locale = getLocale()
+  return locale === 'de' ? 'de-DE' : locale === 'en' ? 'en-US' : locale
+}
 
 /**
  * Format a date string for display.
  * @param dateStr - ISO date string or Date object
  * @param options - Intl.DateTimeFormat options
- * @returns Formatted date string in German locale
+ * @returns Formatted date string in current UI locale
  */
 export function formatDate(
   dateStr: string | Date | null | undefined,
@@ -27,7 +34,7 @@ export function formatDate(
   if (!dateStr) return '-'
   try {
     const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
-    return date.toLocaleDateString('de-DE', options)
+    return date.toLocaleString(getIntlLocale(), options)
   } catch {
     return String(dateStr)
   }
@@ -49,11 +56,13 @@ export function formatDateOnly(dateStr: string | Date | null | undefined): strin
 /**
  * Format a relative time (e.g., "vor 2 Stunden").
  * @param dateStr - ISO date string or Date object
- * @returns Relative time string in German
+ * @returns Relative time string in current UI locale
  */
 export function formatRelativeTime(dateStr: string | Date | null | undefined): string {
   if (!dateStr) return '-'
   try {
+    const locale = getLocale()
+    const isEnglish = locale === 'en'
     const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
     const now = new Date()
     const diffMs = now.getTime() - date.getTime()
@@ -61,10 +70,10 @@ export function formatRelativeTime(dateStr: string | Date | null | undefined): s
     const diffHours = Math.floor(diffMins / 60)
     const diffDays = Math.floor(diffHours / 24)
 
-    if (diffMins < 1) return 'gerade eben'
-    if (diffMins < 60) return `vor ${diffMins} Min.`
-    if (diffHours < 24) return `vor ${diffHours} Std.`
-    if (diffDays < 7) return `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}`
+    if (diffMins < 1) return isEnglish ? 'just now' : 'gerade eben'
+    if (diffMins < 60) return isEnglish ? `${diffMins} min ago` : `vor ${diffMins} Min.`
+    if (diffHours < 24) return isEnglish ? `${diffHours} hour${diffHours === 1 ? '' : 's'} ago` : `vor ${diffHours} Std.`
+    if (diffDays < 7) return isEnglish ? `${diffDays} day${diffDays === 1 ? '' : 's'} ago` : `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}`
     return formatDateOnly(date)
   } catch {
     return String(dateStr)
@@ -143,14 +152,14 @@ export function getContrastColor(bgColor: string): string {
  * Format a number with locale-specific formatting.
  * @param value - Number to format
  * @param options - Intl.NumberFormat options
- * @returns Formatted number string
+ * @returns Formatted number string in current UI locale
  */
 export function formatNumber(
   value: number | null | undefined,
   options: Intl.NumberFormatOptions = {}
 ): string {
   if (value === null || value === undefined) return '-'
-  return value.toLocaleString('de-DE', options)
+  return value.toLocaleString(getIntlLocale(), options)
 }
 
 /**

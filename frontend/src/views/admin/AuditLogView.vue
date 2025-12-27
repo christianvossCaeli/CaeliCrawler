@@ -219,6 +219,7 @@ import api from '@/services/api'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useLogger } from '@/composables/useLogger'
+import { formatDate as formatViewDate } from '@/utils/viewHelpers'
 
 const logger = useLogger('AuditLogView')
 
@@ -312,7 +313,7 @@ function getActionIcon(action: string): string {
 }
 
 function formatDate(date: string): string {
-  return new Date(date).toLocaleString('de-DE', {
+  return formatViewDate(date, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

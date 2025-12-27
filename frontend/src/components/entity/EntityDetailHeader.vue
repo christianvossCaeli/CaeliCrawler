@@ -119,6 +119,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FavoriteButton from '@/components/FavoriteButton.vue'
 import type { FacetGroup } from '@/types/entity'
+import { formatNumber } from '@/utils/viewHelpers'
 
 // Types - Use relaxed types to be compatible with store types
 interface EntityType {
@@ -227,7 +228,7 @@ function formatAttributeKey(key: string): string {
 
 function formatAttributeValue(value: unknown): string {
   if (typeof value === 'number') {
-    return value.toLocaleString('de-DE')
+    return formatNumber(value)
   }
   return String(value)
 }

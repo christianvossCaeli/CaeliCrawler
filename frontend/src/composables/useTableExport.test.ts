@@ -18,6 +18,7 @@ vi.mock('@/utils/viewHelpers', () => ({
     const date = value instanceof Date ? value : new Date(value)
     return date.toISOString().split('T')[0]
   },
+  formatNumber: (value: number, options?: Intl.NumberFormatOptions) => value.toLocaleString('de-DE', options),
 }))
 
 describe('useTableExport', () => {

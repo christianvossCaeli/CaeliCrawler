@@ -280,7 +280,6 @@
 
         <template #item.progress="{ item }">
           <div class="d-flex align-center">
-            <!-- For completed/failed jobs, show actual results -->
             <template v-if="item.status === 'COMPLETED' || item.status === 'FAILED' || item.status === 'CANCELLED'">
               <v-chip v-if="(item.documents_new ?? 0) > 0" size="x-small" color="success" class="mr-1">
                 {{ item.documents_new }} {{ $t('crawler.newDocuments') }}
@@ -292,7 +291,6 @@
               <v-icon v-else-if="item.status === 'FAILED'" color="error" size="small">mdi-alert-circle</v-icon>
               <v-icon v-else color="grey" size="small">mdi-cancel</v-icon>
             </template>
-            <!-- For running/pending jobs, show progress bar -->
             <template v-else>
               <span class="mr-2">{{ item.pages_crawled ?? 0 }} {{ $t('crawler.pages') }}</span>
               <v-progress-circular
@@ -444,454 +442,72 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
-import { adminApi } from '@/services/api'
-import { useDateFormatter } from '@/composables/useDateFormatter'
-import { useSnackbar } from '@/composables/useSnackbar'
-import { useCrawlPresetsStore } from '@/stores/crawlPresets'
-import { useAuthStore } from '@/stores/auth'
+/**
+ * CrawlerView - Crawler monitoring and management
+ *
+ * Uses useCrawlerAdmin composable for all state and logic.
+ * Supports real-time updates via SSE with polling fallback.
+ */
+import { onMounted } from 'vue'
+import { useCrawlerAdmin } from '@/composables/useCrawlerAdmin'
 import CrawlPresetsTab from '@/components/crawler/CrawlPresetsTab.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
-import { useLogger } from '@/composables/useLogger'
-import { getErrorMessage } from '@/composables/useApiErrorHandler'
 
-const logger = useLogger('CrawlerView')
+// Initialize composable with all state and methods
+const {
+  // State
+  loading,
+  presetsDrawer,
+  initialLoad,
+  stoppingAll,
+  jobs,
+  runningJobs,
+  runningAiTasks,
+  jobLogs,
+  statusFilter,
+  detailsDialog,
+  confirmDialog,
+  confirmMessage,
+  confirmTitle,
+  selectedJob,
+  status,
+  stats,
 
-interface LogEntry {
-  status: string
-  url: string
-  timestamp: string
-}
+  // Computed
+  headers,
+  filteredJobs,
 
-interface JobLog {
-  current_url: string
-  log_entries: LogEntry[]
-}
+  // Stores
+  presetsStore,
 
-interface CrawlerJobError {
-  error: string
-  timestamp?: string
-  url?: string
-}
+  // Helper Functions
+  getStatusColor,
+  formatDate,
+  formatDuration,
+  formatLogTime,
 
-interface CrawlerJob {
-  id: string
-  source_name?: string
-  category_name?: string
-  status: string
-  scheduled_at?: string
-  started_at?: string
-  completed_at?: string
-  pages_crawled?: number
-  documents_found?: number
-  documents_processed?: number
-  documents_new?: number
-  duration?: number
-  duration_seconds?: number
-  error_log?: CrawlerJobError[] | string[]
-  current_url?: string
-  base_url?: string
-  error_count?: number
-}
+  // Data Loading
+  loadJobLog,
 
-interface AiTask {
-  id: string
-  task_type?: string
-  name?: string
-  status: string
-  started_at?: string
-  progress?: number
-  current_item?: string
-  progress_current?: number
-  progress_total?: number
-  progress_percent?: number
-}
+  // Job Actions
+  cancelJob,
+  retryJob,
+  cancelAiTask,
+  showJobDetails,
 
-const { t, locale } = useI18n()
-const { formatDate: formatLocaleDate } = useDateFormatter()
-const route = useRoute()
-const { showSuccess, showError } = useSnackbar()
-const presetsStore = useCrawlPresetsStore()
-const authStore = useAuthStore()
+  // Confirmation
+  executeConfirmedAction,
 
-const loading = ref(true)
-const presetsDrawer = ref(false)
-const initialLoad = ref(true)
-const stoppingAll = ref(false)
-const jobs = ref<CrawlerJob[]>([])
-const runningJobs = ref<CrawlerJob[]>([])
-const runningAiTasks = ref<AiTask[]>([])
-const jobLogs = ref<Record<string, JobLog>>({})
-const statusFilter = ref('')
-const detailsDialog = ref(false)
-const confirmDialog = ref(false)
-const confirmAction = ref<(() => Promise<void>) | null>(null)
-const confirmMessage = ref('')
-const confirmTitle = ref('')
-const selectedJob = ref<CrawlerJob | null>(null)
-let refreshInterval: number | null = null
-let logRefreshInterval: number | null = null
-let eventSource: EventSource | null = null
-const useSSE = ref(true)  // Enable SSE by default
+  // Stop All
+  stopAllCrawlers,
 
-const status = ref({
-  running_jobs: 0,
-  pending_jobs: 0,
-  worker_count: 0,
-  active_tasks: 0,
-  running_ai_tasks: 0,
-})
+  // Initialization
+  initialize,
+} = useCrawlerAdmin()
 
-const stats = ref({
-  total_jobs: 0,
-  total_documents: 0,
-  completed_jobs: 0,
-  failed_jobs: 0,
-})
+// Explicitly mark unused but template-required variables
+void jobs
 
-const headers = [
-  { title: t('crawler.source'), key: 'source_name', sortable: true },
-  { title: t('crawler.category'), key: 'category_name', sortable: true },
-  { title: t('crawler.status'), key: 'status', sortable: true },
-  { title: t('crawler.startedAt'), key: 'scheduled_at', sortable: true },
-  { title: t('crawler.duration'), key: 'duration', sortable: true },
-  { title: t('crawler.progress'), key: 'progress', sortable: false },
-  { title: t('common.actions'), key: 'actions', sortable: false },
-]
-
-const filteredJobs = computed(() => {
-  if (!statusFilter.value) return jobs.value
-  return jobs.value.filter(j => j.status === statusFilter.value)
-})
-
-const getStatusColor = (status: string) => {
-  const colors: Record<string, string> = {
-    COMPLETED: 'success',
-    RUNNING: 'info',
-    PENDING: 'warning',
-    FAILED: 'error',
-    CANCELLED: 'grey',
-  }
-  return colors[status] || 'grey'
-}
-
-const formatDate = (dateStr: string) => {
-  return formatLocaleDate(dateStr, 'dd.MM.yyyy HH:mm')
-}
-
-const formatDuration = (seconds: number) => {
-  if (seconds < 60) return `${Math.round(seconds)}s`
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
-  return `${Math.round(seconds / 3600)}h ${Math.round((seconds % 3600) / 60)}m`
-}
-
-const formatLogTime = (timestamp: string) => {
-  if (!timestamp) return ''
-  const date = new Date(timestamp)
-  return date.toLocaleTimeString(locale.value, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-}
-
-const loadData = async () => {
-  loading.value = true
-  try {
-    const [statusRes, statsRes, jobsRes, runningRes, aiTasksRes] = await Promise.all([
-      adminApi.getCrawlerStatus(),
-      adminApi.getCrawlerStats(),
-      adminApi.getCrawlerJobs({ per_page: 100 }),
-      adminApi.getRunningJobs(),
-      adminApi.getRunningAiTasks(),
-    ])
-    status.value = {
-      running_jobs: statusRes.data.running_jobs ?? 0,
-      pending_jobs: statusRes.data.pending_jobs ?? 0,
-      worker_count: statusRes.data.worker_count ?? 0,
-      active_tasks: statusRes.data.active_tasks ?? 0,
-      running_ai_tasks: aiTasksRes.data.running_count ?? 0,
-    }
-    stats.value = statsRes.data
-    jobs.value = jobsRes.data.items
-    runningJobs.value = runningRes.data.jobs || []
-    runningAiTasks.value = aiTasksRes.data.tasks || []
-
-    // Start log refresh if there are running jobs
-    if (runningJobs.value.length > 0 && !logRefreshInterval) {
-      logRefreshInterval = window.setInterval(refreshRunningJobLogs, 3000)
-    } else if (runningJobs.value.length === 0 && logRefreshInterval) {
-      clearInterval(logRefreshInterval)
-      logRefreshInterval = null
-      jobLogs.value = {}
-    }
-  } finally {
-    loading.value = false
-    initialLoad.value = false
-  }
-}
-
-const loadJobLog = async (jobId: string) => {
-  try {
-    const response = await adminApi.getJobLog(jobId)
-    jobLogs.value[jobId] = response.data
-  } catch (error) {
-    logger.error('Failed to load job log:', error)
-  }
-}
-
-const refreshRunningJobLogs = async () => {
-  // Refresh logs for all running jobs
-  for (const rj of runningJobs.value) {
-    try {
-      const response = await adminApi.getJobLog(rj.id)
-      jobLogs.value[rj.id] = response.data
-    } catch (error) {
-      // Ignore errors during refresh
-    }
-  }
-  // Also refresh running jobs list
-  try {
-    const runningRes = await adminApi.getRunningJobs()
-    runningJobs.value = runningRes.data.jobs || []
-  } catch (error) {
-    // Ignore
-  }
-}
-
-const cancelJob = async (job: CrawlerJob) => {
-  try {
-    await adminApi.cancelJob(job.id)
-    showSuccess(t('crawler.jobCancelling'))
-    loadData()
-  } catch (error) {
-    showError(getErrorMessage(error) || t('crawler.cancelJobError'))
-  }
-}
-
-const retryJob = async (job: CrawlerJob) => {
-  try {
-    await adminApi.retryJob(job.id)
-    showSuccess(t('crawler.jobRetryStarted'))
-    loadData()
-  } catch (error) {
-    showError(getErrorMessage(error) || t('crawler.retryJobError'))
-  }
-}
-
-const cancelAiTask = async (task: AiTask) => {
-  try {
-    await adminApi.cancelAiTask(task.id)
-    showSuccess(t('crawler.aiTaskCancelling'))
-    loadData()
-  } catch (error) {
-    showError(getErrorMessage(error) || t('crawler.cancelAiTaskError'))
-  }
-}
-
-// Confirmation dialog helper
-const showConfirm = (title: string, message: string, action: () => Promise<void>) => {
-  confirmTitle.value = title
-  confirmMessage.value = message
-  confirmAction.value = action
-  confirmDialog.value = true
-}
-
-const executeConfirmedAction = async () => {
-  confirmDialog.value = false
-  if (confirmAction.value) {
-    await confirmAction.value()
-  }
-}
-
-const stopAllCrawlers = () => {
-  const totalJobs = status.value.running_jobs + status.value.pending_jobs
-  showConfirm(
-    t('crawler.confirmStopAllTitle'),
-    t('crawler.confirmStopAllMessage', { count: totalJobs }),
-    doStopAllCrawlers
-  )
-}
-
-const doStopAllCrawlers = async () => {
-  stoppingAll.value = true
-  try {
-    let cancelledCount = 0
-    // Collect all unique job IDs to cancel (running + pending)
-    const jobsToCancel = new Set<string>()
-
-    // Add running jobs from status endpoint
-    for (const job of runningJobs.value) {
-      jobsToCancel.add(job.id)
-    }
-
-    // Add pending and running jobs from jobs list
-    for (const job of jobs.value.filter(j => j.status === 'PENDING' || j.status === 'RUNNING')) {
-      jobsToCancel.add(job.id)
-    }
-
-    // Cancel all unique jobs
-    for (const jobId of jobsToCancel) {
-      try {
-        await adminApi.cancelJob(jobId)
-        cancelledCount++
-      } catch (e) {
-        // Continue with other jobs
-      }
-    }
-    // Cancel all running AI tasks
-    for (const task of runningAiTasks.value) {
-      try {
-        await adminApi.cancelAiTask(task.id)
-      } catch (e) {
-        // Continue
-      }
-    }
-    showSuccess(t('crawler.jobsStopped', { count: cancelledCount }))
-    await loadData()
-  } catch (error) {
-    showError(t('crawler.stopError'))
-  } finally {
-    stoppingAll.value = false
-  }
-}
-
-// SSE connection for real-time updates
-const connectSSE = async () => {
-  if (eventSource) {
-    eventSource.close()
-  }
-
-  const baseUrl = import.meta.env.VITE_API_URL || ''
-
-  // Security: Get a short-lived SSE ticket instead of using the main token
-  // This prevents the access token from being exposed in URLs and server logs
-  let ticketParam = ''
-  try {
-    const response = await fetch(`${baseUrl}/api/auth/sse-ticket`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${authStore.token}`,
-        'Content-Type': 'application/json',
-      },
-    })
-    if (response.ok) {
-      const data = await response.json()
-      ticketParam = `ticket=${encodeURIComponent(data.ticket)}`
-    } else {
-      // Fallback: SSE without authentication (will fail if auth required)
-      logger.warn('Failed to get SSE ticket, SSE may not work')
-    }
-  } catch (error) {
-    logger.warn('Error getting SSE ticket:', error)
-  }
-
-  const url = ticketParam
-    ? `${baseUrl}/api/admin/crawler/events?${ticketParam}`
-    : `${baseUrl}/api/admin/crawler/events`
-  eventSource = new EventSource(url)
-
-  eventSource.addEventListener('status', (event) => {
-    const data = JSON.parse(event.data)
-    status.value.running_jobs = data.running_jobs ?? 0
-    status.value.pending_jobs = data.pending_jobs ?? 0
-  })
-
-  eventSource.addEventListener('jobs', (event) => {
-    const data = JSON.parse(event.data)
-    // Update running jobs from SSE
-    runningJobs.value = data.map((j: CrawlerJob) => ({
-      ...j,
-      id: j.id,
-      source_name: j.source_name || 'Unknown',
-      category_name: j.category_name || '-',
-      pages_crawled: j.pages_crawled || 0,
-      documents_found: j.documents_found || 0,
-    }))
-  })
-
-  eventSource.addEventListener('error', () => {
-    // Fallback to polling on error
-    logger.warn('SSE connection failed, falling back to polling')
-    useSSE.value = false
-    disconnectSSE()
-    startPolling()
-  })
-}
-
-const disconnectSSE = () => {
-  if (eventSource) {
-    eventSource.close()
-    eventSource = null
-  }
-}
-
-const startPolling = () => {
-  if (!refreshInterval) {
-    refreshInterval = window.setInterval(loadData, 5000)
-  }
-}
-
-const stopPolling = () => {
-  if (refreshInterval) {
-    clearInterval(refreshInterval)
-    refreshInterval = null
-  }
-}
-
-const showJobDetails = async (job: CrawlerJob) => {
-  const response = await adminApi.getCrawlerJob(job.id)
-  selectedJob.value = response.data
-  detailsDialog.value = true
-}
-
-onMounted(async () => {
-  // Check for status filter from dashboard widget
-  if (route.query.status) {
-    const status = route.query.status as string
-    const validStatuses = ['RUNNING', 'COMPLETED', 'FAILED', 'PENDING']
-    if (validStatuses.includes(status)) {
-      statusFilter.value = status
-    }
-  }
-
-  await loadData()
-
-  // Check for job_id query parameter to auto-open job details
-  if (route.query.job_id) {
-    const jobId = route.query.job_id as string
-    const job = jobs.value.find((j) => j.id === jobId)
-    if (job) {
-      selectedJob.value = job
-      detailsDialog.value = true
-    } else {
-      // Try to fetch the job directly if not in current list
-      try {
-        const response = await adminApi.getCrawlerJob(jobId)
-        selectedJob.value = response.data
-        detailsDialog.value = true
-      } catch (e) {
-        logger.warn('Could not load job details:', e)
-      }
-    }
-  }
-
-  // Try SSE first, fallback to polling
-  if (useSSE.value) {
-    try {
-      connectSSE()
-    } catch (e) {
-      logger.warn('SSE not available, using polling')
-      startPolling()
-    }
-  } else {
-    startPolling()
-  }
-})
-
-onUnmounted(() => {
-  disconnectSSE()
-  stopPolling()
-  if (logRefreshInterval) {
-    clearInterval(logRefreshInterval)
-  }
-})
+// Initialize on mount
+onMounted(() => initialize())
 </script>

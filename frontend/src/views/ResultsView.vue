@@ -557,7 +557,7 @@
         <v-card-actions>
           <v-btn color="primary" variant="outlined" prepend-icon="mdi-code-json" @click="exportJson(selectedResult)">{{ $t('results.actions.exportJson') }}</v-btn>
           <v-spacer />
-          <v-btn v-if="!selectedResult.human_verified" variant="tonal" color="success" prepend-icon="mdi-check" @click="verifyResult(selectedResult); detailsDialog = false">{{ $t('results.actions.verify') }}</v-btn>
+          <v-btn v-if="canVerify && !selectedResult.human_verified" variant="tonal" color="success" prepend-icon="mdi-check" @click="verifyResult(selectedResult); detailsDialog = false">{{ $t('results.actions.verify') }}</v-btn>
           <v-btn variant="tonal" @click="detailsDialog = false">{{ $t('common.close') }}</v-btn>
         </v-card-actions>
       </v-card>

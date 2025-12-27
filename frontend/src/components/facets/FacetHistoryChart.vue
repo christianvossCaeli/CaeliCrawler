@@ -146,6 +146,7 @@ import { facetApi } from '@/services/api'
 import type { EntityHistoryResponse, HistoryTrack } from '@/types/facets'
 import { useLogger } from '@/composables/useLogger'
 import { useDateFormatter } from '@/composables/useDateFormatter'
+import { formatNumber } from '@/utils/viewHelpers'
 
 const props = defineProps<{
   entityId: string
@@ -180,7 +181,7 @@ ChartJS.register(
 )
 
 const { locale } = useI18n()
-const { dateLocale } = useDateFormatter()
+const { dateLocale, formatDate: formatLocaleDate } = useDateFormatter()
 const theme = useTheme()
 
 // Computed for dark mode
@@ -470,9 +471,9 @@ function exportData() {
   for (const track of historyData.value.tracks) {
     for (const dp of track.data_points) {
       rows.push([
-        new Date(dp.recorded_at).toLocaleDateString('de-DE'),
+        formatLocaleDate(dp.recorded_at, 'P'),
         track.label,
-        dp.value.toString().replace('.', ','),
+        formatNumber(dp.value),
         historyData.value.unit || '',
       ].join(';'))
     }

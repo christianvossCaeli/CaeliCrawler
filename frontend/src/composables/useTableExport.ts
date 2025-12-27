@@ -5,7 +5,7 @@
  * Eliminates code duplication across DocumentsView, ResultsView, etc.
  */
 
-import { escapeCSV, downloadFile, formatDate } from '@/utils/viewHelpers'
+import { escapeCSV, downloadFile, formatDate, formatNumber } from '@/utils/viewHelpers'
 
 export interface ExportColumn {
   /** Column key in data object */
@@ -128,7 +128,9 @@ export function useTableExport() {
   function numberFormatter(options?: Intl.NumberFormatOptions) {
     return (value: unknown) => {
       if (value === null || value === undefined) return ''
-      return Number(value).toLocaleString('de-DE', options)
+      const num = Number(value)
+      if (Number.isNaN(num)) return ''
+      return formatNumber(num, options)
     }
   }
 

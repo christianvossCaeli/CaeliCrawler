@@ -77,6 +77,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { useDateFormatter } from '@/composables/useDateFormatter'
+import { formatNumber } from '@/utils/viewHelpers'
 
 // Types
 interface ExternalData {
@@ -131,7 +132,7 @@ function getFieldTypeColor(value: unknown): string {
 function formatFieldValue(value: unknown): string {
   if (value === null) return 'null'
   if (typeof value === 'boolean') return value ? 'true' : 'false'
-  if (typeof value === 'number') return value.toLocaleString('de-DE')
+  if (typeof value === 'number') return formatNumber(value)
   return String(value)
 }
 </script>

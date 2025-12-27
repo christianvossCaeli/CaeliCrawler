@@ -8,6 +8,8 @@
  * - Generic text facets
  */
 
+import { formatNumber } from '@/utils/viewHelpers'
+
 export interface FacetValue {
   id?: string
   text_representation?: string
@@ -63,7 +65,7 @@ export function useFacetHelpers() {
    */
   function formatAttributeValue(value: unknown): string {
     if (typeof value === 'number') {
-      return value.toLocaleString('de-DE')
+      return formatNumber(value)
     }
     return String(value)
   }

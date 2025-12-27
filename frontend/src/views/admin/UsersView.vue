@@ -281,6 +281,7 @@ import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator.vu
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useLogger } from '@/composables/useLogger'
 import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { formatDate as formatViewDate } from '@/utils/viewHelpers'
 
 const logger = useLogger('UsersView')
 
@@ -365,7 +366,7 @@ function getRoleLabel(role: string): string {
 }
 
 function formatDate(date: string): string {
-  return new Date(date).toLocaleString('de-DE', {
+  return formatViewDate(date, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
