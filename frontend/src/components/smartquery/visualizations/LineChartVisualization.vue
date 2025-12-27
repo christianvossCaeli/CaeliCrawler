@@ -20,7 +20,7 @@ import {
   Filler,
 } from 'chart.js'
 import 'chartjs-adapter-date-fns'
-import { de } from 'date-fns/locale'
+import { useDateFormatter } from '@/composables/useDateFormatter'
 import type { VisualizationConfig } from './types'
 import { getNestedValue } from './types'
 
@@ -44,6 +44,8 @@ const props = defineProps<{
   data: LineChartDataItem[]
   config?: VisualizationConfig
 }>()
+
+const { dateLocale } = useDateFormatter()
 
 // Register Chart.js components
 ChartJS.register(
@@ -224,7 +226,7 @@ const chartOptions = computed(() => {
         },
         adapters: {
           date: {
-            locale: de,
+            locale: dateLocale.value,
           },
         },
         title: {

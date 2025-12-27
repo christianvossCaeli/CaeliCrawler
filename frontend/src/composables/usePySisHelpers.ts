@@ -9,11 +9,13 @@
  * - Value truncation
  * - Timezone-aware date formatting (date-fns 4 TZDate)
  */
+import { TZDate } from '@date-fns/tz'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { TZDate } from '@date-fns/tz'
+import { useDateFormatter } from '@/composables/useDateFormatter'
 
 export function usePySisHelpers() {
+  const { formatDate: formatLocaleDate } = useDateFormatter()
   /**
    * Get sync status color
    */
@@ -73,7 +75,7 @@ export function usePySisHelpers() {
     if (!dateStr) return '-'
     try {
       const tzDate = new TZDate(dateStr, timezone)
-      return format(tzDate, 'dd.MM.yyyy HH:mm', { locale: de })
+      return formatLocaleDate(tzDate, 'dd.MM.yyyy HH:mm')
     } catch {
       return dateStr
     }

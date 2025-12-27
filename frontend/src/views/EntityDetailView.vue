@@ -293,12 +293,12 @@ import { useEntityDataSources } from '@/composables/useEntityDataSources'
 import { useEntityEnrichment } from '@/composables/useEntityEnrichment'
 import { useEntityFacets, type FacetGroup } from '@/composables/useEntityFacets'
 import type {
-  FacetsSummary,
   FacetValue,
   Relation,
   EntityDocument,
   DataSource,
 } from '@/types/entity'
+import type { EntityFacetsSummary } from '@/stores/types/entity'
 
 // Components
 import PySisTab from '@/components/PySisTab.vue'
@@ -348,7 +348,7 @@ const loading = ref(true)
 const activeTab = ref('facets')
 const entity = computed<Entity | null>(() => store.selectedEntity)
 const entityType = computed<EntityType | null>(() => store.selectedEntityType)
-const facetsSummary = ref<FacetsSummary | null>(null)
+const facetsSummary = ref<EntityFacetsSummary | null>(null)
 const documents = ref<EntityDocument[]>([])
 const externalData = ref<ExternalData | null>(null)
 const attachmentCount = ref(0)

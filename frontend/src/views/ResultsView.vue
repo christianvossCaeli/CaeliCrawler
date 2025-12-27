@@ -573,7 +573,6 @@ import { useI18n } from 'vue-i18n'
 import { dataApi, adminApi } from '@/services/api'
 import type { ExtractedDataParams, ExtractionStatsParams } from '@/services/api/sources'
 import { format } from 'date-fns'
-import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -581,6 +580,7 @@ import ResultsSkeleton from '@/components/results/ResultsSkeleton.vue'
 import { useLogger } from '@/composables/useLogger'
 import { getErrorMessage } from '@/composables/useApiErrorHandler'
 import { useAuthStore } from '@/stores/auth'
+import { useDateFormatter } from '@/composables/useDateFormatter'
 
 // Search result types
 interface EntityReference {
@@ -683,6 +683,7 @@ interface TableOptions {
 const logger = useLogger('ResultsView')
 
 const { t } = useI18n()
+const { formatDate: formatLocaleDate } = useDateFormatter()
 
 const route = useRoute()
 const { showSuccess, showError } = useSnackbar()
@@ -878,7 +879,7 @@ const getContent = (item: SearchResult): ExtractedContent => {
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '-'
-  return format(new Date(dateStr), 'dd.MM.yy HH:mm', { locale: de })
+  return formatLocaleDate(dateStr, 'dd.MM.yy HH:mm') || '-'
 }
 
 // Track last loaded category for display config

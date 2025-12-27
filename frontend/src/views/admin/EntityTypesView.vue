@@ -8,7 +8,13 @@
         icon="mdi-shape"
       >
         <template #actions>
-          <v-btn variant="tonal" color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
+          <v-btn
+            v-if="canEdit"
+            variant="tonal"
+            color="primary"
+            prepend-icon="mdi-plus"
+            @click="openCreateDialog"
+          >
             {{ t('admin.entityTypes.actions.create') }}
           </v-btn>
         </template>
@@ -84,8 +90,26 @@
 
           <template #item.actions="{ item }">
             <div class="d-flex justify-end ga-1">
-              <v-btn icon="mdi-pencil" size="small" variant="tonal" :title="t('common.edit')" :aria-label="t('common.edit')" @click="openEditDialog(item)"></v-btn>
-              <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="t('common.delete')" :aria-label="t('common.delete')" :disabled="item.is_system || (item.entity_count || 0) > 0" @click="confirmDelete(item)"></v-btn>
+              <v-btn
+                v-if="canEdit"
+                icon="mdi-pencil"
+                size="small"
+                variant="tonal"
+                :title="t('common.edit')"
+                :aria-label="t('common.edit')"
+                @click="openEditDialog(item)"
+              ></v-btn>
+              <v-btn
+                v-if="canDelete"
+                icon="mdi-delete"
+                size="small"
+                variant="tonal"
+                color="error"
+                :title="t('common.delete')"
+                :aria-label="t('common.delete')"
+                :disabled="item.is_system || (item.entity_count || 0) > 0"
+                @click="confirmDelete(item)"
+              ></v-btn>
             </div>
           </template>
         </v-data-table>
@@ -457,6 +481,7 @@ import { getContrastColor } from '@/composables/useColorHelpers'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useLogger } from '@/composables/useLogger'
 import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { useAuthStore } from '@/stores/auth'
 
 // Local interfaces
 interface EntityTypeLocal {
@@ -498,6 +523,9 @@ const logger = useLogger('EntityTypesView')
 
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
+const auth = useAuthStore()
+const canEdit = computed(() => auth.isEditor)
+const canDelete = computed(() => auth.isAdmin)
 
 // State
 const entityTypes = ref<EntityTypeLocal[]>([])
@@ -635,6 +663,7 @@ async function loadFacetTypes() {
 }
 
 function openCreateDialog() {
+  if (!canEdit.value) return
   editingItem.value = null
   activeTab.value = 'basic'
   facetSearch.value = ''
@@ -657,6 +686,7 @@ function openCreateDialog() {
 }
 
 function openEditDialog(item: EntityTypeLocal) {
+  if (!canEdit.value) return
   editingItem.value = item
   activeTab.value = 'basic'
   facetSearch.value = ''
@@ -790,11 +820,13 @@ async function updateFacetAssignments(entityTypeSlug: string) {
 }
 
 function confirmDelete(item: EntityTypeLocal) {
+  if (!canDelete.value) return
   itemToDelete.value = item
   deleteDialog.value = true
 }
 
 async function deleteItem() {
+  if (!canDelete.value) return
   if (!itemToDelete.value) return
 
   deleting.value = true

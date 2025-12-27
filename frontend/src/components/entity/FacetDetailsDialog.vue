@@ -151,8 +151,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { format } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { useDateFormatter } from '@/composables/useDateFormatter'
 
 const modelValue = defineModel<boolean>()
 
@@ -195,12 +194,13 @@ interface FacetValue {
 }
 
 const { t } = useI18n()
+const { formatDate: formatLocaleDate } = useDateFormatter()
 
 // Helper functions
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return ''
   try {
-    return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: de })
+    return formatLocaleDate(dateStr, 'dd.MM.yyyy HH:mm')
   } catch {
     return dateStr
   }

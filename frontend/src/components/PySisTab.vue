@@ -572,8 +572,7 @@
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { pysisApi } from '@/services/api'
-import { format } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { useDateFormatter } from '@/composables/useDateFormatter'
 import { useFeatureFlags } from '@/composables/useFeatureFlags'
 import { useLogger } from '@/composables/useLogger'
 import { getErrorMessage } from '@/composables/useApiErrorHandler'
@@ -635,6 +634,7 @@ const emit = defineEmits<{
 }>()
 const logger = useLogger('PySisTab')
 const { t } = useI18n()
+const { formatDate: formatLocaleDate } = useDateFormatter()
 const { flags } = useFeatureFlags()
 
 // State
@@ -738,7 +738,7 @@ const showMessage = (text: string, color = 'success') => {
 
 const formatDate = (dateStr: string | null | undefined) => {
   if (!dateStr) return t('results.never')
-  return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: de })
+  return formatLocaleDate(dateStr, 'dd.MM.yyyy HH:mm')
 }
 
 const getSyncStatusColor = (status?: string) => {

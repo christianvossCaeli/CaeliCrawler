@@ -706,14 +706,14 @@ import { useRouter } from 'vue-router'
 import { useEntityStore, type Entity, type EntityType } from '@/stores/entity'
 import type { FacetValue, FacetGroup, FacetsSummary } from '@/types/entity'
 import { facetApi, entityDataApi, entityApi } from '@/services/api'
-import { format, formatDistanceToNow } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { formatDistanceToNow } from 'date-fns'
 import { useSnackbar } from '@/composables/useSnackbar'
 import FacetHistoryChart from '@/components/facets/FacetHistoryChart.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import DynamicSchemaForm from '@/components/DynamicSchemaForm.vue'
 import SourceDetailsDialog from '@/components/entity/SourceDetailsDialog.vue'
 import { useLogger } from '@/composables/useLogger'
+import { useDateFormatter } from '@/composables/useDateFormatter'
 
 // =============================================================================
 // Props & Emits
@@ -734,6 +734,7 @@ const emit = defineEmits<{
 }>()
 
 const logger = useLogger('EntityFacetsTab')
+const { dateLocale, formatDate: formatLocaleDate } = useDateFormatter()
 
 // =============================================================================
 // Types (local-only types that aren't shared)
@@ -1133,7 +1134,7 @@ async function loadEnrichmentSources() {
 function formatEnrichmentDate(dateStr: string | null): string {
   if (!dateStr) return '-'
   try {
-    return formatDistanceToNow(new Date(dateStr), { addSuffix: true, locale: de })
+    return formatDistanceToNow(new Date(dateStr), { addSuffix: true, locale: dateLocale.value })
   } catch {
     return dateStr
   }
@@ -1182,7 +1183,7 @@ function formatFacetValue(facet: FacetValue): string {
 }
 
 function formatDate(dateStr: string): string {
-  return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: de })
+  return formatLocaleDate(dateStr, 'dd.MM.yyyy HH:mm')
 }
 
 function getConfidenceColor(score: number | null): string {

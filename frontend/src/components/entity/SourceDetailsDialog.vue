@@ -168,8 +168,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { format } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { useDateFormatter } from '@/composables/useDateFormatter'
 
 const modelValue = defineModel<boolean>()
 
@@ -212,6 +211,7 @@ interface PysisInfo {
 }
 
 const { t } = useI18n()
+const { formatDate: formatLocaleDate } = useDateFormatter()
 
 // Computed
 const pysisInfo = computed<PysisInfo | null>(() => {
@@ -230,7 +230,7 @@ const pysisInfo = computed<PysisInfo | null>(() => {
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return ''
   try {
-    return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: de })
+    return formatLocaleDate(dateStr, 'dd.MM.yyyy HH:mm')
   } catch {
     return dateStr
   }

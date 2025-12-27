@@ -380,7 +380,8 @@ export interface FacetGroup {
   verified_count?: number
   value_schema?: Record<string, unknown>
   values?: FacetValue[]
-  sample_values?: FacetValue[]
+  // sample_values contains partial FacetValue objects from API
+  sample_values?: Record<string, unknown>[]
 }
 
 // Facets summary for entity overview (matches API response)

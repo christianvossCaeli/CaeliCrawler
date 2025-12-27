@@ -9,17 +9,9 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
+import { getErrorMessage } from '@/composables/useApiErrorHandler'
 
 const logger = useLogger('AuthStore')
-
-// Helper for type-safe error handling
-function getErrorDetail(err: unknown): string | undefined {
-  if (err && typeof err === 'object') {
-    const e = err as { response?: { data?: { detail?: string } } }
-    return e.response?.data?.detail
-  }
-  return undefined
-}
 
 // Types
 export type UserRole = 'VIEWER' | 'EDITOR' | 'ADMIN'
@@ -121,7 +113,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       return true
     } catch (err: unknown) {
-      error.value = getErrorDetail(err) || t('common.loginFailed')
+      error.value = getErrorMessage(err) || t('common.loginFailed')
       return false
     } finally {
       isLoading.value = false
@@ -242,7 +234,7 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (err: unknown) {
       return {
         success: false,
-        error: getErrorDetail(err) || t('common.passwordChangeError'),
+        error: getErrorMessage(err) || t('common.passwordChangeError'),
       }
     }
   }

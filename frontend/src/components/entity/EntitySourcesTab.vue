@@ -150,8 +150,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { format } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { useDateFormatter } from '@/composables/useDateFormatter'
 
 // Types
 interface DataSource {
@@ -187,6 +186,8 @@ defineEmits<{
 }>()
 
 // Computed
+const { formatDate: formatLocaleDate } = useDateFormatter()
+
 const totalSourcesCount = computed(() => {
   let count = props.dataSources.length
   if (props.externalSourceName) count += 1
@@ -219,7 +220,7 @@ function getSourceTypeIcon(sourceType?: string): string {
 function formatDate(dateString?: string): string {
   if (!dateString) return ''
   try {
-    return format(new Date(dateString), 'dd.MM.yyyy HH:mm', { locale: de })
+    return formatLocaleDate(dateString, 'dd.MM.yyyy HH:mm')
   } catch {
     return dateString
   }

@@ -7,6 +7,7 @@ import { useSnackbar } from '@/composables/useSnackbar'
 import { useFeatureFlags } from '@/composables/useFeatureFlags'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import { useLogger } from '@/composables/useLogger'
+import { getErrorMessage } from '@/composables/useApiErrorHandler'
 import type { Entity } from '@/types/entity'
 import type { AnalysisTemplate } from '@/stores/entity'
 
@@ -19,15 +20,6 @@ interface UserResponse {
 
 interface VFormRef {
   validate: () => Promise<{ valid: boolean }> | boolean
-}
-
-// Helper for type-safe error handling
-function getErrorDetail(err: unknown): string | undefined {
-  if (err && typeof err === 'object') {
-    const e = err as { response?: { data?: { detail?: string } } }
-    return e.response?.data?.detail
-  }
-  return undefined
 }
 
 export interface EntityFilters {
@@ -470,7 +462,7 @@ export function useEntitiesView() {
       closeDialog()
       await loadEntities()
     } catch (e: unknown) {
-      showError(getErrorDetail(e) || t('entities.saveError'))
+      showError(getErrorMessage(e) || t('entities.saveError'))
     } finally {
       saving.value = false
     }
@@ -487,7 +479,7 @@ export function useEntitiesView() {
       entityToDelete.value = null
       await loadEntities()
     } catch (e: unknown) {
-      const detail = getErrorDetail(e) || t('entities.deleteError')
+      const detail = getErrorMessage(e) || t('entities.deleteError')
       showError(detail)
     } finally {
       deleting.value = false

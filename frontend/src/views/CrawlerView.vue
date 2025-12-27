@@ -448,8 +448,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { adminApi } from '@/services/api'
-import { format } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { useDateFormatter } from '@/composables/useDateFormatter'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useCrawlPresetsStore } from '@/stores/crawlPresets'
 import { useAuthStore } from '@/stores/auth'
@@ -510,7 +509,8 @@ interface AiTask {
   progress_percent?: number
 }
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+const { formatDate: formatLocaleDate } = useDateFormatter()
 const route = useRoute()
 const { showSuccess, showError } = useSnackbar()
 const presetsStore = useCrawlPresetsStore()
@@ -578,7 +578,7 @@ const getStatusColor = (status: string) => {
 }
 
 const formatDate = (dateStr: string) => {
-  return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: de })
+  return formatLocaleDate(dateStr, 'dd.MM.yyyy HH:mm')
 }
 
 const formatDuration = (seconds: number) => {
@@ -590,7 +590,7 @@ const formatDuration = (seconds: number) => {
 const formatLogTime = (timestamp: string) => {
   if (!timestamp) return ''
   const date = new Date(timestamp)
-  return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return date.toLocaleTimeString(locale.value, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 const loadData = async () => {

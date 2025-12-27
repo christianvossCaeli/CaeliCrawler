@@ -81,8 +81,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { format } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { useDateFormatter } from '@/composables/useDateFormatter'
 import { useDialogFocus } from '@/composables'
 
 // Types
@@ -118,12 +117,13 @@ const dialogTitleId = `entity-notes-dialog-title-${Math.random().toString(36).sl
 useDialogFocus({ isOpen: modelValue })
 
 const { t } = useI18n()
+const { formatDate: formatLocaleDate } = useDateFormatter()
 
 // Helper functions
 function formatDate(dateString?: string): string {
   if (!dateString) return ''
   try {
-    return format(new Date(dateString), 'dd.MM.yyyy HH:mm', { locale: de })
+    return formatLocaleDate(dateString, 'dd.MM.yyyy HH:mm')
   } catch {
     return dateString
   }

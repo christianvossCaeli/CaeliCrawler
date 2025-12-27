@@ -148,7 +148,8 @@ export interface FacetValueAggregated {
   verified_count: number
   avg_confidence: number
   latest_value: string | null
-  sample_values: unknown[]
+  // sample_values contains partial FacetValue objects from API
+  sample_values: Record<string, unknown>[]
 }
 
 // ============================================================================
