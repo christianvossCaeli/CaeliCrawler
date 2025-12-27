@@ -59,9 +59,11 @@ def apply_extraction_filters(
     if search:
         safe_search = search.replace('%', '\\%').replace('_', '\\_')
         search_pattern = f"%{safe_search}%"
+        search_query = func.plainto_tsquery("german", search)
         query = query.where(or_(
             Document.title.ilike(search_pattern, escape='\\'),
             Document.original_url.ilike(search_pattern, escape='\\'),
+            ExtractedData.search_vector.op("@@")(search_query),
             ExtractedData.extracted_content.cast(String).ilike(search_pattern, escape='\\'),
             ExtractedData.human_corrections.cast(String).ilike(search_pattern, escape='\\'),
             ExtractedData.entity_references.cast(String).ilike(search_pattern, escape='\\'),

@@ -9,11 +9,12 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     String,
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -33,6 +34,9 @@ class ExtractedData(Base):
     """
 
     __tablename__ = "extracted_data"
+    __table_args__ = (
+        Index("ix_extracted_data_search_vector", "search_vector", postgresql_using="gin"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -63,6 +67,10 @@ class ExtractedData(Base):
     extracted_content: Mapped[Dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
+    )
+    search_vector: Mapped[Optional[str]] = mapped_column(
+        TSVECTOR,
+        nullable=True,
     )
 
     # AI metadata
