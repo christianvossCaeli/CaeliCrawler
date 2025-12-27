@@ -31,14 +31,19 @@ async def list_favorites(
     per_page: Annotated[int, Query(ge=1, le=100, description="Items per page")] = 20,
     entity_type_slug: Annotated[Optional[str], Query(description="Filter by entity type slug")] = None,
     search: Annotated[Optional[str], Query(description="Search in entity name")] = None,
+    sort_by: Annotated[Optional[str], Query(description="Sort by field (created_at, entity_name)")] = None,
+    sort_order: Annotated[Optional[str], Query(description="Sort order (asc, desc)")] = "desc",
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> FavoriteListResponse:
     """
-    List user's favorite entities with pagination.
+    List user's favorite entities with pagination and sorting.
 
     Supports filtering by entity type and search in entity name.
     """
+    # Determine if we need an explicit Entity join for sorting/filtering
+    needs_entity_join = entity_type_slug or search or sort_by == "entity_name"
+
     # Base query
     query = (
         select(UserFavorite)
@@ -46,27 +51,41 @@ async def list_favorites(
         .options(selectinload(UserFavorite.entity).selectinload(Entity.entity_type))
     )
 
+    # Join with Entity if needed
+    if needs_entity_join:
+        query = query.join(Entity, UserFavorite.entity_id == Entity.id)
+
     # Filter by entity type
     if entity_type_slug:
         subq = select(EntityType.id).where(EntityType.slug == entity_type_slug)
-        query = query.join(Entity).where(Entity.entity_type_id.in_(subq))
+        query = query.where(Entity.entity_type_id.in_(subq))
 
     # Search in entity name
     if search:
-        if not entity_type_slug:
-            query = query.join(Entity, isouter=True)
-        query = query.where(Entity.name.ilike(f"%{search}%"))
+        # Escape SQL wildcards to prevent injection
+        safe_search = search.replace('%', '\\%').replace('_', '\\_')
+        query = query.where(Entity.name.ilike(f"%{safe_search}%", escape='\\'))
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
     total = (await session.execute(count_query)).scalar() or 0
 
-    # Paginate and order by created_at desc
-    query = (
-        query.order_by(UserFavorite.created_at.desc())
-        .offset((page - 1) * per_page)
-        .limit(per_page)
-    )
+    # Handle sorting
+    sort_desc = sort_order == "desc"
+    if sort_by == "entity_name":
+        if sort_desc:
+            query = query.order_by(Entity.name.desc(), UserFavorite.created_at.desc())
+        else:
+            query = query.order_by(Entity.name.asc(), UserFavorite.created_at.desc())
+    else:
+        # Default sort by created_at
+        if sort_desc:
+            query = query.order_by(UserFavorite.created_at.desc())
+        else:
+            query = query.order_by(UserFavorite.created_at.asc())
+
+    # Paginate
+    query = query.offset((page - 1) * per_page).limit(per_page)
     result = await session.execute(query)
     favorites = result.scalars().all()
 

@@ -69,9 +69,11 @@ async def list_entity_types(
     if is_primary is not None:
         query = query.where(EntityType.is_primary.is_(is_primary))
     if search:
+        # Escape SQL wildcards to prevent injection
+        safe_search = search.replace('%', '\\%').replace('_', '\\_')
         query = query.where(
-            EntityType.name.ilike(f"%{search}%") |
-            EntityType.slug.ilike(f"%{search}%")
+            EntityType.name.ilike(f"%{safe_search}%", escape='\\') |
+            EntityType.slug.ilike(f"%{safe_search}%", escape='\\')
         )
 
     # Count total

@@ -45,9 +45,11 @@ async def list_analysis_templates(
     if is_active is not None:
         query = query.where(AnalysisTemplate.is_active == is_active)
     if search:
+        # Escape SQL wildcards to prevent injection
+        safe_search = search.replace('%', '\\%').replace('_', '\\_')
         query = query.where(
-            AnalysisTemplate.name.ilike(f"%{search}%") |
-            AnalysisTemplate.slug.ilike(f"%{search}%")
+            AnalysisTemplate.name.ilike(f"%{safe_search}%", escape='\\') |
+            AnalysisTemplate.slug.ilike(f"%{safe_search}%", escape='\\')
         )
 
     # Count total

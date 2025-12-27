@@ -60,9 +60,11 @@ async def list_relation_types(
     if target_entity_type_id:
         query = query.where(RelationType.target_entity_type_id == target_entity_type_id)
     if search:
+        # Escape SQL wildcards to prevent injection
+        safe_search = search.replace('%', '\\%').replace('_', '\\_')
         query = query.where(
-            RelationType.name.ilike(f"%{search}%") |
-            RelationType.slug.ilike(f"%{search}%")
+            RelationType.name.ilike(f"%{safe_search}%", escape='\\') |
+            RelationType.slug.ilike(f"%{safe_search}%", escape='\\')
         )
 
     # Count total

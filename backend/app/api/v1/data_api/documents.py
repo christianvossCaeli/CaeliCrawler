@@ -67,9 +67,14 @@ async def list_documents(
     source_id: Optional[UUID] = Query(default=None),
     document_type: Optional[str] = Query(default=None),
     processing_status: Optional[ProcessingStatus] = Query(default=None),
+    search: Optional[str] = Query(default=None, description="Search in title and URL"),
+    discovered_from: Optional[str] = Query(default=None, description="Filter by discovered date from (YYYY-MM-DD)"),
+    discovered_to: Optional[str] = Query(default=None, description="Filter by discovered date to (YYYY-MM-DD)"),
+    sort_by: Optional[str] = Query(default=None, description="Sort by field (title, document_type, processing_status, source_name, discovered_at, file_size)"),
+    sort_order: Optional[str] = Query(default="desc", description="Sort order (asc, desc)"),
     session: AsyncSession = Depends(get_session),
 ):
-    """List documents with filters."""
+    """List documents with filters and sorting."""
     query = select(Document)
 
     if category_id:
@@ -80,13 +85,59 @@ async def list_documents(
         query = query.where(Document.document_type == document_type)
     if processing_status:
         query = query.where(Document.processing_status == processing_status)
+    if search:
+        # Escape SQL wildcards to prevent injection
+        safe_search = search.replace('%', '\\%').replace('_', '\\_')
+        search_pattern = f"%{safe_search}%"
+        query = query.where(
+            (Document.title.ilike(search_pattern, escape='\\')) |
+            (Document.original_url.ilike(search_pattern, escape='\\'))
+        )
+    if discovered_from:
+        query = query.where(Document.discovered_at >= discovered_from)
+    if discovered_to:
+        query = query.where(Document.discovered_at <= discovered_to + " 23:59:59")
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
     total = (await session.execute(count_query)).scalar()
 
+    # Handle sorting
+    sort_desc = sort_order == "desc"
+    sort_column_map = {
+        "title": Document.title,
+        "document_type": Document.document_type,
+        "processing_status": Document.processing_status,
+        "discovered_at": Document.discovered_at,
+        "file_size": Document.file_size,
+    }
+
+    if sort_by and sort_by in sort_column_map:
+        order_col = sort_column_map[sort_by]
+        if sort_desc:
+            query = query.order_by(order_col.desc().nulls_last(), Document.discovered_at.desc())
+        else:
+            query = query.order_by(order_col.asc().nulls_last(), Document.discovered_at.desc())
+    elif sort_by == "source_name":
+        # Join with DataSource for source_name sorting
+        query = query.outerjoin(DataSource, Document.source_id == DataSource.id)
+        if sort_desc:
+            query = query.order_by(DataSource.name.desc().nulls_last(), Document.discovered_at.desc())
+        else:
+            query = query.order_by(DataSource.name.asc().nulls_last(), Document.discovered_at.desc())
+    elif sort_by == "category_name":
+        # Join with Category for category_name sorting
+        query = query.outerjoin(Category, Document.category_id == Category.id)
+        if sort_desc:
+            query = query.order_by(Category.name.desc().nulls_last(), Document.discovered_at.desc())
+        else:
+            query = query.order_by(Category.name.asc().nulls_last(), Document.discovered_at.desc())
+    else:
+        # Default sorting
+        query = query.order_by(Document.discovered_at.desc())
+
     # Paginate
-    query = query.order_by(Document.discovered_at.desc()).offset((page - 1) * per_page).limit(per_page)
+    query = query.offset((page - 1) * per_page).limit(per_page)
     result = await session.execute(query)
     documents = result.scalars().all()
 

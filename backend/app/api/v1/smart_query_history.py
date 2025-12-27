@@ -57,10 +57,12 @@ async def list_history(
 
     # Search in command text or display name
     if search:
+        # Escape SQL wildcards to prevent injection
+        safe_search = search.replace('%', '\\%').replace('_', '\\_')
         query = query.where(
             or_(
-                SmartQueryOperation.command_text.ilike(f"%{search}%"),
-                SmartQueryOperation.display_name.ilike(f"%{search}%"),
+                SmartQueryOperation.command_text.ilike(f"%{safe_search}%", escape='\\'),
+                SmartQueryOperation.display_name.ilike(f"%{safe_search}%", escape='\\'),
             )
         )
 
