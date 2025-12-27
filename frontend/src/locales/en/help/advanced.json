@@ -391,7 +391,7 @@
           "documentDetails": "Document details",
           "documentLocations": "Document locations",
           "search": "Full-text search",
-          "verify": "Verify extraction"
+          "verify": "Verify extraction (Editor only)"
         }
       },
       "entities": {

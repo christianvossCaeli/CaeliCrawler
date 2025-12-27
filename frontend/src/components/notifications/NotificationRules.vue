@@ -295,13 +295,13 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useNotifications, type NotificationRule } from '@/composables/useNotifications'
 import { useDialogFocus } from '@/composables'
-import { format } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { useDateFormatter } from '@/composables/useDateFormatter'
 import { useLogger } from '@/composables/useLogger'
 
 const logger = useLogger('NotificationRules')
 
 const { t } = useI18n()
+const { formatDate: formatLocaleDate } = useDateFormatter()
 
 const {
   rules,
@@ -575,7 +575,7 @@ const handleTestWebhook = async () => {
 
 // Helpers
 const formatDate = (dateStr: string) => {
-  return format(new Date(dateStr), 'dd.MM.yy HH:mm', { locale: de })
+  return formatLocaleDate(dateStr, 'dd.MM.yy HH:mm')
 }
 
 const isValidUrl = (url: string) => {

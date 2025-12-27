@@ -33,6 +33,7 @@ export {
   type LocationOptions,
   type SchemaAttribute,
 } from './useEntitiesFilters'
+export { useDateFormatter } from './useDateFormatter'
 export { usePySisHelpers } from './usePySisHelpers'
 export { useAssistant } from './useAssistant'
 export { useColorHelpers, isLightColor, getContrastColor } from './useColorHelpers'
@@ -131,3 +132,10 @@ export {
   type EnrichmentPreviewData,
 } from './useEntityEnrichment'
 export { useEntityFacets, type NewFacet } from './useEntityFacets'
+export {
+  useResultsView,
+  type EntityReference,
+  type SignalItem,
+  type DecisionMaker,
+  type SearchResult,
+} from './useResultsView'

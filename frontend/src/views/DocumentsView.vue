@@ -404,13 +404,13 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { dataApi, adminApi } from '@/services/api'
 import { format } from 'date-fns'
-import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DocumentsSkeleton from '@/components/documents/DocumentsSkeleton.vue'
 import { useLogger } from '@/composables/useLogger'
 import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { useDateFormatter } from '@/composables/useDateFormatter'
 
 // Document types
 interface ExtractedDataItem {
@@ -451,6 +451,7 @@ interface TableOptions {
 
 const logger = useLogger('DocumentsView')
 const { t } = useI18n()
+const { formatDate: formatLocaleDate } = useDateFormatter()
 const route = useRoute()
 const { showSuccess, showError } = useSnackbar()
 
@@ -545,7 +546,7 @@ const getTypeIcon = (type?: string) => {
 
 const formatDate = (dateStr?: string) => {
   if (!dateStr) return '-'
-  return format(new Date(dateStr), 'dd.MM.yy HH:mm', { locale: de })
+  return formatLocaleDate(dateStr, 'dd.MM.yy HH:mm') || '-'
 }
 
 const formatFileSize = (bytes?: number) => {

@@ -169,10 +169,10 @@ import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useNotifications, type Notification } from '@/composables/useNotifications'
-import { format } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { useDateFormatter } from '@/composables/useDateFormatter'
 
 const { t } = useI18n()
+const { formatDate: formatLocaleDate } = useDateFormatter()
 
 const router = useRouter()
 const theme = useTheme()
@@ -260,11 +260,11 @@ const navigateToEntity = (notification: Notification) => {
 
 // Helpers
 const formatDate = (dateStr: string) => {
-  return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: de })
+  return formatLocaleDate(dateStr, 'dd.MM.yyyy HH:mm')
 }
 
 const formatDateTime = (dateStr: string) => {
-  return format(new Date(dateStr), 'dd.MM.yyyy HH:mm:ss', { locale: de })
+  return formatLocaleDate(dateStr, 'dd.MM.yyyy HH:mm:ss')
 }
 
 const getEventTypeColor = (eventType: string): string => {

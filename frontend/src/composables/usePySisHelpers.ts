@@ -10,8 +10,6 @@
  * - Timezone-aware date formatting (date-fns 4 TZDate)
  */
 import { TZDate } from '@date-fns/tz'
-import { format } from 'date-fns'
-import { de } from 'date-fns/locale'
 import { useDateFormatter } from '@/composables/useDateFormatter'
 
 export function usePySisHelpers() {
@@ -95,7 +93,7 @@ export function usePySisHelpers() {
     if (!dateStr) return '-'
     try {
       const tzDate = new TZDate(dateStr, timezone)
-      return format(tzDate, formatStr, { locale: de })
+      return formatLocaleDate(tzDate, formatStr)
     } catch {
       return dateStr
     }

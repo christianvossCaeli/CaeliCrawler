@@ -142,10 +142,10 @@ import {
   Filler,
 } from 'chart.js'
 import 'chartjs-adapter-date-fns'
-import { de } from 'date-fns/locale'
 import { facetApi } from '@/services/api'
 import type { EntityHistoryResponse, HistoryTrack } from '@/types/facets'
 import { useLogger } from '@/composables/useLogger'
+import { useDateFormatter } from '@/composables/useDateFormatter'
 
 const props = defineProps<{
   entityId: string
@@ -180,6 +180,7 @@ ChartJS.register(
 )
 
 const { locale } = useI18n()
+const { dateLocale } = useDateFormatter()
 const theme = useTheme()
 
 // Computed for dark mode
@@ -325,7 +326,7 @@ const chartOptions = computed(() => ({
       },
       adapters: {
         date: {
-          locale: locale.value === 'de' ? de : undefined,
+          locale: dateLocale.value,
         },
       },
       title: {

@@ -421,22 +421,22 @@ class AISourceDiscoveryService:
         all_sources: List[ExtractedSource] = []
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def fetch_and_extract(result: SearchResult) -> List[ExtractedSource]:
-            """Fetch a single page and extract sources."""
-            sources: List[ExtractedSource] = []
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            async def fetch_and_extract(result: SearchResult) -> List[ExtractedSource]:
+                """Fetch a single page and extract sources."""
+                sources: List[ExtractedSource] = []
 
-            # SSRF Protection: Validate URL before fetching
-            if not is_safe_url(result.url):
-                security_logger.log_ssrf_blocked(
-                    user_id=None,  # User context not available here
-                    url=result.url,
-                    reason="URL failed safety validation (private IP or blocked hostname)",
-                )
-                return sources
+                # SSRF Protection: Validate URL before fetching
+                if not is_safe_url(result.url):
+                    security_logger.log_ssrf_blocked(
+                        user_id=None,  # User context not available here
+                        url=result.url,
+                        reason="URL failed safety validation (private IP or blocked hostname)",
+                    )
+                    return sources
 
-            async with semaphore:
-                try:
-                    async with httpx.AsyncClient(timeout=30.0) as client:
+                async with semaphore:
+                    try:
                         response = await client.get(
                             result.url,
                             follow_redirects=True,
@@ -478,18 +478,18 @@ class AISourceDiscoveryService:
                                     )
                                     break  # Use first successful extractor
 
-                except httpx.HTTPError as e:
-                    logger.warning("Failed to fetch page", url=result.url, error=str(e))
-                except Exception as e:
-                    logger.warning("Error extracting from page", url=result.url, error=str(e))
+                    except httpx.HTTPError as e:
+                        logger.warning("Failed to fetch page", url=result.url, error=str(e))
+                    except Exception as e:
+                        logger.warning("Error extracting from page", url=result.url, error=str(e))
 
-            return sources
+                return sources
 
-        # Execute all fetches in parallel with semaphore limiting
-        results = await asyncio.gather(
-            *[fetch_and_extract(result) for result in search_results],
-            return_exceptions=True,
-        )
+            # Execute all fetches in parallel with semaphore limiting
+            results = await asyncio.gather(
+                *[fetch_and_extract(result) for result in search_results],
+                return_exceptions=True,
+            )
 
         # Collect results, filtering out exceptions
         for result in results:
