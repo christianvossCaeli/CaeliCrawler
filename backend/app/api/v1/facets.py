@@ -82,9 +82,11 @@ async def list_facet_types(
     if is_time_based is not None:
         query = query.where(FacetType.is_time_based.is_(is_time_based))
     if search:
+        # Escape SQL wildcards to prevent injection
+        search_pattern = f"%{search.replace('%', '\\%').replace('_', '\\_')}%"
         query = query.where(
-            FacetType.name.ilike(f"%{search}%") |
-            FacetType.slug.ilike(f"%{search}%")
+            FacetType.name.ilike(search_pattern, escape='\\') |
+            FacetType.slug.ilike(search_pattern, escape='\\')
         )
 
     # Count total
@@ -540,10 +542,12 @@ async def list_facet_values(
         # Use PostgreSQL full-text search for better performance
         # Falls back to ILIKE if search_vector not populated
         search_query = func.plainto_tsquery("german", search)
+        # Escape SQL wildcards in ILIKE fallback to prevent injection
+        search_pattern = f"%{search.replace('%', '\\%').replace('_', '\\_')}%"
         query = query.where(
             or_(
                 FacetValue.search_vector.op("@@")(search_query),
-                FacetValue.text_representation.ilike(f"%{search}%")
+                FacetValue.text_representation.ilike(search_pattern, escape='\\')
             )
         )
 
@@ -576,6 +580,7 @@ async def list_facet_values(
         selectinload(FacetValue.facet_type),
         selectinload(FacetValue.category),
         selectinload(FacetValue.source_document),
+        selectinload(FacetValue.target_entity),
     ).order_by(
         FacetValue.human_verified.desc(),
         FacetValue.confidence_score.desc(),
@@ -594,6 +599,12 @@ async def list_facet_values(
         item.category_name = fv.category.name if fv.category else None
         item.document_title = fv.source_document.title if fv.source_document else None
         item.document_url = fv.source_document.original_url if fv.source_document else None
+        # Target entity info (for referenced entities like contacts → person)
+        if fv.target_entity:
+            item.target_entity_name = fv.target_entity.name
+            item.target_entity_slug = fv.target_entity.slug
+            if fv.target_entity.entity_type:
+                item.target_entity_type_slug = fv.target_entity.entity_type.slug
         items.append(item)
 
     return FacetValueListResponse(
@@ -717,6 +728,7 @@ async def get_facet_value(
             selectinload(FacetValue.facet_type),
             selectinload(FacetValue.category),
             selectinload(FacetValue.source_document),
+            selectinload(FacetValue.target_entity),
         )
         .where(FacetValue.id == facet_value_id)
     )
@@ -731,6 +743,12 @@ async def get_facet_value(
     response.category_name = fv.category.name if fv.category else None
     response.document_title = fv.source_document.title if fv.source_document else None
     response.document_url = fv.source_document.original_url if fv.source_document else None
+    # Target entity info (for referenced entities like contacts → person)
+    if fv.target_entity:
+        response.target_entity_name = fv.target_entity.name
+        response.target_entity_slug = fv.target_entity.slug
+        if fv.target_entity.entity_type:
+            response.target_entity_type_slug = fv.target_entity.entity_type.slug
 
     return response
 
@@ -786,6 +804,7 @@ async def update_facet_value(
             selectinload(FacetValue.facet_type),
             selectinload(FacetValue.category),
             selectinload(FacetValue.source_document),
+            selectinload(FacetValue.target_entity),
         )
         .where(FacetValue.id == fv.id)
     )
@@ -798,6 +817,12 @@ async def update_facet_value(
     response.category_name = fv.category.name if fv.category else None
     response.document_title = fv.source_document.title if fv.source_document else None
     response.document_url = fv.source_document.original_url if fv.source_document else None
+    # Target entity info
+    if fv.target_entity:
+        response.target_entity_name = fv.target_entity.name
+        response.target_entity_slug = fv.target_entity.slug
+        if fv.target_entity.entity_type:
+            response.target_entity_type_slug = fv.target_entity.entity_type.slug
 
     return response
 
@@ -882,6 +907,76 @@ async def delete_facet_value(
 # ============================================================================
 # Entity Facets Summary
 # ============================================================================
+
+
+@router.get("/entity/{entity_id}/referenced-by", response_model=FacetValueListResponse)
+async def get_facets_referencing_entity(
+    entity_id: UUID,
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=50, ge=1, le=200),
+    facet_type_slug: Optional[str] = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Get all facet values that reference this entity as their target_entity.
+
+    This shows where this entity is used/referenced, e.g., a Person entity
+    being referenced in contact facets of other entities.
+    """
+    # Verify entity exists
+    entity = await session.get(Entity, entity_id)
+    if not entity:
+        raise NotFoundError("Entity", str(entity_id))
+
+    # Build query for facet values where target_entity_id = entity_id
+    query = select(FacetValue).where(
+        FacetValue.target_entity_id == entity_id,
+        FacetValue.is_active.is_(True),
+    )
+
+    if facet_type_slug:
+        subq = select(FacetType.id).where(FacetType.slug == facet_type_slug)
+        query = query.where(FacetValue.facet_type_id.in_(subq))
+
+    # Count total
+    count_query = select(func.count()).select_from(query.subquery())
+    total = (await session.execute(count_query)).scalar()
+
+    # Paginate with eager loading
+    query = query.options(
+        selectinload(FacetValue.entity),
+        selectinload(FacetValue.facet_type),
+        selectinload(FacetValue.category),
+        selectinload(FacetValue.source_document),
+    ).order_by(
+        FacetValue.created_at.desc()
+    ).offset((page - 1) * per_page).limit(per_page)
+
+    result = await session.execute(query)
+    values = result.scalars().all()
+
+    # Build response items
+    items = []
+    for fv in values:
+        item = FacetValueResponse.model_validate(fv)
+        item.entity_name = fv.entity.name if fv.entity else None
+        item.facet_type_name = fv.facet_type.name if fv.facet_type else None
+        item.facet_type_slug = fv.facet_type.slug if fv.facet_type else None
+        item.category_name = fv.category.name if fv.category else None
+        item.document_title = fv.source_document.title if fv.source_document else None
+        item.document_url = fv.source_document.original_url if fv.source_document else None
+        # Target entity is the entity we're querying for
+        item.target_entity_name = entity.name
+        item.target_entity_slug = entity.slug
+        items.append(item)
+
+    return FacetValueListResponse(
+        items=items,
+        total=total,
+        page=page,
+        per_page=per_page,
+        pages=(total + per_page - 1) // per_page if per_page > 0 else 0,
+    )
 
 
 @router.get("/entity/{entity_id}/summary", response_model=EntityFacetsSummary)
