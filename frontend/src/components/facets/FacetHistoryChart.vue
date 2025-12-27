@@ -62,7 +62,7 @@
     </v-card-text>
 
     <v-card-actions>
-      <v-btn variant="tonal" size="small" @click="showAddDialog = true">
+      <v-btn v-if="canEdit" variant="tonal" size="small" @click="showAddDialog = true">
         <v-icon start>mdi-plus</v-icon>
         {{ $t('entities.history.addDataPoint') }}
       </v-btn>
@@ -78,7 +78,7 @@
     </v-card-actions>
 
     <!-- Add Data Point Dialog -->
-    <v-dialog v-model="showAddDialog" max-width="500">
+    <v-dialog v-if="canEdit" v-model="showAddDialog" max-width="500">
       <v-card>
         <v-card-title>{{ $t('entities.history.addDataPoint') }}</v-card-title>
         <v-card-text>
@@ -148,7 +148,7 @@ import { useLogger } from '@/composables/useLogger'
 import { useDateFormatter } from '@/composables/useDateFormatter'
 import { formatNumber } from '@/utils/viewHelpers'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   entityId: string
   facetTypeId: string
   facetType?: {
@@ -159,7 +159,10 @@ const props = defineProps<{
     facet_type_color?: string
     facet_type_value_type?: string
   }
-}>()
+  canEdit?: boolean
+}>(), {
+  canEdit: true,
+})
 
 const emit = defineEmits<{
   (e: 'updated'): void
@@ -423,6 +426,7 @@ async function loadHistory() {
 }
 
 async function addDataPoint() {
+  if (!props.canEdit) return
   if (!newDataPoint.value.value && newDataPoint.value.value !== 0) return
 
   saving.value = true

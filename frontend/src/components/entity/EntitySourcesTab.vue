@@ -5,7 +5,7 @@
       {{ t('entityDetail.tabs.dataSources') }}
       <v-chip v-if="totalSourcesCount" size="small" class="ml-2">{{ totalSourcesCount }}</v-chip>
       <v-spacer></v-spacer>
-      <v-btn variant="tonal" color="primary" size="small" @click="$emit('linkSource')">
+      <v-btn v-if="canEdit" variant="tonal" color="primary" size="small" @click="$emit('linkSource')">
         <v-icon start>mdi-link-plus</v-icon>
         {{ t('entityDetail.linkDataSource') }}
       </v-btn>
@@ -93,6 +93,7 @@
             <template #append>
               <div class="d-flex ga-1">
                 <v-btn
+                  v-if="canEdit"
                   icon="mdi-pencil"
                   size="small"
                   variant="tonal"
@@ -100,7 +101,7 @@
                   @click="$emit('editSource', source)"
                 ></v-btn>
                 <v-btn
-                  v-if="!source.hasRunningJob"
+                  v-if="canEdit && !source.hasRunningJob"
                   icon="mdi-play"
                   size="small"
                   variant="tonal"
@@ -110,7 +111,7 @@
                   @click="$emit('startCrawl', source)"
                 ></v-btn>
                 <v-btn
-                  v-if="source.is_direct_link"
+                  v-if="canEdit && source.is_direct_link"
                   icon="mdi-link-off"
                   size="small"
                   variant="tonal"
@@ -119,6 +120,7 @@
                   @click="$emit('unlinkSource', source)"
                 ></v-btn>
                 <v-btn
+                  v-if="canEdit"
                   icon="mdi-delete"
                   size="small"
                   variant="tonal"
@@ -138,7 +140,7 @@
         <p class="text-body-2 text-medium-emphasis mb-4">
           {{ t('entityDetail.emptyState.noDataSourcesDesc') }}
         </p>
-        <v-btn variant="tonal" color="primary" @click="$emit('linkSource')">
+        <v-btn v-if="canEdit" variant="tonal" color="primary" @click="$emit('linkSource')">
           <v-icon start>mdi-link-plus</v-icon>
           {{ t('entityDetail.linkDataSource') }}
         </v-btn>
@@ -167,14 +169,17 @@ interface DataSource {
 }
 
 // Props
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   dataSources: DataSource[]
   loading: boolean
   startingCrawlId: string | null
   apiConfigurationId?: string | null
   externalSourceName?: string | null
   externalId?: string | null
-}>()
+  canEdit?: boolean
+}>(), {
+  canEdit: true,
+})
 
 // Emits
 defineEmits<{

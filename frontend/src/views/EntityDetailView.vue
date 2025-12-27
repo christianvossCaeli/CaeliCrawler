@@ -20,10 +20,11 @@
       :verified-count="facetsSummary?.verified_count || 0"
       :data-sources-count="dataSources.length"
       :children-count="childrenCount"
+      :can-edit="canEdit"
       @open-notes="notesDialog = true"
       @open-export="exportDialog = true"
-      @open-edit="editDialog = true"
-      @add-facet="addFacetDialog = true"
+      @open-edit="openEditDialog"
+      @add-facet="openAddFacetDialog"
       @add-facet-value="handleOpenAddFacetValueDialog"
     />
 
@@ -46,8 +47,9 @@
           :entity="entity"
           :entity-type="entityType"
           :facets-summary="facetsSummary"
+          :can-edit="canEdit"
           @facets-updated="refreshFacetsSummary"
-          @add-facet="addFacetDialog = true"
+          @add-facet="openAddFacetDialog"
           @add-facet-value="handleOpenAddFacetValueDialog"
           @switch-tab="activeTab = $event"
           @enrichment-started="enrichmentHandlers.onEnrichmentStarted"
@@ -69,9 +71,10 @@
           :loading-relations="loadingRelations"
           :loading-children="loadingChildren"
           :hierarchy-enabled="flags.entityHierarchyEnabled"
-          @add-relation="() => { relationHandlers.openAddRelationDialog(); addRelationDialog = true }"
-          @edit-relation="(rel) => { relationHandlers.editRelation(rel); addRelationDialog = true }"
-          @delete-relation="relationHandlers.confirmDeleteRelation"
+          :can-edit="canEdit"
+          @add-relation="openAddRelationDialog"
+          @edit-relation="openEditRelationDialog"
+          @delete-relation="confirmDeleteRelation"
           @navigate-relation="navigateToRelatedEntity"
           @load-children="loadChildren"
           @update:children-page="childrenPage = $event"
@@ -88,9 +91,10 @@
           :api-configuration-id="entity?.api_configuration_id"
           :external-source-name="entity?.external_source_name"
           :external-id="entity?.external_id"
-          @link-source="linkDataSourceDialog = true"
+          :can-edit="canEdit"
+          @link-source="openLinkSourceDialog"
           @edit-source="openEditSourceDialog"
-          @start-crawl="dataSourceHandlers.startCrawl"
+          @start-crawl="startCrawl"
           @unlink-source="confirmUnlinkSource"
           @delete-source="confirmDeleteSource"
         />
@@ -116,6 +120,7 @@
         <EntityAttachmentsTab
           v-if="entity"
           :entity-id="entity.id"
+          :can-edit="canEdit"
           @attachments-changed="loadAttachmentCount"
         />
       </v-window-item>
@@ -283,6 +288,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useEntityStore, type Entity, type EntityType } from '@/stores/entity'
+import { useAuthStore } from '@/stores/auth'
 import { entityApi, attachmentApi, facetApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useFeatureFlags } from '@/composables/useFeatureFlags'
@@ -337,6 +343,8 @@ const { showSuccess, showError } = useSnackbar()
 const route = useRoute()
 const router = useRouter()
 const store = useEntityStore()
+const auth = useAuthStore()
+const canEdit = computed(() => auth.isEditor)
 
 // Route params
 const typeSlug = computed(() => route.params.typeSlug as string | undefined)
@@ -604,12 +612,24 @@ function closeAddFacetDialog() {
   resetAddFacetForm()
 }
 
+function openAddFacetDialog() {
+  if (!canEdit.value) return
+  addFacetDialog.value = true
+}
+
+function openEditDialog() {
+  if (!canEdit.value) return
+  editDialog.value = true
+}
+
 function handleOpenAddFacetValueDialog(facetGroup: FacetGroup) {
+  if (!canEdit.value) return
   openAddFacetValueDialog(facetGroup)
   addFacetDialog.value = true
 }
 
 async function handleSaveFacetValue() {
+  if (!canEdit.value) return
   const success = await saveFacetValue()
   if (success) {
     closeAddFacetDialog()
@@ -617,6 +637,7 @@ async function handleSaveFacetValue() {
 }
 
 async function handleSaveEditedFacet() {
+  if (!canEdit.value) return
   const success = await saveEditedFacet()
   if (success) {
     editFacetDialog.value = false
@@ -624,6 +645,7 @@ async function handleSaveEditedFacet() {
 }
 
 async function handleDeleteSingleFacet() {
+  if (!canEdit.value) return
   const success = await deleteSingleFacet()
   if (success) {
     singleDeleteConfirm.value = false
@@ -632,6 +654,7 @@ async function handleDeleteSingleFacet() {
 
 // Relation management
 async function saveRelation() {
+  if (!canEdit.value) return
   const success = await relationHandlers.saveRelation()
   if (success) {
     addRelationDialog.value = false
@@ -639,10 +662,28 @@ async function saveRelation() {
 }
 
 async function deleteRelation() {
+  if (!canEdit.value) return
   const success = await relationHandlers.deleteRelation()
   if (success) {
     deleteRelationConfirm.value = false
   }
+}
+
+function openAddRelationDialog() {
+  if (!canEdit.value) return
+  relationHandlers.openAddRelationDialog()
+  addRelationDialog.value = true
+}
+
+function openEditRelationDialog(rel: RelationLocal) {
+  if (!canEdit.value) return
+  relationHandlers.editRelation(rel)
+  addRelationDialog.value = true
+}
+
+function confirmDeleteRelation(rel: RelationLocal) {
+  if (!canEdit.value) return
+  relationHandlers.confirmDeleteRelation(rel)
 }
 
 function navigateToRelatedEntity(rel: RelationLocal) {
@@ -674,21 +715,35 @@ async function handleExport() {
 
 // Data source management
 function openEditSourceDialog(source: DataSourceLocal) {
+  if (!canEdit.value) return
   editingSource.value = source
   editSourceDialog.value = true
 }
 
 function confirmDeleteSource(source: DataSourceLocal) {
+  if (!canEdit.value) return
   sourceToDelete.value = source
   deleteSourceConfirm.value = true
 }
 
 function confirmUnlinkSource(source: DataSourceLocal) {
+  if (!canEdit.value) return
   sourceToUnlink.value = source
   unlinkSourceConfirm.value = true
 }
 
+function openLinkSourceDialog() {
+  if (!canEdit.value) return
+  linkDataSourceDialog.value = true
+}
+
+function startCrawl(source: DataSourceLocal) {
+  if (!canEdit.value) return
+  dataSourceHandlers.startCrawl(source)
+}
+
 async function handleLinkSource() {
+  if (!canEdit.value) return
   const success = await dataSourceHandlers.linkSourceToEntity()
   if (success) {
     linkDataSourceDialog.value = false
@@ -719,6 +774,7 @@ function goToSourcesWithEntity() {
 
 // Entity edit
 async function saveEntity() {
+  if (!canEdit.value) return
   if (!entity.value) return
   savingEntity.value = true
   try {

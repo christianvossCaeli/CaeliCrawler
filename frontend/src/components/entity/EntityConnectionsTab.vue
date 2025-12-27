@@ -138,7 +138,7 @@
               <span class="text-subtitle-1 font-weight-medium">{{ t('entityDetail.connections.otherRelations', 'Weitere Verknüpfungen') }}</span>
               <v-chip size="x-small" class="ml-2">{{ relations.length }}</v-chip>
             </div>
-            <v-btn variant="tonal" color="primary" size="small" @click="$emit('addRelation')">
+            <v-btn v-if="canEdit" variant="tonal" color="primary" size="small" @click="$emit('addRelation')">
               <v-icon start size="small">mdi-link-plus</v-icon>
               {{ t('entityDetail.addRelation') }}
             </v-btn>
@@ -167,10 +167,10 @@
                   <v-chip v-if="rel.human_verified" size="x-small" color="success" variant="flat">
                     <v-icon size="x-small">mdi-check</v-icon>
                   </v-chip>
-                  <v-btn icon size="x-small" variant="text" @click.stop="$emit('editRelation', rel)">
+                  <v-btn v-if="canEdit" icon size="x-small" variant="text" @click.stop="$emit('editRelation', rel)">
                     <v-icon size="x-small">mdi-pencil</v-icon>
                   </v-btn>
-                  <v-btn icon size="x-small" variant="text" color="error" @click.stop="$emit('deleteRelation', rel)">
+                  <v-btn v-if="canEdit" icon size="x-small" variant="text" color="error" @click.stop="$emit('deleteRelation', rel)">
                     <v-icon size="x-small">mdi-delete</v-icon>
                   </v-btn>
                 </div>
@@ -186,7 +186,7 @@
           <p class="text-body-2 text-medium-emphasis mb-4">
             {{ t('entityDetail.emptyState.noConnectionsDesc', 'Diese Entity hat noch keine Verknüpfungen zu anderen Entities.') }}
           </p>
-          <v-btn variant="tonal" color="primary" @click="$emit('addRelation')">
+          <v-btn v-if="canEdit" variant="tonal" color="primary" @click="$emit('addRelation')">
             <v-icon start>mdi-link-plus</v-icon>
             {{ t('entityDetail.addRelation') }}
           </v-btn>
@@ -244,7 +244,7 @@ interface Relation {
 }
 
 // Props
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   entity: Entity | null
   entityType: EntityType | null
   typeSlug: string
@@ -257,7 +257,10 @@ const props = defineProps<{
   loadingRelations: boolean
   loadingChildren: boolean
   hierarchyEnabled: boolean
-}>()
+  canEdit?: boolean
+}>(), {
+  canEdit: true,
+})
 
 // Emits
 defineEmits<{

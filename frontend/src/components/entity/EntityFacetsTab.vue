@@ -16,7 +16,7 @@
           ></v-text-field>
           <!-- Enrichment Dropdown Menu -->
           <v-menu
-            v-if="entityType?.supports_pysis"
+            v-if="canEdit && entityType?.supports_pysis"
             v-model="enrichmentMenuOpen"
             :close-on-content-click="false"
             location="bottom end"
@@ -213,6 +213,7 @@
             <v-spacer></v-spacer>
             <!-- Add Value Button -->
             <v-btn
+              v-if="canEdit"
               size="small"
               color="primary"
               variant="tonal"
@@ -235,6 +236,7 @@
                   :entity-id="entity?.id || ''"
                   :facet-type-id="facetGroup.facet_type_id"
                   :facet-type="facetGroup"
+                  :can-edit="canEdit"
                   @updated="$emit('facets-updated')"
                 />
               </template>
@@ -254,7 +256,7 @@
                   <!-- Checkbox for bulk selection -->
                   <div class="d-flex align-start">
                     <v-checkbox
-                      v-if="bulkMode"
+                      v-if="canEdit && bulkMode"
                       :model-value="selectedFacetIds.includes(sample.id)"
                       hide-details
                       density="compact"
@@ -328,7 +330,7 @@
                                 {{ sample.target_entity_name || t('entityDetail.viewEntity') }}
                               </v-chip>
                               <!-- Entity Link Management Menu -->
-                              <v-menu location="bottom">
+                              <v-menu v-if="canEdit" location="bottom">
                                 <template #activator="{ props: menuProps }">
                                   <v-btn
                                     icon
@@ -436,7 +438,7 @@
                         </div>
 
                         <!-- Action Buttons Row -->
-                        <div v-if="sample.id" class="d-flex align-center ga-2">
+                        <div v-if="sample.id && canEdit" class="d-flex align-center ga-2">
                           <!-- Verify button -->
                           <v-btn
                             v-if="!sample.human_verified"
@@ -499,7 +501,7 @@
                 <v-spacer></v-spacer>
                 <!-- Bulk Mode Toggle -->
                 <v-btn
-                  v-if="getDisplayedFacets(facetGroup).length > 1"
+                  v-if="canEdit && getDisplayedFacets(facetGroup).length > 1"
                   variant="tonal"
                   size="small"
                   @click="bulkMode = !bulkMode"
@@ -511,7 +513,7 @@
 
               <!-- Bulk Actions Bar -->
               <v-slide-y-transition>
-                <div v-if="bulkMode && selectedFacetIds.length > 0" class="mt-3 pa-3 rounded bg-primary-lighten-5">
+                <div v-if="canEdit && bulkMode && selectedFacetIds.length > 0" class="mt-3 pa-3 rounded bg-primary-lighten-5">
                   <div class="d-flex align-center ga-2">
                     <span class="text-body-2">{{ t('entityDetail.selected', { count: selectedFacetIds.length }) }}</span>
                     <v-spacer></v-spacer>
@@ -552,7 +554,7 @@
         {{ t('entityDetail.emptyState.noPropertiesDesc') }}
       </p>
       <div class="d-flex justify-center ga-2">
-        <v-btn variant="tonal" color="primary" @click="$emit('add-facet')">
+        <v-btn v-if="canEdit" variant="tonal" color="primary" @click="$emit('add-facet')">
           <v-icon start>mdi-plus</v-icon>
           {{ t('entityDetail.emptyState.addManually') }}
         </v-btn>
@@ -719,11 +721,14 @@ import { useDateFormatter } from '@/composables/useDateFormatter'
 // Props & Emits
 // =============================================================================
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   entity: Entity | null
   entityType: EntityType | null
   facetsSummary: FacetsSummary | null
-}>()
+  canEdit?: boolean
+}>(), {
+  canEdit: true,
+})
 
 const emit = defineEmits<{
   (e: 'facets-updated'): void
@@ -962,6 +967,7 @@ function toggleFacetSelection(id: string) {
 }
 
 async function bulkVerify() {
+  if (!props.canEdit) return
   if (selectedFacetIds.value.length === 0) return
   bulkActionLoading.value = true
 
@@ -984,6 +990,7 @@ async function bulkVerify() {
 }
 
 async function bulkDelete() {
+  if (!props.canEdit) return
   if (selectedFacetIds.value.length === 0) return
   bulkActionLoading.value = true
 
@@ -1013,6 +1020,7 @@ async function bulkDelete() {
 // =============================================================================
 
 async function verifyFacet(facetValueId: string) {
+  if (!props.canEdit) return
   try {
     await store.verifyFacetValue(facetValueId, true)
     showSuccess(t('entityDetail.messages.facetVerified'))
@@ -1023,6 +1031,7 @@ async function verifyFacet(facetValueId: string) {
 }
 
 function openAddFacetValueDialog(facetGroup: FacetGroup) {
+  if (!props.canEdit) return
   emit('add-facet-value', facetGroup)
 }
 
@@ -1045,6 +1054,7 @@ function openSourceDetails(facet: FacetValue) {
 }
 
 function openEditFacetDialog(facet: FacetValue, facetGroup: FacetGroup) {
+  if (!props.canEdit) return
   editingFacet.value = facet
   editingFacetGroup.value = facetGroup
   editingFacetValue.value = { ...(facet.value as Record<string, unknown>) }
@@ -1054,6 +1064,7 @@ function openEditFacetDialog(facet: FacetValue, facetGroup: FacetGroup) {
 }
 
 async function saveEditedFacet() {
+  if (!props.canEdit) return
   if (!editingFacet.value) return
 
   savingFacet.value = true
@@ -1077,11 +1088,13 @@ async function saveEditedFacet() {
 }
 
 function confirmDeleteFacet(facet: FacetValue) {
+  if (!props.canEdit) return
   facetToDelete.value = facet
   singleDeleteConfirm.value = true
 }
 
 async function deleteSingleFacet() {
+  if (!props.canEdit) return
   if (!facetToDelete.value) return
 
   deletingFacet.value = true
@@ -1141,6 +1154,7 @@ function formatEnrichmentDate(dateStr: string | null): string {
 }
 
 async function startEnrichmentAnalysis() {
+  if (!props.canEdit) return
   if (!props.entity || selectedEnrichmentSources.value.length === 0) return
 
   startingEnrichment.value = true
@@ -1334,6 +1348,7 @@ function navigateToTargetEntity(facet: FacetValue) {
 
 // Open the entity link dialog for a facet
 function openEntityLinkDialog(facet: FacetValue) {
+  if (!props.canEdit) return
   facetToLink.value = facet
   selectedTargetEntityId.value = facet.target_entity_id || null
   entitySearchQuery.value = ''
@@ -1382,6 +1397,7 @@ async function searchEntities(query: string) {
 
 // Save the entity link
 async function saveEntityLink() {
+  if (!props.canEdit) return
   if (!facetToLink.value || !selectedTargetEntityId.value) return
 
   savingEntityLink.value = true
@@ -1402,6 +1418,7 @@ async function saveEntityLink() {
 
 // Remove the entity link from a facet
 async function unlinkEntity(facet: FacetValue) {
+  if (!props.canEdit) return
   try {
     await facetApi.updateFacetValue(facet.id, {
       target_entity_id: null,

@@ -5,7 +5,7 @@
       {{ t('entityDetail.attachments.title') }}
       <v-chip size="small" class="ml-2">{{ attachments.length }}</v-chip>
       <v-spacer></v-spacer>
-      <v-btn color="primary" variant="tonal" size="small" @click="openUploadDialog">
+      <v-btn v-if="canEdit" color="primary" variant="tonal" size="small" @click="openUploadDialog">
         <v-icon start>mdi-upload</v-icon>
         {{ t('entityDetail.attachments.upload') }}
       </v-btn>
@@ -14,6 +14,7 @@
     <v-card-text>
       <!-- Drop Zone -->
       <div
+        v-if="canEdit"
         class="drop-zone mb-4"
         :class="{ 'drop-zone--active': isDragging }"
         @dragover.prevent="isDragging = true"
@@ -63,7 +64,7 @@
             <div class="d-flex ga-1">
               <!-- Analyze Button -->
               <v-btn
-                v-if="att.analysis_status === 'PENDING' || att.analysis_status === 'FAILED'"
+                v-if="canEdit && (att.analysis_status === 'PENDING' || att.analysis_status === 'FAILED')"
                 icon
                 size="small"
                 variant="text"
@@ -95,7 +96,7 @@
               </v-btn>
 
               <!-- Delete -->
-              <v-btn icon size="small" variant="text" color="error" @click="confirmDelete(att)">
+              <v-btn v-if="canEdit" icon size="small" variant="text" color="error" @click="confirmDelete(att)">
                 <v-icon>mdi-delete</v-icon>
                 <v-tooltip activator="parent">{{ t('common.delete') }}</v-tooltip>
               </v-btn>
@@ -216,6 +217,7 @@
                 >
                   <template #prepend>
                     <v-checkbox
+                      v-if="canEdit"
                       v-model="selectedFacetIndices"
                       :value="idx"
                       hide-details
@@ -241,7 +243,7 @@
                 </v-list-item>
               </v-list>
 
-              <div class="d-flex justify-end mt-3 ga-2">
+              <div v-if="canEdit" class="d-flex justify-end mt-3 ga-2">
                 <v-btn
                   size="small"
                   variant="text"
@@ -273,7 +275,7 @@
             {{ t('common.close') }}
           </v-btn>
           <v-btn
-            v-if="hasFacetSuggestions && selectedFacetIndices.length > 0"
+            v-if="canEdit && hasFacetSuggestions && selectedFacetIndices.length > 0"
             color="primary"
             variant="tonal"
             :loading="applyingFacets"
@@ -320,9 +322,12 @@ import { useStatusColors } from '@/composables'
 import { useLogger } from '@/composables/useLogger'
 import { getErrorMessage } from '@/composables/useApiErrorHandler'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   entityId: string
-}>()
+  canEdit?: boolean
+}>(), {
+  canEdit: true,
+})
 
 const emit = defineEmits<{
   (e: 'attachments-changed'): void
@@ -457,6 +462,7 @@ function stopPolling() {
 
 // Upload
 function openUploadDialog() {
+  if (!props.canEdit) return
   selectedFile.value = null
   uploadDescription.value = ''
   autoAnalyze.value = false
@@ -464,6 +470,7 @@ function openUploadDialog() {
 }
 
 async function uploadFile() {
+  if (!props.canEdit) return
   if (!selectedFile.value) return
 
   uploading.value = true
@@ -485,6 +492,7 @@ async function uploadFile() {
 }
 
 async function onDrop(event: DragEvent) {
+  if (!props.canEdit) return
   isDragging.value = false
   const files = event.dataTransfer?.files
   if (files && files.length > 0) {
@@ -506,6 +514,7 @@ async function onDrop(event: DragEvent) {
 
 // Analysis
 async function analyzeAttachment(att: Attachment) {
+  if (!props.canEdit) return
   analyzingIds.value.push(att.id)
   try {
     await attachmentApi.analyze(props.entityId, att.id)
@@ -528,14 +537,17 @@ function viewAnalysis(att: Attachment) {
 
 // Facet application
 function selectAllFacets() {
+  if (!props.canEdit) return
   selectedFacetIndices.value = facetSuggestions.value.map((_, idx) => idx)
 }
 
 function deselectAllFacets() {
+  if (!props.canEdit) return
   selectedFacetIndices.value = []
 }
 
 async function applySelectedFacets() {
+  if (!props.canEdit) return
   if (!selectedAttachment.value || selectedFacetIndices.value.length === 0) return
 
   applyingFacets.value = true
@@ -583,11 +595,13 @@ async function downloadAttachment(att: Attachment) {
 
 // Delete
 function confirmDelete(att: Attachment) {
+  if (!props.canEdit) return
   attachmentToDelete.value = att
   deleteDialog.value = true
 }
 
 async function deleteAttachment() {
+  if (!props.canEdit) return
   if (!attachmentToDelete.value) return
 
   deleting.value = true
