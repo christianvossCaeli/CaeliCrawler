@@ -257,6 +257,17 @@ async def create_category_setup_with_ai(
             )
             session.add(entity_type)
             await session.flush()
+
+            # Generate embedding for semantic similarity search
+            from app.utils.similarity import generate_embedding
+            try:
+                embedding = await generate_embedding(name)
+                if embedding:
+                    entity_type.name_embedding = embedding
+                    logger.info("Generated embedding for new EntityType", name=name)
+            except Exception as e:
+                logger.warning("Failed to generate embedding for EntityType", name=name, error=str(e))
+
             entity_type_created = True
             result["steps"][-1]["result"] = f"EntityType '{name}' erstellt"
 
@@ -1222,6 +1233,15 @@ async def create_category_setup(
         )
         session.add(entity_type)
         await session.flush()
+
+        # Generate embedding for semantic similarity search
+        from app.utils.similarity import generate_embedding
+        try:
+            embedding = await generate_embedding(name)
+            if embedding:
+                entity_type.name_embedding = embedding
+        except Exception as e:
+            logger.warning("Failed to generate embedding for EntityType", name=name, error=str(e))
 
         logger.info(
             "Created EntityType",

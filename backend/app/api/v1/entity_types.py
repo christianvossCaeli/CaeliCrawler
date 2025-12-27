@@ -193,10 +193,24 @@ async def create_entity_type(
         await session.flush()
 
         # Generate embedding for semantic similarity search
+        # This is critical for duplicate detection to work properly
         from app.utils.similarity import generate_embedding
-        embedding = await generate_embedding(entity_type.name)
-        if embedding:
-            entity_type.name_embedding = embedding
+        try:
+            embedding = await generate_embedding(entity_type.name)
+            if embedding:
+                entity_type.name_embedding = embedding
+                logger.info("Generated embedding for EntityType", name=entity_type.name)
+            else:
+                logger.warning(
+                    "Failed to generate embedding for EntityType - similarity detection may not work",
+                    name=entity_type.name,
+                )
+        except Exception as e:
+            logger.error(
+                "Error generating embedding for EntityType",
+                name=entity_type.name,
+                error=str(e),
+            )
 
         audit.track_action(
             action=AuditAction.CREATE,
