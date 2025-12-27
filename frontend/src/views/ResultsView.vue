@@ -13,7 +13,7 @@
       <template #actions>
         <!-- Bulk Actions -->
         <v-btn
-          v-if="selectedResults.length > 0"
+          v-if="canVerify && selectedResults.length > 0"
           color="success"
           variant="outlined"
           prepend-icon="mdi-check-all"
@@ -99,7 +99,7 @@
               @keyup.enter="loadData"
             />
           </v-col>
-          <v-col cols="6" md="2">
+          <v-col v-if="showLocationFilter" cols="6" md="2">
             <v-autocomplete
               v-model="locationFilter"
               :items="locations"
@@ -188,7 +188,7 @@
         :items="results"
         :items-length="totalResults"
         :loading="loading"
-        show-select
+        :show-select="canVerify"
         item-value="id"
         @update:options="onTableOptionsUpdate"
       >
@@ -247,7 +247,16 @@
         <template #item.actions="{ item }">
           <div class="table-actions d-flex justify-end ga-1">
             <v-btn icon="mdi-eye" size="small" variant="tonal" :title="$t('common.details')" :aria-label="$t('common.details')" @click="showDetails(item.raw || item)"></v-btn>
-            <v-btn :icon="(item.raw?.human_verified ?? item.human_verified) ? 'mdi-check-circle' : 'mdi-check'" size="small" variant="tonal" :color="(item.raw?.human_verified ?? item.human_verified) ? 'success' : 'grey'" :title="(item.raw?.human_verified ?? item.human_verified) ? $t('results.actions.verified') : $t('results.actions.verify')" :aria-label="(item.raw?.human_verified ?? item.human_verified) ? $t('results.actions.verified') : $t('results.actions.verify')" @click="verifyResult(item.raw || item)"></v-btn>
+            <v-btn
+              v-if="canVerify"
+              :icon="(item.raw?.human_verified ?? item.human_verified) ? 'mdi-check-circle' : 'mdi-check'"
+              size="small"
+              variant="tonal"
+              :color="(item.raw?.human_verified ?? item.human_verified) ? 'success' : 'grey'"
+              :title="(item.raw?.human_verified ?? item.human_verified) ? $t('results.actions.verified') : $t('results.actions.verify')"
+              :aria-label="(item.raw?.human_verified ?? item.human_verified) ? $t('results.actions.verified') : $t('results.actions.verify')"
+              @click="verifyResult(item.raw || item)"
+            ></v-btn>
             <v-btn icon="mdi-file-document" size="small" variant="tonal" color="info" :title="$t('results.actions.goToDocument')" :aria-label="$t('results.actions.goToDocument')" :to="`/documents?search=${encodeURIComponent((item.raw?.document_title || item.document_title) || '')}`"></v-btn>
             <v-btn icon="mdi-code-json" size="small" variant="tonal" :title="$t('results.actions.exportJson')" :aria-label="$t('results.actions.exportJson')" @click="exportJson(item.raw || item)"></v-btn>
           </div>
@@ -562,6 +571,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { dataApi, adminApi } from '@/services/api'
+import type { ExtractedDataParams, ExtractionStatsParams } from '@/services/api/sources'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useSnackbar } from '@/composables/useSnackbar'
@@ -570,6 +580,7 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import ResultsSkeleton from '@/components/results/ResultsSkeleton.vue'
 import { useLogger } from '@/composables/useLogger'
 import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { useAuthStore } from '@/stores/auth'
 
 // Search result types
 interface EntityReference {
@@ -675,6 +686,8 @@ const { t } = useI18n()
 
 const route = useRoute()
 const { showSuccess, showError } = useSnackbar()
+const auth = useAuthStore()
+const canVerify = computed(() => auth.isEditor)
 
 // Loading state
 const loading = ref(true)
@@ -716,6 +729,8 @@ const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'creat
 const detailsDialog = ref(false)
 const selectedResult = ref<SearchResult | null>(null)
 
+const showLocationFilter = computed(() => locations.value.length > 0)
+
 // Default headers when no category-specific config is available
 const getDefaultHeaders = () => [
   { title: t('results.columns.document'), key: 'document', sortable: false, width: '220px' },
@@ -734,9 +749,7 @@ const entityReferenceColumns = ref<string[]>([])
 const loadDisplayConfig = async (categoryId: string | null) => {
   if (!categoryId) {
     // No category selected - use default headers
-    headers.value = getDefaultHeaders()
-    entityReferenceColumns.value = []
-    return
+    return { headers: getDefaultHeaders(), entityReferenceColumns: [] }
   }
 
   try {
@@ -767,14 +780,11 @@ const loadDisplayConfig = async (categoryId: string | null) => {
       })
     }
 
-    headers.value = dynamicHeaders
-    entityReferenceColumns.value = config.entity_reference_columns || []
-
+    return { headers: dynamicHeaders, entityReferenceColumns: config.entity_reference_columns || [] }
   } catch (error) {
     logger.error('Failed to load display config:', error)
     // Fallback to default headers
-    headers.value = getDefaultHeaders()
-    entityReferenceColumns.value = []
+    return { headers: getDefaultHeaders(), entityReferenceColumns: [] }
   }
 }
 
@@ -873,20 +883,24 @@ const formatDate = (dateStr: string) => {
 
 // Track last loaded category for display config
 let lastLoadedCategoryId: string | null = null
+let requestCounter = 0
 
 // Data loading
 const loadData = async () => {
+  const requestId = ++requestCounter
   loading.value = true
   try {
     // Load display config if category changed
     if (categoryFilter.value !== lastLoadedCategoryId) {
-      await loadDisplayConfig(categoryFilter.value)
+      const config = await loadDisplayConfig(categoryFilter.value)
+      if (requestId !== requestCounter) return
+      headers.value = config.headers
+      entityReferenceColumns.value = config.entityReferenceColumns
       lastLoadedCategoryId = categoryFilter.value
     }
 
-    const params: Record<string, unknown> = { page: page.value, per_page: perPage.value }
+    const params: ExtractedDataParams = { page: page.value, per_page: perPage.value }
     if (searchQuery.value) params.search = searchQuery.value
-    if (locationFilter.value) params.location_name = locationFilter.value
     if (extractionTypeFilter.value) params.extraction_type = extractionTypeFilter.value
     if (categoryFilter.value) params.category_id = categoryFilter.value
     if (minConfidence.value > 0) params.min_confidence = minConfidence.value / 100
@@ -898,10 +912,20 @@ const loadData = async () => {
       params.sort_order = sortBy.value[0].order
     }
 
+    const statsParams: ExtractionStatsParams = {}
+    if (searchQuery.value) statsParams.search = searchQuery.value
+    if (extractionTypeFilter.value) statsParams.extraction_type = extractionTypeFilter.value
+    if (categoryFilter.value) statsParams.category_id = categoryFilter.value
+    if (minConfidence.value > 0) statsParams.min_confidence = minConfidence.value / 100
+    if (verifiedFilter.value !== null) statsParams.human_verified = verifiedFilter.value
+    if (dateFrom.value) statsParams.created_from = dateFrom.value
+    if (dateTo.value) statsParams.created_to = dateTo.value
+
     const [dataRes, statsRes] = await Promise.all([
       dataApi.getExtractedData(params),
-      dataApi.getExtractionStats({ category_id: categoryFilter.value }),
+      dataApi.getExtractionStats(statsParams),
     ])
+    if (requestId !== requestCounter) return
 
     // Data comes with entity_references from API
     results.value = dataRes.data.items
@@ -913,11 +937,14 @@ const loadData = async () => {
       extractionTypes.value = Object.keys(statsRes.data.by_type)
     }
   } catch (error) {
+    if (requestId !== requestCounter) return
     logger.error('Failed to load data:', error)
     showError(t('results.messages.errorLoading'))
   } finally {
-    loading.value = false
-    initialLoad.value = false
+    if (requestId === requestCounter) {
+      loading.value = false
+      initialLoad.value = false
+    }
   }
 }
 
@@ -976,8 +1003,10 @@ const showDetails = (item: SearchResult) => {
 }
 
 const verifyResult = async (item: SearchResult) => {
+  if (!canVerify.value) return
+  if (item.human_verified) return
   try {
-    await dataApi.verifyExtraction(item.id, { verified: true, verified_by: 'user' })
+    await dataApi.verifyExtraction(item.id, { verified: true })
     showSuccess(t('results.messages.verified'))
 
     // Update the item locally instead of reloading the entire table
@@ -995,17 +1024,28 @@ const verifyResult = async (item: SearchResult) => {
 }
 
 const bulkVerify = async () => {
+  if (!canVerify.value) return
   bulkVerifying.value = true
   try {
     const verifiedIds = [...selectedResults.value]
-    for (const id of verifiedIds) {
-      await dataApi.verifyExtraction(id, { verified: true, verified_by: 'user' })
+    const toVerify = verifiedIds.filter((id) => {
+      const item = results.value.find((r: SearchResult) => r.id === id)
+      return item && !item.human_verified
+    })
+    if (toVerify.length === 0) {
+      selectedResults.value = []
+      return
     }
-    showSuccess(`${verifiedIds.length} ${t('results.messages.bulkVerified')}`)
 
-    // Update items locally
+    const settled = await Promise.allSettled(
+      toVerify.map((id) => dataApi.verifyExtraction(id, { verified: true }))
+    )
+
+    const succeededIds = toVerify.filter((_, idx) => settled[idx].status === 'fulfilled')
+    const failedCount = settled.length - succeededIds.length
+
     let verifiedCount = 0
-    for (const id of verifiedIds) {
+    for (const id of succeededIds) {
       const index = results.value.findIndex((r: SearchResult) => r.id === id)
       if (index !== -1 && !results.value[index].human_verified) {
         results.value[index] = { ...results.value[index], human_verified: true }
@@ -1013,9 +1053,14 @@ const bulkVerify = async () => {
       }
     }
 
-    // Update stats
-    stats.value.verified = (stats.value.verified || 0) + verifiedCount
-    stats.value.unverified = Math.max(0, (stats.value.unverified || 0) - verifiedCount)
+    if (verifiedCount > 0) {
+      showSuccess(`${verifiedCount} ${t('results.messages.bulkVerified')}`)
+      stats.value.verified = (stats.value.verified || 0) + verifiedCount
+      stats.value.unverified = Math.max(0, (stats.value.unverified || 0) - verifiedCount)
+    }
+    if (failedCount > 0) {
+      showError(t('results.messages.errorBulkVerifying'))
+    }
 
     selectedResults.value = []
   } catch (error) {

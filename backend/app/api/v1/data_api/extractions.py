@@ -1,5 +1,6 @@
 """Extracted data endpoints."""
 
+from datetime import date
 from typing import Optional
 from uuid import UUID
 
@@ -7,8 +8,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import require_editor
 from app.database import get_session
 from app.models import ExtractedData, Document, Category
+from app.models.user import User
 from app.schemas.extracted_data import (
     ExtractedDataResponse,
     ExtractedDataListResponse,
@@ -23,24 +26,20 @@ from .loaders import bulk_load_documents_with_sources
 router = APIRouter()
 
 
-@router.get("/", response_model=ExtractedDataListResponse)
-async def list_extracted_data(
-    page: int = Query(default=1, ge=1),
-    per_page: int = Query(default=20, ge=1, le=100),
-    category_id: Optional[UUID] = Query(default=None),
-    source_id: Optional[UUID] = Query(default=None),
-    extraction_type: Optional[str] = Query(default=None),
-    min_confidence: float = Query(default=0, ge=0, le=1, description="Minimum confidence score filter"),
-    human_verified: Optional[bool] = Query(default=None),
-    sort_by: Optional[str] = Query(default="created_at", description="Field to sort by"),
-    sort_order: Optional[str] = Query(default="desc", description="Sort order: asc or desc"),
-    session: AsyncSession = Depends(get_session),
+def apply_extraction_filters(
+    query,
+    *,
+    category_id: Optional[UUID] = None,
+    source_id: Optional[UUID] = None,
+    extraction_type: Optional[str] = None,
+    min_confidence: Optional[float] = None,
+    human_verified: Optional[bool] = None,
+    created_from: Optional[date] = None,
+    created_to: Optional[date] = None,
+    search: Optional[str] = None,
 ):
-    """List extracted data with filters."""
-    query = select(ExtractedData)
-
-    # Join with Document if filtering by source_id
-    if source_id is not None:
+    """Apply shared filters for extracted data queries."""
+    if source_id is not None or search:
         query = query.join(Document, ExtractedData.document_id == Document.id)
 
     if category_id:
@@ -53,6 +52,49 @@ async def list_extracted_data(
         query = query.where(ExtractedData.confidence_score >= min_confidence)
     if human_verified is not None:
         query = query.where(ExtractedData.human_verified == human_verified)
+    if created_from:
+        query = query.where(func.date(ExtractedData.created_at) >= created_from)
+    if created_to:
+        query = query.where(func.date(ExtractedData.created_at) <= created_to)
+    if search:
+        safe_search = search.replace('%', '\\%').replace('_', '\\_')
+        search_pattern = f"%{safe_search}%"
+        query = query.where(
+            (Document.title.ilike(search_pattern, escape='\\')) |
+            (Document.original_url.ilike(search_pattern, escape='\\'))
+        )
+
+    return query
+
+
+@router.get("/", response_model=ExtractedDataListResponse)
+async def list_extracted_data(
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+    category_id: Optional[UUID] = Query(default=None),
+    source_id: Optional[UUID] = Query(default=None),
+    extraction_type: Optional[str] = Query(default=None),
+    min_confidence: Optional[float] = Query(default=None, ge=0, le=1, description="Minimum confidence score filter"),
+    human_verified: Optional[bool] = Query(default=None),
+    created_from: Optional[date] = Query(default=None, description="Filter by created date from (YYYY-MM-DD)"),
+    created_to: Optional[date] = Query(default=None, description="Filter by created date to (YYYY-MM-DD)"),
+    search: Optional[str] = Query(default=None, description="Search in document title and URL"),
+    sort_by: Optional[str] = Query(default="created_at", description="Field to sort by"),
+    sort_order: Optional[str] = Query(default="desc", description="Sort order: asc or desc"),
+    session: AsyncSession = Depends(get_session),
+):
+    """List extracted data with filters."""
+    query = apply_extraction_filters(
+        select(ExtractedData),
+        category_id=category_id,
+        source_id=source_id,
+        extraction_type=extraction_type,
+        min_confidence=min_confidence,
+        human_verified=human_verified,
+        created_from=created_from,
+        created_to=created_to,
+        search=search,
+    )
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
@@ -127,56 +169,68 @@ async def list_extracted_data(
 @router.get("/stats", response_model=ExtractionStats)
 async def get_extraction_stats(
     category_id: Optional[UUID] = Query(default=None),
+    source_id: Optional[UUID] = Query(default=None),
+    extraction_type: Optional[str] = Query(default=None),
+    min_confidence: Optional[float] = Query(default=None, ge=0, le=1, description="Minimum confidence score filter"),
+    human_verified: Optional[bool] = Query(default=None),
+    created_from: Optional[date] = Query(default=None, description="Filter by created date from (YYYY-MM-DD)"),
+    created_to: Optional[date] = Query(default=None, description="Filter by created date to (YYYY-MM-DD)"),
+    search: Optional[str] = Query(default=None, description="Search in document title and URL"),
     session: AsyncSession = Depends(get_session),
 ):
     """Get extraction statistics."""
-    base_query = select(ExtractedData)
-    if category_id:
-        base_query = base_query.where(ExtractedData.category_id == category_id)
+    base_query = apply_extraction_filters(
+        select(ExtractedData),
+        category_id=category_id,
+        source_id=source_id,
+        extraction_type=extraction_type,
+        min_confidence=min_confidence,
+        human_verified=human_verified,
+        created_from=created_from,
+        created_to=created_to,
+        search=search,
+    )
+    base_subquery = base_query.subquery()
 
     total = (await session.execute(
-        select(func.count()).select_from(base_query.subquery())
+        select(func.count()).select_from(base_subquery)
     )).scalar()
 
     verified = (await session.execute(
-        select(func.count()).where(
-            ExtractedData.human_verified.is_(True),
-            *([ExtractedData.category_id == category_id] if category_id else [])
-        )
+        select(func.count())
+        .select_from(base_subquery)
+        .where(base_subquery.c.human_verified.is_(True))
     )).scalar()
 
     avg_confidence = (await session.execute(
-        select(func.avg(ExtractedData.confidence_score)).where(
-            *([ExtractedData.category_id == category_id] if category_id else [])
-        )
+        select(func.avg(base_subquery.c.confidence_score)).select_from(base_subquery)
     )).scalar()
 
     high_confidence = (await session.execute(
-        select(func.count()).where(
-            ExtractedData.confidence_score >= 0.8,
-            *([ExtractedData.category_id == category_id] if category_id else [])
-        )
+        select(func.count())
+        .select_from(base_subquery)
+        .where(base_subquery.c.confidence_score >= 0.8)
     )).scalar()
 
     low_confidence = (await session.execute(
-        select(func.count()).where(
-            ExtractedData.confidence_score < 0.5,
-            *([ExtractedData.category_id == category_id] if category_id else [])
-        )
+        select(func.count())
+        .select_from(base_subquery)
+        .where(base_subquery.c.confidence_score < 0.5)
     )).scalar()
 
     # By type
     type_result = await session.execute(
-        select(ExtractedData.extraction_type, func.count())
-        .where(*([ExtractedData.category_id == category_id] if category_id else []))
-        .group_by(ExtractedData.extraction_type)
+        select(base_subquery.c.extraction_type, func.count())
+        .select_from(base_subquery)
+        .group_by(base_subquery.c.extraction_type)
     )
     by_type = dict(type_result.fetchall())
 
     # By category
     cat_result = await session.execute(
         select(Category.name, func.count())
-        .join(ExtractedData, Category.id == ExtractedData.category_id)
+        .select_from(base_subquery)
+        .join(Category, Category.id == base_subquery.c.category_id)
         .group_by(Category.name)
     )
     by_category = dict(cat_result.fetchall())
@@ -197,6 +251,7 @@ async def get_extraction_stats(
 async def verify_extraction(
     extraction_id: UUID,
     data: ExtractedDataVerify,
+    current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
     """Verify extracted data and optionally apply corrections."""
@@ -207,8 +262,13 @@ async def verify_extraction(
         raise NotFoundError("Extracted Data", str(extraction_id))
 
     extraction.human_verified = data.verified
-    extraction.verified_by = data.verified_by
-    extraction.verified_at = datetime.now(timezone.utc)
+    if data.verified:
+        verifier = current_user.full_name or current_user.email or str(current_user.id)
+        extraction.verified_by = verifier
+        extraction.verified_at = datetime.now(timezone.utc)
+    else:
+        extraction.verified_by = None
+        extraction.verified_at = None
 
     if data.corrections:
         extraction.human_corrections = data.corrections

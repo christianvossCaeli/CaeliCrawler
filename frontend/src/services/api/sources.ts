@@ -131,17 +131,34 @@ export const saveApiFromDiscovery = (data: {
 }) => api.post('/admin/external-apis/save-from-discovery', data)
 
 // Extracted Data & Documents (Public API)
-export const getExtractedData = (params?: {
+export interface ExtractedDataParams {
   category_id?: string
-  location?: string
-  country?: string
-  from_date?: string
-  to_date?: string
+  source_id?: string
+  extraction_type?: string
+  min_confidence?: number
+  human_verified?: boolean
+  created_from?: string
+  created_to?: string
+  search?: string
   page?: number
   per_page?: number
-}) => api.get('/v1/data/', { params })
-export const getExtractionStats = (params?: { category_id?: string | null; location?: string | null }) =>
-  api.get('/v1/data/stats', { params })
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
+}
+
+export interface ExtractionStatsParams {
+  category_id?: string | null
+  source_id?: string
+  extraction_type?: string
+  min_confidence?: number
+  human_verified?: boolean | null
+  created_from?: string
+  created_to?: string
+  search?: string
+}
+
+export const getExtractedData = (params?: ExtractedDataParams) => api.get('/v1/data/', { params })
+export const getExtractionStats = (params?: ExtractionStatsParams) => api.get('/v1/data/stats', { params })
 export const getExtractionLocations = () => api.get('/v1/data/locations')
 export const getExtractionCountries = () => api.get('/v1/data/countries')
 export const getDisplayConfig = (categoryId: string) => api.get(`/v1/data/display-config/${categoryId}`)
@@ -150,7 +167,7 @@ export const getDocument = (id: string) => api.get(`/v1/data/documents/${id}`)
 export const getDocumentLocations = () => api.get('/v1/data/documents/locations')
 export const searchDocuments = (params: { q: string; category_id?: string; limit?: number }, signal?: AbortSignal) =>
   api.get('/v1/data/search', { params, signal })
-export const verifyExtraction = (id: string, data: { verified: boolean; notes?: string; verified_by?: string }) =>
+export const verifyExtraction = (id: string, data: { verified: boolean; corrections?: Record<string, unknown> }) =>
   api.put(`/v1/data/extracted/${id}/verify`, data)
 
 // Municipalities (Gemeinden)

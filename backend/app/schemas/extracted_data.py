@@ -94,7 +94,10 @@ class ExtractedDataVerify(BaseModel):
     """Schema for verifying extracted data."""
 
     verified: bool = Field(default=True, description="Mark as verified")
-    verified_by: str = Field(..., min_length=1, description="Name of verifier")
+    verified_by: Optional[str] = Field(
+        default=None,
+        description="Deprecated: verifier is derived from the authenticated user",
+    )
     corrections: Optional[Dict[str, Any]] = Field(None, description="Optional corrections")
 
 

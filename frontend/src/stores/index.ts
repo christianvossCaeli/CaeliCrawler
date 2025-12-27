@@ -2,28 +2,35 @@
  * Stores Index
  *
  * Central export point for all Pinia stores.
- * Allows convenient imports: import { useEntityStore, useEntityTypesStore } from '@/stores'
+ * Allows convenient imports: import { useEntityStore, useFacetStore } from '@/stores'
  */
 
-// Main entity store (contains all entity-related functionality)
+// Main entity store (core entities + backwards compatibility proxies)
 export { useEntityStore } from './entity'
+
+// Modular sub-stores (recommended for new code)
+export { useFacetStore } from './facet'
+export { useRelationStore } from './relation'
+export { useAnalysisStore } from './analysis'
+
+// All types from central location
 export type {
   EntityType,
   Entity,
   EntityBrief,
   FacetType,
   FacetValue,
+  FacetValueAggregated,
+  EntityFacetsSummary,
   RelationType,
   EntityRelation,
   AnalysisTemplate,
+  AnalysisOverviewItem,
+  EntityReport,
   FacetConfig,
   AggregationConfig,
   DisplayConfig,
-  AnalysisOverviewItem,
-  EntityFacetsSummary,
-  FacetValueAggregated,
-  EntityReport,
-} from './entity'
+} from './types/entity'
 
 // Specialized stores (for modular usage)
 export { useEntityTypesStore } from './entityTypes'

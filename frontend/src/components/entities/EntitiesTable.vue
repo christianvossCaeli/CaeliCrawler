@@ -57,6 +57,7 @@
           @click.stop="$emit('entity-click', item)"
         ></v-btn>
         <v-btn
+          v-if="canEdit"
           icon="mdi-pencil"
           size="small"
           variant="tonal"
@@ -65,6 +66,7 @@
           @click.stop="$emit('entity-edit', item)"
         ></v-btn>
         <v-btn
+          v-if="canEdit"
           icon="mdi-delete"
           size="small"
           variant="tonal"
@@ -102,6 +104,7 @@ interface Props {
   currentEntityType: EntityType | null
   flags: FeatureFlags
   sortBy?: SortItem[]
+  canEdit?: boolean
 }
 
 interface Emits {
@@ -114,7 +117,8 @@ interface Emits {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  sortBy: () => []
+  sortBy: () => [],
+  canEdit: true,
 })
 const emit = defineEmits<Emits>()
 

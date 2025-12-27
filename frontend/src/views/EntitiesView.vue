@@ -35,6 +35,7 @@
           {{ store.selectedTemplate.name }}
         </v-btn>
         <v-btn
+          v-if="canEdit"
           variant="tonal"
           color="primary"
           :aria-label="t('entities.createNew')"
@@ -144,6 +145,7 @@
         :current-entity-type="currentEntityType"
         :flags="flags"
         :sort-by="sortBy"
+        :can-edit="canEdit"
         @update:items-per-page="itemsPerPage = $event"
         @update:current-page="loadEntities"
         @update:sort-by="handleSortChange"
@@ -284,10 +286,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch, defineAsyncComponent } from 'vue'
+import { onMounted, watch, defineAsyncComponent, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useEntitiesView } from '@/composables/useEntitiesView'
+import { useAuthStore } from '@/stores/auth'
 
 // Lazy-load EntityMapView (heavy maplibre-gl dependency ~1MB)
 const EntityMapView = defineAsyncComponent({
@@ -305,6 +308,8 @@ import ExtendedFilterDialog from '@/components/entities/ExtendedFilterDialog.vue
 
 const { t } = useI18n()
 const router = useRouter()
+const auth = useAuthStore()
+const canEdit = computed(() => auth.isEditor)
 
 // Use the composable for all state and logic
 const {

@@ -529,7 +529,7 @@ export function useEntitiesView() {
   }
 
   function selectTemplate(template: AnalysisTemplate) {
-    store.selectedTemplate = template
+    store.setSelectedTemplate(template)
     templateDialog.value = false
     loadEntities()
   }
