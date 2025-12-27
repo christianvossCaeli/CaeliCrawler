@@ -1,0 +1,585 @@
+/**
+ * Documents View Composable
+ *
+ * Manages state and logic for the Documents view.
+ * Handles document listing, filtering, bulk operations, and auto-refresh.
+ */
+import { ref, computed, watch, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
+import { dataApi, adminApi } from '@/services/api'
+import { format } from 'date-fns'
+import { useSnackbar } from '@/composables/useSnackbar'
+import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
+import { useLogger } from '@/composables/useLogger'
+import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { useDateFormatter } from '@/composables/useDateFormatter'
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface ExtractedDataItem {
+  id: string
+  type: string
+  confidence: number
+  verified?: boolean
+  content?: Record<string, unknown>
+}
+
+export interface Document {
+  id: string
+  title?: string
+  file_path?: string
+  status: string
+  source_id?: string
+  source_name?: string
+  created_at: string
+  updated_at?: string
+  document_type?: string
+  original_url?: string
+  processing_status?: string
+  processing_error?: string
+  file_size?: number
+  discovered_at?: string
+  processed_at?: string
+  page_count?: number
+  raw_text?: string
+  extracted_data?: ExtractedDataItem[]
+  category_name?: string
+}
+
+export interface TableOptions {
+  page: number
+  itemsPerPage: number
+  sortBy?: Array<{ key: string; order: 'asc' | 'desc' }>
+}
+
+export interface DocumentStats {
+  pending: number
+  processing: number
+  analyzing: number
+  completed: number
+  filtered: number
+  failed: number
+}
+
+// ============================================================================
+// Composable
+// ============================================================================
+
+export function useDocumentsView() {
+  const logger = useLogger('DocumentsView')
+  const { t } = useI18n()
+  const { formatDate: formatLocaleDate } = useDateFormatter()
+  const route = useRoute()
+  const { showSuccess, showError } = useSnackbar()
+
+  // ============================================================================
+  // State
+  // ============================================================================
+
+  // Loading states
+  const loading = ref(true)
+  const initialLoad = ref(true)
+  const processingAll = ref(false)
+  const stoppingAll = ref(false)
+  const bulkProcessing = ref(false)
+  const bulkAnalyzing = ref(false)
+  const processingIds = ref(new Set<string>())
+  const analyzingIds = ref(new Set<string>())
+
+  // Data
+  const documents = ref<Document[]>([])
+  const totalDocuments = ref(0)
+  const locations = ref<string[]>([])
+  const categories = ref<{ id: string; name: string }[]>([])
+  const selectedDocuments = ref<string[]>([])
+
+  // Filters
+  const searchQuery = ref('')
+  const locationFilter = ref<string | null>(null)
+  const typeFilter = ref<string | null>(null)
+  const categoryFilter = ref<string | null>(null)
+  const statusFilter = ref<string | null>(null)
+  const dateFrom = ref<string | null>(null)
+  const dateTo = ref<string | null>(null)
+  const page = ref(1)
+  const perPage = ref(20)
+  const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'discovered_at', order: 'desc' }])
+
+  // Dialog
+  const detailsDialog = ref(false)
+  const selectedDocument = ref<Document | null>(null)
+
+  // Auto-refresh
+  let refreshInterval: number | null = null
+
+  // Statistics
+  const stats = ref<DocumentStats>({
+    pending: 0,
+    processing: 0,
+    analyzing: 0,
+    completed: 0,
+    filtered: 0,
+    failed: 0,
+  })
+
+  // ============================================================================
+  // Static Data
+  // ============================================================================
+
+  const documentTypes = ['PDF', 'HTML', 'DOCX', 'DOC']
+
+  const headers = computed(() => [
+    { title: t('documents.columns.title'), key: 'title', sortable: true },
+    { title: t('common.type'), key: 'document_type', width: '90px', sortable: true },
+    { title: t('common.status'), key: 'processing_status', width: '140px', sortable: true },
+    { title: t('documents.columns.source'), key: 'source_name', width: '140px', sortable: true },
+    { title: t('documents.columns.category'), key: 'category_name', width: '150px', sortable: true },
+    { title: t('documents.columns.discovered'), key: 'discovered_at', width: '110px', sortable: true },
+    { title: t('documents.columns.size'), key: 'file_size', width: '80px', sortable: true },
+    { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' as const },
+  ])
+
+  // ============================================================================
+  // Computed
+  // ============================================================================
+
+  const hasActiveFilters = computed(() =>
+    searchQuery.value || locationFilter.value || typeFilter.value ||
+    categoryFilter.value || statusFilter.value || dateFrom.value || dateTo.value
+  )
+
+  // ============================================================================
+  // Helper Functions
+  // ============================================================================
+
+  function getStatusColor(status?: string): string {
+    if (!status) return 'grey'
+    const colors: Record<string, string> = {
+      PENDING: 'warning',
+      PROCESSING: 'info',
+      ANALYZING: 'purple',
+      COMPLETED: 'success',
+      FILTERED: 'grey',
+      FAILED: 'error',
+    }
+    return colors[status] || 'grey'
+  }
+
+  function getStatusLabel(status?: string): string {
+    if (!status) return '-'
+    const labels: Record<string, string> = {
+      PENDING: 'Wartend',
+      PROCESSING: 'Verarbeitung',
+      ANALYZING: 'KI-Analyse',
+      COMPLETED: 'Fertig',
+      FILTERED: 'Gefiltert',
+      FAILED: 'Fehler',
+    }
+    return labels[status] || status
+  }
+
+  function getTypeColor(type?: string): string {
+    if (!type) return 'grey'
+    const colors: Record<string, string> = { PDF: 'red', HTML: 'blue', DOCX: 'indigo', DOC: 'indigo' }
+    return colors[type] || 'grey'
+  }
+
+  function getTypeIcon(type?: string): string {
+    if (!type) return 'mdi-file-document'
+    const icons: Record<string, string> = {
+      PDF: 'mdi-file-pdf-box',
+      HTML: 'mdi-language-html5',
+      DOCX: 'mdi-file-word',
+      DOC: 'mdi-file-word',
+    }
+    return icons[type] || 'mdi-file-document'
+  }
+
+  function formatDate(dateStr?: string): string {
+    if (!dateStr) return '-'
+    return formatLocaleDate(dateStr, 'dd.MM.yy HH:mm') || '-'
+  }
+
+  function formatFileSize(bytes?: number): string {
+    if (!bytes) return '-'
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  // ============================================================================
+  // Data Loading
+  // ============================================================================
+
+  async function loadData() {
+    loading.value = true
+    try {
+      const params: Record<string, unknown> = { page: page.value, per_page: perPage.value }
+      if (searchQuery.value) params.search = searchQuery.value
+      if (locationFilter.value) params.location_name = locationFilter.value
+      if (typeFilter.value) params.document_type = typeFilter.value
+      if (categoryFilter.value) params.category_id = categoryFilter.value
+      if (statusFilter.value) params.processing_status = statusFilter.value
+      if (dateFrom.value) params.discovered_from = dateFrom.value
+      if (dateTo.value) params.discovered_to = dateTo.value
+      if (sortBy.value.length > 0) {
+        params.sort_by = sortBy.value[0].key
+        params.sort_order = sortBy.value[0].order
+      }
+
+      const documentsRes = await dataApi.getDocuments(params)
+      documents.value = documentsRes.data.items
+      totalDocuments.value = documentsRes.data.total
+      await loadStats()
+    } finally {
+      loading.value = false
+      initialLoad.value = false
+    }
+  }
+
+  async function loadStats() {
+    try {
+      const statuses = ['PENDING', 'PROCESSING', 'ANALYZING', 'COMPLETED', 'FILTERED', 'FAILED']
+      const results = await Promise.all(
+        statuses.map(status => dataApi.getDocuments({ processing_status: status, per_page: 1 }))
+      )
+      stats.value = {
+        pending: results[0].data.total,
+        processing: results[1].data.total,
+        analyzing: results[2].data.total,
+        completed: results[3].data.total,
+        filtered: results[4].data.total,
+        failed: results[5].data.total,
+      }
+    } catch (error) {
+      logger.error('Failed to load stats:', error)
+    }
+  }
+
+  async function loadLocations() {
+    try {
+      const response = await dataApi.getDocumentLocations()
+      locations.value = response.data
+    } catch (error) {
+      logger.error('Failed to load locations:', error)
+    }
+  }
+
+  async function loadCategories() {
+    try {
+      const response = await adminApi.getCategories()
+      categories.value = response.data.items || response.data
+    } catch (error) {
+      logger.error('Failed to load categories:', error)
+    }
+  }
+
+  // Debounced search
+  const { debouncedFn: debouncedLoadData } = useDebounce(
+    () => loadData(),
+    { delay: DEBOUNCE_DELAYS.SEARCH }
+  )
+
+  // ============================================================================
+  // Filter Actions
+  // ============================================================================
+
+  function toggleStatusFilter(status: string) {
+    statusFilter.value = statusFilter.value === status ? null : status
+    page.value = 1
+    loadData()
+  }
+
+  function clearFilters() {
+    searchQuery.value = ''
+    locationFilter.value = null
+    typeFilter.value = null
+    categoryFilter.value = null
+    statusFilter.value = null
+    dateFrom.value = null
+    dateTo.value = null
+    page.value = 1
+    loadData()
+  }
+
+  function onTableOptionsUpdate(options: TableOptions) {
+    page.value = options.page
+    perPage.value = options.itemsPerPage
+    if (options.sortBy && options.sortBy.length > 0) {
+      sortBy.value = options.sortBy
+    }
+    loadData()
+  }
+
+  // ============================================================================
+  // Document Actions
+  // ============================================================================
+
+  async function processDocument(doc: Document) {
+    processingIds.value.add(doc.id)
+    try {
+      await adminApi.processDocument(doc.id)
+      showSuccess(t('documents.processStarted'))
+      loadData()
+    } catch (error) {
+      showError(getErrorMessage(error) || t('documents.processError'))
+    } finally {
+      processingIds.value.delete(doc.id)
+    }
+  }
+
+  async function analyzeDocument(doc: Document) {
+    analyzingIds.value.add(doc.id)
+    try {
+      await adminApi.analyzeDocument(doc.id, true)
+      showSuccess(t('documents.analysisStarted'))
+      loadData()
+    } catch (error) {
+      showError(getErrorMessage(error) || t('documents.analysisError'))
+    } finally {
+      analyzingIds.value.delete(doc.id)
+    }
+  }
+
+  async function processAllPending() {
+    processingAll.value = true
+    try {
+      await adminApi.processAllPending()
+      showSuccess(t('documents.allProcessStarted'))
+      loadData()
+    } catch (error) {
+      showError(getErrorMessage(error) || t('documents.processError'))
+    } finally {
+      processingAll.value = false
+    }
+  }
+
+  async function stopAllProcessing() {
+    stoppingAll.value = true
+    try {
+      await adminApi.stopAllProcessing()
+      showSuccess(t('documents.processingStopping'))
+      loadData()
+    } catch (error) {
+      showError(getErrorMessage(error) || t('documents.stopError'))
+    } finally {
+      stoppingAll.value = false
+    }
+  }
+
+  // ============================================================================
+  // Bulk Actions
+  // ============================================================================
+
+  async function bulkProcess() {
+    bulkProcessing.value = true
+    try {
+      for (const id of selectedDocuments.value) {
+        await adminApi.processDocument(id)
+      }
+      showSuccess(`${selectedDocuments.value.length} Dokumente werden verarbeitet`)
+      selectedDocuments.value = []
+      loadData()
+    } catch (error) {
+      showError(getErrorMessage(error) || 'Fehler bei Bulk-Verarbeitung')
+    } finally {
+      bulkProcessing.value = false
+    }
+  }
+
+  async function bulkAnalyze() {
+    bulkAnalyzing.value = true
+    try {
+      for (const id of selectedDocuments.value) {
+        await adminApi.analyzeDocument(id, true)
+      }
+      showSuccess(`${selectedDocuments.value.length} Dokumente werden analysiert`)
+      selectedDocuments.value = []
+      loadData()
+    } catch (error) {
+      showError(getErrorMessage(error) || 'Fehler bei Bulk-Analyse')
+    } finally {
+      bulkAnalyzing.value = false
+    }
+  }
+
+  // ============================================================================
+  // Details Dialog
+  // ============================================================================
+
+  async function showDetails(doc: Document) {
+    try {
+      const response = await dataApi.getDocument(doc.id)
+      selectedDocument.value = response.data
+      detailsDialog.value = true
+    } catch {
+      showError(t('documents.loadDetailsError'))
+    }
+  }
+
+  function downloadDocument(doc: Document) {
+    if (doc.file_path) {
+      const downloadUrl = `/api/admin/documents/${doc.id}/download`
+      window.open(downloadUrl, '_blank')
+    }
+  }
+
+  // ============================================================================
+  // Export
+  // ============================================================================
+
+  function exportCsv() {
+    const csvHeaders = ['Titel', 'URL', 'Typ', 'Status', 'Quelle', 'Entdeckt', 'Größe']
+    const csvRows = documents.value.map(d => [
+      `"${(d.title || '').replace(/"/g, '""')}"`,
+      `"${d.original_url}"`,
+      d.document_type,
+      d.processing_status,
+      `"${(d.source_name || '').replace(/"/g, '""')}"`,
+      d.discovered_at,
+      d.file_size || '',
+    ])
+
+    const csv = [csvHeaders.join(','), ...csvRows.map(r => r.join(','))].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `dokumente-${format(new Date(), 'yyyy-MM-dd')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    showSuccess('CSV exportiert')
+  }
+
+  // ============================================================================
+  // Auto-Refresh
+  // ============================================================================
+
+  watch(() => stats.value.processing + stats.value.analyzing, (activeCount) => {
+    if (activeCount > 0 && !refreshInterval) {
+      refreshInterval = window.setInterval(loadData, 5000)
+    } else if (activeCount === 0 && refreshInterval) {
+      clearInterval(refreshInterval)
+      refreshInterval = null
+    }
+  })
+
+  // Cleanup on unmount
+  onUnmounted(() => {
+    if (refreshInterval) clearInterval(refreshInterval)
+  })
+
+  // ============================================================================
+  // Initialization
+  // ============================================================================
+
+  async function initialize() {
+    // Check for processing_status query parameter from dashboard widget
+    if (route.query.processing_status) {
+      const status = route.query.processing_status as string
+      const validStatuses = ['PENDING', 'PROCESSING', 'ANALYZING', 'COMPLETED', 'FILTERED', 'FAILED']
+      if (validStatuses.includes(status)) {
+        statusFilter.value = status
+      }
+    }
+
+    await Promise.all([loadData(), loadLocations(), loadCategories()])
+
+    // Check for document_id query parameter to auto-open document details
+    if (route.query.document_id) {
+      const docId = route.query.document_id as string
+      const doc = documents.value.find((d: Document) => d.id === docId)
+      if (doc) {
+        selectedDocument.value = doc
+        detailsDialog.value = true
+      }
+    }
+  }
+
+  // ============================================================================
+  // Return
+  // ============================================================================
+
+  return {
+    // Loading State
+    loading,
+    initialLoad,
+    processingAll,
+    stoppingAll,
+    bulkProcessing,
+    bulkAnalyzing,
+    processingIds,
+    analyzingIds,
+
+    // Data
+    documents,
+    totalDocuments,
+    locations,
+    categories,
+    selectedDocuments,
+    stats,
+
+    // Filters
+    searchQuery,
+    locationFilter,
+    typeFilter,
+    categoryFilter,
+    statusFilter,
+    dateFrom,
+    dateTo,
+    page,
+    perPage,
+    sortBy,
+
+    // Dialog
+    detailsDialog,
+    selectedDocument,
+
+    // Static
+    documentTypes,
+    headers,
+
+    // Computed
+    hasActiveFilters,
+
+    // Helper Functions
+    getStatusColor,
+    getStatusLabel,
+    getTypeColor,
+    getTypeIcon,
+    formatDate,
+    formatFileSize,
+
+    // Data Loading
+    loadData,
+    debouncedLoadData,
+
+    // Filter Actions
+    toggleStatusFilter,
+    clearFilters,
+    onTableOptionsUpdate,
+
+    // Document Actions
+    processDocument,
+    analyzeDocument,
+    processAllPending,
+    stopAllProcessing,
+
+    // Bulk Actions
+    bulkProcess,
+    bulkAnalyze,
+
+    // Details
+    showDetails,
+    downloadDocument,
+
+    // Export
+    exportCsv,
+
+    // Initialization
+    initialize,
+  }
+}
