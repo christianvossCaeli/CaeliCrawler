@@ -29,11 +29,11 @@
           <v-btn variant="tonal" :title="t('entityDetail.export')" @click="$emit('openExport')">
             <v-icon>mdi-export</v-icon>
           </v-btn>
-          <v-btn variant="outlined" @click="$emit('openEdit')">
+          <v-btn v-if="canEdit" variant="outlined" @click="$emit('openEdit')">
             <v-icon start>mdi-pencil</v-icon>
             {{ t('entityDetail.edit') }}
           </v-btn>
-          <v-menu>
+          <v-menu v-if="canEdit">
             <template #activator="{ props: activatorProps }">
               <v-btn variant="tonal" color="primary" v-bind="activatorProps">
                 <v-icon start>mdi-plus</v-icon>
@@ -115,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, withDefaults } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FavoriteButton from '@/components/FavoriteButton.vue'
 import type { FacetGroup } from '@/types/entity'
@@ -147,7 +147,7 @@ interface Entity {
 }
 
 // Props
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   entity: Entity
   entityType?: EntityType | null
   facetGroups?: FacetGroup[]
@@ -155,7 +155,10 @@ const props = defineProps<{
   verifiedCount: number
   dataSourcesCount: number
   childrenCount?: number
-}>()
+  canEdit?: boolean
+}>(), {
+  canEdit: true,
+})
 
 // Emits
 defineEmits<{
