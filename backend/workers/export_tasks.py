@@ -178,8 +178,10 @@ async def _execute_async_export(
             from sqlalchemy import or_
             position_conditions = []
             for keyword in position_keywords:
+                # Escape SQL wildcards to prevent injection
+                safe_keyword = keyword.replace('%', '\\%').replace('_', '\\_')
                 position_conditions.append(
-                    Entity.core_attributes["position"].astext.ilike(f"%{keyword}%")
+                    Entity.core_attributes["position"].astext.ilike(f"%{safe_keyword}%", escape='\\')
                 )
             if position_conditions:
                 entity_query = entity_query.where(or_(*position_conditions))
