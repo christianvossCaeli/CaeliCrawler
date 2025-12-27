@@ -4,7 +4,13 @@
  * This file runs before all tests to set up the test environment.
  */
 
-import { vi, afterEach } from 'vitest'
+import { vi, afterEach, beforeEach } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+
+// Create fresh Pinia instance before each test
+beforeEach(() => {
+  setActivePinia(createPinia())
+})
 
 // Mock vue-i18n
 vi.mock('vue-i18n', () => ({
