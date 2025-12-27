@@ -82,7 +82,7 @@
         </div>
 
         <!-- Quick Actions -->
-        <div class="quick-actions">
+        <div v-if="localMode !== 'plan'" class="quick-actions">
           <div class="quick-actions__header" role="button" tabindex="0" :aria-expanded="quickActionsExpanded" :aria-label="t('assistant.toggleQuickActions')" @click="quickActionsExpanded = !quickActionsExpanded" @keydown.enter.prevent="quickActionsExpanded = !quickActionsExpanded" @keydown.space.prevent="quickActionsExpanded = !quickActionsExpanded">
             <span>
               <v-icon size="x-small" class="mr-1">mdi-lightning-bolt</v-icon>
@@ -102,6 +102,12 @@
               {{ action.label }}
             </button>
           </div>
+        </div>
+
+        <!-- Plan Mode Hint -->
+        <div v-if="localMode === 'plan'" class="plan-mode-hint">
+          <v-icon size="small" class="mr-2">mdi-lightbulb-on</v-icon>
+          <span>{{ t('assistant.planModeHint') }}</span>
         </div>
 
         <!-- Messages Area -->
@@ -266,6 +272,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
+import DOMPurify from 'dompurify'
 // Display and theme utilities available via Vuetify's useDisplay/useTheme if needed
 import { useI18n } from 'vue-i18n'
 import { useAssistant } from '@/composables/useAssistant'
@@ -427,12 +434,18 @@ function escapeHtml(text: string): string {
 }
 
 function formatMessage(content: string): string {
+  // 1. First escape HTML to prevent XSS
   let f = escapeHtml(content)
+  // 2. Apply safe formatting patterns
   f = f.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
        .replace(/`(.+?)`/g, '<code>$1</code>')
        .replace(/\n/g, '<br>')
        .replace(/\[\[(\w+):([^:]+):([^\]]+)\]\]/g, '<span class="entity-link">$3</span>')
-  return f
+  // 3. Final sanitization with DOMPurify for defense-in-depth
+  return DOMPurify.sanitize(f, {
+    ALLOWED_TAGS: ['strong', 'code', 'br', 'span'],
+    ALLOWED_ATTR: ['class']
+  })
 }
 
 function formatTime(date: Date): string {
@@ -615,6 +628,18 @@ watch(() => messages.value.length, async () => {
 .quick-actions__header:focus-visible {
   outline: 2px solid rgb(var(--v-theme-primary));
   outline-offset: -2px;
+}
+
+/* Plan Mode Hint */
+.plan-mode-hint {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  background: rgba(var(--v-theme-info), 0.12);
+  color: rgb(var(--v-theme-info));
+  font-size: 0.8rem;
+  border-bottom: 1px solid rgba(var(--v-theme-info), 0.3);
+  flex-shrink: 0;
 }
 
 .quick-actions__content {
