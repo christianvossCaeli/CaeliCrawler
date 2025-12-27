@@ -284,19 +284,23 @@ const isPasswordValid = computed(() =>
 )
 
 // Navigation items (computed for reactivity with locale changes)
-const mainNavItems = computed(() => [
-  { title: t('nav.dashboard'), icon: 'mdi-view-dashboard', to: '/' },
-  { title: t('nav.entities'), icon: 'mdi-database', to: '/entities' },
-  { title: t('nav.entityTypes'), icon: 'mdi-shape', to: '/admin/entity-types' },
-  { title: t('nav.facetTypes'), icon: 'mdi-tag-multiple', to: '/admin/facet-types' },
-  { title: t('nav.categories'), icon: 'mdi-folder-multiple', to: '/categories' },
-  { title: t('nav.dataSources'), icon: 'mdi-web', to: '/sources' },
-  { title: t('nav.crawlerStatus'), icon: 'mdi-robot', to: '/crawler' },
-  { title: t('nav.documents'), icon: 'mdi-file-document-multiple', to: '/documents' },
-  { title: t('nav.results'), icon: 'mdi-chart-box', to: '/results' },
-  { title: t('nav.smartQuery'), icon: 'mdi-head-question', to: '/smart-query' },
-  { title: t('nav.export'), icon: 'mdi-export', to: '/export' },
-])
+const mainNavItems = computed(() => {
+  const items = [
+    { title: t('nav.dashboard'), icon: 'mdi-view-dashboard', to: '/' },
+    { title: t('nav.entities'), icon: 'mdi-database', to: '/entities' },
+    { title: t('nav.entityTypes'), icon: 'mdi-shape', to: '/admin/entity-types' },
+    { title: t('nav.facetTypes'), icon: 'mdi-tag-multiple', to: '/admin/facet-types' },
+    { title: t('nav.categories'), icon: 'mdi-folder-multiple', to: '/categories', requiresEditor: true },
+    { title: t('nav.dataSources'), icon: 'mdi-web', to: '/sources', requiresEditor: true },
+    { title: t('nav.crawlerStatus'), icon: 'mdi-robot', to: '/crawler', requiresEditor: true },
+    { title: t('nav.documents'), icon: 'mdi-file-document-multiple', to: '/documents' },
+    { title: t('nav.results'), icon: 'mdi-chart-box', to: '/results' },
+    { title: t('nav.smartQuery'), icon: 'mdi-head-question', to: '/smart-query' },
+    { title: t('nav.export'), icon: 'mdi-export', to: '/export' },
+  ]
+
+  return items.filter((item) => !item.requiresEditor || auth.isEditor)
+})
 
 const secondaryNavItems = computed(() => [
   { title: t('nav.favorites'), icon: 'mdi-star', to: '/favorites' },

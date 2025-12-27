@@ -22,7 +22,7 @@
 
             <div class="text-subtitle-2 mb-2">{{ t('exportView.filtersTitle') }}</div>
             <v-row>
-              <v-col cols="12" md="6">
+              <v-col v-if="canEdit" cols="12" md="6">
                 <v-select
                   v-model="exportOptions.category_id"
                   :items="categories"
@@ -34,7 +34,7 @@
                   hide-details
                 />
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col cols="12" :md="canEdit ? 6 : 12">
                 <v-slider
                   v-model="minConfidencePercent"
                   :min="0"
@@ -355,11 +355,14 @@ import ExportProgressPanel from '@/components/export/ExportProgressPanel.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useLogger } from '@/composables/useLogger'
 import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { useAuthStore } from '@/stores/auth'
 
 const logger = useLogger('ExportView')
 
 const { t, locale } = useI18n()
 const { showSuccess, showError } = useSnackbar()
+const auth = useAuthStore()
+const canEdit = computed(() => auth.isEditor)
 
 const dateLocale = computed(() => locale.value === 'de' ? de : enUS)
 
@@ -527,6 +530,7 @@ const resetQuickFilters = () => {
 }
 
 const loadCategories = async () => {
+  if (!canEdit.value) return
   loadingCategories.value = true
   try {
     const response = await adminApi.getCategories({ per_page: 100 })
@@ -656,7 +660,9 @@ watch(() => asyncExportOptions.value.country, () => {
 })
 
 onMounted(() => {
-  loadCategories()
+  if (canEdit.value) {
+    loadCategories()
+  }
   loadLocationOptions()
   loadChanges()
 })

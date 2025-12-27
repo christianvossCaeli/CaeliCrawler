@@ -41,6 +41,7 @@
       <template #item.actions="{ item }">
         <div class="table-actions d-flex justify-end ga-1">
           <v-btn
+            v-if="canEdit"
             icon="mdi-database-outline"
             size="small"
             variant="tonal"
@@ -50,6 +51,7 @@
             @click="emit('view-sources', item)"
           />
           <v-btn
+            v-if="canEdit"
             icon="mdi-pencil"
             size="small"
             variant="tonal"
@@ -58,6 +60,7 @@
             @click="emit('edit', item)"
           />
           <v-btn
+            v-if="canEdit"
             icon="mdi-play"
             size="small"
             variant="tonal"
@@ -67,6 +70,7 @@
             @click="emit('start-crawl', item)"
           />
           <v-btn
+            v-if="canEdit"
             icon="mdi-view-dashboard-variant"
             size="small"
             variant="tonal"
@@ -76,6 +80,7 @@
             @click="emit('create-summary', item)"
           />
           <v-btn
+            v-if="canAdmin"
             icon="mdi-refresh"
             size="small"
             variant="tonal"
@@ -85,6 +90,7 @@
             @click="emit('reanalyze', item)"
           />
           <v-btn
+            v-if="canAdmin"
             icon="mdi-delete"
             size="small"
             variant="tonal"
@@ -108,6 +114,8 @@ export interface CategoriesTreeProps {
   categories: Category[]
   loading: boolean
   languageOptions: Array<{ code: string; name: string; flag: string }>
+  canEdit?: boolean
+  canAdmin?: boolean
 }
 
 export interface CategoriesTreeEmits {
@@ -119,7 +127,10 @@ export interface CategoriesTreeEmits {
   (e: 'reanalyze', category: Category): void
 }
 
-const props = defineProps<CategoriesTreeProps>()
+const props = withDefaults(defineProps<CategoriesTreeProps>(), {
+  canEdit: true,
+  canAdmin: true,
+})
 const emit = defineEmits<CategoriesTreeEmits>()
 
 const { t } = useI18n()

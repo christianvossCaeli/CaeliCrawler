@@ -60,13 +60,13 @@ const router = createRouter({
       path: '/categories',
       name: 'categories',
       component: () => import('@/views/CategoriesView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, requiresEditor: true }
     },
     {
       path: '/sources',
       name: 'sources',
       component: () => import('@/views/SourcesView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, requiresEditor: true }
     },
     {
       path: '/crawler',

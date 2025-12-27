@@ -1,7 +1,7 @@
 <template>
   <div class="table-actions d-flex justify-end ga-1" role="group" :aria-label="$t('sources.actions.rowActions')">
     <!-- Edit Button -->
-    <v-tooltip location="top" :text="$t('common.edit')">
+    <v-tooltip v-if="canEdit" location="top" :text="$t('common.edit')">
       <template #activator="{ props: tooltipProps }">
         <v-btn
           v-bind="tooltipProps"
@@ -15,7 +15,7 @@
     </v-tooltip>
 
     <!-- Start Crawl Button -->
-    <v-tooltip location="top" :text="$t('sources.actions.startCrawl')">
+    <v-tooltip v-if="canEdit" location="top" :text="$t('sources.actions.startCrawl')">
       <template #activator="{ props: tooltipProps }">
         <v-btn
           v-bind="tooltipProps"
@@ -33,7 +33,7 @@
     </v-tooltip>
 
     <!-- Reset Button -->
-    <v-tooltip location="top" :text="$t('sources.actions.reset')">
+    <v-tooltip v-if="canEdit" location="top" :text="$t('sources.actions.reset')">
       <template #activator="{ props: tooltipProps }">
         <v-btn
           v-bind="tooltipProps"
@@ -51,7 +51,7 @@
     </v-tooltip>
 
     <!-- Delete Button -->
-    <v-tooltip location="top" :text="$t('common.delete')">
+    <v-tooltip v-if="canAdmin" location="top" :text="$t('common.delete')">
       <template #activator="{ props: tooltipProps }">
         <v-btn
           v-bind="tooltipProps"
@@ -74,9 +74,14 @@ interface Props {
   source: DataSourceResponse
   isStarting: boolean
   isResetting: boolean
+  canEdit?: boolean
+  canAdmin?: boolean
 }
 
-defineProps<Props>()
+withDefaults(defineProps<Props>(), {
+  canEdit: true,
+  canAdmin: true,
+})
 
 defineEmits<{
   (e: 'edit', source: DataSourceResponse): void

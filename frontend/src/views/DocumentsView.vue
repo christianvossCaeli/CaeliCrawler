@@ -13,7 +13,7 @@
       <template #actions>
         <!-- Bulk Actions -->
         <v-btn
-          v-if="selectedDocuments.length > 0"
+          v-if="canEdit && selectedDocuments.length > 0"
           color="primary"
           variant="outlined"
           prepend-icon="mdi-play"
@@ -23,7 +23,7 @@
           {{ selectedDocuments.length }} {{ $t('documents.bulkActions.processSelected') }}
         </v-btn>
         <v-btn
-          v-if="selectedDocuments.length > 0"
+          v-if="canEdit && selectedDocuments.length > 0"
           color="info"
           variant="outlined"
           prepend-icon="mdi-brain"
@@ -33,7 +33,7 @@
           {{ selectedDocuments.length }} {{ $t('documents.bulkActions.analyzeSelected') }}
         </v-btn>
         <v-btn
-          v-if="stats.processing > 0"
+          v-if="canAdmin && stats.processing > 0"
           color="error"
           variant="outlined"
           prepend-icon="mdi-stop"
@@ -43,7 +43,7 @@
           {{ $t('documents.actions.stop') }}
         </v-btn>
         <v-btn
-          v-if="stats.pending > 0 && selectedDocuments.length === 0"
+          v-if="canAdmin && stats.pending > 0 && selectedDocuments.length === 0"
           color="primary"
           prepend-icon="mdi-play"
           :loading="processingAll"
@@ -185,7 +185,7 @@
               @update:model-value="loadData"
             />
           </v-col>
-          <v-col cols="6" md="2">
+          <v-col v-if="canEdit" cols="6" md="2">
             <v-select
               v-model="categoryFilter"
               :items="categories"
@@ -240,7 +240,7 @@
         :items="documents"
         :items-length="totalDocuments"
         :loading="loading"
-        show-select
+        :show-select="canEdit"
         item-value="id"
         @update:options="onTableOptionsUpdate"
       >
@@ -289,9 +289,9 @@
 
         <template #item.actions="{ item }">
           <div class="table-actions d-flex justify-end ga-1">
-            <v-btn v-if="item.processing_status === 'PENDING'" icon="mdi-play" size="small" variant="tonal" color="primary" :title="$t('documents.actions.process')" :aria-label="$t('documents.actions.process')" :loading="processingIds.has(item.id)" @click="processDocument(item)"></v-btn>
-            <v-btn v-if="item.processing_status === 'COMPLETED' || item.processing_status === 'FILTERED'" icon="mdi-brain" size="small" variant="tonal" color="info" :title="$t('documents.actions.analyze')" :aria-label="$t('documents.actions.analyze')" :loading="analyzingIds.has(item.id)" @click="analyzeDocument(item)"></v-btn>
-            <v-btn v-if="item.file_path" icon="mdi-download" size="small" variant="tonal" color="success" :title="$t('common.download')" :aria-label="$t('common.download')" @click="downloadDocument(item)"></v-btn>
+            <v-btn v-if="canEdit && item.processing_status === 'PENDING'" icon="mdi-play" size="small" variant="tonal" color="primary" :title="$t('documents.actions.process')" :aria-label="$t('documents.actions.process')" :loading="processingIds.has(item.id)" @click="processDocument(item)"></v-btn>
+            <v-btn v-if="canEdit && (item.processing_status === 'COMPLETED' || item.processing_status === 'FILTERED')" icon="mdi-brain" size="small" variant="tonal" color="info" :title="$t('documents.actions.analyze')" :aria-label="$t('documents.actions.analyze')" :loading="analyzingIds.has(item.id)" @click="analyzeDocument(item)"></v-btn>
+            <v-btn v-if="canEdit && item.file_path" icon="mdi-download" size="small" variant="tonal" color="success" :title="$t('common.download')" :aria-label="$t('common.download')" @click="downloadDocument(item)"></v-btn>
             <v-btn icon="mdi-open-in-new" size="small" variant="tonal" :title="$t('common.open')" :aria-label="$t('common.open')" :href="item.original_url" target="_blank"></v-btn>
             <v-btn icon="mdi-information" size="small" variant="tonal" :title="$t('common.details')" :aria-label="$t('common.details')" @click="showDetails(item)"></v-btn>
           </div>
@@ -386,10 +386,10 @@
         </v-card-text>
         <v-divider />
         <v-card-actions>
-          <v-btn v-if="selectedDocument.file_path" color="success" variant="outlined" prepend-icon="mdi-download" @click="downloadDocument(selectedDocument)">Herunterladen</v-btn>
+          <v-btn v-if="canEdit && selectedDocument.file_path" color="success" variant="outlined" prepend-icon="mdi-download" @click="downloadDocument(selectedDocument)">Herunterladen</v-btn>
           <v-spacer />
-          <v-btn v-if="selectedDocument.processing_status === 'PENDING'" variant="tonal" color="primary" prepend-icon="mdi-play" @click="processDocument(selectedDocument); detailsDialog = false">Verarbeiten</v-btn>
-          <v-btn v-if="selectedDocument.processing_status === 'COMPLETED' || selectedDocument.processing_status === 'FILTERED'" variant="tonal" color="info" prepend-icon="mdi-brain" @click="analyzeDocument(selectedDocument); detailsDialog = false">KI-Analyse</v-btn>
+          <v-btn v-if="canEdit && selectedDocument.processing_status === 'PENDING'" variant="tonal" color="primary" prepend-icon="mdi-play" @click="processDocument(selectedDocument); detailsDialog = false">Verarbeiten</v-btn>
+          <v-btn v-if="canEdit && (selectedDocument.processing_status === 'COMPLETED' || selectedDocument.processing_status === 'FILTERED')" variant="tonal" color="info" prepend-icon="mdi-brain" @click="analyzeDocument(selectedDocument); detailsDialog = false">KI-Analyse</v-btn>
           <v-btn variant="tonal" @click="detailsDialog = false">Schließen</v-btn>
         </v-card-actions>
       </v-card>
@@ -405,10 +405,11 @@
  * Uses useDocumentsView composable for all state and logic.
  * Supports bulk processing, AI analysis, and auto-refresh.
  */
-import { onMounted } from 'vue'
+import { onMounted, computed } from 'vue'
 import { useDocumentsView } from '@/composables/useDocumentsView'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DocumentsSkeleton from '@/components/documents/DocumentsSkeleton.vue'
+import { useAuthStore } from '@/stores/auth'
 
 // Initialize composable with all state and methods
 const {
@@ -490,6 +491,10 @@ const {
   // Initialization
   initialize,
 } = useDocumentsView()
+
+const auth = useAuthStore()
+const canEdit = computed(() => auth.isEditor)
+const canAdmin = computed(() => auth.isAdmin)
 
 // Explicitly mark unused but template-required variables
 void documents

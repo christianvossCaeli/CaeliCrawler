@@ -14,6 +14,7 @@ import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import { useLogger } from '@/composables/useLogger'
 import { getErrorMessage } from '@/composables/useApiErrorHandler'
 import { useDateFormatter } from '@/composables/useDateFormatter'
+import { useAuthStore } from '@/stores/auth'
 
 // ============================================================================
 // Types
@@ -74,6 +75,9 @@ export function useDocumentsView() {
   const { formatDate: formatLocaleDate } = useDateFormatter()
   const route = useRoute()
   const { showSuccess, showError } = useSnackbar()
+  const auth = useAuthStore()
+  const canEdit = computed(() => auth.isEditor)
+  const canAdmin = computed(() => auth.isAdmin)
 
   // ============================================================================
   // State
@@ -269,6 +273,7 @@ export function useDocumentsView() {
   }
 
   async function loadCategories() {
+    if (!canEdit.value) return
     try {
       const response = await adminApi.getCategories()
       categories.value = response.data.items || response.data
@@ -319,6 +324,10 @@ export function useDocumentsView() {
   // ============================================================================
 
   async function processDocument(doc: Document) {
+    if (!canEdit.value) {
+      showError(t('common.forbidden'))
+      return
+    }
     processingIds.value.add(doc.id)
     try {
       await adminApi.processDocument(doc.id)
@@ -332,6 +341,10 @@ export function useDocumentsView() {
   }
 
   async function analyzeDocument(doc: Document) {
+    if (!canEdit.value) {
+      showError(t('common.forbidden'))
+      return
+    }
     analyzingIds.value.add(doc.id)
     try {
       await adminApi.analyzeDocument(doc.id, true)
@@ -345,6 +358,10 @@ export function useDocumentsView() {
   }
 
   async function processAllPending() {
+    if (!canAdmin.value) {
+      showError(t('common.forbidden'))
+      return
+    }
     processingAll.value = true
     try {
       await adminApi.processAllPending()
@@ -358,6 +375,10 @@ export function useDocumentsView() {
   }
 
   async function stopAllProcessing() {
+    if (!canAdmin.value) {
+      showError(t('common.forbidden'))
+      return
+    }
     stoppingAll.value = true
     try {
       await adminApi.stopAllProcessing()
@@ -375,6 +396,10 @@ export function useDocumentsView() {
   // ============================================================================
 
   async function bulkProcess() {
+    if (!canEdit.value) {
+      showError(t('common.forbidden'))
+      return
+    }
     bulkProcessing.value = true
     try {
       for (const id of selectedDocuments.value) {
@@ -391,6 +416,10 @@ export function useDocumentsView() {
   }
 
   async function bulkAnalyze() {
+    if (!canEdit.value) {
+      showError(t('common.forbidden'))
+      return
+    }
     bulkAnalyzing.value = true
     try {
       for (const id of selectedDocuments.value) {
@@ -421,6 +450,10 @@ export function useDocumentsView() {
   }
 
   function downloadDocument(doc: Document) {
+    if (!canEdit.value) {
+      showError(t('common.forbidden'))
+      return
+    }
     if (doc.file_path) {
       const downloadUrl = `/api/admin/documents/${doc.id}/download`
       window.open(downloadUrl, '_blank')

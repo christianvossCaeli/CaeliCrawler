@@ -12,7 +12,7 @@
       :count="filteredCategories.length"
     >
       <template #actions>
-        <v-btn variant="tonal" color="primary" @click="openCreateDialog">
+        <v-btn v-if="canEdit" variant="tonal" color="primary" @click="openCreateDialog">
           <v-icon left>mdi-plus</v-icon>
           {{ $t('categories.actions.create') }}
         </v-btn>
@@ -34,6 +34,8 @@
       :categories="filteredCategories"
       :loading="loading"
       :language-options="languageFilterOptions"
+      :can-edit="canEdit"
+      :can-admin="canAdmin"
       @edit="openEditDialog"
       @delete="confirmDelete"
       @view-sources="showSourcesForCategory"
@@ -44,6 +46,7 @@
 
     <!-- Create/Edit Dialog -->
     <CategoryEditForm
+      v-if="canEdit"
       v-model="dialog"
       :edit-mode="editMode"
       :category="selectedCategory"
@@ -60,6 +63,7 @@
 
     <!-- Delete Confirmation -->
     <ConfirmDialog
+      v-if="canAdmin"
       v-model="deleteDialog"
       :title="$t('categories.dialog.delete')"
       :message="$t('categories.dialog.deleteConfirm', { name: selectedCategory?.name })"
@@ -69,6 +73,7 @@
 
     <!-- Reanalyze Confirmation -->
     <CategoryReanalyzeDialog
+      v-if="canAdmin"
       v-model="reanalyzeDialog"
       v-model:reanalyze-all="reanalyzeAll"
       :category-name="selectedCategory?.name || ''"
@@ -77,6 +82,7 @@
 
     <!-- Sources for Category Dialog -->
     <CategorySourcesDialog
+      v-if="canEdit"
       v-model="sourcesDialog"
       :category="selectedCategoryForSources"
       :sources="categorySources"
@@ -86,6 +92,7 @@
 
     <!-- Start Crawler Dialog -->
     <CategoryCrawlerDialog
+      v-if="canEdit"
       v-model="crawlerDialog"
       :category="selectedCategoryForCrawler"
       :filter="crawlerFilter"
@@ -98,6 +105,7 @@
 
     <!-- AI Setup Preview Dialog -->
     <CategoryAiPreviewDialog
+      v-if="canEdit"
       v-model="aiPreviewDialog"
       :loading="aiPreviewLoading"
       :saving="savingWithAi"
@@ -114,6 +122,7 @@
 
     <!-- Summary Create Dialog -->
     <SummaryCreateDialog
+      v-if="canEdit"
       v-model="summaryCreateDialog"
       :initial-prompt="summaryInitialPrompt"
       @created="handleSummaryCreated"
@@ -133,6 +142,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
 import {
   useCategoriesView,
   useCategoryCrawler,
@@ -161,6 +171,10 @@ const logger = useLogger('CategoriesView')
 const initialLoad = ref(true)
 const { t } = useI18n()
 const router = useRouter()
+const auth = useAuthStore()
+
+const canEdit = computed(() => auth.isEditor)
+const canAdmin = computed(() => auth.isAdmin)
 
 // Main state from composables
 const {
@@ -297,6 +311,10 @@ const formData = ref<CategoryFormData>({
 
 // Methods
 const openCreateDialog = () => {
+  if (!canEdit.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   editMode.value = false
   formData.value = {
     name: '',
@@ -315,6 +333,10 @@ const openCreateDialog = () => {
 }
 
 const openEditDialog = async (category: Category) => {
+  if (!canEdit.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   editMode.value = true
   selectedCategory.value = category
   formData.value = {
@@ -336,6 +358,10 @@ const openEditDialog = async (category: Category) => {
 }
 
 const saveCategory = async () => {
+  if (!canEdit.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   try {
     if (editMode.value && selectedCategory.value) {
       await adminApi.updateCategory(selectedCategory.value.id, formData.value)
@@ -353,6 +379,10 @@ const saveCategory = async () => {
 }
 
 const showAiPreview = async () => {
+  if (!canEdit.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   aiPreviewDialog.value = true
   aiPreviewLoading.value = true
   aiPreviewData.value = null
@@ -381,6 +411,10 @@ const showAiPreview = async () => {
 }
 
 const saveWithoutAiSetup = async () => {
+  if (!canEdit.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   try {
     await adminApi.createCategory(formData.value)
     aiPreviewDialog.value = false
@@ -394,6 +428,10 @@ const saveWithoutAiSetup = async () => {
 
 const saveWithAiSetup = async () => {
   if (!aiPreviewData.value) return
+  if (!canEdit.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
 
   savingWithAi.value = true
   try {
@@ -428,12 +466,20 @@ const saveWithAiSetup = async () => {
 }
 
 const confirmDelete = (category: Category) => {
+  if (!canAdmin.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   selectedCategory.value = category
   deleteDialog.value = true
 }
 
 const handleDeleteCategory = async () => {
   if (selectedCategory.value) {
+    if (!canAdmin.value) {
+      showSnackbar(t('common.forbidden'), 'error')
+      return
+    }
     const success = await deleteCategory(selectedCategory.value.id)
     if (success) {
       deleteDialog.value = false
@@ -442,6 +488,10 @@ const handleDeleteCategory = async () => {
 }
 
 const confirmReanalyze = (category: Category) => {
+  if (!canAdmin.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   selectedCategory.value = category
   reanalyzeAll.value = false
   reanalyzeDialog.value = true
@@ -449,6 +499,10 @@ const confirmReanalyze = (category: Category) => {
 
 const handleReanalyzeDocuments = async () => {
   if (selectedCategory.value) {
+    if (!canAdmin.value) {
+      showSnackbar(t('common.forbidden'), 'error')
+      return
+    }
     const success = await reanalyzeDocuments(selectedCategory.value.id, reanalyzeAll.value)
     if (success) {
       reanalyzeDialog.value = false
@@ -457,6 +511,10 @@ const handleReanalyzeDocuments = async () => {
 }
 
 const showSourcesForCategory = async (category: Category) => {
+  if (!canEdit.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   selectedCategoryForSources.value = category
   sourcesDialog.value = true
   await loadSourcesForCategory(category.id)
@@ -470,6 +528,10 @@ const navigateToSourcesFiltered = () => {
 }
 
 const handleStartFilteredCrawl = async () => {
+  if (!canEdit.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   const result = await startFilteredCrawl()
   if (result) {
     showSnackbar(result.message, result.success ? 'success' : 'error')
@@ -492,6 +554,10 @@ const handleDataSourcesStateUpdate = (newState: DataSourcesTabState) => {
 
 const handleAssignSources = async () => {
   if (!selectedCategory.value) return
+  if (!canEdit.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
 
   const result = await assignSourcesByTags(selectedCategory.value.id)
   if (result) {
@@ -509,6 +575,10 @@ const handleAssignSources = async () => {
 }
 
 const openSummaryDialog = (category: Category) => {
+  if (!canEdit.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   summaryTriggerCategory.value = category
   const entityTypeName = category.target_entity_type?.name || category.name
   const purpose = category.purpose || ''

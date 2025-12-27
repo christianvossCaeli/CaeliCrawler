@@ -38,7 +38,7 @@
               @click="sidebarOpen = !sidebarOpen"
             />
             <!-- Import Dropdown Menu -->
-            <v-menu>
+            <v-menu v-if="canEdit">
               <template #activator="{ props }">
                 <v-btn v-bind="props" variant="tonal" color="secondary">
                   <v-icon start>mdi-import</v-icon>
@@ -47,32 +47,34 @@
                 </v-btn>
               </template>
               <v-list density="compact">
-                <v-list-item @click="bulkDialog = true">
+                <v-list-item v-if="canAdmin" @click="bulkDialog = true">
                   <template #prepend>
                     <v-icon color="secondary">mdi-file-upload</v-icon>
                   </template>
                   <v-list-item-title>{{ $t('sources.import.bulkImport') }}</v-list-item-title>
                   <v-list-item-subtitle>{{ $t('sources.import.bulkImportDesc') }}</v-list-item-subtitle>
                 </v-list-item>
-                <v-list-item @click="apiImportDialog = true">
+                <v-list-item v-if="canEdit" @click="apiImportDialog = true">
                   <template #prepend>
                     <v-icon color="info">mdi-api</v-icon>
                   </template>
                   <v-list-item-title>{{ $t('sources.import.apiImport') }}</v-list-item-title>
                   <v-list-item-subtitle>{{ $t('sources.import.apiImportDesc') }}</v-list-item-subtitle>
                 </v-list-item>
-                <v-divider />
-                <v-list-item @click="aiDiscoveryDialog = true">
-                  <template #prepend>
-                    <v-icon color="primary">mdi-robot</v-icon>
-                  </template>
-                  <v-list-item-title class="text-primary font-weight-bold">{{ $t('sources.import.aiDiscovery') }}</v-list-item-title>
-                  <v-list-item-subtitle>{{ $t('sources.import.aiDiscoveryDesc') }}</v-list-item-subtitle>
-                </v-list-item>
+                <template v-if="canEdit">
+                  <v-divider />
+                  <v-list-item @click="aiDiscoveryDialog = true">
+                    <template #prepend>
+                      <v-icon color="primary">mdi-robot</v-icon>
+                    </template>
+                    <v-list-item-title class="text-primary font-weight-bold">{{ $t('sources.import.aiDiscovery') }}</v-list-item-title>
+                    <v-list-item-subtitle>{{ $t('sources.import.aiDiscoveryDesc') }}</v-list-item-subtitle>
+                  </v-list-item>
+                </template>
               </v-list>
             </v-menu>
 
-            <v-btn variant="tonal" color="primary" @click="openCreateDialog">
+            <v-btn v-if="canEdit" variant="tonal" color="primary" @click="openCreateDialog">
               <v-icon start>mdi-plus</v-icon>{{ $t('sources.actions.create') }}
             </v-btn>
           </template>
@@ -162,6 +164,8 @@
                 :source="item"
                 :is-starting="isStartingCrawl(item.id)"
                 :is-resetting="isResetting(item.id)"
+                :can-edit="canEdit"
+                :can-admin="canAdmin"
                 @edit="openEditDialog"
                 @start-crawl="handleStartCrawl"
                 @reset="handleResetSource"
@@ -191,7 +195,7 @@
                   {{ $t('sources.filters.clearAll') }}
                 </v-btn>
                 <v-btn
-                  v-else
+                  v-else-if="canEdit"
                   variant="tonal"
                   color="primary"
                   @click="openCreateDialog"
@@ -205,7 +209,7 @@
         </v-card>
 
         <!-- Create/Edit Dialog with Error Boundary (lazy-loaded) -->
-        <ErrorBoundary v-if="formDialog" @error="onDialogError" @reset="formDialog = false">
+        <ErrorBoundary v-if="formDialog && canEdit" @error="onDialogError" @reset="formDialog = false">
           <Suspense>
             <SourceFormDialog
               v-model="formDialog"
@@ -231,7 +235,7 @@
         </ErrorBoundary>
 
         <!-- Bulk Import Dialog with Error Boundary (lazy-loaded) -->
-        <ErrorBoundary v-if="bulkDialog" @error="onDialogError" @reset="bulkDialog = false">
+        <ErrorBoundary v-if="bulkDialog && canAdmin" @error="onDialogError" @reset="bulkDialog = false">
           <Suspense>
             <SourcesBulkImportDialog
               v-model="bulkDialog"
@@ -252,6 +256,7 @@
 
         <!-- Delete Dialog -->
         <SourcesDeleteDialog
+          v-if="canAdmin"
           v-model="deleteDialog"
           :source="store.selectedSource"
           :deleting="deleting"
@@ -259,7 +264,7 @@
         />
 
         <!-- API Import Dialog with Error Boundary (lazy-loaded) -->
-        <ErrorBoundary v-if="apiImportDialog" @error="onDialogError" @reset="apiImportDialog = false">
+        <ErrorBoundary v-if="apiImportDialog && canEdit" @error="onDialogError" @reset="apiImportDialog = false">
           <Suspense>
             <ApiImportDialog
               v-model="apiImportDialog"
@@ -278,7 +283,7 @@
         </ErrorBoundary>
 
         <!-- AI Discovery Dialog with Error Boundary (lazy-loaded) -->
-        <ErrorBoundary v-if="aiDiscoveryDialog" @error="onDialogError" @reset="aiDiscoveryDialog = false">
+        <ErrorBoundary v-if="aiDiscoveryDialog && canEdit" @error="onDialogError" @reset="aiDiscoveryDialog = false">
           <Suspense>
             <AiDiscoveryDialog
               v-model="aiDiscoveryDialog"
@@ -323,6 +328,7 @@ import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { useDebounceFn } from '@vueuse/core'
 import { useSourcesStore } from '@/stores/sources'
+import { useAuthStore } from '@/stores/auth'
 // Always-visible components loaded synchronously
 import {
   SourcesSidebar,
@@ -372,6 +378,10 @@ const store = useSourcesStore()
 const { sources } = storeToRefs(store)
 const { t } = useI18n()
 const route = useRoute()
+const auth = useAuthStore()
+
+const canEdit = computed(() => auth.isEditor)
+const canAdmin = computed(() => auth.isAdmin)
 
 const {
   getTypeColor,
@@ -516,6 +526,10 @@ const onTableOptionsUpdate = (options: { page: number; itemsPerPage: number; sor
  * Open create source dialog
  */
 const openCreateDialog = () => {
+  if (!canEdit.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   store.prepareCreateForm()
   formDialog.value = true
 }
@@ -524,6 +538,10 @@ const openCreateDialog = () => {
  * Open edit source dialog
  */
 const openEditDialog = async (source: DataSourceResponse) => {
+  if (!canEdit.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   await store.prepareEditForm(source)
   formDialog.value = true
 }
@@ -532,6 +550,10 @@ const openEditDialog = async (source: DataSourceResponse) => {
  * Save source (create or update)
  */
 const saveSource = async () => {
+  if (!canEdit.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   try {
     await store.saveForm()
     formDialog.value = false
@@ -565,6 +587,10 @@ const onDialogError = (error: Error, info: string) => {
  * Confirm delete source
  */
 const confirmDelete = (source: DataSourceResponse) => {
+  if (!canAdmin.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   store.selectedSource = source
   deleteDialog.value = true
 }
@@ -574,6 +600,10 @@ const confirmDelete = (source: DataSourceResponse) => {
  */
 const handleDeleteSource = async () => {
   if (!store.selectedSource) return
+  if (!canAdmin.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
 
   deleting.value = true
   try {
@@ -597,6 +627,10 @@ const handleDeleteSource = async () => {
  * Uses timestamp tracking to prevent race conditions in cleanup
  */
 const handleStartCrawl = async (source: DataSourceResponse) => {
+  if (!canEdit.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   actionLoading.value.starting[source.id] = true
   try {
     await store.startCrawl(source)
@@ -620,6 +654,10 @@ const handleStartCrawl = async (source: DataSourceResponse) => {
  * Uses timestamp tracking to prevent race conditions in cleanup
  */
 const handleResetSource = async (source: DataSourceResponse) => {
+  if (!canEdit.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   actionLoading.value.resetting[source.id] = true
   try {
     await store.resetSource(source)
@@ -641,6 +679,10 @@ const handleResetSource = async (source: DataSourceResponse) => {
  * Handle bulk import
  */
 const handleBulkImport = async (data: BulkImportState) => {
+  if (!canAdmin.value) {
+    showSnackbar(t('common.forbidden'), 'error')
+    return
+  }
   try {
     // Update store's bulk import state
     store.bulkImport.category_ids = data.category_ids

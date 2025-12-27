@@ -17,6 +17,7 @@
           {{ dashboardStore.isEditing ? $t('dashboard.finishEditing') : $t('dashboard.customize') }}
         </v-btn>
         <v-btn
+          v-if="canEdit"
           variant="tonal"
           color="warning"
           :aria-label="$t('dashboard.quickActions.startCrawler')"
@@ -29,7 +30,7 @@
     </PageHeader>
 
     <!-- Crawl Presets Quick Actions -->
-    <CrawlPresetQuickActions class="mb-4" />
+    <CrawlPresetQuickActions v-if="canEdit" class="mb-4" />
 
     <!-- Loading State -->
     <div v-if="dashboardStore.isLoading" class="d-flex justify-center py-12" role="status" aria-live="polite">
@@ -47,7 +48,7 @@
     <WidgetConfigurator v-model="showConfigurator" />
 
     <!-- Start Crawler Dialog -->
-    <v-dialog v-model="showStartCrawlerDialog" max-width="650" role="dialog" aria-modal="true">
+    <v-dialog v-if="canEdit" v-model="showStartCrawlerDialog" max-width="650" role="dialog" aria-modal="true">
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon class="mr-2" aria-hidden="true">mdi-spider-web</v-icon>
@@ -195,6 +196,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
 import { useDashboardStore } from '@/stores/dashboard'
+import { useAuthStore } from '@/stores/auth'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import DashboardGrid from '@/widgets/DashboardGrid.vue'
 import WidgetConfigurator from '@/components/dashboard/WidgetConfigurator.vue'
@@ -206,6 +208,8 @@ const logger = useLogger('DashboardView')
 
 const { t } = useI18n()
 const dashboardStore = useDashboardStore()
+const auth = useAuthStore()
+const canEdit = computed(() => auth.isEditor)
 
 // UI State
 const showConfigurator = ref(false)
@@ -269,6 +273,7 @@ const { debouncedFn: debouncedUpdateFilteredCount } = useDebounce(
 )
 
 const updateFilteredCount = async () => {
+  if (!canEdit.value) return
   try {
     const params: Record<string, unknown> = { per_page: 1 }
     if (crawlerFilter.value.category_id) params.category_id = crawlerFilter.value.category_id
@@ -292,6 +297,7 @@ const updateFilteredCount = async () => {
 }
 
 const startFilteredCrawlers = async () => {
+  if (!canEdit.value) return
   startingCrawlers.value = true
   try {
     const params: Record<string, unknown> = {}
@@ -316,6 +322,7 @@ const startFilteredCrawlers = async () => {
 }
 
 watch(showStartCrawlerDialog, (isOpen) => {
+  if (!canEdit.value) return
   if (isOpen) {
     filteredSourceCount.value = totalSourceCount.value
     updateFilteredCount()
@@ -323,6 +330,7 @@ watch(showStartCrawlerDialog, (isOpen) => {
 })
 
 const loadCategories = async () => {
+  if (!canEdit.value) return
   try {
     const response = await adminApi.getCategories({ per_page: 100 })
     crawlerCategories.value = response.data.items
@@ -332,8 +340,9 @@ const loadCategories = async () => {
 }
 
 const loadTotalSources = async () => {
+  if (!canEdit.value) return
   try {
-    const response = await adminApi.getSources({ per_page: 1 })
+    const response = await adminApi.getSourceCounts()
     totalSourceCount.value = response.data.total
     filteredSourceCount.value = response.data.total
   } catch (error) {
@@ -346,8 +355,10 @@ onMounted(async () => {
   await dashboardStore.initialize()
 
   // Load categories for crawler dialog
-  loadCategories()
-  loadTotalSources()
+  if (canEdit.value) {
+    loadCategories()
+    loadTotalSources()
+  }
 })
 
 // useDebounce handles cleanup automatically via its own onUnmounted
