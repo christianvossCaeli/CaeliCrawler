@@ -74,6 +74,8 @@
     "assignmentInfo": "Weisen Sie eine verantwortliche Person für diesen Datensatz zu, die Benachrichtigungen über Änderungen erhält.",
     "noAttributesConfigured": "Keine Eigenschaften für diesen Datentyp konfiguriert.",
     "path": "Pfad",
+    "noEntities": "Keine Datensätze vorhanden",
+    "noEntitiesDescription": "Für diesen Datentyp wurden noch keine Einträge angelegt.",
     "summary": "Übersicht",
     "viewModes": {
       "table": "Tabellenansicht",
@@ -238,7 +240,8 @@
       "pysis": "PySis",
       "attachments": "Anhänge",
       "children": "Untergeordnete",
-      "apiData": "API-Daten"
+      "apiData": "API-Daten",
+      "referencedBy": "Referenziert in"
     },
     "apiData": {
       "title": "Externe API-Daten",
@@ -315,7 +318,9 @@
       "noConnectionsDesc": "Verknüpfungen zeigen Beziehungen zu anderen Datensätzen wie Personen, Organisationen oder Veranstaltungen.",
       "noDataSources": "Keine Datenquellen verknüpft",
       "noDataSourcesDesc": "Datenquellen sind Webseiten oder APIs, die automatisch durchsucht werden, um relevante Informationen zu extrahieren.",
-      "noNotes": "Noch keine Notizen vorhanden"
+      "noNotes": "Noch keine Notizen vorhanden",
+      "noDocuments": "Keine Dokumente vorhanden",
+      "noDocumentsDesc": "Es wurden noch keine Dokumente für diesen Eintrag gefunden. Dokumente werden automatisch aus verknüpften Datenquellen extrahiert."
     },
     "noSearchResults": "Keine Treffer für \"{query}\"",
     "noSearchResultsDesc": "Versuche einen anderen Suchbegriff oder lösche die Suche.",

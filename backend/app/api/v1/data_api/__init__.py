@@ -18,8 +18,8 @@ Modules:
 
 from fastapi import APIRouter
 
-from .extractions import router as extractions_router
 from .documents import router as documents_router
+from .extractions import router as extractions_router
 from .history import router as history_router
 
 # Create main router that combines all sub-routers
@@ -32,9 +32,9 @@ router.include_router(documents_router, tags=["documents"])
 router.include_router(history_router, tags=["history"])
 
 # Re-export loaders for use by other modules
-from .loaders import (
-    bulk_load_documents_with_sources,
+from .loaders import (  # noqa: E402
     bulk_load_categories,
+    bulk_load_documents_with_sources,
     bulk_load_sources,
 )
 

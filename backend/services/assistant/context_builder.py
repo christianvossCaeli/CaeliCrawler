@@ -12,7 +12,7 @@ Exports:
 """
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -38,7 +38,7 @@ async def build_entity_context(
     include_pysis: bool = True,
     include_relations: bool = False,
     facet_limit: int = 30
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Build comprehensive context data for an entity.
 
     Args:
@@ -103,7 +103,7 @@ async def build_facet_summary(
     db: AsyncSession,
     entity_id: UUID,
     limit: int = 30
-) -> Dict[str, List[str]]:
+) -> dict[str, list[str]]:
     """Build a summary of facets grouped by type.
 
     Args:
@@ -143,7 +143,7 @@ async def build_pysis_context(
     db: AsyncSession,
     entity_id: UUID,
     max_field_length: int = 500
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Extract PySIS field data for entity.
 
     Args:
@@ -201,7 +201,7 @@ async def count_entity_relations(
 async def get_facet_counts_by_type(
     db: AsyncSession,
     entity_id: UUID
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """Get facet counts grouped by type.
 
     Args:
@@ -222,7 +222,7 @@ async def get_facet_counts_by_type(
     return dict(facet_counts.all())
 
 
-async def build_app_summary_context(db: AsyncSession) -> Dict[str, Any]:
+async def build_app_summary_context(db: AsyncSession) -> dict[str, Any]:
     """Build high-level app summary statistics.
 
     Args:
@@ -293,7 +293,7 @@ async def build_entity_summary_for_prompt(
     return "\n".join(lines)
 
 
-def prepare_entity_data_for_ai(entity_data: Dict[str, Any]) -> str:
+def prepare_entity_data_for_ai(entity_data: dict[str, Any]) -> str:
     """Prepare entity data as JSON string for AI processing.
 
     Args:

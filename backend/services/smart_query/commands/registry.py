@@ -1,6 +1,7 @@
 """Command registry for Smart Query operations."""
 
-from typing import Any, Callable, Dict, Optional, Type
+from collections.abc import Callable
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -33,7 +34,7 @@ class CommandRegistry:
     """
 
     def __init__(self):
-        self._commands: Dict[str, Type[BaseCommand]] = {}
+        self._commands: dict[str, type[BaseCommand]] = {}
 
     def register(self, operation_name: str) -> Callable:
         """
@@ -44,14 +45,14 @@ class CommandRegistry:
             class CreateEntityCommand(BaseCommand):
                 ...
         """
-        def decorator(cls: Type[BaseCommand]) -> Type[BaseCommand]:
+        def decorator(cls: type[BaseCommand]) -> type[BaseCommand]:
             cls.operation_name = operation_name
             self._commands[operation_name] = cls
             logger.debug("Registered command", operation=operation_name, cls=cls.__name__)
             return cls
         return decorator
 
-    def register_command(self, operation_name: str, command_class: Type[BaseCommand]) -> None:
+    def register_command(self, operation_name: str, command_class: type[BaseCommand]) -> None:
         """
         Manually register a command class.
 
@@ -66,7 +67,7 @@ class CommandRegistry:
         """Check if a command is registered for the given operation."""
         return operation_name in self._commands
 
-    def get_command_class(self, operation_name: str) -> Optional[Type[BaseCommand]]:
+    def get_command_class(self, operation_name: str) -> type[BaseCommand] | None:
         """Get the command class for an operation."""
         return self._commands.get(operation_name)
 
@@ -74,8 +75,8 @@ class CommandRegistry:
         self,
         operation_name: str,
         session: AsyncSession,
-        data: Dict[str, Any],
-        current_user_id: Optional[UUID] = None,
+        data: dict[str, Any],
+        current_user_id: UUID | None = None,
     ) -> CommandResult:
         """
         Execute a registered command.

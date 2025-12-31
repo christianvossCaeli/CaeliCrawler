@@ -1,7 +1,7 @@
 """FacetValue schemas for API validation."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -13,23 +13,23 @@ from app.models.facet_value import FacetValueSourceType
 class FacetValueBase(BaseModel):
     """Base facet value schema with common fields."""
 
-    value: Dict[str, Any] = Field(..., description="Structured value")
-    text_representation: Optional[str] = Field(None, description="Text for search/display (auto-generated if not provided)")
+    value: dict[str, Any] = Field(..., description="Structured value")
+    text_representation: str | None = Field(None, description="Text for search/display (auto-generated if not provided)")
 
     # Time-based fields
-    event_date: Optional[datetime] = Field(None, description="Date of the event/action")
-    valid_from: Optional[datetime] = Field(None, description="When this value becomes valid")
-    valid_until: Optional[datetime] = Field(None, description="When this value expires")
+    event_date: datetime | None = Field(None, description="Date of the event/action")
+    valid_from: datetime | None = Field(None, description="When this value becomes valid")
+    valid_until: datetime | None = Field(None, description="When this value expires")
 
     # Source tracking
     source_type: FacetValueSourceType = Field(
         default=FacetValueSourceType.DOCUMENT,
         description="How this value was created"
     )
-    source_url: Optional[str] = Field(None, description="Original URL where this was found")
+    source_url: str | None = Field(None, description="Original URL where this was found")
 
     # Entity reference (optional link to another entity)
-    target_entity_id: Optional[UUID] = Field(
+    target_entity_id: UUID | None = Field(
         None,
         description="Optional reference to another Entity (e.g., Person for contact facet)"
     )
@@ -45,25 +45,25 @@ class FacetValueCreate(FacetValueBase):
 
     entity_id: UUID = Field(..., description="Entity ID")
     facet_type_id: UUID = Field(..., description="Facet type ID")
-    category_id: Optional[UUID] = Field(None, description="Category context")
-    source_document_id: Optional[UUID] = Field(None, description="Source document ID")
-    ai_model_used: Optional[str] = Field(None, description="AI model used for extraction")
+    category_id: UUID | None = Field(None, description="Category context")
+    source_document_id: UUID | None = Field(None, description="Source document ID")
+    ai_model_used: str | None = Field(None, description="AI model used for extraction")
 
 
 class FacetValueUpdate(BaseModel):
     """Schema for updating a facet value."""
 
-    value: Optional[Dict[str, Any]] = None
-    text_representation: Optional[str] = None
-    event_date: Optional[datetime] = None
-    valid_from: Optional[datetime] = None
-    valid_until: Optional[datetime] = None
-    source_url: Optional[str] = None
-    target_entity_id: Optional[UUID] = None
-    confidence_score: Optional[float] = Field(None, ge=0.0, le=1.0)
-    human_verified: Optional[bool] = None
-    human_corrections: Optional[Dict[str, Any]] = None
-    is_active: Optional[bool] = None
+    value: dict[str, Any] | None = None
+    text_representation: str | None = None
+    event_date: datetime | None = None
+    valid_from: datetime | None = None
+    valid_until: datetime | None = None
+    source_url: str | None = None
+    target_entity_id: UUID | None = None
+    confidence_score: float | None = Field(None, ge=0.0, le=1.0)
+    human_verified: bool | None = None
+    human_corrections: dict[str, Any] | None = None
+    is_active: bool | None = None
 
 
 class FacetValueResponse(FacetValueBase):
@@ -72,15 +72,15 @@ class FacetValueResponse(FacetValueBase):
     id: UUID
     entity_id: UUID
     facet_type_id: UUID
-    category_id: Optional[UUID]
-    source_document_id: Optional[UUID]
-    ai_model_used: Optional[str]
+    category_id: UUID | None
+    source_document_id: UUID | None
+    ai_model_used: str | None
 
     # Verification
     human_verified: bool
-    verified_by: Optional[str]
-    verified_at: Optional[datetime]
-    human_corrections: Optional[Dict[str, Any]]
+    verified_by: str | None
+    verified_at: datetime | None
+    human_corrections: dict[str, Any] | None
 
     # Occurrence tracking
     occurrence_count: int
@@ -91,17 +91,17 @@ class FacetValueResponse(FacetValueBase):
     updated_at: datetime
 
     # Nested info
-    entity_name: Optional[str] = Field(None, description="Entity name")
-    facet_type_slug: Optional[str] = Field(None, description="Facet type slug")
-    facet_type_name: Optional[str] = Field(None, description="Facet type name")
-    category_name: Optional[str] = Field(None, description="Category name")
-    document_title: Optional[str] = Field(None, description="Source document title")
-    document_url: Optional[str] = Field(None, description="Source document URL")
+    entity_name: str | None = Field(None, description="Entity name")
+    facet_type_slug: str | None = Field(None, description="Facet type slug")
+    facet_type_name: str | None = Field(None, description="Facet type name")
+    category_name: str | None = Field(None, description="Category name")
+    document_title: str | None = Field(None, description="Source document title")
+    document_url: str | None = Field(None, description="Source document URL")
 
     # Target entity info (for referenced entities)
-    target_entity_name: Optional[str] = Field(None, description="Referenced entity name")
-    target_entity_slug: Optional[str] = Field(None, description="Referenced entity slug")
-    target_entity_type_slug: Optional[str] = Field(None, description="Referenced entity type slug")
+    target_entity_name: str | None = Field(None, description="Referenced entity name")
+    target_entity_slug: str | None = Field(None, description="Referenced entity slug")
+    target_entity_type_slug: str | None = Field(None, description="Referenced entity type slug")
 
     model_config = {"from_attributes": True}
 
@@ -109,7 +109,7 @@ class FacetValueResponse(FacetValueBase):
 class FacetValueListResponse(BaseModel):
     """Schema for facet value list response."""
 
-    items: List[FacetValueResponse]
+    items: list[FacetValueResponse]
     total: int
     page: int
     per_page: int
@@ -122,17 +122,20 @@ class FacetValueAggregated(BaseModel):
     facet_type_id: UUID
     facet_type_slug: str
     facet_type_name: str
-    facet_type_icon: Optional[str] = None
-    facet_type_color: Optional[str] = None
-    facet_type_value_type: Optional[str] = Field(
+    facet_type_icon: str | None = None
+    facet_type_color: str | None = None
+    facet_type_value_type: str | None = Field(
         default=None, description="Value type (text, number, structured, history)"
+    )
+    value_schema: dict[str, Any] | None = Field(
+        default=None, description="JSON Schema for the facet value structure including display config"
     )
     display_order: int = Field(default=0, description="Display order for sorting")
     value_count: int
     verified_count: int
     avg_confidence: float
-    latest_value: Optional[datetime] = None
-    sample_values: List[Dict[str, Any]] = Field(default_factory=list)
+    latest_value: datetime | None = None
+    sample_values: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class EntityFacetsSummary(BaseModel):
@@ -140,11 +143,11 @@ class EntityFacetsSummary(BaseModel):
 
     entity_id: UUID
     entity_name: str
-    entity_type_slug: Optional[str] = None
+    entity_type_slug: str | None = None
     total_facet_values: int = Field(default=0, description="Total facet values")
     verified_count: int = Field(default=0, description="Number of verified values")
     facet_type_count: int = Field(default=0, description="Number of facet types with values")
-    facets_by_type: List[FacetValueAggregated] = Field(
+    facets_by_type: list[FacetValueAggregated] = Field(
         default_factory=list,
         description="Facets aggregated by type",
     )
@@ -159,9 +162,9 @@ class FacetValueSearchResult(BaseModel):
     facet_type_id: UUID
     facet_type_slug: str
     facet_type_name: str
-    value: Dict[str, Any]
+    value: dict[str, Any]
     text_representation: str
-    headline: Optional[str] = Field(None, description="Highlighted search match")
+    headline: str | None = Field(None, description="Highlighted search match")
     rank: float = Field(default=0.0, description="Search relevance score")
     confidence_score: float
     human_verified: bool
@@ -172,7 +175,7 @@ class FacetValueSearchResult(BaseModel):
 class FacetValueSearchResponse(BaseModel):
     """Response for facet value search."""
 
-    items: List[FacetValueSearchResult]
+    items: list[FacetValueSearchResult]
     total: int
     page: int
     per_page: int

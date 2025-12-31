@@ -1,7 +1,6 @@
 """Favorite schemas for API validation."""
 
 from datetime import datetime
-from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -20,11 +19,11 @@ class FavoriteEntityBrief(BaseModel):
     name: str
     slug: str
     entity_type_id: UUID
-    entity_type_slug: Optional[str] = None
-    entity_type_name: Optional[str] = None
-    entity_type_icon: Optional[str] = None
-    entity_type_color: Optional[str] = None
-    hierarchy_path: Optional[str] = None
+    entity_type_slug: str | None = None
+    entity_type_name: str | None = None
+    entity_type_icon: str | None = None
+    entity_type_color: str | None = None
+    hierarchy_path: str | None = None
     is_active: bool = True
 
     model_config = {"from_attributes": True}
@@ -45,7 +44,7 @@ class FavoriteResponse(BaseModel):
 class FavoriteListResponse(BaseModel):
     """Schema for favorites list response."""
 
-    items: List[FavoriteResponse]
+    items: list[FavoriteResponse]
     total: int
     page: int
     per_page: int
@@ -57,4 +56,4 @@ class FavoriteCheckResponse(BaseModel):
 
     entity_id: UUID
     is_favorited: bool
-    favorite_id: Optional[UUID] = None
+    favorite_id: UUID | None = None

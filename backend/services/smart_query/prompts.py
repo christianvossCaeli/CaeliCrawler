@@ -10,16 +10,16 @@ prompt injection attacks. Use escape_for_json_prompt() for any
 user-controlled values.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 from app.utils.security import escape_for_json_prompt, sanitize_for_prompt
 
 
 def build_dynamic_write_prompt(
-    entity_types: List[Dict[str, Any]],
-    facet_types: List[Dict[str, Any]],
-    relation_types: List[Dict[str, Any]],
-    categories: List[Dict[str, Any]],
+    entity_types: list[dict[str, Any]],
+    facet_types: list[dict[str, Any]],
+    relation_types: list[dict[str, Any]],
+    categories: list[dict[str, Any]],
     query: str,
 ) -> str:
     """Build the write interpretation prompt dynamically with current database state.
@@ -529,8 +529,8 @@ Antworte NUR mit validem JSON."""
 
 
 def build_compound_query_prompt(
-    entity_types: List[Dict[str, Any]],
-    facet_types: List[Dict[str, Any]],
+    entity_types: list[dict[str, Any]],
+    facet_types: list[dict[str, Any]],
     query: str,
 ) -> str:
     """Build prompt to detect and decompose compound queries (UND-Abfragen).
@@ -604,10 +604,10 @@ Antworte NUR mit validem JSON."""
 
 
 def build_plan_mode_prompt(
-    entity_types: List[Dict[str, Any]],
-    facet_types: List[Dict[str, Any]],
-    relation_types: List[Dict[str, Any]],
-    categories: List[Dict[str, Any]],
+    entity_types: list[dict[str, Any]],
+    facet_types: list[dict[str, Any]],
+    relation_types: list[dict[str, Any]],
+    categories: list[dict[str, Any]],
 ) -> str:
     """Build the Plan Mode system prompt.
 

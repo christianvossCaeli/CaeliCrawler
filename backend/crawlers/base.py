@@ -3,14 +3,13 @@
 import hashlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 import structlog
 
 if TYPE_CHECKING:
-    from app.models import DataSource, CrawlJob
+    from app.models import CrawlJob, DataSource
 
 logger = structlog.get_logger()
 
@@ -24,8 +23,8 @@ class CrawlResult:
     documents_processed: int = 0
     documents_new: int = 0
     documents_updated: int = 0
-    errors: List[Dict[str, Any]] = field(default_factory=list)
-    stats: Dict[str, Any] = field(default_factory=dict)
+    errors: list[dict[str, Any]] = field(default_factory=list)
+    stats: dict[str, Any] = field(default_factory=dict)
 
 
 class BaseCrawler(ABC):
@@ -74,10 +73,10 @@ class BaseCrawler(ABC):
     async def fetch_with_conditional(
         self,
         url: str,
-        last_modified: Optional[str] = None,
-        etag: Optional[str] = None,
+        last_modified: str | None = None,
+        etag: str | None = None,
         timeout: int = 30,
-    ) -> Tuple[Optional[bytes], Dict[str, str], bool]:
+    ) -> tuple[bytes | None, dict[str, str], bool]:
         """
         Fetch URL with HTTP conditional request headers.
 
@@ -150,12 +149,12 @@ def get_crawler_for_source(source: "DataSource") -> BaseCrawler:
         An instance of the appropriate crawler
     """
     from app.models import SourceType
-    from crawlers.oparl_crawler import OparlCrawler
-    from crawlers.website_crawler import WebsiteCrawler
-    from crawlers.news_crawler import NewsCrawler
     from crawlers.api_crawler import APICrawler
     from crawlers.entity_api_crawler import EntityAPICrawler
+    from crawlers.news_crawler import NewsCrawler
+    from crawlers.oparl_crawler import OparlCrawler
     from crawlers.sharepoint_crawler import SharePointCrawler
+    from crawlers.website_crawler import WebsiteCrawler
 
     crawl_config = source.crawl_config or {}
 

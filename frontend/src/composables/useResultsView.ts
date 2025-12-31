@@ -5,12 +5,14 @@
  * Extracted from ResultsView.vue for better modularity and testability.
  */
 
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { format } from 'date-fns'
-import { dataApi, adminApi } from '@/services/api'
+import { dataApi, adminApi, facetApi } from '@/services/api'
 import type { ExtractedDataParams, ExtractionStatsParams } from '@/services/api/sources'
+import type { FacetType } from '@/types/entity'
+import { useFacetTypeRenderer } from '@/composables/useFacetTypeRenderer'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import { useLogger } from '@/composables/useLogger'
@@ -135,6 +137,7 @@ export function useResultsView() {
   const { showSuccess, showError } = useSnackbar()
   const auth = useAuthStore()
   const { formatDate: formatLocaleDate } = useDateFormatter()
+  const { getValuesForFacetType, hasValues, normalizeValue, getPrimaryValue } = useFacetTypeRenderer()
 
   // ========================================
   // Permissions
@@ -157,6 +160,10 @@ export function useResultsView() {
   const categories = ref<{ id: string; name: string }[]>([])
   const extractionTypes = ref<string[]>([])
   const selectedResults = ref<string[]>([])
+
+  // FacetTypes for the active category (for generic display)
+  const facetTypes = ref<FacetType[]>([])
+  const facetTypesLoading = ref(false)
 
   // Statistics
   const stats = ref<ResultsStats>({
@@ -213,6 +220,7 @@ export function useResultsView() {
     return [
       { title: t('results.columns.document'), key: 'document', sortable: false, width: '220px' },
       { title: t('results.columns.type'), key: 'extraction_type', width: '140px', sortable: true },
+      { title: t('results.columns.entities'), key: 'entity_count', width: '100px', sortable: true, align: 'center' as const },
       { title: t('results.columns.confidence'), key: 'confidence_score', width: '110px', sortable: true },
       { title: t('results.columns.verified'), key: 'human_verified', width: '90px', sortable: true },
       { title: t('results.columns.created'), key: 'created_at', width: '100px', sortable: true },
@@ -291,6 +299,16 @@ export function useResultsView() {
     return item.entity_references.filter((ref: EntityReference) => ref.entity_type === entityType)
   }
 
+  /**
+   * Get the primary entity reference from the result (role='primary')
+   */
+  function getPrimaryEntityRef(item: SearchResult): EntityReference | null {
+    if (!item.entity_references || !Array.isArray(item.entity_references)) {
+      return null
+    }
+    return item.entity_references.find((ref: EntityReference) => ref.role === 'primary') || null
+  }
+
   function formatDate(dateStr: string): string {
     if (!dateStr) return '-'
     return formatLocaleDate(dateStr, 'dd.MM.yy HH:mm') || '-'
@@ -305,57 +323,15 @@ export function useResultsView() {
   // ========================================
   // Data Loading
   // ========================================
-  let lastLoadedCategoryId: string | null = null
   let requestCounter = 0
-
-  async function loadDisplayConfig(categoryId: string | null) {
-    if (!categoryId) {
-      return { headers: getDefaultHeaders(), entityReferenceColumns: [] }
-    }
-
-    try {
-      const response = await dataApi.getDisplayConfig(categoryId)
-      const config = response.data
-
-      const dynamicHeaders: TableHeader[] = []
-      for (const col of config.columns || []) {
-        const header: TableHeader = {
-          title: col.label,
-          key: col.key,
-          sortable: col.sortable !== false,
-        }
-        if (col.width) header.width = col.width
-        if (col.key === 'actions') header.align = 'end'
-        dynamicHeaders.push(header)
-      }
-
-      if (!dynamicHeaders.find(h => h.key === 'actions')) {
-        dynamicHeaders.push({
-          title: t('results.columns.actions'),
-          key: 'actions',
-          sortable: false,
-          align: 'end' as const,
-        })
-      }
-
-      return { headers: dynamicHeaders, entityReferenceColumns: config.entity_reference_columns || [] }
-    } catch (error) {
-      logger.error('Failed to load display config:', error)
-      return { headers: getDefaultHeaders(), entityReferenceColumns: [] }
-    }
-  }
 
   async function loadData() {
     const requestId = ++requestCounter
     loading.value = true
     try {
-      // Load display config if category changed
-      if (categoryFilter.value !== lastLoadedCategoryId) {
-        const config = await loadDisplayConfig(categoryFilter.value)
-        if (requestId !== requestCounter) return
-        headers.value = config.headers
-        entityReferenceColumns.value = config.entityReferenceColumns
-        lastLoadedCategoryId = categoryFilter.value
+      // Use default headers (no dynamic entity columns in table)
+      if (headers.value.length === 0) {
+        headers.value = getDefaultHeaders()
       }
 
       const params: ExtractedDataParams = { page: page.value, per_page: perPage.value }
@@ -416,6 +392,196 @@ export function useResultsView() {
     } catch (error) {
       logger.error('Failed to load filters:', error)
     }
+  }
+
+  /**
+   * Load FacetTypes for the active category.
+   * Uses the Category → EntityTypes → FacetTypes connection.
+   */
+  async function loadFacetTypesForCategory() {
+    if (!categoryFilter.value) {
+      facetTypes.value = []
+      return
+    }
+
+    facetTypesLoading.value = true
+    try {
+      const response = await facetApi.getFacetTypesForCategory(categoryFilter.value, {
+        ai_extraction_enabled: true,
+        is_active: true,
+      })
+      facetTypes.value = response.data || []
+      logger.debug(`Loaded ${facetTypes.value.length} FacetTypes for category`)
+    } catch (error) {
+      logger.error('Failed to load FacetTypes for category:', error)
+      facetTypes.value = []
+    } finally {
+      facetTypesLoading.value = false
+    }
+  }
+
+  // Watch for category changes to reload FacetTypes
+  watch(categoryFilter, () => {
+    loadFacetTypesForCategory()
+  })
+
+  // ========================================
+  // Dynamic Content Fields
+  // ========================================
+
+  /**
+   * Reserved fields that are handled separately in the UI
+   * (displayed in their own sections, not in the generic dynamic list)
+   */
+  const RESERVED_FIELDS = new Set([
+    'is_relevant',
+    'relevanz',
+    'summary',
+    'outreach_recommendation',
+    'municipality',
+  ])
+
+  /**
+   * Format a field key to a human-readable label
+   * e.g., "pain_points" → "Pain Points", "flaechenausweisung" → "Flächenausweisung"
+   */
+  function formatFieldLabel(key: string): string {
+    return key
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }
+
+  /**
+   * Get icon for a dynamic field based on its name
+   */
+  function getFieldIcon(key: string): string {
+    const iconMap: Record<string, string> = {
+      pain_points: 'mdi-alert-circle',
+      positive_signals: 'mdi-lightbulb-on',
+      decision_makers: 'mdi-account-group',
+      contacts: 'mdi-account',
+      flaechenausweisung: 'mdi-map-marker-radius',
+      windenergie: 'mdi-wind-turbine',
+      solar: 'mdi-solar-panel',
+      timeline: 'mdi-timeline-clock',
+      events: 'mdi-calendar-star',
+      documents: 'mdi-file-document-multiple',
+    }
+    return iconMap[key] || 'mdi-tag'
+  }
+
+  /**
+   * Get color for a dynamic field based on its name
+   */
+  function getFieldColor(key: string): string {
+    const colorMap: Record<string, string> = {
+      pain_points: 'warning',
+      positive_signals: 'success',
+      decision_makers: 'info',
+      contacts: 'primary',
+    }
+    return colorMap[key] || 'blue-grey'
+  }
+
+  /**
+   * Fields that should be displayed as chips (entity references, contacts)
+   */
+  const CHIP_DISPLAY_FIELDS = new Set([
+    'decision_makers',
+    'contacts',
+    'entscheider',
+    'ansprechpartner',
+  ])
+
+  /**
+   * Dynamic content field type for template rendering
+   */
+  interface DynamicContentField {
+    key: string
+    label: string
+    values: unknown[]
+    icon: string
+    color: string
+    displayType: 'chips' | 'list'
+  }
+
+  /**
+   * Extract all dynamic array/object fields from extracted_content
+   * that should be displayed in the detail view
+   */
+  function getDynamicContentFields(content: ExtractedContent): DynamicContentField[] {
+    if (!content || typeof content !== 'object') return []
+
+    const dynamicFields: DynamicContentField[] = []
+
+    for (const [key, value] of Object.entries(content)) {
+      // Skip reserved fields
+      if (RESERVED_FIELDS.has(key)) continue
+
+      // Skip null/undefined values
+      if (value === null || value === undefined) continue
+
+      // Determine display type based on field semantics
+      const displayType = CHIP_DISPLAY_FIELDS.has(key) ? 'chips' : 'list'
+
+      // Handle arrays
+      if (Array.isArray(value) && value.length > 0) {
+        dynamicFields.push({
+          key,
+          label: formatFieldLabel(key),
+          values: value,
+          icon: getFieldIcon(key),
+          color: getFieldColor(key),
+          displayType,
+        })
+      }
+      // Handle single objects (wrap in array for consistent rendering)
+      // Only include if the object has at least one non-null value
+      else if (typeof value === 'object' && Object.keys(value).length > 0) {
+        const hasContent = Object.values(value).some(v => v !== null && v !== undefined && v !== '')
+        if (hasContent) {
+          dynamicFields.push({
+            key,
+            label: formatFieldLabel(key),
+            values: [value],
+            icon: getFieldIcon(key),
+            color: getFieldColor(key),
+            displayType,
+          })
+        }
+      }
+      // Handle non-empty strings (wrap for display)
+      else if (typeof value === 'string' && value.trim().length > 0 && key !== 'summary') {
+        dynamicFields.push({
+          key,
+          label: formatFieldLabel(key),
+          values: [{ text: value }],
+          icon: getFieldIcon(key),
+          color: getFieldColor(key),
+          displayType: 'list',
+        })
+      }
+    }
+
+    return dynamicFields
+  }
+
+  /**
+   * Get the primary display text from a dynamic field value.
+   * Reuses getPrimaryValue from useFacetTypeRenderer for consistency.
+   */
+  function getValueText(value: unknown): string {
+    if (typeof value === 'string') return value
+    if (typeof value === 'boolean') return value ? t('common.yes') : t('common.no')
+    if (typeof value === 'number') return String(value)
+    if (value && typeof value === 'object') {
+      const normalized = normalizeValue(value)
+      // Use default display config for fallback rendering
+      const defaultConfig = { primaryField: 'description', chipFields: [], severityColors: {}, layout: 'card' as const }
+      return getPrimaryValue(normalized, defaultConfig)
+    }
+    return ''
   }
 
   // Debounced load
@@ -631,6 +797,8 @@ export function useResultsView() {
     extractionTypes,
     selectedResults,
     stats,
+    facetTypes,
+    facetTypesLoading,
 
     // Filters
     searchQuery,
@@ -667,13 +835,24 @@ export function useResultsView() {
     getEntityTypeIcon,
     getContent,
     getEntityReferencesByType,
+    getPrimaryEntityRef,
     formatDate,
     copyToClipboard,
 
     // Data Loading
     loadData,
     loadFilters,
+    loadFacetTypesForCategory,
     debouncedLoadData,
+
+    // FacetType Helpers
+    getValuesForFacetType,
+    hasValues,
+
+    // Dynamic Content Helpers
+    getDynamicContentFields,
+    getValueText,
+    formatFieldLabel,
 
     // Filter Actions
     toggleVerifiedFilter,

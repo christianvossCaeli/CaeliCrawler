@@ -1,18 +1,17 @@
 """Bulk-loading utilities to avoid N+1 queries."""
 
-from typing import Dict
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Document, Category, DataSource
+from app.models import Category, DataSource, Document
 
 
 async def bulk_load_documents_with_sources(
     session: AsyncSession, doc_ids: set
-) -> Dict[UUID, Document]:
+) -> dict[UUID, Document]:
     """Bulk-load documents with their sources to avoid N+1 queries."""
     if not doc_ids:
         return {}
@@ -26,7 +25,7 @@ async def bulk_load_documents_with_sources(
 
 async def bulk_load_categories(
     session: AsyncSession, cat_ids: set
-) -> Dict[UUID, Category]:
+) -> dict[UUID, Category]:
     """Bulk-load categories to avoid N+1 queries."""
     if not cat_ids:
         return {}
@@ -38,7 +37,7 @@ async def bulk_load_categories(
 
 async def bulk_load_sources(
     session: AsyncSession, source_ids: set
-) -> Dict[UUID, DataSource]:
+) -> dict[UUID, DataSource]:
     """Bulk-load data sources to avoid N+1 queries."""
     if not source_ids:
         return {}

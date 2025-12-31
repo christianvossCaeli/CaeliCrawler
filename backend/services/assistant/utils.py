@@ -1,6 +1,6 @@
 """Assistant Service - Utility Functions."""
 
-from typing import Optional
+
 import structlog
 
 logger = structlog.get_logger()
@@ -11,7 +11,7 @@ def format_entity_link(entity_type: str, slug: str, name: str) -> str:
     return f"[[{entity_type}:{slug}:{name}]]"
 
 
-def extract_json_from_response(response_text: str) -> Optional[str]:
+def extract_json_from_response(response_text: str) -> str | None:
     """Extract JSON from a response that may contain markdown code blocks."""
     import re
 

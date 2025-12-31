@@ -2,8 +2,9 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     DateTime,
@@ -17,7 +18,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from pgvector.sqlalchemy import Vector
 
 from app.database import Base
 
@@ -82,7 +82,7 @@ class Entity(Base):
         index=True,
         comment="Normalized name for search (lowercase, no special chars)",
     )
-    name_embedding: Mapped[Optional[List[float]]] = mapped_column(
+    name_embedding: Mapped[list[float] | None] = mapped_column(
         Vector(1536),
         nullable=True,
         comment="Embedding vector for semantic similarity search (text-embedding-3-large, 1536 dims)",
@@ -93,7 +93,7 @@ class Entity(Base):
         index=True,
         comment="URL-safe identifier",
     )
-    external_id: Mapped[Optional[str]] = mapped_column(
+    external_id: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         index=True,
@@ -101,14 +101,14 @@ class Entity(Base):
     )
 
     # Hierarchy (for hierarchical entity types)
-    parent_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("entities.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
         comment="Parent entity (self-referencing)",
     )
-    hierarchy_path: Mapped[Optional[str]] = mapped_column(
+    hierarchy_path: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         index=True,
@@ -122,19 +122,19 @@ class Entity(Base):
     )
 
     # Location fields for efficient filtering
-    country: Mapped[Optional[str]] = mapped_column(
+    country: Mapped[str | None] = mapped_column(
         String(2),
         nullable=True,
         index=True,
         comment="ISO 3166-1 alpha-2 country code (DE, GB, etc.)",
     )
-    admin_level_1: Mapped[Optional[str]] = mapped_column(
+    admin_level_1: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
         index=True,
         comment="First-level admin division (Bundesland, Region, State)",
     )
-    admin_level_2: Mapped[Optional[str]] = mapped_column(
+    admin_level_2: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
         index=True,
@@ -142,7 +142,7 @@ class Entity(Base):
     )
 
     # Core attributes (type-specific)
-    core_attributes: Mapped[Dict[str, Any]] = mapped_column(
+    core_attributes: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
@@ -150,11 +150,11 @@ class Entity(Base):
     )
 
     # Geo-coordinates (optional, for point locations)
-    latitude: Mapped[Optional[float]] = mapped_column(
+    latitude: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
     )
-    longitude: Mapped[Optional[float]] = mapped_column(
+    longitude: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
     )
@@ -162,7 +162,7 @@ class Entity(Base):
     # GeoJSON geometry (optional, for complex shapes like polygons/boundaries)
     # Supports: Point, LineString, Polygon, MultiPolygon, etc.
     # Example: {"type": "Polygon", "coordinates": [[[lon, lat], ...]]}
-    geometry: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    geometry: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
         comment="GeoJSON geometry for boundaries, regions, routes etc.",
@@ -177,14 +177,14 @@ class Entity(Base):
     )
 
     # Ownership (optional user association)
-    created_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
         comment="User who created this entity",
     )
-    owner_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
@@ -193,12 +193,12 @@ class Entity(Base):
     )
 
     # API sync tracking
-    last_seen_at: Mapped[Optional[datetime]] = mapped_column(
+    last_seen_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="When this entity was last seen in API sync",
     )
-    api_configuration_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    api_configuration_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("api_configurations.id", ondelete="SET NULL"),
         nullable=True,
@@ -230,26 +230,26 @@ class Entity(Base):
         back_populates="children",
         foreign_keys=[parent_id],
     )
-    children: Mapped[List["Entity"]] = relationship(
+    children: Mapped[list["Entity"]] = relationship(
         "Entity",
         back_populates="parent",
         foreign_keys=[parent_id],
     )
-    facet_values: Mapped[List["FacetValue"]] = relationship(
+    facet_values: Mapped[list["FacetValue"]] = relationship(
         "FacetValue",
         back_populates="entity",
         foreign_keys="FacetValue.entity_id",
         cascade="all, delete-orphan",
     )
     # Relations where this entity is the source
-    source_relations: Mapped[List["EntityRelation"]] = relationship(
+    source_relations: Mapped[list["EntityRelation"]] = relationship(
         "EntityRelation",
         back_populates="source_entity",
         foreign_keys="EntityRelation.source_entity_id",
         cascade="all, delete-orphan",
     )
     # Relations where this entity is the target
-    target_relations: Mapped[List["EntityRelation"]] = relationship(
+    target_relations: Mapped[list["EntityRelation"]] = relationship(
         "EntityRelation",
         back_populates="target_entity",
         foreign_keys="EntityRelation.target_entity_id",
@@ -266,13 +266,13 @@ class Entity(Base):
         foreign_keys=[owner_id],
     )
     # Reminders linked to this entity
-    reminders: Mapped[List["Reminder"]] = relationship(
+    reminders: Mapped[list["Reminder"]] = relationship(
         "Reminder",
         back_populates="entity",
         cascade="all, delete-orphan",
     )
     # File attachments linked to this entity
-    attachments: Mapped[List["EntityAttachment"]] = relationship(
+    attachments: Mapped[list["EntityAttachment"]] = relationship(
         "EntityAttachment",
         back_populates="entity",
         cascade="all, delete-orphan",
@@ -285,7 +285,7 @@ class Entity(Base):
         foreign_keys=[api_configuration_id],
     )
     # Users who favorited this entity
-    favorited_by: Mapped[List["UserFavorite"]] = relationship(
+    favorited_by: Mapped[list["UserFavorite"]] = relationship(
         "UserFavorite",
         back_populates="entity",
         cascade="all, delete-orphan",

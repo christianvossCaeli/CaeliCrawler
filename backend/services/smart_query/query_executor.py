@@ -1,22 +1,24 @@
 """Query execution for Smart Query Service."""
 
+import contextlib
 from collections import defaultdict
-from datetime import datetime, timezone, date
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select, or_, and_, func
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
     Entity,
+    EntityRelation,
     EntityType,
     FacetType,
     FacetValue,
     RelationType,
-    EntityRelation,
 )
+
 from .relation_resolver import (
     RelationResolver,
     parse_relation_chain_from_query,
@@ -27,8 +29,8 @@ logger = structlog.get_logger()
 
 async def execute_smart_query(
     session: AsyncSession,
-    query_params: Dict[str, Any],
-) -> Dict[str, Any]:
+    query_params: dict[str, Any],
+) -> dict[str, Any]:
     """Execute the interpreted query against the Entity-Facet system."""
 
     results = {
@@ -46,7 +48,7 @@ async def execute_smart_query(
     date_range = query_params.get("date_range", {})
     filters = query_params.get("filters", {})
     negative_locations = filters.get("negative_locations", [])
-    logical_operator = filters.get("logical_operator", "OR").upper()  # For location filters
+    filters.get("logical_operator", "OR").upper()  # For location filters
     grouping = query_params.get("result_grouping", "flat")
 
     # Multi-hop relation chain parameters
@@ -55,21 +57,19 @@ async def execute_smart_query(
     negative_facets_at_chain_end = query_params.get("negative_facets_at_chain_end", [])
 
     # Parse date_range if provided
-    date_start: Optional[datetime] = None
-    date_end: Optional[datetime] = None
+    date_start: datetime | None = None
+    date_end: datetime | None = None
     if date_range:
         start_str = date_range.get("start")
         end_str = date_range.get("end")
         if start_str and isinstance(start_str, str) and len(start_str) == 10:
-            try:
-                date_start = datetime.strptime(start_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-            except ValueError:
-                pass
+            with contextlib.suppress(ValueError):
+                date_start = datetime.strptime(start_str, "%Y-%m-%d").replace(tzinfo=UTC)
         if end_str and isinstance(end_str, str) and len(end_str) == 10:
-            try:
+            try:  # noqa: SIM105
                 # End of day for end date
                 date_end = datetime.strptime(end_str, "%Y-%m-%d").replace(
-                    hour=23, minute=59, second=59, tzinfo=timezone.utc
+                    hour=23, minute=59, second=59, tzinfo=UTC
                 )
             except ValueError:
                 pass
@@ -163,7 +163,7 @@ async def execute_smart_query(
                 .where(FacetValue.facet_type_id.in_(neg_facet_type_ids))
                 .where(FacetValue.is_active.is_(True))
             )
-            negative_facet_entity_ids = set(row[0] for row in neg_entity_ids_result.fetchall())
+            negative_facet_entity_ids = {row[0] for row in neg_entity_ids_result.fetchall()}
 
     # Only skip facet filtering if we're doing a name-based search (not region-based)
     name_search_active = location_keywords and not admin_level_1 and not country
@@ -173,7 +173,6 @@ async def execute_smart_query(
         if facet_operator == "AND" and len(facet_type_ids) > 1:
             # AND: Entity must have ALL requested facet types
             # Use a subquery that counts distinct facet types per entity
-            from sqlalchemy import literal_column
 
             # Get entities that have ALL the requested facet types
             subquery = (
@@ -208,7 +207,7 @@ async def execute_smart_query(
     # ==========================================================================
     # MULTI-HOP RELATION RESOLUTION
     # ==========================================================================
-    multi_hop_entity_ids: Optional[List[UUID]] = None
+    multi_hop_entity_ids: list[UUID] | None = None
 
     if relation_chain:
         logger.info(
@@ -328,7 +327,7 @@ async def execute_smart_query(
         return results
 
     # Calculate time boundary (use timezone-aware UTC)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Get relation types for enrichment
     works_for_result = await session.execute(
@@ -343,7 +342,7 @@ async def execute_smart_query(
     facet_type_ids = [ft.id for ft in facet_type_map.values()]
 
     # Bulk load all FacetValues for all entities and facet types
-    facet_values_by_entity_and_type: Dict[UUID, Dict[UUID, list[FacetValue]]] = defaultdict(
+    facet_values_by_entity_and_type: dict[UUID, dict[UUID, list[FacetValue]]] = defaultdict(
         lambda: defaultdict(list)
     )
     if facet_type_ids:
@@ -388,7 +387,7 @@ async def execute_smart_query(
             facet_values_by_entity_and_type[fv.entity_id][fv.facet_type_id].append(fv)
 
     # Bulk load all EntityRelations for works_for type
-    relations_by_entity: Dict[UUID, EntityRelation] = {}
+    relations_by_entity: dict[UUID, EntityRelation] = {}
     target_entity_ids: set = set()
     if works_for_type:
         rel_bulk_result = await session.execute(
@@ -402,7 +401,7 @@ async def execute_smart_query(
             target_entity_ids.add(rel.target_entity_id)
 
     # Bulk load all target entities (municipalities)
-    target_entities_by_id: Dict[UUID, Entity] = {}
+    target_entities_by_id: dict[UUID, Entity] = {}
     if target_entity_ids:
         target_result = await session.execute(
             select(Entity).where(Entity.id.in_(target_entity_ids))
@@ -516,15 +515,15 @@ async def _execute_aggregate_query(
     session: AsyncSession,
     entity_type: EntityType,
     base_conditions: list,
-    facet_entity_ids: Optional[list],
-    negative_facet_entity_ids: Optional[set],
-    multi_hop_entity_ids: Optional[List[UUID]],
+    facet_entity_ids: list | None,
+    negative_facet_entity_ids: set | None,
+    multi_hop_entity_ids: list[UUID] | None,
     agg_function: str,
     agg_target: str,
-    agg_facet_type: Optional[str],
-    group_by: Optional[str],
-    filters: Dict[str, Any],
-) -> Dict[str, Any]:
+    agg_facet_type: str | None,
+    group_by: str | None,
+    filters: dict[str, Any],
+) -> dict[str, Any]:
     """Execute an aggregate query with optional GROUP BY.
 
     Supports:

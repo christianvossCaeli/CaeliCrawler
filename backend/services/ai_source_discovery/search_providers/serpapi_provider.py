@@ -1,13 +1,13 @@
 """SerpAPI search provider - Google Search API (same as caeli-google-news-fetch)."""
 
-from typing import List
 
 import httpx
 import structlog
 
 from app.config import settings
-from .base import BaseSearchProvider
+
 from ..models import SearchResult
+from .base import BaseSearchProvider
 
 logger = structlog.get_logger()
 
@@ -29,9 +29,9 @@ class SerpAPISearchProvider(BaseSearchProvider):
 
     async def search(
         self,
-        queries: List[str],
+        queries: list[str],
         num_results: int = 10,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """
         Execute web search using SerpAPI.
 
@@ -127,9 +127,7 @@ class SerpAPISearchProvider(BaseSearchProvider):
 
         if "wikipedia.org" in url_lower:
             return "wikipedia"
-        elif "/api/" in url_lower or "api." in url_lower:
-            return "api"
-        elif ".json" in url_lower or ".xml" in url_lower:
+        elif "/api/" in url_lower or "api." in url_lower or ".json" in url_lower or ".xml" in url_lower:
             return "api"
         elif any(x in url_lower for x in ["github.com", "gitlab.com"]):
             return "repository"

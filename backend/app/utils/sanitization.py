@@ -11,8 +11,6 @@ Provides functions for sanitizing and validating user inputs to prevent:
 
 import html
 import re
-from typing import Optional
-
 
 # Maximum lengths for common input types
 MAX_SEARCH_LENGTH = 200
@@ -22,7 +20,7 @@ MAX_URL_LENGTH = 2048
 MAX_EMAIL_LENGTH = 254
 
 
-def sanitize_search_input(value: Optional[str], max_length: int = MAX_SEARCH_LENGTH) -> Optional[str]:
+def sanitize_search_input(value: str | None, max_length: int = MAX_SEARCH_LENGTH) -> str | None:
     """
     Sanitize search input for database queries.
 
@@ -61,7 +59,7 @@ def sanitize_search_input(value: Optional[str], max_length: int = MAX_SEARCH_LEN
     return value
 
 
-def sanitize_name(value: Optional[str], max_length: int = MAX_NAME_LENGTH) -> Optional[str]:
+def sanitize_name(value: str | None, max_length: int = MAX_NAME_LENGTH) -> str | None:
     """
     Sanitize a name field (entity names, user names, etc.).
 
@@ -98,7 +96,7 @@ def sanitize_name(value: Optional[str], max_length: int = MAX_NAME_LENGTH) -> Op
     return value
 
 
-def sanitize_html_content(value: Optional[str], max_length: int = MAX_DESCRIPTION_LENGTH) -> Optional[str]:
+def sanitize_html_content(value: str | None, max_length: int = MAX_DESCRIPTION_LENGTH) -> str | None:
     """
     Sanitize content that might be displayed as HTML.
 
@@ -134,7 +132,7 @@ def sanitize_html_content(value: Optional[str], max_length: int = MAX_DESCRIPTIO
     return value
 
 
-def sanitize_url(value: Optional[str], max_length: int = MAX_URL_LENGTH) -> Optional[str]:
+def sanitize_url(value: str | None, max_length: int = MAX_URL_LENGTH) -> str | None:
     """
     Sanitize a URL input.
 
@@ -177,7 +175,7 @@ def sanitize_url(value: Optional[str], max_length: int = MAX_URL_LENGTH) -> Opti
     return value
 
 
-def sanitize_path(value: Optional[str], max_length: int = 1000) -> Optional[str]:
+def sanitize_path(value: str | None, max_length: int = 1000) -> str | None:
     """
     Sanitize a file path to prevent path traversal attacks.
 
@@ -220,7 +218,7 @@ def sanitize_path(value: Optional[str], max_length: int = 1000) -> Optional[str]
     return value if value else None
 
 
-def sanitize_json_key(value: Optional[str], max_length: int = 100) -> Optional[str]:
+def sanitize_json_key(value: str | None, max_length: int = 100) -> str | None:
     """
     Sanitize a JSON key name.
 
@@ -254,7 +252,7 @@ def sanitize_json_key(value: Optional[str], max_length: int = 100) -> Optional[s
     return value
 
 
-def validate_uuid_string(value: Optional[str]) -> bool:
+def validate_uuid_string(value: str | None) -> bool:
     """
     Validate that a string is a valid UUID format.
 
@@ -275,7 +273,7 @@ def validate_uuid_string(value: Optional[str]) -> bool:
     return bool(uuid_pattern.match(value))
 
 
-def sanitize_integer(value: Optional[str], min_val: int = 0, max_val: int = 1000000) -> Optional[int]:
+def sanitize_integer(value: str | None, min_val: int = 0, max_val: int = 1000000) -> int | None:
     """
     Safely parse and validate an integer from string input.
 

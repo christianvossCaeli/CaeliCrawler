@@ -1,21 +1,21 @@
 """Tests for AI Source Discovery Service."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
-from services.ai_source_discovery.models import (
-    SearchStrategy,
-    SearchResult,
-    ExtractedSource,
-    SourceWithTags,
-    DiscoveryResult,
-    DiscoveryStats,
-)
+import pytest
+
 from services.ai_source_discovery.discovery_service import AISourceDiscoveryService
 from services.ai_source_discovery.extractors import (
     HTMLTableExtractor,
     WikipediaExtractor,
-    AIExtractor,
+)
+from services.ai_source_discovery.models import (
+    DiscoveryResult,
+    DiscoveryStats,
+    ExtractedSource,
+    SearchResult,
+    SearchStrategy,
+    SourceWithTags,
 )
 from services.ai_source_discovery.search_providers import SerperSearchProvider
 
@@ -364,7 +364,7 @@ class TestAISourceDiscoveryService:
             )
         ]
 
-        with patch.object(service, '_generate_search_strategy', return_value=mock_strategy):
+        with patch.object(service, '_generate_search_strategy', return_value=mock_strategy):  # noqa: SIM117
             with patch.object(service.primary_search_provider, 'search', return_value=mock_search_results):
                 with patch.object(service, '_extract_from_pages', return_value=mock_extracted):
                     result = await service.discover_sources(

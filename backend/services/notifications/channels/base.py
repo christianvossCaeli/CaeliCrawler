@@ -1,7 +1,7 @@
 """Base class for notification channels (Strategy Pattern)."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any
 
 from app.models.notification import Notification, NotificationChannel
 
@@ -16,7 +16,7 @@ class NotificationChannelBase(ABC):
     channel_type: NotificationChannel
 
     @abstractmethod
-    async def send(self, notification: Notification, config: Dict[str, Any]) -> bool:
+    async def send(self, notification: Notification, config: dict[str, Any]) -> bool:
         """Send notification through this channel.
 
         Args:
@@ -29,7 +29,7 @@ class NotificationChannelBase(ABC):
         pass
 
     @abstractmethod
-    async def validate_config(self, config: Dict[str, Any]) -> bool:
+    async def validate_config(self, config: dict[str, Any]) -> bool:
         """Validate channel-specific configuration.
 
         Args:

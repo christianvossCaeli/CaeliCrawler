@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -28,17 +28,17 @@ class SmartQueryOperationCreate(BaseModel):
 
     command_text: str = Field(..., min_length=1, max_length=5000)
     operation_type: OperationType = OperationType.OTHER
-    interpretation: Dict[str, Any] = Field(default_factory=dict)
-    result_summary: Dict[str, Any] = Field(default_factory=dict)
-    display_name: Optional[str] = Field(None, max_length=255)
+    interpretation: dict[str, Any] = Field(default_factory=dict)
+    result_summary: dict[str, Any] = Field(default_factory=dict)
+    display_name: str | None = Field(None, max_length=255)
     was_successful: bool = True
 
 
 class SmartQueryOperationUpdate(BaseModel):
     """Schema for updating a Smart Query operation (e.g., toggle favorite, rename)."""
 
-    is_favorite: Optional[bool] = None
-    display_name: Optional[str] = Field(None, max_length=255)
+    is_favorite: bool | None = None
+    display_name: str | None = Field(None, max_length=255)
 
 
 class SmartQueryOperationResponse(BaseModel):
@@ -49,9 +49,9 @@ class SmartQueryOperationResponse(BaseModel):
     command_text: str
     command_hash: str
     operation_type: OperationType
-    interpretation: Dict[str, Any]
-    result_summary: Dict[str, Any]
-    display_name: Optional[str]
+    interpretation: dict[str, Any]
+    result_summary: dict[str, Any]
+    display_name: str | None
     is_favorite: bool
     execution_count: int
     was_successful: bool
@@ -64,7 +64,7 @@ class SmartQueryOperationResponse(BaseModel):
 class SmartQueryOperationListResponse(BaseModel):
     """Schema for Smart Query operation list response."""
 
-    items: List[SmartQueryOperationResponse]
+    items: list[SmartQueryOperationResponse]
     total: int
     page: int
     per_page: int
@@ -85,4 +85,4 @@ class SmartQueryExecuteResponse(BaseModel):
     operation_id: UUID
     success: bool
     message: str
-    result: Dict[str, Any] = Field(default_factory=dict)
+    result: dict[str, Any] = Field(default_factory=dict)

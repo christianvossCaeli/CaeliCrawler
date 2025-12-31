@@ -4,12 +4,12 @@ This module contains shared utilities, constants, and client initialization
 that are used across the assistant service modules.
 
 Exports:
-    - get_openai_client: Azure OpenAI client factory
+    - get_openai_client: Azure OpenAI client factory (from centralized ai_client)
     - validate_entity_context: Validate entity ID and context
     - build_suggestions_list: Build smart suggestions from results
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -18,39 +18,35 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.config import settings
 from app.models import Entity
 from app.schemas.assistant import SuggestedAction
 
+# Import from centralized AI client module
+from services.ai_client import get_sync_openai_client
+
 logger = structlog.get_logger()
 
-# Global Azure OpenAI client (lazily initialized)
-_client: Optional[AzureOpenAI] = None
 
-
-def get_openai_client() -> Optional[AzureOpenAI]:
+def get_openai_client() -> AzureOpenAI | None:
     """Get or initialize the Azure OpenAI client.
+
+    This is a wrapper around the centralized ai_client module.
 
     Returns:
         AzureOpenAI client instance or None if not configured
     """
-    global _client
-
-    if _client is None and settings.azure_openai_api_key:
-        _client = AzureOpenAI(
-            api_key=settings.azure_openai_api_key,
-            api_version=settings.azure_openai_api_version,
-            azure_endpoint=settings.azure_openai_endpoint,
-        )
-
-    return _client
+    try:
+        return get_sync_openai_client()
+    except ValueError:
+        # Not configured
+        return None
 
 
 async def validate_entity_context(
     db: AsyncSession,
     entity_id: str,
     with_facets: bool = False
-) -> Optional[Entity]:
+) -> Entity | None:
     """Validate entity ID and load entity with optional relationships.
 
     Args:
@@ -79,10 +75,10 @@ async def validate_entity_context(
 def build_suggestions_list(
     total: int,
     has_data: bool,
-    entity_type: Optional[str] = None,
-    facet_types: Optional[List[Any]] = None,
-    translator: Optional[Any] = None
-) -> List[SuggestedAction]:
+    entity_type: str | None = None,
+    facet_types: list[Any] | None = None,
+    translator: Any | None = None
+) -> list[SuggestedAction]:
     """Build contextual suggested actions based on results.
 
     Args:
@@ -126,8 +122,8 @@ def build_suggestions_list(
 
 def format_count_message(
     total: int,
-    entity_type: Optional[str] = None,
-    translator: Optional[Any] = None
+    entity_type: str | None = None,
+    translator: Any | None = None
 ) -> str:
     """Format a count message for query results.
 
@@ -153,7 +149,7 @@ def format_count_message(
 async def get_entity_with_context(
     db: AsyncSession,
     entity_id: str
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Get entity with full context data for AI processing.
 
     Loads entity with:

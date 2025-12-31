@@ -4,25 +4,20 @@ This service handles data retrieval from the Entity-Facet system,
 including FacetValueHistory for time-series data.
 """
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select, and_, func, desc, asc
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Entity, EntityType, FacetType, FacetValue, FacetValueHistory
 from app.schemas.visualization import (
-    QueryDataResponse,
     QueryDataConfig,
-    VisualizationConfig,
-    VisualizationType,
-    VisualizationColumn,
-    ColumnType,
+    QueryDataResponse,
     SourceInfo,
     SuggestedAction,
-    StatCard,
 )
 
 logger = structlog.get_logger()
@@ -37,7 +32,7 @@ class DataQueryService:
     async def query_data(
         self,
         config: QueryDataConfig,
-        user_query: Optional[str] = None,
+        user_query: str | None = None,
     ) -> QueryDataResponse:
         """
         Query entities with their facet values.
@@ -142,12 +137,12 @@ class DataQueryService:
         self,
         entity_type_slug: str,
         facet_type_slug: str,
-        entity_ids: Optional[List[UUID]] = None,
-        entity_names: Optional[List[str]] = None,
-        from_date: Optional[datetime] = None,
-        to_date: Optional[datetime] = None,
+        entity_ids: list[UUID] | None = None,
+        entity_names: list[str] | None = None,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
         limit_per_entity: int = 100,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Query history data for a specific facet type.
 
@@ -223,7 +218,7 @@ class DataQueryService:
 
         # Group by entity
         entity_map = {e.id: e for e in entities}
-        history_by_entity: Dict[UUID, List[Dict[str, Any]]] = {}
+        history_by_entity: dict[UUID, list[dict[str, Any]]] = {}
 
         for hp in history_points:
             if hp.entity_id not in history_by_entity:
@@ -261,10 +256,10 @@ class DataQueryService:
     async def get_latest_facet_values(
         self,
         entity_type_slug: str,
-        facet_type_slugs: List[str],
-        filters: Optional[Dict[str, Any]] = None,
+        facet_type_slugs: list[str],
+        filters: dict[str, Any] | None = None,
         limit: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get the latest facet value for each entity.
 
@@ -315,7 +310,7 @@ class DataQueryService:
         regular_facet_types = {slug: ft for slug, ft in facet_types.items() if ft.value_type != "history"}
 
         # Bulk load latest history values using window function
-        history_by_entity: Dict[UUID, Dict[str, Any]] = {eid: {} for eid in entity_ids}
+        history_by_entity: dict[UUID, dict[str, Any]] = {eid: {} for eid in entity_ids}
         if history_facet_types:
             history_ft_ids = [ft.id for ft in history_facet_types.values()]
             history_subquery = (
@@ -352,7 +347,7 @@ class DataQueryService:
                     }
 
         # Bulk load regular facet values
-        facets_by_entity: Dict[UUID, Dict[str, Any]] = {eid: {} for eid in entity_ids}
+        facets_by_entity: dict[UUID, dict[str, Any]] = {eid: {} for eid in entity_ids}
         if regular_facet_types:
             regular_ft_ids = [ft.id for ft in regular_facet_types.values()]
             fv_result = await self.session.execute(
@@ -399,14 +394,14 @@ class DataQueryService:
     # Private helper methods
     # =========================================================================
 
-    async def _get_entity_type(self, slug: str) -> Optional[EntityType]:
+    async def _get_entity_type(self, slug: str) -> EntityType | None:
         """Get entity type by slug."""
         result = await self.session.execute(
             select(EntityType).where(EntityType.slug == slug)
         )
         return result.scalar_one_or_none()
 
-    async def _get_facet_types(self, slugs: List[str]) -> Dict[str, FacetType]:
+    async def _get_facet_types(self, slugs: list[str]) -> dict[str, FacetType]:
         """Get facet types by slugs."""
         if not slugs:
             return {}
@@ -420,7 +415,7 @@ class DataQueryService:
         self,
         entity_type: EntityType,
         config: QueryDataConfig,
-    ) -> List[Entity]:
+    ) -> list[Entity]:
         """Query entities based on configuration."""
         conditions = [
             Entity.entity_type_id == entity_type.id,
@@ -458,12 +453,12 @@ class DataQueryService:
 
     async def _load_facet_data(
         self,
-        entity_ids: List[UUID],
-        facet_type_map: Dict[str, FacetType],
-        time_range: Optional[Any] = None,
-    ) -> Dict[UUID, Dict[str, Any]]:
+        entity_ids: list[UUID],
+        facet_type_map: dict[str, FacetType],
+        time_range: Any | None = None,
+    ) -> dict[UUID, dict[str, Any]]:
         """Load facet data for entities."""
-        facet_data: Dict[UUID, Dict[str, Any]] = {eid: {} for eid in entity_ids}
+        facet_data: dict[UUID, dict[str, Any]] = {eid: {} for eid in entity_ids}
 
         for ft_slug, ft in facet_type_map.items():
             if ft.value_type == "history":
@@ -481,11 +476,11 @@ class DataQueryService:
 
     async def _load_history_facets(
         self,
-        facet_data: Dict[UUID, Dict[str, Any]],
-        entity_ids: List[UUID],
+        facet_data: dict[UUID, dict[str, Any]],
+        entity_ids: list[UUID],
         facet_type: FacetType,
         facet_slug: str,
-        time_range: Optional[Any] = None,
+        time_range: Any | None = None,
     ) -> None:
         """Load history facet values."""
         latest_only = time_range and hasattr(time_range, 'latest_only') and time_range.latest_only
@@ -556,8 +551,8 @@ class DataQueryService:
 
     async def _load_regular_facets(
         self,
-        facet_data: Dict[UUID, Dict[str, Any]],
-        entity_ids: List[UUID],
+        facet_data: dict[UUID, dict[str, Any]],
+        entity_ids: list[UUID],
         facet_type: FacetType,
         facet_slug: str,
     ) -> None:
@@ -578,18 +573,18 @@ class DataQueryService:
 
     def _sort_data(
         self,
-        data: List[Dict[str, Any]],
-        sort_by: Optional[str],
+        data: list[dict[str, Any]],
+        sort_by: str | None,
         sort_order: str,
-        facet_type_map: Dict[str, FacetType],
-    ) -> List[Dict[str, Any]]:
+        facet_type_map: dict[str, FacetType],
+    ) -> list[dict[str, Any]]:
         """Sort query results."""
         if not sort_by:
             return data
 
         reverse = sort_order.lower() == "desc"
 
-        def get_sort_key(item: Dict[str, Any]) -> Any:
+        def get_sort_key(item: dict[str, Any]) -> Any:
             if sort_by == "name":
                 return item.get("entity_name", "")
 
@@ -612,8 +607,8 @@ class DataQueryService:
 
     def _get_last_update_time(
         self,
-        facet_data: Dict[UUID, Dict[str, Any]],
-    ) -> Optional[datetime]:
+        facet_data: dict[UUID, dict[str, Any]],
+    ) -> datetime | None:
         """Get the most recent update time from facet data."""
         latest = None
 
@@ -630,9 +625,9 @@ class DataQueryService:
 
     def _format_freshness(self, dt: datetime) -> str:
         """Format time difference in human-readable form."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
 
         diff = now - dt
 
@@ -650,8 +645,8 @@ class DataQueryService:
     def _build_suggested_actions(
         self,
         config: QueryDataConfig,
-        facet_type_map: Dict[str, FacetType],
-    ) -> List[SuggestedAction]:
+        facet_type_map: dict[str, FacetType],
+    ) -> list[SuggestedAction]:
         """Build suggested follow-up actions."""
         actions = []
 

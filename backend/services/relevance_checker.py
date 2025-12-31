@@ -2,7 +2,6 @@
 
 import re
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
 
 import structlog
 
@@ -15,7 +14,7 @@ class RelevanceResult:
 
     is_relevant: bool
     score: float  # 0.0 to 1.0
-    matched_keywords: List[str]
+    matched_keywords: list[str]
     reason: str
 
 
@@ -74,7 +73,7 @@ class RelevanceChecker:
         "mw",
     ]
 
-    def __init__(self, keywords: Optional[List[str]] = None, min_keywords: int = 2):
+    def __init__(self, keywords: list[str] | None = None, min_keywords: int = 2):
         """
         Initialize the relevance checker.
 
@@ -104,7 +103,7 @@ class RelevanceChecker:
             keywords = category.search_terms
         return cls(keywords=keywords)
 
-    def check(self, text: str, title: Optional[str] = None) -> RelevanceResult:
+    def check(self, text: str, title: str | None = None) -> RelevanceResult:
         """
         Check if text content is relevant based on keyword matching.
 
@@ -168,7 +167,7 @@ class RelevanceChecker:
             reason=reason,
         )
 
-    def quick_check(self, text: str) -> Tuple[bool, float]:
+    def quick_check(self, text: str) -> tuple[bool, float]:
         """
         Simplified check returning just (is_relevant, score).
 
@@ -184,7 +183,7 @@ default_checker = RelevanceChecker()
 
 def check_relevance(
     text: str,
-    title: Optional[str] = None,
+    title: str | None = None,
     category=None,
 ) -> RelevanceResult:
     """
@@ -198,9 +197,6 @@ def check_relevance(
     Returns:
         RelevanceResult with is_relevant, score, matched_keywords, reason
     """
-    if category:
-        checker = RelevanceChecker.from_category(category)
-    else:
-        checker = default_checker
+    checker = RelevanceChecker.from_category(category) if category else default_checker
 
     return checker.check(text, title)

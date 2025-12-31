@@ -5,7 +5,7 @@
         <v-icon class="mr-2">mdi-database-outline</v-icon>
         {{ t('categories.dialog.sourcesFor') }} {{ category?.name }}
         <v-chip color="primary" size="small" class="ml-2">
-          {{ sources.length }} {{ t('categories.crawler.sourcesCount') }}
+          {{ total }} {{ t('categories.crawler.sourcesCount') }}
         </v-chip>
       </v-card-title>
       <v-card-text>
@@ -16,7 +16,7 @@
 
         <!-- Search -->
         <v-text-field
-          v-model="searchQuery"
+          v-model="searchModel"
           :label="t('categories.dialog.searchSources')"
           prepend-inner-icon="mdi-magnify"
           variant="outlined"
@@ -25,44 +25,51 @@
           class="mb-4"
         ></v-text-field>
 
-        <!-- Sources List -->
-        <v-list v-if="filteredSources.length > 0" lines="two" class="sources-list">
-          <v-list-item
-            v-for="source in filteredSources"
-            :key="source.id"
-            :title="source.name"
-            :subtitle="source.base_url"
-          >
-            <template #prepend>
-              <v-avatar :color="getStatusColor(source.status)" size="36">
-                <v-icon size="small" :color="getContrastColor(getStatusColor(source.status))">{{ getSourceTypeIcon(source.source_type) }}</v-icon>
+        <!-- Sources Table -->
+        <v-data-table-server
+          v-model:page="pageModel"
+          v-model:items-per-page="perPageModel"
+          :headers="headers"
+          :items="sources"
+          :items-length="total"
+          :loading="loading"
+          :no-data-text="noDataText"
+          class="sources-table"
+        >
+          <template #item.name="{ item }">
+            <div class="d-flex align-center">
+              <v-avatar :color="getStatusColor(item.status)" size="36">
+                <v-icon size="small" :color="getContrastColor(getStatusColor(item.status))">
+                  {{ getSourceTypeIcon(item.source_type) }}
+                </v-icon>
               </v-avatar>
-            </template>
-            <template #append>
-              <div class="d-flex align-center">
-                <v-chip size="x-small" class="mr-2" :color="getStatusColor(source.status)">
-                  {{ source.status }}
-                </v-chip>
-                <v-chip size="x-small" color="info" variant="outlined" class="mr-2">
-                  {{ source.document_count || 0 }} {{ t('categories.dialog.docs') }}
-                </v-chip>
-                <v-btn
-                  icon="mdi-open-in-new"
-                  size="x-small"
-                  variant="tonal"
-                  :href="source.base_url"
-                  target="_blank"
-                  :title="t('categories.dialog.openUrl')"
-                ></v-btn>
+              <div class="ml-3">
+                <div class="text-body-2 font-weight-medium">{{ item.name }}</div>
+                <div class="text-caption text-medium-emphasis">{{ item.base_url || '-' }}</div>
               </div>
-            </template>
-          </v-list-item>
-        </v-list>
-
-        <v-alert v-else type="warning" variant="tonal">
-          <span v-if="searchQuery">{{ t('categories.dialog.noSourcesSearch') }} "{{ searchQuery }}"</span>
-          <span v-else>{{ t('categories.dialog.noSources') }}</span>
-        </v-alert>
+            </div>
+          </template>
+          <template #item.status="{ item }">
+            <v-chip size="x-small" :color="getStatusColor(item.status)">
+              {{ item.status || '-' }}
+            </v-chip>
+          </template>
+          <template #item.document_count="{ item }">
+            <v-chip size="x-small" color="info" variant="outlined">
+              {{ item.document_count || 0 }} {{ t('categories.dialog.docs') }}
+            </v-chip>
+          </template>
+          <template #item.actions="{ item }">
+            <v-btn
+              icon="mdi-open-in-new"
+              size="x-small"
+              variant="tonal"
+              :href="item.base_url"
+              target="_blank"
+              :title="t('categories.dialog.openUrl')"
+            ></v-btn>
+          </template>
+        </v-data-table-server>
 
         <!-- Statistics -->
         <v-divider class="my-4"></v-divider>
@@ -97,9 +104,10 @@
         <v-btn
           color="primary"
           variant="tonal"
+          prepend-icon="mdi-filter"
           @click="$emit('navigateToSources')"
         >
-          <v-icon left>mdi-filter</v-icon>{{ t('categories.dialog.showAllInSourcesView') }}
+          {{ t('categories.dialog.showAllInSourcesView') }}
         </v-btn>
         <v-spacer></v-spacer>
         <v-btn variant="tonal" @click="modelValue = false">{{ t('common.close') }}</v-btn>
@@ -109,7 +117,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getContrastColor } from '@/composables/useColorHelpers'
 import { useStatusColors } from '@/composables'
@@ -145,29 +153,76 @@ const modelValue = defineModel<boolean>()
 const props = defineProps<{
   category: Category | null
   sources: Source[]
+  total: number
   stats: Stats
+  loading: boolean
+  page: number
+  perPage: number
+  search: string
 }>()
 
 // Emits
-defineEmits<{
-  navigateToSources: []
+const emit = defineEmits<{
+  (e: 'navigateToSources'): void
+  (e: 'update:page', value: number): void
+  (e: 'update:perPage', value: number): void
+  (e: 'update:search', value: string): void
 }>()
 
 const { t } = useI18n()
 const { getStatusColor } = useStatusColors()
 
-// Local state
-const searchQuery = ref('')
+// Local search with debounce
+const localSearch = ref(props.search)
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
-// Computed
-const filteredSources = computed(() => {
-  if (!searchQuery.value) return props.sources
-  const query = searchQuery.value.toLowerCase()
-  return props.sources.filter(
-    source =>
-      source.name.toLowerCase().includes(query) ||
-      source.base_url?.toLowerCase().includes(query)
-  )
+// Sync local search when prop changes externally
+watch(() => props.search, (newVal) => {
+  if (newVal !== localSearch.value) {
+    localSearch.value = newVal
+  }
+})
+
+// Debounced emit on local search change
+watch(localSearch, (newVal) => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+  searchDebounceTimer = setTimeout(() => {
+    emit('update:search', newVal)
+  }, 300)
+})
+
+// Cleanup on unmount
+onUnmounted(() => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+})
+
+const searchModel = computed({
+  get: () => localSearch.value,
+  set: (value: string) => { localSearch.value = value },
+})
+
+const pageModel = computed({
+  get: () => props.page,
+  set: (value: number) => emit('update:page', value),
+})
+
+const perPageModel = computed({
+  get: () => props.perPage,
+  set: (value: number) => emit('update:perPage', value),
+})
+
+const headers = computed(() => [
+  { title: t('common.name'), key: 'name', sortable: false },
+  { title: t('common.status'), key: 'status', sortable: false, width: '120px' },
+  { title: t('categories.dialog.docs'), key: 'document_count', sortable: false, width: '120px' },
+  { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' as const, width: '80px' },
+])
+
+const noDataText = computed(() => {
+  if (props.search) {
+    return `${t('categories.dialog.noSourcesSearch')} "${props.search}"`
+  }
+  return t('categories.dialog.noSources')
 })
 
 // Helper functions - getStatusColor now from useStatusColors composable
@@ -184,8 +239,7 @@ function getSourceTypeIcon(sourceType?: string): string {
 </script>
 
 <style scoped>
-.sources-list {
+.sources-table :deep(.v-data-table__wrapper) {
   max-height: 400px;
-  overflow-y: auto;
 }
 </style>

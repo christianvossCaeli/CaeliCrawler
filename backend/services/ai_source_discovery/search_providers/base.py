@@ -1,7 +1,6 @@
 """Base class for search providers."""
 
 from abc import ABC, abstractmethod
-from typing import List
 from urllib.parse import urlparse
 
 from ..models import SearchResult
@@ -13,9 +12,9 @@ class BaseSearchProvider(ABC):
     @abstractmethod
     async def search(
         self,
-        queries: List[str],
+        queries: list[str],
         num_results: int = 10,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """
         Execute web search for the given queries.
 

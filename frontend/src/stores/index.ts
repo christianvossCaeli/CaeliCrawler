@@ -46,3 +46,6 @@ export type {
 // Auth store
 export { useAuthStore } from './auth'
 export type { User, UserRole } from './auth'
+
+// LLM Usage store
+export { useLLMUsageStore } from './llmUsage'

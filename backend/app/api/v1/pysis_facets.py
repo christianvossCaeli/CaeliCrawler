@@ -7,16 +7,16 @@ Bietet:
 - Vorschau und Status-Abfragen
 """
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_current_user, require_editor
 from app.database import get_session
 from app.models.user import User
-from app.core.deps import get_current_user, require_editor
 from services.pysis_facet_service import PySisFacetService
 
 router = APIRouter(tags=["PySis Facets"])
@@ -27,7 +27,7 @@ router = APIRouter(tags=["PySis Facets"])
 class AnalyzeForFacetsRequest(BaseModel):
     """Request für PySis-Facet-Analyse."""
     entity_id: UUID = Field(..., description="Entity-ID")
-    process_id: Optional[UUID] = Field(None, description="Spezifischer PySis-Prozess (optional)")
+    process_id: UUID | None = Field(None, description="Spezifischer PySis-Prozess (optional)")
     include_empty: bool = Field(False, description="Auch leere Felder analysieren")
     min_confidence: float = Field(0.0, ge=0.0, le=1.0, description="Minimale Konfidenz")
 
@@ -35,7 +35,7 @@ class AnalyzeForFacetsRequest(BaseModel):
 class EnrichFacetsRequest(BaseModel):
     """Request für Facet-Anreicherung."""
     entity_id: UUID = Field(..., description="Entity-ID")
-    facet_type_id: Optional[UUID] = Field(None, description="Nur diesen FacetType anreichern")
+    facet_type_id: UUID | None = Field(None, description="Nur diesen FacetType anreichern")
     overwrite: bool = Field(False, description="Bestehende Werte überschreiben")
 
 
@@ -55,19 +55,19 @@ class PreviewResponse(BaseModel):
     pysis_processes: int = 0
     pysis_fields: int = 0
     fields_with_values: int = 0
-    facet_types_count: Optional[int] = None
-    facet_values_count: Optional[int] = None
-    facet_types: Optional[list] = None
-    facets_by_type: Optional[list] = None
+    facet_types_count: int | None = None
+    facet_values_count: int | None = None
+    facet_types: list | None = None
+    facets_by_type: list | None = None
 
 
 class StatusResponse(BaseModel):
     """PySis-Status einer Entity."""
     has_pysis: bool
     entity_name: str
-    message: Optional[str] = None
-    processes: Optional[list] = None
-    recent_tasks: Optional[list] = None
+    message: str | None = None
+    processes: list | None = None
+    recent_tasks: list | None = None
     total_processes: int = 0
     total_fields: int = 0
 
@@ -104,7 +104,7 @@ async def analyze_pysis_for_facets(
             message="PySis-Facet-Analyse gestartet",
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from None
 
 
 @router.post("/enrich", response_model=OperationResponse)
@@ -136,7 +136,7 @@ async def enrich_facets_from_pysis(
             message="Facet-Anreicherung gestartet",
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from None
 
 
 @router.get("/preview", response_model=PreviewResponse)
@@ -160,7 +160,7 @@ async def get_operation_preview(
         preview = await service.get_operation_preview(entity_id, operation)
         return PreviewResponse(**preview)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from None
 
 
 @router.get("/status", response_model=StatusResponse)
@@ -183,7 +183,7 @@ async def get_pysis_status(
         status = await service.get_pysis_status(entity_id)
         return StatusResponse(**status)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from None
 
 
 @router.get("/summary")
@@ -191,7 +191,7 @@ async def get_entity_pysis_summary(
     entity_id: UUID = Query(..., description="Entity-ID"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Kurze Zusammenfassung für UI-Anzeige.
 

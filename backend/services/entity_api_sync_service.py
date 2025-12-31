@@ -5,8 +5,9 @@ It supports different update strategies (merge, replace, upsert) and tracks
 changes for audit purposes.
 """
 
+import contextlib
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy import select
@@ -35,14 +36,14 @@ class EntityAPISyncService:
 
     async def sync_from_api_response(
         self,
-        items: List[Dict[str, Any]],
-        field_mapping: Dict[str, str],
+        items: list[dict[str, Any]],
+        field_mapping: dict[str, str],
         entity_type_slug: str,
         update_strategy: str = "merge",
-        source_id: Optional[str] = None,
-        admin_level_1: Optional[str] = None,
+        source_id: str | None = None,
+        admin_level_1: str | None = None,
         country: str = "DE",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Synchronize API response data with Entities.
 
@@ -142,14 +143,14 @@ class EntityAPISyncService:
 
         return result
 
-    async def _get_entity_type(self, slug: str) -> Optional[EntityType]:
+    async def _get_entity_type(self, slug: str) -> EntityType | None:
         """Get EntityType by slug."""
         result = await self.session.execute(
             select(EntityType).where(EntityType.slug == slug)
         )
         return result.scalar_one_or_none()
 
-    def _get_id_field(self, field_mapping: Dict[str, str]) -> str:
+    def _get_id_field(self, field_mapping: dict[str, str]) -> str:
         """Determine which field to use for entity identification."""
         # Priority: external_id > id > name
         if "external_id" in field_mapping:
@@ -160,13 +161,13 @@ class EntityAPISyncService:
 
     async def _sync_single_item(
         self,
-        item: Dict[str, Any],
-        field_mapping: Dict[str, str],
+        item: dict[str, Any],
+        field_mapping: dict[str, str],
         entity_type: EntityType,
         update_strategy: str,
         id_field: str,
-        source_id: Optional[str],
-        admin_level_1: Optional[str],
+        source_id: str | None,
+        admin_level_1: str | None,
         country: str,
     ) -> str:
         """
@@ -216,11 +217,11 @@ class EntityAPISyncService:
 
     def _map_fields(
         self,
-        item: Dict[str, Any],
-        field_mapping: Dict[str, str],
-        default_admin_level_1: Optional[str],
+        item: dict[str, Any],
+        field_mapping: dict[str, str],
+        default_admin_level_1: str | None,
         default_country: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Map API fields to Entity fields using the field_mapping."""
         entity_data = {
             "core_attributes": {},
@@ -241,10 +242,8 @@ class EntityAPISyncService:
             if entity_field in standard_fields:
                 # Standard Entity fields
                 if entity_field in ("latitude", "longitude"):
-                    try:
+                    with contextlib.suppress(ValueError, TypeError):
                         entity_data[entity_field] = float(value)
-                    except (ValueError, TypeError):
-                        pass
                 elif entity_field == "country":
                     entity_data["country"] = str(value).upper()[:2]
                 else:
@@ -267,7 +266,7 @@ class EntityAPISyncService:
         entity_type_id,
         id_field: str,
         id_value: str,
-    ) -> Optional[Entity]:
+    ) -> Entity | None:
         """Find existing entity by ID field."""
         if not id_value:
             return None
@@ -292,9 +291,9 @@ class EntityAPISyncService:
     def _update_entity(
         self,
         entity: Entity,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         strategy: str,
-        source_id: Optional[str],
+        source_id: str | None,
     ) -> bool:
         """Update entity fields. Returns True if any changes were made."""
         has_changes = False
@@ -342,8 +341,8 @@ class EntityAPISyncService:
     def _replace_entity(
         self,
         entity: Entity,
-        data: Dict[str, Any],
-        source_id: Optional[str],
+        data: dict[str, Any],
+        source_id: str | None,
     ):
         """Replace entity fields entirely."""
         for field in ["name", "external_id", "admin_level_1", "admin_level_2",
@@ -365,8 +364,8 @@ class EntityAPISyncService:
     async def _create_entity(
         self,
         entity_type: EntityType,
-        data: Dict[str, Any],
-        source_id: Optional[str],
+        data: dict[str, Any],
+        source_id: str | None,
     ) -> Entity:
         """Create a new entity."""
         from services.smart_query.utils import generate_slug

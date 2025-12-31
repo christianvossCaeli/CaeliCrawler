@@ -3,18 +3,18 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from pgvector.sqlalchemy import Vector
 
 from app.database import Base
 
 if TYPE_CHECKING:
-    from app.models.entity_type import EntityType
     from app.models.entity_relation import EntityRelation
+    from app.models.entity_type import EntityType
 
 
 class Cardinality(str, enum.Enum):
@@ -62,17 +62,17 @@ class RelationType(Base):
         nullable=False,
         comment="Inverse display name (e.g., 'beschaeftigt')",
     )
-    name_embedding: Mapped[Optional[List[float]]] = mapped_column(
+    name_embedding: Mapped[list[float] | None] = mapped_column(
         Vector(1536),
         nullable=True,
         comment="Embedding vector for semantic similarity search (name)",
     )
-    name_inverse_embedding: Mapped[Optional[List[float]]] = mapped_column(
+    name_inverse_embedding: Mapped[list[float] | None] = mapped_column(
         Vector(1536),
         nullable=True,
         comment="Embedding vector for semantic similarity search (name_inverse)",
     )
-    description: Mapped[Optional[str]] = mapped_column(
+    description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
@@ -101,7 +101,7 @@ class RelationType(Base):
     )
 
     # Attribute schema for relationship properties
-    attribute_schema: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    attribute_schema: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
         comment='Schema for relation attributes {"role": "string", "since": "date"}',
@@ -160,7 +160,7 @@ class RelationType(Base):
         "EntityType",
         foreign_keys=[target_entity_type_id],
     )
-    relations: Mapped[List["EntityRelation"]] = relationship(
+    relations: Mapped[list["EntityRelation"]] = relationship(
         "EntityRelation",
         back_populates="relation_type",
         cascade="all, delete-orphan",

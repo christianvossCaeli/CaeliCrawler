@@ -2,8 +2,7 @@
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
-from typing import Optional, Tuple
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import bcrypt
@@ -45,8 +44,8 @@ def get_password_hash(password: str) -> str:
 def create_access_token(
     user_id: UUID,
     role: str,
-    session_id: Optional[UUID] = None,
-    expires_delta: Optional[timedelta] = None,
+    session_id: UUID | None = None,
+    expires_delta: timedelta | None = None,
 ) -> str:
     """
     Create JWT access token.
@@ -60,7 +59,7 @@ def create_access_token(
     Returns:
         Encoded JWT token string
     """
-    expire = datetime.now(timezone.utc) + (
+    expire = datetime.now(UTC) + (
         expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode = {
@@ -74,7 +73,7 @@ def create_access_token(
     return jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)
 
 
-def decode_access_token(token: str) -> Optional[dict]:
+def decode_access_token(token: str) -> dict | None:
     """
     Decode and validate JWT token.
 
@@ -139,7 +138,7 @@ def create_refresh_token_response(
     user_id: UUID,
     role: str,
     session_id: UUID,
-) -> Tuple[str, str, datetime]:
+) -> tuple[str, str, datetime]:
     """
     Create a refresh token with associated metadata.
 
@@ -153,7 +152,7 @@ def create_refresh_token_response(
     """
     raw_token = generate_refresh_token()
     token_hash = hash_refresh_token(raw_token)
-    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expires_at = datetime.now(UTC) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
 
     return raw_token, token_hash, expires_at
 
@@ -216,18 +215,18 @@ def create_sse_ticket(user_id: UUID, role: str) -> str:
     Returns:
         Encoded JWT ticket string
     """
-    expire = datetime.now(timezone.utc) + timedelta(seconds=SSE_TICKET_EXPIRE_SECONDS)
+    expire = datetime.now(UTC) + timedelta(seconds=SSE_TICKET_EXPIRE_SECONDS)
     to_encode = {
         "sub": str(user_id),
         "role": role,
         "exp": expire,
         "type": "sse_ticket",  # Distinguishes from regular access tokens
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
     }
     return jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)
 
 
-def decode_sse_ticket(ticket: str) -> Optional[dict]:
+def decode_sse_ticket(ticket: str) -> dict | None:
     """
     Decode and validate an SSE ticket.
 

@@ -1,24 +1,23 @@
 """API endpoints for Smart Query History management."""
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import delete, func, select, or_
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
-from app.models import User
-from app.models.smart_query_operation import SmartQueryOperation, OperationType
 from app.core.deps import get_current_user
 from app.core.exceptions import NotFoundError
+from app.database import get_session
+from app.models import User
+from app.models.smart_query_operation import OperationType, SmartQueryOperation
 from app.schemas.common import MessageResponse
 from app.schemas.smart_query_operation import (
-    SmartQueryOperationResponse,
-    SmartQueryOperationListResponse,
-    SmartQueryFavoriteToggleResponse,
     SmartQueryExecuteResponse,
+    SmartQueryFavoriteToggleResponse,
+    SmartQueryOperationListResponse,
+    SmartQueryOperationResponse,
     SmartQueryOperationUpdate,
 )
 
@@ -30,8 +29,8 @@ async def list_history(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
     favorites_only: bool = Query(default=False, description="Show only favorites"),
-    operation_type: Optional[str] = Query(default=None, description="Filter by operation type"),
-    search: Optional[str] = Query(default=None, description="Search in command text"),
+    operation_type: str | None = Query(default=None, description="Filter by operation type"),
+    search: str | None = Query(default=None, description="Search in command text"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -45,7 +44,7 @@ async def list_history(
 
     # Filter favorites only
     if favorites_only:
-        query = query.where(SmartQueryOperation.is_favorite == True)
+        query = query.where(SmartQueryOperation.is_favorite)
 
     # Filter by operation type
     if operation_type:
@@ -248,7 +247,7 @@ async def execute_from_history(
 
         # Update operation stats
         operation.execution_count += 1
-        operation.last_executed_at = datetime.now(timezone.utc)
+        operation.last_executed_at = datetime.now(UTC)
         operation.was_successful = exec_result.get("success", False)
         operation.result_summary = {
             "message": exec_result.get("message", ""),
@@ -266,7 +265,7 @@ async def execute_from_history(
         )
     except Exception as e:
         operation.execution_count += 1
-        operation.last_executed_at = datetime.now(timezone.utc)
+        operation.last_executed_at = datetime.now(UTC)
         operation.was_successful = False
         await session.commit()
 
@@ -316,7 +315,7 @@ async def clear_history(
     query = delete(SmartQueryOperation).where(SmartQueryOperation.user_id == current_user.id)
 
     if not include_favorites:
-        query = query.where(SmartQueryOperation.is_favorite == False)
+        query = query.where(not SmartQueryOperation.is_favorite)
 
     result = await session.execute(query)
     await session.commit()

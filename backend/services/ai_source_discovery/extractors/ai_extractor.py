@@ -1,16 +1,19 @@
 """AI-powered extractor using LLM for unstructured content."""
 
 import json
-from typing import List
+import time
 
 import structlog
 
 from app.config import settings
+from app.models.llm_usage import LLMProvider, LLMTaskType
+from services.llm_usage_tracker import record_llm_usage
 from services.smart_query.query_interpreter import get_openai_client
 from services.smart_query.utils import clean_json_response
-from .base import BaseExtractor
+
 from ..models import ExtractedSource, SearchStrategy
 from ..prompts import AI_EXTRACTION_PROMPT
+from .base import BaseExtractor
 
 logger = structlog.get_logger()
 
@@ -29,7 +32,7 @@ class AIExtractor(BaseExtractor):
         url: str,
         html_content: str,
         strategy: SearchStrategy,
-    ) -> List[ExtractedSource]:
+    ) -> list[ExtractedSource]:
         """Extract data using LLM analysis."""
         try:
             client = get_openai_client()
@@ -52,12 +55,26 @@ class AIExtractor(BaseExtractor):
         )
 
         try:
+            start_time = time.time()
             response = client.chat.completions.create(
                 model=settings.azure_openai_deployment_name,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
                 max_tokens=4000,
             )
+
+            if response.usage:
+                await record_llm_usage(
+                    provider=LLMProvider.AZURE_OPENAI,
+                    model=settings.azure_openai_deployment_name,
+                    task_type=LLMTaskType.DISCOVERY,
+                    task_name="AIExtractor.extract",
+                    prompt_tokens=response.usage.prompt_tokens,
+                    completion_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens,
+                    duration_ms=int((time.time() - start_time) * 1000),
+                    is_error=False,
+                )
 
             content = response.choices[0].message.content.strip()
             content = clean_json_response(content)

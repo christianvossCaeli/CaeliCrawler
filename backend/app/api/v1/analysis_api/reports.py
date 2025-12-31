@@ -1,24 +1,31 @@
 """Analysis report endpoints - overview and entity reports."""
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select, and_, or_
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import ConflictError, NotFoundError
 from app.database import get_session
 from app.models import (
-    Entity, EntityType, FacetType, FacetValue, EntityRelation, RelationType,
-    AnalysisTemplate, Category, Document, DataSource,
+    AnalysisTemplate,
+    DataSource,
+    Document,
+    Entity,
+    EntityRelation,
+    EntityType,
+    FacetType,
+    FacetValue,
+    RelationType,
 )
-from app.core.exceptions import NotFoundError, ConflictError
 
 router = APIRouter()
 
 
-def _deduplicate_values(values: List[Dict], dedup_fields: List[str]) -> List[Dict]:
+def _deduplicate_values(values: list[dict], dedup_fields: list[str]) -> list[dict]:
     """Deduplicate values based on specified fields."""
     seen = {}
 
@@ -57,12 +64,12 @@ def _deduplicate_values(values: List[Dict], dedup_fields: List[str]) -> List[Dic
 
 @router.get("/overview")
 async def get_analysis_overview(
-    template_id: Optional[UUID] = Query(default=None),
-    template_slug: Optional[str] = Query(default=None),
-    entity_type_slug: Optional[str] = Query(default=None),
-    category_id: Optional[UUID] = Query(default=None),
-    facet_types: Optional[List[str]] = Query(default=None, description="Facet type slugs to include"),
-    time_filter: Optional[str] = Query(default=None, description="future_only, past_only, all"),
+    template_id: UUID | None = Query(default=None),
+    template_slug: str | None = Query(default=None),
+    entity_type_slug: str | None = Query(default=None),
+    category_id: UUID | None = Query(default=None),
+    facet_types: list[str] | None = Query(default=None, description="Facet type slugs to include"),
+    time_filter: str | None = Query(default=None, description="future_only, past_only, all"),
     min_confidence: float = Query(default=0.7, ge=0, le=1),
     min_facet_values: int = Query(default=1, ge=1),
     limit: int = Query(default=100, ge=1, le=500),
@@ -130,7 +137,7 @@ async def get_analysis_overview(
     entities = entities_result.scalars().all()
 
     # Build overview data
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     overview_items = []
 
     for entity in entities:
@@ -170,7 +177,7 @@ async def get_analysis_overview(
             continue
 
         # Group by facet type
-        by_type: Dict[UUID, List[FacetValue]] = {}
+        by_type: dict[UUID, list[FacetValue]] = {}
         for fv in facet_values:
             if fv.facet_type_id not in by_type:
                 by_type[fv.facet_type_id] = []
@@ -250,10 +257,10 @@ async def get_analysis_overview(
 @router.get("/report/{entity_id}")
 async def get_entity_report(
     entity_id: UUID,
-    template_id: Optional[UUID] = Query(default=None),
-    template_slug: Optional[str] = Query(default=None),
-    category_id: Optional[UUID] = Query(default=None),
-    time_filter: Optional[str] = Query(default=None),
+    template_id: UUID | None = Query(default=None),
+    template_slug: str | None = Query(default=None),
+    category_id: UUID | None = Query(default=None),
+    time_filter: str | None = Query(default=None),
     min_confidence: float = Query(default=0.7, ge=0, le=1),
     session: AsyncSession = Depends(get_session),
 ):
@@ -291,7 +298,7 @@ async def get_entity_report(
                 }
 
     # Base query for facet values
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     fv_query = select(FacetValue).where(
         FacetValue.entity_id == entity_id,
         FacetValue.is_active.is_(True),
@@ -322,7 +329,7 @@ async def get_entity_report(
     facet_values = fv_result.scalars().all()
 
     # Group facet values by type and aggregate
-    facets_by_type: Dict[str, Dict[str, Any]] = {}
+    facets_by_type: dict[str, dict[str, Any]] = {}
 
     for fv in facet_values:
         ft = await session.get(FacetType, fv.facet_type_id)
@@ -332,9 +339,7 @@ async def get_entity_report(
         # Apply per-facet time filter from template
         if ft.slug in facet_config:
             ft_time_filter = facet_config[ft.slug].get("time_filter")
-            if ft_time_filter == "future_only" and fv.event_date and fv.event_date < now:
-                continue
-            elif ft_time_filter == "past_only" and fv.event_date and fv.event_date >= now:
+            if ft_time_filter == "future_only" and fv.event_date and fv.event_date < now or ft_time_filter == "past_only" and fv.event_date and fv.event_date >= now:
                 continue
 
         if ft.slug not in facets_by_type:

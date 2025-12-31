@@ -3,7 +3,7 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, String, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -51,17 +51,17 @@ class DeviceToken(Base):
         Enum(DevicePlatform, name="device_platform"),
         nullable=False,
     )
-    device_name: Mapped[Optional[str]] = mapped_column(
+    device_name: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )  # e.g., "iPhone 15 Pro", "iPad Air"
 
     # Device metadata
-    app_version: Mapped[Optional[str]] = mapped_column(
+    app_version: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )  # e.g., "1.0.0"
-    os_version: Mapped[Optional[str]] = mapped_column(
+    os_version: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )  # e.g., "iOS 18.1"
@@ -74,7 +74,7 @@ class DeviceToken(Base):
     )
 
     # Timestamps
-    last_used_at: Mapped[Optional[datetime]] = mapped_column(
+    last_used_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )

@@ -25,6 +25,7 @@ export interface NewFacet {
   source_url: string
   confidence_score: number
   value: Record<string, unknown>
+  target_entity_id: string | null  // For entity references (e.g., contacts → person)
 }
 
 // Re-export for convenience
@@ -61,6 +62,7 @@ export function useEntityFacets(
     source_url: '',
     confidence_score: 0.8,
     value: {},
+    target_entity_id: null,
   })
 
   const savingFacet = ref(false)
@@ -88,6 +90,7 @@ export function useEntityFacets(
   function onFacetTypeChange() {
     newFacet.value.value = {}
     newFacet.value.text_representation = ''
+    newFacet.value.target_entity_id = null
   }
 
   function resetAddFacetForm() {
@@ -97,6 +100,7 @@ export function useEntityFacets(
       source_url: '',
       confidence_score: 0.8,
       value: {},
+      target_entity_id: null,
     }
   }
 
@@ -117,6 +121,10 @@ export function useEntityFacets(
     if (facetType.value_schema?.properties) {
       valueToSave = { ...newFacet.value.value }
       textRepresentation = buildTextRepresentation(valueToSave, facetType.slug)
+    } else if (facetType.allows_entity_reference && newFacet.value.target_entity_id) {
+      // Entity reference without schema - use text_representation (set by AddFacetDialog)
+      textRepresentation = newFacet.value.text_representation || ''
+      valueToSave = { entity_reference: newFacet.value.target_entity_id, name: textRepresentation }
     } else {
       if (!newFacet.value.text_representation) return false
       valueToSave = { text: newFacet.value.text_representation }
@@ -137,6 +145,7 @@ export function useEntityFacets(
         text_representation: textRepresentation,
         source_url: newFacet.value.source_url || null,
         confidence_score: newFacet.value.confidence_score,
+        target_entity_id: newFacet.value.target_entity_id || undefined,
       })
 
       showSuccess(t('entityDetail.messages.facetAdded'))

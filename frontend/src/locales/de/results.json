@@ -27,6 +27,7 @@
     "columns": {
       "document": "Dokument",
       "type": "Typ",
+      "entities": "Entities",
       "municipality": "Gemeinde",
       "confidence": "Zuverlässigkeit",
       "verified": "Geprüft",
@@ -66,7 +67,17 @@
       "tokens": "Tokens",
       "source": "Quelle",
       "noTitle": "(Kein Titel)",
-      "url": "URL"
+      "url": "URL",
+      "entityReferences": "Entity-Referenzen",
+      "relevantEntities": "Relevante Entities",
+      "noEntityReferences": "Keine Entity-Verknüpfungen gefunden",
+      "primaryEntity": "Verknüpfte Entity",
+      "primary": "Primär",
+      "entityType": "Entity-Typ",
+      "role": "Rolle",
+      "confidence": "Konfidenz",
+      "clickToView": "Klicken zum Anzeigen",
+      "notLinked": "Nicht mit einer Entity verknüpft"
     },
     "messages": {
       "verified": "Ergebnis als geprüft markiert",

@@ -8,15 +8,15 @@ Operations:
 
 import csv
 import io
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .base import WriteOperation, OperationResult, register_operation
 from ..entity_operations import find_entity_by_name
+from .base import OperationResult, WriteOperation, register_operation
 
 logger = structlog.get_logger()
 
@@ -28,8 +28,8 @@ class ExportOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         from app.models import Entity, EntityType, FacetType, FacetValue
 
@@ -106,7 +106,7 @@ class ExportOperation(WriteOperation):
 
         # Bulk load facets if requested
         entity_ids = [e.id for e in entities]
-        facets_by_entity: Dict[UUID, List[Dict]] = {eid: [] for eid in entity_ids}
+        facets_by_entity: dict[UUID, list[dict]] = {eid: [] for eid in entity_ids}
 
         if include_facets:
             facet_query = select(FacetValue).where(
@@ -216,8 +216,8 @@ class UndoOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         from services.change_tracker import ChangeTracker
 
@@ -269,8 +269,8 @@ class GetHistoryOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         from services.change_tracker import ChangeTracker
 

@@ -15,7 +15,7 @@ import json
 
 # revision identifiers, used by Alembic.
 revision = 'ao1234567931'
-down_revision = 'an1234567930'
+down_revision = 'an1234567930b'
 branch_labels = None
 depends_on = None
 

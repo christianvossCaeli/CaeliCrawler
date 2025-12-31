@@ -18,15 +18,15 @@ Usage:
 """
 
 import json
-from pathlib import Path
-from typing import Any, Dict, Optional
 from contextvars import ContextVar
+from pathlib import Path
+from typing import Any
 
 # Current locale context variable (thread/async safe)
 _current_locale: ContextVar[str] = ContextVar("current_locale", default="de")
 
 # Loaded translations cache
-_translations: Dict[str, Dict[str, Any]] = {}
+_translations: dict[str, dict[str, Any]] = {}
 
 # Supported locales
 SUPPORTED_LOCALES = frozenset({"de", "en"})
@@ -45,7 +45,7 @@ def load_translations() -> None:
     for locale in SUPPORTED_LOCALES:
         locale_file = locales_dir / f"{locale}.json"
         if locale_file.exists():
-            with open(locale_file, "r", encoding="utf-8") as f:
+            with open(locale_file, encoding="utf-8") as f:
                 _translations[locale] = json.load(f)
         else:
             _translations[locale] = {}
@@ -53,8 +53,8 @@ def load_translations() -> None:
 
 def get_translation(
     key: str,
-    locale: Optional[str] = None,
-    default: Optional[str] = None,
+    locale: str | None = None,
+    default: str | None = None,
     **kwargs: Any,
 ) -> str:
     """
@@ -98,7 +98,7 @@ def get_translation(
 
     # Interpolate kwargs if result is a string
     if kwargs and isinstance(result, str):
-        try:
+        try:  # noqa: SIM105
             result = result.format(**kwargs)
         except (KeyError, ValueError):
             # Return unformatted string if interpolation fails
@@ -107,7 +107,7 @@ def get_translation(
     return result
 
 
-def _get_nested_value(data: Dict[str, Any], key: str) -> Optional[str]:
+def _get_nested_value(data: dict[str, Any], key: str) -> str | None:
     """
     Navigate nested dictionary using dot-notation key.
 

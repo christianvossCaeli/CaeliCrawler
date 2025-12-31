@@ -1,8 +1,8 @@
 """In-App notification channel for web UI notifications."""
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict
+from datetime import UTC, datetime
+from typing import Any
 
 from app.models.notification import Notification, NotificationChannel, NotificationStatus
 from services.notifications.channels.base import NotificationChannelBase
@@ -19,7 +19,7 @@ class InAppChannel(NotificationChannelBase):
 
     channel_type = NotificationChannel.IN_APP
 
-    async def send(self, notification: Notification, config: Dict[str, Any]) -> bool:
+    async def send(self, notification: Notification, config: dict[str, Any]) -> bool:
         """Mark notification as ready for in-app display.
 
         For in-app notifications, we don't need to send anything externally.
@@ -36,12 +36,12 @@ class InAppChannel(NotificationChannelBase):
         # In-App notifications are "sent" by simply being stored
         # The frontend will poll for them via the notifications API
         notification.status = NotificationStatus.SENT
-        notification.sent_at = datetime.now(timezone.utc)
+        notification.sent_at = datetime.now(UTC)
 
         logger.info(f"In-App notification {notification.id} marked as ready for display")
         return True
 
-    async def validate_config(self, config: Dict[str, Any]) -> bool:
+    async def validate_config(self, config: dict[str, Any]) -> bool:
         """Validate in-app channel configuration.
 
         In-App channel doesn't require any specific configuration.

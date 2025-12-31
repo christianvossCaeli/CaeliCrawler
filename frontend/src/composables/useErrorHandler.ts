@@ -1,12 +1,49 @@
+/**
+ * Error Handler Composable - Extended API Error Handling
+ *
+ * This composable extends useApiErrorHandler with additional features:
+ * - Success feedback with snackbar
+ * - Context-specific error handling
+ * - Pre-configured error messages
+ *
+ * For most use cases, prefer useApiErrorHandler directly.
+ */
+
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSnackbar } from './useSnackbar'
 import { useLogger } from '@/composables/useLogger'
 
+// Re-export all utilities from centralized module
+export {
+  extractErrorMessage,
+  getErrorMessage,
+  getStatusCode,
+  isApiError,
+  isNetworkError,
+  isAuthError,
+  isForbiddenError,
+  isNotFoundError,
+  isValidationError,
+  isServerError,
+  hasStatus,
+} from '@/utils/errorMessage'
+
+import {
+  extractErrorMessage,
+  isNetworkError,
+  isAuthError,
+  isForbiddenError,
+  isNotFoundError,
+  isValidationError,
+  isServerError,
+  getStatusCode,
+} from '@/utils/errorMessage'
+
 const logger = useLogger('useErrorHandler')
 
 /**
- * API Error structure
+ * API Error structure (for type compatibility)
  */
 export interface ApiError {
   response?: {
@@ -59,95 +96,11 @@ export function useErrorHandler() {
   const lastError = ref<ApiError | null>(null)
 
   /**
-   * Extract error message from API error response
-   */
-  function extractErrorMessage(error: unknown, defaultMessage?: string): string {
-    const fallback = defaultMessage || t('common.error', 'An error occurred')
-
-    if (!error) return fallback
-
-    const apiError = error as ApiError
-
-    // Check for structured API response
-    if (apiError.response?.data) {
-      const data = apiError.response.data
-      // Try different error message fields
-      if (data.detail) return data.detail
-      if (data.message) return data.message
-      if (data.error) return data.error
-      // Check for validation errors
-      if (data.errors && Array.isArray(data.errors)) {
-        return data.errors.map((e) => `${e.field}: ${e.message}`).join(', ')
-      }
-    }
-
-    // Check for plain message
-    if (apiError.message) return apiError.message
-
-    // Check if error is a string
-    if (typeof error === 'string') return error
-
-    return fallback
-  }
-
-  /**
-   * Get HTTP status code from error
-   */
-  function getStatusCode(error: unknown): number | undefined {
-    const apiError = error as ApiError
-    return apiError.response?.status
-  }
-
-  /**
-   * Check if error is a network error
-   */
-  function isNetworkError(error: unknown): boolean {
-    const apiError = error as ApiError
-    return !apiError.response && !!apiError.message
-  }
-
-  /**
-   * Check if error is an authentication error (401)
-   */
-  function isAuthError(error: unknown): boolean {
-    return getStatusCode(error) === 401
-  }
-
-  /**
-   * Check if error is a forbidden error (403)
-   */
-  function isForbiddenError(error: unknown): boolean {
-    return getStatusCode(error) === 403
-  }
-
-  /**
-   * Check if error is a not found error (404)
-   */
-  function isNotFoundError(error: unknown): boolean {
-    return getStatusCode(error) === 404
-  }
-
-  /**
-   * Check if error is a validation error (422)
-   */
-  function isValidationError(error: unknown): boolean {
-    return getStatusCode(error) === 422
-  }
-
-  /**
-   * Check if error is a server error (5xx)
-   */
-  function isServerError(error: unknown): boolean {
-    const status = getStatusCode(error)
-    return status !== undefined && status >= 500
-  }
-
-  /**
    * Handle an error with consistent behavior
    */
   function handleError(error: unknown, options: ErrorHandlerOptions = {}): string {
     const opts = { ...DEFAULT_OPTIONS, ...options }
-    const message = extractErrorMessage(error, opts.defaultMessage)
+    const message = extractErrorMessage(error) || opts.defaultMessage || t('common.error', 'An error occurred')
 
     lastError.value = error as ApiError
 
@@ -222,11 +175,11 @@ export function useErrorHandler() {
     // State
     lastError,
 
-    // Error extraction
+    // Error extraction (from centralized utility)
     extractErrorMessage,
     getStatusCode,
 
-    // Error type checks
+    // Error type checks (from centralized utility)
     isNetworkError,
     isAuthError,
     isForbiddenError,

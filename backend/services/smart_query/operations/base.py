@@ -12,8 +12,9 @@ Architecture:
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -29,11 +30,11 @@ class OperationResult:
     success: bool = False
     message: str = ""
     operation: str = ""
-    created_items: List[Dict[str, Any]] = field(default_factory=list)
-    data: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
+    created_items: list[dict[str, Any]] = field(default_factory=list)
+    data: dict[str, Any] | None = None
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         result = {
             "success": self.success,
@@ -82,8 +83,8 @@ class WriteOperation(ABC):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         """
         Execute the write operation.
@@ -98,7 +99,7 @@ class WriteOperation(ABC):
         """
         pass
 
-    def validate(self, command: Dict[str, Any]) -> Optional[str]:
+    def validate(self, command: dict[str, Any]) -> str | None:
         """
         Validate command data before execution.
 
@@ -114,10 +115,10 @@ class WriteOperation(ABC):
 
 
 # Global registry of operation handlers
-OPERATIONS_REGISTRY: Dict[str, Type[WriteOperation]] = {}
+OPERATIONS_REGISTRY: dict[str, type[WriteOperation]] = {}
 
 
-def register_operation(name: str) -> Callable[[Type[WriteOperation]], Type[WriteOperation]]:
+def register_operation(name: str) -> Callable[[type[WriteOperation]], type[WriteOperation]]:
     """
     Decorator to register an operation handler.
 
@@ -132,7 +133,7 @@ def register_operation(name: str) -> Callable[[Type[WriteOperation]], Type[Write
     Returns:
         Decorator function
     """
-    def decorator(cls: Type[WriteOperation]) -> Type[WriteOperation]:
+    def decorator(cls: type[WriteOperation]) -> type[WriteOperation]:
         cls.operation_name = name
         OPERATIONS_REGISTRY[name] = cls
         logger.debug("Registered write operation", operation=name, handler=cls.__name__)
@@ -140,7 +141,7 @@ def register_operation(name: str) -> Callable[[Type[WriteOperation]], Type[Write
     return decorator
 
 
-def get_operation(name: str) -> Optional[Type[WriteOperation]]:
+def get_operation(name: str) -> type[WriteOperation] | None:
     """
     Get an operation handler by name.
 
@@ -155,8 +156,8 @@ def get_operation(name: str) -> Optional[Type[WriteOperation]]:
 
 async def execute_operation(
     session: AsyncSession,
-    command: Dict[str, Any],
-    user_id: Optional[UUID] = None,
+    command: dict[str, Any],
+    user_id: UUID | None = None,
 ) -> OperationResult:
     """
     Execute a write operation using the registered handler.

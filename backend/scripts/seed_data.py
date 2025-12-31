@@ -19,9 +19,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select
-from app.database import get_session_context
-from app.models import Category, DataSource, SourceType, SourceStatus
 
+from app.database import get_session_context
+from app.models import Category, DataSource, SourceStatus
 
 # =============================================================================
 # KATEGORIEN - Organisiert nach Sales Intelligence Zielen
@@ -553,8 +553,6 @@ DATA_SOURCES = {
 
 async def seed_database():
     """Seed the database with example data."""
-    print("🌱 Starte Datenbank-Seeding für Sales Intelligence...")
-    print("=" * 60)
 
     async with get_session_context() as session:
         categories_created = 0
@@ -579,7 +577,6 @@ async def seed_database():
                 existing_cat.is_public = True  # Always visible in frontend
                 categories_updated += 1
                 category = existing_cat
-                print(f"  🔄 Kategorie aktualisiert: {cat_data['name']}")
             else:
                 # Create new category
                 category = Category(
@@ -596,7 +593,6 @@ async def seed_database():
                 session.add(category)
                 await session.flush()
                 categories_created += 1
-                print(f"  ✅ Kategorie erstellt: {cat_data['name']}")
 
             # Create data sources for this category
             source_configs = DATA_SOURCES.get(cat_data["slug"], [])
@@ -609,7 +605,6 @@ async def seed_database():
                     )
                 )
                 if existing_src.scalar():
-                    print(f"    ⏭️  Quelle existiert: {src_data['name']}")
                     continue
 
                 source = DataSource(
@@ -628,28 +623,9 @@ async def seed_database():
                 )
                 session.add(source)
                 sources_created += 1
-                print(f"    ✅ Quelle erstellt: {src_data['name']}")
 
         await session.commit()
 
-    print("\n" + "=" * 60)
-    print("🎉 Seeding abgeschlossen!")
-    print(f"   📁 {categories_created} Kategorien erstellt")
-    print(f"   🔄 {categories_updated} Kategorien aktualisiert")
-    print(f"   🔗 {sources_created} Datenquellen erstellt")
-    print("\n📊 Kategorien-Übersicht:")
-    print("   🇩🇪 Deutschland:")
-    print("      • Ratsinformationen NRW - Kommunale Beschlüsse (OParl)")
-    print("      • Kommunale News - Pressemitteilungen & Ankündigungen")
-    print("      • Parlamentarische Anfragen - Bundestag/Landtage")
-    print("      • IFG-Anfragen - Behördliche Einblicke")
-    print("      • Standortdaten - Potenzialflächen & Restriktionen")
-    print("   🇬🇧 UK:")
-    print("      • UK Wind Planning Applications - Planning & Council Decisions")
-    print("   🇦🇹 Österreich:")
-    print("      • Windenergie Österreich - UVP-Verfahren & Genehmigungen")
-    print("   📊 Meta:")
-    print("      • Lead-Qualifizierung - Aggregierte Bewertung")
 
 
 async def main():

@@ -7,16 +7,16 @@ with its own query configuration and position in the grid layout.
 import enum
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     String,
     func,
-    Index,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -79,7 +79,7 @@ class SummaryWidget(Base):
         nullable=False,
         comment="Widget title displayed in header",
     )
-    subtitle: Mapped[Optional[str]] = mapped_column(
+    subtitle: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
         comment="Optional subtitle or description",
@@ -112,7 +112,7 @@ class SummaryWidget(Base):
     )
 
     # Query configuration (which data to fetch)
-    query_config: Mapped[Dict[str, Any]] = mapped_column(
+    query_config: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
         default=dict,
@@ -131,7 +131,7 @@ class SummaryWidget(Base):
     # }
 
     # Visualization configuration (how to display)
-    visualization_config: Mapped[Dict[str, Any]] = mapped_column(
+    visualization_config: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
         default=dict,

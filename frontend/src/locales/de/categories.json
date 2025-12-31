@@ -52,6 +52,9 @@
       "purposeHint": "Beschreiben Sie, was die KI in diesem Analysethema analysieren soll",
       "searchInfo": "Suchbegriffe und Dokumenttypen helfen dem Datensammler, relevante Dokumente zu finden",
       "scheduleTitle": "Zeitplanung",
+      "scheduleEnabled": "Automatische Datensammlung aktivieren",
+      "scheduleEnabledHint": "Daten werden automatisch nach dem konfigurierten Zeitplan gesammelt.",
+      "scheduleDisabledHint": "Automatische Datensammlung ist deaktiviert. Daten müssen manuell gesammelt werden.",
       "includePlaceholder": "z.B. /dokumente/",
       "excludePlaceholder": "z.B. /archiv/"
     },

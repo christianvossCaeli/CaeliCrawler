@@ -1,12 +1,11 @@
 """Service for managing facet value history (time-series data)."""
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 import structlog
 from sqlalchemy import and_, delete, func, select
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Entity, FacetType, FacetValueHistory
@@ -40,13 +39,13 @@ class FacetHistoryService:
         recorded_at: datetime,
         value: float,
         track_key: str = "default",
-        value_label: Optional[str] = None,
-        annotations: Optional[Dict[str, Any]] = None,
+        value_label: str | None = None,
+        annotations: dict[str, Any] | None = None,
         source_type: FacetValueSourceType = FacetValueSourceType.MANUAL,
-        source_document_id: Optional[UUID] = None,
-        source_url: Optional[str] = None,
+        source_document_id: UUID | None = None,
+        source_url: str | None = None,
         confidence_score: float = 1.0,
-        ai_model_used: Optional[str] = None,
+        ai_model_used: str | None = None,
     ) -> FacetValueHistory:
         """
         Add a single data point to the history.
@@ -117,7 +116,7 @@ class FacetHistoryService:
         self,
         entity_id: UUID,
         facet_type_id: UUID,
-        data_points: List[HistoryDataPointCreate],
+        data_points: list[HistoryDataPointCreate],
         skip_duplicates: bool = True,
     ) -> HistoryBulkImportResponse:
         """
@@ -198,9 +197,9 @@ class FacetHistoryService:
         self,
         entity_id: UUID,
         facet_type_id: UUID,
-        from_date: Optional[datetime] = None,
-        to_date: Optional[datetime] = None,
-        track_keys: Optional[List[str]] = None,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+        track_keys: list[str] | None = None,
         limit: int = 1000,
     ) -> EntityHistoryResponse:
         """
@@ -246,7 +245,7 @@ class FacetHistoryService:
         track_configs = self._parse_track_configs(facet_type)
 
         # Group by track
-        tracks_dict: Dict[str, List[FacetValueHistory]] = {}
+        tracks_dict: dict[str, list[FacetValueHistory]] = {}
         for dp in data_points:
             if dp.track_key not in tracks_dict:
                 tracks_dict[dp.track_key] = []
@@ -307,9 +306,9 @@ class FacetHistoryService:
         facet_type_id: UUID,
         interval: str = "month",
         method: str = "avg",
-        from_date: Optional[datetime] = None,
-        to_date: Optional[datetime] = None,
-        track_keys: Optional[List[str]] = None,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+        track_keys: list[str] | None = None,
     ) -> AggregatedHistoryResponse:
         """
         Get aggregated history data.
@@ -410,12 +409,12 @@ class FacetHistoryService:
     async def update_data_point(
         self,
         data_point_id: UUID,
-        value: Optional[float] = None,
-        value_label: Optional[str] = None,
-        annotations: Optional[Dict[str, Any]] = None,
-        human_verified: Optional[bool] = None,
-        verified_by: Optional[str] = None,
-    ) -> Optional[FacetValueHistory]:
+        value: float | None = None,
+        value_label: str | None = None,
+        annotations: dict[str, Any] | None = None,
+        human_verified: bool | None = None,
+        verified_by: str | None = None,
+    ) -> FacetValueHistory | None:
         """Update a history data point."""
         result = await self.session.execute(
             select(FacetValueHistory).where(FacetValueHistory.id == data_point_id)
@@ -435,7 +434,7 @@ class FacetHistoryService:
             data_point.human_verified = human_verified
             if human_verified and verified_by:
                 data_point.verified_by = verified_by
-                data_point.verified_at = datetime.now(timezone.utc)
+                data_point.verified_at = datetime.now(UTC)
 
         await self.session.flush()
         return data_point
@@ -451,9 +450,9 @@ class FacetHistoryService:
         self,
         entity_id: UUID,
         facet_type_id: UUID,
-        from_date: Optional[datetime] = None,
-        to_date: Optional[datetime] = None,
-        track_key: Optional[str] = None,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+        track_key: str | None = None,
     ) -> int:
         """Delete multiple data points based on criteria."""
         conditions = [
@@ -477,7 +476,7 @@ class FacetHistoryService:
     # Private helper methods
     # =========================================================================
 
-    async def _get_entity(self, entity_id: UUID) -> Optional[Entity]:
+    async def _get_entity(self, entity_id: UUID) -> Entity | None:
         """Get entity by ID."""
         result = await self.session.execute(
             select(Entity).where(Entity.id == entity_id)
@@ -496,7 +495,7 @@ class FacetHistoryService:
 
     def _parse_track_configs(
         self, facet_type: FacetType
-    ) -> Dict[str, HistoryTrackConfig]:
+    ) -> dict[str, HistoryTrackConfig]:
         """Parse track configurations from facet type schema."""
         schema = facet_type.value_schema or {}
         props = schema.get("properties", {})
@@ -520,7 +519,7 @@ class FacetHistoryService:
         return configs
 
     def _calculate_statistics(
-        self, data_points: List[FacetValueHistory]
+        self, data_points: list[FacetValueHistory]
     ) -> HistoryStatistics:
         """Calculate statistics from data points."""
         if not data_points:

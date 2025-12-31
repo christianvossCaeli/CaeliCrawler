@@ -1,7 +1,7 @@
 """Model mixins for common functionality."""
 
 from datetime import datetime
-from typing import Any, Dict, Set
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import Integer
@@ -29,7 +29,7 @@ class VersionedMixin:
         comment="Current version number",
     )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert entity to dict for versioning.
 
@@ -60,7 +60,7 @@ class VersionedMixin:
             return value
         return str(value)
 
-    def get_versionable_fields(self) -> Set[str]:
+    def get_versionable_fields(self) -> set[str]:
         """
         Return set of field names that should be versioned.
 

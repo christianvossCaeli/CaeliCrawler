@@ -13,9 +13,9 @@ Features:
 
 import asyncio
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar
-from uuid import UUID
+from typing import Any, TypeVar
 
 import structlog
 
@@ -25,7 +25,7 @@ T = TypeVar("T")
 
 
 @dataclass
-class CacheEntry(Generic[T]):
+class CacheEntry[T]:
     """A single cache entry with value and expiration time."""
     value: T
     expires_at: float
@@ -37,7 +37,7 @@ class CacheEntry(Generic[T]):
         return time.time() > self.expires_at
 
 
-class TTLCache(Generic[T]):
+class TTLCache[T]:
     """
     A simple in-memory cache with TTL (Time To Live) support.
 
@@ -69,7 +69,7 @@ class TTLCache(Generic[T]):
             max_size: Maximum number of entries (default: 1000)
             cleanup_interval: Seconds between cleanup runs (default: 60)
         """
-        self._cache: Dict[str, CacheEntry[T]] = {}
+        self._cache: dict[str, CacheEntry[T]] = {}
         self._default_ttl = default_ttl
         self._max_size = max_size
         self._cleanup_interval = cleanup_interval
@@ -77,7 +77,7 @@ class TTLCache(Generic[T]):
         self._hits = 0
         self._misses = 0
 
-    def get(self, key: str) -> Optional[T]:
+    def get(self, key: str) -> T | None:
         """
         Get a value from the cache.
 
@@ -102,7 +102,7 @@ class TTLCache(Generic[T]):
         self._hits += 1
         return entry.value
 
-    def set(self, key: str, value: T, ttl: Optional[int] = None) -> None:
+    def set(self, key: str, value: T, ttl: int | None = None) -> None:
         """
         Set a value in the cache.
 
@@ -159,7 +159,7 @@ class TTLCache(Generic[T]):
         self,
         key: str,
         fetch_fn: Callable[[], Any],
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> T:
         """
         Get from cache or fetch using provided function.
@@ -217,7 +217,7 @@ class TTLCache(Generic[T]):
         logger.debug("Cache eviction", evicted=evict_count)
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         total = self._hits + self._misses
         hit_rate = (self._hits / total * 100) if total > 0 else 0
@@ -269,7 +269,7 @@ assistant_batch_cache: TTLCache[Any] = TTLCache(
 )
 
 
-def get_cache_stats() -> Dict[str, Dict[str, Any]]:
+def get_cache_stats() -> dict[str, dict[str, Any]]:
     """Get statistics for all caches."""
     return {
         "facet_types": facet_type_cache.stats,
@@ -294,8 +294,8 @@ def clear_all_caches() -> None:
     logger.info("All caches cleared")
 
 
-import hashlib
-import json
+import hashlib  # noqa: E402
+import json  # noqa: E402
 
 
 def make_cache_key(*args: Any, **kwargs: Any) -> str:
@@ -316,7 +316,7 @@ def make_cache_key(*args: Any, **kwargs: Any) -> str:
 def cached_async(
     cache: TTLCache,
     key_prefix: str = "",
-    ttl: Optional[int] = None,
+    ttl: int | None = None,
 ):
     """
     Decorator for caching async function results.
@@ -348,10 +348,7 @@ def cached_async(
             # Cache result
             if result is not None:
                 # Handle Pydantic models
-                if hasattr(result, "model_dump"):
-                    cache_data = result.model_dump()
-                else:
-                    cache_data = result
+                cache_data = result.model_dump() if hasattr(result, "model_dump") else result
 
                 cache.set(cache_key, cache_data, ttl=ttl)
                 logger.debug("Cached function result", func=func.__name__, key=cache_key)

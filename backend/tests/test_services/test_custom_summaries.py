@@ -1,9 +1,7 @@
 """Tests for Custom Summaries functionality."""
 
-import hashlib
-import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -72,7 +70,7 @@ class TestRelevanceChecker:
 
     def test_no_change_detection(self):
         """Test that identical data returns no change."""
-        from services.summaries.relevance_checker import quick_change_detection, calculate_data_hash
+        from services.summaries.relevance_checker import quick_change_detection
 
         old_data = {"widgets": [{"data": [1, 2, 3]}]}
         new_data = {"widgets": [{"data": [1, 2, 3]}]}
@@ -103,8 +101,8 @@ class TestAiInterpreter:
 
     def test_ai_interpreter_module_exists(self):
         """Test that AI interpreter module and functions exist."""
-        from services.summaries.ai_interpreter import interpret_summary_prompt
         from app.schemas.custom_summary import InterpretedConfig
+        from services.summaries.ai_interpreter import interpret_summary_prompt
 
         # Verify the function exists
         assert interpret_summary_prompt is not None
@@ -141,10 +139,10 @@ class TestAiInterpreter:
 
     def test_interpreted_config_invalid_widget_type(self):
         """Test that invalid widget types are rejected."""
-        from app.schemas.custom_summary import InterpretedConfig, InterpretedWidgetConfig
+        from app.schemas.custom_summary import InterpretedWidgetConfig
 
         # Test with invalid widget type - should raise validation error
-        with pytest.raises(Exception):  # Pydantic validation error
+        with pytest.raises(Exception):  # Pydantic validation error  # noqa: B017
             InterpretedWidgetConfig(
                 widget_type="invalid_type",
                 title="Test",
@@ -163,8 +161,8 @@ class TestSummaryNotificationIntegration:
 
     def test_event_dispatcher_has_summary_templates(self):
         """Test that event dispatcher has templates for summary events."""
-        from services.notifications.event_dispatcher import NotificationEventDispatcher
         from app.models.notification import NotificationEventType
+        from services.notifications.event_dispatcher import NotificationEventDispatcher
 
         dispatcher = NotificationEventDispatcher()
 
@@ -260,7 +258,7 @@ class TestSummaryTasks:
         next_run = calculate_next_run("0 0 * * *")
         assert next_run is not None
         assert isinstance(next_run, datetime)
-        assert next_run > datetime.now(timezone.utc)
+        assert next_run > datetime.now(UTC)
 
     @pytest.mark.asyncio
     async def test_check_scheduled_summaries_no_due(self):

@@ -37,6 +37,7 @@ export interface FacetType {
   ai_extraction_prompt?: string
   is_active?: boolean
   is_system?: boolean
+  needs_review?: boolean
   display_order?: number
   value_count?: number
   allows_entity_reference?: boolean
@@ -113,7 +114,14 @@ export function useFacetTypesAdmin() {
     search: '',
     entityTypeSlug: null as string | null,
     isActive: null as boolean | null,
+    needsReview: null as boolean | null,
   })
+
+  // Review state
+  const reviewDialog = ref(false)
+  const reviewingItem = ref<FacetType | null>(null)
+  const reviewing = ref(false)
+  const needsReviewCount = ref(0)
 
   // Form state
   const form = ref<FacetTypeForm>(getDefaultForm())
@@ -131,6 +139,7 @@ export function useFacetTypesAdmin() {
     { title: t('admin.facetTypes.columns.valueType'), key: 'value_type', width: '120px', sortable: true },
     { title: t('admin.facetTypes.columns.values'), key: 'value_count', width: '100px', align: 'center' as const, sortable: true },
     { title: t('admin.facetTypes.columns.ai'), key: 'ai_extraction_enabled', width: '60px', align: 'center' as const, sortable: true },
+    { title: t('admin.facetTypes.columns.review', 'Review'), key: 'needs_review', width: '80px', align: 'center' as const, sortable: true },
     { title: t('admin.facetTypes.columns.system'), key: 'is_system', width: '80px', align: 'center' as const, sortable: true },
     { title: t('admin.facetTypes.columns.active'), key: 'is_active', width: '80px', align: 'center' as const, sortable: true },
     { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' as const },
@@ -388,6 +397,80 @@ export function useFacetTypesAdmin() {
   }
 
   // ============================================================================
+  // Review Functions
+  // ============================================================================
+
+  async function loadNeedsReviewCount() {
+    try {
+      const response = await facetApi.getFacetTypes({ needs_review: true, per_page: 1 })
+      needsReviewCount.value = response.data.total || 0
+    } catch (e) {
+      logger.error('Failed to load needs_review count', e)
+    }
+  }
+
+  function openReviewDialog(item: FacetType) {
+    reviewingItem.value = item
+    reviewDialog.value = true
+  }
+
+  function closeReviewDialog() {
+    reviewDialog.value = false
+    reviewingItem.value = null
+  }
+
+  async function approveReview(item: FacetType) {
+    if (!canEdit.value || !item) return
+
+    reviewing.value = true
+    try {
+      await facetApi.reviewFacetType(item.id, { action: 'approve' })
+      showSuccess(t('admin.facetTypes.messages.approved', { name: item.name }))
+      closeReviewDialog()
+      await Promise.all([loadFacetTypes(), loadNeedsReviewCount()])
+    } catch (e) {
+      const detail = getErrorMessage(e) || t('admin.facetTypes.messages.reviewError')
+      showError(detail)
+    } finally {
+      reviewing.value = false
+    }
+  }
+
+  async function rejectReview(item: FacetType) {
+    if (!canEdit.value || !item) return
+
+    reviewing.value = true
+    try {
+      await facetApi.reviewFacetType(item.id, { action: 'reject' })
+      showSuccess(t('admin.facetTypes.messages.rejected', { name: item.name }))
+      closeReviewDialog()
+      await Promise.all([loadFacetTypes(), loadNeedsReviewCount()])
+    } catch (e) {
+      const detail = getErrorMessage(e) || t('admin.facetTypes.messages.reviewError')
+      showError(detail)
+    } finally {
+      reviewing.value = false
+    }
+  }
+
+  async function mergeReview(item: FacetType, targetId: string) {
+    if (!canEdit.value || !item) return
+
+    reviewing.value = true
+    try {
+      await facetApi.reviewFacetType(item.id, { action: 'merge', merge_target_id: targetId })
+      showSuccess(t('admin.facetTypes.messages.merged', { name: item.name }))
+      closeReviewDialog()
+      await Promise.all([loadFacetTypes(), loadNeedsReviewCount()])
+    } catch (e) {
+      const detail = getErrorMessage(e) || t('admin.facetTypes.messages.reviewError')
+      showError(detail)
+    } finally {
+      reviewing.value = false
+    }
+  }
+
+  // ============================================================================
   // AI Schema Generation
   // ============================================================================
 
@@ -472,7 +555,7 @@ export function useFacetTypesAdmin() {
   // ============================================================================
 
   async function initialize() {
-    await Promise.all([loadEntityTypes(), loadFacetTypes()])
+    await Promise.all([loadEntityTypes(), loadFacetTypes(), loadNeedsReviewCount()])
   }
 
   // ============================================================================
@@ -498,6 +581,12 @@ export function useFacetTypesAdmin() {
     filters,
     form,
 
+    // Review State
+    reviewDialog,
+    reviewingItem,
+    reviewing,
+    needsReviewCount,
+
     // Computed
     canEdit,
     headers,
@@ -514,6 +603,7 @@ export function useFacetTypesAdmin() {
 
     // Data Loading
     loadFacetTypes,
+    loadNeedsReviewCount,
     debouncedSearch,
 
     // Dialog Actions
@@ -521,6 +611,13 @@ export function useFacetTypesAdmin() {
     openEditDialog,
     closeDialog,
     confirmDelete,
+
+    // Review Actions
+    openReviewDialog,
+    closeReviewDialog,
+    approveReview,
+    rejectReview,
+    mergeReview,
 
     // CRUD Operations
     save,

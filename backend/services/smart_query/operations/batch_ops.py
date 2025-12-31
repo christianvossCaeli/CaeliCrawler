@@ -5,15 +5,15 @@ Operations:
 - batch_delete: Batch delete entities or facets
 """
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .base import WriteOperation, OperationResult, register_operation
+from .base import OperationResult, WriteOperation, register_operation
 
 logger = structlog.get_logger()
 
@@ -25,7 +25,7 @@ class BatchOperation(WriteOperation):
     Supports: add_facet, update_field, add_relation, remove_facet
     """
 
-    def validate(self, command: Dict[str, Any]) -> Optional[str]:
+    def validate(self, command: dict[str, Any]) -> str | None:
         batch_data = command.get("batch_data", {})
         if not batch_data.get("action_type"):
             return "action_type erforderlich"
@@ -34,8 +34,8 @@ class BatchOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         from app.models import Entity, EntityType, FacetType, FacetValue
         from app.models.facet_value import FacetValueSourceType
@@ -199,8 +199,8 @@ class BatchDeleteOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         from app.models import Entity, EntityType, FacetType, FacetValue
 
@@ -261,7 +261,7 @@ class BatchDeleteOperation(WriteOperation):
                 data={"affected_count": 0, "preview": [], "dry_run": dry_run},
             )
 
-        preview: List[Dict[str, Any]] = []
+        preview: list[dict[str, Any]] = []
         affected_count = 0
 
         if delete_type == "entities":
@@ -287,7 +287,7 @@ class BatchDeleteOperation(WriteOperation):
                 if entity.core_attributes is None:
                     entity.core_attributes = {}
                 entity.core_attributes["_deletion_reason"] = reason
-                entity.core_attributes["_deleted_at"] = str(datetime.now(timezone.utc).isoformat())
+                entity.core_attributes["_deleted_at"] = str(datetime.now(UTC).isoformat())
 
         elif delete_type == "facets":
             if not facet_type_slug:
@@ -317,7 +317,7 @@ class BatchDeleteOperation(WriteOperation):
 
             if date_before:
                 try:
-                    date_limit = datetime.strptime(date_before, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    date_limit = datetime.strptime(date_before, "%Y-%m-%d").replace(tzinfo=UTC)
                     facet_query = facet_query.where(FacetValue.event_date < date_limit)
                 except ValueError:
                     pass

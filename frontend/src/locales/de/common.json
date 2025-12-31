@@ -19,6 +19,7 @@
     "close": "Schließen",
     "toggleMenu": "Menü umschalten",
     "showDetails": "Details anzeigen",
+    "hideDetails": "Details ausblenden",
     "stopTask": "Aufgabe stoppen",
     "closePanel": "Panel schließen",
     "yes": "Ja",
@@ -40,6 +41,7 @@
     "import": "Importieren",
     "copy": "Kopieren",
     "copied": "Kopiert",
+    "source": "Quelle",
     "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen",
     "select": "Auswählen",
     "selectAll": "Alle auswählen",
@@ -95,6 +97,7 @@
     "justNow": "Gerade eben",
     "minutesAgo": "vor {n} Min.",
     "hoursAgo": "vor {n} Std.",
+    "daysAgo": "vor {n} Tag(en)",
     "pleaseWait": "Bitte warten...",
     "processing": "Verarbeite...",
     "itemsPerPage": "Einträge pro Seite",
@@ -105,6 +108,8 @@
     "searchPlaceholder": "Suchen...",
     "showMore": "+{count} weitere",
     "showLess": "Weniger anzeigen",
+    "filterActive": "Filter aktiv",
+    "clickToFilter": "Klicken zum Filtern",
     "confirmDelete": "Möchten Sie diesen Eintrag wirklich löschen?",
     "confirmDeleteTitle": "Löschen bestätigen",
     "unsavedChanges": "Sie haben ungespeicherte Änderungen. Möchten Sie wirklich fortfahren?",
@@ -168,7 +173,8 @@
       "title": "Administration",
       "users": "Benutzerverwaltung",
       "auditLog": "Änderungsverlauf",
-      "apiTemplates": "API-Vorlagen"
+      "apiTemplates": "API-Vorlagen",
+      "llmUsage": "LLM-Verbrauch"
     }
   },
   "auth": {
@@ -265,11 +271,20 @@
     "pattern": "Ungültiges Format",
     "unique": "Dieser Wert existiert bereits",
     "integer": "Bitte geben Sie eine ganze Zahl ein",
-    "number": "Bitte geben Sie eine Zahl ein"
+    "number": "Bitte geben Sie eine Zahl ein",
+    "positiveNumber": "Bitte geben Sie eine positive Zahl ein",
+    "percentRange": "Wert muss zwischen 0 und 100 liegen"
   },
   "dynamicForm": {
     "noSchema": "Kein Schema für diesen Merkmalstyp definiert. Bitte einen Textwert eingeben.",
     "arrayHint": "Mehrere Werte eingeben, mit Enter bestätigen",
     "unknownType": "Unbekannter Feldtyp: {type}"
+  },
+  "forbidden": {
+    "title": "Zugriff verweigert",
+    "subtitle": "Sie haben keine Berechtigung für diese Seite",
+    "message": "Ihr Benutzerkonto verfügt nicht über die erforderlichen Rechte, um auf diesen Bereich zuzugreifen. Wenden Sie sich an einen Administrator, wenn Sie Zugriff benötigen.",
+    "backToDashboard": "Zurück zur Übersicht",
+    "attemptedPath": "Angeforderte Seite"
   }
 }

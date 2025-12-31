@@ -16,7 +16,7 @@ The functions here are used for:
 
 import re
 import unicodedata
-from typing import Any, Optional
+from typing import Any
 
 # German-speaking countries that use the same umlaut replacements
 GERMAN_SPEAKING_COUNTRIES = ("DE", "AT", "CH")

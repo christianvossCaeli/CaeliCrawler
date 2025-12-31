@@ -11,10 +11,9 @@ This imports a curated list of German municipalities for the location dropdown.
 import asyncio
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import asyncpg
-
 
 # German municipalities - Format: (AGS, Name, State, District, Population)
 LOCATIONS_DATA = [
@@ -200,7 +199,6 @@ async def import_locations():
         # Get existing locations
         existing = await conn.fetch("SELECT official_code FROM locations WHERE country = 'DE'")
         existing_codes = {r["official_code"] for r in existing}
-        print(f"Found {len(existing_codes)} existing DE locations")
 
         imported = 0
         skipped = 0
@@ -229,23 +227,18 @@ async def import_locations():
                 "{}",
                 population,
                 True,
-                datetime.now(timezone.utc),
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
+                datetime.now(UTC),
             )
             imported += 1
 
-        print(f"Imported {imported} new locations")
-        print(f"Skipped {skipped} existing locations")
-        print(f"Total DE locations: {len(existing_codes) + imported}")
 
     finally:
         await conn.close()
 
 
 async def main():
-    print("Starting location import...")
     await import_locations()
-    print("Done!")
 
 
 if __name__ == "__main__":

@@ -13,10 +13,10 @@ the same API structure for backwards compatibility.
 
 from fastapi import APIRouter
 
-from app.api.admin.crawler_jobs import router as jobs_router
-from app.api.admin.crawler_control import router as control_router
 from app.api.admin.crawler_ai import router as ai_router
+from app.api.admin.crawler_control import router as control_router
 from app.api.admin.crawler_documents import router as documents_router
+from app.api.admin.crawler_jobs import router as jobs_router
 from app.api.admin.crawler_sse import router as sse_router
 
 router = APIRouter()

@@ -3,42 +3,41 @@
 import ipaddress
 import re
 import socket
-import structlog
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 from uuid import UUID
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 logger = structlog.get_logger(__name__)
-from pydantic import BaseModel, field_validator
-from sqlalchemy import func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel  # noqa: E402
+from sqlalchemy import func, or_, select  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
-from app.database import get_session
-from app.core.deps import require_editor, require_admin
-from app.core.audit import AuditContext
-from app.models.audit_log import AuditAction
-from app.models import DataSource, Document, Category, SourceStatus, SourceType, DataSourceCategory, User
-from app.schemas.data_source import (
+from app.core.audit import AuditContext  # noqa: E402
+from app.core.deps import require_admin, require_editor  # noqa: E402
+from app.core.exceptions import ConflictError, NotFoundError  # noqa: E402
+from app.database import get_session  # noqa: E402
+from app.models import Category, DataSource, DataSourceCategory, Document, SourceStatus, SourceType, User  # noqa: E402
+from app.models.audit_log import AuditAction  # noqa: E402
+from app.schemas.common import MessageResponse  # noqa: E402
+from app.schemas.data_source import (  # noqa: E402
+    CategoryCount,
     CategoryLink,
-    DataSourceCreate,
-    DataSourceUpdate,
-    DataSourceResponse,
-    DataSourceListResponse,
     DataSourceBulkImport,
     DataSourceBulkImportResult,
+    DataSourceCreate,
+    DataSourceListResponse,
+    DataSourceResponse,
+    DataSourceUpdate,
     SourceCountsResponse,
-    CategoryCount,
-    TypeCount,
+    SourceStatusStatsResponse,
     StatusCount,
-    TagsResponse,
     TagCount,
+    TagsResponse,
+    TypeCount,
 )
-from app.schemas.common import MessageResponse
-from app.core.exceptions import NotFoundError, ConflictError
-
 
 # =============================================================================
 # SSRF Protection for Crawler URLs
@@ -65,7 +64,7 @@ BLOCKED_HOSTNAMES = {
 }
 
 
-def validate_crawler_url(url: str, allow_http: bool = True) -> Tuple[bool, str]:
+def validate_crawler_url(url: str, allow_http: bool = True) -> tuple[bool, str]:
     """
     Validate a URL for safe crawling (SSRF protection).
 
@@ -106,7 +105,7 @@ def validate_crawler_url(url: str, allow_http: bool = True) -> Tuple[bool, str]:
 
             for blocked_range in BLOCKED_CRAWLER_IP_RANGES:
                 if ip_obj in blocked_range:
-                    return False, f"URL resolves to blocked IP range (internal network)"
+                    return False, "URL resolves to blocked IP range (internal network)"
         except socket.gaierror:
             # TOCTOU Protection: Reject unresolvable URLs to prevent DNS rebinding attacks
             return False, f"Cannot resolve hostname '{hostname}' - DNS lookup failed"
@@ -141,8 +140,8 @@ async def get_categories_for_source(
 
 async def get_categories_for_sources_bulk(
     session: AsyncSession,
-    source_ids: List[UUID],
-) -> Dict[UUID, List[CategoryLink]]:
+    source_ids: list[UUID],
+) -> dict[UUID, list[CategoryLink]]:
     """
     Bulk-load all categories for multiple data sources.
 
@@ -159,7 +158,7 @@ async def get_categories_for_sources_bulk(
         .order_by(DataSourceCategory.is_primary.desc(), Category.name)
     )
 
-    categories_by_source: Dict[UUID, List[CategoryLink]] = defaultdict(list)
+    categories_by_source: dict[UUID, list[CategoryLink]] = defaultdict(list)
     for dsc, cat in result.all():
         categories_by_source[dsc.data_source_id].append(CategoryLink(
             id=cat.id,
@@ -173,8 +172,8 @@ async def get_categories_for_sources_bulk(
 
 async def verify_categories_exist(
     session: AsyncSession,
-    category_ids: List[UUID],
-) -> List[Category]:
+    category_ids: list[UUID],
+) -> list[Category]:
     """
     Verify all categories exist in a single query (avoids N+1).
 
@@ -274,7 +273,7 @@ TAG_MAX_COUNT = 20
 TAG_PATTERN = re.compile(r'^[a-zA-Z0-9äöüÄÖÜß\-_\s]+$')
 
 
-def validate_tags(tags: Optional[List[str]]) -> List[str]:
+def validate_tags(tags: list[str] | None) -> list[str]:
     """Validate and sanitize tags."""
     if not tags:
         return []
@@ -304,13 +303,13 @@ async def list_sources(
     request: Request,
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=10000),
-    category_id: Optional[UUID] = Query(default=None, description="Filter by category (N:M)"),
-    status: Optional[SourceStatus] = Query(default=None),
-    source_type: Optional[SourceType] = Query(default=None),
-    search: Optional[str] = Query(default=None, max_length=200),
-    tags: Optional[List[str]] = Query(default=None, description="Filter by tags (OR logic)"),
-    sort_by: Optional[str] = Query(default=None, description="Sort by field (name, status, source_type, last_crawl, document_count)"),
-    sort_order: Optional[str] = Query(default="asc", description="Sort order (asc, desc)"),
+    category_id: UUID | None = Query(default=None, description="Filter by category (N:M)"),
+    status: SourceStatus | None = Query(default=None),
+    source_type: SourceType | None = Query(default=None),
+    search: str | None = Query(default=None, max_length=200),
+    tags: list[str] | None = Query(default=None, description="Filter by tags (OR logic)"),
+    sort_by: str | None = Query(default=None, description="Sort by field (name, status, source_type, last_crawl, document_count)"),
+    sort_order: str | None = Query(default="asc", description="Sort order (asc, desc)"),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
@@ -444,7 +443,7 @@ async def create_source(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from None
 
     # SSRF Protection: Validate URL before creating source
     is_safe, error_msg = validate_crawler_url(data.base_url)
@@ -536,18 +535,18 @@ class SourceBriefResponse(BaseModel):
     name: str
     base_url: str
     source_type: SourceType
-    tags: List[str]
-    category_ids: List[UUID]
+    tags: list[str]
+    category_ids: list[UUID]
 
     model_config = {"from_attributes": True}
 
 
-@router.get("/by-tags", response_model=List[SourceBriefResponse])
+@router.get("/by-tags", response_model=list[SourceBriefResponse])
 async def get_sources_by_tags(
     request: Request,
-    tags: List[str] = Query(..., min_length=1, description="Tags to filter by"),
+    tags: list[str] = Query(..., min_length=1, description="Tags to filter by"),
     match_mode: str = Query(default="all", regex="^(all|any)$", description="Match mode: 'all' (AND) or 'any' (OR)"),
-    exclude_category_id: Optional[UUID] = Query(default=None, description="Exclude sources already in this category"),
+    exclude_category_id: UUID | None = Query(default=None, description="Exclude sources already in this category"),
     limit: int = Query(default=1000, ge=1, le=5000),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
@@ -566,7 +565,7 @@ async def get_sources_by_tags(
     - Finding sources to assign to a category
     - Tag-based filtering and management
     """
-    from sqlalchemy import and_, or_
+    from sqlalchemy import or_
 
     query = select(DataSource)
 
@@ -652,7 +651,7 @@ async def update_source(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e),
-            )
+            ) from None
 
     source = await session.get(DataSource, source_id)
     if not source:
@@ -798,7 +797,7 @@ async def bulk_import_sources(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid default tags: {e}",
-        )
+        ) from None
 
     # Verify all categories exist (single query instead of N+1)
     categories = await verify_categories_exist(session, data.category_ids)
@@ -928,20 +927,14 @@ async def get_source_counts(
     _: User = Depends(require_editor),
 ):
     """
-    Get aggregated counts for sidebar navigation.
+    Get aggregated counts for sidebar navigation (optimized: 3 queries instead of 4).
 
     Returns counts grouped by:
     - categories (with category details)
     - source types
     - status
     """
-    # Total count
-    total_result = await session.execute(
-        select(func.count(DataSource.id))
-    )
-    total = total_result.scalar() or 0
-
-    # Counts by category (via N:M junction table)
+    # Query 1: Counts by category (via N:M junction table)
     category_counts_query = (
         select(
             Category.id,
@@ -964,19 +957,22 @@ async def get_source_counts(
         for row in category_result.all()
     ]
 
-    # Counts by source type
+    # Query 2: Total + counts by source type (combined)
     type_counts_query = (
         select(DataSource.source_type, func.count(DataSource.id).label("count"))
         .group_by(DataSource.source_type)
         .order_by(func.count(DataSource.id).desc())
     )
     type_result = await session.execute(type_counts_query)
+    type_rows = type_result.all()
     types = [
         TypeCount(type=row.source_type.value if row.source_type else None, count=row.count)
-        for row in type_result.all()
+        for row in type_rows
     ]
+    # Derive total from type counts (sum of all types = total sources)
+    total = sum(row.count for row in type_rows)
 
-    # Counts by status
+    # Query 3: Counts by status
     status_counts_query = (
         select(DataSource.status, func.count(DataSource.id).label("count"))
         .group_by(DataSource.status)
@@ -1026,3 +1022,44 @@ async def get_available_tags(
     ]
 
     return TagsResponse(tags=tags)
+
+
+@router.get("/meta/status-stats", response_model=SourceStatusStatsResponse)
+async def get_source_status_stats(
+    category_id: UUID | None = Query(default=None, description="Filter stats by category"),
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
+):
+    """Return aggregated source counts grouped by status, optionally filtered by category."""
+    # Build base query with optional category filter
+    if category_id:
+        count_query = (
+            select(DataSource.status, func.count().label("count"))
+            .join(DataSourceCategory, DataSourceCategory.data_source_id == DataSource.id)
+            .where(DataSourceCategory.category_id == category_id)
+            .group_by(DataSource.status)
+        )
+    else:
+        count_query = (
+            select(DataSource.status, func.count().label("count"))
+            .group_by(DataSource.status)
+        )
+
+    # Single query: get counts by status and sum for total
+    status_result = await session.execute(count_query)
+    rows = status_result.fetchall()
+
+    raw_counts = {
+        row[0].value if row[0] else "UNKNOWN": row[1]
+        for row in rows
+    }
+    total = sum(raw_counts.values())
+    by_status = {
+        status.value: raw_counts.get(status.value, 0)
+        for status in SourceStatus
+    }
+
+    return SourceStatusStatsResponse(
+        total=total,
+        by_status=by_status,
+    )

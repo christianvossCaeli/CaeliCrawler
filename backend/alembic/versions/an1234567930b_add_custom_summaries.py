@@ -1,7 +1,7 @@
 """Add custom summaries feature
 
-Revision ID: an1234567930
-Revises: am1234567929_add_missing_composite_indexes
+Revision ID: an1234567930b
+Revises: an1234567930 (cleanup_orphaned_facet_entity_slugs)
 Create Date: 2024-12-24
 
 Adds tables for user-defined dashboard summaries:
@@ -18,8 +18,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "an1234567930"
-down_revision = "am1234567929"
+revision = "an1234567930b"
+down_revision = "an1234567930"
 branch_labels = None
 depends_on = None
 

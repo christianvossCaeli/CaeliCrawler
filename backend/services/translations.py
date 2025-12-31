@@ -1,8 +1,8 @@
 """Translations for the Assistant Service."""
 
-from typing import Dict, Any
+from typing import Any
 
-TRANSLATIONS: Dict[str, Dict[str, str]] = {
+TRANSLATIONS: dict[str, dict[str, str]] = {
     "de": {
         # Query responses
         "no_results": "Keine Ergebnisse gefunden. Versuche eine andere Formulierung.",

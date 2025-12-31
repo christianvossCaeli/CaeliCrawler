@@ -1,8 +1,7 @@
 """Country configuration for international location support."""
 
-from dataclasses import dataclass
-from typing import Dict, List, Optional
 import re
+from dataclasses import dataclass
 
 
 @dataclass
@@ -22,14 +21,14 @@ class CountryConfig:
 
     # Official code info
     official_code_name: str  # e.g., "AGS", "GSS Code"
-    official_code_pattern: Optional[str]  # Regex for validation
+    official_code_pattern: str | None  # Regex for validation
 
     # Locality types common in this country
-    locality_types: List[str]
+    locality_types: list[str]
 
     # External data sources
-    wikidata_type_qid: Optional[str]  # Wikidata QID for municipality type
-    wikidata_code_property: Optional[str]  # Property for official code
+    wikidata_type_qid: str | None  # Wikidata QID for municipality type
+    wikidata_code_property: str | None  # Property for official code
     nominatim_country_code: str  # For Nominatim API
 
     def validate_official_code(self, code: str) -> bool:
@@ -40,7 +39,7 @@ class CountryConfig:
 
 
 # Supported countries configuration
-COUNTRY_CONFIGS: Dict[str, CountryConfig] = {
+COUNTRY_CONFIGS: dict[str, CountryConfig] = {
     "DE": CountryConfig(
         code="DE",
         name="Germany",
@@ -168,7 +167,7 @@ def get_country_config(code: str) -> CountryConfig:
     return config
 
 
-def get_supported_countries() -> List[Dict[str, str]]:
+def get_supported_countries() -> list[dict[str, str]]:
     """
     Get list of supported countries.
 

@@ -12,7 +12,7 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from app.i18n import set_locale, get_locale, SUPPORTED_LOCALES, DEFAULT_LOCALE
+from app.i18n import DEFAULT_LOCALE, SUPPORTED_LOCALES, get_locale, set_locale
 
 
 class I18nMiddleware(BaseHTTPMiddleware):

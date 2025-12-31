@@ -18,26 +18,24 @@ Exports:
 """
 
 import base64
-import json
-from typing import Any, Dict, List, Optional, Tuple
+import time
+from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy import func, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
-from app.models import Entity, EntityRelation, EntityType, FacetType, FacetValue
+from app.models import Entity, FacetType
+from app.models.llm_usage import LLMProvider, LLMTaskType
 from app.schemas.assistant import (
     SLASH_COMMANDS,
     AssistantContext,
     AssistantResponseData,
     DiscussionResponse,
     ErrorResponseData,
-    FacetManagementAction,
-    FacetManagementResponse,
-    FacetTypePreview,
     HelpResponse,
     NavigationResponse,
     NavigationTarget,
@@ -47,13 +45,14 @@ from app.schemas.assistant import (
     SuggestedAction,
     ViewMode,
 )
-from services.assistant.common import get_openai_client, AIServiceNotAvailableException
+from services.assistant.common import get_openai_client
 from services.assistant.context_builder import (
     build_app_summary_context,
     build_entity_context,
     get_facet_counts_by_type,
 )
 from services.assistant.utils import format_entity_link
+from services.llm_usage_tracker import record_llm_usage
 from services.translations import Translator
 
 logger = structlog.get_logger()
@@ -61,7 +60,7 @@ logger = structlog.get_logger()
 
 def generate_help_response(
     context: AssistantContext,
-    intent_data: Dict[str, Any],
+    intent_data: dict[str, Any],
     translator: Translator
 ) -> HelpResponse:
     """Generate contextual help response.
@@ -74,7 +73,7 @@ def generate_help_response(
     Returns:
         HelpResponse with documentation
     """
-    help_topic = (intent_data or {}).get("help_topic", "")
+    (intent_data or {}).get("help_topic", "")
 
     # Base help message
     msg = "**Hallo! Ich bin dein Assistent für CaeliCrawler.**\n\n"
@@ -111,7 +110,7 @@ def generate_help_response(
 
 async def handle_navigation(
     db: AsyncSession,
-    intent_data: Dict[str, Any]
+    intent_data: dict[str, Any]
 ) -> NavigationResponse:
     """Handle navigation requests.
 
@@ -178,7 +177,7 @@ async def handle_summarize(
     db: AsyncSession,
     context: AssistantContext,
     translator: Translator
-) -> Tuple[QueryResponse, List[SuggestedAction]]:
+) -> tuple[QueryResponse, list[SuggestedAction]]:
     """Generate a summary of the current context.
 
     Args:
@@ -193,7 +192,7 @@ async def handle_summarize(
         # General app summary
         summary_data = await build_app_summary_context(db)
 
-        msg = f"**App-Übersicht:**\n"
+        msg = "**App-Übersicht:**\n"
         msg += f"- {summary_data['entity_count']} Entities\n"
         msg += f"- {summary_data['facet_count']} Facet-Werte"
 
@@ -278,9 +277,9 @@ async def handle_summarize(
 async def handle_image_analysis(
     message: str,
     context: AssistantContext,
-    images: List[Dict[str, Any]],
+    images: list[dict[str, Any]],
     language: str = "de"
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Analyze images using the Vision API.
 
     Args:
@@ -344,6 +343,7 @@ async def handle_image_analysis(
             })
 
         # Make API call
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[
@@ -353,6 +353,19 @@ async def handle_image_analysis(
             temperature=0.3,
             max_tokens=2000
         )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.CHAT,
+                task_name="handle_image_analysis",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         if not response.choices:
             raise ValueError("Leere Antwort vom AI-Service")
@@ -402,8 +415,8 @@ async def handle_image_analysis(
 async def handle_discussion(
     message: str,
     context: AssistantContext,
-    intent_data: Dict[str, Any]
-) -> Tuple[AssistantResponseData, List[SuggestedAction]]:
+    intent_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Handle discussion, document analysis, or general conversation.
 
     Args:
@@ -442,6 +455,7 @@ erkläre was bereits existiert und was noch implementiert werden müsste.
 """
 
     try:
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[
@@ -451,6 +465,19 @@ erkläre was bereits existiert und was noch implementiert werden müsste.
             temperature=0.7,
             max_tokens=2000,
         )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.CHAT,
+                task_name="handle_discussion",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         ai_response = response.choices[0].message.content
 
@@ -478,7 +505,7 @@ erkläre was bereits existiert und was noch implementiert werden müsste.
         ), []
 
 
-def extract_discussion_insights(ai_response: str) -> Tuple[List[str], List[str]]:
+def extract_discussion_insights(ai_response: str) -> tuple[list[str], list[str]]:
     """Extract key points and recommendations from AI response.
 
     Args:
@@ -538,7 +565,7 @@ def determine_analysis_type(message: str) -> str:
     return "general"
 
 
-def build_discussion_suggestions(message: str) -> List[SuggestedAction]:
+def build_discussion_suggestions(message: str) -> list[SuggestedAction]:
     """Build suggested actions based on discussion content.
 
     Args:
@@ -576,7 +603,7 @@ def build_discussion_suggestions(message: str) -> List[SuggestedAction]:
 
 def suggest_smart_query_redirect(
     message: str,
-    intent_data: Dict[str, Any]
+    intent_data: dict[str, Any]
 ) -> RedirectResponse:
     """Suggest redirecting to Smart Query for complex writes.
 

@@ -6,14 +6,11 @@ Includes in-memory fallback when Redis is unavailable.
 """
 
 import time
-from collections import defaultdict
 from threading import Lock
-from typing import Dict, Optional, Tuple
 
 from fastapi import HTTPException, Request, status
 from redis.asyncio import Redis
 
-from app.config import settings
 from app.core.security_logging import security_logger
 
 
@@ -26,7 +23,7 @@ class InMemoryRateLimiter:
     """
 
     def __init__(self):
-        self._data: Dict[str, Tuple[int, float]] = {}  # key -> (count, window_start)
+        self._data: dict[str, tuple[int, float]] = {}  # key -> (count, window_start)
         self._lock = Lock()
 
     def check(
@@ -226,11 +223,11 @@ RATE_LIMITS = {
 
 
 # Global rate limiter instances
-_rate_limiter: Optional[RateLimiter] = None
-_fallback_limiter: Optional[InMemoryRateLimiter] = None
+_rate_limiter: RateLimiter | None = None
+_fallback_limiter: InMemoryRateLimiter | None = None
 
 
-def get_rate_limiter() -> Optional[RateLimiter]:
+def get_rate_limiter() -> RateLimiter | None:
     """Get the global rate limiter instance."""
     return _rate_limiter
 
@@ -252,7 +249,7 @@ def set_rate_limiter(limiter: RateLimiter) -> None:
 async def check_rate_limit(
     request: Request,
     action: str,
-    identifier: Optional[str] = None,
+    identifier: str | None = None,
 ) -> bool:
     """
     Convenience function to check rate limit.

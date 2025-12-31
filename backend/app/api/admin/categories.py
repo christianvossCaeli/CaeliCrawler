@@ -12,38 +12,35 @@ API Endpoints:
     GET    /categories/{id}/stats   - Get category statistics
 """
 
-from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.audit import AuditContext
+from app.core.deps import get_current_user_optional, require_admin, require_editor
+from app.core.exceptions import ConflictError, NotFoundError
 from app.database import get_session
 from app.models import Category, DataSource, Document
+from app.models.audit_log import AuditAction
 from app.models.data_source_category import DataSourceCategory
 from app.models.user import User
-from app.core.audit import AuditContext
-from app.models.audit_log import AuditAction
 from app.schemas.category import (
-    CategoryCreate,
-    CategoryUpdate,
-    CategoryResponse,
-    CategoryListResponse,
-    CategoryStats,
     CategoryAiSetupPreview,
     CategoryAiSetupRequest,
-    CategoryCreateWithAiSetup,
+    CategoryCreate,
+    CategoryListResponse,
+    CategoryResponse,
+    CategoryStats,
+    CategoryUpdate,
     EntityTypeSuggestion,
     FacetTypeSuggestion,
     generate_slug,
 )
-from app.schemas.common import MessageResponse, ErrorResponse
-from app.core.exceptions import NotFoundError, ConflictError, CategoryNotFoundError, CategoryDuplicateError
-from app.core.deps import get_current_user_optional, require_editor, require_admin
+from app.schemas.common import ErrorResponse, MessageResponse
 
 router = APIRouter(prefix="", tags=["Categories"])
 
@@ -74,11 +71,11 @@ async def list_categories(
         description="Number of items per page (max 100)",
         examples=[10, 20, 50],
     ),
-    is_active: Optional[bool] = Query(
+    is_active: bool | None = Query(
         default=None,
         description="Filter by active status. True = only active, False = only inactive, None = all",
     ),
-    is_public: Optional[bool] = Query(
+    is_public: bool | None = Query(
         default=None,
         description="Filter by visibility. True = only public, False = only private, None = based on include_private",
     ),
@@ -86,13 +83,32 @@ async def list_categories(
         default=True,
         description="Include user's own private categories (requires authentication)",
     ),
-    search: Optional[str] = Query(
+    search: str | None = Query(
         default=None,
         description="Search in category name and description (case-insensitive)",
         examples=["windkraft", "analyse"],
     ),
+    has_documents: bool | None = Query(
+        default=None,
+        description="Filter by presence of documents (true = with documents, false = without documents)",
+    ),
+    language: str | None = Query(
+        default=None,
+        description="Filter by language code (ISO 639-1) in category languages",
+        examples=["de", "en"],
+    ),
+    sort_by: str | None = Query(
+        default="name",
+        description="Sort by field (name, purpose, is_active, source_count, document_count)",
+        examples=["name", "document_count"],
+    ),
+    sort_order: str | None = Query(
+        default="asc",
+        description="Sort order (asc, desc)",
+        examples=["asc", "desc"],
+    ),
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ):
     """
     List all categories with pagination and visibility filtering.
@@ -142,15 +158,41 @@ async def list_categories(
         safe_search = search.replace('%', '\\%').replace('_', '\\_')
         query = query.where(
             Category.name.ilike(f"%{safe_search}%", escape='\\') |
-            Category.description.ilike(f"%{safe_search}%", escape='\\')
+            Category.description.ilike(f"%{safe_search}%", escape='\\') |
+            Category.purpose.ilike(f"%{safe_search}%", escape='\\')
         )
+
+    if has_documents is not None:
+        doc_exists = select(Document.id).where(Document.category_id == Category.id).exists()
+        query = query.where(doc_exists) if has_documents else query.where(~doc_exists)
+
+    if language:
+        query = query.where(Category.languages.contains([language.lower()]))
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
     total = (await session.execute(count_query)).scalar()
 
+    # Handle sorting
+    sort_desc = sort_order == "desc"
+    sort_column_map = {
+        "name": Category.name,
+        "purpose": Category.purpose,
+        "is_active": Category.is_active,
+    }
+
+    if sort_by in sort_column_map:
+        order_col = sort_column_map[sort_by]
+        if sort_desc:
+            query = query.order_by(order_col.desc().nulls_last())
+        else:
+            query = query.order_by(order_col.asc().nulls_last())
+    else:
+        # Default sorting by name
+        query = query.order_by(Category.name.asc())
+
     # Paginate
-    query = query.order_by(Category.name).offset((page - 1) * per_page).limit(per_page)
+    query = query.offset((page - 1) * per_page).limit(per_page)
     result = await session.execute(query)
     categories = result.scalars().all()
 
@@ -690,15 +732,15 @@ async def preview_ai_setup(
     }
     ```
     """
+    import structlog
+
     from app.models import EntityType, FacetType
     from services.smart_query.ai_generation import (
-        ai_generate_entity_type_config,
         ai_generate_category_config,
         ai_generate_crawl_config,
+        ai_generate_entity_type_config,
     )
     from services.smart_query.utils import generate_slug as sq_generate_slug
-
-    import structlog
     logger = structlog.get_logger()
 
     try:
@@ -901,24 +943,24 @@ async def preview_ai_setup(
         raise HTTPException(
             status_code=503,
             detail=f"AI-Service nicht verfügbar: {str(e)}",
-        )
+        ) from None
     except RuntimeError as e:
         # AI generation failed
         raise HTTPException(
             status_code=503,
             detail=str(e),
-        )
+        ) from None
     except Exception as e:
         logger.error("AI setup preview failed", error=str(e), exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Fehler bei der KI-Generierung: {str(e)}",
-        )
+        ) from None
 
 
 class AssignSourcesByTagsRequest(BaseModel):
     """Request to assign sources by tags."""
-    tags: List[str] = Field(..., min_length=1, description="Tags to filter sources by")
+    tags: list[str] = Field(..., min_length=1, description="Tags to filter sources by")
     match_mode: str = Field(default="all", pattern="^(all|any)$", description="Match mode: 'all' (AND) or 'any' (OR)")
     mode: str = Field(default="add", pattern="^(add|replace)$", description="Assignment mode: 'add' (keep existing) or 'replace' (remove existing)")
 
@@ -977,7 +1019,6 @@ async def assign_sources_by_tags(
     This will assign all sources that have BOTH "nrw" AND "kommunal" tags
     to the specified category.
     """
-    from sqlalchemy import and_
 
     # Verify category exists
     category = await session.get(Category, category_id)
@@ -1004,7 +1045,21 @@ async def assign_sources_by_tags(
         select(DataSourceCategory.data_source_id)
         .where(DataSourceCategory.category_id == category_id)
     )
-    existing_source_ids = set(row[0] for row in existing_result.fetchall())
+    existing_source_ids = {row[0] for row in existing_result.fetchall()}
+
+    # Batch fetch existing category counts for all matching sources (avoid N+1)
+    matching_source_ids = [s.id for s in matching_sources]
+    source_category_counts: dict = {}
+    if matching_source_ids:
+        counts_result = await session.execute(
+            select(
+                DataSourceCategory.data_source_id,
+                func.count(DataSourceCategory.id).label("count")
+            )
+            .where(DataSourceCategory.data_source_id.in_(matching_source_ids))
+            .group_by(DataSourceCategory.data_source_id)
+        )
+        source_category_counts = {row[0]: row[1] for row in counts_result.fetchall()}
 
     assigned = 0
     already_assigned = 0
@@ -1030,11 +1085,8 @@ async def assign_sources_by_tags(
                 already_assigned += 1
                 continue
 
-            # Check if this is the first category for the source
-            existing_cats_count = (await session.execute(
-                select(func.count())
-                .where(DataSourceCategory.data_source_id == source.id)
-            )).scalar()
+            # Check if this is the first category for the source (using batch-fetched counts)
+            existing_cats_count = source_category_counts.get(source.id, 0)
 
             link = DataSourceCategory(
                 data_source_id=source.id,

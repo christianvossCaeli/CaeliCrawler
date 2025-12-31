@@ -14,6 +14,7 @@ import { useCrawlPresetsStore } from '@/stores/crawlPresets'
 import { useAuthStore } from '@/stores/auth'
 import { useLogger } from '@/composables/useLogger'
 import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { getStatusColor } from '@/composables/useStatusColors'
 
 // ============================================================================
 // Types
@@ -159,17 +160,6 @@ export function useCrawlerAdmin() {
   // ============================================================================
   // Helper Functions
   // ============================================================================
-
-  function getStatusColor(status: string): string {
-    const colors: Record<string, string> = {
-      COMPLETED: 'success',
-      RUNNING: 'info',
-      PENDING: 'warning',
-      FAILED: 'error',
-      CANCELLED: 'grey',
-    }
-    return colors[status] || 'grey'
-  }
 
   function formatDate(dateStr: string): string {
     return formatLocaleDate(dateStr, 'dd.MM.yyyy HH:mm')

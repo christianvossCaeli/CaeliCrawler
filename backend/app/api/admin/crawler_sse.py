@@ -6,16 +6,16 @@ for polling and reducing server load while improving user experience.
 
 import asyncio
 import json
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
 from app.core.deps import require_editor_sse
+from app.database import get_session
 from app.models import CrawlJob, JobStatus, User
 from app.services.crawler_progress import crawler_progress
 
@@ -90,7 +90,7 @@ async def _generate_crawler_events(
                     yield f"event: log\ndata: {json.dumps(new_entries)}\n\n"
 
             # Heartbeat to keep connection alive
-            yield f": heartbeat\n\n"
+            yield ": heartbeat\n\n"
 
             await asyncio.sleep(SSE_UPDATE_INTERVAL)
 
@@ -188,7 +188,7 @@ async def job_events(
                     for entry in new_entries:
                         yield f"event: log\ndata: {json.dumps(entry)}\n\n"
 
-                yield f": heartbeat\n\n"
+                yield ": heartbeat\n\n"
                 await asyncio.sleep(1.0)  # Faster updates for single job
 
             except asyncio.CancelledError:

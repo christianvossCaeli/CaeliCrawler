@@ -209,24 +209,48 @@
           <v-chip size="small" color="primary" variant="tonal">{{ item.raw?.extraction_type || item.extraction_type }}</v-chip>
         </template>
 
-        <!-- Dynamic Entity Reference Columns -->
-        <template
-          v-for="entityType in entityReferenceColumns"
-          :key="`entity-${entityType}`"
-          #[`item.entity_references.${entityType}`]="{ item }"
-        >
-          <div class="entity-references">
-            <template v-for="(entityRef, idx) in getEntityReferencesByType(item.raw || item, entityType)" :key="idx">
-              <div
-                class="entity-ref-text cursor-pointer text-info"
-                :title="entityRef.entity_name"
-                @click="filterByEntityReference(entityType, entityRef.entity_name)"
+        <template #item.entity_count="{ item }">
+          <v-menu location="bottom" :close-on-content-click="false">
+            <template #activator="{ props }">
+              <v-chip
+                v-bind="props"
+                size="small"
+                :color="(item.raw?.entity_references || item.entity_references)?.length ? 'primary' : 'grey'"
+                :variant="(item.raw?.entity_references || item.entity_references)?.length ? 'flat' : 'outlined'"
+                class="cursor-pointer"
               >
-                {{ entityRef.entity_name }}
-              </div>
+                <v-icon start size="small">mdi-domain</v-icon>
+                {{ (item.raw?.entity_references || item.entity_references)?.length || 0 }}
+              </v-chip>
             </template>
-            <span v-if="!getEntityReferencesByType(item.raw || item, entityType).length" class="text-medium-emphasis">-</span>
-          </div>
+            <v-card min-width="280" max-width="400">
+              <v-card-title class="text-subtitle-2 py-2 d-flex align-center">
+                <v-icon size="small" class="mr-2">mdi-domain</v-icon>
+                {{ $t('results.detail.relevantEntities') }}
+              </v-card-title>
+              <v-divider />
+              <v-card-text class="pa-2">
+                <template v-if="(item.raw?.entity_references || item.entity_references)?.length">
+                  <v-chip
+                    v-for="(entityRef, idx) in (item.raw?.entity_references || item.entity_references)"
+                    :key="idx"
+                    :color="entityRef.entity_id ? getEntityTypeColor(entityRef.entity_type) : 'grey'"
+                    size="small"
+                    :variant="entityRef.entity_id ? 'elevated' : 'outlined'"
+                    :to="entityRef.entity_id ? `/entity/${entityRef.entity_id}` : undefined"
+                    class="ma-1"
+                  >
+                    <v-icon start size="x-small">{{ getEntityTypeIcon(entityRef.entity_type) }}</v-icon>
+                    {{ entityRef.entity_name }}
+                    <v-icon v-if="entityRef.entity_id" end size="x-small">mdi-open-in-new</v-icon>
+                  </v-chip>
+                </template>
+                <div v-else class="text-medium-emphasis text-caption pa-2">
+                  {{ $t('results.detail.noEntityReferences') }}
+                </div>
+              </v-card-text>
+            </v-card>
+          </v-menu>
         </template>
 
         <template #item.confidence_score="{ item }">
@@ -278,6 +302,7 @@
             <v-icon size="small" class="mr-1">mdi-check</v-icon>{{ $t('results.columns.verified') }}
           </v-chip>
         </v-card-title>
+
         <v-divider />
         <v-card-text class="pa-4" style="max-height: 70vh; overflow-y: auto;">
           <!-- Document Info -->
@@ -297,32 +322,55 @@
             </v-card-text>
           </v-card>
 
-          <!-- Extracted Content -->
-          <template v-if="selectedResult.final_content || selectedResult.extracted_content">
-            <!-- Entity References (Dynamic) -->
-            <v-card v-if="selectedResult.entity_references?.length" variant="outlined" class="mb-4">
-              <v-card-title class="text-subtitle-1">
-                <v-icon size="small" class="mr-2">mdi-link-variant</v-icon>
-                {{ $t('results.detail.entityReferences') }}
-              </v-card-title>
-              <v-card-text>
+          <!-- Entity References (Prominent Display) -->
+          <v-card variant="tonal" class="mb-4 entity-references-card" :color="selectedResult.entity_references?.length ? 'primary' : 'grey'">
+            <v-card-title class="text-subtitle-1 d-flex align-center">
+              <v-icon size="small" class="mr-2">mdi-domain</v-icon>
+              {{ $t('results.detail.relevantEntities') }}
+              <v-chip v-if="selectedResult.entity_references?.length" size="x-small" class="ml-2" color="primary" variant="flat">
+                {{ selectedResult.entity_references.length }}
+              </v-chip>
+            </v-card-title>
+            <v-card-text>
+              <template v-if="selectedResult.entity_references?.length">
                 <div class="d-flex flex-wrap ga-2">
                   <v-chip
                     v-for="(entityRef, idx) in selectedResult.entity_references"
                     :key="idx"
-                    :color="getEntityTypeColor(entityRef.entity_type)"
-                    size="small"
+                    :color="entityRef.entity_id ? getEntityTypeColor(entityRef.entity_type) : 'grey'"
+                    size="large"
+                    :variant="entityRef.entity_id ? 'elevated' : 'outlined'"
                     :to="entityRef.entity_id ? `/entity/${entityRef.entity_id}` : undefined"
+                    :class="['entity-chip', { 'entity-chip--clickable': entityRef.entity_id, 'entity-chip--unlinked': !entityRef.entity_id }]"
                   >
-                    <v-icon start size="x-small">{{ getEntityTypeIcon(entityRef.entity_type) }}</v-icon>
-                    {{ entityRef.entity_name }}
-                    <v-tooltip v-if="entityRef.role !== 'secondary'" activator="parent" location="top">
-                      {{ entityRef.role }} ({{ Math.round((entityRef.confidence ?? 0) * 100) }}%)
+                    <v-icon start size="small">{{ getEntityTypeIcon(entityRef.entity_type) }}</v-icon>
+                    <span class="font-weight-medium">{{ entityRef.entity_name }}</span>
+                    <v-chip v-if="entityRef.role === 'primary'" size="x-small" class="ml-1" color="warning" variant="flat">
+                      {{ $t('results.detail.primary') }}
+                    </v-chip>
+                    <v-icon v-if="entityRef.entity_id" end size="x-small" class="ml-1">mdi-open-in-new</v-icon>
+                    <v-icon v-else end size="x-small" class="ml-1" color="warning">mdi-link-off</v-icon>
+                    <v-tooltip activator="parent" location="top">
+                      <div><strong>{{ $t('results.detail.entityType') }}:</strong> {{ entityRef.entity_type }}</div>
+                      <div><strong>{{ $t('results.detail.role') }}:</strong> {{ entityRef.role }}</div>
+                      <div><strong>{{ $t('results.detail.confidence') }}:</strong> {{ Math.round((entityRef.confidence ?? 0) * 100) }}%</div>
+                      <div v-if="entityRef.entity_id" class="text-info">{{ $t('results.detail.clickToView') }}</div>
+                      <div v-else class="text-warning">{{ $t('results.detail.notLinked') }}</div>
                     </v-tooltip>
                   </v-chip>
                 </div>
-              </v-card-text>
-            </v-card>
+              </template>
+              <template v-else>
+                <div class="text-medium-emphasis d-flex align-center">
+                  <v-icon size="small" class="mr-2">mdi-information-outline</v-icon>
+                  {{ $t('results.detail.noEntityReferences') }}
+                </div>
+              </template>
+            </v-card-text>
+          </v-card>
+
+          <!-- Extracted Content -->
+          <template v-if="selectedResult.final_content || selectedResult.extracted_content">
 
             <v-row class="mb-4">
               <v-col cols="12">
@@ -344,174 +392,85 @@
               <v-card-text>{{ getContent(selectedResult).summary }}</v-card-text>
             </v-card>
 
-            <!-- Pain Points -->
-            <v-card v-if="getContent(selectedResult).pain_points?.length" variant="outlined" class="mb-4" color="error">
-              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-alert-circle</v-icon>{{ $t('results.detail.painPoints') }} ({{ getContent(selectedResult).pain_points?.length ?? 0 }})</v-card-title>
-              <v-card-text>
-                <div class="d-flex flex-column ga-3">
-                  <v-card
-                    v-for="(pp, idx) in getContent(selectedResult).pain_points"
-                    :key="idx"
-                    variant="tonal"
-                    color="error"
-                    class="pa-3"
-                  >
-                    <template v-if="typeof pp === 'string'">
-                      <div class="d-flex align-start ga-2">
-                        <v-icon size="small" color="error" class="mt-1">mdi-alert-circle</v-icon>
-                        <div class="text-body-1">{{ pp }}</div>
-                      </div>
-                    </template>
-                    <template v-else>
-                      <div class="d-flex align-start ga-2">
-                        <v-icon size="small" color="error" class="mt-1">mdi-alert-circle</v-icon>
-                        <div class="flex-grow-1">
-                          <div class="text-body-1">{{ pp.description || pp.text || pp.concern || '' }}</div>
-                          <div v-if="pp.type || pp.severity" class="d-flex flex-wrap ga-2 mt-2">
-                            <v-chip v-if="pp.type" size="small" variant="outlined" color="error">{{ pp.type }}</v-chip>
-                            <v-chip v-if="pp.severity" size="small" :color="getSeverityColor(pp.severity)">
-                              <v-icon start size="x-small">{{ getSeverityIcon(pp.severity) }}</v-icon>
-                              {{ pp.severity }}
-                            </v-chip>
-                          </div>
-                          <div v-if="pp.quote" class="mt-2 pa-2 rounded bg-surface-variant">
-                            <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
-                            <span class="text-body-2 font-italic">{{ pp.quote }}</span>
-                          </div>
-                          <div v-if="pp.source || pp.source_url" class="mt-2">
-                            <v-chip
-                              size="small"
-                              variant="outlined"
-                              :href="pp.source_url || pp.source"
-                              :target="pp.source_url || pp.source?.startsWith('http') ? '_blank' : undefined"
-                              :tag="pp.source_url || pp.source?.startsWith('http') ? 'a' : 'span'"
-                            >
-                              <v-icon start size="x-small">mdi-link</v-icon>
-                              {{ pp.source_url ? t('results.detail.source') : pp.source }}
-                            </v-chip>
-                          </div>
-                        </div>
-                      </div>
-                    </template>
-                  </v-card>
-                </div>
-              </v-card-text>
-            </v-card>
+            <!-- Generic FacetType Display -->
+            <!-- If a category is selected, use FacetTypes from that category -->
+            <template v-if="facetTypes.length > 0">
+              <GenericFacetCard
+                v-for="facetType in facetTypes"
+                :key="facetType.slug"
+                :facet-type="facetType"
+                :values="getValuesForFacetType(getContent(selectedResult), facetType)"
+              />
+            </template>
 
-            <!-- Positive Signals -->
-            <v-card v-if="getContent(selectedResult).positive_signals?.length" variant="outlined" class="mb-4" color="success">
-              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-lightbulb-on</v-icon>{{ $t('results.detail.positiveSignals') }} ({{ getContent(selectedResult).positive_signals?.length ?? 0 }})</v-card-title>
-              <v-card-text>
-                <div class="d-flex flex-column ga-3">
-                  <v-card
-                    v-for="(ps, idx) in getContent(selectedResult).positive_signals"
-                    :key="idx"
-                    variant="tonal"
-                    color="success"
-                    class="pa-3"
-                  >
-                    <template v-if="typeof ps === 'string'">
-                      <div class="d-flex align-start ga-2">
-                        <v-icon size="small" color="success" class="mt-1">mdi-lightbulb-on</v-icon>
-                        <div class="text-body-1">{{ ps }}</div>
-                      </div>
-                    </template>
-                    <template v-else>
-                      <div class="d-flex align-start ga-2">
-                        <v-icon size="small" color="success" class="mt-1">mdi-lightbulb-on</v-icon>
+            <!-- Fallback: Show all dynamic fields if no category-specific FacetTypes are loaded -->
+            <template v-else>
+              <!-- Dynamic Content Fields -->
+              <v-card
+                v-for="field in getDynamicContentFields(getContent(selectedResult))"
+                :key="field.key"
+                variant="flat"
+                class="mb-4"
+              >
+                <v-card-title class="text-subtitle-1 d-flex align-center pa-4 pb-2">
+                  <v-icon size="small" :color="field.color" class="mr-2">{{ field.icon }}</v-icon>
+                  <span class="text-medium-emphasis">{{ field.label }}</span>
+                  <v-chip size="x-small" variant="tonal" :color="field.color" class="ml-2">
+                    {{ field.values.length }}
+                  </v-chip>
+                </v-card-title>
+                <v-card-text class="pt-0">
+                  <!-- Chip-based display (for entity references, contacts) -->
+                  <template v-if="field.displayType === 'chips'">
+                    <div class="d-flex flex-wrap ga-2">
+                      <v-chip
+                        v-for="(val, idx) in field.values"
+                        :key="idx"
+                        variant="tonal"
+                        :color="field.color"
+                        size="small"
+                      >
+                        <v-avatar start :color="field.color" size="20">
+                          <v-icon size="x-small">mdi-account</v-icon>
+                        </v-avatar>
+                        {{ getValueText(val) }}
+                      </v-chip>
+                    </div>
+                  </template>
+                  <!-- List-based display (default for other fields) -->
+                  <template v-else>
+                    <div class="d-flex flex-column">
+                      <div
+                        v-for="(val, idx) in field.values"
+                        :key="idx"
+                        class="field-item d-flex align-start px-3 py-3"
+                      >
+                        <div
+                          class="field-indicator mr-3"
+                          :style="{ backgroundColor: `rgb(var(--v-theme-${field.color}))` }"
+                        ></div>
                         <div class="flex-grow-1">
-                          <div class="text-body-1">{{ ps.description || ps.text || ps.opportunity || '' }}</div>
-                          <div v-if="ps.type" class="d-flex flex-wrap ga-2 mt-2">
-                            <v-chip size="small" variant="outlined" color="success">{{ ps.type }}</v-chip>
-                          </div>
-                          <div v-if="ps.quote" class="mt-2 pa-2 rounded bg-surface-variant">
-                            <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
-                            <span class="text-body-2 font-italic">{{ ps.quote }}</span>
-                          </div>
-                          <div v-if="ps.source || ps.source_url" class="mt-2">
-                            <v-chip
-                              size="small"
-                              variant="outlined"
-                              :href="ps.source_url || ps.source"
-                              :target="ps.source_url || ps.source?.startsWith('http') ? '_blank' : undefined"
-                              :tag="ps.source_url || ps.source?.startsWith('http') ? 'a' : 'span'"
-                            >
-                              <v-icon start size="x-small">mdi-link</v-icon>
-                              {{ ps.source_url ? t('results.detail.source') : ps.source }}
-                            </v-chip>
+                          <div class="text-body-2">{{ getValueText(val) }}</div>
+                          <!-- Show additional chips for structured data -->
+                          <div v-if="typeof val === 'object'" class="d-flex flex-wrap ga-1 mt-2">
+                            <template v-for="(propVal, propKey) in (val as Record<string, unknown>)" :key="propKey">
+                              <v-chip
+                                v-if="propVal && propKey !== 'description' && propKey !== 'text' && propKey !== 'aenderungen' && typeof propVal !== 'object'"
+                                size="x-small"
+                                variant="tonal"
+                                color="grey"
+                              >
+                                {{ propKey }}: {{ propVal }}
+                              </v-chip>
+                            </template>
                           </div>
                         </div>
                       </div>
-                    </template>
-                  </v-card>
-                </div>
-              </v-card-text>
-            </v-card>
-
-            <!-- Decision Makers -->
-            <v-card v-if="getContent(selectedResult).decision_makers?.length" variant="outlined" class="mb-4" color="info">
-              <v-card-title class="text-subtitle-1"><v-icon size="small" class="mr-2">mdi-account-group</v-icon>{{ $t('results.detail.decisionMakers') }} ({{ getContent(selectedResult).decision_makers?.length ?? 0 }})</v-card-title>
-              <v-card-text>
-                <div class="d-flex flex-column ga-3">
-                  <v-card
-                    v-for="(dm, idx) in getContent(selectedResult).decision_makers"
-                    :key="idx"
-                    variant="tonal"
-                    color="info"
-                    class="pa-3"
-                  >
-                    <template v-if="typeof dm === 'string'">
-                      <div class="d-flex align-start ga-2">
-                        <v-avatar color="info" size="36">
-                          <v-icon color="on-info" size="small">mdi-account</v-icon>
-                        </v-avatar>
-                        <div class="text-body-1 font-weight-medium align-self-center">{{ dm }}</div>
-                      </div>
-                    </template>
-                    <template v-else>
-                      <div class="d-flex align-start ga-2">
-                        <v-avatar color="info" size="36">
-                          <v-icon color="on-info" size="small">mdi-account</v-icon>
-                        </v-avatar>
-                        <div class="flex-grow-1">
-                          <div class="text-body-1 font-weight-medium">{{ dm.name || dm.person }}</div>
-                          <div v-if="dm.role || dm.position" class="text-body-2 text-medium-emphasis">{{ dm.role || dm.position }}</div>
-                          <div class="d-flex flex-wrap ga-2 mt-2">
-                            <v-chip v-if="dm.email || dm.contact" size="small" variant="outlined" @click.stop="copyToClipboard(dm.email || dm.contact)">
-                              <v-icon start size="small">mdi-email</v-icon>
-                              {{ dm.email || dm.contact }}
-                            </v-chip>
-                            <v-chip v-if="dm.phone || dm.telefon" size="small" variant="outlined">
-                              <v-icon start size="small">mdi-phone</v-icon>
-                              {{ dm.phone || dm.telefon }}
-                            </v-chip>
-                            <v-chip v-if="dm.sentiment" size="small" :color="getSentimentColor(dm.sentiment)">
-                              {{ dm.sentiment }}
-                            </v-chip>
-                          </div>
-                          <div v-if="dm.statement || dm.quote" class="mt-2 pa-2 rounded bg-surface-variant">
-                            <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
-                            <span class="text-body-2 font-italic">{{ dm.statement || dm.quote }}</span>
-                          </div>
-                          <div v-if="dm.source || dm.source_url" class="mt-2">
-                            <v-chip
-                              size="small"
-                              variant="outlined"
-                              :href="dm.source_url || dm.source"
-                              :target="dm.source_url || dm.source?.startsWith('http') ? '_blank' : undefined"
-                              :tag="dm.source_url || dm.source?.startsWith('http') ? 'a' : 'span'"
-                            >
-                              <v-icon start size="x-small">mdi-link</v-icon>
-                              {{ dm.source_url ? t('results.detail.source') : dm.source }}
-                            </v-chip>
-                          </div>
-                        </div>
-                      </div>
-                    </template>
-                  </v-card>
-                </div>
-              </v-card-text>
-            </v-card>
+                    </div>
+                  </template>
+                </v-card-text>
+              </v-card>
+            </template>
 
             <!-- Outreach Recommendation -->
             <v-card v-if="getContent(selectedResult).outreach_recommendation" variant="outlined" class="mb-4" color="info">
@@ -578,6 +537,7 @@ import { useI18n } from 'vue-i18n'
 import { useResultsView } from '@/composables/useResultsView'
 import PageHeader from '@/components/common/PageHeader.vue'
 import ResultsSkeleton from '@/components/results/ResultsSkeleton.vue'
+import { GenericFacetCard } from '@/components/facets'
 
 const { t } = useI18n()
 
@@ -594,6 +554,7 @@ const {
   extractionTypes,
   selectedResults,
   stats,
+  facetTypes,
 
   // Filters
   searchQuery,
@@ -616,7 +577,6 @@ const {
 
   // Headers
   headers,
-  entityReferenceColumns,
 
   // Computed
   showLocationFilter,
@@ -625,25 +585,26 @@ const {
 
   // Helper Functions
   getConfidenceColor,
-  getSeverityColor,
-  getSeverityIcon,
-  getSentimentColor,
   getPriorityColor,
   getEntityTypeColor,
   getEntityTypeIcon,
   getContent,
-  getEntityReferencesByType,
   formatDate,
-  copyToClipboard,
 
   // Data Loading
   loadData,
   debouncedLoadData,
 
+  // FacetType Helpers
+  getValuesForFacetType,
+
+  // Dynamic Content Helpers
+  getDynamicContentFields,
+  getValueText,
+
   // Filter Actions
   toggleVerifiedFilter,
   clearFilters,
-  filterByEntityReference,
   onTableOptionsUpdate,
 
   // Result Actions
@@ -689,11 +650,146 @@ onMounted(() => initialize())
   gap: 2px;
 }
 
+/* JSON Viewer - Dark Mode optimized */
 .json-viewer {
   overflow-x: auto;
   font-size: 0.75rem;
-  background: rgb(var(--v-theme-surface-variant));
   max-height: 400px;
   white-space: pre-wrap;
+  font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+  background-color: #1a2f2e;
+  color: #b8d4ce;
+  border: 1px solid #2a4544;
+  border-radius: 8px;
+}
+
+/* Light mode override */
+:deep(.v-theme--caeliLight) .json-viewer {
+  background-color: #f5f5f5;
+  color: #333;
+  border-color: #e0e0e0;
+}
+
+/* Pain Points Card */
+.pain-points-card {
+  background: rgba(var(--v-theme-warning), 0.04);
+  border: 1px solid rgba(var(--v-theme-warning), 0.15);
+  border-left: 3px solid rgb(var(--v-theme-warning));
+}
+
+.pain-point-item {
+  background: rgba(var(--v-theme-warning), 0.08);
+  border: 1px solid rgba(var(--v-theme-warning), 0.2);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.pain-point-item:hover {
+  background: rgba(var(--v-theme-warning), 0.12);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.pain-point-item:not(:last-child) {
+  margin-bottom: 8px;
+}
+
+.pain-point-indicator {
+  width: 4px;
+  height: 100%;
+  min-height: 24px;
+  background: rgb(var(--v-theme-warning));
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Positive Signals Card */
+.positive-signals-card {
+  background: rgba(var(--v-theme-success), 0.04);
+  border: 1px solid rgba(var(--v-theme-success), 0.15);
+  border-left: 3px solid rgb(var(--v-theme-success));
+}
+
+.positive-signal-item {
+  background: rgba(var(--v-theme-success), 0.08);
+  border: 1px solid rgba(var(--v-theme-success), 0.2);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.positive-signal-item:hover {
+  background: rgba(var(--v-theme-success), 0.12);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.positive-signal-item:not(:last-child) {
+  margin-bottom: 8px;
+}
+
+.positive-signal-indicator {
+  width: 4px;
+  height: 100%;
+  min-height: 24px;
+  background: rgb(var(--v-theme-success));
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Decision Makers Card */
+.decision-makers-card {
+  background: rgba(var(--v-theme-info), 0.04);
+  border: 1px solid rgba(var(--v-theme-info), 0.15);
+  border-left: 3px solid rgb(var(--v-theme-info));
+}
+
+/* Generic Field Item (for dynamic fields) */
+.field-item {
+  background: rgba(var(--v-theme-on-surface), 0.04);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.field-item:hover {
+  background: rgba(var(--v-theme-on-surface), 0.08);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.field-item:not(:last-child) {
+  margin-bottom: 8px;
+}
+
+.field-indicator {
+  width: 4px;
+  height: 100%;
+  min-height: 24px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Entity References Card */
+.entity-references-card {
+  border-left: 4px solid rgb(var(--v-theme-primary));
+}
+
+/* Entity Chips */
+.entity-chip {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.entity-chip--clickable {
+  cursor: pointer;
+}
+
+.entity-chip--clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.entity-chip--unlinked {
+  opacity: 0.75;
+  border-style: dashed;
 }
 </style>

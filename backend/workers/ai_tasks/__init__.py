@@ -15,9 +15,7 @@ is imported by celery_app.py.
 from workers.celery_app import celery_app
 
 # Import and register tasks from each sub-module
-from . import document_analyzer
-from . import pysis_processor
-from . import entity_operations
+from . import document_analyzer, entity_operations, pysis_processor
 
 # Register all tasks with the Celery app
 _doc_tasks = document_analyzer.register_tasks(celery_app)

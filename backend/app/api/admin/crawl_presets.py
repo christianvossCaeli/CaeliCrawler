@@ -1,34 +1,33 @@
 """Admin API endpoints for crawl presets."""
 
 import math
-import re
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
 from app.core.deps import require_editor
-from app.core.rate_limit import check_rate_limit
 from app.core.exceptions import NotFoundError, ValidationError
-from app.models import CrawlPreset, PresetStatus, User, DataSource
+from app.core.rate_limit import check_rate_limit
+from app.database import get_session
+from app.models import CrawlPreset, DataSource, PresetStatus, User
+from app.schemas.common import MessageResponse
 from app.schemas.crawl_preset import (
+    SCHEDULE_PRESETS,
     CrawlPresetCreate,
-    CrawlPresetUpdate,
-    CrawlPresetResponse,
-    CrawlPresetListResponse,
-    CrawlPresetFavoriteToggleResponse,
     CrawlPresetExecuteRequest,
     CrawlPresetExecuteResponse,
-    CrawlPresetFromFiltersRequest,
+    CrawlPresetFavoriteToggleResponse,
     CrawlPresetFilters,
-    SCHEDULE_PRESETS,
+    CrawlPresetFromFiltersRequest,
+    CrawlPresetListResponse,
+    CrawlPresetResponse,
+    CrawlPresetUpdate,
 )
-from app.schemas.common import MessageResponse
 from app.utils.cron import croniter_for_expression, get_schedule_timezone, is_valid_cron_expression
 
 # Import crawl operations at module level to avoid repeated imports
@@ -50,14 +49,14 @@ class PresetPreviewResponse(BaseModel):
     """Response for preset preview endpoint."""
     preset_id: UUID
     sources_count: int
-    sources_preview: List[SourcePreviewItem]
+    sources_preview: list[SourcePreviewItem]
     has_more: bool
 
 
 class FiltersPreviewResponse(BaseModel):
     """Response for filters preview endpoint."""
     sources_count: int
-    sources_preview: List[SourcePreviewItem]
+    sources_preview: list[SourcePreviewItem]
     has_more: bool
 
 
@@ -95,8 +94,8 @@ async def _create_preset_internal(
     user_id: UUID,
     name: str,
     filters: CrawlPresetFilters,
-    description: Optional[str] = None,
-    schedule_cron: Optional[str] = None,
+    description: str | None = None,
+    schedule_cron: str | None = None,
     schedule_enabled: bool = False,
 ) -> CrawlPreset:
     """Internal helper to create a preset. Reduces code duplication.
@@ -154,10 +153,10 @@ async def _create_preset_internal(
 
 
 def _build_preview_response(
-    sources: List[DataSource],
-    preset_id: Optional[UUID] = None,
+    sources: list[DataSource],
+    preset_id: UUID | None = None,
     max_preview: int = 10,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Build standardized preview response from sources list."""
     preview_items = [
         SourcePreviewItem(id=str(s.id), name=s.name, url=s.url)
@@ -182,8 +181,8 @@ async def list_presets(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
     favorites_only: bool = Query(default=False, description="Only return favorites"),
-    status: Optional[str] = Query(default=None, description="Filter by status (active, archived)"),
-    search: Optional[str] = Query(default=None, description="Search by name"),
+    status: str | None = Query(default=None, description="Filter by status (active, archived)"),
+    search: str | None = Query(default=None, description="Search by name"),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_editor),
 ):
@@ -193,7 +192,7 @@ async def list_presets(
     query = select(CrawlPreset).where(CrawlPreset.user_id == current_user.id)
 
     if favorites_only:
-        query = query.where(CrawlPreset.is_favorite == True)
+        query = query.where(CrawlPreset.is_favorite)
 
     if status:
         try:
@@ -394,7 +393,7 @@ async def execute_preset(
 
     # Update statistics
     preset.usage_count += 1
-    preset.last_used_at = datetime.now(timezone.utc)
+    preset.last_used_at = datetime.now(UTC)
     await session.commit()
 
     return CrawlPresetExecuteResponse(

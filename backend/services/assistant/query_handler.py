@@ -12,30 +12,32 @@ Exports:
     - suggest_corrections: Generate query corrections for no-results
 """
 
-import json
 import re
-from typing import Any, Dict, List, Optional, Tuple
+import time
+from typing import Any
 from uuid import UUID
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
+from app.models.llm_usage import LLMProvider, LLMTaskType
 from app.schemas.assistant import (
     AssistantContext,
     QueryResponse,
     QueryResultData,
     SuggestedAction,
 )
-from services.assistant.common import get_openai_client, AIServiceNotAvailableException
+from services.assistant.common import AIServiceNotAvailableException, get_openai_client
 from services.assistant.context_builder import build_entity_context, prepare_entity_data_for_ai
 from services.assistant.utils import format_entity_link
+from services.llm_usage_tracker import record_llm_usage
 from services.smart_query import SmartQueryService
 from services.smart_query.geographic_utils import (
     find_all_geo_suggestions,
     levenshtein_distance,
 )
 from services.translations import Translator
-from app.config import settings
 
 logger = structlog.get_logger()
 
@@ -44,9 +46,9 @@ async def handle_query(
     db: AsyncSession,
     message: str,
     context: AssistantContext,
-    intent_data: Dict[str, Any],
+    intent_data: dict[str, Any],
     translator: Translator
-) -> Tuple[QueryResponse, List[SuggestedAction]]:
+) -> tuple[QueryResponse, list[SuggestedAction]]:
     """Handle a database query intent using SmartQueryService.
 
     Args:
@@ -160,9 +162,9 @@ async def handle_context_query(
     db: AsyncSession,
     message: str,
     context: AssistantContext,
-    intent_data: Dict[str, Any],
+    intent_data: dict[str, Any],
     translator: Translator
-) -> Tuple[QueryResponse, List[SuggestedAction]]:
+) -> tuple[QueryResponse, list[SuggestedAction]]:
     """Handle a query about the current entity using AI.
 
     Args:
@@ -228,7 +230,7 @@ async def handle_context_query(
 
 async def generate_context_response_with_ai(
     user_question: str,
-    entity_data: Dict[str, Any]
+    entity_data: dict[str, Any]
 ) -> str:
     """Use AI to generate an intelligent response about the entity.
 
@@ -275,6 +277,7 @@ async def generate_context_response_with_ai(
 - Maximal 400 Wörter
 """
 
+    start_time = time.time()
     response = client.chat.completions.create(
         model=settings.azure_openai_deployment_name,
         messages=[
@@ -285,13 +288,26 @@ async def generate_context_response_with_ai(
         max_tokens=1000
     )
 
+    if response.usage:
+        await record_llm_usage(
+            provider=LLMProvider.AZURE_OPENAI,
+            model=settings.azure_openai_deployment_name,
+            task_type=LLMTaskType.CHAT,
+            task_name="generate_context_response_with_ai",
+            prompt_tokens=response.usage.prompt_tokens,
+            completion_tokens=response.usage.completion_tokens,
+            total_tokens=response.usage.total_tokens,
+            duration_ms=int((time.time() - start_time) * 1000),
+            is_error=False,
+        )
+
     return response.choices[0].message.content
 
 
 async def suggest_corrections(
     message: str,
-    query_interpretation: Optional[Dict[str, Any]] = None
-) -> List[Dict[str, Any]]:
+    query_interpretation: dict[str, Any] | None = None
+) -> list[dict[str, Any]]:
     """Generate intelligent suggestions when a query returns no results.
 
     Uses fuzzy matching for geographic terms, entity names, and facet types.
@@ -337,7 +353,7 @@ async def suggest_corrections(
     }
 
     for word in words:
-        for entity_type, aliases in entity_type_aliases.items():
+        for _entity_type, aliases in entity_type_aliases.items():
             for alias in aliases:
                 if levenshtein_distance(word, alias) <= 2 and word != alias:
                     suggestions.append({
@@ -359,7 +375,7 @@ async def suggest_corrections(
     }
 
     for word in words:
-        for facet_type, aliases in facet_aliases.items():
+        for _facet_type, aliases in facet_aliases.items():
             for alias in aliases:
                 if levenshtein_distance(word, alias.replace(" ", "")) <= 2 and word != alias:
                     suggestions.append({
@@ -384,7 +400,7 @@ async def suggest_corrections(
 
 
 def format_query_result_message(
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     total: int,
     translator: Translator
 ) -> str:
@@ -434,7 +450,7 @@ def format_query_result_message(
     return translator.t("found_count", total=total)
 
 
-def build_query_suggestions(total: int, translator: Translator) -> List[SuggestedAction]:
+def build_query_suggestions(total: int, translator: Translator) -> list[SuggestedAction]:
     """Build suggested actions for query results.
 
     Args:
@@ -463,9 +479,9 @@ def build_query_suggestions(total: int, translator: Translator) -> List[Suggeste
 
 
 def build_context_query_suggestions(
-    entity_data: Dict[str, Any],
+    entity_data: dict[str, Any],
     translator: Translator
-) -> List[SuggestedAction]:
+) -> list[SuggestedAction]:
     """Build suggested actions based on entity context data.
 
     Args:

@@ -36,7 +36,7 @@
  */
 
 import type { Ref } from 'vue'
-import { getApiErrorMessage } from '@/types/sources'
+import { getApiErrorMessage } from '@/utils/errorMessage'
 
 /**
  * Options for API error handling

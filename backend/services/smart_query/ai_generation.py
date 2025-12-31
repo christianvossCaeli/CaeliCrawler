@@ -1,18 +1,23 @@
 """AI-powered generation functions for Smart Query Service."""
 
 import json
-from typing import Any, Dict, List
+import time
+from typing import Any
 
 import structlog
 
 from app.config import settings
+from app.core.exceptions import AIInterpretationError
+from app.models.llm_usage import LLMProvider, LLMTaskType
+from services.llm_usage_tracker import record_llm_usage
+
 from .prompts import (
-    AI_ENTITY_TYPE_PROMPT,
+    AI_API_RESPONSE_ANALYSIS_PROMPT,
     AI_CATEGORY_PROMPT,
     AI_CRAWL_CONFIG_PROMPT,
+    AI_ENTITY_TYPE_PROMPT,
     AI_FACET_TYPES_PROMPT,
     AI_SEED_ENTITIES_PROMPT,
-    AI_API_RESPONSE_ANALYSIS_PROMPT,
 )
 from .query_interpreter import get_openai_client
 from .utils import clean_json_response
@@ -23,7 +28,7 @@ logger = structlog.get_logger()
 async def ai_generate_entity_type_config(
     user_intent: str,
     geographic_context: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Step 1/3: Generate EntityType configuration using LLM.
 
@@ -41,12 +46,26 @@ async def ai_generate_entity_type_config(
     )
 
     try:
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=1000,
         )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.CHAT,
+                task_name="ai_generate_entity_type_config",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         content = response.choices[0].message.content.strip()
         content = clean_json_response(content)
@@ -55,11 +74,11 @@ async def ai_generate_entity_type_config(
         logger.info("AI generated EntityType config", name=result.get("name"))
         return result
 
-    except ValueError:
+    except (ValueError, AIInterpretationError):
         raise
     except Exception as e:
         logger.error("Failed to generate EntityType config via AI", error=str(e))
-        raise RuntimeError(f"KI-Service nicht erreichbar: EntityType-Generierung fehlgeschlagen - {str(e)}")
+        raise AIInterpretationError("EntityType-Generierung", detail=str(e)) from None
 
 
 async def ai_generate_category_config(
@@ -67,7 +86,7 @@ async def ai_generate_category_config(
     entity_type_name: str,
     entity_type_description: str,
     geographic_context: str = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Step 2/3: Generate Category configuration with AI extraction prompt.
 
@@ -87,12 +106,26 @@ async def ai_generate_category_config(
     )
 
     try:
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=2000,
         )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.CHAT,
+                task_name="ai_generate_category_config",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         content = response.choices[0].message.content.strip()
         content = clean_json_response(content)
@@ -104,18 +137,18 @@ async def ai_generate_category_config(
         )
         return result
 
-    except ValueError:
+    except (ValueError, AIInterpretationError):
         raise
     except Exception as e:
         logger.error("Failed to generate Category config via AI", error=str(e))
-        raise RuntimeError(f"KI-Service nicht erreichbar: Category-Generierung fehlgeschlagen - {str(e)}")
+        raise AIInterpretationError("Category-Generierung", detail=str(e)) from None
 
 
 async def ai_generate_crawl_config(
     user_intent: str,
     search_focus: str,
-    search_terms: List[str],
-) -> Dict[str, Any]:
+    search_terms: list[str],
+) -> dict[str, Any]:
     """
     Step 3/3: Generate URL patterns for crawling using AI.
 
@@ -134,12 +167,26 @@ async def ai_generate_crawl_config(
     )
 
     try:
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
             max_tokens=1000,
         )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.CHAT,
+                task_name="ai_generate_crawl_config",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         content = response.choices[0].message.content.strip()
         content = clean_json_response(content)
@@ -152,18 +199,18 @@ async def ai_generate_crawl_config(
         )
         return result
 
-    except ValueError:
+    except (ValueError, AIInterpretationError):
         raise
     except Exception as e:
         logger.error("Failed to generate Crawl config via AI", error=str(e))
-        raise RuntimeError(f"KI-Service nicht erreichbar: Crawl-Config-Generierung fehlgeschlagen - {str(e)}")
+        raise AIInterpretationError("Crawl-Config-Generierung", detail=str(e)) from None
 
 
 async def ai_generate_facet_types(
     user_intent: str,
     entity_type_name: str,
     entity_type_description: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate FacetType suggestions based on user intent and EntityType.
 
@@ -182,12 +229,26 @@ async def ai_generate_facet_types(
     )
 
     try:
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=1500,
         )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.CHAT,
+                task_name="ai_generate_facet_types",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         content = response.choices[0].message.content.strip()
         content = clean_json_response(content)
@@ -213,9 +274,9 @@ async def ai_generate_seed_entities(
     user_intent: str,
     entity_type_name: str,
     entity_type_description: str,
-    attribute_schema: Dict[str, Any],
+    attribute_schema: dict[str, Any],
     geographic_context: str = "Deutschland",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate seed entities based on AI knowledge.
 
@@ -242,12 +303,26 @@ async def ai_generate_seed_entities(
     )
 
     try:
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,  # Lower temperature for factual accuracy
             max_tokens=4000,  # More tokens for longer lists
         )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.CHAT,
+                task_name="ai_generate_seed_entities",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         content = response.choices[0].message.content.strip()
         content = clean_json_response(content)
@@ -281,12 +356,12 @@ async def ai_generate_seed_entities(
 
 
 async def ai_analyze_api_response(
-    api_items: List[Dict[str, Any]],
+    api_items: list[dict[str, Any]],
     user_intent: str = "",
     api_type: str = "unknown",
     target_entity_type: str = "",
     sample_size: int = 3,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Analyze API response and generate intelligent field mappings.
 
@@ -333,12 +408,26 @@ async def ai_analyze_api_response(
     )
 
     try:
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,  # Lower temperature for accurate analysis
             max_tokens=2000,
         )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.CHAT,
+                task_name="ai_analyze_api_response",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         content = response.choices[0].message.content.strip()
         content = clean_json_response(content)
@@ -374,7 +463,7 @@ async def ai_analyze_api_response(
         return _generate_fallback_mapping(api_items)
 
 
-def _generate_fallback_mapping(api_items: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _generate_fallback_mapping(api_items: list[dict[str, Any]]) -> dict[str, Any]:
     """
     Generate a basic fallback mapping when AI analysis fails.
 

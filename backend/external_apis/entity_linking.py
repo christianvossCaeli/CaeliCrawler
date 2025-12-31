@@ -6,17 +6,15 @@ This service provides intelligent entity linking capabilities:
 - Relationship creation between entities
 """
 
-from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Entity, EntityRelation, EntityType, RelationType
 from services.entity_facet_service import (
     create_relation,
-    get_or_create_entity,
     get_relation_type_by_slug,
     normalize_name,
 )
@@ -48,8 +46,8 @@ class EntityLinkingService:
         self.session = session
         self.use_ai = use_ai
         self._ai_service = None
-        self._entity_type_cache: Dict[str, EntityType] = {}
-        self._relation_type_cache: Dict[str, RelationType] = {}
+        self._entity_type_cache: dict[str, EntityType] = {}
+        self._relation_type_cache: dict[str, RelationType] = {}
 
     async def _get_ai_service(self):
         """Lazily initialize AI service."""
@@ -59,7 +57,7 @@ class EntityLinkingService:
             self._ai_service = get_ai_service()
         return self._ai_service
 
-    async def _get_entity_type(self, slug: str) -> Optional[EntityType]:
+    async def _get_entity_type(self, slug: str) -> EntityType | None:
         """Get entity type by slug with caching."""
         if slug not in self._entity_type_cache:
             result = await self.session.execute(
@@ -73,7 +71,7 @@ class EntityLinkingService:
                 self._entity_type_cache[slug] = entity_type
         return self._entity_type_cache.get(slug)
 
-    async def _get_relation_type(self, slug: str) -> Optional[RelationType]:
+    async def _get_relation_type(self, slug: str) -> RelationType | None:
         """Get relation type by slug with caching."""
         if slug not in self._relation_type_cache:
             relation_type = await get_relation_type_by_slug(self.session, slug)
@@ -83,9 +81,9 @@ class EntityLinkingService:
 
     async def find_municipality_for_location(
         self,
-        location_hints: List[str],
-        country: Optional[str] = "DE",
-    ) -> Optional[Entity]:
+        location_hints: list[str],
+        country: str | None = "DE",
+    ) -> Entity | None:
         """Find matching municipality entity for location hints.
 
         This method tries multiple strategies:
@@ -154,8 +152,8 @@ class EntityLinkingService:
         self,
         name: str,
         entity_type_id: UUID,
-        country: Optional[str] = None,
-    ) -> Optional[Entity]:
+        country: str | None = None,
+    ) -> Entity | None:
         """Find entity by name using exact and normalized matching.
 
         Args:
@@ -199,8 +197,8 @@ class EntityLinkingService:
         return None
 
     async def _ai_interpret_location(
-        self, hints: List[str]
-    ) -> Optional[str]:
+        self, hints: list[str]
+    ) -> str | None:
         """Use AI to interpret location hints and extract municipality name.
 
         The AI is prompted to extract just the municipality name from
@@ -262,9 +260,9 @@ Gemeindename:"""
 
     async def find_entities_by_type(
         self,
-        location_hints: List[str],
+        location_hints: list[str],
         entity_type_slug: str,
-    ) -> List[Entity]:
+    ) -> list[Entity]:
         """Find entities of a specific type matching location hints.
 
         This is a more generic version that can search for any entity type,
@@ -300,7 +298,7 @@ Gemeindename:"""
         source_entity_id: UUID,
         target_municipality_id: UUID,
         confidence: float = 0.8,
-    ) -> Optional[EntityRelation]:
+    ) -> EntityRelation | None:
         """Create 'located_in' relation between entity and municipality.
 
         Args:
@@ -347,9 +345,9 @@ Gemeindename:"""
     async def link_entity_to_locations(
         self,
         entity_id: UUID,
-        location_hints: List[str],
-        link_types: Optional[List[str]] = None,
-    ) -> Dict[str, List[UUID]]:
+        location_hints: list[str],
+        link_types: list[str] | None = None,
+    ) -> dict[str, list[UUID]]:
         """Link an entity to location-based entities.
 
         This method attempts to find and link to multiple entity types
@@ -364,7 +362,7 @@ Gemeindename:"""
             Dictionary mapping entity type slugs to lists of linked entity IDs.
         """
         link_types = link_types or ["territorial_entity"]
-        results: Dict[str, List[UUID]] = {}
+        results: dict[str, list[UUID]] = {}
 
         for entity_type_slug in link_types:
             linked_ids = []

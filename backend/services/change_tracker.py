@@ -4,13 +4,11 @@ Uses the existing EntityVersion model for diff-based tracking.
 Provides UNDO capability for entity and facet changes made via Smart Query.
 """
 
-import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select, desc
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Entity, FacetValue
@@ -31,10 +29,10 @@ class ChangeTracker:
     async def record_entity_change(
         self,
         entity: Entity,
-        changes: Dict[str, Any],
-        user_id: Optional[UUID] = None,
-        user_email: Optional[str] = None,
-        reason: Optional[str] = None,
+        changes: dict[str, Any],
+        user_id: UUID | None = None,
+        user_email: str | None = None,
+        reason: str | None = None,
     ) -> EntityVersion:
         """Record a change to an entity.
 
@@ -86,10 +84,10 @@ class ChangeTracker:
         self,
         facet: FacetValue,
         change_type: str,  # "create", "update", "delete"
-        old_values: Optional[Dict[str, Any]] = None,
-        user_id: Optional[UUID] = None,
-        user_email: Optional[str] = None,
-        reason: Optional[str] = None,
+        old_values: dict[str, Any] | None = None,
+        user_id: UUID | None = None,
+        user_email: str | None = None,
+        reason: str | None = None,
     ) -> EntityVersion:
         """Record a change to a facet.
 
@@ -129,7 +127,7 @@ class ChangeTracker:
             diff = {
                 "_operation": "update",
                 **{k: {"old": old_values.get(k), "new": getattr(facet, k, None)}
-                   for k in (old_values or {}).keys()}
+                   for k in (old_values or {})}
             }
 
         # Create version record
@@ -160,7 +158,7 @@ class ChangeTracker:
         self,
         entity_type: str,
         entity_id: UUID,
-    ) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    ) -> tuple[bool, str, dict[str, Any] | None]:
         """Undo the last change to an entity or facet.
 
         Args:
@@ -188,9 +186,9 @@ class ChangeTracker:
     async def _undo_entity_change(
         self,
         entity_id: UUID,
-        diff: Dict[str, Any],
+        diff: dict[str, Any],
         version: EntityVersion,
-    ) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    ) -> tuple[bool, str, dict[str, Any] | None]:
         """Undo an entity change by restoring old values."""
         entity = await self.session.get(Entity, entity_id)
 
@@ -233,9 +231,9 @@ class ChangeTracker:
     async def _undo_facet_change(
         self,
         facet_id: UUID,
-        diff: Dict[str, Any],
+        diff: dict[str, Any],
         version: EntityVersion,
-    ) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    ) -> tuple[bool, str, dict[str, Any] | None]:
         """Undo a facet change."""
         operation = diff.get("_operation", "update")
 
@@ -251,7 +249,6 @@ class ChangeTracker:
 
         elif operation == "delete":
             # Undo delete = recreate the facet
-            from app.models import FacetType
 
             text_repr = diff.get("text_representation", "")
 
@@ -307,7 +304,7 @@ class ChangeTracker:
         entity_type: str,
         entity_id: UUID,
         limit: int = 10,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get the change history for an entity.
 
         Args:
@@ -344,9 +341,9 @@ class ChangeTracker:
 
     async def get_recent_changes(
         self,
-        user_id: Optional[UUID] = None,
+        user_id: UUID | None = None,
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get recent changes across all entities.
 
         Args:
@@ -382,7 +379,7 @@ class ChangeTracker:
         self,
         entity_type: str,
         entity_id: UUID,
-    ) -> Optional[EntityVersion]:
+    ) -> EntityVersion | None:
         """Get the latest version record for an entity."""
         result = await self.session.execute(
             select(EntityVersion)
@@ -395,7 +392,7 @@ class ChangeTracker:
         )
         return result.scalar_one_or_none()
 
-    def _create_entity_snapshot(self, entity: Entity) -> Dict[str, Any]:
+    def _create_entity_snapshot(self, entity: Entity) -> dict[str, Any]:
         """Create a full snapshot of an entity."""
         return {
             "id": str(entity.id),

@@ -15,6 +15,7 @@ import { useLogger } from '@/composables/useLogger'
 import { getErrorMessage } from '@/composables/useApiErrorHandler'
 import { useDateFormatter } from '@/composables/useDateFormatter'
 import { useAuthStore } from '@/stores/auth'
+import { getStatusColor } from '@/composables/useStatusColors'
 
 // ============================================================================
 // Types
@@ -48,6 +49,12 @@ export interface Document {
   raw_text?: string
   extracted_data?: ExtractedDataItem[]
   category_name?: string
+  // Page-based analysis tracking
+  page_analysis_status?: 'pending' | 'partial' | 'complete' | 'needs_review' | 'has_more'
+  relevant_pages?: number[]
+  analyzed_pages?: number[]
+  total_relevant_pages?: number
+  page_analysis_note?: string
 }
 
 export interface TableOptions {
@@ -92,6 +99,8 @@ export function useDocumentsView() {
   const bulkAnalyzing = ref(false)
   const processingIds = ref(new Set<string>())
   const analyzingIds = ref(new Set<string>())
+  const triggeringFullAnalysis = ref(false)
+  const analyzingMorePages = ref(false)
 
   // Data
   const documents = ref<Document[]>([])
@@ -158,19 +167,6 @@ export function useDocumentsView() {
   // ============================================================================
   // Helper Functions
   // ============================================================================
-
-  function getStatusColor(status?: string): string {
-    if (!status) return 'grey'
-    const colors: Record<string, string> = {
-      PENDING: 'warning',
-      PROCESSING: 'info',
-      ANALYZING: 'purple',
-      COMPLETED: 'success',
-      FILTERED: 'grey',
-      FAILED: 'error',
-    }
-    return colors[status] || 'grey'
-  }
 
   function getStatusLabel(status?: string): string {
     if (!status) return '-'
@@ -246,17 +242,15 @@ export function useDocumentsView() {
 
   async function loadStats() {
     try {
-      const statuses = ['PENDING', 'PROCESSING', 'ANALYZING', 'COMPLETED', 'FILTERED', 'FAILED']
-      const results = await Promise.all(
-        statuses.map(status => dataApi.getDocuments({ processing_status: status, per_page: 1 }))
-      )
+      const response = await dataApi.getDocumentStats()
+      const counts = response.data.by_status || {}
       stats.value = {
-        pending: results[0].data.total,
-        processing: results[1].data.total,
-        analyzing: results[2].data.total,
-        completed: results[3].data.total,
-        filtered: results[4].data.total,
-        failed: results[5].data.total,
+        pending: counts.PENDING || 0,
+        processing: counts.PROCESSING || 0,
+        analyzing: counts.ANALYZING || 0,
+        completed: counts.COMPLETED || 0,
+        filtered: counts.FILTERED || 0,
+        failed: counts.FAILED || 0,
       }
     } catch (error) {
       logger.error('Failed to load stats:', error)
@@ -402,9 +396,7 @@ export function useDocumentsView() {
     }
     bulkProcessing.value = true
     try {
-      for (const id of selectedDocuments.value) {
-        await adminApi.processDocument(id)
-      }
+      await adminApi.bulkProcessDocuments({ document_ids: selectedDocuments.value })
       showSuccess(`${selectedDocuments.value.length} Dokumente werden verarbeitet`)
       selectedDocuments.value = []
       loadData()
@@ -422,9 +414,7 @@ export function useDocumentsView() {
     }
     bulkAnalyzing.value = true
     try {
-      for (const id of selectedDocuments.value) {
-        await adminApi.analyzeDocument(id, true)
-      }
+      await adminApi.bulkAnalyzeDocuments({ document_ids: selectedDocuments.value, skip_relevance_check: true })
       showSuccess(`${selectedDocuments.value.length} Dokumente werden analysiert`)
       selectedDocuments.value = []
       loadData()
@@ -488,6 +478,45 @@ export function useDocumentsView() {
   }
 
   // ============================================================================
+  // Page-based Analysis Actions
+  // ============================================================================
+
+  async function triggerFullAnalysis(doc: Document) {
+    if (!canEdit.value) {
+      showError(t('common.forbidden'))
+      return
+    }
+    triggeringFullAnalysis.value = true
+    try {
+      await dataApi.triggerFullAnalysis(doc.id)
+      showSuccess('Vollanalyse gestartet')
+      detailsDialog.value = false
+      loadData()
+    } catch (error) {
+      showError(getErrorMessage(error) || 'Fehler beim Starten der Vollanalyse')
+    } finally {
+      triggeringFullAnalysis.value = false
+    }
+  }
+
+  async function analyzeMorePages(doc: Document) {
+    if (!canEdit.value) {
+      showError(t('common.forbidden'))
+      return
+    }
+    analyzingMorePages.value = true
+    try {
+      await dataApi.analyzeMorePages(doc.id)
+      showSuccess('Analyse weiterer Seiten gestartet')
+      loadData()
+    } catch (error) {
+      showError(getErrorMessage(error) || 'Fehler beim Starten der Seitenanalyse')
+    } finally {
+      analyzingMorePages.value = false
+    }
+  }
+
+  // ============================================================================
   // Auto-Refresh
   // ============================================================================
 
@@ -546,6 +575,8 @@ export function useDocumentsView() {
     bulkAnalyzing,
     processingIds,
     analyzingIds,
+    triggeringFullAnalysis,
+    analyzingMorePages,
 
     // Data
     documents,
@@ -611,6 +642,10 @@ export function useDocumentsView() {
 
     // Export
     exportCsv,
+
+    // Page-based Analysis
+    triggerFullAnalysis,
+    analyzeMorePages,
 
     // Initialization
     initialize,

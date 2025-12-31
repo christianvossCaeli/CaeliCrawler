@@ -1,7 +1,6 @@
 """Cron expression utilities shared across API and worker tasks."""
 
-from datetime import datetime, timezone, tzinfo
-from typing import Optional
+from datetime import UTC, datetime, tzinfo
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from croniter import croniter
@@ -14,7 +13,7 @@ def get_schedule_timezone() -> tzinfo:
     try:
         return ZoneInfo(settings.schedule_timezone)
     except (ZoneInfoNotFoundError, ValueError):
-        return timezone.utc
+        return UTC
 
 
 def _split_cron_expression(expression: str) -> list[str]:
@@ -34,7 +33,7 @@ def _split_cron_expression(expression: str) -> list[str]:
 
 def croniter_for_expression(
     expression: str,
-    base_time: Optional[datetime] = None,
+    base_time: datetime | None = None,
 ) -> croniter:
     """Create a croniter instance for a cron expression."""
     parts = _split_cron_expression(expression)
@@ -57,7 +56,7 @@ def is_valid_cron_expression(expression: str) -> bool:
         return False
 
 
-def normalize_cron_expression(expression: Optional[str]) -> Optional[str]:
+def normalize_cron_expression(expression: str | None) -> str | None:
     """Normalize and validate cron expression input.
 
     Returns the trimmed expression or None for empty input.

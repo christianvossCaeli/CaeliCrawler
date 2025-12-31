@@ -2,64 +2,64 @@
 
 import io
 import math
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, Query, Request, BackgroundTasks
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
 from passlib.hash import bcrypt
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.database import get_session
 from app.core.deps import require_editor
-from app.core.rate_limit import check_rate_limit
 from app.core.exceptions import NotFoundError, ValidationError
+from app.core.rate_limit import check_rate_limit
+from app.database import get_session
 from app.models import (
     CustomSummary,
-    SummaryWidget,
     SummaryExecution,
     SummaryShare,
+    SummaryWidget,
     User,
 )
 from app.models.custom_summary import SummaryStatus, SummaryTriggerType
-from app.models.summary_widget import SummaryWidgetType
 from app.models.summary_execution import ExecutionStatus
+from app.models.summary_widget import SummaryWidgetType
+from app.schemas.common import MessageResponse
 from app.schemas.custom_summary import (
-    SummaryCreateFromPrompt,
-    SummaryCreate,
-    SummaryUpdate,
-    SummaryResponse,
-    SummaryDetailResponse,
-    SummaryListResponse,
-    SummaryFromPromptResponse,
-    SummaryWidgetCreate,
-    SummaryWidgetUpdate,
-    SummaryWidgetResponse,
-    SummaryExecuteRequest,
-    SummaryExecuteResponse,
-    SummaryExecutionResponse,
-    SummaryExecutionDetailResponse,
-    SummaryShareCreate,
-    SummaryShareResponse,
-    SummaryFavoriteToggleResponse,
-    WidgetPosition,
     SCHEDULE_PRESETS,
-    SummaryCheckUpdatesResponse,
     CheckUpdatesProgressResponse,
     CheckUpdatesStatus,
+    SummaryCheckUpdatesResponse,
+    SummaryCreate,
+    SummaryCreateFromPrompt,
+    SummaryDetailResponse,
+    SummaryExecuteRequest,
+    SummaryExecuteResponse,
+    SummaryExecutionDetailResponse,
+    SummaryExecutionResponse,
+    SummaryFavoriteToggleResponse,
+    SummaryFromPromptResponse,
+    SummaryListResponse,
+    SummaryResponse,
+    SummaryShareCreate,
+    SummaryShareResponse,
+    SummaryUpdate,
+    SummaryWidgetCreate,
+    SummaryWidgetResponse,
+    SummaryWidgetUpdate,
+    WidgetPosition,
 )
-from app.schemas.common import MessageResponse
 from app.utils.cron import croniter_for_expression, get_schedule_timezone, is_valid_cron_expression
-from fastapi.responses import StreamingResponse
 from services.summaries import (
     SummaryExecutor,
     SummaryExportService,
-    interpret_summary_prompt,
     get_schedule_suggestion,
+    interpret_summary_prompt,
 )
 from services.summaries.export_service import sanitize_filename
 
@@ -187,7 +187,7 @@ async def create_from_prompt(
             user_name=current_user.email,
         )
     except ValueError as e:
-        raise ValidationError(str(e))
+        raise ValidationError(str(e)) from None
     except RuntimeError as e:
         logger.warning("AI interpretation failed, using fallback", error=str(e))
         # Fallback to basic interpretation
@@ -285,7 +285,7 @@ async def create_from_prompt(
     except Exception as e:
         await session.rollback()
         logger.error("widget_creation_failed", error=str(e), summary_id=str(summary.id))
-        raise ValidationError(f"Fehler beim Erstellen der Widgets: {str(e)}")
+        raise ValidationError(f"Fehler beim Erstellen der Widgets: {str(e)}") from None
     await session.refresh(summary)
 
     logger.info(
@@ -355,9 +355,9 @@ async def list_summaries(
     request: Request,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    status: Optional[str] = None,
+    status: str | None = None,
     favorites_only: bool = False,
-    search: Optional[str] = None,
+    search: str | None = None,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_editor),
 ):
@@ -370,7 +370,7 @@ async def list_summaries(
     if status:
         query = query.where(CustomSummary.status == SummaryStatus(status))
     if favorites_only:
-        query = query.where(CustomSummary.is_favorite == True)
+        query = query.where(CustomSummary.is_favorite)
     if search:
         # Escape LIKE special characters to prevent SQL injection
         safe_search = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -402,7 +402,7 @@ async def list_summaries(
 
 # --- Schedule Presets (must be before /{summary_id} routes) ---
 
-@router.get("/schedule-presets", response_model=List[dict])
+@router.get("/schedule-presets", response_model=list[dict])
 async def get_schedule_presets(
     current_user: User = Depends(require_editor),
 ):
@@ -459,7 +459,7 @@ async def get_summary(
         last_exec = exec_result.scalar_one_or_none()
         if last_exec:
             # Check cache expiration
-            cache_age = datetime.now(timezone.utc) - last_exec.created_at
+            cache_age = datetime.now(UTC) - last_exec.created_at
             cache_ttl = timedelta(hours=DEFAULT_CACHE_TTL_HOURS)
             cache_expired = cache_age > cache_ttl
 
@@ -703,7 +703,7 @@ async def get_check_updates_status(
     )
 
 
-@router.get("/{summary_id}/executions", response_model=List[SummaryExecutionResponse])
+@router.get("/{summary_id}/executions", response_model=list[SummaryExecutionResponse])
 async def list_executions(
     summary_id: UUID,
     request: Request,
@@ -876,7 +876,7 @@ async def create_share_link(
         summary_id=summary_id,
         password_hash=bcrypt.hash(data.password) if data.password else None,
         expires_at=(
-            datetime.now(timezone.utc) + timedelta(days=data.expires_days)
+            datetime.now(UTC) + timedelta(days=data.expires_days)
             if data.expires_days else None
         ),
         allow_export=data.allow_export,
@@ -899,7 +899,7 @@ async def create_share_link(
     )
 
 
-@router.get("/{summary_id}/shares", response_model=List[SummaryShareResponse])
+@router.get("/{summary_id}/shares", response_model=list[SummaryShareResponse])
 async def list_shares(
     summary_id: UUID,
     request: Request,
@@ -995,7 +995,7 @@ async def export_summary(
     summary_id: UUID,
     format: str,
     request: Request,
-    execution_id: Optional[UUID] = None,
+    execution_id: UUID | None = None,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_editor),
 ):
@@ -1030,7 +1030,7 @@ async def export_summary(
                 }
             )
         except ImportError as e:
-            raise ValidationError(str(e))
+            raise ValidationError(str(e)) from None
 
     elif format.lower() == "excel":
         excel_bytes = await export_service.export_to_excel(summary_id, execution_id)
@@ -1051,35 +1051,35 @@ async def export_summary(
 class SmartQueryToSummaryRequest(BaseModel):
     """Request to create summary from smart query result."""
     query_text: str = Field(..., min_length=3, description="Original Smart Query text")
-    query_result: Dict[str, Any] = Field(..., description="Smart Query result with data and visualization")
-    name: Optional[str] = Field(None, max_length=255, description="Custom name (auto-generated if not provided)")
-    description: Optional[str] = Field(None, description="Optional description")
+    query_result: dict[str, Any] = Field(..., description="Smart Query result with data and visualization")
+    name: str | None = Field(None, max_length=255, description="Custom name (auto-generated if not provided)")
+    description: str | None = Field(None, description="Optional description")
 
 
 class AddToSummaryRequest(BaseModel):
     """Request to add smart query result to existing summary."""
     query_text: str = Field(..., min_length=3, description="Smart Query text")
-    query_result: Dict[str, Any] = Field(..., description="Smart Query result")
+    query_result: dict[str, Any] = Field(..., description="Smart Query result")
 
 
 class DuplicateCheckRequest(BaseModel):
     """Request to check for duplicate summaries."""
     prompt: str = Field(..., min_length=3, description="Prompt to check")
-    entity_types: Optional[List[str]] = Field(None, description="Entity types in the query")
+    entity_types: list[str] | None = Field(None, description="Entity types in the query")
 
 
 class DuplicateCandidateResponse(BaseModel):
     """Response for duplicate candidate."""
     summary_id: str
     name: str
-    description: Optional[str]
+    description: str | None
     status: str
     similarity_score: float
-    match_reasons: List[str]
+    match_reasons: list[str]
     original_prompt: str
 
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field  # noqa: E402
 
 
 @router.post("/from-smart-query", response_model=SummaryResponse)
@@ -1142,13 +1142,13 @@ async def add_widget_from_smart_query(
             query_text=data.query_text,
             query_result=data.query_result,
         )
-    except ValueError as e:
-        raise NotFoundError("Zusammenfassung", str(summary_id))
+    except ValueError:
+        raise NotFoundError("Zusammenfassung", str(summary_id)) from None
 
     return _widget_to_response(widget)
 
 
-@router.post("/check-duplicates", response_model=List[DuplicateCandidateResponse])
+@router.post("/check-duplicates", response_model=list[DuplicateCandidateResponse])
 async def check_duplicates(
     data: DuplicateCheckRequest,
     request: Request,
@@ -1184,8 +1184,8 @@ async def check_duplicates(
 class CreateFromCategoryRequest(BaseModel):
     """Request to create summary from a category/analysis theme."""
     category_id: UUID = Field(..., description="Category/Analysis Theme ID")
-    name: Optional[str] = Field(None, max_length=255, description="Custom name")
-    description: Optional[str] = Field(None, description="Optional description")
+    name: str | None = Field(None, max_length=255, description="Custom name")
+    description: str | None = Field(None, description="Optional description")
     auto_trigger: bool = Field(True, description="Automatically trigger on category crawl")
 
 
@@ -1309,7 +1309,7 @@ async def create_from_category(
 class ApplyExpansionRequest(BaseModel):
     """Request to apply auto-expansion suggestions."""
 
-    suggestion_indices: List[int] = Field(
+    suggestion_indices: list[int] = Field(
         ...,
         description="Indices of suggestions to apply from expansion_suggestions array",
     )
@@ -1319,7 +1319,7 @@ class ApplyExpansionResponse(BaseModel):
     """Response after applying expansion suggestions."""
 
     widgets_created: int
-    widgets: List[SummaryWidgetResponse]
+    widgets: list[SummaryWidgetResponse]
     message: str
 
 

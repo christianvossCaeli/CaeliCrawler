@@ -1,28 +1,29 @@
 """Entity, Facet, and Relation operations for Smart Query Service."""
 
+import contextlib
 import uuid as uuid_module
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from sqlalchemy import select, or_
+import structlog
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
+    Category,
+    DataSource,
     Entity,
+    EntityRelation,
     EntityType,
     FacetType,
     FacetValue,
     RelationType,
-    EntityRelation,
-    DataSource,
-    Category,
 )
-from app.models.data_source import SourceType, SourceStatus
+from app.models.data_source import SourceStatus, SourceType
 from app.models.data_source_category import DataSourceCategory
 from app.utils.similarity import DEFAULT_SIMILARITY_THRESHOLD
 from services.entity_matching_service import EntityMatchingService
-from .utils import generate_slug
 
-import structlog
+from .utils import generate_slug
 
 logger = structlog.get_logger()
 
@@ -33,8 +34,8 @@ DEFAULT_ENTITY_TYPE_ORDER = 10  # Default display order for new entity types
 
 async def create_entity_type_from_command(
     session: AsyncSession,
-    entity_type_data: Dict[str, Any],
-) -> Tuple[Optional[EntityType], str]:
+    entity_type_data: dict[str, Any],
+) -> tuple[EntityType | None, str]:
     """Create a new entity type from smart query command.
 
     Uses semantic similarity detection to find existing similar types
@@ -44,7 +45,11 @@ async def create_entity_type_from_command(
     an existing hierarchical EntityType (e.g., "Bundesland" is a hierarchy
     level of "territorial_entity", not a separate type).
     """
-    from app.utils.similarity import find_similar_entity_types, get_hierarchy_mapping
+    from app.utils.similarity import (
+        find_entity_type_by_alias,
+        find_similar_entity_types,
+        get_hierarchy_mapping,
+    )
 
     name = entity_type_data.get("name", "").strip()
     if not name:
@@ -62,6 +67,18 @@ async def create_entity_type_from_command(
     exact_match = existing.scalar()
     if exact_match:
         return exact_match, f"Entity-Typ '{exact_match.name}' existiert bereits (exakt)"
+
+    # Check for alias matches (O(1), no LLM costs)
+    # This catches cases like "Ort" -> "territorial_entity"
+    alias_match = await find_entity_type_by_alias(session, name)
+    if alias_match:
+        logger.info(
+            "Found EntityType via alias match",
+            requested_name=name,
+            matched_name=alias_match.name,
+            matched_slug=alias_match.slug,
+        )
+        return alias_match, f"Entity-Typ '{alias_match.name}' via Alias gefunden"
 
     # Check if this is actually a hierarchy level of an existing type
     hierarchy_mapping = get_hierarchy_mapping(name)
@@ -152,8 +169,8 @@ def _escape_like_pattern(pattern: str) -> str:
 async def find_entity_by_name(
     session: AsyncSession,
     name: str,
-    entity_type_slug: Optional[str] = None,
-) -> Optional[Entity]:
+    entity_type_slug: str | None = None,
+) -> Entity | None:
     """Find an entity by name (case-insensitive).
 
     Note: Uses ILIKE for case-insensitive search.
@@ -181,7 +198,7 @@ async def find_entity_by_name(
 async def lookup_location_coordinates(
     session: AsyncSession,
     location_name: str,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Look up coordinates for a location/territorial entity.
 
@@ -302,8 +319,8 @@ async def lookup_location_coordinates(
 async def create_entity_from_command(
     session: AsyncSession,
     entity_type_slug: str,
-    entity_data: Dict[str, Any],
-) -> Tuple[Optional[Entity], str]:
+    entity_data: dict[str, Any],
+) -> tuple[Entity | None, str]:
     """
     Create or find an entity from smart query command.
 
@@ -380,7 +397,7 @@ async def create_entity_from_command(
     )
 
     if not entity:
-        return None, f"Entity konnte nicht erstellt werden"
+        return None, "Entity konnte nicht erstellt werden"
 
     type_name = entity_type.name
 
@@ -392,8 +409,8 @@ async def create_entity_from_command(
 
 async def create_facet_from_command(
     session: AsyncSession,
-    facet_data: Dict[str, Any],
-) -> Tuple[Optional[FacetValue], str]:
+    facet_data: dict[str, Any],
+) -> tuple[FacetValue | None, str]:
     """Create a new facet value from smart query command."""
     facet_type_slug = facet_data.get("facet_type")
     target_name = facet_data.get("target_entity_name")
@@ -442,8 +459,8 @@ async def create_facet_from_command(
 
 async def create_relation_from_command(
     session: AsyncSession,
-    relation_data: Dict[str, Any],
-) -> Tuple[Optional[EntityRelation], str]:
+    relation_data: dict[str, Any],
+) -> tuple[EntityRelation | None, str]:
     """Create a new entity relation from smart query command."""
     relation_type_slug = relation_data.get("relation_type")
     source_name = relation_data.get("source_entity_name")
@@ -497,23 +514,22 @@ async def create_relation_from_command(
     # For 'located_in' relations: inherit coordinates from target entity if source has none
     # This ensures entities get geographic data when linked to a location
     coords_inherited = False
-    if relation_type_slug == "located_in" and target_entity:
-        if target_entity.latitude and target_entity.longitude:
-            if not source_entity.latitude and not source_entity.longitude:
-                source_entity.latitude = target_entity.latitude
-                source_entity.longitude = target_entity.longitude
-                # Also inherit admin_level_1 if not set
-                if not source_entity.admin_level_1 and target_entity.admin_level_1:
-                    source_entity.admin_level_1 = target_entity.admin_level_1
-                await session.flush()
-                coords_inherited = True
-                logger.info(
-                    "Inherited coordinates from located_in relation",
-                    source_entity=source_entity.name,
-                    target_entity=target_entity.name,
-                    latitude=target_entity.latitude,
-                    longitude=target_entity.longitude,
-                )
+    if relation_type_slug == "located_in" and target_entity and target_entity.latitude and target_entity.longitude:  # noqa: SIM102
+        if not source_entity.latitude and not source_entity.longitude:
+            source_entity.latitude = target_entity.latitude
+            source_entity.longitude = target_entity.longitude
+            # Also inherit admin_level_1 if not set
+            if not source_entity.admin_level_1 and target_entity.admin_level_1:
+                source_entity.admin_level_1 = target_entity.admin_level_1
+            await session.flush()
+            coords_inherited = True
+            logger.info(
+                "Inherited coordinates from located_in relation",
+                source_entity=source_entity.name,
+                target_entity=target_entity.name,
+                latitude=target_entity.latitude,
+                longitude=target_entity.longitude,
+            )
 
     message = f"Relation '{source_entity.name}' → '{target_entity.name}' ({relation_type.name}) erstellt"
     if coords_inherited:
@@ -526,7 +542,7 @@ async def create_located_in_relation(
     session: AsyncSession,
     source_entity: Entity,
     target_entity: Entity,
-) -> Optional[EntityRelation]:
+) -> EntityRelation | None:
     """Create a 'located_in' relation between two entities.
 
     This is used for cross-entity-type relations, e.g., Windpark -> Gemeinde.
@@ -636,11 +652,11 @@ async def match_entity_to_parent_by_name(
     session: AsyncSession,
     name_to_match: str,
     parent_entity_type_slug: str = "territorial_entity",
-    admin_level_1: Optional[str] = None,
-    match_strategies: Optional[List[str]] = None,
-    skip_prefixes: Optional[List[str]] = None,
-    source_entity_type_slug: Optional[str] = None,
-) -> Optional[Entity]:
+    admin_level_1: str | None = None,
+    match_strategies: list[str] | None = None,
+    skip_prefixes: list[str] | None = None,
+    source_entity_type_slug: str | None = None,
+) -> Entity | None:
     """Match an entity to a parent based on name extraction.
 
     Extracts potential parent names from a string like
@@ -702,21 +718,20 @@ async def match_entity_to_parent_by_name(
     words = name_to_match.split()
 
     # 0. Skip prefix strategy - if name starts with known prefix, use next word(s)
-    if "skip_prefix" in match_strategies and len(words) > 1:
-        if words[0] in skip_prefixes:
-            # "Windpark Gummersbach Teil I" -> "Gummersbach"
-            remaining_words = words[1:]
-            # Add first word after prefix
-            if remaining_words:
-                first_after_prefix = remaining_words[0]
-                if len(first_after_prefix) > 2 and first_after_prefix not in skip_prefixes:
-                    potential_names.append(first_after_prefix)
-            # Also try first two words after prefix (for names like "Bad Homburg")
-            if len(remaining_words) > 1:
-                two_words = f"{remaining_words[0]} {remaining_words[1]}"
-                # Exclude if second word is a separator word
-                if remaining_words[1] not in ["Teil", "Am", "Bei", "I", "II", "III", "IV", "V"]:
-                    potential_names.append(two_words)
+    if "skip_prefix" in match_strategies and len(words) > 1 and words[0] in skip_prefixes:
+        # "Windpark Gummersbach Teil I" -> "Gummersbach"
+        remaining_words = words[1:]
+        # Add first word after prefix
+        if remaining_words:
+            first_after_prefix = remaining_words[0]
+            if len(first_after_prefix) > 2 and first_after_prefix not in skip_prefixes:
+                potential_names.append(first_after_prefix)
+        # Also try first two words after prefix (for names like "Bad Homburg")
+        if len(remaining_words) > 1:
+            two_words = f"{remaining_words[0]} {remaining_words[1]}"
+            # Exclude if second word is a separator word
+            if remaining_words[1] not in ["Teil", "Am", "Bei", "I", "II", "III", "IV", "V"]:
+                potential_names.append(two_words)
 
     # 1. First word (often the main name) - skip if it's a known prefix
     if "first_word" in match_strategies:
@@ -739,9 +754,8 @@ async def match_entity_to_parent_by_name(
                     potential_names.append(part)
 
     # 3. Full name (for simple cases like "Beuron")
-    if "full_name" in match_strategies:
-        if name_to_match.strip() not in potential_names:
-            potential_names.append(name_to_match.strip())
+    if "full_name" in match_strategies and name_to_match.strip() not in potential_names:
+        potential_names.append(name_to_match.strip())
 
     logger.debug(
         "Parent matching candidates",
@@ -817,7 +831,7 @@ async def find_or_create_parent_entity(
     parent_name: str,
     parent_type_slug: str,
     country: str = "DE",
-) -> Optional[Entity]:
+) -> Entity | None:
     """Find or create a parent entity for hierarchy building.
 
     Args:
@@ -849,10 +863,10 @@ async def find_or_create_parent_entity(
 async def create_entity_with_hierarchy(
     session: AsyncSession,
     entity_type_slug: str,
-    entity_data: Dict[str, Any],
-    parent_entity: Optional[Entity] = None,
-    explicit_hierarchy_level: Optional[int] = None,
-) -> Tuple[Optional[Entity], str]:
+    entity_data: dict[str, Any],
+    parent_entity: Entity | None = None,
+    explicit_hierarchy_level: int | None = None,
+) -> tuple[Entity | None, str]:
     """Create an entity with hierarchy information.
 
     Args:
@@ -960,15 +974,15 @@ async def create_entity_with_hierarchy(
 async def bulk_create_entities_from_api_data(
     session: AsyncSession,
     entity_type_slug: str,
-    items: List[Dict[str, Any]],
-    field_mapping: Dict[str, str],
-    parent_config: Optional[Dict[str, Any]] = None,
-    parent_match_config: Optional[Dict[str, Any]] = None,
-    api_config: Optional[Dict[str, Any]] = None,
-    progress_callback: Optional[callable] = None,
-    hierarchy_level: Optional[int] = None,
-    parent_field: Optional[str] = None,
-) -> Dict[str, Any]:
+    items: list[dict[str, Any]],
+    field_mapping: dict[str, str],
+    parent_config: dict[str, Any] | None = None,
+    parent_match_config: dict[str, Any] | None = None,
+    api_config: dict[str, Any] | None = None,
+    progress_callback: callable | None = None,
+    hierarchy_level: int | None = None,
+    parent_field: str | None = None,
+) -> dict[str, Any]:
     """Bulk create entities from external API data.
 
     Args:
@@ -1017,13 +1031,13 @@ async def bulk_create_entities_from_api_data(
     }
 
     # Cache for parent entities
-    parent_cache: Dict[str, Optional[Entity]] = {}
+    parent_cache: dict[str, Entity | None] = {}
     if parent_config:
         parent_cache = parent_config.get("cache", {})
 
     # Cache for hierarchical parent lookup within same entity type
     # This is separate from parent_config which looks in DIFFERENT entity types
-    hierarchy_parent_cache: Dict[str, Optional[Entity]] = {}
+    hierarchy_parent_cache: dict[str, Entity | None] = {}
 
     # Pre-load existing entities of this type for faster hierarchical parent lookup
     if parent_field:
@@ -1096,28 +1110,20 @@ async def bulk_create_entities_from_api_data(
 
             # Coordinates
             if "latitude" in field_mapping and item.get(field_mapping["latitude"]):
-                try:
+                with contextlib.suppress(ValueError, TypeError):
                     entity_data["latitude"] = float(item.get(field_mapping["latitude"]))
-                except (ValueError, TypeError):
-                    pass
             if "longitude" in field_mapping and item.get(field_mapping["longitude"]):
-                try:
+                with contextlib.suppress(ValueError, TypeError):
                     entity_data["longitude"] = float(item.get(field_mapping["longitude"]))
-                except (ValueError, TypeError):
-                    pass
 
             # Core attributes - standard fields
             core_attrs = {}
             if "population" in field_mapping and item.get(field_mapping["population"]):
-                try:
+                with contextlib.suppress(ValueError, TypeError):
                     core_attrs["population"] = int(float(item.get(field_mapping["population"])))
-                except (ValueError, TypeError):
-                    pass
             if "area" in field_mapping and item.get(field_mapping["area"]):
-                try:
+                with contextlib.suppress(ValueError, TypeError):
                     core_attrs["area_km2"] = float(item.get(field_mapping["area"]))
-                except (ValueError, TypeError):
-                    pass
 
             # Custom core attributes - any field not in standard mappings
             standard_fields = {"name", "name_template", "external_id", "admin_level_1", "admin_level_2",
@@ -1407,9 +1413,9 @@ async def create_data_source_for_entity(
     entity: Entity,
     website_url: str,
     entity_type_slug: str,
-    admin_level_1: Optional[str] = None,
+    admin_level_1: str | None = None,
     country: str = "DE",
-) -> Optional[DataSource]:
+) -> DataSource | None:
     """Create a DataSource for an entity's official website.
 
     This function creates a DataSource entry for the entity's website,
@@ -1519,11 +1525,11 @@ async def create_data_source_for_entity(
 async def create_api_data_source_for_entity(
     session: AsyncSession,
     entity: Entity,
-    api_config: Dict[str, Any],
+    api_config: dict[str, Any],
     entity_type_slug: str,
-    admin_level_1: Optional[str] = None,
+    admin_level_1: str | None = None,
     country: str = "DE",
-) -> Optional[DataSource]:
+) -> DataSource | None:
     """Create a DataSource for an entity from an API import.
 
     This function creates a DataSource entry that tracks the API origin
@@ -1618,9 +1624,9 @@ async def link_data_source_to_category(
     session: AsyncSession,
     data_source: DataSource,
     entity_type_slug: str,
-    admin_level_1: Optional[str] = None,
+    admin_level_1: str | None = None,
     country: str = "DE",
-) -> Optional[Category]:
+) -> Category | None:
     """Link a DataSource to an appropriate category.
 
     Tries to find a matching category based on:
@@ -1672,7 +1678,7 @@ async def link_data_source_to_category(
         result = await session.execute(
             select(Category).where(
                 Category.slug == slug,
-                Category.is_active == True,
+                Category.is_active,
             )
         )
         category = result.scalar_one_or_none()

@@ -5,15 +5,15 @@ Operations:
 - delete_entity: Soft-delete an entity
 """
 
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .base import WriteOperation, OperationResult, register_operation
 from ..entity_operations import find_entity_by_name
+from .base import OperationResult, WriteOperation, register_operation
 
 logger = structlog.get_logger()
 
@@ -22,7 +22,7 @@ logger = structlog.get_logger()
 class UpdateEntityOperation(WriteOperation):
     """Update an existing entity."""
 
-    def validate(self, command: Dict[str, Any]) -> Optional[str]:
+    def validate(self, command: dict[str, Any]) -> str | None:
         update_data = command.get("update_data", {})
         if not update_data.get("entity_id") and not update_data.get("entity_name"):
             return "Entity-ID oder Entity-Name erforderlich"
@@ -31,8 +31,8 @@ class UpdateEntityOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         from app.models import Entity
 
@@ -59,8 +59,9 @@ class UpdateEntityOperation(WriteOperation):
         if "name" in updates:
             new_name = updates["name"]
             # Check for duplicate name before updating
+            from sqlalchemy import and_, select
+
             from app.utils.text import normalize_name
-            from sqlalchemy import select, and_
             new_normalized = normalize_name(new_name)
 
             existing = await session.execute(
@@ -98,7 +99,7 @@ class UpdateEntityOperation(WriteOperation):
 class DeleteEntityOperation(WriteOperation):
     """Soft-delete an entity (set is_active=False)."""
 
-    def validate(self, command: Dict[str, Any]) -> Optional[str]:
+    def validate(self, command: dict[str, Any]) -> str | None:
         delete_data = command.get("delete_data", {})
         if not delete_data.get("entity_id") and not delete_data.get("entity_name"):
             return "Entity-ID oder Entity-Name erforderlich"
@@ -107,8 +108,8 @@ class DeleteEntityOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         from app.models import Entity
 
@@ -143,7 +144,7 @@ class DeleteEntityOperation(WriteOperation):
         if entity.core_attributes is None:
             entity.core_attributes = {}
         entity.core_attributes["_deletion_reason"] = reason
-        entity.core_attributes["_deleted_at"] = str(datetime.now(timezone.utc).isoformat())
+        entity.core_attributes["_deleted_at"] = str(datetime.now(UTC).isoformat())
 
         await session.flush()
 

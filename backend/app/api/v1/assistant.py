@@ -1,33 +1,32 @@
 """API endpoints for the AI Chat Assistant."""
 
 import json
-import time
-from typing import AsyncGenerator, Dict, List, Optional
+from collections.abc import AsyncGenerator
+from datetime import UTC
 from uuid import uuid4
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request, UploadFile, File, Query
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import assistant_attachment_cache, assistant_batch_cache
+from app.core.deps import get_current_user, get_current_user_optional
+from app.core.rate_limit import check_rate_limit
 from app.database import get_session
 from app.models.user import User, UserRole
-from app.core.rate_limit import check_rate_limit
-from app.core.cache import assistant_attachment_cache, assistant_batch_cache
 from app.schemas.assistant import (
-    AssistantChatRequest,
-    AssistantChatResponse,
+    SLASH_COMMANDS,
     ActionExecuteRequest,
     ActionExecuteResponse,
+    AssistantChatRequest,
+    AssistantChatResponse,
     AttachmentInfo,
     AttachmentUploadResponse,
     BatchActionRequest,
     BatchActionResponse,
     BatchStatusResponse,
-    ConversationMessage,
     SlashCommand,
-    SLASH_COMMANDS,
 )
-from app.core.deps import get_current_user_optional, get_current_user
 from app.utils.validation import AssistantConstants
 from services.assistant_service import AssistantService
 
@@ -57,7 +56,7 @@ async def chat(
     http_request: Request,
     request: AssistantChatRequest,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> AssistantChatResponse:
     """
     Send a message to the AI assistant and get a response.
@@ -134,7 +133,7 @@ async def chat_stream(
     http_request: Request,
     request: AssistantChatRequest,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> StreamingResponse:
     """
     Send a message to the AI assistant and receive a streaming response.
@@ -230,7 +229,7 @@ MAX_ATTACHMENT_SIZE = AssistantConstants.ATTACHMENT_MAX_SIZE_MB * 1024 * 1024
 async def upload_attachment(
     http_request: Request,
     file: UploadFile = File(...),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> AttachmentUploadResponse:
     """
     Upload a file attachment for the assistant chat.
@@ -290,7 +289,7 @@ async def upload_attachment(
 @router.delete("/upload/{attachment_id}")
 async def delete_attachment(
     attachment_id: str,
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> dict:
     """
     Delete an uploaded attachment.
@@ -302,7 +301,7 @@ async def delete_attachment(
     return {"success": False, "message": "Attachment nicht gefunden"}
 
 
-def get_attachment(attachment_id: str) -> Optional[Dict]:
+def get_attachment(attachment_id: str) -> dict | None:
     """Get attachment content by ID (for internal use)."""
     return assistant_attachment_cache.get(attachment_id)
 
@@ -315,7 +314,7 @@ def get_attachment(attachment_id: str) -> Optional[Dict]:
 @router.post("/save-to-entity-attachments")
 async def save_temp_attachments_to_entity(
     entity_id: str = Body(...),
-    attachment_ids: List[str] = Body(...),
+    attachment_ids: list[str] = Body(...),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> dict:
@@ -335,13 +334,14 @@ async def save_temp_attachments_to_entity(
         attachment_ids: List of new permanent attachment IDs
     """
     from uuid import UUID
+
     from services.attachment_service import AttachmentService
 
     # Validate entity_id
     try:
         entity_uuid = UUID(entity_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Ungueltige Entity-ID")
+        raise HTTPException(status_code=400, detail="Ungueltige Entity-ID") from None
 
     attachment_service = AttachmentService(session)
     saved_ids = []
@@ -488,8 +488,8 @@ async def execute_action(
 # ============================================================================
 
 
-@router.get("/commands", response_model=List[SlashCommand])
-async def get_commands() -> List[SlashCommand]:
+@router.get("/commands", response_model=list[SlashCommand])
+async def get_commands() -> list[SlashCommand]:
     """
     Get list of available slash commands.
 
@@ -506,8 +506,8 @@ async def get_commands() -> List[SlashCommand]:
 @router.get("/suggestions")
 async def get_suggestions(
     route: str,
-    entity_type: Optional[str] = None,
-    entity_id: Optional[str] = None,
+    entity_type: str | None = None,
+    entity_id: str | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """
@@ -517,7 +517,9 @@ async def get_suggestions(
     Dynamically includes available facet types in suggestions.
     """
     from sqlalchemy import select
-    from app.models import FacetType, EntityType as EntityTypeModel
+
+    from app.models import EntityType as EntityTypeModel
+    from app.models import FacetType
 
     # Load active facet types for dynamic suggestions
     facet_result = await session.execute(
@@ -592,11 +594,11 @@ async def get_suggestions(
 async def get_insights(
     route: str,
     view_mode: str = "unknown",
-    entity_type: Optional[str] = None,
-    entity_id: Optional[str] = None,
+    entity_type: str | None = None,
+    entity_id: str | None = None,
     language: str = Query("de", description="Language for insights: de or en"),
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> dict:
     """
     Get proactive insights based on current context.
@@ -609,8 +611,8 @@ async def get_insights(
 
     Maximum 3 insights are returned, sorted by priority.
     """
-    from services.insights_service import InsightsService
     from app.schemas.assistant import AssistantContext, ViewMode
+    from services.insights_service import InsightsService
 
     # Build context
     context = AssistantContext(
@@ -775,7 +777,7 @@ async def cancel_batch(
 @router.get("/wizards")
 async def get_available_wizards(
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> dict:
     """
     Get list of available wizard types.
@@ -793,9 +795,9 @@ async def get_available_wizards(
 @router.post("/wizards/start")
 async def start_wizard(
     wizard_type: str = Query(..., description="Type of wizard to start"),
-    context: Optional[dict] = Body(None, description="Optional context to pre-fill wizard values"),
+    context: dict | None = Body(None, description="Optional context to pre-fill wizard values"),
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> dict:
     """
     Start a new wizard session.
@@ -813,14 +815,13 @@ async def start_wizard(
     Returns the first step of the wizard.
     """
     from services.wizard_service import WizardService
-    from app.schemas.assistant import WizardResponse
 
     wizard_service = WizardService(session)
     try:
         response = await wizard_service.start_wizard(wizard_type, context)
         return response.model_dump()
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from None
 
 
 @router.post("/wizards/{wizard_id}/respond")
@@ -828,7 +829,7 @@ async def wizard_respond(
     wizard_id: str,
     response: dict,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> dict:
     """
     Submit a response for the current wizard step.
@@ -850,14 +851,14 @@ async def wizard_respond(
             "result": result,
         }
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from None
 
 
 @router.post("/wizards/{wizard_id}/back")
 async def wizard_back(
     wizard_id: str,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> dict:
     """
     Go back to the previous wizard step.
@@ -871,14 +872,14 @@ async def wizard_back(
         response = await wizard_service.go_back(wizard_id)
         return response.model_dump()
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from None
 
 
 @router.post("/wizards/{wizard_id}/cancel")
 async def wizard_cancel(
     wizard_id: str,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> dict:
     """
     Cancel an active wizard session.
@@ -899,7 +900,7 @@ async def wizard_cancel(
 
 @router.get("/reminders")
 async def list_reminders(
-    status: Optional[str] = Query(None, description="Filter by status: pending, sent, dismissed"),
+    status: str | None = Query(None, description="Filter by status: pending, sent, dismissed"),
     include_past: bool = Query(False, description="Include past reminders"),
     limit: int = Query(50, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
@@ -910,8 +911,10 @@ async def list_reminders(
 
     Returns upcoming and recent reminders.
     """
-    from datetime import datetime, timedelta, timezone
-    from sqlalchemy import select, or_
+    from datetime import datetime, timedelta
+
+    from sqlalchemy import or_, select
+
     from app.models.reminder import Reminder, ReminderStatus
 
     # Build query
@@ -928,7 +931,7 @@ async def list_reminders(
     # Filter out past reminders unless requested
     if not include_past:
         # Show pending reminders or recently sent/dismissed (within 24h)
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        cutoff = datetime.now(UTC) - timedelta(hours=24)
         query = query.where(
             or_(
                 Reminder.status == ReminderStatus.PENDING,
@@ -982,9 +985,11 @@ async def create_reminder(
     Returns the created reminder.
     """
     from datetime import datetime
-    from app.models.reminder import Reminder, ReminderRepeat, ReminderStatus
-    from app.models.entity import Entity
+
     from sqlalchemy import select
+
+    from app.models.entity import Entity
+    from app.models.reminder import Reminder, ReminderRepeat, ReminderStatus
 
     # Parse remind_at
     remind_at_str = data.get("remind_at")
@@ -997,7 +1002,7 @@ async def create_reminder(
         else:
             remind_at = remind_at_str
     except (ValueError, TypeError):
-        raise HTTPException(status_code=400, detail="Ungültiges Datumsformat für remind_at")
+        raise HTTPException(status_code=400, detail="Ungültiges Datumsformat für remind_at") from None
 
     # Parse repeat
     repeat_str = data.get("repeat", "none")
@@ -1070,13 +1075,15 @@ async def delete_reminder(
     Delete/cancel a reminder.
     """
     from uuid import UUID
+
     from sqlalchemy import select
+
     from app.models.reminder import Reminder
 
     try:
         reminder_uuid = UUID(reminder_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Ungültige Reminder-ID")
+        raise HTTPException(status_code=400, detail="Ungültige Reminder-ID") from None
 
     result = await session.execute(
         select(Reminder).where(
@@ -1105,13 +1112,15 @@ async def dismiss_reminder(
     Dismiss a reminder (mark as acknowledged).
     """
     from uuid import UUID
+
     from sqlalchemy import select
+
     from app.models.reminder import Reminder
 
     try:
         reminder_uuid = UUID(reminder_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Ungültige Reminder-ID")
+        raise HTTPException(status_code=400, detail="Ungültige Reminder-ID") from None
 
     result = await session.execute(
         select(Reminder).where(
@@ -1143,15 +1152,17 @@ async def snooze_reminder(
     Request body:
     - `remind_at`: New datetime to remind (ISO format)
     """
-    from uuid import UUID
     from datetime import datetime
+    from uuid import UUID
+
     from sqlalchemy import select
+
     from app.models.reminder import Reminder, ReminderStatus
 
     try:
         reminder_uuid = UUID(reminder_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Ungültige Reminder-ID")
+        raise HTTPException(status_code=400, detail="Ungültige Reminder-ID") from None
 
     if "remind_at" not in data:
         raise HTTPException(status_code=400, detail="remind_at ist erforderlich")
@@ -1159,7 +1170,7 @@ async def snooze_reminder(
     try:
         new_remind_at = datetime.fromisoformat(data["remind_at"].replace("Z", "+00:00"))
     except (ValueError, TypeError):
-        raise HTTPException(status_code=400, detail="Ungültiges Datumsformat")
+        raise HTTPException(status_code=400, detail="Ungültiges Datumsformat") from None
 
     result = await session.execute(
         select(Reminder).where(
@@ -1194,8 +1205,10 @@ async def get_due_reminders(
 
     Used for displaying reminder notifications in the UI.
     """
-    from datetime import datetime, timezone
-    from sqlalchemy import select, and_
+    from datetime import datetime
+
+    from sqlalchemy import and_, select
+
     from app.models.reminder import Reminder, ReminderStatus
 
     result = await session.execute(
@@ -1203,7 +1216,7 @@ async def get_due_reminders(
             and_(
                 Reminder.user_id == current_user.id,
                 Reminder.status == ReminderStatus.PENDING,
-                Reminder.remind_at <= datetime.now(timezone.utc),
+                Reminder.remind_at <= datetime.now(UTC),
             )
         ).order_by(Reminder.remind_at.asc())
     )

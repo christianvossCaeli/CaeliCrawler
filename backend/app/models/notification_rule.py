@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -38,7 +38,7 @@ class NotificationRule(Base):
         String(255),
         nullable=False,
     )
-    description: Mapped[Optional[str]] = mapped_column(
+    description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
@@ -62,7 +62,7 @@ class NotificationRule(Base):
     )
 
     # Filter conditions (JSONB for flexibility)
-    conditions: Mapped[Dict[str, Any]] = mapped_column(
+    conditions: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
@@ -77,7 +77,7 @@ class NotificationRule(Base):
     # }
 
     # Channel-specific configuration
-    channel_config: Mapped[Dict[str, Any]] = mapped_column(
+    channel_config: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
@@ -93,11 +93,11 @@ class NotificationRule(Base):
         default=False,
         nullable=False,
     )
-    digest_frequency: Mapped[Optional[str]] = mapped_column(
+    digest_frequency: Mapped[str | None] = mapped_column(
         String(20),
         nullable=True,
     )  # "hourly", "daily", "weekly"
-    last_digest_sent: Mapped[Optional[datetime]] = mapped_column(
+    last_digest_sent: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -108,7 +108,7 @@ class NotificationRule(Base):
         default=0,
         nullable=False,
     )
-    last_triggered: Mapped[Optional[datetime]] = mapped_column(
+    last_triggered: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -131,7 +131,7 @@ class NotificationRule(Base):
         "User",
         back_populates="notification_rules",
     )
-    notifications: Mapped[List["Notification"]] = relationship(
+    notifications: Mapped[list["Notification"]] = relationship(
         "Notification",
         back_populates="rule",
         cascade="all, delete-orphan",

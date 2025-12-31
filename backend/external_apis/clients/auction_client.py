@@ -1,7 +1,7 @@
 """Caeli Wind Auction Marketplace API Client."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 
@@ -28,9 +28,9 @@ class CaeliAuctionClient(BaseExternalAPIClient):
 
     def __init__(
         self,
-        auth_token: Optional[str] = None,
-        base_url: Optional[str] = None,
-        timeout: Optional[int] = None,
+        auth_token: str | None = None,
+        base_url: str | None = None,
+        timeout: int | None = None,
     ):
         """Initialize the Caeli Auction API client.
 
@@ -56,7 +56,7 @@ class CaeliAuctionClient(BaseExternalAPIClient):
             timeout=timeout,
         )
 
-    def _get_headers(self) -> Dict[str, str]:
+    def _get_headers(self) -> dict[str, str]:
         """Get request headers with authentication."""
         headers = {
             "Accept": "application/json",
@@ -69,7 +69,7 @@ class CaeliAuctionClient(BaseExternalAPIClient):
 
         return headers
 
-    async def fetch_all_records(self) -> List[ExternalAPIRecord]:
+    async def fetch_all_records(self) -> list[ExternalAPIRecord]:
         """Fetch all auction/project listings from the marketplace.
 
         Returns:
@@ -124,7 +124,7 @@ class CaeliAuctionClient(BaseExternalAPIClient):
             )
             raise
 
-    def _extract_items(self, data: Any) -> List[Dict[str, Any]]:
+    def _extract_items(self, data: Any) -> list[dict[str, Any]]:
         """Extract list of items from API response.
 
         The API may return data in different formats:
@@ -159,7 +159,7 @@ class CaeliAuctionClient(BaseExternalAPIClient):
         )
         return []
 
-    def _parse_item(self, item: Dict[str, Any]) -> ExternalAPIRecord:
+    def _parse_item(self, item: dict[str, Any]) -> ExternalAPIRecord:
         """Parse a single item from the API response.
 
         Args:
@@ -206,7 +206,7 @@ class CaeliAuctionClient(BaseExternalAPIClient):
             modified_at=modified_at,
         )
 
-    def _extract_location_hints(self, item: Dict[str, Any]) -> List[str]:
+    def _extract_location_hints(self, item: dict[str, Any]) -> list[str]:
         """Extract location-related fields for entity linking.
 
         Args:
@@ -270,7 +270,7 @@ class CaeliAuctionClient(BaseExternalAPIClient):
 
         return hints
 
-    def _parse_timestamp(self, value: Any) -> Optional[datetime]:
+    def _parse_timestamp(self, value: Any) -> datetime | None:
         """Parse a timestamp value to datetime.
 
         Args:

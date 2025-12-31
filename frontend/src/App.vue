@@ -312,6 +312,7 @@ const secondaryNavItems = computed(() => [
 const adminNavItems = computed(() => [
   { title: t('nav.admin.users'), icon: 'mdi-account-group', to: '/admin/users' },
   { title: t('nav.admin.auditLog'), icon: 'mdi-history', to: '/admin/audit-log' },
+  { title: t('nav.admin.llmUsage'), icon: 'mdi-brain', to: '/admin/llm-usage' },
 ])
 
 // User helpers
@@ -387,10 +388,10 @@ let badgeInterval: ReturnType<typeof setInterval> | null = null
 async function loadBadgeCounts() {
   try {
     const [docsRes, resultsRes] = await Promise.all([
-      dataApi.getDocuments({ processing_status: 'PENDING', per_page: 1 }),
-      dataApi.getExtractionStats({}),
+      dataApi.getDocumentStats(),
+      dataApi.getUnverifiedCount(),
     ])
-    pendingDocsCount.value = docsRes.data.total
+    pendingDocsCount.value = docsRes.data.by_status?.PENDING || 0
     unverifiedResultsCount.value = resultsRes.data.unverified || 0
   } catch (error) {
     logger.error('Failed to load badge counts:', error)

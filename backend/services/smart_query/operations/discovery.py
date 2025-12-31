@@ -13,14 +13,15 @@ Migration Guide:
     5. The operation is automatically available via execute_operation()
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import UUID
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.ai_source_discovery import AISourceDiscoveryService
-from .base import WriteOperation, OperationResult, register_operation
+
+from .base import OperationResult, WriteOperation, register_operation
 
 logger = structlog.get_logger()
 
@@ -47,7 +48,7 @@ class DiscoverSourcesOperation(WriteOperation):
         }
     """
 
-    def validate(self, command: Dict[str, Any]) -> Optional[str]:
+    def validate(self, command: dict[str, Any]) -> str | None:
         """Validate discover_sources command."""
         prompt = command.get("prompt", "")
         if not prompt or not prompt.strip():
@@ -66,8 +67,8 @@ class DiscoverSourcesOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         """
         Execute the AI source discovery.

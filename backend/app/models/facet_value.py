@@ -2,9 +2,10 @@
 
 import enum
 import uuid
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Optional
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     DateTime,
@@ -19,7 +20,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from pgvector.sqlalchemy import Vector
 
 from app.database import Base
 
@@ -80,7 +80,7 @@ class FacetValue(Base):
         nullable=False,
         index=True,
     )
-    category_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("categories.id", ondelete="SET NULL"),
         nullable=True,
@@ -89,7 +89,7 @@ class FacetValue(Base):
     )
 
     # Value
-    value: Mapped[Dict[str, Any]] = mapped_column(
+    value: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
         comment="Structured value according to FacetType.value_schema",
@@ -99,30 +99,30 @@ class FacetValue(Base):
         nullable=False,
         comment="Text representation for search and display",
     )
-    search_vector: Mapped[Optional[str]] = mapped_column(
+    search_vector: Mapped[str | None] = mapped_column(
         TSVECTOR,
         nullable=True,
         comment="Full-text search vector (auto-generated from text_representation)",
     )
-    text_embedding: Mapped[Optional[List[float]]] = mapped_column(
+    text_embedding: Mapped[list[float] | None] = mapped_column(
         Vector(1536),
         nullable=True,
         comment="Embedding vector for semantic similarity search",
     )
 
     # Time-based fields
-    event_date: Mapped[Optional[datetime]] = mapped_column(
+    event_date: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         index=True,
         comment="Date of the event/action (for time-based facets)",
     )
-    valid_from: Mapped[Optional[datetime]] = mapped_column(
+    valid_from: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="When this value becomes valid",
     )
-    valid_until: Mapped[Optional[datetime]] = mapped_column(
+    valid_until: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="When this value expires",
@@ -136,27 +136,27 @@ class FacetValue(Base):
         index=True,
         comment="How this value was created (document, manual, pysis, etc.)",
     )
-    source_document_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    source_document_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("documents.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    source_attachment_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    source_attachment_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("entity_attachments.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
         comment="Source attachment for ATTACHMENT source type",
     )
-    source_url: Mapped[Optional[str]] = mapped_column(
+    source_url: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Original URL where this was found",
     )
 
     # Entity reference (optional link to another entity, e.g., a Person for a contact facet)
-    target_entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    target_entity_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("entities.id", ondelete="SET NULL"),
         nullable=True,
@@ -171,7 +171,7 @@ class FacetValue(Base):
         nullable=False,
         index=True,
     )
-    ai_model_used: Mapped[Optional[str]] = mapped_column(
+    ai_model_used: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
@@ -183,15 +183,15 @@ class FacetValue(Base):
         nullable=False,
         index=True,
     )
-    verified_by: Mapped[Optional[str]] = mapped_column(
+    verified_by: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
-    verified_at: Mapped[Optional[datetime]] = mapped_column(
+    verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    human_corrections: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    human_corrections: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
         comment="Manual corrections to the extracted value",
@@ -256,7 +256,7 @@ class FacetValue(Base):
     )
 
     @property
-    def final_value(self) -> Dict[str, Any]:
+    def final_value(self) -> dict[str, Any]:
         """Get final value (with human corrections if available)."""
         if self.human_corrections:
             merged = self.value.copy()
@@ -274,12 +274,10 @@ class FacetValue(Base):
     @property
     def is_valid(self) -> bool:
         """Check if this value is currently valid (within valid_from/valid_until)."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if self.valid_from and now < self.valid_from:
             return False
-        if self.valid_until and now > self.valid_until:
-            return False
-        return True
+        return not (self.valid_until and now > self.valid_until)
 
     def __repr__(self) -> str:
         return f"<FacetValue(id={self.id}, entity={self.entity_id}, type={self.facet_type_id})>"

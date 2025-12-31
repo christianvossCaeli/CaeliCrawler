@@ -1,12 +1,10 @@
 """HTML Table extractor for structured data in tables."""
 
-from typing import List
-from urllib.parse import urlparse
 
 import structlog
 
-from .base import BaseExtractor
 from ..models import ExtractedSource, SearchStrategy
+from .base import BaseExtractor
 
 logger = structlog.get_logger()
 
@@ -26,7 +24,7 @@ class HTMLTableExtractor(BaseExtractor):
         url: str,
         html_content: str,
         strategy: SearchStrategy,
-    ) -> List[ExtractedSource]:
+    ) -> list[ExtractedSource]:
         """Extract data from HTML tables."""
         try:
             from bs4 import BeautifulSoup
@@ -134,7 +132,7 @@ class HTMLTableExtractor(BaseExtractor):
 
         return sources
 
-    def _find_column_index(self, headers: List[str], candidates: List[str]) -> int | None:
+    def _find_column_index(self, headers: list[str], candidates: list[str]) -> int | None:
         """Find index of column matching any of the candidates."""
         for candidate in candidates:
             for i, header in enumerate(headers):

@@ -17,10 +17,10 @@ Modules:
 
 from fastapi import APIRouter
 
-from .smart_query import router as smart_query_router
-from .templates import router as templates_router
 from .reports import router as reports_router
+from .smart_query import router as smart_query_router
 from .stats import router as stats_router
+from .templates import router as templates_router
 
 # Create main router that combines all sub-routers
 router = APIRouter()
@@ -32,11 +32,11 @@ router.include_router(reports_router, tags=["reports"])
 router.include_router(stats_router, tags=["stats"])
 
 # Re-export helpers for use by other modules
-from .helpers import (
+from .helpers import (  # noqa: E402
     build_preview,
-    operation_to_german,
     entity_type_to_german,
     facet_type_to_german,
+    operation_to_german,
     relation_to_german,
 )
 

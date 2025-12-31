@@ -289,10 +289,7 @@ class TestAIDiscoveryWithCategories:
         categories_data = cat_response.json()
 
         # Handle both list and dict response formats
-        if isinstance(categories_data, dict):
-            categories = categories_data.get("items", [])
-        else:
-            categories = categories_data
+        categories = categories_data.get("items", []) if isinstance(categories_data, dict) else categories_data
 
         if not categories:
             pytest.skip("No categories available")

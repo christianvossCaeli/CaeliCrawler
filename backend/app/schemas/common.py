@@ -1,6 +1,6 @@
 """Common schemas used across the application."""
 
-from typing import Any, Generic, List, Optional, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -18,10 +18,10 @@ class PaginationParams(BaseModel):
         return (self.page - 1) * self.per_page
 
 
-class PaginatedResponse(BaseModel, Generic[T]):
+class PaginatedResponse[T](BaseModel):
     """Generic paginated response."""
 
-    items: List[T]
+    items: list[T]
     total: int
     page: int
     per_page: int
@@ -30,7 +30,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
     @classmethod
     def create(
         cls,
-        items: List[T],
+        items: list[T],
         total: int,
         page: int,
         per_page: int,
@@ -50,7 +50,7 @@ class MessageResponse(BaseModel):
 
     message: str
     success: bool = True
-    data: Optional[Any] = None
+    data: Any | None = None
 
 
 class ErrorResponse(BaseModel):
@@ -65,8 +65,8 @@ class ErrorResponse(BaseModel):
     """
 
     error: str = Field(..., description="Human-readable error message")
-    detail: Optional[str] = Field(None, description="Additional error details")
-    code: Optional[str] = Field(None, description="Machine-readable error code")
+    detail: str | None = Field(None, description="Additional error details")
+    code: str | None = Field(None, description="Machine-readable error code")
 
     model_config = {
         "json_schema_extra": {

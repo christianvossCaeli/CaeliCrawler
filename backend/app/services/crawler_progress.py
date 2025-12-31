@@ -1,8 +1,7 @@
 """Redis-based crawler progress tracking for live updates."""
 
 import json
-from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from datetime import UTC, datetime
 from uuid import UUID
 
 import redis.asyncio as redis
@@ -21,7 +20,7 @@ class CrawlerProgress:
     LOG_TTL = 86400  # 24 hours (increased from 1 hour)
 
     def __init__(self):
-        self._redis: Optional[redis.Redis] = None
+        self._redis: redis.Redis | None = None
 
     async def get_redis(self) -> redis.Redis:
         """Get or create Redis connection."""
@@ -37,7 +36,7 @@ class CrawlerProgress:
             "url": url,
             "status": status,
             "doc_found": doc_found,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         key = self.LOG_KEY.format(job_id=str(job_id))
@@ -55,7 +54,7 @@ class CrawlerProgress:
         current_key = self.CURRENT_URL_KEY.format(job_id=str(job_id))
         await r.set(current_key, url, ex=self.LOG_TTL)
 
-    async def get_log(self, job_id: UUID, limit: int = 20) -> List[Dict]:
+    async def get_log(self, job_id: UUID, limit: int = 20) -> list[dict]:
         """Get recent log entries for a job."""
         r = await self.get_redis()
         key = self.LOG_KEY.format(job_id=str(job_id))
@@ -63,7 +62,7 @@ class CrawlerProgress:
         entries = await r.lrange(key, 0, limit - 1)
         return [json.loads(e) for e in entries]
 
-    async def get_current_url(self, job_id: UUID) -> Optional[str]:
+    async def get_current_url(self, job_id: UUID) -> str | None:
         """Get the current URL being crawled."""
         r = await self.get_redis()
         key = self.CURRENT_URL_KEY.format(job_id=str(job_id))
@@ -83,7 +82,7 @@ class CrawlerProgress:
         await r.hincrby(key, "documents_found", count)
         await r.expire(key, self.LOG_TTL)
 
-    async def get_stats(self, job_id: UUID) -> Dict:
+    async def get_stats(self, job_id: UUID) -> dict:
         """Get current stats for a job."""
         r = await self.get_redis()
         key = self.STATS_KEY.format(job_id=str(job_id))

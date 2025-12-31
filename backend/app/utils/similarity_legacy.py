@@ -1,36 +1,21 @@
 """
-Embedding-based similarity matching for entity and type deduplication.
+Legacy similarity module - functions not yet migrated to new modular structure.
 
-Uses OpenAI text-embedding-3-large vectors with pgvector for efficient
-semantic similarity search. This approach is:
-- Language-agnostic (works for any language)
-- Entity-type-agnostic (works for persons, organizations, places, etc.)
-- Handles synonyms and variations automatically
-
-Examples of variations that would match:
-- "Dr. Hans Müller" vs "Hans Müller" (title variations)
-- "Deutsche Bank AG" vs "Deutsche Bank" (legal suffixes)
-- "Microsoft Corporation" vs "Microsoft Corp." (abbreviations)
-- "Regionalverband Ruhr" vs "Metropole Ruhr" (synonyms)
-
-Performance optimizations:
-- LRU cache for embedding generation (avoids repeated API calls)
-- Stored embeddings in database (avoids per-request generation)
-- pgvector HNSW indexes for efficient similarity search
-- Generic functions reduce code duplication
+This file contains the remaining functions from the original similarity.py
+that have not yet been migrated to focused modules. Functions are gradually
+being moved to:
+- similarity/embedding.py: Core embedding infrastructure
+- similarity/concept_matching.py: Cross-lingual concept normalization
+- (Future) similarity/entity_search.py
+- (Future) similarity/type_search.py
 """
 
-import hashlib
 import json
-import os
 import uuid
-from functools import lru_cache
-from threading import Lock
-from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 import structlog
-from sqlalchemy import literal, select
+from sqlalchemy import func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 if TYPE_CHECKING:
@@ -39,281 +24,45 @@ if TYPE_CHECKING:
     from app.models.facet_type import FacetType
     from app.models.relation_type import RelationType
 
-from app.database import Base
 from app.core.cache import TTLCache
+from app.database import Base
+
+# =============================================================================
+# Import from new modular structure (avoid circular imports by importing
+# directly from the modules, not from the package __init__)
+# =============================================================================
+
+from app.utils.similarity.embedding import (
+    DEFAULT_SIMILARITY_THRESHOLD,
+    EMBEDDING_CACHE_SIZE,
+    EMBEDDING_DIMENSIONS,
+    SIMILARITY_THRESHOLDS,
+    _cosine_similarity,
+    _increment_stat,
+    clear_embedding_cache,
+    cosine_similarity,
+    generate_embedding,
+    generate_embeddings_batch,
+    generate_entity_embedding,
+    get_similarity_stats,
+    reset_similarity_stats,
+)
+
+from app.utils.similarity.concept_matching import (
+    _canonical_concept_cache,
+    _concept_equivalence_cache,
+    are_concepts_equivalent,
+    get_cached_canonical_concept,
+    get_canonical_concept,
+    invalidate_concept_caches,
+)
 
 logger = structlog.get_logger(__name__)
 
-# =============================================================================
-# Configuration - Consolidated Thresholds
-# =============================================================================
-
-# Single source of truth for all similarity thresholds
-SIMILARITY_THRESHOLDS = {
-    # Entity similarity (for deduplication within a type)
-    "entity": float(os.getenv("ENTITY_SIMILARITY_THRESHOLD", "0.85")),
-    # Type similarity (EntityType, FacetType, Category, RelationType)
-    "type": float(os.getenv("TYPE_SIMILARITY_THRESHOLD", "0.80")),
-    # Location similarity (stricter for geographic entities)
-    "location": float(os.getenv("LOCATION_SIMILARITY_THRESHOLD", "0.90")),
-}
-
-# Default threshold for backward compatibility
-DEFAULT_SIMILARITY_THRESHOLD = SIMILARITY_THRESHOLDS["entity"]
-
-# Embedding dimensions (text-embedding-3-large with dimension reduction)
-EMBEDDING_DIMENSIONS = 1536
-
-# Cache configuration
-EMBEDDING_CACHE_SIZE = int(os.getenv("EMBEDDING_CACHE_SIZE", "1000"))
 
 # =============================================================================
-# Cross-Lingual Similarity Check
+# Cache Invalidation (uses imported caches from new modules)
 # =============================================================================
-# Instead of hardcoded synonyms, we use AI to check if terms are semantically
-# equivalent across languages. This is done by generating a "canonical" English
-# translation/concept for comparison.
-
-async def get_canonical_concept(term: str) -> Optional[str]:
-    """
-    Get a canonical English concept/translation for a term using AI.
-
-    This helps match cross-lingual synonyms by normalizing terms
-    in any language to a common English concept.
-
-    Returns: English canonical form or None if generation fails.
-    """
-    from services.ai_client import AzureOpenAIClientFactory
-    from app.config import settings
-
-    try:
-        client = AzureOpenAIClientFactory.create_client()
-
-        response = await client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
-            messages=[
-                {
-                    "role": "system",
-                    "content": """You are a concept normalizer for database schema deduplication.
-
-Your task: Given a term in ANY language, return the single most common English noun that represents this concept.
-
-RULES:
-1. Return ONLY ONE English word (or two-word compound noun if necessary)
-2. Use singular form, lowercase, no articles
-3. Use the most generic/common English term for that concept domain
-4. Translations of the same concept MUST return the same English term
-5. Focus on the core semantic meaning, not literal translation
-6. For business/software terms, prefer standard industry terminology
-
-OUTPUT FORMAT: Just the English term, nothing else."""
-                },
-                {
-                    "role": "user",
-                    "content": term
-                }
-            ],
-            temperature=0,
-            max_tokens=20,
-        )
-
-        canonical = response.choices[0].message.content.strip().lower()
-        logger.debug(
-            "canonical_concept_generated",
-            original_term=term,
-            canonical=canonical,
-        )
-        return canonical
-
-    except Exception as e:
-        logger.warning("canonical_concept_generation_failed", term=term, error=str(e))
-        return None
-
-
-# Cache for canonical concepts to avoid repeated API calls
-# TTL: 1 hour, max 500 entries (concepts are stable)
-_canonical_concept_cache: TTLCache[str] = TTLCache(default_ttl=3600, max_size=500)
-
-async def get_cached_canonical_concept(term: str) -> Optional[str]:
-    """Get canonical concept with caching."""
-    term_lower = term.lower().strip()
-
-    cached = _canonical_concept_cache.get(term_lower)
-    if cached is not None:
-        return cached
-
-    canonical = await get_canonical_concept(term)
-    if canonical:
-        _canonical_concept_cache.set(term_lower, canonical)
-
-    return canonical
-
-
-# Cache for concept equivalence checks
-# TTL: 1 hour, max 1000 entries (equivalence checks are stable)
-_concept_equivalence_cache: TTLCache[bool] = TTLCache(default_ttl=3600, max_size=1000)
-
-
-async def are_concepts_equivalent(term1: str, term2: str) -> bool:
-    """
-    Check if two terms represent the same concept using AI.
-
-    This is more reliable than comparing canonical translations because
-    it directly evaluates semantic equivalence.
-
-    Returns: True if the terms represent the same concept, False otherwise.
-    """
-    from services.ai_client import AzureOpenAIClientFactory
-    from app.config import settings
-
-    # Normalize and create cache key (sorted to make symmetric)
-    t1, t2 = term1.lower().strip(), term2.lower().strip()
-    if t1 == t2:
-        return True
-
-    cache_key = "|".join(sorted([t1, t2]))
-    cached = _concept_equivalence_cache.get(cache_key)
-    if cached is not None:
-        return cached
-
-    try:
-        client = AzureOpenAIClientFactory.create_client()
-
-        response = await client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
-            messages=[
-                {
-                    "role": "system",
-                    "content": """You determine if two terms represent the SAME concept for database deduplication.
-
-Answer ONLY "yes" or "no".
-
-Consider terms equivalent if they:
-- Are translations of each other across languages
-- Are synonyms referring to the same category of data
-- Are spelling or plural variations of the same concept
-
-Consider terms NOT equivalent if they:
-- Refer to different concepts even if related
-- Have distinctly different meanings in context"""
-                },
-                {
-                    "role": "user",
-                    "content": f"Are these the same concept?\nTerm 1: {term1}\nTerm 2: {term2}"
-                }
-            ],
-            temperature=0,
-            max_tokens=5,
-        )
-
-        answer = response.choices[0].message.content.strip().lower()
-        is_equivalent = answer.startswith("yes")
-
-        _concept_equivalence_cache.set(cache_key, is_equivalent)
-
-        logger.debug(
-            "concept_equivalence_check",
-            term1=term1,
-            term2=term2,
-            is_equivalent=is_equivalent,
-        )
-        return is_equivalent
-
-    except Exception as e:
-        logger.warning("concept_equivalence_check_failed", term1=term1, term2=term2, error=str(e))
-        # Don't cache errors - allow retry on next call
-        return False
-
-# =============================================================================
-# Thread-safe Statistics
-# =============================================================================
-
-_stats_lock = Lock()
-_similarity_stats = {
-    "searches": 0,
-    "matches_found": 0,
-    "embeddings_generated": 0,
-    "cache_hits": 0,
-}
-
-
-def get_similarity_stats() -> dict:
-    """Get current similarity matching statistics (thread-safe)."""
-    with _stats_lock:
-        return _similarity_stats.copy()
-
-
-def reset_similarity_stats() -> None:
-    """Reset similarity matching statistics (thread-safe)."""
-    global _similarity_stats
-    with _stats_lock:
-        _similarity_stats = {
-            "searches": 0,
-            "matches_found": 0,
-            "embeddings_generated": 0,
-            "cache_hits": 0,
-        }
-
-
-def _increment_stat(key: str, amount: int = 1) -> None:
-    """Thread-safe stat increment."""
-    with _stats_lock:
-        _similarity_stats[key] += amount
-
-
-# =============================================================================
-# Embedding Cache (True LRU using OrderedDict)
-# =============================================================================
-
-# In-memory LRU cache for embeddings (reduces API calls significantly)
-_embedding_cache: OrderedDict[str, List[float]] = OrderedDict()
-_cache_lock = Lock()
-
-
-def _get_cache_key(text: str) -> str:
-    """Generate a cache key for text."""
-    return hashlib.md5(text.lower().strip().encode()).hexdigest()
-
-
-def _get_cached_embedding(text: str) -> Optional[List[float]]:
-    """Get embedding from cache if available (moves to end for LRU)."""
-    key = _get_cache_key(text)
-    with _cache_lock:
-        if key in _embedding_cache:
-            # Move to end (most recently used)
-            _embedding_cache.move_to_end(key)
-            _increment_stat("cache_hits")
-            return _embedding_cache[key]
-    return None
-
-
-def _set_cached_embedding(text: str, embedding: List[float]) -> None:
-    """Store embedding in cache with LRU eviction."""
-    key = _get_cache_key(text)
-    with _cache_lock:
-        # If key exists, update and move to end
-        if key in _embedding_cache:
-            _embedding_cache.move_to_end(key)
-            _embedding_cache[key] = embedding
-            return
-        # Evict oldest (first) if cache is full
-        while len(_embedding_cache) >= EMBEDDING_CACHE_SIZE:
-            _embedding_cache.popitem(last=False)
-        _embedding_cache[key] = embedding
-
-
-def clear_embedding_cache() -> None:
-    """Clear the embedding cache."""
-    global _embedding_cache
-    with _cache_lock:
-        _embedding_cache = OrderedDict()
-
-
-def invalidate_concept_caches() -> None:
-    """Invalidate all concept-related caches (canonical concepts and equivalence)."""
-    _canonical_concept_cache.clear()
-    _concept_equivalence_cache.clear()
-    logger.info("Concept caches invalidated")
 
 
 def invalidate_hierarchy_cache() -> None:
@@ -332,139 +81,6 @@ def invalidate_all_similarity_caches() -> None:
 
 
 # =============================================================================
-# Core Embedding Functions
-# =============================================================================
-
-async def generate_embedding(text: str, use_cache: bool = True) -> Optional[List[float]]:
-    """
-    Generate embedding for text with caching.
-
-    Args:
-        text: Text to embed
-        use_cache: Whether to use the LRU cache
-
-    Returns:
-        Embedding vector or None if generation failed
-    """
-    if not text or len(text) < 2:
-        return None
-
-    # Check cache first
-    if use_cache:
-        cached = _get_cached_embedding(text)
-        if cached is not None:
-            return cached
-
-    # Generate new embedding
-    from services.ai_service import AIService
-
-    try:
-        ai_service = AIService()
-        embedding = await ai_service.generate_embedding(text)
-
-        if embedding and use_cache:
-            _set_cached_embedding(text, embedding)
-
-        _increment_stat("embeddings_generated")
-        return embedding
-    except Exception as e:
-        logger.error("Failed to generate embedding", text=text[:50], error=str(e))
-        return None
-
-
-# Alias for backwards compatibility
-generate_entity_embedding = generate_embedding
-
-
-async def generate_embeddings_batch(texts: List[str]) -> List[Optional[List[float]]]:
-    """
-    Generate embeddings for multiple texts efficiently.
-
-    Uses batch API call when available, falls back to individual calls.
-
-    Args:
-        texts: List of texts to embed
-
-    Returns:
-        List of embeddings (None for failed generations)
-    """
-    from services.ai_service import AIService
-
-    if not texts:
-        return []
-
-    # Check cache for each text
-    results: List[Optional[List[float]]] = []
-    texts_to_generate: List[Tuple[int, str]] = []
-
-    for i, text in enumerate(texts):
-        cached = _get_cached_embedding(text)
-        if cached is not None:
-            results.append(cached)
-        else:
-            results.append(None)
-            texts_to_generate.append((i, text))
-
-    if not texts_to_generate:
-        return results
-
-    # Generate missing embeddings
-    try:
-        ai_service = AIService()
-        batch_texts = [t[1] for t in texts_to_generate]
-
-        # Try batch generation
-        if hasattr(ai_service, 'generate_embeddings'):
-            embeddings = await ai_service.generate_embeddings(batch_texts)
-            for (idx, text), embedding in zip(texts_to_generate, embeddings):
-                if embedding:
-                    _set_cached_embedding(text, embedding)
-                    results[idx] = embedding
-                _increment_stat("embeddings_generated")
-        else:
-            # Fallback to individual calls
-            for idx, text in texts_to_generate:
-                embedding = await ai_service.generate_embedding(text)
-                if embedding:
-                    _set_cached_embedding(text, embedding)
-                    results[idx] = embedding
-                _increment_stat("embeddings_generated")
-
-    except Exception as e:
-        logger.error("Batch embedding generation failed", error=str(e))
-
-    return results
-
-
-def _cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
-    """Calculate cosine similarity between two vectors."""
-    # Handle numpy arrays and None values
-    if vec1 is None or vec2 is None:
-        return 0.0
-
-    # Convert to list if numpy array
-    try:
-        if hasattr(vec1, 'tolist'):
-            vec1 = vec1.tolist()
-        if hasattr(vec2, 'tolist'):
-            vec2 = vec2.tolist()
-    except Exception:
-        pass
-
-    if not vec1 or not vec2 or len(vec1) != len(vec2):
-        return 0.0
-
-    dot_product = sum(a * b for a, b in zip(vec1, vec2))
-    norm1 = sum(a * a for a in vec1) ** 0.5
-    norm2 = sum(b * b for b in vec2) ** 0.5
-
-    if norm1 == 0 or norm2 == 0:
-        return 0.0
-
-    return dot_product / (norm1 * norm2)
-
-
-# =============================================================================
 # Entity Similarity (uses pgvector for DB-level search)
 # =============================================================================
 
@@ -474,8 +90,8 @@ async def find_similar_entities(
     name: str,
     threshold: float = None,
     limit: int = 5,
-    embedding: Optional[List[float]] = None,
-) -> List[Tuple["Entity", float]]:
+    embedding: list[float] | None = None,
+) -> list[tuple["Entity", float]]:
     """
     Find entities with similar names using embedding-based similarity.
 
@@ -527,7 +143,7 @@ async def find_similar_entities(
         .limit(limit)
     )
 
-    matches: List[Tuple[Entity, float]] = []
+    matches: list[tuple[Entity, float]] = []
     for row in result:
         entity = row[0]
         similarity = float(row[1])
@@ -554,14 +170,14 @@ async def find_similar_entities(
 T = TypeVar("T", bound=Base)
 
 
-async def find_similar_types(
+async def find_similar_types[T: Base](
     session: AsyncSession,
-    model_class: Type[T],
+    model_class: type[T],
     name: str,
     threshold: float = None,
-    exclude_id: Optional[uuid.UUID] = None,
-    name_fields: List[str] = None,
-) -> List[Tuple[T, float, str]]:
+    exclude_id: uuid.UUID | None = None,
+    name_fields: list[str] = None,
+) -> list[tuple[T, float, str]]:
     """
     Generic function to find semantically similar types using stored embeddings.
 
@@ -614,7 +230,7 @@ async def find_similar_types(
     if exclude_id:
         query = query.where(model_class.id != exclude_id)
 
-    matches: List[Tuple[T, float, str]] = []
+    matches: list[tuple[T, float, str]] = []
 
     # ==========================================================================
     # STEP 1: Embedding-based similarity (fast)
@@ -676,7 +292,7 @@ async def find_similar_types(
     # Check concept equivalence with each existing item
     for item in items:
         is_equivalent = await are_concepts_equivalent(name, item.name)
-        
+
         if is_equivalent:
             matches.append((
                 item,
@@ -751,19 +367,62 @@ async def find_similar_entity_types(
     session: AsyncSession,
     name: str,
     threshold: float = None,
-    exclude_id: Optional[uuid.UUID] = None,
-) -> List[Tuple["EntityType", float, str]]:
+    exclude_id: uuid.UUID | None = None,
+) -> list[tuple["EntityType", float, str]]:
     """Find EntityTypes with semantically similar names."""
     from app.models import EntityType
     return await find_similar_types(session, EntityType, name, threshold, exclude_id)
+
+
+async def find_entity_type_by_alias(
+    session: AsyncSession,
+    name: str,
+) -> Optional["EntityType"]:
+    """
+    Find an EntityType by checking if the name matches any of its aliases.
+
+    This is an O(1) lookup using the aliases array column with a GIN index.
+    No LLM costs involved.
+
+    Args:
+        session: Database session
+        name: The name to search for in aliases (case-insensitive)
+
+    Returns:
+        The matching EntityType if found, None otherwise
+    """
+    from app.models import EntityType
+
+    name_lower = name.lower().strip()
+
+    # Use PostgreSQL's array containment operator with lowercase comparison
+    # The @> operator checks if the array contains the element
+    result = await session.execute(
+        select(EntityType).where(
+            EntityType.is_active.is_(True),
+            func.lower(EntityType.name) == name_lower,  # Exact name match
+        )
+    )
+    exact_match = result.scalar_one_or_none()
+    if exact_match:
+        return exact_match
+
+    # Check aliases - PostgreSQL array contains check
+    result = await session.execute(
+        select(EntityType).where(
+            EntityType.is_active.is_(True),
+            EntityType.aliases.any(name_lower),  # Check if any alias matches
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def find_similar_facet_types(
     session: AsyncSession,
     name: str,
     threshold: float = None,
-    exclude_id: Optional[uuid.UUID] = None,
-) -> List[Tuple["FacetType", float, str]]:
+    exclude_id: uuid.UUID | None = None,
+) -> list[tuple["FacetType", float, str]]:
     """Find FacetTypes with semantically similar names."""
     from app.models import FacetType
     return await find_similar_types(session, FacetType, name, threshold, exclude_id)
@@ -773,8 +432,8 @@ async def find_similar_categories(
     session: AsyncSession,
     name: str,
     threshold: float = None,
-    exclude_id: Optional[uuid.UUID] = None,
-) -> List[Tuple["Category", float, str]]:
+    exclude_id: uuid.UUID | None = None,
+) -> list[tuple["Category", float, str]]:
     """Find Categories with semantically similar names."""
     from app.models import Category
     return await find_similar_types(
@@ -786,12 +445,12 @@ async def find_similar_categories(
 async def find_similar_relation_types(
     session: AsyncSession,
     name: str,
-    name_inverse: Optional[str] = None,
-    source_entity_type_id: Optional[uuid.UUID] = None,
-    target_entity_type_id: Optional[uuid.UUID] = None,
+    name_inverse: str | None = None,
+    source_entity_type_id: uuid.UUID | None = None,
+    target_entity_type_id: uuid.UUID | None = None,
     threshold: float = None,
-    exclude_id: Optional[uuid.UUID] = None,
-) -> List[Tuple["RelationType", float, str]]:
+    exclude_id: uuid.UUID | None = None,
+) -> list[tuple["RelationType", float, str]]:
     """
     Find RelationTypes with semantically similar names.
 
@@ -829,8 +488,8 @@ async def find_similar_relation_types(
     if target_entity_type_id:
         base_conditions.append(RelationType.target_entity_type_id == target_entity_type_id)
 
-    matches: List[Tuple[RelationType, float, str]] = []
-    seen_ids: Dict[uuid.UUID, Tuple[float, str]] = {}  # id -> (best_similarity, reason)
+    matches: list[tuple[RelationType, float, str]] = []
+    seen_ids: dict[uuid.UUID, tuple[float, str]] = {}  # id -> (best_similarity, reason)
 
     # Query 1: new_name vs stored name_embedding
     distance_expr_1 = RelationType.name_embedding.cosine_distance(new_name_embedding)
@@ -944,8 +603,8 @@ async def find_similar_relation_types(
 async def update_entity_embedding(
     session: AsyncSession,
     entity_id: uuid.UUID,
-    embedding: Optional[List[float]] = None,
-    name: Optional[str] = None,
+    embedding: list[float] | None = None,
+    name: str | None = None,
 ) -> bool:
     """Update an entity's name embedding."""
     from app.models import Entity
@@ -971,12 +630,12 @@ async def update_entity_embedding(
         return False
 
 
-async def update_type_embedding(
+async def update_type_embedding[T: Base](
     session: AsyncSession,
-    model_class: Type[T],
+    model_class: type[T],
     item_id: uuid.UUID,
-    embedding: Optional[List[float]] = None,
-    name: Optional[str] = None,
+    embedding: list[float] | None = None,
+    name: str | None = None,
 ) -> bool:
     """Update a type's name embedding (generic for any type model)."""
     try:
@@ -1061,7 +720,7 @@ async def update_facet_value_embedding(
 
 async def batch_update_embeddings(
     session: AsyncSession,
-    entity_type_id: Optional[uuid.UUID] = None,
+    entity_type_id: uuid.UUID | None = None,
     batch_size: int = 100,
     only_missing: bool = True,
 ) -> int:
@@ -1094,7 +753,7 @@ async def batch_update_embeddings(
         try:
             embeddings = await generate_embeddings_batch(names)
 
-            for entity, embedding in zip(batch, embeddings):
+            for entity, embedding in zip(batch, embeddings, strict=False):
                 if embedding:
                     entity.name_embedding = embedding
                     updated_count += 1
@@ -1109,9 +768,9 @@ async def batch_update_embeddings(
     return updated_count
 
 
-async def batch_update_type_embeddings(
+async def batch_update_type_embeddings[T: Base](
     session: AsyncSession,
-    model_class: Type[T],
+    model_class: type[T],
     only_missing: bool = True,
 ) -> int:
     """Batch update embeddings for all items of a type model."""
@@ -1132,7 +791,7 @@ async def batch_update_type_embeddings(
     embeddings = await generate_embeddings_batch(names)
 
     updated_count = 0
-    for item, embedding in zip(items, embeddings):
+    for item, embedding in zip(items, embeddings, strict=False):
         if embedding and hasattr(item, "name_embedding"):
             item.name_embedding = embedding
             updated_count += 1
@@ -1145,8 +804,8 @@ async def batch_update_type_embeddings(
 
 async def batch_update_facet_value_embeddings(
     session: AsyncSession,
-    entity_id: Optional[uuid.UUID] = None,
-    facet_type_id: Optional[uuid.UUID] = None,
+    entity_id: uuid.UUID | None = None,
+    facet_type_id: uuid.UUID | None = None,
     batch_size: int = 100,
     only_missing: bool = True,
 ) -> int:
@@ -1188,7 +847,7 @@ async def batch_update_facet_value_embeddings(
         try:
             embeddings = await generate_embeddings_batch(texts)
 
-            for fv, embedding in zip(batch, embeddings):
+            for fv, embedding in zip(batch, embeddings, strict=False):
                 if embedding:
                     fv.text_embedding = embedding
                     updated_count += 1
@@ -1276,7 +935,7 @@ async def batch_update_relation_type_embeddings(
 async def populate_all_embeddings(
     session: AsyncSession,
     only_missing: bool = True,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """
     Populate all embedding columns across the entire system.
 
@@ -1286,7 +945,7 @@ async def populate_all_embeddings(
     Returns:
         Dict with counts for each type updated
     """
-    from app.models import EntityType, FacetType, Category
+    from app.models import Category, EntityType, FacetType
 
     results = {}
 
@@ -1350,18 +1009,18 @@ def _normalize_type_name(name: str) -> str:
 
 # Cache for hierarchy mappings
 # TTL: 30 min, max 200 entries (hierarchy info is relatively stable)
-_hierarchy_mapping_cache: TTLCache[Optional[Dict]] = TTLCache(default_ttl=1800, max_size=200)
+_hierarchy_mapping_cache: TTLCache[dict | None] = TTLCache(default_ttl=1800, max_size=200)
 
 
-async def get_hierarchy_mapping_async(name: str) -> Optional[Dict]:
+async def get_hierarchy_mapping_async(name: str) -> dict | None:
     """
     Check if a name represents a territorial/geographic hierarchy level using AI.
 
     Returns a dict with parent_type_slug, hierarchy_level, and level_name
     if the term represents a territorial concept, otherwise None.
     """
-    from services.ai_client import AzureOpenAIClientFactory
     from app.config import settings
+    from services.ai_client import AzureOpenAIClientFactory
 
     if not name or len(name) < 2:
         return None
@@ -1372,6 +1031,8 @@ async def get_hierarchy_mapping_async(name: str) -> Optional[Dict]:
     cached = _hierarchy_mapping_cache.get(normalized)
     if cached is not None:
         return cached if cached != "__NOT_TERRITORIAL__" else None
+
+    start_time = time.time()
 
     try:
         client = AzureOpenAIClientFactory.create_client()
@@ -1405,6 +1066,20 @@ Respond ONLY with valid JSON, nothing else."""
             max_tokens=100,
         )
 
+        # Track LLM usage
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.CLASSIFY,
+                task_name="get_hierarchy_mapping",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
+
         import json
         result_text = response.choices[0].message.content.strip()
         result = json.loads(result_text)
@@ -1430,10 +1105,23 @@ Respond ONLY with valid JSON, nothing else."""
 
     except Exception as e:
         logger.warning("hierarchy_mapping_detection_failed", term=name, error=str(e))
+        # Track error
+        await record_llm_usage(
+            provider=LLMProvider.AZURE_OPENAI,
+            model=settings.azure_openai_deployment_name,
+            task_type=LLMTaskType.CLASSIFY,
+            task_name="get_hierarchy_mapping",
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+            duration_ms=int((time.time() - start_time) * 1000),
+            is_error=True,
+            error_message=str(e),
+        )
         # Don't cache errors - allow retry on next call
         return None
 
-def get_hierarchy_mapping(name: str) -> Optional[Dict]:
+def get_hierarchy_mapping(name: str) -> dict | None:
     """
     Check if a name maps to a hierarchy level of an existing EntityType.
 
@@ -1463,9 +1151,9 @@ def get_hierarchy_mapping(name: str) -> Optional[Dict]:
 def find_similar_locations_by_name(
     name: str,
     country: str,
-    existing_locations: List["Location"],
+    existing_locations: list["Location"],  # noqa: F821
     threshold: float = None,
-) -> List[Tuple["Location", float, str]]:
+) -> list[tuple["Location", float, str]]:  # noqa: F821
     """Find locations with similar names using normalization and fuzzy matching."""
     from difflib import SequenceMatcher
 
@@ -1478,7 +1166,7 @@ def find_similar_locations_by_name(
     from app.models import Location
     new_normalized = Location.normalize_name(name, country)
 
-    matches: List[Tuple[Location, float, str]] = []
+    matches: list[tuple[Location, float, str]] = []
 
     for loc in existing_locations:
         if loc.name_normalized == new_normalized:
@@ -1499,12 +1187,12 @@ def find_similar_locations_by_name(
 
 
 def check_location_geo_proximity(
-    lat1: Optional[float],
-    lon1: Optional[float],
-    lat2: Optional[float],
-    lon2: Optional[float],
+    lat1: float | None,
+    lon1: float | None,
+    lat2: float | None,
+    lon2: float | None,
     max_distance_km: float = 5.0,
-) -> Tuple[bool, float]:
+) -> tuple[bool, float]:
     """Check if two locations are within a certain distance using Haversine formula."""
     import math
 
@@ -1529,11 +1217,11 @@ async def find_duplicate_location(
     session: AsyncSession,
     name: str,
     country: str,
-    admin_level_1: Optional[str] = None,
-    latitude: Optional[float] = None,
-    longitude: Optional[float] = None,
-    exclude_id: Optional[uuid.UUID] = None,
-) -> Optional[Tuple["Location", str]]:
+    admin_level_1: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    exclude_id: uuid.UUID | None = None,
+) -> tuple["Location", str] | None:  # noqa: F821
     """Find a duplicate location using multiple criteria."""
     from app.models import Location
 
@@ -1585,20 +1273,20 @@ async def find_duplicate_location(
 # Config-Hash based Duplicate Detection
 # =============================================================================
 
-def compute_config_hash(config: Dict) -> str:
+def compute_config_hash(config: dict) -> str:
     """Compute a deterministic hash for a configuration dictionary."""
     config_str = json.dumps(config, sort_keys=True, default=str)
     return hashlib.sha256(config_str.encode()).hexdigest()[:16]
 
 
-async def find_duplicate_by_config(
+async def find_duplicate_by_config[T: Base](
     session: AsyncSession,
-    model_class: Type[T],
+    model_class: type[T],
     config_field: str,
     config_value: Any,
-    additional_filters: Dict[str, Any] = None,
-    exclude_id: Optional[uuid.UUID] = None,
-) -> Optional[Tuple[T, str]]:
+    additional_filters: dict[str, Any] = None,
+    exclude_id: uuid.UUID | None = None,
+) -> tuple[T, str] | None:
     """
     Generic function to find duplicates by configuration hash.
 
@@ -1657,9 +1345,9 @@ async def find_similar_facet_values(
     facet_type_id: uuid.UUID,
     text_representation: str,
     threshold: float = None,
-    exclude_id: Optional[uuid.UUID] = None,
-    embedding: Optional[List[float]] = None,
-) -> List[Tuple["FacetValue", float, str]]:
+    exclude_id: uuid.UUID | None = None,
+    embedding: list[float] | None = None,
+) -> list[tuple["FacetValue", float, str]]:  # noqa: F821
     """
     Find FacetValues with semantically similar text_representation.
 
@@ -1711,7 +1399,7 @@ async def find_similar_facet_values(
         query = query.where(FacetValue.id != exclude_id)
 
     result = await session.execute(query)
-    matches: List[Tuple[FacetValue, float, str]] = []
+    matches: list[tuple[FacetValue, float, str]] = []
     seen_ids = set()
 
     for row in result:
@@ -1770,8 +1458,8 @@ async def find_duplicate_entity_attachment(
     session: AsyncSession,
     entity_id: uuid.UUID,
     file_hash: str,
-    exclude_id: Optional[uuid.UUID] = None,
-) -> Optional[Tuple["EntityAttachment", str]]:
+    exclude_id: uuid.UUID | None = None,
+) -> tuple["EntityAttachment", str] | None:  # noqa: F821
     """Find duplicate EntityAttachment by file_hash."""
     from app.models import EntityAttachment
 

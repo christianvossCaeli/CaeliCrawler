@@ -3,9 +3,9 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func, Index
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -26,13 +26,13 @@ class AuditAction(str, enum.Enum):
     # Authentication
     LOGIN = "LOGIN"
     LOGOUT = "LOGOUT"
-    PASSWORD_CHANGE = "PASSWORD_CHANGE"
-    PASSWORD_RESET = "PASSWORD_RESET"
+    PASSWORD_CHANGE = "PASSWORD_CHANGE"  # noqa: S105
+    PASSWORD_RESET = "PASSWORD_RESET"  # noqa: S105
 
     # Session Management
     SESSION_REVOKE = "SESSION_REVOKE"
     SESSION_REVOKE_ALL = "SESSION_REVOKE_ALL"
-    TOKEN_REFRESH = "TOKEN_REFRESH"
+    TOKEN_REFRESH = "TOKEN_REFRESH"  # noqa: S105
 
     # Data Operations
     EXPORT = "EXPORT"
@@ -72,13 +72,13 @@ class AuditLog(Base):
     )
 
     # Who performed the action
-    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    user_email: Mapped[Optional[str]] = mapped_column(
+    user_email: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="Denormalized email for when user is deleted",
@@ -98,19 +98,19 @@ class AuditLog(Base):
         index=True,
         comment="Model name: Category, DataSource, Entity, etc.",
     )
-    entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         nullable=True,
         index=True,
     )
-    entity_name: Mapped[Optional[str]] = mapped_column(
+    entity_name: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
         comment="Human-readable entity identifier",
     )
 
     # Change details
-    changes: Mapped[Dict[str, Any]] = mapped_column(
+    changes: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
@@ -118,12 +118,12 @@ class AuditLog(Base):
     )
 
     # Request context
-    ip_address: Mapped[Optional[str]] = mapped_column(
+    ip_address: Mapped[str | None] = mapped_column(
         String(45),
         nullable=True,
         comment="Client IP address (supports IPv6)",
     )
-    user_agent: Mapped[Optional[str]] = mapped_column(
+    user_agent: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Client user agent string",

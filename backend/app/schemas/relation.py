@@ -2,7 +2,7 @@
 
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -25,7 +25,7 @@ class RelationTypeBase(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255, description="Display name")
     name_inverse: str = Field(..., min_length=1, max_length=255, description="Inverse display name")
-    description: Optional[str] = Field(None, description="Description")
+    description: str | None = Field(None, description="Description")
 
     # Entity type constraints
     source_entity_type_id: UUID = Field(..., description="Source entity type ID")
@@ -38,7 +38,7 @@ class RelationTypeBase(BaseModel):
     )
 
     # Attribute schema
-    attribute_schema: Optional[Dict[str, Any]] = Field(
+    attribute_schema: dict[str, Any] | None = Field(
         None,
         description='Schema for relation attributes {"role": "string", "since": "date"}',
     )
@@ -54,7 +54,7 @@ class RelationTypeBase(BaseModel):
 class RelationTypeCreate(RelationTypeBase):
     """Schema for creating a new relation type."""
 
-    slug: Optional[str] = Field(
+    slug: str | None = Field(
         None,
         max_length=SLUG_MAX_LENGTH,
         description="URL-friendly slug (auto-generated if not provided)"
@@ -81,15 +81,15 @@ class RelationTypeCreate(RelationTypeBase):
 class RelationTypeUpdate(BaseModel):
     """Schema for updating a relation type."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    name_inverse: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = None
-    cardinality: Optional[str] = None
-    attribute_schema: Optional[Dict[str, Any]] = None
-    icon: Optional[str] = None
-    color: Optional[str] = None
-    display_order: Optional[int] = None
-    is_active: Optional[bool] = None
+    name: str | None = Field(None, min_length=1, max_length=255)
+    name_inverse: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    cardinality: str | None = None
+    attribute_schema: dict[str, Any] | None = None
+    icon: str | None = None
+    color: str | None = None
+    display_order: int | None = None
+    is_active: bool | None = None
 
 
 class RelationTypeResponse(RelationTypeBase):
@@ -102,10 +102,10 @@ class RelationTypeResponse(RelationTypeBase):
     updated_at: datetime
 
     # Nested info
-    source_entity_type_name: Optional[str] = Field(None, description="Source entity type name")
-    source_entity_type_slug: Optional[str] = Field(None, description="Source entity type slug")
-    target_entity_type_name: Optional[str] = Field(None, description="Target entity type name")
-    target_entity_type_slug: Optional[str] = Field(None, description="Target entity type slug")
+    source_entity_type_name: str | None = Field(None, description="Source entity type name")
+    source_entity_type_slug: str | None = Field(None, description="Source entity type slug")
+    target_entity_type_name: str | None = Field(None, description="Target entity type name")
+    target_entity_type_slug: str | None = Field(None, description="Target entity type slug")
 
     # Computed fields
     relation_count: int = Field(default=0, description="Number of relations of this type")
@@ -116,7 +116,7 @@ class RelationTypeResponse(RelationTypeBase):
 class RelationTypeListResponse(BaseModel):
     """Schema for relation type list response."""
 
-    items: List[RelationTypeResponse]
+    items: list[RelationTypeResponse]
     total: int
     page: int = Field(default=1, description="Current page number")
     per_page: int = Field(default=50, description="Items per page")
@@ -132,14 +132,14 @@ class EntityRelationBase(BaseModel):
     """Base entity relation schema with common fields."""
 
     # Relationship attributes
-    attributes: Dict[str, Any] = Field(default_factory=dict, description="Relation-specific attributes")
+    attributes: dict[str, Any] = Field(default_factory=dict, description="Relation-specific attributes")
 
     # Validity period
-    valid_from: Optional[datetime] = Field(None, description="When this relationship starts")
-    valid_until: Optional[datetime] = Field(None, description="When this relationship ends")
+    valid_from: datetime | None = Field(None, description="When this relationship starts")
+    valid_until: datetime | None = Field(None, description="When this relationship ends")
 
     # Source tracking
-    source_url: Optional[str] = Field(None, description="Original URL")
+    source_url: str | None = Field(None, description="Original URL")
 
     # AI metadata
     confidence_score: float = Field(default=0.0, ge=0.0, le=1.0, description="AI confidence")
@@ -153,20 +153,20 @@ class EntityRelationCreate(EntityRelationBase):
     relation_type_id: UUID = Field(..., description="Relation type ID")
     source_entity_id: UUID = Field(..., description="Source entity ID")
     target_entity_id: UUID = Field(..., description="Target entity ID")
-    source_document_id: Optional[UUID] = Field(None, description="Source document ID")
-    ai_model_used: Optional[str] = Field(None, description="AI model used")
+    source_document_id: UUID | None = Field(None, description="Source document ID")
+    ai_model_used: str | None = Field(None, description="AI model used")
 
 
 class EntityRelationUpdate(BaseModel):
     """Schema for updating an entity relation."""
 
-    attributes: Optional[Dict[str, Any]] = None
-    valid_from: Optional[datetime] = None
-    valid_until: Optional[datetime] = None
-    source_url: Optional[str] = None
-    confidence_score: Optional[float] = Field(None, ge=0.0, le=1.0)
-    human_verified: Optional[bool] = None
-    is_active: Optional[bool] = None
+    attributes: dict[str, Any] | None = None
+    valid_from: datetime | None = None
+    valid_until: datetime | None = None
+    source_url: str | None = None
+    confidence_score: float | None = Field(None, ge=0.0, le=1.0)
+    human_verified: bool | None = None
+    is_active: bool | None = None
 
 
 class EntityRelationResponse(EntityRelationBase):
@@ -176,26 +176,26 @@ class EntityRelationResponse(EntityRelationBase):
     relation_type_id: UUID
     source_entity_id: UUID
     target_entity_id: UUID
-    source_document_id: Optional[UUID]
-    ai_model_used: Optional[str]
+    source_document_id: UUID | None
+    ai_model_used: str | None
 
     # Verification
     human_verified: bool
-    verified_by: Optional[str]
-    verified_at: Optional[datetime]
+    verified_by: str | None
+    verified_at: datetime | None
 
     created_at: datetime
     updated_at: datetime
 
     # Nested info
-    relation_type_slug: Optional[str] = Field(None, description="Relation type slug")
-    relation_type_name: Optional[str] = Field(None, description="Relation type name")
-    source_entity_name: Optional[str] = Field(None, description="Source entity name")
-    source_entity_slug: Optional[str] = Field(None, description="Source entity slug")
-    source_entity_type_slug: Optional[str] = Field(None, description="Source entity type slug")
-    target_entity_name: Optional[str] = Field(None, description="Target entity name")
-    target_entity_slug: Optional[str] = Field(None, description="Target entity slug")
-    target_entity_type_slug: Optional[str] = Field(None, description="Target entity type slug")
+    relation_type_slug: str | None = Field(None, description="Relation type slug")
+    relation_type_name: str | None = Field(None, description="Relation type name")
+    source_entity_name: str | None = Field(None, description="Source entity name")
+    source_entity_slug: str | None = Field(None, description="Source entity slug")
+    source_entity_type_slug: str | None = Field(None, description="Source entity type slug")
+    target_entity_name: str | None = Field(None, description="Target entity name")
+    target_entity_slug: str | None = Field(None, description="Target entity slug")
+    target_entity_type_slug: str | None = Field(None, description="Target entity type slug")
 
     model_config = {"from_attributes": True}
 
@@ -203,7 +203,7 @@ class EntityRelationResponse(EntityRelationBase):
 class EntityRelationListResponse(BaseModel):
     """Schema for entity relation list response."""
 
-    items: List[EntityRelationResponse]
+    items: list[EntityRelationResponse]
     total: int
     page: int
     per_page: int
@@ -213,5 +213,5 @@ class EntityRelationListResponse(BaseModel):
 class EntityRelationsGraph(BaseModel):
     """Graph representation of entity relations."""
 
-    nodes: List[Dict[str, Any]] = Field(default_factory=list, description="Entity nodes")
-    edges: List[Dict[str, Any]] = Field(default_factory=list, description="Relation edges")
+    nodes: list[dict[str, Any]] = Field(default_factory=list, description="Entity nodes")
+    edges: list[dict[str, Any]] = Field(default_factory=list, description="Relation edges")

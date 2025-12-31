@@ -137,7 +137,6 @@
 
     <!-- All Dialogs -->
     <EntityDialogsManager
-      :can-edit="canEdit"
       v-model:add-facet-dialog="addFacetDialog"
       v-model:facet-details-dialog="facetDetailsDialog"
       v-model:edit-dialog="editDialog"
@@ -149,6 +148,7 @@
       v-model:notes-dialog="notesDialog"
       v-model:single-delete-confirm="singleDeleteConfirm"
       v-model:edit-facet-dialog="editFacetDialog"
+      :can-edit="canEdit"
       :facet-type-id="newFacet.facet_type_id"
       :facet-types="applicableFacetTypes"
       :selected-facet-type="selectedFacetTypeForForm ?? null"
@@ -199,6 +199,7 @@
       @update:text-representation="newFacet.text_representation = $event"
       @update:source-url="newFacet.value.source_url = $event"
       @update:confidence-score="newFacet.value.confidence_score = $event"
+      @update:facet-target-entity-id="newFacet.target_entity_id = $event"
       @save-facet="handleSaveFacetValue"
       @close-facet-dialog="closeAddFacetDialog"
       @verify-facet="verifyFacet"
@@ -824,6 +825,8 @@ watch(activeTab, (tab) => {
 })
 
 watch([typeSlug, entitySlug, entityId], () => {
+  // Reset tab to default when navigating to a new entity
+  activeTab.value = 'facets'
   childrenLoaded.value = false
   children.value = []
   childrenCount.value = 0

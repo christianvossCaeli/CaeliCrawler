@@ -22,10 +22,11 @@ Or manually:
 
 import asyncio
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, Type, TypeVar, Union
+from typing import Any, Optional, TypeVar
 
 import structlog
 
@@ -100,12 +101,12 @@ class CircuitBreaker:
     """
 
     # Global registry of circuit breakers
-    _registry: Dict[str, "CircuitBreaker"] = {}
+    _registry: dict[str, "CircuitBreaker"] = {}
 
     def __init__(
         self,
         name: str,
-        config: Optional[CircuitBreakerConfig] = None,
+        config: CircuitBreakerConfig | None = None,
         **config_kwargs: Any,
     ):
         """
@@ -137,7 +138,7 @@ class CircuitBreaker:
         return cls._registry.get(name)
 
     @classmethod
-    def get_all_stats(cls) -> Dict[str, Dict[str, Any]]:
+    def get_all_stats(cls) -> dict[str, dict[str, Any]]:
         """Get stats for all circuit breakers."""
         return {name: breaker.stats for name, breaker in cls._registry.items()}
 
@@ -157,7 +158,7 @@ class CircuitBreaker:
         return self._state.state == CircuitState.OPEN
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Get circuit breaker statistics."""
         return {
             "name": self.name,
@@ -183,8 +184,8 @@ class CircuitBreaker:
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
         exc_tb: Any,
     ) -> bool:
         """Context manager exit - records success or failure."""
@@ -284,7 +285,7 @@ class CircuitBreaker:
                 # Failed during recovery test, reopen
                 self._transition_to(CircuitState.OPEN)
 
-            elif self._state.state == CircuitState.CLOSED:
+            elif self._state.state == CircuitState.CLOSED:  # noqa: SIM102
                 if self._state.failure_count >= self.config.failure_threshold:
                     # Too many failures, open the circuit
                     self._transition_to(CircuitState.OPEN)
@@ -299,9 +300,7 @@ class CircuitBreaker:
         if new_state == CircuitState.CLOSED:
             self._state.failure_count = 0
             self._state.success_count = 0
-        elif new_state == CircuitState.HALF_OPEN:
-            self._state.success_count = 0
-        elif new_state == CircuitState.OPEN:
+        elif new_state == CircuitState.HALF_OPEN or new_state == CircuitState.OPEN:
             self._state.success_count = 0
 
         logger.info(

@@ -2,9 +2,10 @@
 
 import asyncio
 from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional, TypeVar, Generic
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, TypeVar
 
 import httpx
 import structlog
@@ -17,16 +18,16 @@ T = TypeVar("T")
 
 
 @dataclass
-class APIResponse(Generic[T]):
+class APIResponse[T]:
     """Standardized API response wrapper."""
 
-    data: List[T]
-    total_count: Optional[int] = None
+    data: list[T]
+    total_count: int | None = None
     page: int = 1
     per_page: int = 100
     has_more: bool = False
-    next_url: Optional[str] = None
-    raw_response: Optional[Dict[str, Any]] = None
+    next_url: str | None = None
+    raw_response: dict[str, Any] | None = None
 
 
 @dataclass
@@ -37,24 +38,24 @@ class APIDocument:
     title: str
     url: str
     document_type: str = "UNKNOWN"
-    content: Optional[str] = None
-    file_url: Optional[str] = None
-    mime_type: Optional[str] = None
-    published_date: Optional[datetime] = None
-    modified_date: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    content: str | None = None
+    file_url: str | None = None
+    mime_type: str | None = None
+    published_date: datetime | None = None
+    modified_date: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Source-specific identifiers
-    external_id: Optional[str] = None
-    parent_id: Optional[str] = None
+    external_id: str | None = None
+    parent_id: str | None = None
 
     # Classification
-    categories: List[str] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
+    categories: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
     # Geographic info
-    location: Optional[str] = None
-    geo_coordinates: Optional[tuple] = None
+    location: str | None = None
+    geo_coordinates: tuple | None = None
 
 
 class BaseAPIClient(ABC):
@@ -78,14 +79,14 @@ class BaseAPIClient(ABC):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        timeout: Optional[int] = None,
-        delay: Optional[float] = None,
+        api_key: str | None = None,
+        timeout: int | None = None,
+        delay: float | None = None,
     ):
         self.api_key = api_key
         self.timeout = timeout or self.DEFAULT_TIMEOUT
         self.delay = delay or self.DEFAULT_DELAY
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
         self.logger = logger.bind(api=self.API_NAME)
 
     async def __aenter__(self):
@@ -105,7 +106,7 @@ class BaseAPIClient(ABC):
             )
         return self._client
 
-    def _get_default_headers(self) -> Dict[str, str]:
+    def _get_default_headers(self) -> dict[str, str]:
         """Get default headers for requests."""
         headers = {
             "User-Agent": settings.crawler_user_agent,
@@ -115,7 +116,7 @@ class BaseAPIClient(ABC):
             headers.update(self._get_auth_headers())
         return headers
 
-    def _get_auth_headers(self) -> Dict[str, str]:
+    def _get_auth_headers(self) -> dict[str, str]:
         """Override in subclasses for API-specific auth."""
         return {}
 
@@ -129,10 +130,10 @@ class BaseAPIClient(ABC):
         self,
         method: str,
         url: str,
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
         retry_count: int = 0,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Make HTTP request with retry logic."""
         client = await self._ensure_client()
 
@@ -189,8 +190,8 @@ class BaseAPIClient(ABC):
     async def get(
         self,
         url: str,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Dict[str, Any]]:
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
         """Make GET request."""
         result = await self._request("GET", url, params=params)
         await asyncio.sleep(self.delay)  # Rate limiting
@@ -199,9 +200,9 @@ class BaseAPIClient(ABC):
     async def post(
         self,
         url: str,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Dict[str, Any]]:
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
         """Make POST request."""
         result = await self._request("POST", url, params=params, json_data=data)
         await asyncio.sleep(self.delay)
@@ -217,16 +218,16 @@ class BaseAPIClient(ABC):
         pass
 
     @abstractmethod
-    async def get_document(self, document_id: str) -> Optional[APIDocument]:
+    async def get_document(self, document_id: str) -> APIDocument | None:
         """Get single document by ID. Must be implemented by subclasses."""
         pass
 
     async def paginate(
         self,
         initial_url: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         max_pages: int = 100,
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:
         """
         Generic pagination handler.
 
@@ -251,9 +252,9 @@ class BaseAPIClient(ABC):
 
     def _extract_pagination_info(
         self,
-        response: Dict[str, Any],
-        current_params: Dict[str, Any],
-    ) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
+        response: dict[str, Any],
+        current_params: dict[str, Any],
+    ) -> tuple[str | None, dict[str, Any] | None]:
         """
         Extract pagination info from response.
 
@@ -285,7 +286,7 @@ class BaseAPIClient(ABC):
         return None, None
 
     @staticmethod
-    def parse_datetime(date_str: Optional[str]) -> Optional[datetime]:
+    def parse_datetime(date_str: str | None) -> datetime | None:
         """Parse datetime from various formats."""
         if not date_str:
             return None

@@ -8,37 +8,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { facetApi } from '@/services/api'
-import type { FacetTypeCreate, FacetTypeUpdate } from '@/types/entity'
+import type { FacetType, FacetTypeCreate, FacetTypeUpdate } from '@/types/entity'
+import { extractErrorMessage as getErrorMessage } from '@/utils/errorMessage'
 
-// ============================================================================
-// Types
-// ============================================================================
-
-export interface FacetType {
-  id: string
-  slug: string
-  name: string
-  name_plural?: string
-  description: string | null
-  value_type: string
-  value_schema: Record<string, unknown> | null
-  applicable_entity_type_slugs: string[]
-  icon: string
-  color: string
-  display_order: number
-  aggregation_method: string
-  deduplication_fields: string[]
-  is_time_based: boolean
-  time_field_path: string | null
-  default_time_filter: string | null
-  ai_extraction_enabled: boolean
-  ai_extraction_prompt: string | null
-  is_active: boolean
-  is_system: boolean
-  value_count: number
-  created_at: string
-  updated_at: string
-}
+// Re-export FacetType for backwards compatibility
+export type { FacetType }
 
 export interface FacetSchemaGenerationRequest {
   name: string
@@ -57,20 +31,6 @@ export interface FacetSchemaGenerationResponse {
   icon: string
   color: string
   suggestions: string[]
-}
-
-// Helper for extracting error messages
-function getErrorMessage(err: unknown): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const response = (err as { response?: { data?: { error?: string } } }).response
-    if (response?.data?.error) {
-      return response.data.error
-    }
-  }
-  if (err instanceof Error) {
-    return err.message
-  }
-  return 'Unknown error'
 }
 
 // ============================================================================
@@ -112,7 +72,7 @@ export const useFacetTypesStore = defineStore('facetTypes', () => {
   const facetTypesForEntityType = computed(() => {
     return (entityTypeSlug: string) =>
       facetTypes.value.filter(
-        ft => ft.is_active && ft.applicable_entity_type_slugs.includes(entityTypeSlug)
+        ft => ft.is_active && ft.applicable_entity_type_slugs?.includes(entityTypeSlug)
       )
   })
 

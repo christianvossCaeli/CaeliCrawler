@@ -5,10 +5,9 @@ Creates demo data for testing the location system.
 """
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import asyncpg
-
 
 # Demo data for Germany
 DE_LOCATIONS = [
@@ -85,7 +84,6 @@ async def seed_locations():
     try:
         # Clear existing locations
         await conn.execute("DELETE FROM locations")
-        print("Cleared existing locations")
 
         # Insert German locations
         for loc in DE_LOCATIONS:
@@ -108,10 +106,9 @@ async def seed_locations():
                 "{}",
                 loc["population"],
                 True,
-                datetime.now(timezone.utc),
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
+                datetime.now(UTC),
             )
-        print(f"Inserted {len(DE_LOCATIONS)} German locations")
 
         # Insert UK locations
         for loc in UK_LOCATIONS:
@@ -134,10 +131,9 @@ async def seed_locations():
                 "{}",
                 loc["population"],
                 True,
-                datetime.now(timezone.utc),
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
+                datetime.now(UTC),
             )
-        print(f"Inserted {len(UK_LOCATIONS)} UK locations")
 
         # Create a demo category
         category_id = uuid.uuid4()
@@ -162,10 +158,9 @@ async def seed_locations():
             '[]',
             "0 6 * * *",
             True,
-            datetime.now(timezone.utc),
-            datetime.now(timezone.utc),
+            datetime.now(UTC),
+            datetime.now(UTC),
         )
-        print("Created demo category")
 
         # Get the category id (in case it already existed)
         row = await conn.fetchrow("SELECT id FROM categories WHERE slug = 'windenergie'")
@@ -204,12 +199,10 @@ async def seed_locations():
                 "{}",
                 "ACTIVE",
                 1,
-                datetime.now(timezone.utc),
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
+                datetime.now(UTC),
             )
-        print(f"Created {len(sources)} demo data sources")
 
-        print("\nSeed completed successfully!")
 
     finally:
         await conn.close()

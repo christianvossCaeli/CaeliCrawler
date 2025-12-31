@@ -21,7 +21,7 @@ def clean_json_response(content: str) -> str:
     if "```" in content:
         # Extract content between ``` markers
         match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content)
-        if match:
+        if match:  # noqa: SIM108
             content = match.group(1)
         else:
             # Fallback: remove leading ```json and trailing ```

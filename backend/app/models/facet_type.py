@@ -3,12 +3,12 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from pgvector.sqlalchemy import Vector
 
 from app.database import Base
 
@@ -84,12 +84,12 @@ class FacetType(Base):
         nullable=False,
         comment="Plural form",
     )
-    name_embedding: Mapped[Optional[List[float]]] = mapped_column(
+    name_embedding: Mapped[list[float] | None] = mapped_column(
         Vector(1536),
         nullable=True,
         comment="Embedding vector for semantic similarity search",
     )
-    description: Mapped[Optional[str]] = mapped_column(
+    description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
@@ -101,14 +101,14 @@ class FacetType(Base):
         nullable=False,
         comment="Type of value: text, structured, list, reference",
     )
-    value_schema: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    value_schema: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
         comment="JSON Schema defining the value structure",
     )
 
     # Applicable entity types (if empty, applies to all)
-    applicable_entity_type_slugs: Mapped[List[str]] = mapped_column(
+    applicable_entity_type_slugs: Mapped[list[str]] = mapped_column(
         ARRAY(String(100)),
         default=list,
         nullable=False,
@@ -138,7 +138,7 @@ class FacetType(Base):
         default=AggregationMethod.DEDUPE.value,
         nullable=False,
     )
-    deduplication_fields: Mapped[List[str]] = mapped_column(
+    deduplication_fields: Mapped[list[str]] = mapped_column(
         ARRAY(String(100)),
         default=list,
         nullable=False,
@@ -152,7 +152,7 @@ class FacetType(Base):
         nullable=False,
         comment="Does this facet have a date/time component?",
     )
-    time_field_path: Mapped[Optional[str]] = mapped_column(
+    time_field_path: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="JSON path to date field in value (e.g., 'event_date')",
@@ -170,7 +170,7 @@ class FacetType(Base):
         default=True,
         nullable=False,
     )
-    ai_extraction_prompt: Mapped[Optional[str]] = mapped_column(
+    ai_extraction_prompt: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="AI prompt template for extracting this facet",
@@ -183,7 +183,7 @@ class FacetType(Base):
         nullable=False,
         comment="Can this FacetType reference another Entity?",
     )
-    target_entity_type_slugs: Mapped[List[str]] = mapped_column(
+    target_entity_type_slugs: Mapped[list[str]] = mapped_column(
         ARRAY(String(100)),
         default=list,
         nullable=False,
@@ -209,6 +209,12 @@ class FacetType(Base):
         nullable=False,
         comment="System-defined type (cannot be deleted)",
     )
+    needs_review: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="Auto-created FacetType that needs admin review",
+    )
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
@@ -224,7 +230,7 @@ class FacetType(Base):
     )
 
     # Relationships
-    facet_values: Mapped[List["FacetValue"]] = relationship(
+    facet_values: Mapped[list["FacetValue"]] = relationship(
         "FacetValue",
         back_populates="facet_type",
         cascade="all, delete-orphan",

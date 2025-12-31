@@ -1,8 +1,8 @@
 """Event dispatcher for matching events to notification rules."""
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -33,8 +33,8 @@ class NotificationEventDispatcher:
         self,
         session: AsyncSession,
         event_type: NotificationEventType,
-        payload: Dict[str, Any],
-    ) -> List[str]:
+        payload: dict[str, Any],
+    ) -> list[str]:
         """Dispatch an event and create notifications for matching rules.
 
         Args:
@@ -52,7 +52,7 @@ class NotificationEventDispatcher:
             logger.debug(f"No matching rules for event {event_type.value}")
             return []
 
-        notification_ids: List[str] = []
+        notification_ids: list[str] = []
 
         for rule in rules:
             # Check if payload matches rule conditions
@@ -67,7 +67,7 @@ class NotificationEventDispatcher:
 
             # Update rule statistics
             rule.trigger_count += 1
-            rule.last_triggered = datetime.now(timezone.utc)
+            rule.last_triggered = datetime.now(UTC)
 
         await session.commit()
 
@@ -82,7 +82,7 @@ class NotificationEventDispatcher:
         self,
         session: AsyncSession,
         event_type: NotificationEventType,
-    ) -> List[NotificationRule]:
+    ) -> list[NotificationRule]:
         """Find all active rules matching the event type.
 
         Args:
@@ -107,7 +107,7 @@ class NotificationEventDispatcher:
         return list(result.scalars().all())
 
     def _matches_conditions(
-        self, rule: NotificationRule, payload: Dict[str, Any]
+        self, rule: NotificationRule, payload: dict[str, Any]
     ) -> bool:
         """Check if payload matches rule conditions.
 
@@ -178,17 +178,15 @@ class NotificationEventDispatcher:
         if "location_filter" in conditions:
             loc_filter = conditions["location_filter"]
 
-            if loc_filter.get("country"):
-                if payload.get("country") != loc_filter["country"]:
-                    return False
+            if loc_filter.get("country") and payload.get("country") != loc_filter["country"]:
+                return False
 
-            if loc_filter.get("admin_level_1"):
+            if loc_filter.get("admin_level_1"):  # noqa: SIM102
                 if payload.get("admin_level_1") != loc_filter["admin_level_1"]:
                     return False
 
-            if loc_filter.get("region"):
-                if payload.get("region") != loc_filter["region"]:
-                    return False
+            if loc_filter.get("region") and payload.get("region") != loc_filter["region"]:
+                return False
 
         # Event status filter (for crawl events)
         if "status_filter" in conditions:
@@ -203,7 +201,7 @@ class NotificationEventDispatcher:
         session: AsyncSession,
         rule: NotificationRule,
         event_type: NotificationEventType,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
     ) -> Notification:
         """Create a notification record.
 
@@ -247,7 +245,7 @@ class NotificationEventDispatcher:
         return notification
 
     def _generate_content(
-        self, event_type: NotificationEventType, payload: Dict[str, Any]
+        self, event_type: NotificationEventType, payload: dict[str, Any]
     ) -> tuple[str, str]:
         """Generate notification title and body from event.
 

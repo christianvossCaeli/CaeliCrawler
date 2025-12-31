@@ -1,8 +1,9 @@
 """Tests for Multi-Entity Extraction Service."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
+
+import pytest
 
 from services.multi_entity_extraction_service import MultiEntityExtractionService
 
@@ -97,30 +98,11 @@ class TestMultiEntityExtractionService:
     @pytest.mark.asyncio
     async def test_process_extraction_result_creates_entities(self, session):
         """Test processing extraction results creates entities."""
-        service = MultiEntityExtractionService(session)
+        MultiEntityExtractionService(session)
 
         mock_category = MagicMock()
         mock_category.id = uuid4()
 
-        extracted_data = {
-            "entities": {
-                "person": [
-                    {"name": "Max Mustermann", "attributes": {"role": "Manager"}},
-                ],
-                "event": [
-                    {"name": "Stadtratssitzung", "attributes": {"date": "2025-01-15"}},
-                ],
-            },
-            "relations": [
-                {
-                    "from_type": "person",
-                    "from_name": "Max Mustermann",
-                    "relation": "attends",
-                    "to_type": "event",
-                    "to_name": "Stadtratssitzung",
-                }
-            ],
-        }
 
         person_type_id = uuid4()
         event_type_id = uuid4()
@@ -216,7 +198,7 @@ class TestMultiEntityRelationCreation:
     @pytest.mark.asyncio
     async def test_deduplicate_relations(self, session):
         """Test that duplicate relations are not created."""
-        service = MultiEntityExtractionService(session)
+        MultiEntityExtractionService(session)
 
         # When a relation already exists, it should not create a duplicate
         pass

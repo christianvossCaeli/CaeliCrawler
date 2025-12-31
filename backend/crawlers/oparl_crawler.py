@@ -1,15 +1,15 @@
 """OParl API Crawler for German municipal council information systems."""
 
 import asyncio
+import contextlib
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-from uuid import UUID
+from typing import Any
 
 import httpx
 import structlog
 
-from crawlers.base import BaseCrawler, CrawlResult
 from app.config import settings
+from crawlers.base import BaseCrawler, CrawlResult
 
 logger = structlog.get_logger()
 
@@ -24,7 +24,7 @@ class OparlCrawler(BaseCrawler):
 
     def __init__(self):
         super().__init__()
-        self.client: Optional[httpx.AsyncClient] = None
+        self.client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -41,8 +41,6 @@ class OparlCrawler(BaseCrawler):
 
     async def crawl(self, source, job) -> CrawlResult:
         """Crawl an OParl API endpoint."""
-        from app.database import get_session_context
-        from app.models import Document, ProcessingStatus
 
         result = CrawlResult()
         client = await self._get_client()
@@ -115,7 +113,7 @@ class OparlCrawler(BaseCrawler):
         source,
         job,
         result: CrawlResult,
-        body_name: Optional[str] = None,
+        body_name: str | None = None,
     ):
         """Crawl papers (Drucksachen) from OParl API."""
         from app.database import get_celery_session_context
@@ -170,10 +168,7 @@ class OparlCrawler(BaseCrawler):
 
                     # Create document title including municipality for clustering
                     base_title = file_data.get("name") or paper.get("name") or "Dokument"
-                    if body_name:
-                        title = f"[{body_name}] {base_title}"
-                    else:
-                        title = base_title
+                    title = f"[{body_name}] {base_title}" if body_name else base_title
 
                     # Create new document
                     doc = Document(
@@ -190,12 +185,10 @@ class OparlCrawler(BaseCrawler):
                     # Try to extract date
                     date_str = paper.get("date") or paper.get("modified")
                     if date_str:
-                        try:
+                        with contextlib.suppress(ValueError):
                             doc.document_date = datetime.fromisoformat(
                                 date_str.replace("Z", "+00:00")
                             )
-                        except ValueError:
-                            pass
 
                     session.add(doc)
                     result.documents_new += 1
@@ -210,12 +203,13 @@ class OparlCrawler(BaseCrawler):
         source,
         job,
         result: CrawlResult,
-        body_name: Optional[str] = None,
+        body_name: str | None = None,
     ):
         """Crawl meetings (Sitzungen) from OParl API."""
+        from sqlalchemy import select
+
         from app.database import get_celery_session_context
         from app.models import Document, ProcessingStatus
-        from sqlalchemy import select
 
         # Add modified filter if we have a last crawl date
         if source.last_crawl:
@@ -259,17 +253,11 @@ class OparlCrawler(BaseCrawler):
 
                         # Create title with municipality
                         base_title = file_data.get("name") or item.get("name") or meeting_name
-                        if body_name:
-                            title = f"[{body_name}] {base_title}"
-                        else:
-                            title = base_title
+                        title = f"[{body_name}] {base_title}" if body_name else base_title
 
                         # Determine document type
                         mime_type = file_data.get("mimeType", "")
-                        if "pdf" in mime_type.lower():
-                            doc_type = "PDF"
-                        else:
-                            doc_type = "HTML"
+                        doc_type = "PDF" if "pdf" in mime_type.lower() else "HTML"
 
                         doc = Document(
                             source_id=source.id,
@@ -283,12 +271,10 @@ class OparlCrawler(BaseCrawler):
                         )
 
                         if meeting_date:
-                            try:
+                            with contextlib.suppress(ValueError):
                                 doc.document_date = datetime.fromisoformat(
                                     meeting_date.replace("Z", "+00:00")
                                 )
-                            except ValueError:
-                                pass
 
                         session.add(doc)
                         result.documents_new += 1
@@ -300,7 +286,7 @@ class OparlCrawler(BaseCrawler):
         self,
         client: httpx.AsyncClient,
         url: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Fetch JSON from URL."""
         try:
             response = await client.get(url)
@@ -315,7 +301,7 @@ class OparlCrawler(BaseCrawler):
         client: httpx.AsyncClient,
         url: str,
         max_pages: int = 10,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Fetch paginated OParl data."""
         items = []
         current_url = url

@@ -4,9 +4,9 @@ import asyncio
 import ipaddress
 import json
 import socket
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+import time
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
-from uuid import UUID
 
 import httpx
 import structlog
@@ -14,14 +14,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.cache import search_strategy_cache, make_cache_key
-from app.core.retry import with_retry, LLM_RETRY_CONFIG, NETWORK_RETRY_CONFIG
+from app.core.cache import make_cache_key, search_strategy_cache
 from app.core.security_logging import security_logger
+from app.models.llm_usage import LLMProvider, LLMTaskType
+from services.llm_usage_tracker import record_llm_usage
 from services.smart_query.query_interpreter import get_openai_client
 from services.smart_query.utils import clean_json_response
 
 
-async def call_claude_api(prompt: str, max_tokens: int = 4000) -> Optional[str]:
+async def call_claude_api(prompt: str, max_tokens: int = 4000) -> str | None:
     """
     Call Claude API via Azure-hosted Anthropic endpoint.
 
@@ -73,9 +74,11 @@ async def call_claude_api(prompt: str, max_tokens: int = 4000) -> Optional[str]:
         return None
 
 if TYPE_CHECKING:
-    from app.models.api_configuration import APIConfiguration
+    pass
 
-from .models import (
+from .api_validator import validate_api_suggestions  # noqa: E402
+from .extractors import AIExtractor, HTMLTableExtractor, WikipediaExtractor  # noqa: E402
+from .models import (  # noqa: E402
     APISuggestion,
     APIValidationResult,
     DiscoveryResult,
@@ -87,15 +90,12 @@ from .models import (
     SourceWithTags,
     ValidatedAPISource,
 )
-from .prompts import (
+from .prompts import (  # noqa: E402
     AI_API_SUGGESTION_PROMPT,
-    AI_FIELD_MAPPING_PROMPT,
     AI_SEARCH_STRATEGY_PROMPT,
     AI_TAG_GENERATION_PROMPT,
 )
-from .api_validator import APIValidator, validate_api_suggestions
-from .search_providers import SerpAPISearchProvider, SerperSearchProvider
-from .extractors import HTMLTableExtractor, WikipediaExtractor, AIExtractor
+from .search_providers import SerpAPISearchProvider, SerperSearchProvider  # noqa: E402
 
 logger = structlog.get_logger()
 
@@ -151,10 +151,7 @@ def is_safe_url(url: str) -> bool:
                 return True
 
         # Block private, loopback, link-local, and reserved IPs
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-            return False
-
-        return True
+        return not (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved)
 
     except Exception as e:
         logger.warning("URL validation error", url=url, error=str(e))
@@ -185,9 +182,9 @@ class AISourceDiscoveryService:
 
     async def _search_with_fallback(
         self,
-        queries: List[str],
+        queries: list[str],
         num_results: int = 10,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """
         Execute web search with automatic fallback.
 
@@ -368,12 +365,26 @@ class AISourceDiscoveryService:
 
         strategy_prompt = AI_SEARCH_STRATEGY_PROMPT.format(prompt=prompt)
 
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[{"role": "user", "content": strategy_prompt}],
             temperature=0.5,
             max_tokens=1000,
         )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.DISCOVERY,
+                task_name="_generate_search_strategy",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         content = response.choices[0].message.content.strip()
         content = clean_json_response(content)
@@ -400,10 +411,10 @@ class AISourceDiscoveryService:
 
     async def _extract_from_pages(
         self,
-        search_results: List[SearchResult],
+        search_results: list[SearchResult],
         strategy: SearchStrategy,
         max_concurrent: int = 5,
-    ) -> List[ExtractedSource]:
+    ) -> list[ExtractedSource]:
         """
         Extract data sources from found pages.
 
@@ -418,13 +429,13 @@ class AISourceDiscoveryService:
         Returns:
             List of extracted sources from all pages
         """
-        all_sources: List[ExtractedSource] = []
+        all_sources: list[ExtractedSource] = []
         semaphore = asyncio.Semaphore(max_concurrent)
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            async def fetch_and_extract(result: SearchResult) -> List[ExtractedSource]:
+            async def fetch_and_extract(result: SearchResult) -> list[ExtractedSource]:
                 """Fetch a single page and extract sources."""
-                sources: List[ExtractedSource] = []
+                sources: list[ExtractedSource] = []
 
                 # SSRF Protection: Validate URL before fetching
                 if not is_safe_url(result.url):
@@ -502,8 +513,8 @@ class AISourceDiscoveryService:
 
     def _deduplicate_sources(
         self,
-        sources: List[ExtractedSource],
-    ) -> List[ExtractedSource]:
+        sources: list[ExtractedSource],
+    ) -> list[ExtractedSource]:
         """Remove duplicate sources based on URL."""
         seen_urls = set()
         unique = []
@@ -519,10 +530,10 @@ class AISourceDiscoveryService:
 
     async def _generate_tags(
         self,
-        sources: List[ExtractedSource],
+        sources: list[ExtractedSource],
         prompt: str,
         strategy: SearchStrategy,
-    ) -> List[SourceWithTags]:
+    ) -> list[SourceWithTags]:
         """Generate tags for each source using LLM."""
         if not sources:
             return []
@@ -557,10 +568,10 @@ class AISourceDiscoveryService:
     async def _generate_tags_with_llm(
         self,
         client,
-        sources: List[ExtractedSource],
+        sources: list[ExtractedSource],
         prompt: str,
-        base_tags: List[str],
-    ) -> Dict[str, List[str]]:
+        base_tags: list[str],
+    ) -> dict[str, list[str]]:
         """Generate tags using LLM."""
         # Prepare sources summary
         sources_text = "\n".join(
@@ -574,12 +585,26 @@ class AISourceDiscoveryService:
             sources=sources_text,
         )
 
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[{"role": "user", "content": tag_prompt}],
             temperature=0.3,
             max_tokens=2000,
         )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.DISCOVERY,
+                task_name="_generate_tags_with_llm",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         content = response.choices[0].message.content.strip()
         content = clean_json_response(content)
@@ -595,7 +620,7 @@ class AISourceDiscoveryService:
         path = parsed.path.rstrip("/")
         return f"{domain}{path}".lower()
 
-    def _extract_base_tags(self, prompt: str) -> List[str]:
+    def _extract_base_tags(self, prompt: str) -> list[str]:
         """Extract basic tags from prompt without LLM."""
         tags = []
         prompt_lower = prompt.lower()
@@ -645,7 +670,7 @@ class AISourceDiscoveryService:
         max_results: int = 50,
         search_depth: str = "standard",
         skip_api_discovery: bool = False,
-        db: Optional[AsyncSession] = None,
+        db: AsyncSession | None = None,
     ) -> DiscoveryResultV2:
         """
         KI-First Discovery: Zuerst APIs via KI finden, dann SERP als Fallback.
@@ -668,10 +693,10 @@ class AISourceDiscoveryService:
             DiscoveryResultV2 with API sources and/or web sources
         """
         stats = DiscoveryStats()
-        warnings: List[str] = []
-        api_sources: List[ValidatedAPISource] = []
-        api_suggestions: List[APISuggestion] = []
-        api_validations: List[APIValidationResult] = []
+        warnings: list[str] = []
+        api_sources: list[ValidatedAPISource] = []
+        api_suggestions: list[APISuggestion] = []
+        api_validations: list[APIValidationResult] = []
         used_fallback = False
         from_template = False
 
@@ -734,8 +759,8 @@ class AISourceDiscoveryService:
                     ))
 
         # Step 5: If no valid APIs found, fallback to SERP
-        web_sources: List[SourceWithTags] = []
-        search_strategy: Optional[SearchStrategy] = None
+        web_sources: list[SourceWithTags] = []
+        search_strategy: SearchStrategy | None = None
 
         if not api_sources:
             logger.info("No valid APIs found, falling back to SERP")
@@ -770,7 +795,7 @@ class AISourceDiscoveryService:
             from_template=from_template,
         )
 
-    async def _generate_api_suggestions(self, prompt: str) -> List[APISuggestion]:
+    async def _generate_api_suggestions(self, prompt: str) -> list[APISuggestion]:
         """
         Generate API suggestions using LLM.
 
@@ -799,12 +824,27 @@ class AISourceDiscoveryService:
                 client = get_openai_client()
                 logger.info("Using OpenAI for API suggestions (Claude not available)")
 
+                start_time = time.time()
                 response = client.chat.completions.create(
                     model=settings.azure_openai_deployment_name,
                     messages=[{"role": "user", "content": api_prompt}],
                     temperature=0.3,
                     max_tokens=2000,
                 )
+
+                if response.usage:
+                    await record_llm_usage(
+                        provider=LLMProvider.AZURE_OPENAI,
+                        model=settings.azure_openai_deployment_name,
+                        task_type=LLMTaskType.DISCOVERY,
+                        task_name="_generate_api_suggestions",
+                        prompt_tokens=response.usage.prompt_tokens,
+                        completion_tokens=response.usage.completion_tokens,
+                        total_tokens=response.usage.total_tokens,
+                        duration_ms=int((time.time() - start_time) * 1000),
+                        is_error=False,
+                    )
+
                 content = response.choices[0].message.content.strip()
                 content = clean_json_response(content)
             except ValueError:
@@ -848,9 +888,9 @@ class AISourceDiscoveryService:
     async def _fetch_full_api_data(
         self,
         suggestion: APISuggestion,
-        field_mapping: Dict[str, str],
+        field_mapping: dict[str, str],
         max_items: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Fetch full data from a validated API.
 
@@ -902,7 +942,7 @@ class AISourceDiscoveryService:
             )
             return []
 
-    def _extract_items_from_response(self, data: Any) -> List[Dict]:
+    def _extract_items_from_response(self, data: Any) -> list[dict]:
         """Extract list of items from API response."""
         # Direct array
         if isinstance(data, list):
@@ -922,18 +962,17 @@ class AISourceDiscoveryService:
                 return data[field]
 
         # Check for any list field
-        for key, value in data.items():
-            if isinstance(value, list) and len(value) > 0:
-                if isinstance(value[0], dict):
-                    return value
+        for _key, value in data.items():
+            if isinstance(value, list) and len(value) > 0 and isinstance(value[0], dict):
+                return value
 
         return []
 
     def _apply_field_mapping(
         self,
-        item: Dict[str, Any],
-        field_mapping: Dict[str, str],
-    ) -> Dict[str, Any]:
+        item: dict[str, Any],
+        field_mapping: dict[str, str],
+    ) -> dict[str, Any]:
         """Apply field mapping to normalize item fields."""
         normalized = {}
 
@@ -958,7 +997,7 @@ class AISourceDiscoveryService:
         db: AsyncSession,
         prompt: str,
         min_match_score: float = 0.3,
-    ) -> List[APISuggestion]:
+    ) -> list[APISuggestion]:
         """
         Check saved API templates for keyword matches.
 
@@ -971,6 +1010,7 @@ class AISourceDiscoveryService:
             List of APISuggestion objects from matching templates
         """
         from sqlalchemy.orm import selectinload
+
         from app.models.api_configuration import APIConfiguration
 
         try:
@@ -979,8 +1019,8 @@ class AISourceDiscoveryService:
                 select(APIConfiguration)
                 .options(selectinload(APIConfiguration.data_source))
                 .where(
-                    APIConfiguration.is_active == True,
-                    APIConfiguration.is_template == True,
+                    APIConfiguration.is_active,
+                    APIConfiguration.is_template,
                 )
             )
             configs = result.scalars().all()

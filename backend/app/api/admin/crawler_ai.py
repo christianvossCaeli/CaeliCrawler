@@ -1,25 +1,24 @@
 """Admin API endpoints for AI task management."""
 
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
-from app.core.deps import require_editor
 from app.core.audit import AuditContext
+from app.core.deps import require_editor
+from app.core.exceptions import NotFoundError, ValidationError
 from app.core.query_helpers import batch_fetch_by_ids
-from app.models.audit_log import AuditAction
+from app.database import get_session
 from app.models import AITask, AITaskStatus, AITaskType, User
+from app.models.audit_log import AuditAction
+from app.schemas.common import MessageResponse
 from app.schemas.crawl_job import (
     AITaskInfo,
     AITaskListResponse,
     RunningAITasksResponse,
 )
-from app.schemas.common import MessageResponse
-from app.core.exceptions import NotFoundError, ValidationError
 
 router = APIRouter()
 
@@ -28,8 +27,8 @@ router = APIRouter()
 async def list_ai_tasks(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
-    status: Optional[AITaskStatus] = Query(default=None),
-    task_type: Optional[AITaskType] = Query(default=None),
+    status: AITaskStatus | None = Query(default=None),
+    task_type: AITaskType | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):

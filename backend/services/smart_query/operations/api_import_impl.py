@@ -6,8 +6,7 @@ fetching data from external APIs (Wikidata SPARQL, REST APIs) and creating entit
 This is kept separate from api_import_ops.py for maintainability (400+ lines).
 """
 
-from typing import Any, Dict
-from uuid import UUID
+from typing import Any
 
 import structlog
 from sqlalchemy import select
@@ -18,8 +17,8 @@ logger = structlog.get_logger()
 
 async def execute_fetch_and_create(
     session: AsyncSession,
-    fetch_data: Dict[str, Any],
-) -> Dict[str, Any]:
+    fetch_data: dict[str, Any],
+) -> dict[str, Any]:
     """Fetch data from an external API and create entities.
 
     This operation supports:
@@ -51,8 +50,9 @@ async def execute_fetch_and_create(
         Dict with fetch and create results
     """
     from app.models import EntityType
+
     from ..api_fetcher import ExternalAPIFetcher, get_predefined_rest_template
-    from ..entity_operations import create_entity_type_from_command, bulk_create_entities_from_api_data
+    from ..entity_operations import bulk_create_entities_from_api_data, create_entity_type_from_command
 
     api_config = fetch_data.get("api_config", {})
     entity_type_slug = fetch_data.get("entity_type", "territorial_entity")
@@ -283,9 +283,8 @@ async def execute_fetch_and_create(
                     }
 
             # For Bundesländer/regions at level 1 (no parent needed within same type)
-            if "bundeslaender" in query.lower() or "states" in query.lower():
-                if hierarchy_level is None:
-                    hierarchy_level = 1  # Top-level entities
+            if ("bundeslaender" in query.lower() or "states" in query.lower()) and hierarchy_level is None:
+                hierarchy_level = 1  # Top-level entities
 
             logger.info(
                 "Fetching data from external API",

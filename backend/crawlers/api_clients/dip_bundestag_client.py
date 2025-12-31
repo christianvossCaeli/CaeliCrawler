@@ -8,12 +8,13 @@ API Documentation: https://dip.bundestag.de/über-dip/hilfe/api
 Swagger UI: https://search.dip.bundestag.de/api/v1/swagger-ui/
 """
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from datetime import datetime, date
+from datetime import date, datetime
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
+from typing import Any
 
-from crawlers.api_clients.base_api import BaseAPIClient, APIResponse, APIDocument
+from crawlers.api_clients.base_api import APIDocument, APIResponse, BaseAPIClient
 
 
 class DIPDokumentart(str, Enum):
@@ -47,18 +48,18 @@ class DIPDrucksache:
     dokumentnummer: str  # e.g., "20/1234"
     wahlperiode: int  # Legislative period (e.g., 20)
     dokumentart: str
-    datum: Optional[date] = None
-    titel: Optional[str] = None
+    datum: date | None = None
+    titel: str | None = None
     autoren_anzahl: int = 0
-    autoren: List[Dict[str, Any]] = field(default_factory=list)
-    fundstelle: Optional[str] = None
-    pdf_url: Optional[str] = None
-    drucksachetyp: Optional[str] = None
-    herausgeber: Optional[str] = None
-    urheber: List[str] = field(default_factory=list)
-    vorgangsbezug: List[Dict[str, Any]] = field(default_factory=list)
-    ressort: List[Dict[str, Any]] = field(default_factory=list)
-    aktualisiert: Optional[datetime] = None
+    autoren: list[dict[str, Any]] = field(default_factory=list)
+    fundstelle: str | None = None
+    pdf_url: str | None = None
+    drucksachetyp: str | None = None
+    herausgeber: str | None = None
+    urheber: list[str] = field(default_factory=list)
+    vorgangsbezug: list[dict[str, Any]] = field(default_factory=list)
+    ressort: list[dict[str, Any]] = field(default_factory=list)
+    aktualisiert: datetime | None = None
 
 
 @dataclass
@@ -69,11 +70,11 @@ class DIPPlenarprotokoll:
     dokumentnummer: str  # e.g., "20/100"
     wahlperiode: int
     sitzungsnummer: int
-    datum: Optional[date] = None
-    titel: Optional[str] = None
-    pdf_url: Optional[str] = None
-    herausgeber: Optional[str] = None
-    aktualisiert: Optional[datetime] = None
+    datum: date | None = None
+    titel: str | None = None
+    pdf_url: str | None = None
+    herausgeber: str | None = None
+    aktualisiert: datetime | None = None
 
 
 @dataclass
@@ -84,20 +85,20 @@ class DIPVorgang:
     vorgangstyp: str
     wahlperiode: int
     titel: str
-    initiative: List[str] = field(default_factory=list)
-    beratungsstand: Optional[str] = None
-    abstract: Optional[str] = None
-    sachgebiet: List[str] = field(default_factory=list)
-    deskriptor: List[Dict[str, Any]] = field(default_factory=list)
-    gesta: Optional[str] = None  # GESTA-Nummer
-    zustimmungsbeduerftigkeit: List[str] = field(default_factory=list)
-    kom: Optional[str] = None  # EU-Kommissionsnummer
-    ratsdok: Optional[str] = None  # EU-Ratsdokument
-    verkuendung: List[Dict[str, Any]] = field(default_factory=list)
-    inkrafttreten: List[Dict[str, Any]] = field(default_factory=list)
-    archiv: Optional[str] = None
-    mitteilung: Optional[str] = None
-    aktualisiert: Optional[datetime] = None
+    initiative: list[str] = field(default_factory=list)
+    beratungsstand: str | None = None
+    abstract: str | None = None
+    sachgebiet: list[str] = field(default_factory=list)
+    deskriptor: list[dict[str, Any]] = field(default_factory=list)
+    gesta: str | None = None  # GESTA-Nummer
+    zustimmungsbeduerftigkeit: list[str] = field(default_factory=list)
+    kom: str | None = None  # EU-Kommissionsnummer
+    ratsdok: str | None = None  # EU-Ratsdokument
+    verkuendung: list[dict[str, Any]] = field(default_factory=list)
+    inkrafttreten: list[dict[str, Any]] = field(default_factory=list)
+    archiv: str | None = None
+    mitteilung: str | None = None
+    aktualisiert: datetime | None = None
 
 
 @dataclass
@@ -107,12 +108,12 @@ class DIPPerson:
     id: str
     nachname: str
     vorname: str
-    namenszusatz: Optional[str] = None
-    titel: Optional[str] = None
-    fraktion: Optional[str] = None
-    wahlperiode: List[int] = field(default_factory=list)
-    basisdatum: Optional[date] = None
-    aktualisiert: Optional[datetime] = None
+    namenszusatz: str | None = None
+    titel: str | None = None
+    fraktion: str | None = None
+    wahlperiode: list[int] = field(default_factory=list)
+    basisdatum: date | None = None
+    aktualisiert: datetime | None = None
 
 
 @dataclass
@@ -122,14 +123,14 @@ class DIPAktivitaet:
     id: str
     aktivitaetsart: str
     wahlperiode: int
-    datum: Optional[date] = None
-    titel: Optional[str] = None
-    dokumentart: Optional[str] = None
-    drucksache: Optional[str] = None
-    plenarprotokoll: Optional[str] = None
-    vorgang_id: Optional[str] = None
-    fundstelle: Optional[Dict[str, Any]] = None
-    aktualisiert: Optional[datetime] = None
+    datum: date | None = None
+    titel: str | None = None
+    dokumentart: str | None = None
+    drucksache: str | None = None
+    plenarprotokoll: str | None = None
+    vorgang_id: str | None = None
+    fundstelle: dict[str, Any] | None = None
+    aktualisiert: datetime | None = None
 
 
 class DIPBundestagClient(BaseAPIClient):
@@ -159,13 +160,13 @@ class DIPBundestagClient(BaseAPIClient):
     API_NAME = "DIP-Bundestag"
     DEFAULT_DELAY = 0.3  # DIP is quite responsive
 
-    def __init__(self, api_key: Optional[str] = None, **kwargs):
+    def __init__(self, api_key: str | None = None, **kwargs):
         import os
         # Load API key from environment variable (public API key for DIP Bundestag)
         resolved_api_key = api_key or os.environ.get("DIP_BUNDESTAG_API_KEY")
         super().__init__(api_key=resolved_api_key, **kwargs)
 
-    def _get_auth_headers(self) -> Dict[str, str]:
+    def _get_auth_headers(self) -> dict[str, str]:
         """Add API key to headers."""
         if self.api_key:
             return {"Authorization": f"ApiKey {self.api_key}"}
@@ -175,12 +176,12 @@ class DIPBundestagClient(BaseAPIClient):
 
     async def search_drucksachen(
         self,
-        query: Optional[str] = None,
-        wahlperiode: Optional[int] = None,
-        drucksachetyp: Optional[str] = None,
-        datum_start: Optional[date] = None,
-        datum_end: Optional[date] = None,
-        urheber: Optional[str] = None,
+        query: str | None = None,
+        wahlperiode: int | None = None,
+        drucksachetyp: str | None = None,
+        datum_start: date | None = None,
+        datum_end: date | None = None,
+        urheber: str | None = None,
         rows: int = 100,
         offset: int = 0,
     ) -> APIResponse[APIDocument]:
@@ -243,7 +244,7 @@ class DIPBundestagClient(BaseAPIClient):
             raw_response=data,
         )
 
-    async def get_drucksache(self, dokumentnummer: str) -> Optional[DIPDrucksache]:
+    async def get_drucksache(self, dokumentnummer: str) -> DIPDrucksache | None:
         """
         Get a specific Drucksache by document number.
 
@@ -264,7 +265,7 @@ class DIPBundestagClient(BaseAPIClient):
             return self._parse_drucksache(data["documents"][0])
         return None
 
-    async def get_drucksache_text(self, document_id: str) -> Optional[str]:
+    async def get_drucksache_text(self, document_id: str) -> str | None:
         """Get full text of a Drucksache."""
         data = await self.get(f"drucksache-text/{document_id}")
         if data:
@@ -274,7 +275,7 @@ class DIPBundestagClient(BaseAPIClient):
     async def iterate_drucksachen(
         self,
         wahlperiode: int = 20,
-        drucksachetyp: Optional[str] = None,
+        drucksachetyp: str | None = None,
         batch_size: int = 100,
         max_documents: int = 10000,
         **kwargs,
@@ -310,10 +311,10 @@ class DIPBundestagClient(BaseAPIClient):
 
     async def search_plenarprotokolle(
         self,
-        query: Optional[str] = None,
-        wahlperiode: Optional[int] = None,
-        datum_start: Optional[date] = None,
-        datum_end: Optional[date] = None,
+        query: str | None = None,
+        wahlperiode: int | None = None,
+        datum_start: date | None = None,
+        datum_end: date | None = None,
         rows: int = 100,
         offset: int = 0,
     ) -> APIResponse[APIDocument]:
@@ -348,7 +349,7 @@ class DIPBundestagClient(BaseAPIClient):
             has_more=offset + rows < data.get("numFound", 0),
         )
 
-    async def get_plenarprotokoll_text(self, document_id: str) -> Optional[str]:
+    async def get_plenarprotokoll_text(self, document_id: str) -> str | None:
         """Get full text of a plenary protocol."""
         data = await self.get(f"plenarprotokoll-text/{document_id}")
         if data:
@@ -359,13 +360,13 @@ class DIPBundestagClient(BaseAPIClient):
 
     async def search_vorgaenge(
         self,
-        query: Optional[str] = None,
-        wahlperiode: Optional[int] = None,
-        vorgangstyp: Optional[Union[str, DIPVorgangstyp]] = None,
-        beratungsstand: Optional[str] = None,
-        sachgebiet: Optional[str] = None,
-        datum_start: Optional[date] = None,
-        datum_end: Optional[date] = None,
+        query: str | None = None,
+        wahlperiode: int | None = None,
+        vorgangstyp: str | DIPVorgangstyp | None = None,
+        beratungsstand: str | None = None,
+        sachgebiet: str | None = None,
+        datum_start: date | None = None,
+        datum_end: date | None = None,
         rows: int = 100,
         offset: int = 0,
     ) -> APIResponse[APIDocument]:
@@ -456,12 +457,12 @@ class DIPBundestagClient(BaseAPIClient):
 
     async def search_personen(
         self,
-        query: Optional[str] = None,
-        wahlperiode: Optional[int] = None,
-        fraktion: Optional[str] = None,
+        query: str | None = None,
+        wahlperiode: int | None = None,
+        fraktion: str | None = None,
         rows: int = 100,
         offset: int = 0,
-    ) -> List[DIPPerson]:
+    ) -> list[DIPPerson]:
         """Search for Members of Parliament."""
         params = {
             "format": "json",
@@ -487,12 +488,12 @@ class DIPBundestagClient(BaseAPIClient):
 
     async def search_aktivitaeten(
         self,
-        query: Optional[str] = None,
-        wahlperiode: Optional[int] = None,
-        aktivitaetsart: Optional[str] = None,
+        query: str | None = None,
+        wahlperiode: int | None = None,
+        aktivitaetsart: str | None = None,
         rows: int = 100,
         offset: int = 0,
-    ) -> List[DIPAktivitaet]:
+    ) -> list[DIPAktivitaet]:
         """Search for parliamentary activities."""
         params = {
             "format": "json",
@@ -532,7 +533,7 @@ class DIPBundestagClient(BaseAPIClient):
         else:
             return await self.search_drucksachen(query=query, **kwargs)
 
-    async def get_document(self, document_id: str) -> Optional[APIDocument]:
+    async def get_document(self, document_id: str) -> APIDocument | None:
         """Get document by ID."""
         drucksache = await self.get_drucksache(document_id)
         if drucksache:
@@ -541,7 +542,7 @@ class DIPBundestagClient(BaseAPIClient):
 
     # === Parsers ===
 
-    def _parse_drucksache(self, data: Dict[str, Any]) -> DIPDrucksache:
+    def _parse_drucksache(self, data: dict[str, Any]) -> DIPDrucksache:
         """Parse Drucksache from API response."""
         # PDF URL is in fundstelle.pdf_url, not at top level
         fundstelle = data.get("fundstelle") or {}
@@ -566,7 +567,7 @@ class DIPBundestagClient(BaseAPIClient):
             aktualisiert=self.parse_datetime(data.get("aktualisiert")),
         )
 
-    def _parse_plenarprotokoll(self, data: Dict[str, Any]) -> DIPPlenarprotokoll:
+    def _parse_plenarprotokoll(self, data: dict[str, Any]) -> DIPPlenarprotokoll:
         """Parse Plenarprotokoll from API response."""
         return DIPPlenarprotokoll(
             id=str(data.get("id", "")),
@@ -580,7 +581,7 @@ class DIPBundestagClient(BaseAPIClient):
             aktualisiert=self.parse_datetime(data.get("aktualisiert")),
         )
 
-    def _parse_vorgang(self, data: Dict[str, Any]) -> DIPVorgang:
+    def _parse_vorgang(self, data: dict[str, Any]) -> DIPVorgang:
         """Parse Vorgang from API response."""
         return DIPVorgang(
             id=str(data.get("id", "")),
@@ -603,7 +604,7 @@ class DIPBundestagClient(BaseAPIClient):
             aktualisiert=self.parse_datetime(data.get("aktualisiert")),
         )
 
-    def _parse_person(self, data: Dict[str, Any]) -> DIPPerson:
+    def _parse_person(self, data: dict[str, Any]) -> DIPPerson:
         """Parse Person from API response."""
         return DIPPerson(
             id=str(data.get("id", "")),
@@ -617,7 +618,7 @@ class DIPBundestagClient(BaseAPIClient):
             aktualisiert=self.parse_datetime(data.get("aktualisiert")),
         )
 
-    def _parse_aktivitaet(self, data: Dict[str, Any]) -> DIPAktivitaet:
+    def _parse_aktivitaet(self, data: dict[str, Any]) -> DIPAktivitaet:
         """Parse Aktivitaet from API response."""
         return DIPAktivitaet(
             id=str(data.get("id", "")),
@@ -633,7 +634,7 @@ class DIPBundestagClient(BaseAPIClient):
             aktualisiert=self.parse_datetime(data.get("aktualisiert")),
         )
 
-    def _parse_date(self, date_str: Optional[str]) -> Optional[date]:
+    def _parse_date(self, date_str: str | None) -> date | None:
         """Parse date string to date object."""
         if not date_str:
             return None

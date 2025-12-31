@@ -9,7 +9,6 @@ Security:
 - Requires editor role
 """
 
-from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -17,23 +16,18 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
+from app.api.admin.sources import validate_crawler_url
+from app.core.audit import AuditContext
 from app.core.deps import require_editor
 from app.core.rate_limit import check_rate_limit
 from app.core.security_logging import security_logger
-from app.core.audit import AuditContext
+from app.database import get_session
+from app.models import Category, DataSource, DataSourceCategory, SourceType, User
 from app.models.audit_log import AuditAction
-from app.models import Category, DataSource, DataSourceCategory, User, SourceType
-from app.api.admin.sources import validate_crawler_url
 from services.ai_source_discovery import (
     AISourceDiscoveryService,
-    APISuggestion,
-    APIValidationResult,
     DiscoveryRequest,
-    DiscoveryResult,
-    DiscoveryResultV2,
     SourceWithTags,
-    ValidatedAPISource,
 )
 
 router = APIRouter()
@@ -45,23 +39,23 @@ router = APIRouter()
 
 class DiscoveryResponse(BaseModel):
     """Response from AI discovery endpoint."""
-    sources: List[SourceWithTags]
-    search_strategy: Optional[dict] = None
+    sources: list[SourceWithTags]
+    search_strategy: dict | None = None
     stats: dict
-    warnings: List[str]
+    warnings: list[str]
 
 
 class ImportResult(BaseModel):
     """Result of importing discovered sources."""
     imported: int
     skipped: int
-    errors: List[dict]
+    errors: list[dict]
 
 
 class DiscoveryImportRequest(BaseModel):
     """Request to import discovered sources."""
-    sources: List[SourceWithTags] = Field(..., min_length=1, max_length=100)
-    category_ids: List[UUID] = Field(default_factory=list, max_length=20)
+    sources: list[SourceWithTags] = Field(..., min_length=1, max_length=100)
+    category_ids: list[UUID] = Field(default_factory=list, max_length=20)
     skip_duplicates: bool = Field(default=True)
 
 
@@ -85,16 +79,16 @@ class APISuggestionResponse(BaseModel):
     api_type: str
     auth_required: bool
     confidence: float
-    documentation_url: Optional[str] = None
+    documentation_url: str | None = None
 
 
 class APIValidationResponse(BaseModel):
     """API validation result in response."""
     api_name: str
     is_valid: bool
-    status_code: Optional[int] = None
-    item_count: Optional[int] = None
-    error_message: Optional[str] = None
+    status_code: int | None = None
+    item_count: int | None = None
+    error_message: str | None = None
     field_mapping: dict = Field(default_factory=dict)
 
 
@@ -104,23 +98,23 @@ class ValidatedAPISourceResponse(BaseModel):
     api_url: str
     api_type: str
     item_count: int
-    sample_items: List[dict] = Field(default_factory=list, max_length=5)
-    tags: List[str]
+    sample_items: list[dict] = Field(default_factory=list, max_length=5)
+    tags: list[str]
     field_mapping: dict
 
 
 class DiscoveryResponseV2(BaseModel):
     """Response from KI-First discovery (V2)."""
     # API sources (primary)
-    api_sources: List[ValidatedAPISourceResponse]
+    api_sources: list[ValidatedAPISourceResponse]
     # Web sources (fallback)
-    web_sources: List[SourceWithTags]
+    web_sources: list[SourceWithTags]
     # All suggestions and validations for UI display
-    api_suggestions: List[APISuggestionResponse]
-    api_validations: List[APIValidationResponse]
+    api_suggestions: list[APISuggestionResponse]
+    api_validations: list[APIValidationResponse]
     # Stats and metadata
     stats: dict
-    warnings: List[str]
+    warnings: list[str]
     used_fallback: bool
     from_template: bool = False  # True wenn gespeicherte Vorlagen verwendet wurden
 
@@ -130,9 +124,9 @@ class APIDataImportRequest(BaseModel):
     api_name: str
     api_url: str
     field_mapping: dict
-    items: List[dict] = Field(..., min_length=1, max_length=1000)
-    category_ids: List[UUID] = Field(default_factory=list, max_length=20)
-    tags: List[str] = Field(default_factory=list)
+    items: list[dict] = Field(..., min_length=1, max_length=1000)
+    category_ids: list[UUID] = Field(default_factory=list, max_length=20)
+    tags: list[str] = Field(default_factory=list)
     skip_duplicates: bool = Field(default=True)
 
 
@@ -305,7 +299,7 @@ async def import_discovered_sources(
     )
 
 
-@router.get("/examples", response_model=List[dict])
+@router.get("/examples", response_model=list[dict])
 async def get_discovery_examples(
     _: User = Depends(require_editor),
 ):

@@ -5,12 +5,11 @@ Uses Redis to store invalidated JWT tokens until they expire.
 This enables proper logout functionality with stateless JWTs.
 """
 
-from typing import Optional
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 from redis.asyncio import Redis
 
-from app.core.security import decode_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from app.core.security import ACCESS_TOKEN_EXPIRE_MINUTES, decode_access_token
 
 
 class TokenBlacklist:
@@ -52,8 +51,8 @@ class TokenBlacklist:
             ttl = ACCESS_TOKEN_EXPIRE_MINUTES * 60
         else:
             # Calculate remaining TTL
-            exp_time = datetime.fromtimestamp(exp, tz=timezone.utc)
-            now = datetime.now(timezone.utc)
+            exp_time = datetime.fromtimestamp(exp, tz=UTC)
+            now = datetime.now(UTC)
             ttl = int((exp_time - now).total_seconds())
 
             if ttl <= 0:
@@ -118,10 +117,10 @@ class TokenBlacklist:
 
 
 # Global blacklist instance
-_token_blacklist: Optional[TokenBlacklist] = None
+_token_blacklist: TokenBlacklist | None = None
 
 
-def get_token_blacklist() -> Optional[TokenBlacklist]:
+def get_token_blacklist() -> TokenBlacklist | None:
     """Get the global token blacklist instance."""
     return _token_blacklist
 

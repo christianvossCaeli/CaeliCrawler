@@ -6,8 +6,8 @@ via the Microsoft Graph API with Azure AD authentication.
 
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from urllib.parse import quote
 
 import httpx
@@ -27,7 +27,7 @@ logger = structlog.get_logger(__name__)
 class SharePointError(Exception):
     """Base exception for SharePoint errors."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message)
         self.message = message
         self.details = details or {}
@@ -54,7 +54,7 @@ class SharePointPermissionError(SharePointError):
 class SharePointRateLimitError(SharePointError):
     """Rate limit exceeded."""
 
-    def __init__(self, message: str, retry_after: Optional[int] = None):
+    def __init__(self, message: str, retry_after: int | None = None):
         super().__init__(message)
         self.retry_after = retry_after
 
@@ -70,7 +70,7 @@ class SharePointConfigError(SharePointError):
 # =============================================================================
 
 
-def parse_sharepoint_site_url(site_url: str) -> Tuple[str, str]:
+def parse_sharepoint_site_url(site_url: str) -> tuple[str, str]:
     """Parse SharePoint site URL into hostname and path.
 
     Supported formats:
@@ -129,11 +129,11 @@ class SharePointFile:
     size: int
     mime_type: str
     web_url: str
-    download_url: Optional[str]
-    created_at: Optional[datetime]
-    modified_at: Optional[datetime]
-    created_by: Optional[str]
-    modified_by: Optional[str]
+    download_url: str | None
+    created_at: datetime | None
+    modified_at: datetime | None
+    created_by: str | None
+    modified_by: str | None
     parent_path: str
     site_id: str
     drive_id: str
@@ -179,10 +179,10 @@ class SharePointClient(BaseExternalAPIClient):
 
     def __init__(
         self,
-        tenant_id: Optional[str] = None,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        timeout: Optional[int] = None,
+        tenant_id: str | None = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        timeout: int | None = None,
     ):
         """Initialize the SharePoint client.
 
@@ -195,7 +195,7 @@ class SharePointClient(BaseExternalAPIClient):
         self._tenant_id = tenant_id or settings.sharepoint_tenant_id
         self._client_id = client_id or settings.sharepoint_client_id
         self._client_secret = client_secret or settings.sharepoint_client_secret
-        self._token_cache: Optional[SharePointTokenCache] = None
+        self._token_cache: SharePointTokenCache | None = None
 
         super().__init__(
             auth_token=None,  # We handle auth separately via OAuth
@@ -222,9 +222,8 @@ class SharePointClient(BaseExternalAPIClient):
             SharePointAuthError: If authentication fails.
         """
         # Check cache first (with 5 min buffer before expiry)
-        if self._token_cache:
-            if self._token_cache.expires_at > datetime.now(timezone.utc) + timedelta(minutes=5):
-                return self._token_cache.access_token
+        if self._token_cache and self._token_cache.expires_at > datetime.now(UTC) + timedelta(minutes=5):
+            return self._token_cache.access_token
 
         if not self.is_configured:
             raise SharePointConfigError(
@@ -271,7 +270,7 @@ class SharePointClient(BaseExternalAPIClient):
                 expires_in = data.get("expires_in", 3600)
                 self._token_cache = SharePointTokenCache(
                     access_token=data["access_token"],
-                    expires_at=datetime.now(timezone.utc) + timedelta(seconds=expires_in - 300),
+                    expires_at=datetime.now(UTC) + timedelta(seconds=expires_in - 300),
                 )
 
                 logger.info(
@@ -281,11 +280,11 @@ class SharePointClient(BaseExternalAPIClient):
                 return self._token_cache.access_token
 
         except httpx.TimeoutException as e:
-            raise SharePointAuthError(f"Token request timed out: {e}")
+            raise SharePointAuthError(f"Token request timed out: {e}") from None
         except httpx.HTTPStatusError as e:
-            raise SharePointAuthError(f"Token request failed: {e}")
+            raise SharePointAuthError(f"Token request failed: {e}") from None
 
-    def _get_headers(self) -> Dict[str, str]:
+    def _get_headers(self) -> dict[str, str]:
         """Get request headers - note: auth is added per-request."""
         return {
             "Accept": "application/json",
@@ -297,10 +296,10 @@ class SharePointClient(BaseExternalAPIClient):
         self,
         method: str,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
         max_retries: int = 3,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make an authenticated request to Microsoft Graph API with retry logic.
 
         Args:
@@ -323,7 +322,7 @@ class SharePointClient(BaseExternalAPIClient):
             raise RuntimeError("Client not initialized. Use async context manager.")
 
         url = f"{self.GRAPH_BASE_URL}{endpoint}"
-        last_exception: Optional[Exception] = None
+        last_exception: Exception | None = None
 
         for attempt in range(max_retries + 1):
             try:
@@ -408,7 +407,7 @@ class SharePointClient(BaseExternalAPIClient):
                     )
                     await asyncio.sleep(wait_time)
                     continue
-                raise SharePointError(f"Connection error after {max_retries} retries: {e}")
+                raise SharePointError(f"Connection error after {max_retries} retries: {e}") from None
 
         # Should not reach here, but just in case
         if last_exception:
@@ -475,18 +474,17 @@ class SharePointClient(BaseExternalAPIClient):
                         await asyncio.sleep(retry_after)
                         continue
                     raise SharePointRateLimitError("Rate limit exceeded", retry_after=retry_after)
-                elif response.status_code >= 500:
-                    if attempt < max_retries:
-                        wait_time = (2 ** attempt) + 0.5
-                        logger.warning(
-                            "graph_api_binary_server_error",
-                            endpoint=endpoint,
-                            status=response.status_code,
-                            retry_in=wait_time,
-                            attempt=attempt + 1,
-                        )
-                        await asyncio.sleep(wait_time)
-                        continue
+                elif response.status_code >= 500 and attempt < max_retries:
+                    wait_time = (2 ** attempt) + 0.5
+                    logger.warning(
+                        "graph_api_binary_server_error",
+                        endpoint=endpoint,
+                        status=response.status_code,
+                        retry_in=wait_time,
+                        attempt=attempt + 1,
+                    )
+                    await asyncio.sleep(wait_time)
+                    continue
 
                 response.raise_for_status()
                 return response.content
@@ -503,7 +501,7 @@ class SharePointClient(BaseExternalAPIClient):
                     )
                     await asyncio.sleep(wait_time)
                     continue
-                raise SharePointError(f"Connection error: {e}")
+                raise SharePointError(f"Connection error: {e}") from None
 
         raise SharePointError("Binary request failed")
 
@@ -511,7 +509,7 @@ class SharePointClient(BaseExternalAPIClient):
         self,
         url: str,
         max_retries: int = 3,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch a paginated URL (handles @odata.nextLink) with retry logic.
 
         Args:
@@ -573,7 +571,7 @@ class SharePointClient(BaseExternalAPIClient):
                     )
                     await asyncio.sleep(wait_time)
                     continue
-                raise SharePointError(f"Connection error: {e}")
+                raise SharePointError(f"Connection error: {e}") from None
 
         raise SharePointError("Paginated request failed")
 
@@ -581,7 +579,7 @@ class SharePointClient(BaseExternalAPIClient):
     # Sites
     # -------------------------------------------------------------------------
 
-    async def search_sites(self, query: str = "*") -> List[SharePointSite]:
+    async def search_sites(self, query: str = "*") -> list[SharePointSite]:
         """Search for SharePoint sites.
 
         Args:
@@ -642,7 +640,7 @@ class SharePointClient(BaseExternalAPIClient):
     # Drives (Document Libraries)
     # -------------------------------------------------------------------------
 
-    async def list_drives(self, site_id: str) -> List[SharePointDrive]:
+    async def list_drives(self, site_id: str) -> list[SharePointDrive]:
         """List all document libraries (drives) in a site.
 
         Args:
@@ -671,7 +669,7 @@ class SharePointClient(BaseExternalAPIClient):
         logger.debug("sharepoint_drives_found", count=len(drives))
         return drives
 
-    async def get_drive_by_name(self, site_id: str, drive_name: str) -> Optional[SharePointDrive]:
+    async def get_drive_by_name(self, site_id: str, drive_name: str) -> SharePointDrive | None:
         """Get a specific drive by name.
 
         Args:
@@ -697,8 +695,8 @@ class SharePointClient(BaseExternalAPIClient):
         drive_id: str,
         folder_path: str = "",
         recursive: bool = False,
-        file_extensions: Optional[List[str]] = None,
-    ) -> List[SharePointFile]:
+        file_extensions: list[str] | None = None,
+    ) -> list[SharePointFile]:
         """List files in a drive or folder.
 
         Args:
@@ -719,7 +717,7 @@ class SharePointClient(BaseExternalAPIClient):
             recursive=recursive,
         )
 
-        files: List[SharePointFile] = []
+        files: list[SharePointFile] = []
         folders_to_process = [folder_path]
 
         while folders_to_process:
@@ -734,7 +732,7 @@ class SharePointClient(BaseExternalAPIClient):
                 endpoint = f"/sites/{site_id}/drives/{drive_id}/root/children"
 
             # Handle pagination
-            next_link: Optional[str] = endpoint
+            next_link: str | None = endpoint
             while next_link:
                 data = await self._fetch_paginated_url(next_link)
 
@@ -744,10 +742,7 @@ class SharePointClient(BaseExternalAPIClient):
                         if recursive:
                             folder_rel_path = item.get("parentReference", {}).get("path", "")
                             # Extract path after /root:
-                            if "/root:" in folder_rel_path:
-                                parent = folder_rel_path.split("/root:")[-1]
-                            else:
-                                parent = ""
+                            parent = folder_rel_path.split("/root:")[-1] if "/root:" in folder_rel_path else ""
                             child_path = f"{parent}/{item['name']}".lstrip("/")
                             folders_to_process.append(child_path)
                     elif "file" in item:
@@ -770,7 +765,7 @@ class SharePointClient(BaseExternalAPIClient):
 
     def _parse_file_item(
         self,
-        item: Dict[str, Any],
+        item: dict[str, Any],
         site_id: str,
         drive_id: str,
     ) -> SharePointFile:
@@ -778,10 +773,7 @@ class SharePointClient(BaseExternalAPIClient):
         # Extract parent path
         parent_ref = item.get("parentReference", {})
         parent_path = parent_ref.get("path", "")
-        if "/root:" in parent_path:
-            parent_path = parent_path.split("/root:")[-1]
-        else:
-            parent_path = ""
+        parent_path = parent_path.split("/root:")[-1] if "/root:" in parent_path else ""
 
         # Parse timestamps
         created_at = self._parse_timestamp(item.get("createdDateTime"))
@@ -812,7 +804,7 @@ class SharePointClient(BaseExternalAPIClient):
             drive_id=drive_id,
         )
 
-    def _parse_timestamp(self, value: Optional[str]) -> Optional[datetime]:
+    def _parse_timestamp(self, value: str | None) -> datetime | None:
         """Parse ISO timestamp from Graph API."""
         if not value:
             return None
@@ -850,7 +842,7 @@ class SharePointClient(BaseExternalAPIClient):
         site_id: str,
         drive_id: str,
         file_path: str,
-    ) -> Optional[SharePointFile]:
+    ) -> SharePointFile | None:
         """Get a file by its path within a drive.
 
         Args:
@@ -984,7 +976,7 @@ class SharePointClient(BaseExternalAPIClient):
                     )
                     await asyncio.sleep(wait_time)
                     continue
-                raise SharePointError(f"Download failed: {e}")
+                raise SharePointError(f"Download failed: {e}") from None
 
         raise SharePointError("Download failed after retries")
 
@@ -996,8 +988,8 @@ class SharePointClient(BaseExternalAPIClient):
         self,
         site_id: str,
         drive_id: str,
-        delta_token: Optional[str] = None,
-    ) -> tuple[List[SharePointFile], Optional[str]]:
+        delta_token: str | None = None,
+    ) -> tuple[list[SharePointFile], str | None]:
         """Get changed files using delta query.
 
         This is more efficient than listing all files when checking for changes.
@@ -1015,9 +1007,9 @@ class SharePointClient(BaseExternalAPIClient):
         else:
             endpoint = f"/sites/{site_id}/drives/{drive_id}/root/delta"
 
-        files: List[SharePointFile] = []
-        next_link: Optional[str] = endpoint
-        new_delta_token: Optional[str] = None
+        files: list[SharePointFile] = []
+        next_link: str | None = endpoint
+        new_delta_token: str | None = None
 
         while next_link:
             data = await self._fetch_paginated_url(next_link)
@@ -1043,7 +1035,7 @@ class SharePointClient(BaseExternalAPIClient):
     # BaseExternalAPIClient Interface
     # -------------------------------------------------------------------------
 
-    async def fetch_all_records(self) -> List[ExternalAPIRecord]:
+    async def fetch_all_records(self) -> list[ExternalAPIRecord]:
         """Fetch all files as ExternalAPIRecord objects.
 
         This is mainly for compatibility with the sync service.

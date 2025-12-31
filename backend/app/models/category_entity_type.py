@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -75,14 +75,14 @@ class CategoryEntityType(Base):
         comment="Order in which entity types are extracted (0 = first)",
     )
 
-    extraction_config: Mapped[Dict[str, Any]] = mapped_column(
+    extraction_config: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
         comment="Configuration for how to extract this entity type from documents",
     )
 
-    relation_config: Mapped[List[Dict[str, Any]]] = mapped_column(
+    relation_config: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB,
         default=list,
         nullable=False,

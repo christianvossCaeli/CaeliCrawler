@@ -8,15 +8,14 @@ Provides endpoints for:
 - Applying changes
 """
 
-from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
 from app.core.deps import get_current_user
+from app.database import get_session
 from app.models import User
 from services.entity_data_facet_service import EntityDataFacetService
 
@@ -33,7 +32,7 @@ class EnrichmentSourceInfo(BaseModel):
 
     available: bool
     count: int
-    last_updated: Optional[str]
+    last_updated: str | None
     label: str
 
 
@@ -53,12 +52,12 @@ class StartAnalysisRequest(BaseModel):
     """Request to start an analysis task."""
 
     entity_id: UUID
-    source_types: List[str] = Field(
+    source_types: list[str] = Field(
         ...,
         description="Data sources to analyze: pysis, relations, documents, extractions",
         min_length=1,
     )
-    target_facet_types: Optional[List[str]] = Field(
+    target_facet_types: list[str] | None = Field(
         None,
         description="Specific facet types to generate (defaults to all AI-enabled types)",
     )
@@ -76,11 +75,11 @@ class ApplyChangesRequest(BaseModel):
     """Request to apply selected changes from a preview."""
 
     task_id: UUID
-    accepted_new_facets: List[int] = Field(
+    accepted_new_facets: list[int] = Field(
         default=[],
         description="Indices of accepted new facets from preview",
     )
-    accepted_updates: List[str] = Field(
+    accepted_updates: list[str] = Field(
         default=[],
         description="IDs of accepted facet value updates",
     )
@@ -91,7 +90,7 @@ class ApplyChangesResponse(BaseModel):
 
     created: int
     updated: int
-    errors: Optional[List[str]]
+    errors: list[str] | None
 
 
 # =============================================================================
@@ -117,9 +116,9 @@ async def get_enrichment_sources(
         result = await service.get_enrichment_sources(entity_id)
         return EnrichmentSourcesResponse(**result)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from None
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Fehler beim Laden der Quellen: {e}")
+        raise HTTPException(status_code=500, detail=f"Fehler beim Laden der Quellen: {e}") from None
 
 
 @router.post(
@@ -148,9 +147,9 @@ async def analyze_for_facets(
             message=f"Analyse gestartet für {len(request.source_types)} Datenquellen",
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from None
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Fehler beim Starten der Analyse: {e}")
+        raise HTTPException(status_code=500, detail=f"Fehler beim Starten der Analyse: {e}") from None
 
 
 @router.get(
@@ -169,9 +168,9 @@ async def get_analysis_preview(
     try:
         return await service.get_analysis_preview(task_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from None
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Fehler beim Laden der Vorschau: {e}")
+        raise HTTPException(status_code=500, detail=f"Fehler beim Laden der Vorschau: {e}") from None
 
 
 @router.post(
@@ -196,6 +195,6 @@ async def apply_changes(
         )
         return ApplyChangesResponse(**result)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from None
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Fehler beim Anwenden der Änderungen: {e}")
+        raise HTTPException(status_code=500, detail=f"Fehler beim Anwenden der Änderungen: {e}") from None

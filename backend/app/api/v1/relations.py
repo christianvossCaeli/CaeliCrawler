@@ -1,35 +1,38 @@
 """API endpoints for Relation Type and Entity Relation management."""
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Annotated
+from datetime import UTC, datetime
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import func, select, and_, or_
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import AuditContext
+from app.core.deps import get_current_user_optional, require_editor
+from app.core.exceptions import ConflictError, NotFoundError
 from app.database import get_session
 from app.models import (
-    RelationType, EntityRelation, Entity, EntityType, Document,
+    Entity,
+    EntityRelation,
+    EntityType,
+    RelationType,
 )
-from app.models.user import User
-from app.core.deps import get_current_user, get_current_user_optional, require_editor
-from app.core.audit import AuditContext
 from app.models.audit_log import AuditAction
+from app.models.user import User
+from app.schemas.common import MessageResponse
 from app.schemas.relation import (
-    RelationTypeCreate,
-    RelationTypeUpdate,
-    RelationTypeResponse,
-    RelationTypeListResponse,
     EntityRelationCreate,
-    EntityRelationUpdate,
-    EntityRelationResponse,
     EntityRelationListResponse,
+    EntityRelationResponse,
     EntityRelationsGraph,
+    EntityRelationUpdate,
+    RelationTypeCreate,
+    RelationTypeListResponse,
+    RelationTypeResponse,
+    RelationTypeUpdate,
     generate_slug,
 )
-from app.schemas.common import MessageResponse
-from app.core.exceptions import NotFoundError, ConflictError
 
 router = APIRouter()
 
@@ -43,12 +46,12 @@ router = APIRouter()
 async def list_relation_types(
     page: Annotated[int, Query(ge=1, description="Page number")] = 1,
     per_page: Annotated[int, Query(ge=1, le=100, description="Items per page")] = 50,
-    is_active: Annotated[Optional[bool], Query(description="Filter by active status")] = None,
-    source_entity_type_id: Annotated[Optional[UUID], Query(description="Filter by source entity type")] = None,
-    target_entity_type_id: Annotated[Optional[UUID], Query(description="Filter by target entity type")] = None,
-    search: Annotated[Optional[str], Query(description="Search in name or slug")] = None,
+    is_active: Annotated[bool | None, Query(description="Filter by active status")] = None,
+    source_entity_type_id: Annotated[UUID | None, Query(description="Filter by source entity type")] = None,
+    target_entity_type_id: Annotated[UUID | None, Query(description="Filter by target entity type")] = None,
+    search: Annotated[str | None, Query(description="Search in name or slug")] = None,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> RelationTypeListResponse:
     """List all relation types with pagination."""
     query = select(RelationType)
@@ -236,7 +239,7 @@ async def create_relation_type(
 async def get_relation_type(
     relation_type_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> RelationTypeResponse:
     """Get a single relation type by ID."""
     rt = await session.get(RelationType, relation_type_id)
@@ -271,7 +274,7 @@ async def get_relation_type(
 async def get_relation_type_by_slug(
     slug: str,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> RelationTypeResponse:
     """Get a single relation type by slug."""
     result = await session.execute(
@@ -404,16 +407,16 @@ async def delete_relation_type(
 async def list_entity_relations(
     page: Annotated[int, Query(ge=1, description="Page number")] = 1,
     per_page: Annotated[int, Query(ge=1, le=200, description="Items per page")] = 50,
-    relation_type_id: Annotated[Optional[UUID], Query(description="Filter by relation type ID")] = None,
-    relation_type_slug: Annotated[Optional[str], Query(description="Filter by relation type slug")] = None,
-    source_entity_id: Annotated[Optional[UUID], Query(description="Filter by source entity")] = None,
-    target_entity_id: Annotated[Optional[UUID], Query(description="Filter by target entity")] = None,
-    entity_id: Annotated[Optional[UUID], Query(description="Either source or target")] = None,
+    relation_type_id: Annotated[UUID | None, Query(description="Filter by relation type ID")] = None,
+    relation_type_slug: Annotated[str | None, Query(description="Filter by relation type slug")] = None,
+    source_entity_id: Annotated[UUID | None, Query(description="Filter by source entity")] = None,
+    target_entity_id: Annotated[UUID | None, Query(description="Filter by target entity")] = None,
+    entity_id: Annotated[UUID | None, Query(description="Either source or target")] = None,
     min_confidence: Annotated[float, Query(ge=0, le=1, description="Minimum confidence score")] = 0.0,
-    human_verified: Annotated[Optional[bool], Query(description="Filter by verification status")] = None,
-    is_active: Annotated[Optional[bool], Query(description="Filter by active status")] = None,
+    human_verified: Annotated[bool | None, Query(description="Filter by verification status")] = None,
+    is_active: Annotated[bool | None, Query(description="Filter by active status")] = None,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> EntityRelationListResponse:
     """List entity relations with filters."""
     query = select(EntityRelation)
@@ -463,7 +466,7 @@ async def list_entity_relations(
         )
 
     # Collect all IDs for batch loading
-    relation_type_ids = list(set(rel.relation_type_id for rel in relations))
+    relation_type_ids = list({rel.relation_type_id for rel in relations})
     entity_ids = list(set(
         [rel.source_entity_id for rel in relations] +
         [rel.target_entity_id for rel in relations]
@@ -482,9 +485,9 @@ async def list_entity_relations(
     entities_map = {e.id: e for e in entities_result.scalars().all()}
 
     # Collect EntityType IDs from loaded entities
-    entity_type_ids = list(set(
+    entity_type_ids = list({
         e.entity_type_id for e in entities_map.values() if e.entity_type_id
-    ))
+    })
 
     # Batch load EntityTypes (1 query instead of 2N)
     et_result = await session.execute(
@@ -572,7 +575,7 @@ async def create_entity_relation(
     if existing.scalar():
         raise ConflictError(
             "Relation already exists",
-            detail=f"A relation of this type already exists between these entities",
+            detail="A relation of this type already exists between these entities",
         )
 
     async with AuditContext(session, current_user, request) as audit:
@@ -641,7 +644,7 @@ async def create_entity_relation(
 async def get_entity_relation(
     relation_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> EntityRelationResponse:
     """Get a single entity relation by ID."""
     rel = await session.get(EntityRelation, relation_id)
@@ -729,7 +732,7 @@ async def update_entity_relation(
 async def verify_entity_relation(
     relation_id: UUID,
     verified: Annotated[bool, Query(description="Mark as verified or unverified")] = True,
-    verified_by: Annotated[Optional[str], Query(description="Name of verifier")] = None,
+    verified_by: Annotated[str | None, Query(description="Name of verifier")] = None,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ) -> EntityRelationResponse:
@@ -740,7 +743,7 @@ async def verify_entity_relation(
 
     rel.human_verified = verified
     rel.verified_by = verified_by
-    rel.verified_at = datetime.now(timezone.utc)
+    rel.verified_at = datetime.now(UTC)
 
     await session.commit()
     await session.refresh(rel)
@@ -782,9 +785,9 @@ async def delete_entity_relation(
 async def get_entity_relations_graph(
     entity_id: UUID,
     depth: Annotated[int, Query(ge=1, le=3, description="Graph traversal depth (1-3)")] = 1,
-    relation_type_slugs: Annotated[Optional[List[str]], Query(description="Filter by relation type slugs")] = None,
+    relation_type_slugs: Annotated[list[str] | None, Query(description="Filter by relation type slugs")] = None,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> EntityRelationsGraph:
     """Get a graph of entity relations centered on the given entity."""
     entity = await session.get(Entity, entity_id)
@@ -793,17 +796,17 @@ async def get_entity_relations_graph(
 
     # Pre-load all RelationTypes and EntityTypes to avoid N+1 queries
     relation_types_result = await session.execute(select(RelationType))
-    relation_types_map: Dict[UUID, RelationType] = {
+    relation_types_map: dict[UUID, RelationType] = {
         rt.id: rt for rt in relation_types_result.scalars().all()
     }
 
     entity_types_result = await session.execute(select(EntityType))
-    entity_types_map: Dict[UUID, EntityType] = {
+    entity_types_map: dict[UUID, EntityType] = {
         et.id: et for et in entity_types_result.scalars().all()
     }
 
     # Build filter for relation type slugs if provided
-    allowed_relation_type_ids: Optional[set] = None
+    allowed_relation_type_ids: set | None = None
     if relation_type_slugs:
         allowed_relation_type_ids = {
             rt.id for rt in relation_types_map.values()
@@ -811,10 +814,10 @@ async def get_entity_relations_graph(
         }
 
     # Cache for loaded entities
-    entities_cache: Dict[UUID, Entity] = {entity_id: entity}
+    entities_cache: dict[UUID, Entity] = {entity_id: entity}
     visited_entities: set = set()
-    nodes: List[Dict[str, Any]] = []
-    edges: List[Dict[str, Any]] = []
+    nodes: list[dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
     seen_edges: set = set()
 
     # Collect entity IDs to explore at each depth level

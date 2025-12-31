@@ -71,6 +71,7 @@ export const facetApi = {
   getFacetTypes: facetExports.getFacetTypes,
   getFacetType: facetExports.getFacetType,
   getFacetTypeBySlug: facetExports.getFacetTypeBySlug,
+  getFacetTypesForCategory: facetExports.getFacetTypesForCategory,
   createFacetType: facetExports.createFacetType,
   updateFacetType: facetExports.updateFacetType,
   deleteFacetType: facetExports.deleteFacetType,
@@ -96,6 +97,9 @@ export const facetApi = {
   deleteHistoryDataPoint: facetExports.deleteHistoryDataPoint,
   // Entity References
   getFacetsReferencingEntity: facetExports.getFacetsReferencingEntity,
+  // Admin: Review
+  reviewFacetType: facetExports.reviewFacetType,
+  bulkReviewFacetTypes: facetExports.bulkReviewFacetTypes,
 }
 
 // Relation API
@@ -142,6 +146,7 @@ export const adminApi = {
   getSourceCounts: sourcesExports.getSourceCounts,
   getAvailableTags: sourcesExports.getAvailableTags,
   getSourcesByTags: sourcesExports.getSourcesByTags,
+  getSourceStatusStats: sourcesExports.getSourceStatusStats,
   // SharePoint
   testSharePointConnection: sourcesExports.testSharePointConnection,
   getSharePointStatus: sourcesExports.getSharePointStatus,
@@ -182,6 +187,8 @@ export const adminApi = {
   processAllPending: adminExports.processAllPending,
   stopAllProcessing: adminExports.stopAllProcessing,
   reanalyzeFiltered: adminExports.reanalyzeFiltered,
+  bulkProcessDocuments: adminExports.bulkProcessDocuments,
+  bulkAnalyzeDocuments: adminExports.bulkAnalyzeDocuments,
 }
 
 // Public Data API
@@ -189,14 +196,20 @@ export const dataApi = {
   // Extracted Data
   getExtractedData: sourcesExports.getExtractedData,
   getExtractionStats: sourcesExports.getExtractionStats,
+  getUnverifiedCount: sourcesExports.getUnverifiedCount,
   getExtractionLocations: sourcesExports.getExtractionLocations,
   getExtractionCountries: sourcesExports.getExtractionCountries,
   getDisplayConfig: sourcesExports.getDisplayConfig,
+  getGlobalDisplayConfig: sourcesExports.getGlobalDisplayConfig,
+  getExtractionsByEntity: sourcesExports.getExtractionsByEntity,
   // Documents
   getDocuments: sourcesExports.getDocuments,
   getDocument: sourcesExports.getDocument,
   getDocumentLocations: sourcesExports.getDocumentLocations,
+  getDocumentStats: sourcesExports.getDocumentStats,
   searchDocuments: sourcesExports.searchDocuments,
+  triggerFullAnalysis: sourcesExports.triggerFullAnalysis,
+  analyzeMorePages: sourcesExports.analyzeMorePages,
   // Verification
   verifyExtraction: sourcesExports.verifyExtraction,
   // Municipalities

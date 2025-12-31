@@ -1,10 +1,11 @@
 """API endpoints for the Dashboard."""
 
-from typing import Optional, Annotated
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_current_user
 from app.database import get_session
 from app.models.user import User
 from app.schemas.dashboard import (
@@ -15,7 +16,6 @@ from app.schemas.dashboard import (
     DashboardStatsResponse,
     InsightsResponse,
 )
-from app.core.deps import get_current_user
 from services.dashboard_service import DashboardService
 
 router = APIRouter()

@@ -1,6 +1,6 @@
 """Service for entity versioning with diff-based storage."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, desc, select
@@ -17,11 +17,11 @@ SNAPSHOT_INTERVAL = 10
 async def create_version(
     session: AsyncSession,
     entity: Any,
-    old_data: Dict[str, Any],
-    new_data: Dict[str, Any],
-    user: Optional[User] = None,
-    change_reason: Optional[str] = None,
-) -> Optional[EntityVersion]:
+    old_data: dict[str, Any],
+    new_data: dict[str, Any],
+    user: User | None = None,
+    change_reason: str | None = None,
+) -> EntityVersion | None:
     """
     Create a new version record for an entity.
 
@@ -93,7 +93,7 @@ async def create_version(
 async def create_initial_version(
     session: AsyncSession,
     entity: Any,
-    user: Optional[User] = None,
+    user: User | None = None,
 ) -> EntityVersion:
     """
     Create the initial version (v1) for a new entity.
@@ -109,10 +109,7 @@ async def create_initial_version(
     entity_type = entity.__class__.__name__
 
     # Get entity data for snapshot
-    if hasattr(entity, "to_dict"):
-        snapshot = entity.to_dict()
-    else:
-        snapshot = {"id": str(entity.id)}
+    snapshot = entity.to_dict() if hasattr(entity, "to_dict") else {"id": str(entity.id)}
 
     version = EntityVersion(
         entity_type=entity_type,
@@ -139,7 +136,7 @@ async def get_version_history(
     entity_id: UUID,
     limit: int = 50,
     offset: int = 0,
-) -> List[EntityVersion]:
+) -> list[EntityVersion]:
     """
     Get version history for an entity.
 
@@ -173,7 +170,7 @@ async def get_version(
     entity_type: str,
     entity_id: UUID,
     version_number: int,
-) -> Optional[EntityVersion]:
+) -> EntityVersion | None:
     """
     Get a specific version of an entity.
 
@@ -233,7 +230,7 @@ async def reconstruct_at_version(
     entity_type: str,
     entity_id: UUID,
     target_version: int,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Reconstruct entity state at a specific version.
 

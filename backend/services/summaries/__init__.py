@@ -7,30 +7,30 @@ This module provides services for managing user-defined dashboard summaries:
 - check_relevance: Checks if updates are meaningful
 """
 
-from services.summaries.executor import SummaryExecutor
-from services.summaries.export_service import SummaryExportService
 from services.summaries.ai_interpreter import (
+    get_schedule_suggestion,
     interpret_summary_prompt,
     suggest_widgets_for_entity_type,
-    get_schedule_suggestion,
 )
+from services.summaries.executor import SummaryExecutor
+from services.summaries.export_service import SummaryExportService
 from services.summaries.relevance_checker import (
-    check_relevance,
     RelevanceCheckResult,
     calculate_data_hash,
+    check_relevance,
     quick_change_detection,
     should_notify_user,
 )
 from services.summaries.source_resolver import (
-    resolve_sources_for_summary,
-    resolve_all_sources_for_summary,
+    ResolvedSources,
     extract_entity_types_from_summary,
-    get_sources_for_category,
-    get_sources_for_preset,
     get_categories_for_entity_type,
     get_external_apis_for_entity_type,
     get_source_names,
-    ResolvedSources,
+    get_sources_for_category,
+    get_sources_for_preset,
+    resolve_all_sources_for_summary,
+    resolve_sources_for_summary,
 )
 
 __all__ = [

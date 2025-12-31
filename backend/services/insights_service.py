@@ -1,18 +1,17 @@
 """Insights Service - Proactive insights for the AI Assistant."""
 
-import structlog
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select, func, and_
+import structlog
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import (
     Entity,
     EntityType,
-    FacetType,
     FacetValue,
 )
 from app.schemas.assistant import AssistantContext
@@ -28,7 +27,7 @@ class Insight:
         insight_type: str,
         icon: str,
         message: str,
-        action: Optional[Dict[str, Any]] = None,
+        action: dict[str, Any] | None = None,
         priority: int = 0,
         color: str = "primary"
     ):
@@ -39,7 +38,7 @@ class Insight:
         self.priority = priority
         self.color = color
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.type,
             "icon": self.icon,
@@ -59,10 +58,10 @@ class InsightsService:
     async def get_user_insights(
         self,
         context: AssistantContext,
-        user_id: Optional[UUID] = None,
-        last_login: Optional[datetime] = None,
+        user_id: UUID | None = None,
+        last_login: datetime | None = None,
         language: str = "de"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get contextual insights for the current user.
 
@@ -75,7 +74,7 @@ class InsightsService:
         Returns:
             List of insight dictionaries
         """
-        insights: List[Insight] = []
+        insights: list[Insight] = []
 
         # 1. New data insights (since last login)
         if last_login:
@@ -112,7 +111,7 @@ class InsightsService:
         self,
         since: datetime,
         language: str
-    ) -> List[Insight]:
+    ) -> list[Insight]:
         """Get insights about new data since a timestamp."""
         insights = []
 
@@ -169,9 +168,9 @@ class InsightsService:
     async def _get_entity_insights(
         self,
         entity_id: str,
-        entity_type: Optional[str],
+        entity_type: str | None,
         language: str
-    ) -> List[Insight]:
+    ) -> list[Insight]:
         """Get insights specific to the current entity."""
         insights = []
 
@@ -241,7 +240,7 @@ class InsightsService:
 
         return insights
 
-    async def _get_dashboard_insights(self, language: str) -> List[Insight]:
+    async def _get_dashboard_insights(self, language: str) -> list[Insight]:
         """Get insights for the dashboard view."""
         insights = []
 
@@ -269,7 +268,7 @@ class InsightsService:
             ))
 
             # Recent activity (last 7 days)
-            week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+            week_ago = datetime.now(UTC) - timedelta(days=7)
             result = await self.db.execute(
                 select(func.count(FacetValue.id))
                 .where(FacetValue.created_at >= week_ago)
@@ -300,7 +299,7 @@ class InsightsService:
         self,
         entity_type: str,
         language: str
-    ) -> List[Insight]:
+    ) -> list[Insight]:
         """Get insights for entity list views."""
         insights = []
 
@@ -341,7 +340,7 @@ class InsightsService:
 
         return insights
 
-    async def _get_data_quality_insights(self, language: str) -> List[Insight]:
+    async def _get_data_quality_insights(self, language: str) -> list[Insight]:
         """Get insights about data quality issues."""
         insights = []
 

@@ -1,6 +1,5 @@
 """Admin API endpoints for SharePoint Online integration."""
 
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
@@ -11,8 +10,8 @@ from app.core.exceptions import ValidationError
 from app.models import User
 from external_apis.clients.sharepoint_client import (
     SharePointClient,
-    SharePointError,
     SharePointConfigError,
+    SharePointError,
     parse_sharepoint_site_url,
 )
 
@@ -26,8 +25,8 @@ class SharePointConnectionStatus(BaseModel):
 
     connected: bool = Field(description="Whether connection to SharePoint is successful")
     configured: bool = Field(description="Whether SharePoint credentials are configured")
-    tenant_id: Optional[str] = Field(default=None, description="Partial tenant ID (for verification)")
-    error: Optional[str] = Field(default=None, description="Error message if connection failed")
+    tenant_id: str | None = Field(default=None, description="Partial tenant ID (for verification)")
+    error: str | None = Field(default=None, description="Error message if connection failed")
 
     model_config = {
         "json_schema_extra": {
@@ -61,7 +60,7 @@ class SharePointSiteResponse(BaseModel):
 class SharePointSitesResponse(BaseModel):
     """List of SharePoint sites response."""
 
-    items: List[SharePointSiteResponse] = Field(description="List of sites")
+    items: list[SharePointSiteResponse] = Field(description="List of sites")
     total: int = Field(description="Total number of sites", example=5)
 
     model_config = {
@@ -95,7 +94,7 @@ class SharePointDriveResponse(BaseModel):
 class SharePointDrivesResponse(BaseModel):
     """List of SharePoint drives response."""
 
-    items: List[SharePointDriveResponse] = Field(description="List of drives")
+    items: list[SharePointDriveResponse] = Field(description="List of drives")
     total: int = Field(description="Total number of drives", example=2)
     site_id: str = Field(description="Parent site ID")
 
@@ -109,16 +108,16 @@ class SharePointFileResponse(BaseModel):
     mime_type: str = Field(description="MIME type", example="application/pdf")
     web_url: str = Field(description="Web URL for viewing", example="https://contoso.sharepoint.com/sites/Documents/report.pdf")
     parent_path: str = Field(description="Parent folder path", example="/Windprojekte/2024")
-    created_at: Optional[str] = Field(default=None, description="Creation timestamp", example="2024-01-15T10:30:00+00:00")
-    modified_at: Optional[str] = Field(default=None, description="Last modification timestamp", example="2024-03-20T14:45:00+00:00")
-    created_by: Optional[str] = Field(default=None, description="Creator display name", example="Max Mustermann")
-    modified_by: Optional[str] = Field(default=None, description="Last modifier display name", example="Erika Musterfrau")
+    created_at: str | None = Field(default=None, description="Creation timestamp", example="2024-01-15T10:30:00+00:00")
+    modified_at: str | None = Field(default=None, description="Last modification timestamp", example="2024-03-20T14:45:00+00:00")
+    created_by: str | None = Field(default=None, description="Creator display name", example="Max Mustermann")
+    modified_by: str | None = Field(default=None, description="Last modifier display name", example="Erika Musterfrau")
 
 
 class SharePointFilesResponse(BaseModel):
     """List of SharePoint files response."""
 
-    items: List[SharePointFileResponse] = Field(description="List of files")
+    items: list[SharePointFileResponse] = Field(description="List of files")
     total: int = Field(description="Total number of files returned", example=25)
     site_id: str = Field(description="Site ID")
     drive_id: str = Field(description="Drive ID")
@@ -132,17 +131,17 @@ class SharePointConfigExample(BaseModel):
         example="contoso.sharepoint.com:/sites/Documents",
         description="SharePoint site URL"
     )
-    drive_name: Optional[str] = Field(
+    drive_name: str | None = Field(
         default=None,
         example="Shared Documents",
         description="Document library name"
     )
-    folder_path: Optional[str] = Field(
+    folder_path: str | None = Field(
         default="",
         example="/Windprojekte",
         description="Folder path within the library"
     )
-    file_extensions: List[str] = Field(
+    file_extensions: list[str] = Field(
         default=[".pdf", ".docx", ".doc", ".xlsx", ".pptx"],
         description="File extensions to include"
     )
@@ -150,7 +149,7 @@ class SharePointConfigExample(BaseModel):
         default=True,
         description="Include files from subfolders"
     )
-    exclude_patterns: List[str] = Field(
+    exclude_patterns: list[str] = Field(
         default=["~$*", "*.tmp", ".DS_Store"],
         description="File patterns to exclude (glob patterns)"
     )
@@ -160,7 +159,7 @@ class SharePointConfigExample(BaseModel):
         le=10000,
         description="Maximum files to crawl"
     )
-    file_paths_text: Optional[str] = Field(
+    file_paths_text: str | None = Field(
         default=None,
         example="/Documents/Report.pdf\n/Projects/Analysis.docx",
         description="Explicit file paths to crawl (one per line). If set, these files are fetched in addition to folder crawling."
@@ -181,11 +180,11 @@ class SharePointTestConnectionResponse(BaseModel):
     authentication: bool = Field(description="OAuth2 authentication successful")
     sites_accessible: bool = Field(description="Can list sites")
     sites_found: int = Field(default=0, description="Number of sites found")
-    target_site: Optional[str] = Field(default=None, description="Target site URL if specified")
+    target_site: str | None = Field(default=None, description="Target site URL if specified")
     target_site_accessible: bool = Field(default=False, description="Can access target site")
-    target_site_name: Optional[str] = Field(default=None, description="Display name of target site")
-    drives: List[SharePointDriveInfo] = Field(default_factory=list, description="Document libraries found")
-    errors: List[str] = Field(default_factory=list, description="Errors encountered")
+    target_site_name: str | None = Field(default=None, description="Display name of target site")
+    drives: list[SharePointDriveInfo] = Field(default_factory=list, description="Document libraries found")
+    errors: list[str] = Field(default_factory=list, description="Errors encountered")
 
 
 # === Endpoints ===
@@ -256,7 +255,7 @@ async def list_sharepoint_sites(
                 total=len(sites),
             )
     except Exception as e:
-        raise ValidationError(f"Failed to list SharePoint sites: {e}")
+        raise ValidationError(f"Failed to list SharePoint sites: {e}") from None
 
 
 @router.get("/sites/{site_id}/drives", response_model=SharePointDrivesResponse)
@@ -290,7 +289,7 @@ async def list_sharepoint_drives(
                 site_id=site_id,
             )
     except Exception as e:
-        raise ValidationError(f"Failed to list SharePoint drives: {e}")
+        raise ValidationError(f"Failed to list SharePoint drives: {e}") from None
 
 
 @router.get("/sites/{site_id}/drives/{drive_id}/files", response_model=SharePointFilesResponse)
@@ -348,7 +347,7 @@ async def list_sharepoint_files(
                 folder_path=folder_path,
             )
     except Exception as e:
-        raise ValidationError(f"Failed to list SharePoint files: {e}")
+        raise ValidationError(f"Failed to list SharePoint files: {e}") from None
 
 
 @router.get("/config-example", response_model=SharePointConfigExample)
@@ -365,7 +364,7 @@ async def get_config_example(
 
 @router.post("/test-connection", response_model=SharePointTestConnectionResponse)
 async def test_sharepoint_connection(
-    site_url: Optional[str] = Query(
+    site_url: str | None = Query(
         default=None,
         description="Optional site URL to test (e.g., 'contoso.sharepoint.com:/sites/Documents')"
     ),

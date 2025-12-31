@@ -1,11 +1,10 @@
 """PySis integration schemas for API validation."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
-
 
 # === Field Definition (used in templates) ===
 
@@ -15,7 +14,7 @@ class PySisFieldDefinition(BaseModel):
     internal_name: str = Field(..., min_length=1, description="Display name, e.g., 'Ansprechpartner Gemeinde'")
     pysis_field_name: str = Field(..., min_length=1, description="PySis API field name")
     field_type: str = Field(default="text", description="Field type: text, number, date, boolean, list")
-    ai_extraction_prompt: Optional[str] = Field(None, description="Custom AI prompt for extracting this field")
+    ai_extraction_prompt: str | None = Field(None, description="Custom AI prompt for extracting this field")
 
 
 # === Template Schemas ===
@@ -24,17 +23,17 @@ class PySisFieldTemplateCreate(BaseModel):
     """Schema for creating a new field template."""
 
     name: str = Field(..., min_length=1, max_length=255, description="Template name")
-    description: Optional[str] = Field(None, description="Template description")
-    fields: List[PySisFieldDefinition] = Field(default_factory=list, description="Field definitions")
+    description: str | None = Field(None, description="Template description")
+    fields: list[PySisFieldDefinition] = Field(default_factory=list, description="Field definitions")
 
 
 class PySisFieldTemplateUpdate(BaseModel):
     """Schema for updating a template."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = None
-    fields: Optional[List[PySisFieldDefinition]] = None
-    is_active: Optional[bool] = None
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    fields: list[PySisFieldDefinition] | None = None
+    is_active: bool | None = None
 
 
 class PySisFieldTemplateResponse(BaseModel):
@@ -42,8 +41,8 @@ class PySisFieldTemplateResponse(BaseModel):
 
     id: UUID
     name: str
-    description: Optional[str]
-    fields: List[PySisFieldDefinition]
+    description: str | None
+    fields: list[PySisFieldDefinition]
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -54,7 +53,7 @@ class PySisFieldTemplateResponse(BaseModel):
 class PySisFieldTemplateListResponse(BaseModel):
     """Schema for template list response."""
 
-    items: List[PySisFieldTemplateResponse]
+    items: list[PySisFieldTemplateResponse]
     total: int
 
 
@@ -64,34 +63,34 @@ class PySisProcessCreate(BaseModel):
     """Schema for creating a new process link."""
 
     pysis_process_id: str = Field(..., min_length=1, description="External PySis process ID")
-    name: Optional[str] = Field(None, max_length=255, description="Optional display name")
-    description: Optional[str] = Field(None, description="Notes about this process")
-    template_id: Optional[UUID] = Field(None, description="Template to apply on creation")
+    name: str | None = Field(None, max_length=255, description="Optional display name")
+    description: str | None = Field(None, description="Notes about this process")
+    template_id: UUID | None = Field(None, description="Template to apply on creation")
 
 
 class PySisProcessUpdate(BaseModel):
     """Schema for updating a process."""
 
-    name: Optional[str] = Field(None, max_length=255)
-    description: Optional[str] = None
+    name: str | None = Field(None, max_length=255)
+    description: str | None = None
 
 
 class PySisProcessResponse(BaseModel):
     """Schema for process response."""
 
     id: UUID
-    entity_name: Optional[str] = None
+    entity_name: str | None = None
     pysis_process_id: str
-    name: Optional[str] = None
-    description: Optional[str] = None
-    template_id: Optional[UUID] = None
-    last_synced_at: Optional[datetime] = None
+    name: str | None = None
+    description: str | None = None
+    template_id: UUID | None = None
+    last_synced_at: datetime | None = None
     sync_status: str
-    sync_error: Optional[str] = None
+    sync_error: str | None = None
     field_count: int = Field(default=0, description="Number of fields in this process")
     created_at: datetime
     updated_at: datetime
-    extra: Optional[Dict[str, Any]] = Field(None, description="Additional response data")
+    extra: dict[str, Any] | None = Field(None, description="Additional response data")
 
     model_config = {"from_attributes": True}
 
@@ -99,14 +98,14 @@ class PySisProcessResponse(BaseModel):
 class PySisProcessListResponse(BaseModel):
     """Schema for process list response."""
 
-    items: List[PySisProcessResponse]
+    items: list[PySisProcessResponse]
     total: int
 
 
 class PySisProcessDetailResponse(PySisProcessResponse):
     """Schema for detailed process response with fields."""
 
-    fields: List["PySisFieldResponse"] = Field(default_factory=list)
+    fields: list["PySisFieldResponse"] = Field(default_factory=list)
 
 
 # === Field Schemas ===
@@ -118,22 +117,22 @@ class PySisFieldCreate(BaseModel):
     pysis_field_name: str = Field(..., min_length=1, max_length=255, description="PySis API field name")
     field_type: str = Field(default="text", description="Field type")
     ai_extraction_enabled: bool = Field(default=True, description="Enable AI extraction")
-    ai_extraction_prompt: Optional[str] = Field(None, description="Custom AI prompt")
+    ai_extraction_prompt: str | None = Field(None, description="Custom AI prompt")
 
 
 class PySisFieldUpdate(BaseModel):
     """Schema for updating a field."""
 
-    internal_name: Optional[str] = Field(None, min_length=1, max_length=255)
-    field_type: Optional[str] = None
-    ai_extraction_enabled: Optional[bool] = None
-    ai_extraction_prompt: Optional[str] = None
+    internal_name: str | None = Field(None, min_length=1, max_length=255)
+    field_type: str | None = None
+    ai_extraction_enabled: bool | None = None
+    ai_extraction_prompt: str | None = None
 
 
 class PySisFieldValueUpdate(BaseModel):
     """Schema for updating a field's value."""
 
-    value: Optional[str] = Field(None, description="New value for the field")
+    value: str | None = Field(None, description="New value for the field")
     source: str = Field(default="MANUAL", description="Value source: MANUAL or AI")
 
 
@@ -146,16 +145,16 @@ class PySisFieldResponse(BaseModel):
     pysis_field_name: str
     field_type: str
     ai_extraction_enabled: bool
-    ai_extraction_prompt: Optional[str]
-    current_value: Optional[str]
-    ai_extracted_value: Optional[str]
-    manual_value: Optional[str]
+    ai_extraction_prompt: str | None
+    current_value: str | None
+    ai_extracted_value: str | None
+    manual_value: str | None
     value_source: str
-    pysis_value: Optional[str]
+    pysis_value: str | None
     needs_push: bool
-    confidence_score: Optional[float]
-    last_pushed_at: Optional[datetime]
-    last_pulled_at: Optional[datetime]
+    confidence_score: float | None
+    last_pushed_at: datetime | None
+    last_pulled_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -167,7 +166,7 @@ class PySisFieldResponse(BaseModel):
 class PySisSyncRequest(BaseModel):
     """Schema for sync request."""
 
-    field_ids: Optional[List[UUID]] = Field(None, description="Specific field IDs to sync (all if None)")
+    field_ids: list[UUID] | None = Field(None, description="Specific field IDs to sync (all if None)")
 
 
 class PySisSyncResult(BaseModel):
@@ -175,7 +174,7 @@ class PySisSyncResult(BaseModel):
 
     success: bool
     fields_synced: int
-    errors: List[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
     synced_at: datetime
 
 
@@ -185,8 +184,8 @@ class PySisPullResult(BaseModel):
     success: bool
     fields_updated: int = 0
     fields_created: int = 0
-    process_data: Optional[Dict[str, Any]] = Field(None, description="Raw data from PySis")
-    errors: List[str] = Field(default_factory=list)
+    process_data: dict[str, Any] | None = Field(None, description="Raw data from PySis")
+    errors: list[str] = Field(default_factory=list)
 
 
 # === AI Generation Schemas ===
@@ -194,7 +193,7 @@ class PySisPullResult(BaseModel):
 class PySisGenerateRequest(BaseModel):
     """Schema for AI generation request."""
 
-    field_ids: Optional[List[UUID]] = Field(None, description="Specific field IDs to generate (all if None)")
+    field_ids: list[UUID] | None = Field(None, description="Specific field IDs to generate (all if None)")
 
 
 class PySisGenerateResult(BaseModel):
@@ -202,7 +201,7 @@ class PySisGenerateResult(BaseModel):
 
     success: bool
     fields_generated: int
-    errors: List[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
 
 
 # === Apply Template Schema ===
@@ -222,9 +221,9 @@ class PySisTestConnectionResult(BaseModel):
     connected: bool
     token_obtained: bool = False
     api_base_url: str
-    process_data: Optional[Dict[str, Any]] = None
-    process_fields: Optional[List[str]] = None
-    error: Optional[str] = None
+    process_data: dict[str, Any] | None = None
+    process_fields: list[str] | None = None
+    error: str | None = None
 
 
 # === Field History Schemas ===
@@ -234,9 +233,9 @@ class PySisFieldHistoryResponse(BaseModel):
 
     id: UUID
     field_id: UUID
-    value: Optional[str]
+    value: str | None
     source: str
-    confidence_score: Optional[float]
+    confidence_score: float | None
     action: str
     created_at: datetime
 
@@ -246,7 +245,7 @@ class PySisFieldHistoryResponse(BaseModel):
 class PySisFieldHistoryListResponse(BaseModel):
     """Schema for field history list."""
 
-    items: List[PySisFieldHistoryResponse]
+    items: list[PySisFieldHistoryResponse]
     total: int
 
 
@@ -263,7 +262,7 @@ class AcceptAISuggestionResult(BaseModel):
 
     success: bool
     field_id: UUID
-    accepted_value: Optional[str]
+    accepted_value: str | None
     message: str
 
 

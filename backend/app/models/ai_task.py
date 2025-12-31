@@ -3,7 +3,7 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -69,21 +69,21 @@ class AITask(Base):
         nullable=False,
         comment="Human-readable task name",
     )
-    description: Mapped[Optional[str]] = mapped_column(
+    description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Detailed task description",
     )
 
     # Related entities (optional, depending on task type)
-    process_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    process_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("pysis_processes.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
         comment="PySis process ID for extraction tasks",
     )
-    document_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    document_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("documents.id", ondelete="CASCADE"),
         nullable=True,
@@ -97,11 +97,11 @@ class AITask(Base):
         server_default=func.now(),
         nullable=False,
     )
-    started_at: Mapped[Optional[datetime]] = mapped_column(
+    started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    completed_at: Mapped[Optional[datetime]] = mapped_column(
+    completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -109,7 +109,7 @@ class AITask(Base):
     # Progress
     progress_current: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     progress_total: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    current_item: Mapped[Optional[str]] = mapped_column(
+    current_item: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="Currently processing item name",
@@ -117,21 +117,21 @@ class AITask(Base):
 
     # Results
     fields_extracted: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    avg_confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    avg_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Error tracking
-    error_message: Mapped[Optional[str]] = mapped_column(
+    error_message: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
-    error_details: Mapped[Dict[str, Any]] = mapped_column(
+    error_details: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
     )
 
     # Result data for preview/staging (e.g., proposed facet changes before approval)
-    result_data: Mapped[Dict[str, Any]] = mapped_column(
+    result_data: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
@@ -139,7 +139,7 @@ class AITask(Base):
     )
 
     # Entity reference (for entity-based tasks)
-    entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("entities.id", ondelete="CASCADE"),
         nullable=True,
@@ -148,7 +148,7 @@ class AITask(Base):
     )
 
     # Celery task ID for tracking
-    celery_task_id: Mapped[Optional[str]] = mapped_column(
+    celery_task_id: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         index=True,
@@ -161,7 +161,7 @@ class AITask(Base):
     )
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         """Calculate task duration in seconds."""
         if self.started_at and self.completed_at:
             return (self.completed_at - self.started_at).total_seconds()
@@ -186,4 +186,4 @@ class AITask(Base):
 
 
 # Import here to avoid circular imports
-from app.models.pysis import PySisProcess
+from app.models.pysis import PySisProcess  # noqa: E402

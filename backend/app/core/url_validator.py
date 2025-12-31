@@ -6,7 +6,6 @@ before crawling to ensure they don't point to internal resources.
 
 import ipaddress
 import socket
-from typing import Optional, Tuple
 from urllib.parse import urlparse
 
 import structlog
@@ -54,15 +53,12 @@ def is_ip_blocked(ip_str: str) -> bool:
     """Check if an IP address is in a blocked range."""
     try:
         ip = ipaddress.ip_address(ip_str)
-        for network in BLOCKED_IP_RANGES:
-            if ip in network:
-                return True
-        return False
+        return any(ip in network for network in BLOCKED_IP_RANGES)
     except ValueError:
         return False
 
 
-def resolve_hostname(hostname: str) -> Optional[str]:
+def resolve_hostname(hostname: str) -> str | None:
     """Resolve hostname to IP address.
 
     Returns None if resolution fails.
@@ -78,7 +74,7 @@ def resolve_hostname(hostname: str) -> Optional[str]:
         return None
 
 
-def validate_url(url: str) -> Tuple[bool, Optional[str]]:
+def validate_url(url: str) -> tuple[bool, str | None]:
     """Validate a URL for crawling.
 
     Checks:
@@ -155,7 +151,7 @@ async def validate_url_http(
     url: str,
     follow_redirects: bool = True,
     timeout: float = 10.0,
-) -> Tuple[bool, Optional[str], Optional[str]]:
+) -> tuple[bool, str | None, str | None]:
     """Validate URL by making an HTTP HEAD request.
 
     Checks:
@@ -192,11 +188,11 @@ async def validate_url_http(
 
             # Check status code
             if response.status_code == 404:
-                return False, f"URL returns 404 Not Found", None
+                return False, "URL returns 404 Not Found", None
             elif response.status_code == 403:
-                return False, f"URL returns 403 Forbidden", None
+                return False, "URL returns 403 Forbidden", None
             elif response.status_code == 401:
-                return False, f"URL returns 401 Unauthorized", None
+                return False, "URL returns 401 Unauthorized", None
             elif response.status_code >= 500:
                 return False, f"URL returns server error ({response.status_code})", None
             elif response.status_code >= 400:
@@ -226,7 +222,7 @@ async def validate_url_http(
         return False, f"HTTP error: {type(e).__name__}: {str(e)[:50]}", None
 
 
-def validate_url_strict(url: str, allowed_domains: Optional[list] = None) -> Tuple[bool, Optional[str]]:
+def validate_url_strict(url: str, allowed_domains: list | None = None) -> tuple[bool, str | None]:
     """Strict URL validation with optional domain whitelist.
 
     In addition to basic validation, can restrict to specific domains.

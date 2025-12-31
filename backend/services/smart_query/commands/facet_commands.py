@@ -1,13 +1,12 @@
 """Facet-related commands for Smart Query."""
 
-from typing import Any, Dict, Optional
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select, or_, and_
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, or_, select
 
-from app.models import FacetType, FacetValue, Entity
+from app.models import Entity, FacetType, FacetValue
+
 from .base import BaseCommand, CommandResult
 from .registry import default_registry
 
@@ -18,7 +17,7 @@ logger = structlog.get_logger()
 class CreateFacetCommand(BaseCommand):
     """Command to create a new facet value."""
 
-    async def validate(self) -> Optional[str]:
+    async def validate(self) -> str | None:
         """Validate facet creation data."""
         facet_data = self.data.get("facet_data", {})
 
@@ -55,7 +54,7 @@ class CreateFacetCommand(BaseCommand):
 class CreateFacetTypeCommand(BaseCommand):
     """Command to create a new facet type."""
 
-    async def validate(self) -> Optional[str]:
+    async def validate(self) -> str | None:
         """Validate facet type data."""
         facet_type_data = self.data.get("facet_type_data", {})
 
@@ -66,8 +65,8 @@ class CreateFacetTypeCommand(BaseCommand):
 
     async def execute(self) -> CommandResult:
         """Create the facet type."""
-        from services.smart_query.utils import generate_slug
         from app.utils.similarity import find_similar_facet_types
+        from services.smart_query.utils import generate_slug
 
         facet_type_data = self.data.get("facet_type_data", {})
         name = facet_type_data.get("name")
@@ -184,7 +183,7 @@ class CreateFacetTypeCommand(BaseCommand):
 class DeleteFacetCommand(BaseCommand):
     """Command to delete facet(s) from an entity."""
 
-    async def validate(self) -> Optional[str]:
+    async def validate(self) -> str | None:
         """Validate delete data."""
         delete_data = self.data.get("delete_facet_data", {})
 
@@ -307,7 +306,7 @@ class DeleteFacetCommand(BaseCommand):
 class AssignFacetTypeCommand(BaseCommand):
     """Command to assign a facet type to entity types."""
 
-    async def validate(self) -> Optional[str]:
+    async def validate(self) -> str | None:
         """Validate assignment data."""
         assign_data = self.data.get("assign_facet_type_data", {})
 
@@ -352,7 +351,7 @@ class AssignFacetTypeCommand(BaseCommand):
 class AddHistoryDataPointCommand(BaseCommand):
     """Command to add a data point to a history-type facet."""
 
-    async def validate(self) -> Optional[str]:
+    async def validate(self) -> str | None:
         """Validate history data point data."""
         point_data = self.data.get("history_point_data", {})
 
@@ -370,8 +369,9 @@ class AddHistoryDataPointCommand(BaseCommand):
     async def execute(self) -> CommandResult:
         """Add the history data point."""
         from datetime import datetime
-        from services.smart_query.entity_operations import find_entity_by_name
+
         from services.facet_history_service import FacetHistoryService
+        from services.smart_query.entity_operations import find_entity_by_name
 
         point_data = self.data.get("history_point_data", {})
         entity_id = point_data.get("entity_id")

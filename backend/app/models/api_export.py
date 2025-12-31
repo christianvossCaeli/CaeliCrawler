@@ -3,7 +3,7 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -40,7 +40,7 @@ class ApiExport(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     # Optional category filter (NULL = all categories)
-    category_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("categories.id", ondelete="SET NULL"),
         nullable=True,
@@ -54,7 +54,7 @@ class ApiExport(Base):
     )
 
     # Configuration
-    config: Mapped[Dict[str, Any]] = mapped_column(
+    config: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
     )
@@ -70,12 +70,12 @@ class ApiExport(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Statistics
-    last_export: Mapped[Optional[datetime]] = mapped_column(
+    last_export: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
     export_count: Mapped[int] = mapped_column(default=0, nullable=False)
-    last_error: Mapped[Optional[str]] = mapped_column(nullable=True)
+    last_error: Mapped[str | None] = mapped_column(nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

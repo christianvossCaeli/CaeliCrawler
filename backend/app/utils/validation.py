@@ -1,6 +1,5 @@
 """Validation utilities and constants for the application."""
 
-from typing import Optional
 from uuid import UUID
 
 
@@ -47,7 +46,7 @@ class AssistantConstants:
     BATCH_POLL_INTERVAL_MS = 2000
 
 
-def validate_uuid(value: Optional[str]) -> Optional[UUID]:
+def validate_uuid(value: str | None) -> UUID | None:
     """
     Safely convert a string to UUID.
 

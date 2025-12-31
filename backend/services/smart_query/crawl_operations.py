@@ -1,19 +1,19 @@
 """Crawl operations for Smart Query Service."""
 
-from typing import Any, Dict, List, Set
+from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select, or_, func, cast, Float
+from sqlalchemy import Float, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import DataSource, DataSourceCategory, Category, Entity
+from app.models import Category, DataSource, DataSourceCategory, Entity
 from services.smart_query.constants import TAG_ALIASES
 
 logger = structlog.get_logger()
 
 
-def expand_tag(tag: str) -> List[str]:
+def expand_tag(tag: str) -> list[str]:
     """Expand a tag to include aliases."""
     tag_lower = tag.lower().strip()
     if tag_lower in TAG_ALIASES:
@@ -23,9 +23,9 @@ def expand_tag(tag: str) -> List[str]:
 
 async def find_matching_data_sources(
     session: AsyncSession,
-    filter_criteria: Dict[str, Any],
+    filter_criteria: dict[str, Any],
     limit: int = 1000,
-) -> List[DataSource]:
+) -> list[DataSource]:
     """
     Find data sources matching filter criteria.
 
@@ -57,8 +57,8 @@ async def find_matching_data_sources(
     if admin_level_1 and not tags:
         tags = expand_tag(admin_level_1)
 
-    found_source_ids: Set[UUID] = set()
-    all_sources: List[DataSource] = []
+    found_source_ids: set[UUID] = set()
+    all_sources: list[DataSource] = []
 
     logger.info(
         "Finding matching data sources",
@@ -160,9 +160,9 @@ async def find_matching_data_sources(
 
 async def find_sources_for_crawl(
     session: AsyncSession,
-    crawl_data: Dict[str, Any],
+    crawl_data: dict[str, Any],
     limit: int = 1000,
-) -> List[DataSource]:
+) -> list[DataSource]:
     """Find data sources matching crawl criteria.
 
     Supports multiple filter strategies that can be combined:
@@ -371,9 +371,9 @@ async def find_sources_for_crawl(
 
 async def start_crawl_jobs(
     session: AsyncSession,
-    sources: List[DataSource],
+    sources: list[DataSource],
     force: bool = False,
-) -> List[str]:
+) -> list[str]:
     """Start crawl jobs for a list of data sources.
 
     Args:
@@ -386,7 +386,7 @@ async def start_crawl_jobs(
     """
     from workers.crawl_tasks import create_crawl_job
 
-    job_ids: List[str] = []
+    job_ids: list[str] = []
 
     for source in sources:
         # Get all categories for this source
@@ -426,8 +426,8 @@ async def start_crawl_jobs(
 
 async def execute_crawl_command(
     session: AsyncSession,
-    crawl_data: Dict[str, Any],
-) -> Dict[str, Any]:
+    crawl_data: dict[str, Any],
+) -> dict[str, Any]:
     """Execute START_CRAWL operation - starts crawls for matching sources."""
     from workers.crawl_tasks import create_crawl_job
 

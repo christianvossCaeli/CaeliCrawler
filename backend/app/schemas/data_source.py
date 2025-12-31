@@ -1,7 +1,7 @@
 """DataSource schemas for API validation."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -13,10 +13,10 @@ class CrawlConfig(BaseModel):
     """Crawl configuration for a data source."""
 
     # CSS selectors for finding content
-    content_selector: Optional[str] = Field(None, description="CSS selector for main content")
-    link_selector: Optional[str] = Field(None, description="CSS selector for document links")
-    title_selector: Optional[str] = Field(None, description="CSS selector for titles")
-    date_selector: Optional[str] = Field(None, description="CSS selector for dates")
+    content_selector: str | None = Field(None, description="CSS selector for main content")
+    link_selector: str | None = Field(None, description="CSS selector for document links")
+    title_selector: str | None = Field(None, description="CSS selector for titles")
+    date_selector: str | None = Field(None, description="CSS selector for dates")
 
     # Crawl behavior
     max_depth: int = Field(default=3, ge=1, le=10, description="Maximum crawl depth")
@@ -24,49 +24,49 @@ class CrawlConfig(BaseModel):
     follow_external_links: bool = Field(default=False, description="Follow external links")
 
     # URL filtering (regex patterns)
-    url_include_patterns: List[str] = Field(
+    url_include_patterns: list[str] = Field(
         default_factory=list,
         description="Regex patterns - URLs must match at least one (if set)",
     )
-    url_exclude_patterns: List[str] = Field(
+    url_exclude_patterns: list[str] = Field(
         default_factory=list,
         description="Regex patterns - URLs matching any will be skipped",
     )
 
     # File types to download
-    download_extensions: List[str] = Field(
+    download_extensions: list[str] = Field(
         default=["pdf", "doc", "docx"],
         description="File extensions to download",
     )
 
     # Custom headers
-    headers: Dict[str, str] = Field(default_factory=dict, description="Custom HTTP headers")
+    headers: dict[str, str] = Field(default_factory=dict, description="Custom HTTP headers")
 
     # JavaScript rendering
     render_javascript: bool = Field(default=False, description="Use Playwright for JS rendering")
-    wait_for_selector: Optional[str] = Field(None, description="Wait for selector before scraping")
+    wait_for_selector: str | None = Field(None, description="Wait for selector before scraping")
 
     # News/RSS Crawler settings
-    crawl_type: Optional[str] = Field(None, description="Crawl type: auto, rss, html, news")
-    news_path: Optional[str] = Field(None, description="Path to news section (e.g., /aktuelles)")
-    rss_url: Optional[str] = Field(None, description="RSS feed URL")
+    crawl_type: str | None = Field(None, description="Crawl type: auto, rss, html, news")
+    news_path: str | None = Field(None, description="Path to news section (e.g., /aktuelles)")
+    rss_url: str | None = Field(None, description="RSS feed URL")
     max_articles: int = Field(default=50, ge=1, le=500, description="Maximum articles to fetch")
-    filter_keywords: List[str] = Field(default_factory=list, description="Keywords to filter articles")
+    filter_keywords: list[str] = Field(default_factory=list, description="Keywords to filter articles")
 
     # API-specific settings (for CUSTOM_API)
-    api_type: Optional[str] = Field(None, description="API type: govdata, dip_bundestag, fragdenstaat")
-    search_query: Optional[str] = Field(None, description="Search query for API")
-    wahlperiode: Optional[int] = Field(None, description="Legislative period (for DIP)")
-    vorgangstyp: Optional[str] = Field(None, description="Process type (for DIP)")
+    api_type: str | None = Field(None, description="API type: govdata, dip_bundestag, fragdenstaat")
+    search_query: str | None = Field(None, description="Search query for API")
+    wahlperiode: int | None = Field(None, description="Legislative period (for DIP)")
+    vorgangstyp: str | None = Field(None, description="Process type (for DIP)")
     max_results: int = Field(default=100, ge=1, le=1000, description="Maximum results from API")
 
     # Entity API settings (for REST_API and SPARQL_API source types)
     # These APIs are used to keep Entities up-to-date
-    entity_api_type: Optional[str] = Field(
+    entity_api_type: str | None = Field(
         None,
         description="Entity API type: rest or sparql"
     )
-    entity_api_endpoint: Optional[str] = Field(
+    entity_api_endpoint: str | None = Field(
         None,
         description="API endpoint path (appended to base_url)"
     )
@@ -74,19 +74,19 @@ class CrawlConfig(BaseModel):
         default="GET",
         description="HTTP method for REST API"
     )
-    entity_api_query: Optional[str] = Field(
+    entity_api_query: str | None = Field(
         None,
         description="SPARQL query string (for SPARQL_API)"
     )
-    entity_api_template: Optional[str] = Field(
+    entity_api_template: str | None = Field(
         None,
         description="Predefined API template name (e.g., 'caeli_auction_windparks')"
     )
-    entity_field_mapping: Dict[str, str] = Field(
+    entity_field_mapping: dict[str, str] = Field(
         default_factory=dict,
         description="Mapping from API fields to Entity fields (e.g., {'auctionId': 'external_id'})"
     )
-    entity_type_slug: Optional[str] = Field(
+    entity_type_slug: str | None = Field(
         None,
         description="Target EntityType slug for updates"
     )
@@ -94,25 +94,25 @@ class CrawlConfig(BaseModel):
         default="merge",
         description="Update strategy: merge (update existing), replace (overwrite), upsert (create or update)"
     )
-    entity_id_field: Optional[str] = Field(
+    entity_id_field: str | None = Field(
         None,
         description="API field used to identify existing entities (default: external_id from field_mapping)"
     )
 
     # SharePoint settings (for SHAREPOINT source type)
-    site_url: Optional[str] = Field(
+    site_url: str | None = Field(
         None,
         description="SharePoint site URL (e.g., 'contoso.sharepoint.com:/sites/Documents')"
     )
-    drive_name: Optional[str] = Field(
+    drive_name: str | None = Field(
         None,
         description="Name of the document library (default: first available)"
     )
-    folder_path: Optional[str] = Field(
+    folder_path: str | None = Field(
         None,
         description="Path within the drive to crawl (default: root)"
     )
-    file_extensions: List[str] = Field(
+    file_extensions: list[str] = Field(
         default_factory=lambda: [".pdf", ".docx", ".doc", ".xlsx", ".pptx"],
         description="File extensions to include (e.g., ['.pdf', '.docx'])"
     )
@@ -120,7 +120,7 @@ class CrawlConfig(BaseModel):
         default=True,
         description="Whether to include files from subfolders"
     )
-    exclude_patterns: List[str] = Field(
+    exclude_patterns: list[str] = Field(
         default_factory=lambda: ["~$*", "*.tmp", ".DS_Store"],
         description="File patterns to exclude (glob syntax)"
     )
@@ -140,12 +140,12 @@ class DataSourceBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Source name")
     source_type: SourceType = Field(..., description="Type of data source")
     base_url: str = Field(..., description="Base URL for the source")
-    api_endpoint: Optional[str] = Field(None, description="API endpoint (for API sources)")
+    api_endpoint: str | None = Field(None, description="API endpoint (for API sources)")
 
     crawl_config: CrawlConfig = Field(default_factory=CrawlConfig, description="Crawl configuration")
-    extra_data: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    extra_data: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     priority: int = Field(default=0, description="Crawl priority (higher = more important)")
-    tags: List[str] = Field(
+    tags: list[str] = Field(
         default_factory=list,
         description="Tags for filtering/categorization (e.g., ['nrw', 'kommunal', 'windkraft'])",
     )
@@ -163,30 +163,30 @@ class DataSourceCreate(DataSourceBase):
     """Schema for creating a data source."""
 
     # Legacy single category (for backwards compatibility)
-    category_id: Optional[UUID] = Field(None, description="Primary category ID (legacy)")
+    category_id: UUID | None = Field(None, description="Primary category ID (legacy)")
     # New: multiple categories
-    category_ids: Optional[List[UUID]] = Field(None, description="List of category IDs")
-    auth_config: Optional[Dict[str, Any]] = Field(None, description="Authentication configuration")
+    category_ids: list[UUID] | None = Field(None, description="List of category IDs")
+    auth_config: dict[str, Any] | None = Field(None, description="Authentication configuration")
 
 
 class DataSourceUpdate(BaseModel):
     """Schema for updating a data source."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    source_type: Optional[SourceType] = None
-    base_url: Optional[str] = None
-    api_endpoint: Optional[str] = None
+    name: str | None = Field(None, min_length=1, max_length=255)
+    source_type: SourceType | None = None
+    base_url: str | None = None
+    api_endpoint: str | None = None
 
-    crawl_config: Optional[CrawlConfig] = None
-    auth_config: Optional[Dict[str, Any]] = None
-    extra_data: Optional[Dict[str, Any]] = None
-    priority: Optional[int] = None
-    status: Optional[SourceStatus] = None
-    tags: Optional[List[str]] = Field(None, description="Tags for filtering/categorization")
+    crawl_config: CrawlConfig | None = None
+    auth_config: dict[str, Any] | None = None
+    extra_data: dict[str, Any] | None = None
+    priority: int | None = None
+    status: SourceStatus | None = None
+    tags: list[str] | None = Field(None, description="Tags for filtering/categorization")
 
     # Category management (N:M)
-    category_ids: Optional[List[UUID]] = Field(None, description="List of category IDs (replaces existing)")
-    primary_category_id: Optional[UUID] = Field(None, description="Primary category ID")
+    category_ids: list[UUID] | None = Field(None, description="List of category IDs (replaces existing)")
+    primary_category_id: UUID | None = Field(None, description="Primary category ID")
 
 
 class DataSourceResponse(DataSourceBase):
@@ -194,21 +194,21 @@ class DataSourceResponse(DataSourceBase):
 
     id: UUID
     # Legacy category_id (nullable for N:M transition)
-    category_id: Optional[UUID] = None
+    category_id: UUID | None = None
     status: SourceStatus
-    last_crawl: Optional[datetime]
-    last_change_detected: Optional[datetime]
-    error_message: Optional[str]
+    last_crawl: datetime | None
+    last_change_detected: datetime | None
+    error_message: str | None
     created_at: datetime
     updated_at: datetime
 
     # Computed fields
     document_count: int = Field(default=0, description="Number of documents")
     job_count: int = Field(default=0, description="Number of crawl jobs")
-    category_name: Optional[str] = Field(default=None, description="Primary category name (legacy)")
+    category_name: str | None = Field(default=None, description="Primary category name (legacy)")
 
     # N:M categories
-    categories: List[CategoryLink] = Field(default_factory=list, description="All linked categories")
+    categories: list[CategoryLink] = Field(default_factory=list, description="All linked categories")
 
     model_config = {"from_attributes": True}
 
@@ -216,11 +216,18 @@ class DataSourceResponse(DataSourceBase):
 class DataSourceListResponse(BaseModel):
     """Schema for data source list response."""
 
-    items: List[DataSourceResponse]
+    items: list[DataSourceResponse]
     total: int
     page: int
     per_page: int
     pages: int
+
+
+class SourceStatusStatsResponse(BaseModel):
+    """Aggregated source counts by status."""
+
+    total: int
+    by_status: dict[str, int] = Field(default_factory=dict)
 
 
 class DataSourceBulkImportItem(BaseModel):
@@ -229,16 +236,16 @@ class DataSourceBulkImportItem(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     base_url: str
     source_type: SourceType = Field(default=SourceType.WEBSITE)
-    tags: List[str] = Field(default_factory=list, description="Tags for this specific source")
-    extra_data: Dict[str, Any] = Field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list, description="Tags for this specific source")
+    extra_data: dict[str, Any] = Field(default_factory=dict)
 
 
 class DataSourceBulkImport(BaseModel):
     """Schema for bulk importing data sources."""
 
-    category_ids: List[UUID] = Field(..., min_length=1, description="Categories to assign (N:M)")
-    default_tags: List[str] = Field(default_factory=list, description="Tags applied to all sources")
-    sources: List[DataSourceBulkImportItem] = Field(..., min_length=1, max_length=1000)
+    category_ids: list[UUID] = Field(..., min_length=1, description="Categories to assign (N:M)")
+    default_tags: list[str] = Field(default_factory=list, description="Tags applied to all sources")
+    sources: list[DataSourceBulkImportItem] = Field(..., min_length=1, max_length=1000)
     skip_duplicates: bool = Field(default=True, description="Skip sources with duplicate URLs")
 
 
@@ -247,7 +254,7 @@ class DataSourceBulkImportResult(BaseModel):
 
     imported: int
     skipped: int
-    errors: List[Dict[str, str]]
+    errors: list[dict[str, str]]
 
 
 # =============================================================================
@@ -267,14 +274,14 @@ class CategoryCount(BaseModel):
 class TypeCount(BaseModel):
     """Source type with count."""
 
-    type: Optional[str]
+    type: str | None
     count: int
 
 
 class StatusCount(BaseModel):
     """Source status with count."""
 
-    status: Optional[str]
+    status: str | None
     count: int
 
 
@@ -282,9 +289,9 @@ class SourceCountsResponse(BaseModel):
     """Response for source counts endpoint."""
 
     total: int = Field(..., description="Total number of sources")
-    categories: List[CategoryCount] = Field(default_factory=list, description="Counts by category")
-    types: List[TypeCount] = Field(default_factory=list, description="Counts by source type")
-    statuses: List[StatusCount] = Field(default_factory=list, description="Counts by status")
+    categories: list[CategoryCount] = Field(default_factory=list, description="Counts by category")
+    types: list[TypeCount] = Field(default_factory=list, description="Counts by source type")
+    statuses: list[StatusCount] = Field(default_factory=list, description="Counts by status")
 
 
 class TagCount(BaseModel):
@@ -297,4 +304,4 @@ class TagCount(BaseModel):
 class TagsResponse(BaseModel):
     """Response for available tags endpoint."""
 
-    tags: List[TagCount] = Field(default_factory=list, description="Tags with usage counts")
+    tags: list[TagCount] = Field(default_factory=list, description="Tags with usage counts")

@@ -8,7 +8,7 @@ Actions ending with '_execute' skip the preview and run immediately.
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Tuple
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -32,8 +32,8 @@ async def handle_context_action(
     db: AsyncSession,
     message: str,
     context: AssistantContext,
-    intent_data: Dict[str, Any]
-) -> Tuple[AssistantResponseData, List[SuggestedAction]]:
+    intent_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Handle context-aware action on current entity.
 
     Args:
@@ -113,7 +113,7 @@ async def _handle_show_pysis_status(
     service: PySisFacetService,
     entity_id: str,
     entity_name: str
-) -> Tuple[ContextActionResponse, List[SuggestedAction]]:
+) -> tuple[ContextActionResponse, list[SuggestedAction]]:
     """Show PySis status for current entity."""
     status = await service.get_pysis_status(UUID(entity_id))
 
@@ -157,7 +157,7 @@ async def _handle_analyze_pysis_preview(
     service: PySisFacetService,
     entity_id: str,
     entity_name: str
-) -> Tuple[ContextActionResponse, List[SuggestedAction]]:
+) -> tuple[ContextActionResponse, list[SuggestedAction]]:
     """Preview PySis analysis for entity."""
     preview = await service.get_operation_preview(UUID(entity_id), "analyze")
 
@@ -173,19 +173,19 @@ async def _handle_analyze_pysis_preview(
         ), []
 
     msg = f"**PySis-Analyse für {entity_name}**\n\n"
-    msg += f"📊 **Was wird analysiert:**\n"
+    msg += "📊 **Was wird analysiert:**\n"
     msg += f"- {preview.get('fields_with_values', 0)} PySis-Felder mit Werten\n"
     msg += f"- {preview.get('facet_types_count', 0)} Facet-Typen werden geprüft\n\n"
 
     facet_types = preview.get("facet_types", [])
     if facet_types:
-        msg += f"**Facet-Typen:**\n"
+        msg += "**Facet-Typen:**\n"
         for ft in facet_types[:5]:
             msg += f"- {ft.get('name')}\n"
         if len(facet_types) > 5:
             msg += f"- ... und {len(facet_types) - 5} weitere\n"
 
-    msg += f"\n⚠️ **Möchtest du die Analyse starten?**"
+    msg += "\n⚠️ **Möchtest du die Analyse starten?**"
 
     return ContextActionResponse(
         message=msg,
@@ -205,7 +205,7 @@ async def _handle_analyze_pysis_execute(
     service: PySisFacetService,
     entity_id: str,
     entity_name: str
-) -> Tuple[ContextActionResponse, List[SuggestedAction]]:
+) -> tuple[ContextActionResponse, list[SuggestedAction]]:
     """Execute PySis analysis for entity."""
     preview = await service.get_operation_preview(UUID(entity_id), "analyze")
 
@@ -223,7 +223,7 @@ async def _handle_analyze_pysis_execute(
     msg = f"✅ **PySis-Analyse für {entity_name} gestartet!**\n\n"
     msg += f"- Task-ID: `{task.id}`\n"
     msg += f"- {preview.get('fields_with_values', 0)} Felder werden analysiert\n"
-    msg += f"\nDie Ergebnisse erscheinen in den Facets der Entity."
+    msg += "\nDie Ergebnisse erscheinen in den Facets der Entity."
 
     return ContextActionResponse(
         message=msg,
@@ -246,7 +246,7 @@ async def _handle_enrich_facets_preview(
     service: PySisFacetService,
     entity_id: str,
     entity_name: str
-) -> Tuple[ContextActionResponse, List[SuggestedAction]]:
+) -> tuple[ContextActionResponse, list[SuggestedAction]]:
     """Preview facet enrichment for entity."""
     preview = await service.get_operation_preview(UUID(entity_id), "enrich")
 
@@ -262,18 +262,18 @@ async def _handle_enrich_facets_preview(
         ), []
 
     msg = f"**Facet-Anreicherung für {entity_name}**\n\n"
-    msg += f"📊 **Was wird angereichert:**\n"
+    msg += "📊 **Was wird angereichert:**\n"
     msg += f"- {preview.get('facet_values_count', 0)} bestehende Facets\n"
     msg += f"- mit {preview.get('fields_with_values', 0)} PySis-Feldern\n\n"
 
     facets_by_type = preview.get("facets_by_type", [])
     if facets_by_type:
-        msg += f"**Facets nach Typ:**\n"
+        msg += "**Facets nach Typ:**\n"
         for ft in facets_by_type:
             msg += f"- {ft.get('name')}: {ft.get('count')} Einträge\n"
 
-    msg += f"\n⚠️ **Hinweis:** Bestehende Werte werden NICHT überschrieben.\n"
-    msg += f"\n**Möchtest du die Anreicherung starten?**"
+    msg += "\n⚠️ **Hinweis:** Bestehende Werte werden NICHT überschrieben.\n"
+    msg += "\n**Möchtest du die Anreicherung starten?**"
 
     return ContextActionResponse(
         message=msg,
@@ -294,8 +294,8 @@ async def _handle_enrich_facets_execute(
     service: PySisFacetService,
     entity_id: str,
     entity_name: str,
-    action_data: Dict[str, Any]
-) -> Tuple[ContextActionResponse, List[SuggestedAction]]:
+    action_data: dict[str, Any]
+) -> tuple[ContextActionResponse, list[SuggestedAction]]:
     """Execute facet enrichment for entity."""
     preview = await service.get_operation_preview(UUID(entity_id), "enrich")
 
@@ -315,8 +315,8 @@ async def _handle_enrich_facets_execute(
     msg += f"- Task-ID: `{task.id}`\n"
     msg += f"- {preview.get('facet_values_count', 0)} Facets werden angereichert\n"
     if overwrite:
-        msg += f"- ⚠️ Bestehende Werte werden überschrieben\n"
-    msg += f"\nDie Ergebnisse erscheinen in den Facets der Entity."
+        msg += "- ⚠️ Bestehende Werte werden überschrieben\n"
+    msg += "\nDie Ergebnisse erscheinen in den Facets der Entity."
 
     return ContextActionResponse(
         message=msg,
@@ -339,8 +339,8 @@ async def _handle_create_facet(
     db: AsyncSession,
     entity_id: str,
     entity_name: str,
-    action_data: Dict[str, Any]
-) -> Tuple[AssistantResponseData, List[SuggestedAction]]:
+    action_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Create a new facet value for entity."""
     facet_type_slug = action_data.get("facet_type") if isinstance(action_data, dict) else None
     description = action_data.get("description", "") if isinstance(action_data, dict) else ""
@@ -420,7 +420,7 @@ async def _handle_create_facet(
     msg += f"- **Beschreibung:** {description}\n"
     if severity:
         msg += f"- **Schweregrad:** {severity}\n"
-    msg += f"\nDer Facet-Wert wurde erfolgreich erstellt."
+    msg += "\nDer Facet-Wert wurde erfolgreich erstellt."
 
     return ContextActionResponse(
         message=msg,
@@ -443,8 +443,8 @@ async def _handle_analyze_entity_data(
     db: AsyncSession,
     entity_id: str,
     entity_name: str,
-    action_data: Dict[str, Any]
-) -> Tuple[AssistantResponseData, List[SuggestedAction]]:
+    action_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Extract facets from entity data (PySIS, relations, documents, extractions)."""
     from services.entity_data_facet_service import EntityDataFacetService
 
@@ -523,8 +523,8 @@ async def _handle_show_entity_history(
     db: AsyncSession,
     entity_id: str,
     entity_name: str,
-    action_data: Dict[str, Any]
-) -> Tuple[AssistantResponseData, List[SuggestedAction]]:
+    action_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Display history data for entity."""
     from services.facet_history_service import FacetHistoryService
 
@@ -629,8 +629,8 @@ async def _handle_add_history_point(
     db: AsyncSession,
     entity_id: str,
     entity_name: str,
-    action_data: Dict[str, Any]
-) -> Tuple[AssistantResponseData, List[SuggestedAction]]:
+    action_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Add a data point to a history facet."""
     from services.facet_history_service import FacetHistoryService
 
@@ -709,7 +709,7 @@ async def _handle_add_history_point(
             props = facet_type.value_schema.get("properties", {})
             unit = props.get("unit_label", props.get("unit", ""))
 
-        msg = f"✅ **Datenpunkt hinzugefügt!**\n\n"
+        msg = "✅ **Datenpunkt hinzugefügt!**\n\n"
         msg += f"- **Entity:** {entity_name}\n"
         msg += f"- **Facet-Typ:** {facet_type.name}\n"
         msg += f"- **Wert:** {value} {unit}\n"

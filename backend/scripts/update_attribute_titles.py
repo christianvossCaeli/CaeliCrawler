@@ -13,9 +13,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select
+
 from app.database import get_session_context
 from app.models import EntityType
-
 
 # Location fields that map to Entity columns (not core_attributes)
 # These are treated specially by the filter system
@@ -86,9 +86,6 @@ ATTRIBUTE_SCHEMAS = {
 
 async def update_entity_type_schemas():
     """Update attribute schemas for existing entity types."""
-    print("=" * 60)
-    print("UPDATING ENTITY TYPE ATTRIBUTE SCHEMAS")
-    print("=" * 60)
 
     async with get_session_context() as session:
         for slug, new_schema in ATTRIBUTE_SCHEMAS.items():
@@ -99,14 +96,10 @@ async def update_entity_type_schemas():
 
             if entity_type:
                 entity_type.attribute_schema = new_schema
-                print(f"  Updated: {entity_type.name} ({slug})")
             else:
-                print(f"  Not found: {slug}")
+                pass
 
         await session.commit()
-        print("\n" + "=" * 60)
-        print("UPDATE COMPLETED SUCCESSFULLY")
-        print("=" * 60)
 
 
 if __name__ == "__main__":

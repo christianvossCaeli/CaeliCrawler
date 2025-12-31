@@ -1,27 +1,29 @@
 """API endpoints for Entity Type management."""
 
-from typing import Optional
 from uuid import UUID
 
+import structlog
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import func, select, or_
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
-from app.models import EntityType, Entity, FacetType, RelationType, AnalysisTemplate
-from app.models.user import User
-from app.core.audit import AuditContext
-from app.models.audit_log import AuditAction
-from app.schemas.entity_type import (
+logger = structlog.get_logger(__name__)
+from sqlalchemy import func, or_, select  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
+
+from app.core.audit import AuditContext  # noqa: E402
+from app.core.deps import get_current_user_optional, require_admin, require_editor  # noqa: E402
+from app.core.exceptions import ConflictError, NotFoundError  # noqa: E402
+from app.database import get_session  # noqa: E402
+from app.models import AnalysisTemplate, Entity, EntityType, FacetType, RelationType  # noqa: E402
+from app.models.audit_log import AuditAction  # noqa: E402
+from app.models.user import User  # noqa: E402
+from app.schemas.common import MessageResponse  # noqa: E402
+from app.schemas.entity_type import (  # noqa: E402
     EntityTypeCreate,
-    EntityTypeUpdate,
-    EntityTypeResponse,
     EntityTypeListResponse,
+    EntityTypeResponse,
+    EntityTypeUpdate,
     generate_slug,
 )
-from app.schemas.common import MessageResponse
-from app.core.exceptions import NotFoundError, ConflictError
-from app.core.deps import get_current_user_optional, require_editor, require_admin
 
 router = APIRouter()
 
@@ -30,13 +32,13 @@ router = APIRouter()
 async def list_entity_types(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=50, ge=1, le=100),
-    is_active: Optional[bool] = Query(default=None),
-    is_primary: Optional[bool] = Query(default=None),
-    is_public: Optional[bool] = Query(default=None, description="Filter by public/private visibility"),
+    is_active: bool | None = Query(default=None),
+    is_primary: bool | None = Query(default=None),
+    is_public: bool | None = Query(default=None, description="Filter by public/private visibility"),
     include_private: bool = Query(default=True, description="Include user's private entity types"),
-    search: Optional[str] = Query(default=None),
+    search: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ):
     """List all entity types with pagination and visibility filtering.
 
@@ -149,7 +151,7 @@ async def create_entity_type(
         )
 
     # Check for hierarchy mapping (e.g., "Stadt" should use territorial_entity)
-    from app.utils.similarity import get_hierarchy_mapping, find_similar_entity_types
+    from app.utils.similarity import find_similar_entity_types, get_hierarchy_mapping
     hierarchy_mapping = get_hierarchy_mapping(data.name)
     if hierarchy_mapping:
         parent_slug = hierarchy_mapping["parent_type_slug"]

@@ -4,19 +4,19 @@ These endpoints allow managing scheduled API syncs that automatically
 update FacetValueHistory from external APIs.
 """
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
 from app.core.deps import require_editor
+from app.database import get_session
 from app.models import User
-from app.models.api_configuration import APIConfiguration, ImportMode, SyncStatus
+from app.models.api_configuration import APIConfiguration, ImportMode
 from app.schemas.common import MessageResponse
 
 router = APIRouter()
@@ -38,26 +38,26 @@ class EntityMatchingConfig(BaseModel):
     """Entity matching configuration."""
     match_by: str = Field(default="name", pattern="^(name|external_id|name_contains)$")
     api_field: str
-    entity_type_slug: Optional[str] = None
+    entity_type_slug: str | None = None
 
 
 class APIFacetSyncResponse(BaseModel):
     """API facet sync configuration response."""
     id: UUID
     data_source_id: UUID
-    data_source_name: Optional[str] = None
+    data_source_name: str | None = None
     api_type: str
     endpoint: str
     full_url: str
     auth_type: str
-    entity_matching: Dict[str, Any]
-    facet_mappings: Dict[str, Any]
+    entity_matching: dict[str, Any]
+    facet_mappings: dict[str, Any]
     sync_enabled: bool
     sync_interval_hours: int
-    next_run_at: Optional[datetime]
-    last_sync_at: Optional[datetime]
-    last_sync_status: Optional[str]
-    last_sync_stats: Optional[Dict[str, Any]]
+    next_run_at: datetime | None
+    last_sync_at: datetime | None
+    last_sync_status: str | None
+    last_sync_stats: dict[str, Any] | None
     is_active: bool
     import_mode: str
     created_at: datetime
@@ -117,12 +117,12 @@ def _config_to_response(config: APIConfiguration) -> APIFacetSyncResponse:
 # =============================================================================
 
 
-@router.get("", response_model=List[APIFacetSyncResponse])
+@router.get("", response_model=list[APIFacetSyncResponse])
 async def list_api_facet_syncs(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_editor),
-    sync_enabled: Optional[bool] = None,
-    is_active: Optional[bool] = None,
+    sync_enabled: bool | None = None,
+    is_active: bool | None = None,
 ):
     """
     List all API configurations with facet sync capability.
@@ -186,7 +186,7 @@ async def get_sync_stats(
     configs_with_schedule = scheduled_result.scalar_one()
 
     # Count syncs in last 24 hours
-    yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+    yesterday = datetime.now(UTC) - timedelta(days=1)
     recent_result = await session.execute(
         select(func.count(APIConfiguration.id)).where(
             *base_filter,
@@ -305,7 +305,7 @@ async def trigger_sync_now(
 async def update_schedule(
     config_id: UUID,
     sync_enabled: bool,
-    sync_interval_hours: Optional[int] = None,
+    sync_interval_hours: int | None = None,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_editor),
 ):
@@ -334,7 +334,7 @@ async def update_schedule(
 
     if sync_enabled:
         # Calculate next run
-        config.next_run_at = datetime.now(timezone.utc) + timedelta(
+        config.next_run_at = datetime.now(UTC) + timedelta(
             hours=config.sync_interval_hours
         )
     else:

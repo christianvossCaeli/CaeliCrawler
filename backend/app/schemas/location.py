@@ -1,7 +1,7 @@
 """Location schemas for API validation."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -19,34 +19,34 @@ class LocationBase(BaseModel):
         max_length=2,
         description="ISO 3166-1 alpha-2 country code (DE, GB, AT, etc.)",
     )
-    official_code: Optional[str] = Field(
+    official_code: str | None = Field(
         None,
         max_length=50,
         description="Country-specific official code (AGS for DE, GSS for GB, etc.)",
     )
-    admin_level_1: Optional[str] = Field(
+    admin_level_1: str | None = Field(
         None,
         max_length=100,
         description="State/Region/Bundesland/County",
     )
-    admin_level_2: Optional[str] = Field(
+    admin_level_2: str | None = Field(
         None,
         max_length=255,
         description="District/Landkreis/Province",
     )
-    locality_type: Optional[str] = Field(
+    locality_type: str | None = Field(
         None,
         max_length=50,
         description="Type of locality (municipality, city, town, parish, etc.)",
     )
-    country_metadata: Optional[Dict[str, Any]] = Field(
+    country_metadata: dict[str, Any] | None = Field(
         default_factory=dict,
         description="Country-specific metadata (e.g., rs for DE, gss_code for GB)",
     )
-    population: Optional[int] = Field(None, ge=0, description="Population")
-    area_km2: Optional[float] = Field(None, ge=0, description="Area in km2")
-    latitude: Optional[float] = Field(None, ge=-90, le=90, description="Latitude")
-    longitude: Optional[float] = Field(None, ge=-180, le=180, description="Longitude")
+    population: int | None = Field(None, ge=0, description="Population")
+    area_km2: float | None = Field(None, ge=0, description="Area in km2")
+    latitude: float | None = Field(None, ge=-90, le=90, description="Latitude")
+    longitude: float | None = Field(None, ge=-180, le=180, description="Longitude")
 
     @field_validator("country")
     @classmethod
@@ -67,22 +67,22 @@ class LocationCreate(LocationBase):
 class LocationUpdate(BaseModel):
     """Schema for updating a location (all fields optional)."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    country: Optional[str] = Field(None, min_length=2, max_length=2)
-    official_code: Optional[str] = Field(None, max_length=50)
-    admin_level_1: Optional[str] = Field(None, max_length=100)
-    admin_level_2: Optional[str] = Field(None, max_length=255)
-    locality_type: Optional[str] = Field(None, max_length=50)
-    country_metadata: Optional[Dict[str, Any]] = None
-    population: Optional[int] = Field(None, ge=0)
-    area_km2: Optional[float] = Field(None, ge=0)
-    latitude: Optional[float] = Field(None, ge=-90, le=90)
-    longitude: Optional[float] = Field(None, ge=-180, le=180)
-    is_active: Optional[bool] = None
+    name: str | None = Field(None, min_length=1, max_length=255)
+    country: str | None = Field(None, min_length=2, max_length=2)
+    official_code: str | None = Field(None, max_length=50)
+    admin_level_1: str | None = Field(None, max_length=100)
+    admin_level_2: str | None = Field(None, max_length=255)
+    locality_type: str | None = Field(None, max_length=50)
+    country_metadata: dict[str, Any] | None = None
+    population: int | None = Field(None, ge=0)
+    area_km2: float | None = Field(None, ge=0)
+    latitude: float | None = Field(None, ge=-90, le=90)
+    longitude: float | None = Field(None, ge=-180, le=180)
+    is_active: bool | None = None
 
     @field_validator("country")
     @classmethod
-    def validate_country(cls, v: Optional[str]) -> Optional[str]:
+    def validate_country(cls, v: str | None) -> str | None:
         """Validate and uppercase country code if provided."""
         if v is None:
             return v
@@ -111,7 +111,7 @@ class LocationResponse(LocationBase):
 class LocationListResponse(BaseModel):
     """Schema for location list response."""
 
-    items: List[LocationResponse]
+    items: list[LocationResponse]
     total: int
     page: int
     per_page: int
@@ -124,9 +124,9 @@ class LocationSearchResult(BaseModel):
     id: UUID
     name: str
     country: str
-    admin_level_1: Optional[str] = None
-    admin_level_2: Optional[str] = None
-    official_code: Optional[str] = None
+    admin_level_1: str | None = None
+    admin_level_2: str | None = None
+    official_code: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -134,7 +134,7 @@ class LocationSearchResult(BaseModel):
 class LocationSearchResponse(BaseModel):
     """Schema for search response."""
 
-    items: List[LocationSearchResult]
+    items: list[LocationSearchResult]
     total: int
 
 
@@ -159,5 +159,5 @@ class AdminLevelsResponse(BaseModel):
 
     country: str
     level: int
-    parent: Optional[str] = None
-    items: List[AdminLevelInfo]
+    parent: str | None = None
+    items: list[AdminLevelInfo]

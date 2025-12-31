@@ -14,19 +14,15 @@ Usage:
     docker-compose exec backend python -m scripts.scan_entity_duplicates --threshold 0.85 --export duplicates.json
 """
 
-import asyncio
 import argparse
+import asyncio
 import json
-import re
 import sys
-import unicodedata
 from collections import defaultdict
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Set
-from uuid import UUID
 
 import structlog
 
@@ -55,8 +51,8 @@ class DuplicateCandidate:
     similarity_score: float
     match_reason: str
     entity_type: str
-    country: Optional[str]
-    admin_level_1: Optional[str]
+    country: str | None
+    admin_level_1: str | None
 
 
 @dataclass
@@ -64,8 +60,8 @@ class DuplicateCluster:
     """A group of entities that are potential duplicates of each other."""
     cluster_id: int
     entity_type: str
-    entities: List[Dict]
-    match_reasons: List[str]
+    entities: list[dict]
+    match_reasons: list[str]
     suggested_canonical: str  # The suggested "main" entity name
 
 
@@ -74,8 +70,8 @@ class EntityDuplicateScanner:
 
     def __init__(self, threshold: float = 0.85):
         self.threshold = threshold
-        self.duplicates: List[DuplicateCandidate] = []
-        self.clusters: List[DuplicateCluster] = []
+        self.duplicates: list[DuplicateCandidate] = []
+        self.clusters: list[DuplicateCluster] = []
 
     def normalize_name(self, name: str, country: str = "DE") -> str:
         """Normalize name for comparison using the central normalize_entity_name function."""
@@ -85,7 +81,7 @@ class EntityDuplicateScanner:
         """Extract the core name using the central extract_core_entity_name function."""
         return extract_core_entity_name(name, country)
 
-    def are_names_equivalent(self, name1: str, name2: str, country: str = "DE") -> Tuple[bool, float, str]:
+    def are_names_equivalent(self, name1: str, name2: str, country: str = "DE") -> tuple[bool, float, str]:
         """
         Check if two names represent the same entity.
 
@@ -114,11 +110,10 @@ class EntityDuplicateScanner:
             return True, 0.95, f"Kernname identisch: '{core1_raw}'"
 
         # 3. One is substring of the other (with minimum length)
-        if len(norm1) >= 5 and len(norm2) >= 5:
-            if norm1 in norm2 or norm2 in norm1:
-                longer = name1 if len(name1) > len(name2) else name2
-                shorter = name2 if len(name1) > len(name2) else name1
-                return True, 0.90, f"'{shorter}' ist Teil von '{longer}'"
+        if len(norm1) >= 5 and len(norm2) >= 5 and (norm1 in norm2 or norm2 in norm1):
+            longer = name1 if len(name1) > len(name2) else name2
+            shorter = name2 if len(name1) > len(name2) else name1
+            return True, 0.90, f"'{shorter}' ist Teil von '{longer}'"
 
         # 4. Fuzzy matching with SequenceMatcher
         similarity = SequenceMatcher(None, norm1, norm2).ratio()
@@ -134,17 +129,17 @@ class EntityDuplicateScanner:
 
     def check_geo_proximity(
         self,
-        lat1: Optional[float],
-        lon1: Optional[float],
-        lat2: Optional[float],
-        lon2: Optional[float],
+        lat1: float | None,
+        lon1: float | None,
+        lat2: float | None,
+        lon2: float | None,
         max_distance_km: float = 5.0
-    ) -> Tuple[bool, Optional[float]]:
+    ) -> tuple[bool, float | None]:
         """Check if two coordinates are within max_distance_km."""
         if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
             return False, None
 
-        from math import radians, cos, sin, asin, sqrt
+        from math import asin, cos, radians, sin, sqrt
 
         # Haversine formula
         lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
@@ -159,17 +154,11 @@ class EntityDuplicateScanner:
     async def scan_entities(
         self,
         session,
-        entity_type_slug: Optional[str] = None,
-        country: Optional[str] = None,
-        limit: Optional[int] = None
-    ) -> List[DuplicateCandidate]:
+        entity_type_slug: str | None = None,
+        country: str | None = None,
+        limit: int | None = None
+    ) -> list[DuplicateCandidate]:
         """Scan entities for duplicates."""
-        print("\n" + "=" * 70)
-        print("ENTITY DUPLICATE SCANNER")
-        print("=" * 70)
-        print(f"Threshold: {self.threshold}")
-        print(f"Filter - Type: {entity_type_slug or 'all'}, Country: {country or 'all'}")
-        print("=" * 70)
 
         # Build query
         query = (
@@ -191,20 +180,17 @@ class EntityDuplicateScanner:
         result = await session.execute(query)
         entities = result.scalars().all()
 
-        print(f"\nLoaded {len(entities)} entities")
 
         if not entities:
-            print("No entities found matching criteria.")
             return []
 
         # Group by type and country for efficient comparison
-        grouped: Dict[Tuple[str, str], List[Entity]] = defaultdict(list)
+        grouped: dict[tuple[str, str], list[Entity]] = defaultdict(list)
         for entity in entities:
             type_slug = entity.entity_type.slug if entity.entity_type else "unknown"
             country_code = entity.country or "unknown"
             grouped[(type_slug, country_code)].append(entity)
 
-        print(f"Grouped into {len(grouped)} type/country combinations")
 
         # Scan each group
         total_comparisons = 0
@@ -215,16 +201,15 @@ class EntityDuplicateScanner:
             if n < 2:
                 continue
 
-            print(f"\nScanning {type_slug}/{country_code}: {n} entities ({n*(n-1)//2} comparisons)")
 
             # First pass: Group by normalized name for exact matches
-            by_normalized: Dict[str, List[Entity]] = defaultdict(list)
+            by_normalized: dict[str, list[Entity]] = defaultdict(list)
             for entity in group_entities:
                 norm = self.normalize_name(entity.name, country_code)
                 by_normalized[norm].append(entity)
 
             # Find exact normalized duplicates
-            for norm_name, ents in by_normalized.items():
+            for _norm_name, ents in by_normalized.items():
                 if len(ents) > 1:
                     for i, e1 in enumerate(ents):
                         for e2 in ents[i+1:]:
@@ -244,19 +229,19 @@ class EntityDuplicateScanner:
                             duplicates_found += 1
 
             # Second pass: Compare by core names (generic pattern-based)
-            by_core: Dict[str, List[Entity]] = defaultdict(list)
+            by_core: dict[str, list[Entity]] = defaultdict(list)
             for entity in group_entities:
                 core = self.normalize_name(self.extract_core_name(entity.name, country_code), country_code)
                 if core and len(core) >= 3:  # Only consider meaningful core names
                     by_core[core].append(entity)
 
             # Find core name duplicates (but avoid double-counting exact matches)
-            seen_pairs: Set[Tuple[str, str]] = set()
+            seen_pairs: set[tuple[str, str]] = set()
             for dup in self.duplicates:
                 seen_pairs.add((dup.entity1_id, dup.entity2_id))
                 seen_pairs.add((dup.entity2_id, dup.entity1_id))
 
-            for core_name, ents in by_core.items():
+            for _core_name, ents in by_core.items():
                 if len(ents) > 1:
                     for i, e1 in enumerate(ents):
                         for e2 in ents[i+1:]:
@@ -311,23 +296,18 @@ class EntityDuplicateScanner:
 
                         # Progress indicator
                         if total_comparisons % 10000 == 0:
-                            print(f"  ... {total_comparisons} comparisons, {duplicates_found} duplicates found")
+                            pass
 
-        print(f"\n{'=' * 70}")
-        print(f"SCAN COMPLETE")
-        print(f"{'=' * 70}")
-        print(f"Total comparisons: {total_comparisons}")
-        print(f"Duplicates found: {len(self.duplicates)}")
 
         return self.duplicates
 
-    def build_clusters(self) -> List[DuplicateCluster]:
+    def build_clusters(self) -> list[DuplicateCluster]:
         """Build clusters from duplicate pairs using Union-Find."""
         if not self.duplicates:
             return []
 
         # Union-Find data structure
-        parent: Dict[str, str] = {}
+        parent: dict[str, str] = {}
 
         def find(x: str) -> str:
             if x not in parent:
@@ -342,7 +322,7 @@ class EntityDuplicateScanner:
                 parent[px] = py
 
         # Build union-find from duplicate pairs
-        entity_data: Dict[str, Dict] = {}
+        entity_data: dict[str, dict] = {}
         for dup in self.duplicates:
             union(dup.entity1_id, dup.entity2_id)
             entity_data[dup.entity1_id] = {
@@ -357,14 +337,14 @@ class EntityDuplicateScanner:
             }
 
         # Group by cluster root
-        clusters_map: Dict[str, List[str]] = defaultdict(list)
+        clusters_map: dict[str, list[str]] = defaultdict(list)
         for entity_id in entity_data:
             root = find(entity_id)
             clusters_map[root].append(entity_id)
 
         # Build cluster objects
-        cluster_reasons: Dict[str, Set[str]] = defaultdict(set)
-        cluster_types: Dict[str, str] = {}
+        cluster_reasons: dict[str, set[str]] = defaultdict(set)
+        cluster_types: dict[str, str] = {}
         for dup in self.duplicates:
             root = find(dup.entity1_id)
             cluster_reasons[root].add(dup.match_reason)
@@ -394,27 +374,17 @@ class EntityDuplicateScanner:
 
     def print_report(self):
         """Print a human-readable report."""
-        print("\n" + "=" * 70)
-        print("DUPLICATE CLUSTERS REPORT")
-        print("=" * 70)
 
         if not self.clusters:
-            print("No duplicate clusters found.")
             return
 
-        print(f"Found {len(self.clusters)} duplicate clusters\n")
 
         for cluster in self.clusters[:50]:  # Limit output
-            print(f"\n--- Cluster {cluster.cluster_id} ({cluster.entity_type}) ---")
-            print(f"Suggested canonical: '{cluster.suggested_canonical}'")
-            print(f"Match reasons: {', '.join(cluster.match_reasons)}")
-            print("Entities:")
             for entity in cluster.entities:
-                canonical_marker = " [SUGGESTED]" if entity["name"] == cluster.suggested_canonical else ""
-                print(f"  - {entity['name']} (/{entity['slug']}){canonical_marker}")
+                " [SUGGESTED]" if entity["name"] == cluster.suggested_canonical else ""
 
         if len(self.clusters) > 50:
-            print(f"\n... and {len(self.clusters) - 50} more clusters")
+            pass
 
     def export_json(self, filepath: str):
         """Export results to JSON file."""
@@ -439,12 +409,11 @@ class EntityDuplicateScanner:
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-        print(f"\nResults exported to: {filepath}")
 
     def get_patterns_for_similarity(self) -> str:
         """Generate summary of duplicate patterns found."""
         # Analyze patterns in found duplicates
-        pattern_counts: Dict[str, int] = defaultdict(int)
+        pattern_counts: dict[str, int] = defaultdict(int)
 
         for dup in self.duplicates:
             # Count structural patterns
@@ -504,21 +473,11 @@ async def main():
         scanner.export_json(args.export)
 
     if args.show_patterns:
-        print("\n" + "=" * 70)
-        print("SUGGESTED PATTERNS FOR similarity.py")
-        print("=" * 70)
-        print(scanner.get_patterns_for_similarity())
+        pass
 
     # Summary statistics
-    print("\n" + "=" * 70)
-    print("SUMMARY")
-    print("=" * 70)
-    print(f"Total duplicate pairs found: {len(scanner.duplicates)}")
-    print(f"Total clusters: {len(scanner.clusters)}")
     if scanner.clusters:
-        sizes = [len(c.entities) for c in scanner.clusters]
-        print(f"Largest cluster: {max(sizes)} entities")
-        print(f"Average cluster size: {sum(sizes)/len(sizes):.1f} entities")
+        [len(c.entities) for c in scanner.clusters]
 
 
 if __name__ == "__main__":

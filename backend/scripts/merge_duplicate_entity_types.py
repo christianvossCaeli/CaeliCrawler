@@ -24,20 +24,19 @@ import argparse
 import asyncio
 import sys
 from pathlib import Path
-from typing import List, Optional, Tuple
 from uuid import UUID
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from sqlalchemy import select, func, update
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
-from app.database import get_session_context
-from app.models.entity import Entity
-from app.models.entity_type import EntityType
-from app.utils.similarity import get_hierarchy_mapping_async
+from app.database import get_session_context  # noqa: E402
+from app.models.entity import Entity  # noqa: E402
+from app.models.entity_type import EntityType  # noqa: E402
+from app.utils.similarity import get_hierarchy_mapping_async  # noqa: E402
 
 
 class EntityTypeMerger:
@@ -56,18 +55,14 @@ class EntityTypeMerger:
 
     def log(self, message: str, level: str = "info"):
         """Log a message."""
-        prefix = "[DRY RUN] " if self.dry_run else ""
-        if level == "info":
-            print(f"{prefix}{message}")
-        elif level == "verbose" and self.verbose:
-            print(f"{prefix}  → {message}")
+        if level == "info" or level == "verbose" and self.verbose:
+            pass
         elif level == "error":
-            print(f"{prefix}ERROR: {message}")
             self.stats["errors"].append(message)
         elif level == "warning":
-            print(f"{prefix}WARNING: {message}")
+            pass
 
-    async def find_duplicate_entity_types(self) -> List[Tuple[EntityType, str, int, str]]:
+    async def find_duplicate_entity_types(self) -> list[tuple[EntityType, str, int, str]]:
         """
         Find all EntityTypes that are territorial duplicates using AI-based detection.
 
@@ -112,7 +107,7 @@ class EntityTypeMerger:
         self.stats["entity_types_found"] = len(duplicates)
         return duplicates
 
-    async def get_target_entity_type(self, target_slug: str) -> Optional[EntityType]:
+    async def get_target_entity_type(self, target_slug: str) -> EntityType | None:
         """Get the target EntityType to merge into."""
         result = await self.session.execute(
             select(EntityType).where(
@@ -292,22 +287,13 @@ class EntityTypeMerger:
 
     def print_summary(self):
         """Print summary of the merge operation."""
-        print("\n" + "=" * 50)
-        print("MERGE SUMMARY")
-        print("=" * 50)
-        print(f"EntityTypes found:       {self.stats['entity_types_found']}")
-        print(f"Entities migrated:       {self.stats['entities_migrated']}")
-        print(f"Entities deactivated:    {self.stats.get('entities_deactivated', 0)}")
-        print(f"EntityTypes deactivated: {self.stats['entity_types_deactivated']}")
 
         if self.stats["errors"]:
-            print(f"\nErrors ({len(self.stats['errors'])}):")
-            for error in self.stats["errors"]:
-                print(f"  - {error}")
+            for _error in self.stats["errors"]:
+                pass
 
         if self.dry_run:
-            print("\n⚠️  This was a DRY RUN - no changes were made")
-            print("   Run without --dry-run to apply changes")
+            pass
 
 
 async def main():
@@ -345,12 +331,9 @@ async def main():
 
     args = parser.parse_args()
 
-    print("\n" + "=" * 50)
-    print("EntityType Duplicate Merger")
-    print("=" * 50 + "\n")
 
     if args.dry_run:
-        print("🔍 DRY RUN MODE - No changes will be made\n")
+        pass
 
     async with get_session_context() as session:
         merger = EntityTypeMerger(

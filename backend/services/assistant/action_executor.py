@@ -14,7 +14,7 @@ Exports:
 """
 
 import json
-from typing import Any, Dict, List, Tuple
+from typing import Any
 from uuid import UUID, uuid4
 
 import structlog
@@ -44,7 +44,7 @@ async def execute_action(
     db: AsyncSession,
     action: ActionDetails,
     context: AssistantContext
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Execute a confirmed action.
 
     Args:
@@ -92,10 +92,10 @@ async def execute_action(
 async def execute_batch_action(
     db: AsyncSession,
     action_type: str,
-    target_filter: Dict[str, Any],
-    action_data: Dict[str, Any],
+    target_filter: dict[str, Any],
+    action_data: dict[str, Any],
     dry_run: bool = True
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Execute a batch action on multiple entities.
 
     Uses the unified Smart Query batch executor.
@@ -183,7 +183,7 @@ async def preview_inline_edit(
     db: AsyncSession,
     message: str,
     context: AssistantContext,
-    intent_data: Dict[str, Any]
+    intent_data: dict[str, Any]
 ) -> ActionPreviewResponse:
     """Handle inline edit requests - return preview for confirmation.
 
@@ -260,9 +260,9 @@ async def handle_batch_action_intent(
     db: AsyncSession,
     message: str,
     context: AssistantContext,
-    intent_data: Dict[str, Any],
+    intent_data: dict[str, Any],
     translator: Translator
-) -> Tuple[AssistantResponseData, List[SuggestedAction]]:
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Handle a batch action intent from chat.
 
     Args:
@@ -367,7 +367,7 @@ async def handle_batch_action_intent(
         ), []
 
 
-def parse_batch_filter(filter_data: Any) -> Dict[str, Any]:
+def parse_batch_filter(filter_data: Any) -> dict[str, Any]:
     """Parse and normalize batch filter data.
 
     Args:
@@ -388,7 +388,7 @@ def parse_batch_filter(filter_data: Any) -> Dict[str, Any]:
     return {}
 
 
-def parse_action_data(action_data: Any) -> Dict[str, Any]:
+def parse_action_data(action_data: Any) -> dict[str, Any]:
     """Parse and normalize action data.
 
     Args:

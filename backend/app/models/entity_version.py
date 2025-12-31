@@ -2,9 +2,9 @@
 
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, func, Index
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -53,7 +53,7 @@ class EntityVersion(Base):
     )
 
     # Diff storage (what changed from previous version)
-    diff: Mapped[Dict[str, Any]] = mapped_column(
+    diff: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
@@ -61,26 +61,26 @@ class EntityVersion(Base):
     )
 
     # Optional full snapshot for efficient reconstruction
-    snapshot: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    snapshot: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
         comment="Full entity state snapshot (stored every N versions)",
     )
 
     # Who made the change
-    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
-    user_email: Mapped[Optional[str]] = mapped_column(
+    user_email: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="Denormalized email for when user is deleted",
     )
 
     # Change metadata
-    change_reason: Mapped[Optional[str]] = mapped_column(
+    change_reason: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
         comment="Optional description of why change was made",

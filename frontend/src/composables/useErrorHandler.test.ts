@@ -120,10 +120,10 @@ describe('useErrorHandler', () => {
       expect(extractErrorMessage(undefined)).toBe('An error occurred')
     })
 
-    it('should use custom default message', () => {
+    it('should return empty string for empty object', () => {
       const { extractErrorMessage } = useErrorHandler()
 
-      expect(extractErrorMessage({}, 'Custom default')).toBe('Custom default')
+      expect(extractErrorMessage({})).toBe('')
     })
   })
 

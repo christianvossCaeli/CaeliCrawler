@@ -24,19 +24,19 @@ import logging
 import re
 import sys
 from collections import defaultdict
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+
 from app.database import get_session_context
-from app.models import FacetValue, FacetType, Entity
+from app.models import FacetType, FacetValue
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -49,13 +49,13 @@ class ContactAnalysis:
     entity_id: str
     entity_name: str
     contact_name: str
-    contact_role: Optional[str]
-    contact_email: Optional[str]
-    contact_phone: Optional[str]
+    contact_role: str | None
+    contact_email: str | None
+    contact_phone: str | None
     category: str  # 'person', 'organization', 'role_only', 'unknown'
     confidence: float  # 0.0 - 1.0
     reasoning: str
-    potential_duplicates: List[str]  # List of other facet_value_ids with similar names
+    potential_duplicates: list[str]  # List of other facet_value_ids with similar names
 
 
 @dataclass
@@ -119,9 +119,9 @@ class ContactAuditor:
 
     def __init__(self, session):
         self.session = session
-        self.name_index: Dict[str, List[str]] = defaultdict(list)  # normalized_name -> [facet_value_ids]
+        self.name_index: dict[str, list[str]] = defaultdict(list)  # normalized_name -> [facet_value_ids]
 
-    async def run_audit(self) -> Tuple[List[ContactAnalysis], AuditSummary]:
+    async def run_audit(self) -> tuple[list[ContactAnalysis], AuditSummary]:
         """Run the full audit and return results."""
         logger.info("Starting contact facet audit...")
 
@@ -149,14 +149,14 @@ class ContactAuditor:
         logger.info(f"Audit complete. Summary: {summary}")
         return results, summary
 
-    async def _get_contact_facet_type(self) -> Optional[FacetType]:
+    async def _get_contact_facet_type(self) -> FacetType | None:
         """Get the contact facet type."""
         result = await self.session.execute(
             select(FacetType).where(FacetType.slug == 'contact')
         )
         return result.scalar_one_or_none()
 
-    async def _get_contact_facet_values(self, facet_type_id: UUID) -> List[FacetValue]:
+    async def _get_contact_facet_values(self, facet_type_id: UUID) -> list[FacetValue]:
         """Get all contact facet values with their entities."""
         result = await self.session.execute(
             select(FacetValue)
@@ -169,7 +169,7 @@ class ContactAuditor:
         )
         return result.scalars().all()
 
-    def _build_name_index(self, facet_values: List[FacetValue]):
+    def _build_name_index(self, facet_values: list[FacetValue]):
         """Build index of normalized names for duplicate detection."""
         for fv in facet_values:
             name = self._extract_name(fv.value)
@@ -177,13 +177,13 @@ class ContactAuditor:
                 normalized = self._normalize_name(name)
                 self.name_index[normalized].append(str(fv.id))
 
-    def _extract_name(self, value: Dict) -> Optional[str]:
+    def _extract_name(self, value: dict) -> str | None:
         """Extract contact name from facet value."""
         if not value:
             return None
         return value.get('name', '') or ''
 
-    def _extract_role(self, value: Dict) -> Optional[str]:
+    def _extract_role(self, value: dict) -> str | None:
         """Extract contact role from facet value."""
         if not value:
             return None
@@ -226,7 +226,7 @@ class ContactAuditor:
             potential_duplicates=duplicates,
         )
 
-    def _categorize_contact(self, name: str, role: Optional[str]) -> Tuple[str, float, str]:
+    def _categorize_contact(self, name: str, role: str | None) -> tuple[str, float, str]:
         """
         Categorize a contact as person, organization, role_only, or unknown.
 
@@ -252,7 +252,7 @@ class ContactAuditor:
         # Check for person name patterns
         for pattern in self.PERSON_PATTERNS:
             if re.match(pattern, name):
-                return ('person', 0.85, f"Matches person name pattern")
+                return ('person', 0.85, "Matches person name pattern")
 
         # Heuristic: 2-3 capitalized words likely a person
         words = name.split()
@@ -271,7 +271,7 @@ class ContactAuditor:
 
         return ('unknown', 0.4, "Could not determine category")
 
-    def _generate_summary(self, results: List[ContactAnalysis]) -> AuditSummary:
+    def _generate_summary(self, results: list[ContactAnalysis]) -> AuditSummary:
         """Generate summary statistics from results."""
         categories = defaultdict(int)
         duplicate_count = 0
@@ -292,7 +292,7 @@ class ContactAuditor:
         )
 
 
-def export_to_json(results: List[ContactAnalysis], summary: AuditSummary, output_path: str):
+def export_to_json(results: list[ContactAnalysis], summary: AuditSummary, output_path: str):
     """Export results to JSON file."""
     data = {
         'summary': asdict(summary),
@@ -303,7 +303,7 @@ def export_to_json(results: List[ContactAnalysis], summary: AuditSummary, output
     logger.info(f"JSON report saved to: {output_path}")
 
 
-def export_to_csv(results: List[ContactAnalysis], output_path: str):
+def export_to_csv(results: list[ContactAnalysis], output_path: str):
     """Export results to CSV file."""
     fieldnames = [
         'facet_value_id', 'entity_id', 'entity_name', 'contact_name',
@@ -336,16 +336,6 @@ async def main():
         results, summary = await auditor.run_audit()
 
         # Print summary to console
-        print("\n" + "="*60)
-        print("CONTACT FACET AUDIT SUMMARY")
-        print("="*60)
-        print(f"Total contacts analyzed: {summary.total_contacts}")
-        print(f"  - Persons:            {summary.persons}")
-        print(f"  - Organizations:      {summary.organizations}")
-        print(f"  - Role-only:          {summary.roles_only}")
-        print(f"  - Unknown:            {summary.unknown}")
-        print(f"Potential duplicates:   {summary.potential_duplicates}")
-        print("="*60 + "\n")
 
         # Export results
         if args.format == 'json':
@@ -354,11 +344,9 @@ async def main():
             export_to_csv(results, args.output)
 
         # Show sample results
-        print("Sample results (first 10):")
         for r in results[:10]:
-            print(f"  [{r.category.upper():12}] {r.contact_name[:40]:40} -> {r.entity_name[:30]}")
             if r.potential_duplicates:
-                print(f"               ^ Has {len(r.potential_duplicates)} potential duplicate(s)")
+                pass
 
 
 if __name__ == '__main__':

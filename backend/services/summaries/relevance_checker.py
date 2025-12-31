@@ -6,16 +6,18 @@ a summary, using semantic analysis to determine relevance.
 
 import hashlib
 import json
-from typing import Any, Dict, List, Optional, Tuple
+import time
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.models.llm_usage import LLMProvider, LLMTaskType
+from services.llm_usage_tracker import record_llm_usage
 from services.smart_query.query_interpreter import (
-    get_openai_client,
-    sanitize_user_input,
     AI_TEMPERATURE_LOW,
+    get_openai_client,
 )
 from services.smart_query.utils import clean_json_response
 
@@ -33,8 +35,8 @@ class RelevanceCheckResult:
         should_update: bool,
         score: float,
         reason: str,
-        changes_summary: Optional[str] = None,
-        significant_changes: Optional[List[Dict[str, Any]]] = None,
+        changes_summary: str | None = None,
+        significant_changes: list[dict[str, Any]] | None = None,
     ):
         self.should_update = should_update
         self.score = score
@@ -42,7 +44,7 @@ class RelevanceCheckResult:
         self.changes_summary = changes_summary
         self.significant_changes = significant_changes or []
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "should_update": self.should_update,
             "score": self.score,
@@ -52,7 +54,7 @@ class RelevanceCheckResult:
         }
 
 
-def calculate_data_hash(data: Dict[str, Any]) -> str:
+def calculate_data_hash(data: dict[str, Any]) -> str:
     """Calculate SHA256 hash of data for change detection.
 
     Args:
@@ -67,9 +69,9 @@ def calculate_data_hash(data: Dict[str, Any]) -> str:
 
 
 def quick_change_detection(
-    old_data: Dict[str, Any],
-    new_data: Dict[str, Any],
-) -> Tuple[bool, str]:
+    old_data: dict[str, Any],
+    new_data: dict[str, Any],
+) -> tuple[bool, str]:
     """Quick check if data has changed using hash comparison.
 
     This is a fast preliminary check before doing semantic analysis.
@@ -100,9 +102,9 @@ def quick_change_detection(
 
 
 def count_record_changes(
-    old_data: Dict[str, Any],
-    new_data: Dict[str, Any],
-) -> Dict[str, int]:
+    old_data: dict[str, Any],
+    new_data: dict[str, Any],
+) -> dict[str, int]:
     """Count the number of records added, removed, and changed.
 
     Args:
@@ -156,9 +158,9 @@ def count_record_changes(
 
 
 def calculate_change_significance(
-    changes: Dict[str, int],
+    changes: dict[str, int],
     threshold: float = 0.1,
-) -> Tuple[float, str]:
+) -> tuple[float, str]:
     """Calculate the significance of changes.
 
     Args:
@@ -193,12 +195,12 @@ def calculate_change_significance(
 
 
 async def check_relevance(
-    summary_context: Dict[str, Any],
-    old_data: Dict[str, Any],
-    new_data: Dict[str, Any],
+    summary_context: dict[str, Any],
+    old_data: dict[str, Any],
+    new_data: dict[str, Any],
     threshold: float = 0.3,
     use_ai: bool = True,
-    session: Optional[AsyncSession] = None,
+    session: AsyncSession | None = None,
 ) -> RelevanceCheckResult:
     """Check if data changes are relevant for the summary.
 
@@ -282,11 +284,11 @@ async def check_relevance(
 
 
 async def _check_relevance_with_ai(
-    summary_context: Dict[str, Any],
-    old_data: Dict[str, Any],
-    new_data: Dict[str, Any],
-    changes: Dict[str, int],
-) -> Dict[str, Any]:
+    summary_context: dict[str, Any],
+    old_data: dict[str, Any],
+    new_data: dict[str, Any],
+    changes: dict[str, int],
+) -> dict[str, Any]:
     """Use AI to analyze the semantic relevance of changes.
 
     Args:
@@ -339,6 +341,7 @@ Antworte NUR mit validem JSON."""
     try:
         client = get_openai_client()
 
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[
@@ -354,6 +357,19 @@ Antworte NUR mit validem JSON."""
             temperature=AI_TEMPERATURE_LOW,
             max_tokens=MAX_TOKENS_RELEVANCE_CHECK,
         )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.RELEVANCE_CHECK,
+                task_name="_check_relevance_with_ai",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         content = response.choices[0].message.content.strip()
         content = clean_json_response(content)
@@ -384,8 +400,8 @@ Antworte NUR mit validem JSON."""
 
 
 def _build_change_summary(
-    old_data: Dict[str, Any],
-    new_data: Dict[str, Any],
+    old_data: dict[str, Any],
+    new_data: dict[str, Any],
     max_samples: int = 5,
 ) -> str:
     """Build a human-readable summary of data changes.
@@ -401,7 +417,7 @@ def _build_change_summary(
     parts = []
     samples_collected = 0
 
-    for widget_key in new_data.keys():
+    for widget_key in new_data:
         if samples_collected >= max_samples:
             break
 

@@ -5,26 +5,25 @@ creating Event entities, Person entities for attendees, and the relationships
 between them. It uses the extraction_handler="event" category setting.
 """
 
+import contextlib
 from datetime import datetime
-from typing import Any, Dict, Optional
-from uuid import UUID
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
+    Category,
+    DataSource,
     EntityType,
     ExtractedData,
-    DataSource,
-    Category,
 )
 from services.entity_facet_service import (
-    get_or_create_entity,
-    get_facet_type_by_slug,
-    create_facet_value,
     check_duplicate_facet,
-    get_relation_type_by_slug,
+    create_facet_value,
     create_relation,
+    get_facet_type_by_slug,
+    get_or_create_entity,
+    get_relation_type_by_slug,
 )
 
 logger = structlog.get_logger()
@@ -38,9 +37,9 @@ class EventExtractionError(Exception):
 async def process_event_extraction(
     session: AsyncSession,
     extracted_data: ExtractedData,
-    source: Optional[DataSource] = None,
-    category: Optional[Category] = None,
-) -> Dict[str, int]:
+    source: DataSource | None = None,
+    category: Category | None = None,
+) -> dict[str, int]:
     """
     Process event extraction results into Entity-Facet system.
 
@@ -118,10 +117,8 @@ async def process_event_extraction(
         try:
             event_date = datetime.fromisoformat(event_date_str.replace("Z", "+00:00"))
         except ValueError:
-            try:
+            with contextlib.suppress(ValueError):
                 event_date = datetime.strptime(event_date_str, "%Y-%m-%d")
-            except ValueError:
-                pass
 
     # Check if future event
     is_future = content.get("is_future_event", False)
@@ -306,9 +303,9 @@ async def process_event_extraction(
 async def convert_event_extraction_to_facets(
     session: AsyncSession,
     extracted_data: ExtractedData,
-    source: Optional[DataSource] = None,
-    category: Optional[Category] = None,
-) -> Dict[str, int]:
+    source: DataSource | None = None,
+    category: Category | None = None,
+) -> dict[str, int]:
     """
     Wrapper to process event extractions.
     Called from ai_tasks.py for event category documents.

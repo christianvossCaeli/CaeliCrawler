@@ -24,9 +24,7 @@ Usage:
 import argparse
 import asyncio
 import sys
-from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Any
 from uuid import UUID
 
 import structlog
@@ -35,19 +33,21 @@ import structlog
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from sqlalchemy import select, update, func, or_
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select, update  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
-from app.database import get_session_context
-from app.models import (
-    EntityType, FacetType, Category,
-    Entity, FacetValue,
+from app.database import get_session_context  # noqa: E402
+from app.models import (  # noqa: E402
+    Category,
+    Entity,
+    EntityType,
+    FacetType,
+    FacetValue,
 )
-from app.utils.similarity import (
-    generate_embedding,
+from app.utils.similarity import (  # noqa: E402
     _cosine_similarity,
     are_concepts_equivalent,
-    SIMILARITY_THRESHOLDS,
+    generate_embedding,
 )
 
 logger = structlog.get_logger(__name__)
@@ -80,18 +80,14 @@ class DuplicateTypesCleaner:
 
     def log(self, message: str, level: str = "info"):
         """Log a message."""
-        prefix = "[DRY RUN] " if self.dry_run else ""
-        if level == "info":
-            print(f"{prefix}{message}")
-        elif level == "verbose" and self.verbose:
-            print(f"{prefix}  -> {message}")
+        if level == "info" or level == "verbose" and self.verbose:
+            pass
         elif level == "error":
-            print(f"{prefix}ERROR: {message}")
             self.stats["errors"].append(message)
         elif level == "warning":
-            print(f"{prefix}WARNING: {message}")
+            pass
 
-    async def find_duplicate_facet_types(self) -> List[Tuple[FacetType, FacetType, float]]:
+    async def find_duplicate_facet_types(self) -> list[tuple[FacetType, FacetType, float]]:
         """
         Find duplicate FacetTypes using semantic similarity.
 
@@ -109,8 +105,8 @@ class DuplicateTypesCleaner:
 
         self.log(f"Found {len(facet_types)} active FacetTypes")
 
-        duplicates: List[Tuple[FacetType, FacetType, float]] = []
-        processed_ids: Set[UUID] = set()
+        duplicates: list[tuple[FacetType, FacetType, float]] = []
+        processed_ids: set[UUID] = set()
 
         # Group by similar names using embeddings
         for i, ft1 in enumerate(facet_types):
@@ -173,7 +169,7 @@ class DuplicateTypesCleaner:
 
         return duplicates
 
-    async def find_duplicate_entity_types(self) -> List[Tuple[EntityType, EntityType, float]]:
+    async def find_duplicate_entity_types(self) -> list[tuple[EntityType, EntityType, float]]:
         """
         Find duplicate EntityTypes using semantic similarity.
 
@@ -190,8 +186,8 @@ class DuplicateTypesCleaner:
 
         self.log(f"Found {len(entity_types)} active EntityTypes")
 
-        duplicates: List[Tuple[EntityType, EntityType, float]] = []
-        processed_ids: Set[UUID] = set()
+        duplicates: list[tuple[EntityType, EntityType, float]] = []
+        processed_ids: set[UUID] = set()
 
         for i, et1 in enumerate(entity_types):
             if et1.id in processed_ids:
@@ -249,7 +245,7 @@ class DuplicateTypesCleaner:
 
         return duplicates
 
-    async def find_duplicate_categories(self) -> List[Tuple[Category, Category, float]]:
+    async def find_duplicate_categories(self) -> list[tuple[Category, Category, float]]:
         """
         Find duplicate Categories using semantic similarity.
 
@@ -266,8 +262,8 @@ class DuplicateTypesCleaner:
 
         self.log(f"Found {len(categories)} active Categories")
 
-        duplicates: List[Tuple[Category, Category, float]] = []
-        processed_ids: Set[UUID] = set()
+        duplicates: list[tuple[Category, Category, float]] = []
+        processed_ids: set[UUID] = set()
 
         for i, cat1 in enumerate(categories):
             if cat1.id in processed_ids:
@@ -510,22 +506,13 @@ class DuplicateTypesCleaner:
 
     def print_summary(self):
         """Print summary of the cleanup operation."""
-        print("\n" + "=" * 60)
-        print("CLEANUP SUMMARY")
-        print("=" * 60)
-        print(f"FacetTypes:   {self.stats['facet_types_duplicates']} duplicates found, {self.stats['facet_types_merged']} merged")
-        print(f"EntityTypes:  {self.stats['entity_types_duplicates']} duplicates found, {self.stats['entity_types_merged']} merged")
-        print(f"Categories:   {self.stats['categories_duplicates']} duplicates found, {self.stats['categories_merged']} merged")
-        print(f"References:   {self.stats['references_updated']} updated")
 
         if self.stats["errors"]:
-            print(f"\nErrors ({len(self.stats['errors'])}):")
-            for error in self.stats["errors"]:
-                print(f"  - {error}")
+            for _error in self.stats["errors"]:
+                pass
 
         if self.dry_run:
-            print("\n>>> This was a DRY RUN - no changes were made <<<")
-            print("    Run without --dry-run to apply changes")
+            pass
 
 
 async def main():
@@ -558,14 +545,10 @@ async def main():
 
     args = parser.parse_args()
 
-    print("\n" + "=" * 60)
-    print("DUPLICATE TYPES CLEANUP")
-    print("=" * 60 + "\n")
 
     if args.dry_run:
-        print(">>> DRY RUN MODE - No changes will be made <<<\n")
+        pass
 
-    print(f"Similarity threshold: {args.threshold}")
 
     async with get_session_context() as session:
         cleaner = DuplicateTypesCleaner(

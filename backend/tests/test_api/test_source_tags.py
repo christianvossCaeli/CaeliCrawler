@@ -75,7 +75,7 @@ class TestSourceTagsAPI:
     async def test_create_source_with_tags(self, admin_client: AsyncClient):
         """Test creating a source with tags."""
         import random
-        unique_suffix = random.randint(1000, 9999)
+        unique_suffix = random.randint(1000, 9999)  # noqa: S311
         response = await admin_client.post(
             "/api/admin/data-sources",
             json={
@@ -137,7 +137,7 @@ class TestSourceTagsAPI:
     async def test_empty_tags_array(self, admin_client: AsyncClient):
         """Test creating source with empty tags."""
         import random
-        unique_suffix = random.randint(1000, 9999)
+        unique_suffix = random.randint(1000, 9999)  # noqa: S311
         response = await admin_client.post(
             "/api/admin/data-sources",
             json={
@@ -171,10 +171,7 @@ class TestCategoryTagAssignment:
         categories_data = cat_response.json()
 
         # Handle both list and dict response formats
-        if isinstance(categories_data, dict):
-            categories = categories_data.get("items", [])
-        else:
-            categories = categories_data
+        categories = categories_data.get("items", []) if isinstance(categories_data, dict) else categories_data
 
         if not categories:
             pytest.skip("No categories available")
@@ -205,10 +202,7 @@ class TestCategoryTagAssignment:
         categories_data = cat_response.json()
 
         # Handle both list and dict response formats
-        if isinstance(categories_data, dict):
-            categories = categories_data.get("items", [])
-        else:
-            categories = categories_data
+        categories = categories_data.get("items", []) if isinstance(categories_data, dict) else categories_data
 
         if not categories:
             pytest.skip("No categories available")
@@ -327,7 +321,7 @@ class TestTagValidation:
         """Test maximum tag length validation."""
         long_tag = "a" * 100
         import random
-        unique_suffix = random.randint(1000, 9999)
+        unique_suffix = random.randint(1000, 9999)  # noqa: S311
 
         response = await admin_client.post(
             "/api/admin/data-sources",

@@ -12,12 +12,13 @@ issues with asyncpg. Instead, each task gets its own event loop.
 """
 
 import asyncio
-from typing import Any, Coroutine, TypeVar
+from collections.abc import Coroutine
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
 
-def run_async(coro: Coroutine[Any, Any, T]) -> T:
+def run_async[T](coro: Coroutine[Any, Any, T]) -> T:
     """Run async coroutine in Celery task safely.
 
     Creates a new event loop for each task execution to avoid conflicts
@@ -67,7 +68,7 @@ def run_async(coro: Coroutine[Any, Any, T]) -> T:
 
             # Shutdown async generators
             loop.run_until_complete(loop.shutdown_asyncgens())
-        except Exception:
+        except Exception:  # noqa: S110
             pass
         finally:
             loop.close()

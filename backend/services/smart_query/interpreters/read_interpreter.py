@@ -5,30 +5,35 @@ into structured query parameters.
 """
 
 import json
+import time
 from datetime import date
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.exceptions import AIInterpretationError, SessionRequiredError
+from app.models.llm_usage import LLMProvider, LLMTaskType
+from services.llm_usage_tracker import record_llm_usage
+
 from ..prompts import build_compound_query_prompt
 from ..utils import clean_json_response
 from .base import (
     AI_TEMPERATURE_LOW,
-    MAX_TOKENS_QUERY,
     MAX_TOKENS_COMPOUND,
+    MAX_TOKENS_QUERY,
     get_openai_client,
-    validate_and_sanitize_query,
     load_facet_and_entity_types,
+    validate_and_sanitize_query,
 )
 
 logger = structlog.get_logger()
 
 
 def build_dynamic_query_prompt(
-    facet_types: List[Dict[str, Any]],
-    entity_types: List[Dict[str, Any]],
+    facet_types: list[dict[str, Any]],
+    entity_types: list[dict[str, Any]],
     query: str = "",
 ) -> str:
     """Build the query interpretation prompt dynamically with current facet and entity types."""
@@ -233,7 +238,7 @@ Benutzeranfrage: {query}
 Antworte NUR mit validem JSON."""
 
 
-async def interpret_query(question: str, session: Optional[AsyncSession] = None) -> Dict[str, Any]:
+async def interpret_query(question: str, session: AsyncSession | None = None) -> dict[str, Any]:
     """Use AI to interpret natural language query into structured query parameters.
 
     Args:
@@ -256,8 +261,9 @@ async def interpret_query(question: str, session: Optional[AsyncSession] = None)
             prompt = build_dynamic_query_prompt(facet_types, entity_types, query=sanitized_question)
             logger.debug("Using dynamic prompt with facet_types", facet_count=len(facet_types))
         else:
-            raise ValueError("Database session is required for query interpretation")
+            raise SessionRequiredError("query interpretation")
 
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[
@@ -274,6 +280,19 @@ async def interpret_query(question: str, session: Optional[AsyncSession] = None)
             max_tokens=MAX_TOKENS_QUERY,
         )
 
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.CHAT,
+                task_name="interpret_query",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
+
         content = response.choices[0].message.content.strip()
         logger.debug("AI raw response", content=content[:200] if content else "empty")
 
@@ -284,14 +303,14 @@ async def interpret_query(question: str, session: Optional[AsyncSession] = None)
         logger.info("Query interpreted successfully", interpretation=parsed)
         return parsed
 
-    except ValueError:
+    except (SessionRequiredError, AIInterpretationError):
         raise
     except Exception as e:
         logger.error("Failed to interpret query", error=str(e), exc_info=True)
-        raise RuntimeError(f"KI-Service Fehler: Query-Interpretation fehlgeschlagen - {str(e)}")
+        raise AIInterpretationError("Query-Interpretation", detail=str(e)) from None
 
 
-async def detect_compound_query(question: str, session: Optional[AsyncSession] = None) -> Dict[str, Any]:
+async def detect_compound_query(question: str, session: AsyncSession | None = None) -> dict[str, Any]:
     """Use AI to detect if the query is a compound query (UND-Abfrage).
 
     A compound query requests multiple distinct datasets or visualizations
@@ -317,7 +336,7 @@ async def detect_compound_query(question: str, session: Optional[AsyncSession] =
     client = get_openai_client()
 
     if not session:
-        raise ValueError("Database session is required for compound query detection")
+        raise SessionRequiredError("compound query detection")
 
     try:
         # Load types for context
@@ -337,6 +356,7 @@ async def detect_compound_query(question: str, session: Optional[AsyncSession] =
             facet_count=len(facet_types),
         )
 
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[
@@ -352,6 +372,19 @@ async def detect_compound_query(question: str, session: Optional[AsyncSession] =
             temperature=AI_TEMPERATURE_LOW,
             max_tokens=MAX_TOKENS_COMPOUND,
         )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.CHAT,
+                task_name="detect_compound_query",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         content = response.choices[0].message.content.strip()
         content = clean_json_response(content)

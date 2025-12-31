@@ -4,7 +4,7 @@ This module automatically suggests and adds new widgets when
 new relevant data types or facets are discovered during execution.
 """
 
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -13,9 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
     CustomSummary,
-    SummaryWidget,
-    EntityType,
     FacetType,
+    SummaryWidget,
 )
 from app.models.summary_widget import SummaryWidgetType
 
@@ -29,8 +28,8 @@ class WidgetSuggestion:
         self,
         widget_type: SummaryWidgetType,
         title: str,
-        subtitle: Optional[str] = None,
-        query_config: Optional[Dict[str, Any]] = None,
+        subtitle: str | None = None,
+        query_config: dict[str, Any] | None = None,
         reason: str = "",
         confidence: float = 0.5,
     ):
@@ -41,7 +40,7 @@ class WidgetSuggestion:
         self.reason = reason
         self.confidence = confidence
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "widget_type": self.widget_type.value,
@@ -56,8 +55,8 @@ class WidgetSuggestion:
 async def analyze_for_expansion(
     session: AsyncSession,
     summary: CustomSummary,
-    execution_data: Dict[str, Any],
-) -> List[WidgetSuggestion]:
+    execution_data: dict[str, Any],
+) -> list[WidgetSuggestion]:
     """
     Analyze execution results to find expansion opportunities.
 
@@ -74,11 +73,11 @@ async def analyze_for_expansion(
     Returns:
         List of widget suggestions
     """
-    suggestions: List[WidgetSuggestion] = []
+    suggestions: list[WidgetSuggestion] = []
 
     # Get current widget configurations
     current_facet_types = _get_current_facet_types(summary)
-    current_entity_types = _get_current_entity_types(summary)
+    _get_current_entity_types(summary)
     current_widget_types = _get_current_widget_types(summary)
 
     # Analyze data for new facet types
@@ -109,9 +108,9 @@ async def analyze_for_expansion(
     return suggestions
 
 
-def _get_current_facet_types(summary: CustomSummary) -> Set[str]:
+def _get_current_facet_types(summary: CustomSummary) -> set[str]:
     """Get all facet types currently used in widgets."""
-    facet_types: Set[str] = set()
+    facet_types: set[str] = set()
 
     for widget in summary.widgets:
         config = widget.query_config or {}
@@ -125,9 +124,9 @@ def _get_current_facet_types(summary: CustomSummary) -> Set[str]:
     return facet_types
 
 
-def _get_current_entity_types(summary: CustomSummary) -> Set[str]:
+def _get_current_entity_types(summary: CustomSummary) -> set[str]:
     """Get all entity types currently used in widgets."""
-    entity_types: Set[str] = set()
+    entity_types: set[str] = set()
 
     for widget in summary.widgets:
         config = widget.query_config or {}
@@ -142,23 +141,23 @@ def _get_current_entity_types(summary: CustomSummary) -> Set[str]:
     return entity_types
 
 
-def _get_current_widget_types(summary: CustomSummary) -> Set[str]:
+def _get_current_widget_types(summary: CustomSummary) -> set[str]:
     """Get all widget types currently used."""
     return {w.widget_type.value for w in summary.widgets}
 
 
 async def _find_new_facet_types(
     session: AsyncSession,
-    execution_data: Dict[str, Any],
-    current_facets: Set[str],
+    execution_data: dict[str, Any],
+    current_facets: set[str],
     summary: CustomSummary,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Find facet types in data that aren't in current widgets."""
-    new_facets: List[Dict[str, Any]] = []
-    seen_facets: Set[str] = set()
+    new_facets: list[dict[str, Any]] = []
+    seen_facets: set[str] = set()
 
     # Iterate through widget data
-    for widget_key, widget_data in execution_data.items():
+    for _widget_key, widget_data in execution_data.items():
         if not isinstance(widget_data, dict):
             continue
 
@@ -188,7 +187,7 @@ async def _find_new_facet_types(
     return new_facets
 
 
-def _create_facet_widget_suggestion(facet_info: Dict[str, Any]) -> Optional[WidgetSuggestion]:
+def _create_facet_widget_suggestion(facet_info: dict[str, Any]) -> WidgetSuggestion | None:
     """Create a widget suggestion for a new facet type."""
     slug = facet_info["slug"]
     name = facet_info["name"]
@@ -246,12 +245,12 @@ def _create_facet_widget_suggestion(facet_info: Dict[str, Any]) -> Optional[Widg
 
 
 def _suggest_visualization_improvements(
-    execution_data: Dict[str, Any],
-    current_widget_types: Set[str],
+    execution_data: dict[str, Any],
+    current_widget_types: set[str],
     summary: CustomSummary,
-) -> List[WidgetSuggestion]:
+) -> list[WidgetSuggestion]:
     """Suggest improved visualization types based on data characteristics."""
-    suggestions: List[WidgetSuggestion] = []
+    suggestions: list[WidgetSuggestion] = []
 
     # Analyze data characteristics
     total_records = 0
@@ -326,18 +325,15 @@ def _looks_like_date(value: str) -> bool:
         r"\d{1,2}/\d{1,2}/\d{4}",  # US format
     ]
 
-    for pattern in patterns:
-        if re.match(pattern, str(value)):
-            return True
-    return False
+    return any(re.match(pattern, str(value)) for pattern in patterns)
 
 
 async def apply_expansion(
     session: AsyncSession,
     summary_id: UUID,
-    suggestions: List[WidgetSuggestion],
+    suggestions: list[WidgetSuggestion],
     max_widgets: int = 3,
-) -> List[SummaryWidget]:
+) -> list[SummaryWidget]:
     """
     Apply expansion suggestions by creating new widgets.
 
@@ -353,7 +349,7 @@ async def apply_expansion(
     Returns:
         List of created widgets
     """
-    created_widgets: List[SummaryWidget] = []
+    created_widgets: list[SummaryWidget] = []
 
     # Get summary
     result = await session.execute(

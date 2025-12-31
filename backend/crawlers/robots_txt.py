@@ -12,10 +12,10 @@ Features:
 """
 
 import asyncio
+import contextlib
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -29,7 +29,7 @@ class RobotsRule:
     """A single robots.txt rule (Allow or Disallow)."""
     path: str
     allow: bool  # True for Allow, False for Disallow
-    pattern: Optional[re.Pattern] = None
+    pattern: re.Pattern | None = None
 
     def __post_init__(self):
         """Compile the path pattern for matching."""
@@ -38,10 +38,7 @@ class RobotsRule:
         # $ anchors to end of URL
         regex_path = re.escape(self.path)
         regex_path = regex_path.replace(r"\*", ".*")
-        if regex_path.endswith(r"\$"):
-            regex_path = regex_path[:-2] + "$"
-        else:
-            regex_path = regex_path + ".*"
+        regex_path = regex_path[:-2] + "$" if regex_path.endswith(r"\$") else regex_path + ".*"
         self.pattern = re.compile(regex_path)
 
     def matches(self, path: str) -> bool:
@@ -52,9 +49,9 @@ class RobotsRule:
 @dataclass
 class RobotsDirectives:
     """Parsed robots.txt directives for a user-agent."""
-    rules: List[RobotsRule] = field(default_factory=list)
-    crawl_delay: Optional[float] = None
-    sitemaps: List[str] = field(default_factory=list)
+    rules: list[RobotsRule] = field(default_factory=list)
+    crawl_delay: float | None = None
+    sitemaps: list[str] = field(default_factory=list)
 
     def is_allowed(self, path: str) -> bool:
         """Check if crawling the given path is allowed.
@@ -63,7 +60,7 @@ class RobotsDirectives:
         If no rules match, crawling is allowed by default.
         """
         # Find the most specific matching rule
-        best_match: Optional[RobotsRule] = None
+        best_match: RobotsRule | None = None
         best_length = -1
 
         for rule in self.rules:
@@ -129,8 +126,8 @@ class RobotsTxtChecker:
         """
         self.user_agent = user_agent
         self.respect_robots = respect_robots
-        self._cache: Dict[str, RobotsCache] = {}
-        self._locks: Dict[str, asyncio.Lock] = {}
+        self._cache: dict[str, RobotsCache] = {}
+        self._locks: dict[str, asyncio.Lock] = {}
         self.logger = logger.bind(component="RobotsTxtChecker")
 
     def _get_domain(self, url: str) -> str:
@@ -149,7 +146,7 @@ class RobotsTxtChecker:
         if domain not in self._cache:
             return False
         cache_entry = self._cache[domain]
-        return datetime.now(timezone.utc) < cache_entry.expires_at
+        return datetime.now(UTC) < cache_entry.expires_at
 
     def _parse_robots_txt(self, content: str) -> RobotsDirectives:
         """
@@ -162,7 +159,7 @@ class RobotsTxtChecker:
         - Sitemap directive
         """
         directives = RobotsDirectives()
-        current_agents: List[str] = []
+        current_agents: list[str] = []
         in_matching_block = False
 
         lines = content.strip().split("\n")
@@ -200,10 +197,8 @@ class RobotsTxtChecker:
                     directives.rules.append(RobotsRule(path=value, allow=True))
 
             elif key == "crawl-delay" and in_matching_block:
-                try:
+                with contextlib.suppress(ValueError):
                     directives.crawl_delay = float(value)
-                except ValueError:
-                    pass
 
             elif key == "sitemap":
                 directives.sitemaps.append(value)
@@ -223,7 +218,7 @@ class RobotsTxtChecker:
         our_agent = self.user_agent.lower()
         return agent in our_agent or our_agent.startswith(agent)
 
-    async def _fetch_robots_txt(self, domain: str) -> Optional[str]:
+    async def _fetch_robots_txt(self, domain: str) -> str | None:
         """Fetch robots.txt from a domain."""
         robots_url = urljoin(domain, "/robots.txt")
 
@@ -266,7 +261,7 @@ class RobotsTxtChecker:
                 return self._cache[domain].directives
 
             # Fetch and parse
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             expires = now + timedelta(seconds=self.CACHE_TTL_SECONDS)
 
             content = await self._fetch_robots_txt(domain)
@@ -362,9 +357,9 @@ class RobotsTxtChecker:
         """Clear the robots.txt cache."""
         self._cache.clear()
 
-    def get_cache_stats(self) -> Dict[str, int]:
+    def get_cache_stats(self) -> dict[str, int]:
         """Get cache statistics."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         valid = sum(1 for c in self._cache.values() if now < c.expires_at)
         return {
             "total_entries": len(self._cache),

@@ -4,7 +4,6 @@ import hashlib
 import uuid
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional
 from uuid import UUID
 
 import structlog
@@ -38,8 +37,8 @@ class AttachmentService:
         filename: str,
         content: bytes,
         content_type: str,
-        user_id: Optional[UUID] = None,
-        description: Optional[str] = None,
+        user_id: UUID | None = None,
+        description: str | None = None,
     ) -> EntityAttachment:
         """
         Upload and store a new attachment for an entity.
@@ -135,7 +134,7 @@ class AttachmentService:
     async def get_attachments(
         self,
         entity_id: UUID,
-    ) -> List[EntityAttachment]:
+    ) -> list[EntityAttachment]:
         """Get all attachments for an entity."""
         query = (
             select(EntityAttachment)
@@ -146,7 +145,7 @@ class AttachmentService:
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def get_attachment(self, attachment_id: UUID) -> Optional[EntityAttachment]:
+    async def get_attachment(self, attachment_id: UUID) -> EntityAttachment | None:
         """Get a single attachment by ID."""
         return await self.db.get(EntityAttachment, attachment_id)
 
@@ -189,7 +188,7 @@ class AttachmentService:
 
     def get_thumbnail_path_for_attachment(
         self, attachment: EntityAttachment
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Get thumbnail path for an attachment if it's an image."""
         if not attachment.is_image:
             return None
@@ -205,7 +204,7 @@ class AttachmentService:
 
     async def update_description(
         self, attachment_id: UUID, description: str
-    ) -> Optional[EntityAttachment]:
+    ) -> EntityAttachment | None:
         """Update attachment description."""
         attachment = await self.db.get(EntityAttachment, attachment_id)
         if not attachment:

@@ -12,11 +12,11 @@ Usage:
     docker compose exec backend python -m scripts.import_wikidata_uk --country england
 """
 
-import asyncio
 import argparse
-import httpx
+import asyncio
 import uuid
-from typing import List, Dict, Optional
+
+import httpx
 
 # Wikidata SPARQL endpoint
 WIKIDATA_ENDPOINT = "https://query.wikidata.org/sparql"
@@ -130,13 +130,12 @@ UK_COUNTRIES = {
 
 
 async def fetch_uk_councils_from_wikidata(
-    country: Optional[str] = None,
-    limit: Optional[int] = None,
-) -> List[Dict]:
+    country: str | None = None,
+    limit: int | None = None,
+) -> list[dict]:
     """Fetch UK local authorities from Wikidata."""
     # Use simple query to avoid timeouts
     query = SPARQL_QUERY_UK_SIMPLE
-    print("Fetching all UK local authorities...")
 
     if limit:
         query += f"\nLIMIT {limit}"
@@ -250,18 +249,18 @@ def clean_council_name(name: str) -> str:
 
 
 async def import_locations_from_councils(
-    councils: List[Dict],
+    councils: list[dict],
     dry_run: bool = False,
-) -> Dict:
+) -> dict:
     """Import UK councils as locations."""
 
     if dry_run:
-        print(f"\n[DRY RUN] Would import {len(councils)} locations")
         return {"locations_created": 0, "locations_skipped": 0}
+
+    from sqlalchemy import select
 
     from app.database import async_session_factory
     from app.models import Location
-    from sqlalchemy import select
 
     stats = {"locations_created": 0, "locations_skipped": 0, "locations_errors": 0}
 
@@ -345,11 +344,9 @@ async def import_locations_from_councils(
 
                 # Commit in smaller batches to avoid issues
                 if stats["locations_created"] % 100 == 0:
-                    print(f"  Created {stats['locations_created']} locations...")
                     await session.commit()
 
-            except Exception as e:
-                print(f"  Error creating location {council['name']}: {e}")
+            except Exception:
                 stats["locations_errors"] += 1
                 # Rollback current transaction and start fresh
                 await session.rollback()
@@ -357,31 +354,30 @@ async def import_locations_from_councils(
         # Final commit
         try:
             await session.commit()
-        except Exception as e:
-            print(f"  Final commit error: {e}")
+        except Exception:
             await session.rollback()
 
     return stats
 
 
 async def import_councils_as_sources(
-    councils: List[Dict],
+    councils: list[dict],
     category_id,
     dry_run: bool = False,
-) -> Dict:
+) -> dict:
     """Import UK councils as data sources."""
 
     if dry_run:
-        print(f"\n[DRY RUN] Would import {len(councils)} data sources")
-        for c in councils[:10]:
-            print(f"  - {c['name']}: {c['website']}")
+        for _c in councils[:10]:
+            pass
         if len(councils) > 10:
-            print(f"  ... and {len(councils) - 10} more")
+            pass
         return {"sources_imported": 0, "sources_skipped": 0, "sources_errors": 0}
 
-    from app.database import async_session_factory
-    from app.models import DataSource, SourceType, SourceStatus, Location
     from sqlalchemy import select
+
+    from app.database import async_session_factory
+    from app.models import DataSource, Location, SourceStatus, SourceType
 
     stats = {"sources_imported": 0, "sources_skipped": 0, "sources_errors": 0}
 
@@ -445,11 +441,9 @@ async def import_councils_as_sources(
                 stats["sources_imported"] += 1
 
                 if stats["sources_imported"] % 50 == 0:
-                    print(f"  Imported {stats['sources_imported']} sources...")
                     await session.commit()
 
-            except Exception as e:
-                print(f"  Error importing source {council['name']}: {e}")
+            except Exception:
                 stats["sources_errors"] += 1
 
         await session.commit()
@@ -495,40 +489,30 @@ async def main():
 
     args = parser.parse_args()
 
-    print("=" * 60)
-    print("Wikidata UK Local Authorities Import")
-    print("=" * 60)
 
     # Fetch from Wikidata
     councils = await fetch_uk_councils_from_wikidata(
         country=args.country,
         limit=args.limit,
     )
-    print(f"\nFound {len(councils)} local authorities with websites")
 
     if not councils:
-        print("No local authorities found!")
         return
 
     # Show sample
-    print("\nSample local authorities:")
     for c in councils[:5]:
-        pop = f" (Pop: {int(float(c['population'])):,})" if c.get('population') else ""
-        region = f" [{c['admin_level_1']}]" if c.get('admin_level_1') else ""
-        print(f"  - {c['name']}{pop}{region}: {c['website']}")
+        f" (Pop: {int(float(c['population'])):,})" if c.get('population') else ""
+        f" [{c['admin_level_1']}]" if c.get('admin_level_1') else ""
 
     # STEP 1: Import locations (unless --sources-only)
     location_stats = {"locations_created": 0, "locations_skipped": 0, "locations_errors": 0}
     if not args.sources_only:
-        print("\n--- Step 1: Importing Locations ---")
         location_stats = await import_locations_from_councils(
             councils,
             dry_run=args.dry_run,
         )
-        print(f"  Locations created: {location_stats.get('locations_created', 0)}")
-        print(f"  Locations skipped: {location_stats.get('locations_skipped', 0)}")
         if location_stats.get('locations_errors', 0) > 0:
-            print(f"  Locations errors: {location_stats['locations_errors']}")
+            pass
 
     # STEP 2: Import data sources (unless --locations-only)
     source_stats = {"sources_imported": 0, "sources_skipped": 0, "sources_errors": 0}
@@ -536,9 +520,10 @@ async def main():
         category_id = None
         if not args.dry_run:
             # Get category
+            from sqlalchemy import select
+
             from app.database import async_session_factory
             from app.models import Category
-            from sqlalchemy import select
 
             async with async_session_factory() as session:
                 result = await session.execute(
@@ -547,12 +532,9 @@ async def main():
                 category = result.scalar_one_or_none()
 
                 if not category:
-                    print(f"\nWarning: Category '{args.category}' not found!")
-                    print("Skipping data source import.")
+                    pass
                 else:
                     category_id = category.id
-                    print(f"\n--- Step 2: Importing Data Sources ---")
-                    print(f"  Target category: {args.category}")
 
         if category_id or args.dry_run:
             source_stats = await import_councils_as_sources(
@@ -560,21 +542,13 @@ async def main():
                 category_id,
                 dry_run=args.dry_run,
             )
-            print(f"  Sources imported: {source_stats.get('sources_imported', 0)}")
-            print(f"  Sources skipped: {source_stats.get('sources_skipped', 0)}")
             if source_stats.get('sources_errors', 0) > 0:
-                print(f"  Sources errors: {source_stats['sources_errors']}")
+                pass
 
-    print("\n" + "=" * 60)
-    print("Import Summary")
-    print("=" * 60)
     if not args.sources_only:
-        print(f"  Locations created: {location_stats.get('locations_created', 0)}")
-        print(f"  Locations skipped: {location_stats.get('locations_skipped', 0)}")
+        pass
     if not args.locations_only:
-        print(f"  Sources imported: {source_stats.get('sources_imported', 0)}")
-        print(f"  Sources skipped: {source_stats.get('sources_skipped', 0)}")
-    print("=" * 60)
+        pass
 
 
 if __name__ == "__main__":

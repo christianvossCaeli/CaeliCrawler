@@ -3,18 +3,35 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
-from app.core.deps import require_editor, require_admin
 from app.core.audit import AuditContext
-from app.models.audit_log import AuditAction
-from app.models import Document, ProcessingStatus, User
-from app.schemas.common import MessageResponse
+from app.core.deps import require_admin, require_editor
 from app.core.exceptions import NotFoundError, ValidationError
+from app.database import get_session
+from app.models import Document, ProcessingStatus, User
+from app.models.audit_log import AuditAction
+from app.schemas.common import MessageResponse
 
 router = APIRouter()
+
+
+class BulkDocumentActionRequest(BaseModel):
+    """Request payload for bulk document actions."""
+
+    document_ids: list[UUID] = Field(..., min_length=1, description="Document IDs to process")
+    skip_relevance_check: bool = Field(default=False, description="Skip relevance pre-filter for analysis")
+
+
+class BulkDocumentActionResponse(BaseModel):
+    """Response summary for bulk document actions."""
+
+    queued: int
+    skipped: int
+    missing: int
+    message: str
 
 
 @router.post("/documents/{document_id}/process", response_model=MessageResponse)
@@ -69,6 +86,98 @@ async def analyze_document(
     analyze_doc_task.delay(str(document_id), skip_relevance_check=skip_relevance_check)
 
     return MessageResponse(message="Document queued for AI analysis")
+
+
+@router.post("/documents/bulk-process", response_model=BulkDocumentActionResponse)
+async def bulk_process_documents(
+    payload: BulkDocumentActionRequest,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
+):
+    """Trigger processing for multiple documents in one request."""
+    from celery import group
+
+    from workers.processing_tasks import process_document as process_doc_task
+
+    document_ids = list(dict.fromkeys(payload.document_ids))
+    result = await session.execute(
+        select(Document).where(Document.id.in_(document_ids))
+    )
+    documents = result.scalars().all()
+    docs_by_id = {doc.id: doc for doc in documents}
+    missing = max(0, len(document_ids) - len(docs_by_id))
+
+    for doc in documents:
+        if doc.processing_status in (ProcessingStatus.FAILED, ProcessingStatus.FILTERED):
+            doc.processing_status = ProcessingStatus.PENDING
+            doc.processing_error = None
+
+    if documents:
+        await session.commit()
+
+    # Dispatch tasks in parallel using Celery group
+    if documents:
+        task_group = group(
+            process_doc_task.s(str(doc.id)) for doc in documents
+        )
+        task_group.apply_async()
+
+    return BulkDocumentActionResponse(
+        queued=len(documents),
+        skipped=0,
+        missing=missing,
+        message=f"Queued {len(documents)} document(s) for processing",
+    )
+
+
+@router.post("/documents/bulk-analyze", response_model=BulkDocumentActionResponse)
+async def bulk_analyze_documents(
+    payload: BulkDocumentActionRequest,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_editor),
+):
+    """Trigger AI analysis for multiple documents in one request."""
+    from celery import group
+
+    from workers.ai_tasks import analyze_document as analyze_doc_task
+
+    document_ids = list(dict.fromkeys(payload.document_ids))
+    result = await session.execute(
+        select(Document).where(Document.id.in_(document_ids))
+    )
+    documents = result.scalars().all()
+    docs_by_id = {doc.id: doc for doc in documents}
+    missing = max(0, len(document_ids) - len(docs_by_id))
+
+    eligible: list[Document] = []
+    skipped = 0
+    for doc in documents:
+        if not doc.raw_text:
+            skipped += 1
+            continue
+        if payload.skip_relevance_check and doc.processing_status == ProcessingStatus.FILTERED:
+            doc.processing_status = ProcessingStatus.COMPLETED
+            doc.processing_error = None
+        eligible.append(doc)
+
+    if eligible:
+        await session.commit()
+
+    # Dispatch tasks in parallel using Celery group
+    if eligible:
+        skip_check = payload.skip_relevance_check
+        task_group = group(
+            analyze_doc_task.s(str(doc.id), skip_relevance_check=skip_check)
+            for doc in eligible
+        )
+        task_group.apply_async()
+
+    return BulkDocumentActionResponse(
+        queued=len(eligible),
+        skipped=skipped,
+        missing=missing,
+        message=f"Queued {len(eligible)} document(s) for AI analysis",
+    )
 
 
 @router.post("/documents/process-pending", response_model=MessageResponse)

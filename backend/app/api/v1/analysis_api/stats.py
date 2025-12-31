@@ -1,15 +1,19 @@
 """Analysis statistics endpoints."""
 
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.models import (
-    Entity, EntityType, FacetType, FacetValue, EntityRelation, RelationType,
+    Entity,
+    EntityRelation,
+    EntityType,
+    FacetType,
+    FacetValue,
+    RelationType,
 )
 
 router = APIRouter()
@@ -17,8 +21,8 @@ router = APIRouter()
 
 @router.get("/stats")
 async def get_analysis_stats(
-    entity_type_slug: Optional[str] = Query(default=None),
-    category_id: Optional[UUID] = Query(default=None),
+    entity_type_slug: str | None = Query(default=None),
+    category_id: UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
 ):
     """Get overall analysis statistics, optionally filtered by entity type."""

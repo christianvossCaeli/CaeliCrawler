@@ -7,12 +7,13 @@ It enables citizens to request public documents from authorities.
 API Documentation: https://fragdenstaat.de/api/
 """
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any
 
-from crawlers.api_clients.base_api import BaseAPIClient, APIResponse, APIDocument
+from crawlers.api_clients.base_api import APIDocument, APIResponse, BaseAPIClient
 
 
 class FOIRequestStatus(str, Enum):
@@ -40,41 +41,41 @@ class FOIRequest:
     title: str
     slug: str
     status: str
-    resolution: Optional[str] = None
-    description: Optional[str] = None
+    resolution: str | None = None
+    description: str | None = None
 
     # Public body
-    public_body_id: Optional[int] = None
-    public_body_name: Optional[str] = None
-    public_body_jurisdiction: Optional[str] = None
+    public_body_id: int | None = None
+    public_body_name: str | None = None
+    public_body_jurisdiction: str | None = None
 
     # Requestor
-    user_id: Optional[int] = None
-    user_name: Optional[str] = None
+    user_id: int | None = None
+    user_name: str | None = None
 
     # Dates
-    created_at: Optional[datetime] = None
-    last_message: Optional[datetime] = None
-    due_date: Optional[datetime] = None
-    resolved_on: Optional[datetime] = None
+    created_at: datetime | None = None
+    last_message: datetime | None = None
+    due_date: datetime | None = None
+    resolved_on: datetime | None = None
 
     # Costs
     costs: float = 0.0
 
     # Law used
-    law_id: Optional[int] = None
-    law_name: Optional[str] = None
+    law_id: int | None = None
+    law_name: str | None = None
 
     # Messages and documents
     messages_count: int = 0
     attachments_count: int = 0
 
     # Classification
-    campaign: Optional[str] = None
-    tags: List[str] = field(default_factory=list)
+    campaign: str | None = None
+    tags: list[str] = field(default_factory=list)
 
     # Links
-    same_as: List[int] = field(default_factory=list)
+    same_as: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -87,19 +88,19 @@ class PublicBody:
     slug: str
 
     # Organization details
-    classification: Optional[str] = None
-    email: Optional[str] = None
-    contact: Optional[str] = None
-    address: Optional[str] = None
-    website: Optional[str] = None
+    classification: str | None = None
+    email: str | None = None
+    contact: str | None = None
+    address: str | None = None
+    website: str | None = None
 
     # Jurisdiction
-    jurisdiction_id: Optional[int] = None
-    jurisdiction_name: Optional[str] = None
-    jurisdiction_level: Optional[str] = None  # bund, land, kommune
+    jurisdiction_id: int | None = None
+    jurisdiction_name: str | None = None
+    jurisdiction_level: str | None = None  # bund, land, kommune
 
     # Categories
-    categories: List[Dict[str, Any]] = field(default_factory=list)
+    categories: list[dict[str, Any]] = field(default_factory=list)
 
     # Statistics
     request_count: int = 0
@@ -107,14 +108,14 @@ class PublicBody:
     request_success_rate: float = 0.0
 
     # FOI law
-    default_law_id: Optional[int] = None
-    laws: List[Dict[str, Any]] = field(default_factory=list)
+    default_law_id: int | None = None
+    laws: list[dict[str, Any]] = field(default_factory=list)
 
     # Geographic
-    geo: Optional[Dict[str, Any]] = None
-    region: Optional[str] = None
+    geo: dict[str, Any] | None = None
+    region: str | None = None
 
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
 
 @dataclass
@@ -129,7 +130,7 @@ class FOIMessage:
     timestamp: datetime
 
     # Attachments
-    attachments: List[Dict[str, Any]] = field(default_factory=list)
+    attachments: list[dict[str, Any]] = field(default_factory=list)
 
     # Redactions
     is_redacted: bool = False
@@ -150,7 +151,7 @@ class FOIAttachment:
     is_redacted: bool = False
     can_approve: bool = False
 
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
 
 class FragDenStaatClient(BaseAPIClient):
@@ -182,14 +183,14 @@ class FragDenStaatClient(BaseAPIClient):
 
     async def search_requests(
         self,
-        query: Optional[str] = None,
-        status: Optional[FOIRequestStatus] = None,
-        public_body: Optional[int] = None,
-        jurisdiction: Optional[str] = None,
-        campaign: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        created_after: Optional[datetime] = None,
-        created_before: Optional[datetime] = None,
+        query: str | None = None,
+        status: FOIRequestStatus | None = None,
+        public_body: int | None = None,
+        jurisdiction: str | None = None,
+        campaign: str | None = None,
+        tags: list[str] | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> APIResponse[APIDocument]:
@@ -250,14 +251,14 @@ class FragDenStaatClient(BaseAPIClient):
             raw_response=data,
         )
 
-    async def get_request(self, request_id: int) -> Optional[FOIRequest]:
+    async def get_request(self, request_id: int) -> FOIRequest | None:
         """Get a specific FOI request by ID."""
         data = await self.get(f"request/{request_id}/")
         if data:
             return self._parse_request(data)
         return None
 
-    async def get_request_messages(self, request_id: int) -> List[FOIMessage]:
+    async def get_request_messages(self, request_id: int) -> list[FOIMessage]:
         """Get all messages for a FOI request."""
         data = await self.get(f"request/{request_id}/")
         if not data:
@@ -270,8 +271,8 @@ class FragDenStaatClient(BaseAPIClient):
 
     async def iterate_requests(
         self,
-        query: Optional[str] = None,
-        status: Optional[FOIRequestStatus] = None,
+        query: str | None = None,
+        status: FOIRequestStatus | None = None,
         batch_size: int = 100,
         max_requests: int = 10000,
         **kwargs,
@@ -307,13 +308,13 @@ class FragDenStaatClient(BaseAPIClient):
 
     async def search_public_bodies(
         self,
-        query: Optional[str] = None,
-        jurisdiction: Optional[str] = None,
-        classification: Optional[str] = None,
-        categories: Optional[List[str]] = None,
+        query: str | None = None,
+        jurisdiction: str | None = None,
+        classification: str | None = None,
+        categories: list[str] | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[PublicBody]:
+    ) -> list[PublicBody]:
         """
         Search for public bodies (authorities).
 
@@ -346,7 +347,7 @@ class FragDenStaatClient(BaseAPIClient):
 
         return [self._parse_public_body(pb) for pb in data.get("objects", [])]
 
-    async def get_public_body(self, public_body_id: int) -> Optional[PublicBody]:
+    async def get_public_body(self, public_body_id: int) -> PublicBody | None:
         """Get a specific public body by ID."""
         data = await self.get(f"publicbody/{public_body_id}/")
         if data:
@@ -355,7 +356,7 @@ class FragDenStaatClient(BaseAPIClient):
 
     async def iterate_public_bodies(
         self,
-        jurisdiction: Optional[str] = None,
+        jurisdiction: str | None = None,
         batch_size: int = 100,
         max_bodies: int = 50000,
     ) -> AsyncIterator[PublicBody]:
@@ -386,7 +387,7 @@ class FragDenStaatClient(BaseAPIClient):
 
     # === Jurisdictions ===
 
-    async def get_jurisdictions(self) -> List[Dict[str, Any]]:
+    async def get_jurisdictions(self) -> list[dict[str, Any]]:
         """Get all available jurisdictions."""
         data = await self.get("jurisdiction/")
         if data:
@@ -395,7 +396,7 @@ class FragDenStaatClient(BaseAPIClient):
 
     # === Campaigns ===
 
-    async def get_campaigns(self) -> List[Dict[str, Any]]:
+    async def get_campaigns(self) -> list[dict[str, Any]]:
         """Get all campaigns."""
         data = await self.get("campaign/")
         if data:
@@ -404,7 +405,7 @@ class FragDenStaatClient(BaseAPIClient):
 
     # === Laws ===
 
-    async def get_laws(self, jurisdiction: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def get_laws(self, jurisdiction: str | None = None) -> list[dict[str, Any]]:
         """Get FOI laws."""
         params = {}
         if jurisdiction:
@@ -425,7 +426,7 @@ class FragDenStaatClient(BaseAPIClient):
         """Generic search interface."""
         return await self.search_requests(query=query, **kwargs)
 
-    async def get_document(self, document_id: str) -> Optional[APIDocument]:
+    async def get_document(self, document_id: str) -> APIDocument | None:
         """Get document by ID."""
         request = await self.get_request(int(document_id))
         if request:
@@ -434,7 +435,7 @@ class FragDenStaatClient(BaseAPIClient):
 
     # === Parsers ===
 
-    def _parse_request(self, data: Dict[str, Any]) -> FOIRequest:
+    def _parse_request(self, data: dict[str, Any]) -> FOIRequest:
         """Parse FOI request from API response."""
         public_body = data.get("public_body") or {}
 
@@ -467,7 +468,7 @@ class FragDenStaatClient(BaseAPIClient):
             same_as=data.get("same_as", []),
         )
 
-    def _parse_public_body(self, data: Dict[str, Any]) -> PublicBody:
+    def _parse_public_body(self, data: dict[str, Any]) -> PublicBody:
         """Parse public body from API response."""
         jurisdiction = data.get("jurisdiction") or {}
 
@@ -497,7 +498,7 @@ class FragDenStaatClient(BaseAPIClient):
             created_at=self.parse_datetime(data.get("created_at")),
         )
 
-    def _parse_message(self, data: Dict[str, Any], request_id: int) -> FOIMessage:
+    def _parse_message(self, data: dict[str, Any], request_id: int) -> FOIMessage:
         """Parse FOI message from API response."""
         return FOIMessage(
             id=data.get("id", 0),

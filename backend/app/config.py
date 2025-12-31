@@ -1,11 +1,10 @@
 """Application configuration using Pydantic Settings."""
 
+import secrets
 from functools import lru_cache
-from typing import List
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 
 # Known insecure default secret keys that must not be used in production
 INSECURE_SECRET_KEYS = {
@@ -15,6 +14,18 @@ INSECURE_SECRET_KEYS = {
     "changeme",
     "development-secret",
 }
+
+
+def _generate_dev_secret() -> str:
+    """Generate a random secret key for development use.
+
+    In development mode, if no SECRET_KEY is provided, we generate a random one.
+    This is safer than using a static default that could accidentally be used.
+
+    Note: This means sessions won't persist across restarts in development,
+    which is generally acceptable for local development.
+    """
+    return f"dev-{secrets.token_urlsafe(32)}"
 
 
 class Settings(BaseSettings):
@@ -31,7 +42,7 @@ class Settings(BaseSettings):
     app_name: str = "CaeliCrawler"
     app_env: str = "development"
     debug: bool = False
-    secret_key: str = Field(default="change-me-in-production")
+    secret_key: str = Field(default_factory=_generate_dev_secret)
     frontend_url: str = "https://app.caeli-wind.de"  # For email verification links
     schedule_timezone: str = "Europe/Berlin"
 
@@ -44,6 +55,13 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "SECURITY ERROR: SECRET_KEY must be changed in production! "
                     "Generate a secure key with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                )
+
+            # Ensure auto-generated dev keys are not used in production
+            if self.secret_key.startswith("dev-"):
+                raise ValueError(
+                    "SECURITY ERROR: Auto-generated development SECRET_KEY cannot be used in production! "
+                    "Set a persistent SECRET_KEY in your environment."
                 )
 
             # Ensure secret key has minimum length (256 bits = 32 bytes)
@@ -159,7 +177,7 @@ class Settings(BaseSettings):
     # API Settings
     api_v1_prefix: str = "/api/v1"
     admin_api_prefix: str = "/api/admin"
-    cors_origins: List[str] = ["http://localhost:5173", "http://localhost:3000"]
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 
     # SMTP Configuration
     smtp_host: str = "smtp.example.com"

@@ -38,15 +38,8 @@ async function clearAuthAndRedirect(router: Router) {
   const { useAuthStore } = await import('@/stores/auth')
   const auth = useAuthStore()
 
-  // Clear auth state without API call (server already rejected us)
-  auth.token = null
-  auth.refreshToken = null
-  auth.tokenExpiry = null
-  auth.user = null
-  localStorage.removeItem('caeli_auth_token')
-  localStorage.removeItem('caeli_refresh_token')
-  localStorage.removeItem('caeli_token_expiry')
-  delete api.defaults.headers.common['Authorization']
+  // Clear auth state using store action (server already rejected us)
+  auth.clearLocalAuth()
 
   // Redirect to login if not already there
   if (router.currentRoute.value.name !== 'login') {
@@ -78,13 +71,23 @@ export function setupApiInterceptors(router: Router) {
     (error) => Promise.reject(error)
   )
 
-  // Response interceptor - handle 401 and token refresh
+  // Response interceptor - handle 401 and token refresh, plus 403 notification
   api.interceptors.response.use(
     response => response,
     async (error: AxiosError) => {
       const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
 
-      // Only handle 401 errors
+      // Handle 403 Forbidden errors - show snackbar notification
+      if (error.response?.status === 403) {
+        const { useSnackbar } = await import('@/composables/useSnackbar')
+        const { useI18n } = await import('vue-i18n')
+        const { showError } = useSnackbar()
+        const { t } = useI18n()
+        showError(t('errors.forbidden'))
+        return Promise.reject(error)
+      }
+
+      // Only handle 401 errors below
       if (error.response?.status !== 401) {
         return Promise.reject(error)
       }

@@ -5,7 +5,19 @@
       :title="t('admin.auditLog.title')"
       :subtitle="t('admin.auditLog.subtitle')"
       icon="mdi-history"
-    />
+    >
+      <template #actions>
+        <v-btn
+          color="error"
+          variant="outlined"
+          :disabled="totalLogs === 0"
+          @click="showClearDialog"
+        >
+          <v-icon start>mdi-delete-sweep</v-icon>
+          {{ t('admin.auditLog.clear.button') }}
+        </v-btn>
+      </template>
+    </PageHeader>
 
     <!-- Stats Cards -->
     <v-row v-if="stats" class="mb-4">
@@ -209,6 +221,63 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Clear Audit Log Dialog -->
+    <v-dialog v-model="clearDialogOpen" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center text-error">
+          <v-icon start color="error">mdi-alert</v-icon>
+          {{ t('admin.auditLog.clear.title') }}
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="warning" variant="tonal" class="mb-4">
+            {{ t('admin.auditLog.clear.warning') }}
+          </v-alert>
+
+          <v-radio-group v-model="clearMode" class="mb-4">
+            <v-radio
+              value="all"
+              :label="t('admin.auditLog.clear.deleteAll')"
+            />
+            <v-radio
+              value="before_date"
+              :label="t('admin.auditLog.clear.deleteOlderThan')"
+            />
+          </v-radio-group>
+
+          <v-text-field
+            v-if="clearMode === 'before_date'"
+            v-model="clearBeforeDate"
+            :label="t('admin.auditLog.clear.beforeDate')"
+            type="date"
+            class="mb-4"
+          />
+
+          <v-text-field
+            v-model="clearConfirmText"
+            :label="t('admin.auditLog.clear.confirmLabel')"
+            :placeholder="t('admin.auditLog.clear.confirmPlaceholder')"
+            :hint="t('admin.auditLog.clear.confirmHint')"
+            persistent-hint
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="tonal" @click="clearDialogOpen = false">
+            {{ t('common.cancel') }}
+          </v-btn>
+          <v-btn
+            color="error"
+            variant="flat"
+            :disabled="clearConfirmText !== 'DELETE' || clearing"
+            :loading="clearing"
+            @click="clearAuditLogs"
+          >
+            {{ t('admin.auditLog.clear.confirm') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -266,6 +335,13 @@ const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'creat
 const changesDialogOpen = ref(false)
 const selectedLog = ref<AuditLog | null>(null)
 
+// Clear Dialog
+const clearDialogOpen = ref(false)
+const clearMode = ref<'all' | 'before_date'>('all')
+const clearBeforeDate = ref('')
+const clearConfirmText = ref('')
+const clearing = ref(false)
+
 // Table headers
 const headers = computed(() => [
   { title: t('admin.auditLog.columns.action'), key: 'action', sortable: true, width: 130 },
@@ -276,38 +352,104 @@ const headers = computed(() => [
 ])
 
 const actionOptions = computed(() => [
+  // CRUD operations
   { title: t('admin.auditLog.actionTypes.CREATE'), value: 'CREATE' },
   { title: t('admin.auditLog.actionTypes.UPDATE'), value: 'UPDATE' },
   { title: t('admin.auditLog.actionTypes.DELETE'), value: 'DELETE' },
+  // Authentication
   { title: t('admin.auditLog.actionTypes.LOGIN'), value: 'LOGIN' },
   { title: t('admin.auditLog.actionTypes.LOGOUT'), value: 'LOGOUT' },
+  { title: t('admin.auditLog.actionTypes.PASSWORD_CHANGE'), value: 'PASSWORD_CHANGE' },
+  { title: t('admin.auditLog.actionTypes.PASSWORD_RESET'), value: 'PASSWORD_RESET' },
+  // Session Management
+  { title: t('admin.auditLog.actionTypes.SESSION_REVOKE'), value: 'SESSION_REVOKE' },
+  { title: t('admin.auditLog.actionTypes.SESSION_REVOKE_ALL'), value: 'SESSION_REVOKE_ALL' },
+  { title: t('admin.auditLog.actionTypes.TOKEN_REFRESH'), value: 'TOKEN_REFRESH' },
+  // Data Operations
   { title: t('admin.auditLog.actionTypes.EXPORT'), value: 'EXPORT' },
   { title: t('admin.auditLog.actionTypes.VIEW'), value: 'VIEW' },
+  { title: t('admin.auditLog.actionTypes.IMPORT'), value: 'IMPORT' },
+  { title: t('admin.auditLog.actionTypes.VERIFY'), value: 'VERIFY' },
+  // Crawler Operations
+  { title: t('admin.auditLog.actionTypes.CRAWLER_START'), value: 'CRAWLER_START' },
+  { title: t('admin.auditLog.actionTypes.CRAWLER_STOP'), value: 'CRAWLER_STOP' },
+  // Admin Operations
+  { title: t('admin.auditLog.actionTypes.USER_CREATE'), value: 'USER_CREATE' },
+  { title: t('admin.auditLog.actionTypes.USER_UPDATE'), value: 'USER_UPDATE' },
+  { title: t('admin.auditLog.actionTypes.USER_DELETE'), value: 'USER_DELETE' },
+  { title: t('admin.auditLog.actionTypes.ROLE_CHANGE'), value: 'ROLE_CHANGE' },
+  // Security Events
+  { title: t('admin.auditLog.actionTypes.SECURITY_ALERT'), value: 'SECURITY_ALERT' },
+  { title: t('admin.auditLog.actionTypes.RATE_LIMIT_EXCEEDED'), value: 'RATE_LIMIT_EXCEEDED' },
 ])
 
 // Helpers
 function getActionColor(action: string): string {
   const colors: Record<string, string> = {
+    // CRUD
     CREATE: 'success',
     UPDATE: 'info',
     DELETE: 'error',
+    // Authentication
     LOGIN: 'primary',
     LOGOUT: 'grey',
-    EXPORT: 'warning',
+    PASSWORD_CHANGE: 'warning',
+    PASSWORD_RESET: 'warning',
+    // Session
+    SESSION_REVOKE: 'orange',
+    SESSION_REVOKE_ALL: 'orange',
+    TOKEN_REFRESH: 'grey',
+    // Data Operations
+    EXPORT: 'purple',
     VIEW: 'secondary',
+    IMPORT: 'teal',
+    VERIFY: 'cyan',
+    // Crawler
+    CRAWLER_START: 'light-green',
+    CRAWLER_STOP: 'deep-orange',
+    // Admin
+    USER_CREATE: 'success',
+    USER_UPDATE: 'info',
+    USER_DELETE: 'error',
+    ROLE_CHANGE: 'amber',
+    // Security
+    SECURITY_ALERT: 'red',
+    RATE_LIMIT_EXCEEDED: 'red-darken-2',
   }
   return colors[action] || 'grey'
 }
 
 function getActionIcon(action: string): string {
   const icons: Record<string, string> = {
+    // CRUD
     CREATE: 'mdi-plus',
     UPDATE: 'mdi-pencil',
     DELETE: 'mdi-delete',
+    // Authentication
     LOGIN: 'mdi-login',
     LOGOUT: 'mdi-logout',
+    PASSWORD_CHANGE: 'mdi-key-change',
+    PASSWORD_RESET: 'mdi-lock-reset',
+    // Session
+    SESSION_REVOKE: 'mdi-account-cancel',
+    SESSION_REVOKE_ALL: 'mdi-account-multiple-remove',
+    TOKEN_REFRESH: 'mdi-refresh',
+    // Data Operations
     EXPORT: 'mdi-download',
     VIEW: 'mdi-eye',
+    IMPORT: 'mdi-upload',
+    VERIFY: 'mdi-check-decagram',
+    // Crawler
+    CRAWLER_START: 'mdi-play',
+    CRAWLER_STOP: 'mdi-stop',
+    // Admin
+    USER_CREATE: 'mdi-account-plus',
+    USER_UPDATE: 'mdi-account-edit',
+    USER_DELETE: 'mdi-account-remove',
+    ROLE_CHANGE: 'mdi-shield-account',
+    // Security
+    SECURITY_ALERT: 'mdi-alert',
+    RATE_LIMIT_EXCEEDED: 'mdi-speedometer',
   }
   return icons[action] || 'mdi-circle'
 }
@@ -338,6 +480,38 @@ const { debouncedFn: debouncedFetch } = useDebounce(
 function showChanges(log: AuditLog) {
   selectedLog.value = log
   changesDialogOpen.value = true
+}
+
+// Clear dialog functions
+function showClearDialog() {
+  clearMode.value = 'all'
+  clearBeforeDate.value = ''
+  clearConfirmText.value = ''
+  clearDialogOpen.value = true
+}
+
+async function clearAuditLogs() {
+  clearing.value = true
+  try {
+    const params: Record<string, unknown> = { confirm: true }
+    if (clearMode.value === 'before_date' && clearBeforeDate.value) {
+      params.before_date = new Date(clearBeforeDate.value).toISOString()
+    }
+
+    const response = await api.delete('/admin/audit', { params })
+    logger.info('Audit logs cleared:', response.data)
+
+    // Reset dialog
+    clearDialogOpen.value = false
+    clearConfirmText.value = ''
+
+    // Refresh data
+    await Promise.all([fetchLogs(), fetchStats()])
+  } catch (error) {
+    logger.error('Failed to clear audit logs:', error)
+  } finally {
+    clearing.value = false
+  }
 }
 
 // Table options handler

@@ -5,14 +5,14 @@ This module provides background tasks for:
 - Executing crawl presets based on their cron schedules
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
-from app.utils.cron import croniter_for_expression, get_schedule_timezone
 
-from workers.celery_app import celery_app
+from app.utils.cron import croniter_for_expression, get_schedule_timezone
 from workers.async_runner import run_async
+from workers.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
 
@@ -31,9 +31,10 @@ def check_scheduled_presets():
     This task runs periodically (default: every few seconds) and triggers
     execution for any preset that is due based on its schedule_cron.
     """
+    from sqlalchemy import select
+
     from app.database import get_celery_session_context
     from app.models import CrawlPreset, PresetStatus
-    from sqlalchemy import select
 
     async def _check_and_execute():
         async with get_celery_session_context() as session:
@@ -175,7 +176,7 @@ def execute_crawl_preset(self, preset_id: str):
                 )
 
                 # Update execution statistics
-                preset.last_scheduled_run_at = datetime.now(timezone.utc)
+                preset.last_scheduled_run_at = datetime.now(UTC)
                 await session.commit()
 
                 logger.info(
@@ -207,7 +208,7 @@ def execute_crawl_preset(self, preset_id: str):
                     error=str(e),
                 )
                 # Re-raise to trigger Celery retry
-                raise self.retry(exc=e)
+                raise self.retry(exc=e) from None
 
     return run_async(_execute())
 
@@ -219,14 +220,16 @@ def cleanup_archived_presets():
     This task runs weekly and removes archived presets that
     haven't been used in the last 90 days.
     """
+    from datetime import timedelta
+
+    from sqlalchemy import delete
+
     from app.database import get_celery_session_context
     from app.models import CrawlPreset, PresetStatus
-    from sqlalchemy import select, delete
-    from datetime import timedelta
 
     async def _cleanup():
         async with get_celery_session_context() as session:
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=90)
+            cutoff_date = datetime.now(UTC) - timedelta(days=90)
 
             # Delete old archived presets that haven't been used
             result = await session.execute(

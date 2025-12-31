@@ -19,9 +19,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select
-from app.database import get_session_context
-from app.models import Category, DataSource, SourceType, SourceStatus
 
+from app.database import get_session_context
+from app.models import Category, DataSource, SourceStatus, SourceType
 
 # =============================================================================
 # UK CATEGORIES - Organized by Sales Intelligence Goals
@@ -685,8 +685,6 @@ UK_DATA_SOURCES = {
 
 async def seed_uk_database():
     """Seed the database with UK-specific example data."""
-    print("Starte Datenbank-Seeding for UK Sales Intelligence...")
-    print("=" * 60)
 
     async with get_session_context() as session:
         categories_created = 0
@@ -713,7 +711,6 @@ async def seed_uk_database():
                 existing_cat.schedule_cron = cat_data["schedule_cron"]
                 categories_updated += 1
                 category = existing_cat
-                print(f"  Updated category: {cat_data['name']}")
             else:
                 # Create new category
                 category = Category(
@@ -732,7 +729,6 @@ async def seed_uk_database():
                 session.add(category)
                 await session.flush()
                 categories_created += 1
-                print(f"  Created category: {cat_data['name']}")
 
             # Create data sources for this category
             source_configs = UK_DATA_SOURCES.get(cat_data["slug"], [])
@@ -745,7 +741,6 @@ async def seed_uk_database():
                     )
                 )
                 if existing_src.scalar():
-                    print(f"    Source exists: {src_data['name']}")
                     continue
 
                 source = DataSource(
@@ -764,22 +759,9 @@ async def seed_uk_database():
                 )
                 session.add(source)
                 sources_created += 1
-                print(f"    Created source: {src_data['name']}")
 
         await session.commit()
 
-    print("\n" + "=" * 60)
-    print("UK Seeding completed!")
-    print(f"   {categories_created} categories created")
-    print(f"   {categories_updated} categories updated")
-    print(f"   {sources_created} data sources created")
-    print("\nUK Categories Overview:")
-    print("   - UK Council Information - Local council decisions")
-    print("   - UK Council News - Press releases & announcements")
-    print("   - UK Parliamentary Questions - Parliament/Government")
-    print("   - UK FOI Requests - Freedom of Information insights")
-    print("   - UK Site Data - Potential areas & restrictions")
-    print("   - UK Lead Qualification - Aggregated assessment")
 
 
 async def main():

@@ -12,14 +12,14 @@ Key features:
 4. Confidence scoring: AI provides confidence scores for suggestions
 """
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
-from uuid import UUID
 import hashlib
 import json
+from datetime import UTC, datetime
+from typing import Any
+from uuid import UUID
 
 import structlog
-from sqlalchemy import func, select, and_
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -27,13 +27,13 @@ from app.models import (
     AITask,
     AITaskStatus,
     AITaskType,
-    Entity,
-    EntityRelation,
-    FacetType,
-    FacetValue,
     DataSource,
     Document,
+    Entity,
+    EntityRelation,
     ExtractedData,
+    FacetType,
+    FacetValue,
 )
 from app.models.entity_attachment import AttachmentAnalysisStatus, EntityAttachment
 from app.models.facet_value import FacetValueSourceType
@@ -48,7 +48,7 @@ class EntityDataFacetService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_enrichment_sources(self, entity_id: UUID) -> Dict[str, Any]:
+    async def get_enrichment_sources(self, entity_id: UUID) -> dict[str, Any]:
         """
         Get all available data sources for an entity with counts and timestamps.
 
@@ -213,8 +213,8 @@ class EntityDataFacetService:
     async def start_analysis(
         self,
         entity_id: UUID,
-        source_types: List[str],
-        target_facet_types: Optional[List[str]] = None,
+        source_types: list[str],
+        target_facet_types: list[str] | None = None,
     ) -> AITask:
         """
         Start an AI analysis task for facet enrichment.
@@ -266,7 +266,7 @@ class EntityDataFacetService:
             name=f"Facet-Anreicherung: {entity.name}",
             description=f"Analysiere Daten aus {', '.join(source_types)} für Facet-Vorschläge",
             entity_id=entity_id,
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
             result_data={
                 "source_types": source_types,
                 "target_facet_types": target_facet_types,
@@ -293,7 +293,7 @@ class EntityDataFacetService:
 
         return ai_task
 
-    async def get_analysis_preview(self, task_id: UUID) -> Dict[str, Any]:
+    async def get_analysis_preview(self, task_id: UUID) -> dict[str, Any]:
         """
         Get the preview of proposed changes from a completed analysis task.
 
@@ -346,9 +346,9 @@ class EntityDataFacetService:
     async def apply_changes(
         self,
         task_id: UUID,
-        accepted_new_facets: List[int],
-        accepted_updates: List[str],
-    ) -> Dict[str, Any]:
+        accepted_new_facets: list[int],
+        accepted_updates: list[str],
+    ) -> dict[str, Any]:
         """
         Apply selected changes from the analysis preview.
 
@@ -431,7 +431,7 @@ class EntityDataFacetService:
         }
 
     async def _create_facet_from_preview(
-        self, facet_data: Dict[str, Any], entity_id: UUID
+        self, facet_data: dict[str, Any], entity_id: UUID
     ) -> FacetValue:
         """Create a new facet value from preview data."""
         # Get facet type
@@ -464,7 +464,7 @@ class EntityDataFacetService:
 
         return facet_value
 
-    async def _apply_update_from_preview(self, update_data: Dict[str, Any]) -> None:
+    async def _apply_update_from_preview(self, update_data: dict[str, Any]) -> None:
         """Apply an update to an existing facet value."""
         facet_value_id = UUID(update_data.get("facet_value_id"))
         facet_value = await self.db.get(FacetValue, facet_value_id)
@@ -486,7 +486,7 @@ class EntityDataFacetService:
         if "text" in update_data:
             facet_value.text_representation = update_data["text"][:2000]
 
-        facet_value.updated_at = datetime.now(timezone.utc)
+        facet_value.updated_at = datetime.now(UTC)
         await self.db.flush()
 
 
@@ -498,8 +498,8 @@ class EntityDataFacetService:
 async def collect_entity_data(
     db: AsyncSession,
     entity_id: UUID,
-    source_types: List[str],
-) -> Dict[str, Any]:
+    source_types: list[str],
+) -> dict[str, Any]:
     """
     Collect all relevant data for an entity from specified sources.
 
@@ -545,7 +545,7 @@ async def collect_entity_data(
     return collected_data
 
 
-async def _collect_relations(db: AsyncSession, entity_id: UUID) -> List[Dict[str, Any]]:
+async def _collect_relations(db: AsyncSession, entity_id: UUID) -> list[dict[str, Any]]:
     """Collect relations where entity is source or target."""
     # Source relations (this entity -> other)
     source_result = await db.execute(
@@ -634,7 +634,7 @@ async def _collect_relations(db: AsyncSession, entity_id: UUID) -> List[Dict[str
     return relations_data
 
 
-async def _collect_documents(db: AsyncSession, entity_id: UUID) -> List[Dict[str, Any]]:
+async def _collect_documents(db: AsyncSession, entity_id: UUID) -> list[dict[str, Any]]:
     """Collect documents linked to entity via DataSource."""
     result = await db.execute(
         select(Document)
@@ -665,7 +665,7 @@ async def _collect_documents(db: AsyncSession, entity_id: UUID) -> List[Dict[str
 
 async def _collect_extractions(
     db: AsyncSession, entity_id: UUID
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Collect AI extractions from documents."""
     result = await db.execute(
         select(ExtractedData)
@@ -689,7 +689,7 @@ async def _collect_extractions(
     ]
 
 
-async def _collect_pysis(db: AsyncSession, entity_id: UUID) -> List[Dict[str, Any]]:
+async def _collect_pysis(db: AsyncSession, entity_id: UUID) -> list[dict[str, Any]]:
     """Collect PySIS process fields."""
     result = await db.execute(
         select(PySisProcess)
@@ -723,7 +723,7 @@ async def _collect_pysis(db: AsyncSession, entity_id: UUID) -> List[Dict[str, An
     return pysis_data
 
 
-async def _collect_attachments(db: AsyncSession, entity_id: UUID) -> List[Dict[str, Any]]:
+async def _collect_attachments(db: AsyncSession, entity_id: UUID) -> list[dict[str, Any]]:
     """Collect analyzed attachments with their AI analysis results."""
     result = await db.execute(
         select(EntityAttachment)
@@ -771,7 +771,7 @@ async def _collect_attachments(db: AsyncSession, entity_id: UUID) -> List[Dict[s
 
 async def get_existing_facets(
     db: AsyncSession, entity_id: UUID
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get existing facet values for duplicate checking."""
     result = await db.execute(
         select(FacetValue)
@@ -799,7 +799,7 @@ async def get_existing_facets(
     ]
 
 
-def compute_value_hash(value: Dict[str, Any]) -> str:
+def compute_value_hash(value: dict[str, Any]) -> str:
     """Compute a hash for deduplication."""
     normalized = json.dumps(value, sort_keys=True, ensure_ascii=False)
-    return hashlib.md5(normalized.encode()).hexdigest()[:16]
+    return hashlib.md5(normalized.encode()).hexdigest()[:16]  # noqa: S324

@@ -3,7 +3,7 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -55,11 +55,11 @@ class ChangeLog(Base):
     affected_url: Mapped[str] = mapped_column(Text, nullable=False)
 
     # Hash comparison
-    old_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    new_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    old_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    new_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Additional details
-    details: Mapped[Dict[str, Any]] = mapped_column(
+    details: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
@@ -67,7 +67,7 @@ class ChangeLog(Base):
 
     # Notification tracking
     notification_sent: Mapped[bool] = mapped_column(default=False, nullable=False)
-    notification_sent_at: Mapped[Optional[datetime]] = mapped_column(
+    notification_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )

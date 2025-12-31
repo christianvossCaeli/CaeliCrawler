@@ -5,14 +5,14 @@ It supports both REST APIs (like Caeli Auction) and SPARQL endpoints (like Wikid
 """
 
 import json
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from .base import BaseCrawler, CrawlResult
 
 if TYPE_CHECKING:
-    from app.models import DataSource, CrawlJob
+    from app.models import CrawlJob, DataSource
 
 logger = structlog.get_logger()
 
@@ -227,8 +227,8 @@ class EntityAPICrawler(BaseCrawler):
     def _build_api_config(
         self,
         source: "DataSource",
-        config: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        config: dict[str, Any]
+    ) -> dict[str, Any]:
         """Build API configuration from DataSource and crawl_config."""
         from app.models.data_source import SourceType
 
@@ -264,13 +264,13 @@ class EntityAPICrawler(BaseCrawler):
 
     async def _sync_entities(
         self,
-        items: List[Dict[str, Any]],
-        field_mapping: Dict[str, str],
+        items: list[dict[str, Any]],
+        field_mapping: dict[str, str],
         entity_type_slug: str,
         update_strategy: str,
         source: "DataSource",
-        config: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Synchronize API data with Entities.
 
@@ -285,8 +285,8 @@ class EntityAPICrawler(BaseCrawler):
         Returns:
             Dict with sync statistics
         """
-        from services.entity_api_sync_service import EntityAPISyncService
         from app.database import get_session_context
+        from services.entity_api_sync_service import EntityAPISyncService
 
         result = {
             "processed": 0,
@@ -326,7 +326,7 @@ class EntityAPICrawler(BaseCrawler):
 
         return result
 
-    def _compute_content_hash(self, items: List[Dict[str, Any]]) -> str:
+    def _compute_content_hash(self, items: list[dict[str, Any]]) -> str:
         """Compute hash of API response for change detection."""
         # Sort items by a stable key if possible
         try:
@@ -335,7 +335,7 @@ class EntityAPICrawler(BaseCrawler):
                 if items and id_field in items[0]:
                     items = sorted(items, key=lambda x: str(x.get(id_field, "")))
                     break
-        except Exception:
+        except Exception:  # noqa: S110
             pass  # Keep original order
 
         content = json.dumps(items, sort_keys=True, default=str)

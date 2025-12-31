@@ -22,58 +22,59 @@ Usage:
 """
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID, uuid4
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Re-export main functions for backwards compatibility
-from .geographic_utils import (
-    resolve_geographic_alias,
-    expand_search_terms,
-)
-from .utils import generate_slug
-from .schema_generator import (
-    generate_entity_type_schema,
-    generate_ai_extraction_prompt,
-    generate_url_patterns,
-)
-from .entity_operations import (
-    create_entity_type_from_command,
-    find_entity_by_name,
-    create_entity_from_command,
-    create_facet_from_command,
-    create_relation_from_command,
-)
-from .query_interpreter import (
-    interpret_query,
-    interpret_write_command,
-    interpret_plan_query,
-    interpret_plan_query_stream,
-    get_openai_client,
-    detect_compound_query,
-    invalidate_types_cache,
-)
-from .query_executor import execute_smart_query
-from .visualization_selector import VisualizationSelector
 from .ai_generation import (
-    ai_generate_entity_type_config,
     ai_generate_category_config,
     ai_generate_crawl_config,
-)
-from .crawl_operations import (
-    find_matching_data_sources,
-    find_sources_for_crawl,
-    execute_crawl_command,
+    ai_generate_entity_type_config,
 )
 from .category_setup import (
-    create_category_setup_with_ai,
     create_category_setup,
+    create_category_setup_with_ai,
 )
+from .crawl_operations import (
+    execute_crawl_command,
+    find_matching_data_sources,
+    find_sources_for_crawl,
+)
+from .entity_operations import (
+    create_entity_from_command,
+    create_entity_type_from_command,
+    create_facet_from_command,
+    create_relation_from_command,
+    find_entity_by_name,
+)
+
+# Re-export main functions for backwards compatibility
+from .geographic_utils import (
+    expand_search_terms,
+    resolve_geographic_alias,
+)
+from .query_executor import execute_smart_query
+from .query_interpreter import (
+    detect_compound_query,
+    get_openai_client,
+    interpret_plan_query,
+    interpret_plan_query_stream,
+    interpret_query,
+    interpret_write_command,
+    invalidate_types_cache,
+)
+from .schema_generator import (
+    generate_ai_extraction_prompt,
+    generate_entity_type_schema,
+    generate_url_patterns,
+)
+from .utils import generate_slug
+from .visualization_selector import VisualizationSelector
 from .write_executor import (
-    execute_write_command,
     execute_combined_operations,
+    execute_write_command,
 )
 
 logger = structlog.get_logger()
@@ -85,9 +86,9 @@ MAX_COMPOUND_SUB_QUERIES = 5
 
 async def _execute_single_sub_query(
     session: AsyncSession,
-    sub_query: Dict[str, Any],
+    sub_query: dict[str, Any],
     viz_selector: VisualizationSelector,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Execute a single sub-query and return visualization data.
 
@@ -163,9 +164,9 @@ async def _execute_single_sub_query(
 
 async def execute_compound_query(
     session: AsyncSession,
-    compound_detection: Dict[str, Any],
+    compound_detection: dict[str, Any],
     original_question: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Execute a compound query by running multiple sub-queries in parallel.
 
@@ -274,7 +275,7 @@ class SmartQueryService:
     async def execute_query(
         self,
         query: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Execute a natural language query (read-only).
 
@@ -291,8 +292,8 @@ class SmartQueryService:
         self,
         query: str,
         allow_write: bool = False,
-        current_user_id: Optional[UUID] = None
-    ) -> Dict[str, Any]:
+        current_user_id: UUID | None = None
+    ) -> dict[str, Any]:
         """
         Execute a natural language query with optional write support.
 
@@ -312,10 +313,10 @@ async def smart_query(
     session: AsyncSession,
     question: str,
     allow_write: bool = False,
-    current_user_id: Optional[UUID] = None,
-    mode: Optional[str] = None,
-    conversation_history: Optional[List[Dict[str, str]]] = None,
-) -> Dict[str, Any]:
+    current_user_id: UUID | None = None,
+    mode: str | None = None,
+    conversation_history: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
     """
     Execute a natural language query against the Entity-Facet system.
 
@@ -437,8 +438,8 @@ async def smart_query(
 async def smart_write(
     session: AsyncSession,
     command: str,
-    current_user_id: Optional[UUID] = None,
-) -> Dict[str, Any]:
+    current_user_id: UUID | None = None,
+) -> dict[str, Any]:
     """
     Execute a write command in natural language.
 
@@ -450,8 +451,8 @@ async def smart_write(
 async def smart_plan(
     session: AsyncSession,
     question: str,
-    conversation_history: Optional[List[Dict[str, str]]] = None,
-) -> Dict[str, Any]:
+    conversation_history: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
     """
     Execute a Plan Mode query.
 

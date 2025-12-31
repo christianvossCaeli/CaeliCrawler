@@ -1,9 +1,9 @@
 """Schema generation for Smart Query - EntityType schemas, AI prompts, and URL patterns."""
 
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
-def generate_entity_type_schema(search_focus: str, user_intent: str) -> Dict[str, Any]:
+def generate_entity_type_schema(search_focus: str, user_intent: str) -> dict[str, Any]:
     """Generate attribute_schema for a new EntityType based on search focus."""
     schemas = {
         "event_attendance": {
@@ -135,7 +135,7 @@ Erstelle Entities vom Typ "{target_entity_type_name}" für alle relevanten Funde
     return focus_prompts.get(search_focus, focus_prompts["general"])
 
 
-def generate_url_patterns(search_focus: str, user_intent: str) -> Tuple[List[str], List[str]]:
+def generate_url_patterns(search_focus: str, user_intent: str) -> tuple[list[str], list[str]]:
     """
     Generate URL exclude patterns based on search focus.
 

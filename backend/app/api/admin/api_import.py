@@ -10,7 +10,7 @@ Features:
 - Tag assignment based on API source
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -18,13 +18,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
-from app.core.deps import require_editor
-from app.core.audit import AuditContext
-from app.models.audit_log import AuditAction
-from app.models import Category, User
 from app.api.admin.sources import validate_crawler_url
-
+from app.core.audit import AuditContext
+from app.core.deps import require_editor
+from app.database import get_session
+from app.models import Category, User
+from app.models.audit_log import AuditAction
 
 # =============================================================================
 # Schemas
@@ -36,16 +35,16 @@ class ApiTemplate(BaseModel):
     name: str
     description: str
     api_type: str
-    default_url: Optional[str] = None
-    parameters: Dict[str, Any] = Field(default_factory=dict)
-    default_tags: List[str] = Field(default_factory=list)
+    default_url: str | None = None
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    default_tags: list[str] = Field(default_factory=list)
 
 
 class ApiImportPreviewRequest(BaseModel):
     """Request to preview an API import."""
     api_type: str = Field(..., description="API type: wikidata, oparl, govdata, custom")
     api_url: str = Field(..., description="API endpoint URL")
-    params: Dict[str, Any] = Field(default_factory=dict, description="API-specific parameters")
+    params: dict[str, Any] = Field(default_factory=dict, description="API-specific parameters")
     sample_size: int = Field(default=10, ge=1, le=100, description="Number of preview items")
 
 
@@ -54,27 +53,27 @@ class ApiImportPreviewItem(BaseModel):
     name: str
     base_url: str
     source_type: str = "WEBSITE"
-    suggested_tags: List[str] = Field(default_factory=list)
-    extra_data: Dict[str, Any] = Field(default_factory=dict)
-    error: Optional[str] = None
+    suggested_tags: list[str] = Field(default_factory=list)
+    extra_data: dict[str, Any] = Field(default_factory=dict)
+    error: str | None = None
 
 
 class ApiImportPreviewResponse(BaseModel):
     """Response with preview of items to be imported."""
-    items: List[ApiImportPreviewItem]
+    items: list[ApiImportPreviewItem]
     total_available: int
-    field_mapping: Dict[str, str] = Field(default_factory=dict)
-    suggested_tags: List[str] = Field(default_factory=list)
+    field_mapping: dict[str, str] = Field(default_factory=dict)
+    suggested_tags: list[str] = Field(default_factory=list)
 
 
 class ApiImportExecuteRequest(BaseModel):
     """Request to execute an API import."""
     api_type: str = Field(..., description="API type: wikidata, oparl, govdata, custom")
     api_url: str = Field(..., max_length=2048, description="API endpoint URL")
-    params: Dict[str, Any] = Field(default_factory=dict)
-    category_ids: List[UUID] = Field(..., min_length=1, max_length=20, description="Categories to assign")
-    default_tags: List[str] = Field(default_factory=list, max_length=50)
-    field_mapping: Dict[str, str] = Field(default_factory=dict, description="Field mapping from API to DataSource")
+    params: dict[str, Any] = Field(default_factory=dict)
+    category_ids: list[UUID] = Field(..., min_length=1, max_length=20, description="Categories to assign")
+    default_tags: list[str] = Field(default_factory=list, max_length=50)
+    field_mapping: dict[str, str] = Field(default_factory=dict, description="Field mapping from API to DataSource")
     skip_duplicates: bool = Field(default=True)
     max_items: int = Field(default=1000, ge=1, le=10000)
 
@@ -83,7 +82,7 @@ class ApiImportExecuteResponse(BaseModel):
     """Result of API import execution."""
     imported: int
     skipped: int
-    errors: List[Dict[str, str]]
+    errors: list[dict[str, str]]
 
 
 # =============================================================================
@@ -91,7 +90,7 @@ class ApiImportExecuteResponse(BaseModel):
 # =============================================================================
 
 # Pre-defined templates for common API types
-API_TEMPLATES: Dict[str, ApiTemplate] = {
+API_TEMPLATES: dict[str, ApiTemplate] = {
     "wikidata_de_gemeinden_nrw": ApiTemplate(
         id="wikidata_de_gemeinden_nrw",
         name="Wikidata: NRW Gemeinden",
@@ -167,7 +166,7 @@ LIMIT 2500
 router = APIRouter()
 
 
-@router.get("/templates", response_model=List[ApiTemplate])
+@router.get("/templates", response_model=list[ApiTemplate])
 async def list_api_templates(
     _: User = Depends(require_editor),
 ):
@@ -233,7 +232,7 @@ async def preview_api_import(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"API fetch failed: {str(e)}",
-        )
+        ) from None
 
 
 @router.post("/execute", response_model=ApiImportExecuteResponse)
@@ -251,8 +250,8 @@ async def execute_api_import(
     - Tags from API + default_tags
     - Field mapping applied
     """
-    from services.api_import.fetcher import fetch_all_from_api
     from app.models import DataSource, DataSourceCategory, SourceType
+    from services.api_import.fetcher import fetch_all_from_api
 
     # Verify all categories exist
     categories = []
@@ -278,7 +277,7 @@ async def execute_api_import(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"API fetch failed: {str(e)}",
-        )
+        ) from None
 
     imported = 0
     skipped = 0

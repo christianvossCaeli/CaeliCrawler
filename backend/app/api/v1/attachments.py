@@ -1,6 +1,6 @@
 """API endpoints for entity attachments."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
@@ -8,11 +8,11 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.database import get_session
-from app.models.user import User, UserRole
-from app.core.deps import get_current_user, get_current_user_optional
 from app.core.audit import AuditContext
+from app.core.deps import get_current_user, get_current_user_optional
+from app.database import get_session
 from app.models.audit_log import AuditAction
+from app.models.user import User, UserRole
 from services.attachment_service import AttachmentService
 
 router = APIRouter()
@@ -32,11 +32,11 @@ async def upload_attachment(
     entity_id: UUID,
     request: Request,
     file: UploadFile = File(...),
-    description: Optional[str] = Query(None, max_length=500),
+    description: str | None = Query(None, max_length=500),
     auto_analyze: bool = Query(False, description="Start AI analysis immediately"),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Upload a file attachment to an entity.
 
@@ -76,7 +76,7 @@ async def upload_attachment(
             description=description,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from None
 
     # Audit log for attachment upload
     async with AuditContext(session, current_user, request) as audit:
@@ -95,7 +95,7 @@ async def upload_attachment(
         )
         await session.commit()
 
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "success": True,
         "attachment": {
             "id": str(attachment.id),
@@ -126,8 +126,8 @@ async def upload_attachment(
 async def list_attachments(
     entity_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
-) -> Dict[str, Any]:
+    current_user: User | None = Depends(get_current_user_optional),
+) -> dict[str, Any]:
     """
     List all attachments for an entity.
     """
@@ -163,8 +163,8 @@ async def get_attachment(
     entity_id: UUID,
     attachment_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
-) -> Dict[str, Any]:
+    current_user: User | None = Depends(get_current_user_optional),
+) -> dict[str, Any]:
     """Get attachment metadata."""
     service = AttachmentService(session)
     attachment = await service.get_attachment(attachment_id)
@@ -200,7 +200,7 @@ async def download_attachment(
     entity_id: UUID,
     attachment_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ):
     """Download attachment file."""
     service = AttachmentService(session)
@@ -212,7 +212,7 @@ async def download_attachment(
     try:
         content = await service.get_file_content(attachment)
     except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Datei nicht gefunden")
+        raise HTTPException(status_code=404, detail="Datei nicht gefunden") from None
 
     return StreamingResponse(
         iter([content]),
@@ -229,7 +229,7 @@ async def get_thumbnail(
     entity_id: UUID,
     attachment_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ):
     """Get thumbnail for image attachments."""
     service = AttachmentService(session)
@@ -259,7 +259,7 @@ async def delete_attachment(
     request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Delete an attachment."""
     # Check permissions
     if not current_user.is_superuser and current_user.role not in [
@@ -303,7 +303,7 @@ async def start_analysis(
     extract_facets: bool = Query(True, description="Extract facet suggestions"),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Start AI analysis for an attachment.
 
@@ -330,17 +330,17 @@ async def start_analysis(
             "message": f"Analyse von '{attachment.filename}' gestartet",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Analyse fehlgeschlagen: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Analyse fehlgeschlagen: {str(e)}") from None
 
 
 @router.patch("/entities/{entity_id}/attachments/{attachment_id}")
 async def update_attachment(
     entity_id: UUID,
     attachment_id: UUID,
-    description: Optional[str] = Query(None, max_length=500),
+    description: str | None = Query(None, max_length=500),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Update attachment metadata (description)."""
     service = AttachmentService(session)
     attachment = await service.get_attachment(attachment_id)
@@ -364,19 +364,20 @@ async def update_attachment(
 async def apply_facet_suggestions(
     entity_id: UUID,
     attachment_id: UUID,
-    facet_indices: List[int] = Query(..., description="Indices of facet suggestions to apply"),
+    facet_indices: list[int] = Query(..., description="Indices of facet suggestions to apply"),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Apply selected facet suggestions from attachment analysis.
 
     Takes indices of facet_suggestions array from analysis_result
     and creates actual FacetValues.
     """
+    from sqlalchemy import select
+
     from app.models import FacetType, FacetValue
     from app.models.facet_value import FacetValueSourceType
-    from sqlalchemy import select
 
     service = AttachmentService(session)
     attachment = await service.get_attachment(attachment_id)

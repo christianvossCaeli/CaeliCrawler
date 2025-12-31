@@ -10,23 +10,24 @@ Provides AI-powered capabilities:
 """
 
 import json
-from dataclasses import dataclass, field
-from datetime import datetime
+import time
+import uuid
 from enum import Enum
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, Optional, TypeVar
 
 import structlog
 from openai import AsyncAzureOpenAI
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.models.llm_usage import LLMProvider, LLMTaskType
 from app.utils.security import (
-    sanitize_for_prompt,
-    escape_for_json_prompt,
     SecurityConstants,
-    should_block_request,
     log_security_event,
+    sanitize_for_prompt,
+    should_block_request,
 )
+from services.llm_usage_tracker import record_llm_usage, track_llm_usage
 
 logger = structlog.get_logger()
 
@@ -51,9 +52,9 @@ class DocumentSummary(BaseModel):
 
     title: str = Field(description="Document title or main topic")
     summary: str = Field(description="Concise summary (2-3 sentences)")
-    key_points: List[str] = Field(description="List of 3-5 key points")
+    key_points: list[str] = Field(description="List of 3-5 key points")
     document_type: str = Field(description="Type of document (e.g., Beschluss, Antrag, Bericht)")
-    date_mentioned: Optional[str] = Field(default=None, description="Primary date mentioned in document")
+    date_mentioned: str | None = Field(default=None, description="Primary date mentioned in document")
     relevance_score: float = Field(ge=0, le=1, description="Relevance score 0-1")
 
 
@@ -61,17 +62,17 @@ class ExtractedInformation(BaseModel):
     """Structured information extraction result."""
 
     topic: str = Field(description="Main topic or subject")
-    entities: Dict[str, List[str]] = Field(
+    entities: dict[str, list[str]] = Field(
         description="Named entities by category (persons, organizations, locations, dates)"
     )
-    facts: List[str] = Field(description="Key facts extracted from the document")
-    decisions: List[str] = Field(description="Decisions or resolutions mentioned")
-    references: List[str] = Field(description="References to other documents or laws")
-    amounts: List[Dict[str, Any]] = Field(
+    facts: list[str] = Field(description="Key facts extracted from the document")
+    decisions: list[str] = Field(description="Decisions or resolutions mentioned")
+    references: list[str] = Field(description="References to other documents or laws")
+    amounts: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Monetary amounts or quantities mentioned",
     )
-    deadlines: List[Dict[str, str]] = Field(
+    deadlines: list[dict[str, str]] = Field(
         default_factory=list,
         description="Deadlines or dates for actions",
     )
@@ -81,33 +82,33 @@ class DocumentClassification(BaseModel):
     """Document classification result."""
 
     primary_category: str = Field(description="Primary category")
-    secondary_categories: List[str] = Field(description="Secondary categories")
-    keywords: List[str] = Field(description="Relevant keywords")
+    secondary_categories: list[str] = Field(description="Secondary categories")
+    keywords: list[str] = Field(description="Relevant keywords")
     sentiment: str = Field(description="Overall sentiment (positive, negative, neutral)")
     urgency: str = Field(description="Urgency level (high, medium, low)")
-    target_audience: List[str] = Field(description="Intended audience")
+    target_audience: list[str] = Field(description="Intended audience")
     confidence: float = Field(ge=0, le=1, description="Classification confidence 0-1")
 
 
 class NamedEntities(BaseModel):
     """Named entity recognition result."""
 
-    persons: List[Dict[str, str]] = Field(
+    persons: list[dict[str, str]] = Field(
         description="Persons mentioned with their roles",
     )
-    organizations: List[Dict[str, str]] = Field(
+    organizations: list[dict[str, str]] = Field(
         description="Organizations mentioned with their type",
     )
-    locations: List[Dict[str, str]] = Field(
+    locations: list[dict[str, str]] = Field(
         description="Locations with context",
     )
-    dates: List[Dict[str, str]] = Field(
+    dates: list[dict[str, str]] = Field(
         description="Dates with context",
     )
-    laws_regulations: List[str] = Field(
+    laws_regulations: list[str] = Field(
         description="Laws, regulations, or legal references",
     )
-    projects: List[str] = Field(
+    projects: list[str] = Field(
         description="Projects or initiatives mentioned",
     )
 
@@ -116,25 +117,25 @@ class WindPowerAnalysis(BaseModel):
     """Specialized analysis for wind power related documents."""
 
     is_relevant: bool = Field(description="Is this document relevant to wind power?")
-    relevance_type: Optional[str] = Field(
+    relevance_type: str | None = Field(
         default=None,
         description="Type of relevance (Genehmigung, Einschränkung, Förderung, Planung, etc.)",
     )
-    location: Optional[str] = Field(default=None, description="Location/region mentioned")
-    restrictions: List[str] = Field(
+    location: str | None = Field(default=None, description="Location/region mentioned")
+    restrictions: list[str] = Field(
         default_factory=list,
         description="Any restrictions or limitations mentioned",
     )
-    permits: List[str] = Field(
+    permits: list[str] = Field(
         default_factory=list,
         description="Permits or approvals mentioned",
     )
-    timeline: Optional[str] = Field(default=None, description="Timeline or deadlines")
-    stakeholders: List[str] = Field(
+    timeline: str | None = Field(default=None, description="Timeline or deadlines")
+    stakeholders: list[str] = Field(
         default_factory=list,
         description="Stakeholders involved",
     )
-    key_findings: List[str] = Field(
+    key_findings: list[str] = Field(
         default_factory=list,
         description="Key findings relevant to wind power development",
     )
@@ -148,9 +149,9 @@ class CustomExtractionResult(BaseModel):
     """Generic extraction result for custom prompts."""
 
     success: bool = Field(description="Whether extraction was successful")
-    extracted_data: Dict[str, Any] = Field(description="Extracted data as key-value pairs")
+    extracted_data: dict[str, Any] = Field(description="Extracted data as key-value pairs")
     confidence: float = Field(ge=0, le=1, description="Extraction confidence")
-    notes: Optional[str] = Field(default=None, description="Additional notes or warnings")
+    notes: str | None = Field(default=None, description="Additional notes or warnings")
 
 
 # === AI Service ===
@@ -195,10 +196,10 @@ class AIService:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        endpoint: Optional[str] = None,
-        deployment: Optional[str] = None,
-        api_version: Optional[str] = None,
+        api_key: str | None = None,
+        endpoint: str | None = None,
+        deployment: str | None = None,
+        api_version: str | None = None,
     ):
         self.api_key = api_key or settings.azure_openai_api_key
         self.endpoint = endpoint or settings.azure_openai_endpoint
@@ -206,7 +207,7 @@ class AIService:
         self.embeddings_deployment = settings.azure_openai_embeddings_deployment
         self.api_version = api_version or settings.azure_openai_api_version
 
-        self._client: Optional[AsyncAzureOpenAI] = None
+        self._client: AsyncAzureOpenAI | None = None
         self.logger = logger.bind(service="AIService")
 
         # Token limits (GPT-4 context window)
@@ -240,10 +241,11 @@ class AIService:
 
     async def generate_embeddings(
         self,
-        texts: List[str],
+        texts: list[str],
         batch_size: int = 100,
         dimensions: int = 1536,
-    ) -> List[List[float]]:
+        category_id: Optional["uuid.UUID"] = None,
+    ) -> list[list[float]]:
         """
         Generate embeddings for a list of texts.
 
@@ -253,39 +255,55 @@ class AIService:
             dimensions: Number of dimensions for the embedding (default: 1536)
                         text-embedding-3-large supports up to 3072, but pgvector
                         indexes are limited to 2000 dimensions.
+            category_id: Optional category ID for tracking
 
         Returns:
             List of embedding vectors
         """
         client = await self._get_client()
         all_embeddings = []
+        total_tokens = 0
 
         for i in range(0, len(texts), batch_size):
             batch = texts[i : i + batch_size]
 
-            try:
-                response = await client.embeddings.create(
-                    model=self.embeddings_deployment,
-                    input=batch,
-                    dimensions=dimensions,
-                )
+            async with track_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=self.embeddings_deployment,
+                task_type=LLMTaskType.EMBEDDING,
+                task_name="generate_embeddings",
+                category_id=category_id,
+                metadata={"batch_size": len(batch), "dimensions": dimensions},
+            ) as usage_ctx:
+                try:
+                    response = await client.embeddings.create(
+                        model=self.embeddings_deployment,
+                        input=batch,
+                        dimensions=dimensions,
+                    )
 
-                batch_embeddings = [item.embedding for item in response.data]
-                all_embeddings.extend(batch_embeddings)
+                    # Record token usage
+                    if response.usage:
+                        usage_ctx.prompt_tokens = response.usage.prompt_tokens
+                        usage_ctx.total_tokens = response.usage.total_tokens
+                        total_tokens += response.usage.total_tokens
 
-                self.logger.debug(
-                    "Generated embeddings",
-                    batch_size=len(batch),
-                    total=len(all_embeddings),
-                    dimensions=dimensions,
-                )
-            except Exception as e:
-                self.logger.error("Embeddings generation failed", error=str(e))
-                raise
+                    batch_embeddings = [item.embedding for item in response.data]
+                    all_embeddings.extend(batch_embeddings)
+
+                    self.logger.debug(
+                        "Generated embeddings",
+                        batch_size=len(batch),
+                        total=len(all_embeddings),
+                        dimensions=dimensions,
+                    )
+                except Exception as e:
+                    self.logger.error("Embeddings generation failed", error=str(e))
+                    raise
 
         return all_embeddings
 
-    async def generate_embedding(self, text: str, dimensions: int = 1536) -> List[float]:
+    async def generate_embedding(self, text: str, dimensions: int = 1536) -> list[float]:
         """Generate embedding for a single text."""
         embeddings = await self.generate_embeddings([text], dimensions=dimensions)
         return embeddings[0]
@@ -310,7 +328,7 @@ class AIService:
     async def summarize(
         self,
         text: str,
-        context: Optional[str] = None,
+        context: str | None = None,
     ) -> DocumentSummary:
         """
         Generate a structured summary of a document.
@@ -349,7 +367,7 @@ DOKUMENT:
     async def extract_information(
         self,
         text: str,
-        focus_areas: Optional[List[str]] = None,
+        focus_areas: list[str] | None = None,
     ) -> ExtractedInformation:
         """
         Extract structured information from a document.
@@ -380,7 +398,7 @@ DOKUMENT:
     async def classify(
         self,
         text: str,
-        categories: Optional[List[str]] = None,
+        categories: list[str] | None = None,
     ) -> DocumentClassification:
         """
         Classify a document into categories.
@@ -433,7 +451,7 @@ DOKUMENT:
     async def analyze_wind_power(
         self,
         text: str,
-        municipality: Optional[str] = None,
+        municipality: str | None = None,
     ) -> WindPowerAnalysis:
         """
         Specialized analysis for wind power related documents.
@@ -483,8 +501,8 @@ DOKUMENT:
         self,
         text: str,
         prompt: str,
-        output_model: Type[T] = CustomExtractionResult,
-        system_context: Optional[str] = None,
+        output_model: type[T] = CustomExtractionResult,
+        system_context: str | None = None,
     ) -> T:
         """
         Custom analysis with user-defined prompt.
@@ -534,10 +552,10 @@ DOKUMENT:
 
     async def analyze_batch(
         self,
-        documents: List[Dict[str, str]],
+        documents: list[dict[str, str]],
         analysis_type: AnalysisType = AnalysisType.SUMMARIZE,
-        custom_prompt: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        custom_prompt: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Analyze multiple documents in batch.
 
@@ -596,8 +614,10 @@ DOKUMENT:
         self,
         system_prompt: str,
         user_prompt: str,
-        output_model: Type[T],
+        output_model: type[T],
         task_type: TaskType = TaskType.CHAT,
+        document_id: Optional["uuid.UUID"] = None,
+        category_id: Optional["uuid.UUID"] = None,
     ) -> T:
         """
         Perform structured analysis with Pydantic model output.
@@ -609,9 +629,22 @@ DOKUMENT:
             user_prompt: User input prompt
             output_model: Pydantic model for structured output
             task_type: Type of task (determines which deployment to use)
+            document_id: Optional document ID for tracking
+            category_id: Optional category ID for tracking
         """
         client = await self._get_client()
         deployment = self.get_deployment(task_type)
+
+        # Map TaskType to LLMTaskType for tracking
+        task_type_map = {
+            TaskType.SUMMARIZE: LLMTaskType.SUMMARIZE,
+            TaskType.EXTRACT: LLMTaskType.EXTRACT,
+            TaskType.CLASSIFY: LLMTaskType.CLASSIFY,
+            TaskType.CHAT: LLMTaskType.CHAT,
+            TaskType.PDF: LLMTaskType.EXTRACT,
+            TaskType.WEB: LLMTaskType.EXTRACT,
+        }
+        llm_task_type = task_type_map.get(task_type, LLMTaskType.CUSTOM)
 
         self.logger.debug(
             "Running structured analysis",
@@ -619,43 +652,60 @@ DOKUMENT:
             deployment=deployment,
         )
 
-        try:
-            # Azure requires "json" in the prompt when using json_object response_format
-            json_system_prompt = f"{system_prompt}\n\nAntworte ausschließlich im JSON-Format."
-
-            # Use response_format for structured output
-            response = await client.chat.completions.create(
-                model=deployment,
-                messages=[
-                    {"role": "system", "content": json_system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.1,  # Lower temperature for more consistent extraction
-                max_tokens=self.max_output_tokens,
-            )
-
-            content = response.choices[0].message.content
-
-            # Parse JSON response
+        async with track_llm_usage(
+            provider=LLMProvider.AZURE_OPENAI,
+            model=deployment,
+            task_type=llm_task_type,
+            task_name=f"analyze_{output_model.__name__}",
+            document_id=document_id,
+            category_id=category_id,
+        ) as usage_ctx:
             try:
-                data = json.loads(content)
-                return output_model.model_validate(data)
-            except json.JSONDecodeError as e:
-                self.logger.error("JSON parse error", error=str(e), content=content[:500])
-                raise ValueError(f"Failed to parse AI response: {e}")
+                # Azure requires "json" in the prompt when using json_object response_format
+                json_system_prompt = f"{system_prompt}\n\nAntworte ausschließlich im JSON-Format."
 
-        except Exception as e:
-            self.logger.error("AI analysis failed", error=str(e), task_type=task_type.value)
-            raise
+                # Use response_format for structured output
+                response = await client.chat.completions.create(
+                    model=deployment,
+                    messages=[
+                        {"role": "system", "content": json_system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.1,  # Lower temperature for more consistent extraction
+                    max_tokens=self.max_output_tokens,
+                )
+
+                # Record token usage
+                if response.usage:
+                    usage_ctx.prompt_tokens = response.usage.prompt_tokens
+                    usage_ctx.completion_tokens = response.usage.completion_tokens
+                    usage_ctx.total_tokens = response.usage.total_tokens
+
+                content = response.choices[0].message.content
+
+                # Parse JSON response
+                try:
+                    data = json.loads(content)
+                    return output_model.model_validate(data)
+                except json.JSONDecodeError as e:
+                    self.logger.error("JSON parse error", error=str(e), content=content[:500])
+                    raise ValueError(f"Failed to parse AI response: {e}") from None
+
+            except Exception as e:
+                self.logger.error("AI analysis failed", error=str(e), task_type=task_type.value)
+                raise
 
     async def generate_text(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2000,
         task_type: TaskType = TaskType.CHAT,
+        document_id: Optional["uuid.UUID"] = None,
+        category_id: Optional["uuid.UUID"] = None,
+        user_id: Optional["uuid.UUID"] = None,
     ) -> str:
         """
         Generate unstructured text response.
@@ -666,6 +716,9 @@ DOKUMENT:
             temperature: Creativity level (0-1)
             max_tokens: Maximum response tokens
             task_type: Type of task (determines which deployment to use)
+            document_id: Optional document ID for tracking
+            category_id: Optional category ID for tracking
+            user_id: Optional user ID for tracking
         """
         client = await self._get_client()
         deployment = self.get_deployment(task_type)
@@ -675,14 +728,29 @@ DOKUMENT:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        response = await client.chat.completions.create(
+        async with track_llm_usage(
+            provider=LLMProvider.AZURE_OPENAI,
             model=deployment,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
+            task_type=LLMTaskType.CHAT,
+            task_name="generate_text",
+            document_id=document_id,
+            category_id=category_id,
+            user_id=user_id,
+        ) as usage_ctx:
+            response = await client.chat.completions.create(
+                model=deployment,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
 
-        return response.choices[0].message.content
+            # Record token usage
+            if response.usage:
+                usage_ctx.prompt_tokens = response.usage.prompt_tokens
+                usage_ctx.completion_tokens = response.usage.completion_tokens
+                usage_ctx.total_tokens = response.usage.total_tokens
+
+            return response.choices[0].message.content
 
     async def check_relevance(
         self,
@@ -713,27 +781,56 @@ Antworte ausschließlich im JSON-Format mit diesem Schema: {{"relevant": true/fa
 DOKUMENT (erste 2000 Zeichen):
 {text[:2000]}"""
 
-        response = await client.chat.completions.create(
-            model=deployment,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0,
-            max_tokens=200,
-        )
-
+        start_time = time.time()
         try:
+            response = await client.chat.completions.create(
+                model=deployment,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+                temperature=0,
+                max_tokens=200,
+            )
+
+            if response.usage:
+                await record_llm_usage(
+                    provider=LLMProvider.AZURE_OPENAI,
+                    model=deployment,
+                    task_type=LLMTaskType.CLASSIFY,
+                    task_name="check_relevance",
+                    prompt_tokens=response.usage.prompt_tokens,
+                    completion_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens,
+                    duration_ms=int((time.time() - start_time) * 1000),
+                    is_error=False,
+                )
+
             result = json.loads(response.choices[0].message.content)
             score = float(result.get("score", 0))
             is_relevant = result.get("relevant", False) and score >= threshold
             reason = result.get("reason", "")
             return is_relevant, score, reason
+
         except (json.JSONDecodeError, ValueError) as e:
             self.logger.error("Relevance check parse error", error=str(e))
-            raise RuntimeError(f"KI-Service Fehler: Relevanz-Antwort konnte nicht verarbeitet werden - {str(e)}")
+            raise RuntimeError(f"KI-Service Fehler: Relevanz-Antwort konnte nicht verarbeitet werden - {str(e)}") from None
+        except Exception as e:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=deployment,
+                task_type=LLMTaskType.CLASSIFY,
+                task_name="check_relevance",
+                prompt_tokens=0,
+                completion_tokens=0,
+                total_tokens=0,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=True,
+                error_message=str(e),
+            )
+            raise
 
 
 # Singleton instance
-_ai_service: Optional[AIService] = None
+_ai_service: AIService | None = None
 
 
 def get_ai_service() -> AIService:

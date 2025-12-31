@@ -1,33 +1,34 @@
 """Category setup operations for Smart Query Service."""
 
 import uuid as uuid_module
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select, or_
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import EntityType, Category, DataSource, DataSourceCategory, FacetType, Entity
+from app.config import settings
+from app.models import Category, DataSource, DataSourceCategory, Entity, EntityType, FacetType
+from app.models.data_source import SourceStatus
 from app.models.entity_relation import EntityRelation
 from app.models.relation_type import RelationType
-from app.config import settings
-from app.models.data_source import SourceStatus
 
-from .geographic_utils import resolve_geographic_alias, expand_search_terms
-from .schema_generator import (
-    generate_entity_type_schema,
-    generate_ai_extraction_prompt,
-    generate_url_patterns,
-)
 from .ai_generation import (
-    ai_generate_entity_type_config,
     ai_generate_category_config,
     ai_generate_crawl_config,
+    ai_generate_entity_type_config,
     ai_generate_facet_types,
     ai_generate_seed_entities,
 )
 from .crawl_operations import find_matching_data_sources
+from .geographic_utils import expand_search_terms, resolve_geographic_alias
+from .schema_generator import (
+    generate_ai_extraction_prompt,
+    generate_entity_type_schema,
+    generate_url_patterns,
+)
 from .utils import generate_slug
 
 logger = structlog.get_logger()
@@ -96,10 +97,10 @@ def classify_query_type(user_intent: str, search_terms: list) -> str:
 async def create_category_setup_with_ai(
     session: AsyncSession,
     user_intent: str,
-    geographic_filter: Dict[str, Any],
-    current_user_id: Optional[UUID] = None,
-    progress_callback: Optional[Callable] = None,
-) -> Dict[str, Any]:
+    geographic_filter: dict[str, Any],
+    current_user_id: UUID | None = None,
+    progress_callback: Callable | None = None,
+) -> dict[str, Any]:
     """
     Execute CREATE_CATEGORY_SETUP with full AI generation (3 LLM calls).
 
@@ -170,10 +171,9 @@ async def create_category_setup_with_ai(
         slug = generate_slug(name)
 
         # Import similarity functions for duplicate detection
-        from app.utils.similarity import get_hierarchy_mapping, find_similar_entity_types
+        from app.utils.similarity import find_similar_entity_types, get_hierarchy_mapping
 
         entity_type = None
-        entity_type_created = False
 
         # 1. Check if this is actually a hierarchy level of an existing type
         # E.g., "Stadt" should use "territorial_entity" instead of creating a new type
@@ -268,7 +268,6 @@ async def create_category_setup_with_ai(
             except Exception as e:
                 logger.warning("Failed to generate embedding for EntityType", name=name, error=str(e))
 
-            entity_type_created = True
             result["steps"][-1]["result"] = f"EntityType '{name}' erstellt"
 
         result["entity_type_id"] = str(entity_type.id)
@@ -1008,7 +1007,7 @@ async def create_category_setup_with_ai(
                             template_result = await session.execute(
                                 select(RelationType).where(RelationType.slug == rel_type_slug)
                             )
-                            template_type = template_result.first()
+                            template_result.first()
 
                             # Create a new relation type for this entity type combination
                             rel_type_names = {
@@ -1095,7 +1094,7 @@ async def create_category_setup_with_ai(
         result["hierarchy_parent_id"] = str(hierarchy_parent_id) if hierarchy_parent_id else None
         result["success"] = True
 
-        total_sources = linked_count + discovered_count
+        linked_count + discovered_count
         result["message"] = (
             f"Erfolgreich erstellt: EntityType '{entity_type.name}', "
             f"Category '{category.name}', "
@@ -1128,9 +1127,9 @@ async def create_category_setup_with_ai(
 
 async def create_category_setup(
     session: AsyncSession,
-    setup_data: Dict[str, Any],
-    current_user_id: Optional[UUID] = None,
-) -> Dict[str, Any]:
+    setup_data: dict[str, Any],
+    current_user_id: UUID | None = None,
+) -> dict[str, Any]:
     """Execute CREATE_CATEGORY_SETUP operation - creates EntityType + Category + links DataSources."""
     result = {
         "success": False,
@@ -1177,7 +1176,7 @@ async def create_category_setup(
             return result
 
         # 3b. Check for semantically similar EntityTypes (AI-based)
-        from app.utils.similarity import find_similar_entity_types, find_similar_categories, get_hierarchy_mapping
+        from app.utils.similarity import find_similar_categories, find_similar_entity_types, get_hierarchy_mapping
 
         # Check if this is a hierarchy level of an existing type
         hierarchy_mapping = get_hierarchy_mapping(name)

@@ -5,9 +5,7 @@ Smart Query Plan Mode results, bridging the gap between ad-hoc queries
 and persistent dashboards.
 """
 
-import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -39,9 +37,9 @@ async def create_summary_from_smart_query(
     session: AsyncSession,
     user_id: UUID,
     query_text: str,
-    query_result: Dict[str, Any],
-    name: Optional[str] = None,
-    description: Optional[str] = None,
+    query_result: dict[str, Any],
+    name: str | None = None,
+    description: str | None = None,
 ) -> CustomSummary:
     """
     Create a Custom Summary from a Smart Query result.
@@ -152,9 +150,9 @@ def _generate_name_from_query(query_text: str) -> str:
 
 
 def _build_interpreted_config(
-    interpretation: Dict[str, Any],
-    query_result: Dict[str, Any],
-) -> Dict[str, Any]:
+    interpretation: dict[str, Any],
+    query_result: dict[str, Any],
+) -> dict[str, Any]:
     """Build interpreted_config from Smart Query interpretation."""
     config = {
         "source": "smart_query",
@@ -177,10 +175,10 @@ def _build_interpreted_config(
 
 def _create_widget_from_visualization(
     summary_id: UUID,
-    visualization: Dict[str, Any],
+    visualization: dict[str, Any],
     query_text: str,
-    data: List[Dict[str, Any]],
-    interpretation: Dict[str, Any],
+    data: list[dict[str, Any]],
+    interpretation: dict[str, Any],
 ) -> SummaryWidget:
     """Create a SummaryWidget from Smart Query visualization config."""
     # Get visualization type
@@ -281,7 +279,7 @@ async def add_smart_query_to_existing_summary(
     summary_id: UUID,
     user_id: UUID,
     query_text: str,
-    query_result: Dict[str, Any],
+    query_result: dict[str, Any],
 ) -> SummaryWidget:
     """
     Add a Smart Query result as a new widget to an existing summary.
@@ -311,7 +309,7 @@ async def add_smart_query_to_existing_summary(
     interpretation = query_result.get("interpretation", {})
 
     # Get current widget count for positioning
-    from sqlalchemy import select, func
+    from sqlalchemy import func, select
     result = await session.execute(
         select(func.count(SummaryWidget.id), func.max(SummaryWidget.display_order))
         .where(SummaryWidget.summary_id == summary_id)

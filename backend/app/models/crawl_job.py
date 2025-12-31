@@ -3,7 +3,7 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -12,8 +12,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
-    from app.models.data_source import DataSource
     from app.models.category import Category
+    from app.models.data_source import DataSource
     from app.models.document import Document
 
 
@@ -67,12 +67,14 @@ class CrawlJob(Base):
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
+        index=True,
     )
-    started_at: Mapped[Optional[datetime]] = mapped_column(
+    started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+        index=True,
     )
-    completed_at: Mapped[Optional[datetime]] = mapped_column(
+    completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -85,7 +87,7 @@ class CrawlJob(Base):
     documents_updated: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Error tracking
-    error_log: Mapped[List[Dict[str, Any]]] = mapped_column(
+    error_log: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB,
         default=list,
         nullable=False,
@@ -93,14 +95,14 @@ class CrawlJob(Base):
     error_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Detailed statistics
-    stats: Mapped[Dict[str, Any]] = mapped_column(
+    stats: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
     )
 
     # Celery task ID for tracking
-    celery_task_id: Mapped[Optional[str]] = mapped_column(
+    celery_task_id: Mapped[str | None] = mapped_column(
         nullable=True,
         index=True,
     )
@@ -111,13 +113,13 @@ class CrawlJob(Base):
         back_populates="crawl_jobs",
     )
     category: Mapped["Category"] = relationship("Category")
-    documents: Mapped[List["Document"]] = relationship(
+    documents: Mapped[list["Document"]] = relationship(
         "Document",
         back_populates="crawl_job",
     )
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         """Calculate job duration in seconds."""
         if self.started_at and self.completed_at:
             return (self.completed_at - self.started_at).total_seconds()

@@ -1,6 +1,6 @@
 """Pydantic models for AI Source Discovery Service."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -8,11 +8,11 @@ from pydantic import BaseModel, Field, field_validator
 
 class SearchStrategy(BaseModel):
     """Von KI generierte Suchstrategie."""
-    search_queries: List[str] = Field(..., description="3-5 Suchbegriffe")
+    search_queries: list[str] = Field(..., description="3-5 Suchbegriffe")
     expected_data_type: str = Field(..., description="Art der Daten (sports_teams, municipalities, companies)")
-    preferred_sources: List[str] = Field(default_factory=list, description="Priorisierte Quelltypen")
-    entity_schema: Dict[str, Any] = Field(default_factory=dict, description="Erwartete Felder pro Entität (kann verschachtelt sein)")
-    base_tags: List[str] = Field(default_factory=list, description="Basis-Tags für alle Quellen")
+    preferred_sources: list[str] = Field(default_factory=list, description="Priorisierte Quelltypen")
+    entity_schema: dict[str, Any] = Field(default_factory=dict, description="Erwartete Felder pro Entität (kann verschachtelt sein)")
+    base_tags: list[str] = Field(default_factory=list, description="Basis-Tags für alle Quellen")
     # Intelligente Quellenbegrenzung durch KI
     expected_entity_count: int = Field(default=50, description="Erwartete Anzahl der Entitäten (z.B. 18 für Bundesliga-Vereine)")
     recommended_max_sources: int = Field(default=50, description="Empfohlene maximale Quellenanzahl (ca. 1.5x expected_entity_count)")
@@ -33,7 +33,7 @@ class ExtractedSource(BaseModel):
     name: str
     base_url: str
     source_type: str = "WEBSITE"
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     extraction_method: str = "unknown"
     confidence: float = 0.5
 
@@ -43,9 +43,9 @@ class SourceWithTags(BaseModel):
     name: str = Field(..., max_length=500)
     base_url: str = Field(..., max_length=2048)
     source_type: str = "WEBSITE"
-    tags: List[str] = Field(default_factory=list, max_length=50)
-    suggested_category_ids: List[UUID] = Field(default_factory=list, max_length=10)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list, max_length=50)
+    suggested_category_ids: list[UUID] = Field(default_factory=list, max_length=10)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
 
     @field_validator("name", mode="before")
@@ -67,10 +67,10 @@ class DiscoveryStats(BaseModel):
 
 class DiscoveryResult(BaseModel):
     """Gesamtergebnis der KI-Discovery."""
-    sources: List[SourceWithTags] = Field(default_factory=list)
-    search_strategy: Optional[SearchStrategy] = None
+    sources: list[SourceWithTags] = Field(default_factory=list)
+    search_strategy: SearchStrategy | None = None
     stats: DiscoveryStats = Field(default_factory=DiscoveryStats)
-    warnings: List[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class DiscoveryRequest(BaseModel):
@@ -83,21 +83,21 @@ class DiscoveryRequest(BaseModel):
 
 class DiscoveryImportRequest(BaseModel):
     """Request zum Importieren der gefundenen Sources."""
-    sources: List[SourceWithTags] = Field(..., min_length=1, max_length=100)
-    category_ids: List[UUID] = Field(default_factory=list, max_length=20)
-    override_tags: Dict[str, List[str]] = Field(default_factory=dict)
+    sources: list[SourceWithTags] = Field(..., min_length=1, max_length=100)
+    category_ids: list[UUID] = Field(default_factory=list, max_length=20)
+    override_tags: dict[str, list[str]] = Field(default_factory=dict)
     skip_duplicates: bool = Field(default=True)
 
 
 class CategorySuggestion(BaseModel):
     """Kategorie-Vorschlag von der KI."""
-    category_id: Optional[UUID] = None  # None = neue Kategorie
+    category_id: UUID | None = None  # None = neue Kategorie
     category_name: str
     category_slug: str
     confidence: float = 0.5
     is_new: bool = False
     matching_sources: int = 0
-    suggested_purpose: Optional[str] = None
+    suggested_purpose: str | None = None
 
 
 # ============================================================
@@ -113,8 +113,8 @@ class APISuggestion(BaseModel):
     api_type: str = Field(default="REST", pattern="^(REST|GRAPHQL|SPARQL|OPARL)$")
     auth_required: bool = Field(default=False)
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
-    expected_fields: List[str] = Field(default_factory=list)
-    documentation_url: Optional[str] = None
+    expected_fields: list[str] = Field(default_factory=list)
+    documentation_url: str | None = None
 
     @property
     def full_url(self) -> str:
@@ -128,36 +128,36 @@ class APIValidationResult(BaseModel):
     """Ergebnis der API-Validierung."""
     suggestion: APISuggestion
     is_valid: bool = False
-    status_code: Optional[int] = None
-    response_type: Optional[str] = None  # application/json, text/html, etc.
-    item_count: Optional[int] = None  # Anzahl gefundener Items
-    sample_data: Optional[List[Dict[str, Any]]] = None  # Erste 3 Items
-    error_message: Optional[str] = None
+    status_code: int | None = None
+    response_type: str | None = None  # application/json, text/html, etc.
+    item_count: int | None = None  # Anzahl gefundener Items
+    sample_data: list[dict[str, Any]] | None = None  # Erste 3 Items
+    error_message: str | None = None
     validation_time_ms: int = 0
-    field_mapping: Dict[str, str] = Field(default_factory=dict)  # Erkanntes Mapping
+    field_mapping: dict[str, str] = Field(default_factory=dict)  # Erkanntes Mapping
 
 
 class ValidatedAPISource(BaseModel):
     """Eine validierte API-Quelle mit extrahierten Daten."""
     api_suggestion: APISuggestion
     validation: APIValidationResult
-    extracted_items: List[Dict[str, Any]] = Field(default_factory=list)
-    tags: List[str] = Field(default_factory=list)
+    extracted_items: list[dict[str, Any]] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
 
 
 class DiscoveryResultV2(BaseModel):
     """Erweitertes Discovery-Ergebnis mit KI-First Ansatz."""
     # Validierte API-Quellen (Priorität)
-    api_sources: List[ValidatedAPISource] = Field(default_factory=list)
+    api_sources: list[ValidatedAPISource] = Field(default_factory=list)
     # Fallback: Web-basierte Quellen (wie bisher)
-    web_sources: List[SourceWithTags] = Field(default_factory=list)
+    web_sources: list[SourceWithTags] = Field(default_factory=list)
     # Alle API-Vorschläge (auch gescheiterte)
-    api_suggestions: List[APISuggestion] = Field(default_factory=list)
-    api_validations: List[APIValidationResult] = Field(default_factory=list)
+    api_suggestions: list[APISuggestion] = Field(default_factory=list)
+    api_validations: list[APIValidationResult] = Field(default_factory=list)
     # Suchstrategie und Stats
-    search_strategy: Optional[SearchStrategy] = None
+    search_strategy: SearchStrategy | None = None
     stats: DiscoveryStats = Field(default_factory=DiscoveryStats)
-    warnings: List[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
     # Flow-Info
     used_fallback: bool = False  # True wenn SERP-Fallback verwendet wurde
     from_template: bool = False  # True wenn Vorlagen verwendet wurden

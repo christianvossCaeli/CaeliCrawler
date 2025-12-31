@@ -15,31 +15,30 @@ Core operations that are handled directly:
 All other operations are handled by registered handlers in operations/.
 """
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .entity_operations import (
-    create_entity_type_from_command,
-    create_entity_from_command,
-    create_facet_from_command,
-    create_relation_from_command,
-    find_entity_by_name,
-)
 from .category_setup import create_category_setup_with_ai
 from .crawl_operations import execute_crawl_command
+from .entity_operations import (
+    create_entity_from_command,
+    create_entity_type_from_command,
+    create_facet_from_command,
+    create_relation_from_command,
+)
 
 logger = structlog.get_logger()
 
 
 async def execute_facet_type_create(
     session: AsyncSession,
-    facet_type_data: Dict[str, Any],
-) -> Dict[str, Any]:
+    facet_type_data: dict[str, Any],
+) -> dict[str, Any]:
     """Create a new FacetType via the operations registry.
 
     This is a convenience wrapper for the create_facet_type operation.
@@ -77,9 +76,9 @@ async def execute_facet_type_create(
 
 async def execute_batch_operation(
     session: AsyncSession,
-    batch_data: Dict[str, Any],
+    batch_data: dict[str, Any],
     dry_run: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Execute a batch operation on multiple entities.
 
     This is a convenience wrapper for the batch_operation handler.
@@ -116,8 +115,8 @@ async def save_operation_to_history(
     user_id: UUID,
     command_text: str,
     operation: str,
-    interpretation: Dict[str, Any],
-    result_summary: Dict[str, Any],
+    interpretation: dict[str, Any],
+    result_summary: dict[str, Any],
     was_successful: bool,
 ) -> None:
     """Save a Smart Query operation to history for the user.
@@ -125,7 +124,7 @@ async def save_operation_to_history(
     Handles deduplication: if the same command was executed before,
     updates execution_count instead of creating a new record.
     """
-    from app.models.smart_query_operation import SmartQueryOperation, OperationType
+    from app.models.smart_query_operation import OperationType, SmartQueryOperation
 
     try:
         # Map operation string to OperationType enum
@@ -162,7 +161,7 @@ async def save_operation_to_history(
         if existing_op:
             # Update existing record
             existing_op.execution_count += 1
-            existing_op.last_executed_at = datetime.now(timezone.utc)
+            existing_op.last_executed_at = datetime.now(UTC)
             existing_op.was_successful = was_successful
             existing_op.result_summary = result_summary
             existing_op.interpretation = interpretation
@@ -196,10 +195,10 @@ async def save_operation_to_history(
 
 async def execute_write_command(
     session: AsyncSession,
-    command: Dict[str, Any],
-    current_user_id: Optional[UUID] = None,
-    original_question: Optional[str] = None,
-) -> Dict[str, Any]:
+    command: dict[str, Any],
+    current_user_id: UUID | None = None,
+    original_question: str | None = None,
+) -> dict[str, Any]:
     """Execute a write command and return the result.
 
     This is the main entry point for Smart Query write operations.
@@ -395,9 +394,9 @@ async def execute_write_command(
             was_successful=result.get("success", False),
         )
         # Commit the history save (separate from main operation)
-        try:
+        try:  # noqa: SIM105
             await session.commit()
-        except Exception:
+        except Exception:  # noqa: S110
             pass  # History save failure shouldn't affect main result
 
     return result
@@ -405,9 +404,9 @@ async def execute_write_command(
 
 async def execute_combined_operations(
     session: AsyncSession,
-    operations: List[Dict[str, Any]],
-    current_user_id: Optional[UUID] = None,
-) -> Dict[str, Any]:
+    operations: list[dict[str, Any]],
+    current_user_id: UUID | None = None,
+) -> dict[str, Any]:
     """Execute multiple operations sequentially.
 
     This function orchestrates multiple operations, using registered handlers

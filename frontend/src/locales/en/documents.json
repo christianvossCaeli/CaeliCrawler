@@ -54,9 +54,27 @@
       "discovered": "Discovered",
       "processed": "Processed",
       "showInResults": "Show in results",
-      "confidence": "Confidence"
+      "confidence": "Confidence",
+      "close": "Close"
+    },
+    "pageAnalysis": {
+      "needsReview": {
+        "title": "No keywords found",
+        "description": "Manual analysis required - the document contains none of the search keywords.",
+        "action": "Start full analysis"
+      },
+      "hasMore": {
+        "title": "More relevant pages available",
+        "pagesAnalyzed": "{analyzed} of {total} pages analyzed.",
+        "action": "Analyze more pages"
+      },
+      "complete": {
+        "allPagesAnalyzed": "All {count} relevant pages analyzed"
+      },
+      "relevantPages": "Relevant pages"
     },
     "stats": {
+      "title": "Document Statistics",
       "total": "Total",
       "pending": "Pending",
       "processing": "Processing",

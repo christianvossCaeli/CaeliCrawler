@@ -1,7 +1,7 @@
 """Multi-Entity Extraction Service for processing multiple EntityTypes per Category."""
 
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import structlog
 from sqlalchemy import select
@@ -13,12 +13,9 @@ from app.models import (
     CategoryEntityType,
     Entity,
     EntityRelation,
-    EntityType,
-    FacetType,
-    FacetValue,
     RelationType,
 )
-from app.utils.text import normalize_entity_name, create_slug
+from app.utils.text import normalize_entity_name
 from services.entity_matching_service import EntityMatchingService
 
 logger = structlog.get_logger()
@@ -131,10 +128,10 @@ class MultiEntityExtractionService:
     async def process_extraction_result(
         self,
         category: Category,
-        extracted_data: Dict[str, Any],
-        document_id: Optional[uuid.UUID] = None,
-        source_url: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        extracted_data: dict[str, Any],
+        document_id: uuid.UUID | None = None,
+        source_url: str | None = None,
+    ) -> dict[str, Any]:
         """
         Process multi-entity extraction results.
 
@@ -166,7 +163,7 @@ class MultiEntityExtractionService:
         }
 
         # Track created/found entities for relation creation
-        entity_map: Dict[Tuple[str, str], Entity] = {}
+        entity_map: dict[tuple[str, str], Entity] = {}
 
         # Process entities by type
         entities_data = extracted_data.get("entities", {})
@@ -290,7 +287,7 @@ class MultiEntityExtractionService:
 
     async def _find_entity(
         self, entity_type_id: uuid.UUID, name: str
-    ) -> Optional[Entity]:
+    ) -> Entity | None:
         """Find an existing entity by type and normalized name.
 
         Uses normalized name for consistent matching.
@@ -306,8 +303,8 @@ class MultiEntityExtractionService:
         return result.scalar_one_or_none()
 
     async def _batch_find_entities(
-        self, entity_type_id: uuid.UUID, names: List[str], chunk_size: int = 100
-    ) -> Dict[str, Entity]:
+        self, entity_type_id: uuid.UUID, names: list[str], chunk_size: int = 100
+    ) -> dict[str, Entity]:
         """
         Batch find existing entities by type and names.
 
@@ -328,8 +325,8 @@ class MultiEntityExtractionService:
             return {}
 
         # Build normalized name mapping for consistent matching
-        name_to_normalized: Dict[str, str] = {}
-        normalized_to_names: Dict[str, List[str]] = {}
+        name_to_normalized: dict[str, str] = {}
+        normalized_to_names: dict[str, list[str]] = {}
 
         for name in names:
             normalized = normalize_entity_name(name, country="DE")
@@ -340,7 +337,7 @@ class MultiEntityExtractionService:
 
         # Get unique normalized names for query
         unique_normalized = list(normalized_to_names.keys())
-        entities: Dict[str, Entity] = {}
+        entities: dict[str, Entity] = {}
 
         # Process in chunks to prevent SQL IN clause from becoming too large
         for i in range(0, len(unique_normalized), chunk_size):
@@ -389,7 +386,7 @@ class MultiEntityExtractionService:
         source_id: uuid.UUID,
         target_id: uuid.UUID,
         relation_type_id: uuid.UUID,
-    ) -> Optional[EntityRelation]:
+    ) -> EntityRelation | None:
         """Find an existing relation."""
         result = await self.session.execute(
             select(EntityRelation).where(
@@ -401,8 +398,8 @@ class MultiEntityExtractionService:
         return result.scalar_one_or_none()
 
     async def _batch_get_or_create_relation_types(
-        self, slugs: List[str]
-    ) -> Dict[str, RelationType]:
+        self, slugs: list[str]
+    ) -> dict[str, RelationType]:
         """
         Batch load or create relation types.
 
@@ -445,7 +442,7 @@ class MultiEntityExtractionService:
         return relation_types
 
     async def _batch_find_existing_relations(
-        self, potential_relations: List[Dict[str, Any]]
+        self, potential_relations: list[dict[str, Any]]
     ) -> set:
         """
         Batch check for existing relations.
@@ -504,7 +501,7 @@ Antworte im JSON-Format:
 
     async def get_category_entity_types(
         self, category_id: uuid.UUID
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get all entity types for a category with their configuration.
 
@@ -537,8 +534,8 @@ Antworte im JSON-Format:
         entity_type_id: uuid.UUID,
         is_primary: bool = False,
         extraction_order: int = 0,
-        extraction_config: Optional[Dict[str, Any]] = None,
-        relation_config: Optional[List[Dict[str, Any]]] = None,
+        extraction_config: dict[str, Any] | None = None,
+        relation_config: list[dict[str, Any]] | None = None,
     ) -> CategoryEntityType:
         """
         Add an entity type to a category.
@@ -560,7 +557,7 @@ Antworte im JSON-Format:
             result = await self.session.execute(
                 select(CategoryEntityType).where(
                     CategoryEntityType.category_id == category_id,
-                    CategoryEntityType.is_primary == True,
+                    CategoryEntityType.is_primary,
                 )
             )
             for existing in result.scalars().all():

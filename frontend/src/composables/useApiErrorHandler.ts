@@ -3,84 +3,37 @@ import { useI18n } from 'vue-i18n'
 import { useLogger } from './useLogger'
 import { useSnackbar } from './useSnackbar'
 
-/**
- * Type-safe error extraction from unknown errors
- */
-function extractErrorMessage(error: unknown): string {
-  if (error && typeof error === 'object') {
-    const e = error as {
-      response?: { data?: { detail?: string; message?: string; error?: string } }
-      message?: string
-    }
-    if (e.response?.data?.error) {
-      return e.response.data.error
-    }
-    if (e.response?.data?.detail) {
-      return e.response.data.detail
-    }
-    if (e.response?.data?.message) {
-      return e.response.data.message
-    }
-    if (e.message) {
-      return e.message
-    }
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return 'Unknown error'
+// Import from centralized utility
+import {
+  extractErrorMessage,
+  getErrorMessage,
+  isNetworkError,
+  isApiError,
+  isAuthError as isAuthErrorUtil,
+  isForbiddenError,
+  isNotFoundError,
+  isValidationError,
+  isServerError,
+  hasStatus,
+} from '@/utils/errorMessage'
+
+// Re-export utilities for backward compatibility
+export {
+  getErrorMessage,
+  isNetworkError,
+  isApiError,
+  isForbiddenError,
+  isNotFoundError,
+  isValidationError,
+  isServerError,
+  hasStatus,
 }
 
 /**
- * Simple helper to extract error message - for use in catch blocks
- * @example
- * ```ts
- * try {
- *   await api.post(...)
- * } catch (error) {
- *   showMessage(getErrorMessage(error) || t('fallback'), 'error')
- * }
- * ```
- */
-export function getErrorMessage(error: unknown): string | undefined {
-  if (error && typeof error === 'object') {
-    const e = error as {
-      response?: { data?: { detail?: string; message?: string; error?: string } }
-      message?: string
-    }
-    return e.response?.data?.error || e.response?.data?.detail || e.response?.data?.message || e.message
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return undefined
-}
-
-/**
- * Check if error is a network/connectivity error
- */
-function isNetworkError(error: unknown): boolean {
-  if (error && typeof error === 'object') {
-    const e = error as { code?: string; message?: string }
-    return (
-      e.code === 'ERR_NETWORK' ||
-      e.message?.includes('Network Error') ||
-      e.message?.includes('Failed to fetch') ||
-      false
-    )
-  }
-  return false
-}
-
-/**
- * Check if error is an authentication error
+ * Check if error is an authentication error (401 or 403)
  */
 function isAuthError(error: unknown): boolean {
-  if (error && typeof error === 'object') {
-    const e = error as { response?: { status?: number } }
-    return e.response?.status === 401 || e.response?.status === 403
-  }
-  return false
+  return isAuthErrorUtil(error) || isForbiddenError(error)
 }
 
 export interface ApiErrorHandlerOptions {
@@ -246,5 +199,6 @@ export function useApiErrorHandler(options: ApiErrorHandlerOptions = {}) {
 }
 
 // Export utility functions for use outside composable
-// Note: getErrorMessage is already exported at definition, not re-exported here
-export { extractErrorMessage, isNetworkError, isAuthError }
+// Note: Most utilities are already re-exported above from @/utils/errorMessage
+// isAuthError is exported here since it's a local function combining 401 and 403 checks
+export { extractErrorMessage, isAuthError }

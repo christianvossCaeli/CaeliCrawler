@@ -1,14 +1,12 @@
 """Entity-related commands for Smart Query."""
 
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Entity, EntityType
+from app.models import Entity
+
 from .base import BaseCommand, CommandResult
 from .registry import default_registry
 
@@ -19,7 +17,7 @@ logger = structlog.get_logger()
 class CreateEntityCommand(BaseCommand):
     """Command to create a new entity."""
 
-    async def validate(self) -> Optional[str]:
+    async def validate(self) -> str | None:
         """Validate entity creation data."""
         entity_data = self.data.get("entity_data", {})
 
@@ -61,7 +59,7 @@ class CreateEntityCommand(BaseCommand):
 class UpdateEntityCommand(BaseCommand):
     """Command to update an existing entity."""
 
-    async def validate(self) -> Optional[str]:
+    async def validate(self) -> str | None:
         """Validate update data."""
         update_data = self.data.get("update_data", {})
 
@@ -121,7 +119,7 @@ class UpdateEntityCommand(BaseCommand):
 class DeleteEntityCommand(BaseCommand):
     """Command to soft-delete an entity."""
 
-    async def validate(self) -> Optional[str]:
+    async def validate(self) -> str | None:
         """Validate delete data."""
         delete_data = self.data.get("delete_entity_data", {})
 
@@ -162,7 +160,7 @@ class DeleteEntityCommand(BaseCommand):
         if entity.core_attributes is None:
             entity.core_attributes = {}
         entity.core_attributes["_deletion_reason"] = reason
-        entity.core_attributes["_deleted_at"] = datetime.now(timezone.utc).isoformat()
+        entity.core_attributes["_deleted_at"] = datetime.now(UTC).isoformat()
 
         await self.session.flush()
 
@@ -187,7 +185,7 @@ class DeleteEntityCommand(BaseCommand):
 class CreateEntityTypeCommand(BaseCommand):
     """Command to create a new entity type."""
 
-    async def validate(self) -> Optional[str]:
+    async def validate(self) -> str | None:
         """Validate entity type data."""
         entity_type_data = self.data.get("entity_type_data", {})
 

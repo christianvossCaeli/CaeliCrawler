@@ -1,7 +1,7 @@
 """CrawlJob schemas for API validation."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -12,8 +12,8 @@ from app.models.crawl_job import JobStatus
 class CrawlJobCreate(BaseModel):
     """Schema for creating a crawl job."""
 
-    source_id: Optional[UUID] = Field(None, description="Specific source to crawl")
-    category_id: Optional[UUID] = Field(None, description="Crawl all sources in category")
+    source_id: UUID | None = Field(None, description="Specific source to crawl")
+    category_id: UUID | None = Field(None, description="Crawl all sources in category")
     priority: int = Field(default=0, description="Job priority")
 
     def model_post_init(self, __context):
@@ -29,20 +29,20 @@ class CrawlJobResponse(BaseModel):
     category_id: UUID
     status: JobStatus
     scheduled_at: datetime
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
+    started_at: datetime | None
+    completed_at: datetime | None
     pages_crawled: int
     documents_found: int
     documents_processed: int
     documents_new: int
     documents_updated: int
     error_count: int
-    celery_task_id: Optional[str]
+    celery_task_id: str | None
 
     # Computed
-    duration_seconds: Optional[float] = None
-    source_name: Optional[str] = None
-    category_name: Optional[str] = None
+    duration_seconds: float | None = None
+    source_name: str | None = None
+    category_name: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -50,7 +50,7 @@ class CrawlJobResponse(BaseModel):
 class CrawlJobListResponse(BaseModel):
     """Schema for crawl job list response."""
 
-    items: List[CrawlJobResponse]
+    items: list[CrawlJobResponse]
     total: int
     page: int
     per_page: int
@@ -66,36 +66,36 @@ class CrawlJobStats(BaseModel):
     failed_jobs: int
     total_documents: int
     total_pages_crawled: int
-    avg_duration_seconds: Optional[float]
+    avg_duration_seconds: float | None
 
 
 class CrawlJobDetailResponse(CrawlJobResponse):
     """Detailed crawl job response with error log."""
 
-    error_log: List[Dict[str, Any]] = Field(default_factory=list)
-    stats: Dict[str, Any] = Field(default_factory=dict)
+    error_log: list[dict[str, Any]] = Field(default_factory=list)
+    stats: dict[str, Any] = Field(default_factory=dict)
 
 
 class StartCrawlRequest(BaseModel):
     """Request to start a crawl operation."""
 
-    source_ids: Optional[List[UUID]] = Field(None, description="Specific sources to crawl")
-    category_id: Optional[UUID] = Field(None, description="Crawl all sources in category")
+    source_ids: list[UUID] | None = Field(None, description="Specific sources to crawl")
+    category_id: UUID | None = Field(None, description="Crawl all sources in category")
     force: bool = Field(default=False, description="Force crawl even if recently crawled")
 
     # Additional filters for flexible crawl selection
-    country: Optional[str] = Field(None, description="Filter by country code (DE, GB, etc.)")
-    status: Optional[str] = Field(None, description="Filter by source status (ACTIVE, PENDING, ERROR)")
-    source_type: Optional[str] = Field(None, description="Filter by source type (WEBSITE, OPARL_API, RSS)")
-    search: Optional[str] = Field(None, description="Filter by name or URL")
-    limit: Optional[int] = Field(None, ge=1, le=10000, description="Maximum number of sources to crawl")
+    country: str | None = Field(None, description="Filter by country code (DE, GB, etc.)")
+    status: str | None = Field(None, description="Filter by source status (ACTIVE, PENDING, ERROR)")
+    source_type: str | None = Field(None, description="Filter by source type (WEBSITE, OPARL_API, RSS)")
+    search: str | None = Field(None, description="Filter by name or URL")
+    limit: int | None = Field(None, ge=1, le=10000, description="Maximum number of sources to crawl")
 
 
 class StartCrawlResponse(BaseModel):
     """Response from starting a crawl operation."""
 
     jobs_created: int
-    job_ids: List[UUID]
+    job_ids: list[UUID]
     message: str
 
 
@@ -107,7 +107,7 @@ class CrawlerStatusResponse(BaseModel):
     pending_jobs: int = Field(default=0, description="Number of pending jobs")
     completed_today: int = Field(default=0, description="Jobs completed today")
     failed_today: int = Field(default=0, description="Jobs failed today")
-    last_completed_at: Optional[datetime] = Field(None, description="Timestamp of last completed job")
+    last_completed_at: datetime | None = Field(None, description="Timestamp of last completed job")
     celery_connected: bool = Field(default=False, description="Whether Celery is connected")
     worker_count: int = Field(default=0, description="Number of active Celery workers")
 
@@ -118,14 +118,14 @@ class JobLogEntry(BaseModel):
     timestamp: datetime
     level: str = Field(..., description="Log level (INFO, WARNING, ERROR)")
     message: str
-    details: Optional[Dict[str, Any]] = None
+    details: dict[str, Any] | None = None
 
 
 class JobLogResponse(BaseModel):
     """Response for job log endpoint."""
 
     job_id: UUID
-    entries: List[JobLogEntry] = Field(default_factory=list)
+    entries: list[JobLogEntry] = Field(default_factory=list)
     total: int
     has_more: bool = False
 
@@ -135,21 +135,21 @@ class RunningJobInfo(BaseModel):
 
     id: UUID
     source_id: UUID
-    source_name: Optional[str] = None
+    source_name: str | None = None
     category_id: UUID
-    category_name: Optional[str] = None
+    category_name: str | None = None
     status: str
-    started_at: Optional[datetime] = None
+    started_at: datetime | None = None
     pages_crawled: int = 0
     documents_found: int = 0
-    progress_percent: Optional[float] = None
-    celery_task_id: Optional[str] = None
+    progress_percent: float | None = None
+    celery_task_id: str | None = None
 
 
 class RunningJobsResponse(BaseModel):
     """Response for running jobs endpoint."""
 
-    jobs: List[RunningJobInfo] = Field(default_factory=list)
+    jobs: list[RunningJobInfo] = Field(default_factory=list)
     total: int
 
 
@@ -159,24 +159,24 @@ class AITaskInfo(BaseModel):
     id: UUID
     task_type: str
     status: str
-    document_id: Optional[UUID] = None
-    document_title: Optional[str] = None
-    source_id: Optional[UUID] = None
-    source_name: Optional[str] = None
-    category_id: Optional[UUID] = None
-    category_name: Optional[str] = None
+    document_id: UUID | None = None
+    document_title: str | None = None
+    source_id: UUID | None = None
+    source_name: str | None = None
+    category_id: UUID | None = None
+    category_name: str | None = None
     created_at: datetime
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    error_message: Optional[str] = None
-    progress_percent: Optional[float] = None
-    celery_task_id: Optional[str] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    error_message: str | None = None
+    progress_percent: float | None = None
+    celery_task_id: str | None = None
 
 
 class AITaskListResponse(BaseModel):
     """Response for AI task list endpoint."""
 
-    items: List[AITaskInfo] = Field(default_factory=list)
+    items: list[AITaskInfo] = Field(default_factory=list)
     total: int
     page: int
     per_page: int
@@ -186,5 +186,5 @@ class AITaskListResponse(BaseModel):
 class RunningAITasksResponse(BaseModel):
     """Response for running AI tasks endpoint."""
 
-    tasks: List[AITaskInfo] = Field(default_factory=list)
+    tasks: list[AITaskInfo] = Field(default_factory=list)
     total: int

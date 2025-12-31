@@ -1,13 +1,13 @@
 """Serper.dev search provider - Google Search API."""
 
-from typing import List
 
 import httpx
 import structlog
 
 from app.config import settings
-from .base import BaseSearchProvider
+
 from ..models import SearchResult
+from .base import BaseSearchProvider
 
 logger = structlog.get_logger()
 
@@ -28,9 +28,9 @@ class SerperSearchProvider(BaseSearchProvider):
 
     async def search(
         self,
-        queries: List[str],
+        queries: list[str],
         num_results: int = 10,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """
         Execute web search using Serper.dev API.
 
@@ -100,7 +100,7 @@ class SerperSearchProvider(BaseSearchProvider):
 
         return results
 
-    def _get_mock_results(self, queries: List[str]) -> List[SearchResult]:
+    def _get_mock_results(self, queries: list[str]) -> list[SearchResult]:
         """Return empty results when no API key is configured."""
         logger.error(
             "SERPER_API_KEY not configured - web search disabled. "

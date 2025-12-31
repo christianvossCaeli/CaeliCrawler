@@ -23,24 +23,24 @@ The wizard state is maintained in the conversation and each user
 response advances to the next step until completion.
 """
 
-import structlog
 import time
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
-from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Entity, EntityType, FacetType, FacetValue
 from app.models.facet_value import FacetValueSourceType
 from app.schemas.assistant import (
     WizardDefinition,
+    WizardInputType,
+    WizardResponse,
+    WizardState,
     WizardStep,
     WizardStepOption,
-    WizardState,
-    WizardResponse,
-    WizardInputType,
 )
 
 logger = structlog.get_logger()
@@ -50,7 +50,7 @@ logger = structlog.get_logger()
 # Wizard Definitions
 # ============================================================================
 
-WIZARD_DEFINITIONS: Dict[str, WizardDefinition] = {
+WIZARD_DEFINITIONS: dict[str, WizardDefinition] = {
     "create_entity": WizardDefinition(
         type="create_entity",
         name="Entity erstellen",
@@ -187,7 +187,7 @@ class WizardService:
     """
 
     # In-memory storage for active wizard sessions (in production, use Redis)
-    _active_wizards: Dict[str, Dict[str, Any]] = {}
+    _active_wizards: dict[str, dict[str, Any]] = {}
     _last_cleanup_time: float = 0.0
 
     # Wizard session expiry time (30 minutes)
@@ -230,7 +230,7 @@ class WizardService:
             del cls._active_wizards[wizard_id]
             logger.info("wizard_expired_cleanup", wizard_id=wizard_id)
 
-    async def get_available_wizards(self) -> List[Dict[str, Any]]:
+    async def get_available_wizards(self) -> list[dict[str, Any]]:
         """Get list of available wizard types.
 
         Returns:
@@ -249,7 +249,7 @@ class WizardService:
     async def start_wizard(
         self,
         wizard_type: str,
-        context: Optional[Dict[str, Any]] = None
+        context: dict[str, Any] | None = None
     ) -> WizardResponse:
         """Start a new wizard session.
 
@@ -290,7 +290,7 @@ class WizardService:
             "steps": steps,
             "definition": definition,
             "context": context or {},
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         }
 
         return WizardResponse(
@@ -305,7 +305,7 @@ class WizardService:
         self,
         wizard_id: str,
         response: Any
-    ) -> Tuple[WizardResponse, Optional[Dict[str, Any]]]:
+    ) -> tuple[WizardResponse, dict[str, Any] | None]:
         """Process a user response for an active wizard.
 
         Args:
@@ -325,7 +325,7 @@ class WizardService:
         wizard_data = self._active_wizards[wizard_id]
         state = wizard_data["state"]
         steps = wizard_data["steps"]
-        definition = wizard_data["definition"]
+        wizard_data["definition"]
 
         if state.completed or state.cancelled:
             raise ValueError("Wizard already completed or cancelled")
@@ -344,17 +344,16 @@ class WizardService:
             ), None
 
         # Handle confirmation step
-        if current_step.input_type == WizardInputType.CONFIRM:
-            if response == "no":
-                state.cancelled = True
-                del self._active_wizards[wizard_id]
-                return WizardResponse(
-                    message="Wizard abgebrochen.",
-                    wizard_state=state,
-                    current_step=current_step,
-                    can_go_back=False,
-                    progress=1.0,
-                ), None
+        if current_step.input_type == WizardInputType.CONFIRM and response == "no":
+            state.cancelled = True
+            del self._active_wizards[wizard_id]
+            return WizardResponse(
+                message="Wizard abgebrochen.",
+                wizard_state=state,
+                current_step=current_step,
+                can_go_back=False,
+                progress=1.0,
+            ), None
 
         # Store answer
         state.answers[current_step.id] = response
@@ -434,7 +433,7 @@ class WizardService:
         if wizard_id in self._active_wizards:
             del self._active_wizards[wizard_id]
 
-    def get_active_wizard(self, wizard_id: str) -> Optional[Dict[str, Any]]:
+    def get_active_wizard(self, wizard_id: str) -> dict[str, Any] | None:
         """Get an active wizard's data.
 
         Args:
@@ -447,9 +446,9 @@ class WizardService:
 
     async def _prepare_steps(
         self,
-        steps: List[WizardStep],
-        context: Optional[Dict[str, Any]]
-    ) -> List[WizardStep]:
+        steps: list[WizardStep],
+        context: dict[str, Any] | None
+    ) -> list[WizardStep]:
         """Prepare wizard steps with dynamic options.
 
         Args:
@@ -480,9 +479,8 @@ class WizardService:
                 ]
 
             # Pre-fill from context if available
-            if context:
-                if step.id == "entity" and context.get("current_entity_id"):
-                    step_dict["default_value"] = context["current_entity_id"]
+            if context and step.id == "entity" and context.get("current_entity_id"):
+                step_dict["default_value"] = context["current_entity_id"]
 
             prepared.append(WizardStep(**step_dict))
 
@@ -492,7 +490,7 @@ class WizardService:
         self,
         step: WizardStep,
         response: Any
-    ) -> Optional[str]:
+    ) -> str | None:
         """Validate a user response against step requirements.
 
         Args:
@@ -514,9 +512,9 @@ class WizardService:
         if step.input_type == WizardInputType.SELECT:
             valid_values = [opt.value for opt in (step.options or [])]
             if response not in valid_values:
-                return f"Bitte wähle eine der verfügbaren Optionen."
+                return "Bitte wähle eine der verfügbaren Optionen."
 
-        if step.input_type == WizardInputType.TEXT or step.input_type == WizardInputType.TEXTAREA:
+        if step.input_type == WizardInputType.TEXT or step.input_type == WizardInputType.TEXTAREA:  # noqa: SIM102
             if step.validation:
                 min_len = step.validation.get("min_length", 0)
                 max_len = step.validation.get("max_length", 10000)
@@ -542,8 +540,8 @@ class WizardService:
 
     async def _execute_wizard(
         self,
-        wizard_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        wizard_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """Execute the completed wizard and perform the action.
 
         Args:
@@ -575,7 +573,7 @@ class WizardService:
                 "message": f"Fehler bei der Ausführung: {str(e)}",
             }
 
-    async def _execute_create_entity(self, answers: Dict[str, Any]) -> Dict[str, Any]:
+    async def _execute_create_entity(self, answers: dict[str, Any]) -> dict[str, Any]:
         """Execute the create_entity wizard.
 
         Args:
@@ -601,8 +599,8 @@ class WizardService:
             }
 
         # Create entity
-        from app.models import Entity
         from app.core.utils import generate_slug
+        from app.models import Entity
 
         entity = Entity(
             type_id=entity_type.id,
@@ -623,7 +621,7 @@ class WizardService:
             "navigate_to": f"/entities/{entity_type_slug}/{entity.slug}",
         }
 
-    async def _execute_add_pain_point(self, answers: Dict[str, Any]) -> Dict[str, Any]:
+    async def _execute_add_pain_point(self, answers: dict[str, Any]) -> dict[str, Any]:
         """Execute the add_pain_point wizard.
 
         Args:
@@ -691,7 +689,7 @@ class WizardService:
             "entity_id": str(entity.id),
         }
 
-    async def _execute_quick_search(self, answers: Dict[str, Any]) -> Dict[str, Any]:
+    async def _execute_quick_search(self, answers: dict[str, Any]) -> dict[str, Any]:
         """Execute the quick_search wizard.
 
         Args:

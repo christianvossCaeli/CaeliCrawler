@@ -3,7 +3,7 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Boolean, DateTime, Enum, String, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -81,7 +81,7 @@ class User(Base):
     )
 
     # Session tracking
-    last_login: Mapped[Optional[datetime]] = mapped_column(
+    last_login: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -92,11 +92,11 @@ class User(Base):
         default=False,
         nullable=False,
     )
-    email_verification_token: Mapped[Optional[str]] = mapped_column(
+    email_verification_token: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
-    email_verification_sent_at: Mapped[Optional[datetime]] = mapped_column(
+    email_verification_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -127,34 +127,34 @@ class User(Base):
         default=True,
         nullable=False,
     )
-    notification_digest_time: Mapped[Optional[str]] = mapped_column(
+    notification_digest_time: Mapped[str | None] = mapped_column(
         String(5),
         nullable=True,
     )  # e.g., "08:00" for daily digests
 
     # Relationships
-    email_addresses: Mapped[List["UserEmailAddress"]] = relationship(
+    email_addresses: Mapped[list["UserEmailAddress"]] = relationship(
         "UserEmailAddress",
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    notification_rules: Mapped[List["NotificationRule"]] = relationship(
+    notification_rules: Mapped[list["NotificationRule"]] = relationship(
         "NotificationRule",
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    notifications: Mapped[List["Notification"]] = relationship(
+    notifications: Mapped[list["Notification"]] = relationship(
         "Notification",
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    sessions: Mapped[List["UserSession"]] = relationship(
+    sessions: Mapped[list["UserSession"]] = relationship(
         "UserSession",
         back_populates="user",
         cascade="all, delete-orphan",
         order_by="desc(UserSession.last_used_at)",
     )
-    reminders: Mapped[List["Reminder"]] = relationship(
+    reminders: Mapped[list["Reminder"]] = relationship(
         "Reminder",
         back_populates="user",
         cascade="all, delete-orphan",
@@ -165,30 +165,30 @@ class User(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
-    export_jobs: Mapped[List["ExportJob"]] = relationship(
+    export_jobs: Mapped[list["ExportJob"]] = relationship(  # noqa: F821
         "ExportJob",
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    favorites: Mapped[List["UserFavorite"]] = relationship(
+    favorites: Mapped[list["UserFavorite"]] = relationship(
         "UserFavorite",
         back_populates="user",
         cascade="all, delete-orphan",
         order_by="desc(UserFavorite.created_at)",
     )
-    device_tokens: Mapped[List["DeviceToken"]] = relationship(
+    device_tokens: Mapped[list["DeviceToken"]] = relationship(
         "DeviceToken",
         back_populates="user",
         cascade="all, delete-orphan",
         order_by="desc(DeviceToken.created_at)",
     )
-    smart_query_operations: Mapped[List["SmartQueryOperation"]] = relationship(
+    smart_query_operations: Mapped[list["SmartQueryOperation"]] = relationship(
         "SmartQueryOperation",
         back_populates="user",
         cascade="all, delete-orphan",
         order_by="desc(SmartQueryOperation.last_executed_at)",
     )
-    custom_summaries: Mapped[List["CustomSummary"]] = relationship(
+    custom_summaries: Mapped[list["CustomSummary"]] = relationship(
         "CustomSummary",
         back_populates="user",
         cascade="all, delete-orphan",

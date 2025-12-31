@@ -264,136 +264,62 @@
                       @update:model-value="toggleFacetSelection(sample.id)"
                     ></v-checkbox>
                     <div class="flex-grow-1">
-                      <!-- Structured Value Display for Pain Points -->
-                      <template v-if="facetGroup.facet_type_slug === 'pain_point'">
-                        <div class="d-flex align-start ga-2 mb-2">
-                          <v-icon size="small" color="error">mdi-alert-circle</v-icon>
-                          <div class="flex-grow-1">
-                            <div class="text-body-1">{{ getStructuredDescription(sample) }}</div>
-                            <div class="d-flex flex-wrap ga-2 mt-2">
-                              <v-chip v-if="getStructuredType(sample)" size="small" variant="outlined" color="error">
-                                {{ getStructuredType(sample) }}
-                              </v-chip>
-                              <v-chip
-                                v-if="getStructuredSeverity(sample)"
-                                size="small"
-                                :color="getSeverityColor(getStructuredSeverity(sample))"
-                              >
-                                {{ getStructuredSeverity(sample) }}
-                              </v-chip>
-                            </div>
-                            <div v-if="getStructuredQuote(sample)" class="mt-2 pa-2 rounded bg-surface-variant">
-                              <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
-                              <span class="text-body-2 font-italic">{{ getStructuredQuote(sample) }}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </template>
+                      <!-- Generic Facet Value Display -->
+                      <GenericFacetValueRenderer
+                        :value="normalizeValue(sample.value)"
+                        :facet-type="facetGroupToFacetType(facetGroup)"
+                        show-icon
+                      />
 
-                      <!-- Structured Value Display for Positive Signals -->
-                      <template v-else-if="facetGroup.facet_type_slug === 'positive_signal'">
-                        <div class="d-flex align-start ga-2 mb-2">
-                          <v-icon size="small" color="success">mdi-lightbulb-on</v-icon>
-                          <div class="flex-grow-1">
-                            <div class="text-body-1">{{ getStructuredDescription(sample) }}</div>
-                            <div class="d-flex flex-wrap ga-2 mt-2">
-                              <v-chip v-if="getStructuredType(sample)" size="small" variant="outlined" color="success">
-                                {{ getStructuredType(sample) }}
-                              </v-chip>
-                            </div>
-                            <div v-if="getStructuredQuote(sample)" class="mt-2 pa-2 rounded bg-surface-variant">
-                              <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
-                              <span class="text-body-2 font-italic">{{ getStructuredQuote(sample) }}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </template>
-
-                      <!-- Structured Value Display for Contacts -->
-                      <template v-else-if="facetGroup.facet_type_slug === 'contact'">
-                        <div class="d-flex align-start ga-2 mb-2">
-                          <v-icon size="small" color="primary">mdi-account-tie</v-icon>
-                          <div class="flex-grow-1">
-                            <!-- Contact Name with optional Entity Link -->
-                            <div class="d-flex align-center ga-2">
-                              <span class="text-body-1 font-weight-medium">{{ getContactName(sample) }}</span>
-                              <!-- Link to referenced entity -->
-                              <v-chip
-                                v-if="sample.target_entity_id"
-                                size="small"
-                                variant="tonal"
-                                color="primary"
-                                class="cursor-pointer"
-                                @click.stop="navigateToTargetEntity(sample)"
-                              >
-                                <v-icon start size="small">mdi-link-variant</v-icon>
-                                {{ sample.target_entity_name || t('entityDetail.viewEntity') }}
-                              </v-chip>
-                              <!-- Entity Link Management Menu -->
-                              <v-menu v-if="canEdit" location="bottom">
-                                <template #activator="{ props: menuProps }">
-                                  <v-btn
-                                    icon
-                                    size="x-small"
-                                    variant="text"
-                                    v-bind="menuProps"
-                                    @click.stop
-                                  >
-                                    <v-icon size="small">mdi-dots-vertical</v-icon>
-                                  </v-btn>
-                                </template>
-                                <v-list density="compact">
-                                  <v-list-item
-                                    v-if="!sample.target_entity_id"
-                                    prepend-icon="mdi-link-plus"
-                                    :title="t('entityDetail.facets.linkToEntity', 'Mit Entity verknüpfen')"
-                                    @click="openEntityLinkDialog(sample)"
-                                  ></v-list-item>
-                                  <v-list-item
-                                    v-if="sample.target_entity_id"
-                                    prepend-icon="mdi-link-off"
-                                    :title="t('entityDetail.facets.unlinkEntity', 'Verknüpfung entfernen')"
-                                    @click="unlinkEntity(sample)"
-                                  ></v-list-item>
-                                  <v-list-item
-                                    v-if="sample.target_entity_id"
-                                    prepend-icon="mdi-swap-horizontal"
-                                    :title="t('entityDetail.facets.changeEntityLink', 'Andere Entity verknüpfen')"
-                                    @click="openEntityLinkDialog(sample)"
-                                  ></v-list-item>
-                                </v-list>
-                              </v-menu>
-                            </div>
-                            <div v-if="getContactRole(sample)" class="text-body-2 text-medium-emphasis">{{ getContactRole(sample) }}</div>
-                            <div class="d-flex flex-wrap ga-2 mt-2">
-                              <v-chip v-if="getContactEmail(sample)" size="small" variant="outlined" @click.stop="copyToClipboard(getContactEmail(sample)!)">
-                                <v-icon start size="small">mdi-email</v-icon>
-                                {{ getContactEmail(sample) }}
-                              </v-chip>
-                              <v-chip v-if="getContactPhone(sample)" size="small" variant="outlined">
-                                <v-icon start size="small">mdi-phone</v-icon>
-                                {{ getContactPhone(sample) }}
-                              </v-chip>
-                              <v-chip
-                                v-if="getContactSentiment(sample)"
-                                size="small"
-                                :color="getSentimentColor(getContactSentiment(sample))"
-                              >
-                                {{ getContactSentiment(sample) }}
-                              </v-chip>
-                            </div>
-                            <div v-if="getContactStatement(sample)" class="mt-2 pa-2 rounded bg-surface-variant">
-                              <v-icon size="small" class="mr-1">mdi-format-quote-open</v-icon>
-                              <span class="text-body-2 font-italic">{{ getContactStatement(sample) }}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </template>
-
-                      <!-- Default/Text Display -->
-                      <template v-else>
-                        <div class="text-body-1">{{ formatFacetValue(sample) }}</div>
-                      </template>
+                      <!-- Entity Link Controls for Contact Types -->
+                      <div v-if="facetGroup.facet_type_slug === 'contact' && (sample.target_entity_id || canEdit)" class="d-flex align-center ga-2 mt-2">
+                        <!-- Link to referenced entity -->
+                        <v-chip
+                          v-if="sample.target_entity_id"
+                          size="small"
+                          variant="tonal"
+                          color="primary"
+                          class="cursor-pointer"
+                          @click.stop="navigateToTargetEntity(sample)"
+                        >
+                          <v-icon start size="small">mdi-link-variant</v-icon>
+                          {{ sample.target_entity_name || t('entityDetail.viewEntity') }}
+                        </v-chip>
+                        <!-- Entity Link Management Menu -->
+                        <v-menu v-if="canEdit" location="bottom">
+                          <template #activator="{ props: menuProps }">
+                            <v-btn
+                              icon
+                              size="x-small"
+                              variant="text"
+                              v-bind="menuProps"
+                              @click.stop
+                            >
+                              <v-icon size="small">mdi-dots-vertical</v-icon>
+                            </v-btn>
+                          </template>
+                          <v-list density="compact">
+                            <v-list-item
+                              v-if="!sample.target_entity_id"
+                              prepend-icon="mdi-link-plus"
+                              :title="t('entityDetail.facets.linkToEntity', 'Mit Entity verknüpfen')"
+                              @click="openEntityLinkDialog(sample)"
+                            ></v-list-item>
+                            <v-list-item
+                              v-if="sample.target_entity_id"
+                              prepend-icon="mdi-link-off"
+                              :title="t('entityDetail.facets.unlinkEntity', 'Verknüpfung entfernen')"
+                              @click="unlinkEntity(sample)"
+                            ></v-list-item>
+                            <v-list-item
+                              v-if="sample.target_entity_id"
+                              prepend-icon="mdi-swap-horizontal"
+                              :title="t('entityDetail.facets.changeEntityLink', 'Andere Entity verknüpfen')"
+                              @click="openEntityLinkDialog(sample)"
+                            ></v-list-item>
+                          </v-list>
+                        </v-menu>
+                      </div>
 
                       <!-- Footer: Meta Info & Actions -->
                       <div class="facet-footer mt-3 pt-3 border-t">
@@ -714,8 +640,10 @@ import FacetHistoryChart from '@/components/facets/FacetHistoryChart.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import DynamicSchemaForm from '@/components/DynamicSchemaForm.vue'
 import SourceDetailsDialog from '@/components/entity/SourceDetailsDialog.vue'
+import { GenericFacetValueRenderer } from '@/components/facets'
 import { useLogger } from '@/composables/useLogger'
 import { useDateFormatter } from '@/composables/useDateFormatter'
+import { useFacetTypeRenderer } from '@/composables/useFacetTypeRenderer'
 
 // =============================================================================
 // Props & Emits
@@ -740,6 +668,7 @@ const emit = defineEmits<{
 
 const logger = useLogger('EntityFacetsTab')
 const { dateLocale, formatDate: formatLocaleDate } = useDateFormatter()
+const { facetGroupToFacetType, normalizeValue } = useFacetTypeRenderer()
 
 // =============================================================================
 // Types (local-only types that aren't shared)
@@ -1188,14 +1117,6 @@ function stopEnrichmentTaskPolling() {
 // HELPER FUNCTIONS
 // =============================================================================
 
-function formatFacetValue(facet: FacetValue): string {
-  if (facet.text_representation) return facet.text_representation
-  if (typeof facet.value === 'string') return facet.value
-  const val = facet.value as Record<string, unknown>
-  if (val?.text) return val.text as string
-  return JSON.stringify(facet.value)
-}
-
 function formatDate(dateStr: string): string {
   return formatLocaleDate(dateStr, 'dd.MM.yyyy HH:mm')
 }
@@ -1236,108 +1157,16 @@ function getFacetSourceIcon(sourceType: string | null | undefined): string {
   return icons[normalizeSourceType(sourceType)] || 'mdi-file-document'
 }
 
-// Structured Facet Value Helpers
-function getStructuredDescription(facet: FacetValue): string {
-  if (facet.text_representation) return facet.text_representation
-  const val = facet.value
-  if (!val) return ''
-  if (typeof val === 'string') return val
-  const v = val as Record<string, unknown>
-  return (v.description || v.text || v.concern || v.opportunity || '') as string
-}
-
-function getStructuredType(facet: FacetValue): string | null {
-  const val = facet.value
-  if (!val || typeof val === 'string') return null
-  return (val as Record<string, unknown>).type as string | null
-}
-
-function getStructuredSeverity(facet: FacetValue): string | null {
-  const val = facet.value
-  if (!val || typeof val === 'string') return null
-  return (val as Record<string, unknown>).severity as string | null
-}
-
-function getStructuredQuote(facet: FacetValue): string | null {
-  const val = facet.value
-  if (!val || typeof val === 'string') return null
-  return (val as Record<string, unknown>).quote as string | null
-}
-
-function getSeverityColor(severity: string | null): string {
-  if (!severity) return 'grey'
-  const s = severity.toLowerCase()
-  if (s === 'hoch' || s === 'high') return 'error'
-  if (s === 'mittel' || s === 'medium') return 'warning'
-  if (s === 'niedrig' || s === 'low') return 'success'
-  return 'grey'
-}
-
-// Contact Helpers
-function getContactName(facet: FacetValue): string {
-  if (facet.text_representation) return facet.text_representation
-  const val = facet.value
-  if (!val) return ''
-  if (typeof val === 'string') return val
-  return (val as Record<string, unknown>).name as string || ''
-}
-
-function getContactRole(facet: FacetValue): string | null {
-  const val = facet.value
-  if (!val || typeof val === 'string') return null
-  const v = val as Record<string, unknown>
-  return (v.role || v.position) as string | null
-}
-
-function getContactEmail(facet: FacetValue): string | null {
-  const val = facet.value
-  if (!val || typeof val === 'string') return null
-  return (val as Record<string, unknown>).email as string | null
-}
-
-function getContactPhone(facet: FacetValue): string | null {
-  const val = facet.value
-  if (!val || typeof val === 'string') return null
-  const v = val as Record<string, unknown>
-  return (v.phone || v.telefon) as string | null
-}
-
-function getContactSentiment(facet: FacetValue): string | null {
-  const val = facet.value
-  if (!val || typeof val === 'string') return null
-  return (val as Record<string, unknown>).sentiment as string | null
-}
-
-function getContactStatement(facet: FacetValue): string | null {
-  const val = facet.value
-  if (!val || typeof val === 'string') return null
-  const v = val as Record<string, unknown>
-  return (v.statement || v.quote) as string | null
-}
-
-function getSentimentColor(sentiment: string | null): string {
-  if (!sentiment) return 'grey'
-  const s = sentiment.toLowerCase()
-  if (s === 'positiv' || s === 'positive') return 'success'
-  if (s === 'negativ' || s === 'negative') return 'error'
-  return 'grey'
-}
-
-function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text)
-  showSuccess(t('entityDetail.messages.copiedToClipboard'))
-}
-
 // Navigate to a referenced (target) entity
 function navigateToTargetEntity(facet: FacetValue) {
   if (!facet.target_entity_id || !facet.target_entity_slug) return
 
   const entityTypeSlug = facet.target_entity_type_slug || 'entity'
   router.push({
-    name: 'EntityDetail',
+    name: 'entity-detail',
     params: {
-      entityType: entityTypeSlug,
-      slug: facet.target_entity_slug,
+      typeSlug: entityTypeSlug,
+      entitySlug: facet.target_entity_slug,
     },
   })
 }

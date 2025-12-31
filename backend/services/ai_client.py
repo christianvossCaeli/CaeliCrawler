@@ -2,23 +2,97 @@
 
 This module centralizes Azure OpenAI client creation and common AI operations
 to avoid code duplication across the codebase.
+
+Provides both sync and async client factories:
+- AzureOpenAIClientFactory: Async client for async contexts (FastAPI endpoints, async tasks)
+- SyncAzureOpenAIClientFactory: Sync client for sync contexts (Celery workers, streaming)
 """
 
 import json
-from typing import Any, Dict, List, Optional
+import time
+from typing import Any
 
 import structlog
-from openai import AsyncAzureOpenAI
+from openai import AsyncAzureOpenAI, AzureOpenAI
 
 from app.config import settings
+from app.models.llm_usage import LLMProvider, LLMTaskType
+from services.llm_usage_tracker import record_llm_usage
 
 logger = structlog.get_logger()
+
+
+class SyncAzureOpenAIClientFactory:
+    """Factory for creating synchronous Azure OpenAI clients.
+
+    Use this for:
+    - Celery workers (sync context)
+    - Streaming responses (SSE)
+    - Any non-async code paths
+    """
+
+    _instance: AzureOpenAI | None = None
+
+    @classmethod
+    def create_client(cls) -> AzureOpenAI:
+        """Create a new sync Azure OpenAI client instance.
+
+        Returns:
+            Configured AzureOpenAI client
+
+        Raises:
+            ValueError: If Azure OpenAI is not configured
+        """
+        if not settings.azure_openai_api_key:
+            raise ValueError(
+                "KI-Service nicht erreichbar: Azure OpenAI ist nicht konfiguriert"
+            )
+
+        return AzureOpenAI(
+            azure_endpoint=settings.azure_openai_endpoint,
+            api_key=settings.azure_openai_api_key,
+            api_version=settings.azure_openai_api_version,
+        )
+
+    @classmethod
+    def get_client(cls) -> AzureOpenAI:
+        """Get a shared sync Azure OpenAI client instance (singleton).
+
+        Returns:
+            Shared AzureOpenAI client
+
+        Raises:
+            ValueError: If Azure OpenAI is not configured
+        """
+        if cls._instance is None:
+            cls._instance = cls.create_client()
+        return cls._instance
+
+    @classmethod
+    def reset_client(cls) -> None:
+        """Reset the shared client instance (useful for testing)."""
+        cls._instance = None
+
+
+# Convenience function for backward compatibility
+def get_sync_openai_client() -> AzureOpenAI:
+    """Get a shared sync Azure OpenAI client.
+
+    This is a convenience function that wraps SyncAzureOpenAIClientFactory.get_client().
+
+    Returns:
+        Shared AzureOpenAI client
+
+    Raises:
+        ValueError: If Azure OpenAI is not configured
+    """
+    return SyncAzureOpenAIClientFactory.get_client()
 
 
 class AzureOpenAIClientFactory:
     """Factory for creating Azure OpenAI clients with consistent configuration."""
 
-    _instance: Optional[AsyncAzureOpenAI] = None
+    _instance: AsyncAzureOpenAI | None = None
 
     @classmethod
     def create_client(cls) -> AsyncAzureOpenAI:
@@ -67,11 +141,11 @@ class AzureOpenAIClientFactory:
 
 async def call_ai_with_json_response(
     client: AsyncAzureOpenAI,
-    messages: List[Dict[str, str]],
+    messages: list[dict[str, str]],
     temperature: float = 0.1,
     max_tokens: int = 4096,
     operation_name: str = "AI call",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Call Azure OpenAI API with JSON response format.
 
@@ -90,14 +164,30 @@ async def call_ai_with_json_response(
     Raises:
         RuntimeError: If AI call fails or response cannot be parsed
     """
+    deployment = settings.azure_openai_deployment_name
+    start_time = time.time()
     try:
         response = await client.chat.completions.create(
-            model=settings.azure_openai_deployment_name,
+            model=deployment,
             messages=messages,
             temperature=temperature,
             max_tokens=max_tokens,
             response_format={"type": "json_object"},
         )
+
+        # Record successful LLM usage
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=deployment,
+                task_type=LLMTaskType.CUSTOM,
+                task_name="ai_client_generic_call",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         # Validate response structure
         if not response.choices:
@@ -119,16 +209,29 @@ async def call_ai_with_json_response(
         )
         raise RuntimeError(
             f"KI-Service Fehler: AI-Antwort konnte nicht verarbeitet werden - {str(e)}"
-        )
+        ) from None
     except RuntimeError:
         # Re-raise our own RuntimeErrors
         raise
     except Exception as e:
+        # Record error LLM usage
+        await record_llm_usage(
+            provider=LLMProvider.AZURE_OPENAI,
+            model=deployment,
+            task_type=LLMTaskType.CUSTOM,
+            task_name="ai_client_generic_call",
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+            duration_ms=int((time.time() - start_time) * 1000),
+            is_error=True,
+            error_message=str(e),
+        )
         logger.exception(f"Azure OpenAI API call failed: {operation_name}")
-        raise RuntimeError(f"KI-Service nicht erreichbar: {str(e)}")
+        raise RuntimeError(f"KI-Service nicht erreichbar: {str(e)}") from None
 
 
-def get_tokens_used(response) -> Optional[int]:
+def get_tokens_used(response) -> int | None:
     """Extract total tokens used from API response."""
     if response and hasattr(response, "usage") and response.usage:
         return response.usage.total_tokens

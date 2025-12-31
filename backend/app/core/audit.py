@@ -1,16 +1,16 @@
 """Audit context manager and utilities."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit_log import AuditAction
 from app.models.user import User
-from app.services.audit_service import create_audit_log, compute_diff
+from app.services.audit_service import compute_diff, create_audit_log
 
 
-def get_request_context(request: Optional[Request]) -> Dict[str, Optional[str]]:
+def get_request_context(request: Request | None) -> dict[str, str | None]:
     """
     Extract audit context from FastAPI request.
 
@@ -56,8 +56,8 @@ class AuditContext:
     def __init__(
         self,
         session: AsyncSession,
-        user: Optional[User] = None,
-        request: Optional[Request] = None,
+        user: User | None = None,
+        request: Request | None = None,
     ):
         """
         Initialize audit context.
@@ -70,7 +70,7 @@ class AuditContext:
         self.session = session
         self.user = user
         self.request = request
-        self.entries: List[Dict[str, Any]] = []
+        self.entries: list[dict[str, Any]] = []
         self._context = get_request_context(request)
 
     async def __aenter__(self) -> "AuditContext":
@@ -91,7 +91,7 @@ class AuditContext:
     def track_create(
         self,
         entity: Any,
-        entity_name: Optional[str] = None,
+        entity_name: str | None = None,
     ) -> None:
         """
         Track entity creation.
@@ -114,8 +114,8 @@ class AuditContext:
     def track_update(
         self,
         entity: Any,
-        old_data: Dict[str, Any],
-        new_data: Optional[Dict[str, Any]] = None,
+        old_data: dict[str, Any],
+        new_data: dict[str, Any] | None = None,
     ) -> None:
         """
         Track entity update with diff.
@@ -126,10 +126,7 @@ class AuditContext:
             new_data: Entity state after update (uses entity.to_dict() if not provided)
         """
         if new_data is None:
-            if hasattr(entity, "to_dict"):
-                new_data = entity.to_dict()
-            else:
-                new_data = {}
+            new_data = entity.to_dict() if hasattr(entity, "to_dict") else {}
 
         changes = compute_diff(old_data, new_data)
 
@@ -149,7 +146,7 @@ class AuditContext:
     def track_delete(
         self,
         entity: Any,
-        entity_name: Optional[str] = None,
+        entity_name: str | None = None,
     ) -> None:
         """
         Track entity deletion.
@@ -173,9 +170,9 @@ class AuditContext:
         self,
         action: AuditAction,
         entity_type: str,
-        entity_id: Optional[Any] = None,
-        entity_name: Optional[str] = None,
-        changes: Optional[Dict[str, Any]] = None,
+        entity_id: Any | None = None,
+        entity_name: str | None = None,
+        changes: dict[str, Any] | None = None,
     ) -> None:
         """
         Track a custom action.
@@ -197,7 +194,7 @@ class AuditContext:
             **self._context,
         })
 
-    def _get_entity_name(self, entity: Any) -> Optional[str]:
+    def _get_entity_name(self, entity: Any) -> str | None:
         """Get a human-readable name for an entity."""
         for attr in ["name", "title", "email", "slug"]:
             value = getattr(entity, attr, None)

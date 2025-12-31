@@ -42,18 +42,18 @@ export default [
         except: ['model-value', 'value', 'aria-hidden', 'aria-modal', 'aria-atomic', 'aria-busy']
       }],
 
-      // TypeScript
-      '@typescript-eslint/no-unused-vars': ['warn', {
+      // TypeScript - Strict rules for type safety
+      '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
         caughtErrorsIgnorePattern: '^_?'  // Allow unused caught errors
       }],
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',  // Prevent any type - use unknown instead
       '@typescript-eslint/explicit-function-return-type': 'off',
-      '@typescript-eslint/no-non-null-assertion': 'warn',
-      '@typescript-eslint/ban-ts-comment': 'warn',  // Allow @ts-ignore for now
-      '@typescript-eslint/no-empty-object-type': 'warn',  // Allow empty interfaces for now
-      '@typescript-eslint/no-unsafe-function-type': 'warn',  // Allow Function type for now
+      '@typescript-eslint/no-non-null-assertion': 'error',  // Prevent ! assertions - use proper null checks
+      '@typescript-eslint/ban-ts-comment': 'error',  // Prevent @ts-ignore - fix the actual issue
+      '@typescript-eslint/no-empty-object-type': 'error',  // Use Record<string, never> or unknown
+      '@typescript-eslint/no-unsafe-function-type': 'error',  // Use proper function types
 
       // General
       'no-console': ['warn', { allow: ['warn', 'error'] }],

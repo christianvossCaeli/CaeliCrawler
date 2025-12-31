@@ -10,7 +10,8 @@ import asyncio
 import base64
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import httpx
 import structlog
 
@@ -37,10 +38,10 @@ DEFAULT_PAGE_SIZE = 500  # Reduziert für stabilere Requests
 class FetchResult:
     """Result of an API fetch operation."""
     success: bool
-    items: List[Dict[str, Any]] = field(default_factory=list)
+    items: list[dict[str, Any]] = field(default_factory=list)
     total_count: int = 0
-    error: Optional[str] = None
-    warnings: List[str] = field(default_factory=list)
+    error: str | None = None
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -48,7 +49,7 @@ class WikidataResult:
     """A single result from a Wikidata SPARQL query."""
     id: str
     label: str
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
 
 
 # ============================================================================
@@ -62,7 +63,7 @@ class RESTAPIClient:
         self,
         base_url: str,
         timeout: int = DEFAULT_TIMEOUT,
-        auth_config: Optional[Dict[str, Any]] = None,
+        auth_config: dict[str, Any] | None = None,
     ):
         """Initialize REST API client.
 
@@ -80,9 +81,9 @@ class RESTAPIClient:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.auth_config = auth_config or {}
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
-    def _build_headers(self) -> Dict[str, str]:
+    def _build_headers(self) -> dict[str, str]:
         """Build request headers including authentication."""
         headers = {
             "Accept": "application/json",
@@ -143,7 +144,7 @@ class RESTAPIClient:
     async def fetch(
         self,
         endpoint: str = "",
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         method: str = "GET",
     ) -> FetchResult:
         """Fetch data from a REST API endpoint.
@@ -227,7 +228,7 @@ class WikidataSPARQLClient:
     def __init__(self, timeout: int = DEFAULT_TIMEOUT):
         self.endpoint = WIKIDATA_SPARQL_ENDPOINT
         self.timeout = timeout
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -288,7 +289,7 @@ class WikidataSPARQLClient:
                     value_type = value_data.get("type", "literal")
 
                     # Clean up URIs to extract IDs
-                    if value_type == "uri" and "wikidata.org" in value:
+                    if value_type == "uri" and "wikidata.org" in value:  # noqa: SIM102
                         # Extract Q-number from URI
                         if "/entity/" in value:
                             value = value.split("/entity/")[-1]
@@ -332,8 +333,8 @@ class WikidataSPARQLClient:
         self,
         query: str,
         page_size: int = DEFAULT_PAGE_SIZE,
-        max_results: Optional[int] = None,
-        progress_callback: Optional[callable] = None,
+        max_results: int | None = None,
+        progress_callback: callable | None = None,
     ) -> FetchResult:
         """Fetch all results from a query using pagination.
 
@@ -601,7 +602,7 @@ ORDER BY ?countryLabel ?regionLabel
 """
 
 
-def get_predefined_query(query_type: str, country: str = "DE") -> Optional[str]:
+def get_predefined_query(query_type: str, country: str = "DE") -> str | None:
     """Get a predefined SPARQL query for common entity types.
 
     Args:
@@ -644,7 +645,7 @@ class ExternalAPIFetcher:
 
     def __init__(self):
         self.wikidata_client = WikidataSPARQLClient()
-        self._rest_clients: Dict[str, RESTAPIClient] = {}
+        self._rest_clients: dict[str, RESTAPIClient] = {}
 
     async def close(self):
         """Close all clients."""
@@ -656,7 +657,7 @@ class ExternalAPIFetcher:
     def _get_rest_client(
         self,
         base_url: str,
-        auth_config: Optional[Dict[str, Any]] = None,
+        auth_config: dict[str, Any] | None = None,
     ) -> RESTAPIClient:
         """Get or create a REST API client."""
         cache_key = f"{base_url}:{hash(str(auth_config))}"
@@ -669,8 +670,8 @@ class ExternalAPIFetcher:
 
     async def fetch(
         self,
-        api_config: Dict[str, Any],
-        progress_callback: Optional[callable] = None,
+        api_config: dict[str, Any],
+        progress_callback: callable | None = None,
     ) -> FetchResult:
         """Fetch data from an external API.
 
@@ -759,7 +760,7 @@ class ExternalAPIFetcher:
 # ============================================================================
 
 # Template configurations for common REST APIs
-PREDEFINED_REST_TEMPLATES: Dict[str, Dict[str, Any]] = {
+PREDEFINED_REST_TEMPLATES: dict[str, dict[str, Any]] = {
     # Caeli Auction Windpark API - fetches wind farm auction listings
     "caeli_auction_windparks": {
         "type": "rest",
@@ -811,7 +812,7 @@ PREDEFINED_REST_TEMPLATES: Dict[str, Dict[str, Any]] = {
 }
 
 
-def get_predefined_rest_template(template_name: str) -> Optional[Dict[str, Any]]:
+def get_predefined_rest_template(template_name: str) -> dict[str, Any] | None:
     """Get a predefined REST API template configuration.
 
     Args:

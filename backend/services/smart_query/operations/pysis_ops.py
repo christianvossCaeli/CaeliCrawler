@@ -6,15 +6,15 @@ Operations:
 - push_to_pysis: Push facet values to PySis
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import UUID
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .base import WriteOperation, OperationResult, register_operation
 from ..entity_operations import find_entity_by_name
+from .base import OperationResult, WriteOperation, register_operation
 
 logger = structlog.get_logger()
 
@@ -23,7 +23,7 @@ logger = structlog.get_logger()
 class AnalyzePySisOperation(WriteOperation):
     """Analyze PySis data for an entity and create facets."""
 
-    def validate(self, command: Dict[str, Any]) -> Optional[str]:
+    def validate(self, command: dict[str, Any]) -> str | None:
         pysis_data = command.get("pysis_data", {})
         if not pysis_data.get("entity_id") and not pysis_data.get("entity_name"):
             return "Entity-ID oder Entity-Name erforderlich"
@@ -32,8 +32,8 @@ class AnalyzePySisOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         from services.pysis_facet_service import PySisFacetService
 
@@ -77,7 +77,7 @@ class AnalyzePySisOperation(WriteOperation):
 class EnrichFacetsFromPySisOperation(WriteOperation):
     """Enrich existing facets with PySis data."""
 
-    def validate(self, command: Dict[str, Any]) -> Optional[str]:
+    def validate(self, command: dict[str, Any]) -> str | None:
         pysis_data = command.get("pysis_data", {})
         if not pysis_data.get("entity_id") and not pysis_data.get("entity_name"):
             return "Entity-ID oder Entity-Name erforderlich"
@@ -86,8 +86,8 @@ class EnrichFacetsFromPySisOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         from services.pysis_facet_service import PySisFacetService
 
@@ -131,7 +131,7 @@ class EnrichFacetsFromPySisOperation(WriteOperation):
 class PushToPySisOperation(WriteOperation):
     """Push facet values to PySis."""
 
-    def validate(self, command: Dict[str, Any]) -> Optional[str]:
+    def validate(self, command: dict[str, Any]) -> str | None:
         pysis_data = command.get("pysis_data", {})
         if not pysis_data.get("entity_id") and not pysis_data.get("entity_name"):
             return "Entity-ID oder Entity-Name erforderlich"
@@ -140,12 +140,12 @@ class PushToPySisOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
-        from services.pysis_service import PySisService
         from app.models import Entity
         from app.models.pysis import EntityPySisProcess
+        from services.pysis_service import PySisService
 
         pysis_data = command.get("pysis_data", {})
         entity_name = pysis_data.get("entity_name")

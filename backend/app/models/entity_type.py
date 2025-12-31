@@ -2,21 +2,19 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
 if TYPE_CHECKING:
-    from app.models.entity import Entity
-    from app.models.facet_type import FacetType
-    from app.models.relation_type import RelationType
-    from app.models.user import User
     from app.models.category_entity_type import CategoryEntityType
+    from app.models.entity import Entity
+    from app.models.user import User
 
 
 class EntityType(Base):
@@ -53,14 +51,21 @@ class EntityType(Base):
         nullable=False,
         comment="Plural form (e.g., 'Gemeinden', 'Personen')",
     )
-    name_embedding: Mapped[Optional[List[float]]] = mapped_column(
+    name_embedding: Mapped[list[float] | None] = mapped_column(
         Vector(1536),
         nullable=True,
         comment="Embedding vector for semantic similarity search",
     )
-    description: Mapped[Optional[str]] = mapped_column(
+    description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
+    )
+    aliases: Mapped[list[str]] = mapped_column(
+        ARRAY(String(100)),
+        default=list,
+        server_default="{}",
+        nullable=False,
+        comment="Alternative names for this entity type (multilingual, lowercase)",
     )
 
     # UI Configuration
@@ -102,14 +107,14 @@ class EntityType(Base):
         nullable=False,
         comment="Supports PySis data enrichment (German municipalities)",
     )
-    hierarchy_config: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    hierarchy_config: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
         comment='Hierarchy configuration {"levels": ["country", "admin_level_1", ...]}',
     )
 
     # Schema for entity attributes
-    attribute_schema: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    attribute_schema: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
         comment="JSON Schema defining core_attributes structure",
@@ -130,14 +135,14 @@ class EntityType(Base):
     )
 
     # Ownership & Visibility
-    created_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
         comment="User who created this entity type",
     )
-    owner_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
@@ -166,7 +171,7 @@ class EntityType(Base):
     )
 
     # Relationships
-    entities: Mapped[List["Entity"]] = relationship(
+    entities: Mapped[list["Entity"]] = relationship(
         "Entity",
         back_populates="entity_type",
         cascade="all, delete-orphan",
@@ -181,7 +186,7 @@ class EntityType(Base):
     )
 
     # N:M relationship to Categories via junction table (Multi-EntityType Support)
-    category_associations: Mapped[List["CategoryEntityType"]] = relationship(
+    category_associations: Mapped[list["CategoryEntityType"]] = relationship(
         "CategoryEntityType",
         back_populates="entity_type",
         cascade="all, delete-orphan",

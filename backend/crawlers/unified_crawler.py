@@ -10,20 +10,20 @@ Provides a single interface to all supported data sources:
 - Generic websites
 """
 
+from collections.abc import AsyncIterator
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional, Type
-from dataclasses import dataclass, field
+from typing import Any
 
 import structlog
 
-from crawlers.base import BaseCrawler, CrawlResult
-from crawlers.api_clients.base_api import BaseAPIClient, APIDocument, APIResponse
-from crawlers.api_clients.oparl_client import OparlClient, KNOWN_OPARL_ENDPOINTS
-from crawlers.api_clients.govdata_client import GovDataClient
+from crawlers.api_clients.base_api import APIDocument, APIResponse, BaseAPIClient
 from crawlers.api_clients.dip_bundestag_client import DIPBundestagClient
 from crawlers.api_clients.fragdenstaat_client import FragDenStaatClient
-from crawlers.rss_crawler import RSSCrawler, GERMAN_GOVERNMENT_FEEDS
+from crawlers.api_clients.govdata_client import GovDataClient
+from crawlers.api_clients.oparl_client import KNOWN_OPARL_ENDPOINTS, OparlClient
+from crawlers.rss_crawler import GERMAN_GOVERNMENT_FEEDS
 
 logger = structlog.get_logger()
 
@@ -45,37 +45,37 @@ class UnifiedSearchQuery:
     """Unified search query across all data sources."""
 
     query: str
-    sources: List[DataSourceType] = field(default_factory=lambda: list(DataSourceType))
+    sources: list[DataSourceType] = field(default_factory=lambda: list(DataSourceType))
 
     # Common filters
-    date_from: Optional[datetime] = None
-    date_to: Optional[datetime] = None
-    location: Optional[str] = None
-    categories: Optional[List[str]] = None
-    tags: Optional[List[str]] = None
+    date_from: datetime | None = None
+    date_to: datetime | None = None
+    location: str | None = None
+    categories: list[str] | None = None
+    tags: list[str] | None = None
 
     # Pagination
     limit: int = 50
     offset: int = 0
 
     # Source-specific options
-    oparl_body_url: Optional[str] = None
-    govdata_organization: Optional[str] = None
-    dip_wahlperiode: Optional[int] = None
-    dip_document_type: Optional[str] = None
-    fragdenstaat_jurisdiction: Optional[str] = None
-    fragdenstaat_status: Optional[str] = None
+    oparl_body_url: str | None = None
+    govdata_organization: str | None = None
+    dip_wahlperiode: int | None = None
+    dip_document_type: str | None = None
+    fragdenstaat_jurisdiction: str | None = None
+    fragdenstaat_status: str | None = None
 
 
 @dataclass
 class UnifiedSearchResult:
     """Unified search result from all sources."""
 
-    documents: List[APIDocument]
+    documents: list[APIDocument]
     total_count: int
-    sources_searched: List[str]
-    source_counts: Dict[str, int]
-    errors: Dict[str, str] = field(default_factory=dict)
+    sources_searched: list[str]
+    source_counts: dict[str, int]
+    errors: dict[str, str] = field(default_factory=dict)
 
 
 class UnifiedCrawlerService:
@@ -101,7 +101,7 @@ class UnifiedCrawlerService:
 
     def __init__(self):
         self.logger = logger.bind(service="UnifiedCrawler")
-        self._clients: Dict[DataSourceType, BaseAPIClient] = {}
+        self._clients: dict[DataSourceType, BaseAPIClient] = {}
 
     async def __aenter__(self):
         return self
@@ -276,7 +276,7 @@ class UnifiedCrawlerService:
 
     # === Data Source Discovery ===
 
-    def get_available_sources(self) -> Dict[str, List[Dict[str, Any]]]:
+    def get_available_sources(self) -> dict[str, list[dict[str, Any]]]:
         """Get all available pre-configured data sources."""
         return {
             "oparl": [
@@ -326,11 +326,11 @@ class UnifiedCrawlerService:
             ],
         }
 
-    async def get_govdata_categories(self) -> Dict[str, str]:
+    async def get_govdata_categories(self) -> dict[str, str]:
         """Get available GovData categories."""
         return GovDataClient.CATEGORIES
 
-    async def get_govdata_organizations(self, limit: int = 100) -> List[Dict[str, Any]]:
+    async def get_govdata_organizations(self, limit: int = 100) -> list[dict[str, Any]]:
         """Get GovData organizations."""
         client = await self.get_govdata_client()
         orgs = []
@@ -345,12 +345,12 @@ class UnifiedCrawlerService:
                 break
         return orgs
 
-    async def get_fragdenstaat_jurisdictions(self) -> List[Dict[str, Any]]:
+    async def get_fragdenstaat_jurisdictions(self) -> list[dict[str, Any]]:
         """Get FragDenStaat jurisdictions."""
         client = await self.get_fragdenstaat_client()
         return await client.get_jurisdictions()
 
-    async def get_oparl_bodies(self, system_url: str) -> List[Dict[str, Any]]:
+    async def get_oparl_bodies(self, system_url: str) -> list[dict[str, Any]]:
         """Get bodies from an OParl system."""
         client = await self.get_oparl_client(system_url)
         bodies = []
@@ -369,8 +369,8 @@ class UnifiedCrawlerService:
     async def iterate_govdata_datasets(
         self,
         query: str = "*:*",
-        category: Optional[str] = None,
-        location: Optional[str] = None,
+        category: str | None = None,
+        location: str | None = None,
         max_datasets: int = 1000,
     ) -> AsyncIterator[APIDocument]:
         """Iterate through GovData datasets."""
@@ -413,7 +413,7 @@ class UnifiedCrawlerService:
     async def iterate_dip_drucksachen(
         self,
         wahlperiode: int = 20,
-        drucksachetyp: Optional[str] = None,
+        drucksachetyp: str | None = None,
         max_documents: int = 1000,
     ) -> AsyncIterator[APIDocument]:
         """Iterate through Bundestag Drucksachen."""
@@ -442,8 +442,8 @@ class UnifiedCrawlerService:
 
     async def iterate_foi_requests(
         self,
-        jurisdiction: Optional[str] = None,
-        status: Optional[str] = None,
+        jurisdiction: str | None = None,
+        status: str | None = None,
         max_requests: int = 1000,
     ) -> AsyncIterator[APIDocument]:
         """Iterate through FOI requests."""
@@ -459,7 +459,7 @@ class UnifiedCrawlerService:
     async def iterate_oparl_papers(
         self,
         system_url: str,
-        modified_since: Optional[datetime] = None,
+        modified_since: datetime | None = None,
         max_papers: int = 10000,
     ) -> AsyncIterator[APIDocument]:
         """Iterate through OParl papers from all bodies in a system."""
@@ -483,9 +483,9 @@ class UnifiedCrawlerService:
 # Convenience function for quick searches
 async def quick_search(
     query: str,
-    sources: Optional[List[str]] = None,
+    sources: list[str] | None = None,
     limit: int = 20,
-) -> List[APIDocument]:
+) -> list[APIDocument]:
     """
     Quick search across default sources.
 

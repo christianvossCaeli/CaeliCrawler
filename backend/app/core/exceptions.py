@@ -1,6 +1,5 @@
 """Custom exceptions for the application."""
 
-from typing import Optional
 
 
 class AppException(Exception):
@@ -10,8 +9,8 @@ class AppException(Exception):
         self,
         message: str,
         status_code: int = 400,
-        detail: Optional[str] = None,
-        code: Optional[str] = None,
+        detail: str | None = None,
+        code: str | None = None,
     ):
         self.message = message
         self.status_code = status_code
@@ -35,7 +34,7 @@ class NotFoundError(AppException):
 class ConflictError(AppException):
     """Resource conflict error (e.g., duplicate)."""
 
-    def __init__(self, message: str, detail: Optional[str] = None):
+    def __init__(self, message: str, detail: str | None = None):
         super().__init__(
             message=message,
             status_code=409,
@@ -47,7 +46,7 @@ class ConflictError(AppException):
 class ValidationError(AppException):
     """Validation error."""
 
-    def __init__(self, message: str, detail: Optional[str] = None):
+    def __init__(self, message: str, detail: str | None = None):
         super().__init__(
             message=message,
             status_code=422,
@@ -59,7 +58,7 @@ class ValidationError(AppException):
 class CrawlerError(AppException):
     """Crawler-related error."""
 
-    def __init__(self, message: str, detail: Optional[str] = None):
+    def __init__(self, message: str, detail: str | None = None):
         super().__init__(
             message=message,
             status_code=500,
@@ -71,7 +70,7 @@ class CrawlerError(AppException):
 class ExternalServiceError(AppException):
     """External service error (e.g., Azure OpenAI)."""
 
-    def __init__(self, service: str, detail: Optional[str] = None):
+    def __init__(self, service: str, detail: str | None = None):
         super().__init__(
             message=f"Error communicating with {service}",
             status_code=502,
@@ -100,7 +99,7 @@ class FeatureDisabledError(AppException):
 class CategoryValidationError(ValidationError):
     """Category-specific validation error with field context."""
 
-    def __init__(self, field: str, message: str, value: Optional[str] = None):
+    def __init__(self, field: str, message: str, value: str | None = None):
         detail = f"Field '{field}': {message}"
         if value:
             detail += f" (received: '{value}')"
@@ -127,7 +126,7 @@ class InvalidRegexPatternError(CategoryValidationError):
 class InvalidCronExpressionError(CategoryValidationError):
     """Invalid cron expression for scheduling."""
 
-    def __init__(self, expression: str, error: Optional[str] = None):
+    def __init__(self, expression: str, error: str | None = None):
         message = "Invalid cron expression format"
         if error:
             message += f": {error}"
@@ -166,7 +165,7 @@ class InvalidExtractionHandlerError(CategoryValidationError):
 class CategoryNotFoundError(NotFoundError):
     """Category not found error with helpful suggestions."""
 
-    def __init__(self, identifier: str, suggestion: Optional[str] = None):
+    def __init__(self, identifier: str, suggestion: str | None = None):
         super().__init__("Category", identifier)
         if suggestion:
             self.detail += f". Did you mean: '{suggestion}'?"
@@ -183,3 +182,132 @@ class CategoryDuplicateError(ConflictError):
         )
         self.field = field
         self.code = "CATEGORY_DUPLICATE"
+
+
+# =============================================================================
+# HTTP Exception Wrappers (for consistent API responses)
+# =============================================================================
+
+
+class ForbiddenError(AppException):
+    """Access forbidden (403) - user authenticated but lacks permission."""
+
+    def __init__(self, message: str = "Access forbidden", detail: str | None = None):
+        super().__init__(
+            message=message,
+            status_code=403,
+            detail=detail or "You do not have permission to perform this action.",
+            code="FORBIDDEN",
+        )
+
+
+class UnauthorizedError(AppException):
+    """Unauthorized (401) - user not authenticated."""
+
+    def __init__(self, message: str = "Authentication required", detail: str | None = None):
+        super().__init__(
+            message=message,
+            status_code=401,
+            detail=detail or "Please log in to access this resource.",
+            code="UNAUTHORIZED",
+        )
+
+
+class BadRequestError(AppException):
+    """Bad request (400) - invalid input."""
+
+    def __init__(self, message: str, detail: str | None = None):
+        super().__init__(
+            message=message,
+            status_code=400,
+            detail=detail,
+            code="BAD_REQUEST",
+        )
+
+
+class RateLimitError(AppException):
+    """Rate limit exceeded (429)."""
+
+    def __init__(self, retry_after: int | None = None):
+        detail = "Please wait before making more requests."
+        if retry_after:
+            detail = f"Please wait {retry_after} seconds before retrying."
+        super().__init__(
+            message="Rate limit exceeded",
+            status_code=429,
+            detail=detail,
+            code="RATE_LIMIT_EXCEEDED",
+        )
+        self.retry_after = retry_after
+
+
+class ServiceUnavailableError(AppException):
+    """Service unavailable (503) - temporary outage."""
+
+    def __init__(self, service: str = "Service", retry_after: int | None = None):
+        detail = f"{service} is temporarily unavailable. Please try again later."
+        super().__init__(
+            message=f"{service} unavailable",
+            status_code=503,
+            detail=detail,
+            code="SERVICE_UNAVAILABLE",
+        )
+        self.retry_after = retry_after
+
+
+# =============================================================================
+# Smart Query Exceptions
+# =============================================================================
+
+
+class SmartQueryError(AppException):
+    """Base exception for Smart Query errors."""
+
+    def __init__(self, message: str, detail: str | None = None):
+        super().__init__(
+            message=message,
+            status_code=400,
+            detail=detail,
+            code="SMART_QUERY_ERROR",
+        )
+
+
+class QueryValidationError(SmartQueryError):
+    """Query validation failed (empty, too short, too long, etc.)."""
+
+    def __init__(self, message: str, detail: str | None = None):
+        super().__init__(message=message, detail=detail)
+        self.code = "QUERY_VALIDATION_ERROR"
+
+
+class SessionRequiredError(SmartQueryError):
+    """Database session is required but not provided."""
+
+    def __init__(self, operation: str = "query interpretation"):
+        super().__init__(
+            message=f"Database session required for {operation}",
+            detail="A database session must be provided for this operation.",
+        )
+        self.code = "SESSION_REQUIRED"
+
+
+class AIInterpretationError(ExternalServiceError):
+    """AI interpretation failed."""
+
+    def __init__(self, operation: str, detail: str | None = None):
+        super().__init__(
+            service="Azure OpenAI",
+            detail=detail or f"KI-Service Fehler: {operation} fehlgeschlagen",
+        )
+        self.code = "AI_INTERPRETATION_ERROR"
+
+
+class RelationDepthError(SmartQueryError):
+    """Relation chain exceeds maximum allowed depth."""
+
+    def __init__(self, max_depth: int):
+        super().__init__(
+            message=f"Relation chain exceeds maximum depth of {max_depth}",
+            detail=f"Relations can only be followed up to {max_depth} levels deep.",
+        )
+        self.code = "RELATION_DEPTH_EXCEEDED"

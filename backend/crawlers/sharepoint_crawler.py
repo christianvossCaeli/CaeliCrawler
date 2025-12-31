@@ -8,9 +8,9 @@ import fnmatch
 import hashlib
 import os
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING
 
 import aiofiles
 import structlog
@@ -20,16 +20,16 @@ from crawlers.base import BaseCrawler, CrawlResult
 from external_apis.clients.sharepoint_client import (
     SharePointClient,
     SharePointFile,
-    SharePointError,
-    SharePointConfigError,
     SharePointNotFoundError,
     parse_sharepoint_site_url,
 )
 
 if TYPE_CHECKING:
     from uuid import UUID
-    from app.models import DataSource, CrawlJob, Document
+
     from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.models import CrawlJob, DataSource
 
 logger = structlog.get_logger(__name__)
 
@@ -83,7 +83,7 @@ class SharePointCrawler(BaseCrawler):
             result.errors.append({
                 "type": "ConfigurationError",
                 "message": "No SharePoint site URL configured",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             })
             return result
 
@@ -137,7 +137,7 @@ class SharePointCrawler(BaseCrawler):
                     drive_id=drive.id,
                 )
 
-                files: List[SharePointFile] = []
+                files: list[SharePointFile] = []
 
                 # Fetch explicitly specified files first
                 if explicit_file_paths:
@@ -157,7 +157,7 @@ class SharePointCrawler(BaseCrawler):
                             result.errors.append({
                                 "type": "FileNotFound",
                                 "message": f"File not found: {file_path}",
-                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                                "timestamp": datetime.now(UTC).isoformat(),
                             })
 
                 # List files from folder (if folder_path is set or no explicit files)
@@ -217,7 +217,7 @@ class SharePointCrawler(BaseCrawler):
                         batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
                         # Collect results
-                        for file, file_result in zip(batch, batch_results):
+                        for file, file_result in zip(batch, batch_results, strict=False):
                             if isinstance(file_result, Exception):
                                 self.logger.warning(
                                     "Failed to process SharePoint file",
@@ -228,7 +228,7 @@ class SharePointCrawler(BaseCrawler):
                                     "type": type(file_result).__name__,
                                     "message": str(file_result),
                                     "file": file.name,
-                                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                                    "timestamp": datetime.now(UTC).isoformat(),
                                 })
                             else:
                                 is_new, success = file_result
@@ -244,7 +244,7 @@ class SharePointCrawler(BaseCrawler):
             result.errors.append({
                 "type": type(e).__name__,
                 "message": str(e),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             })
 
         self.logger.info(
@@ -264,7 +264,7 @@ class SharePointCrawler(BaseCrawler):
         source: "DataSource",
         job: "CrawlJob",
         file: SharePointFile,
-    ) -> Tuple[bool, bool]:
+    ) -> tuple[bool, bool]:
         """Process a file with semaphore for concurrency control.
 
         Args:
@@ -289,9 +289,9 @@ class SharePointCrawler(BaseCrawler):
 
     def _filter_files(
         self,
-        files: List[SharePointFile],
-        exclude_patterns: List[str],
-    ) -> List[SharePointFile]:
+        files: list[SharePointFile],
+        exclude_patterns: list[str],
+    ) -> list[SharePointFile]:
         """Filter files by exclude patterns using fnmatch.
 
         Args:
@@ -319,7 +319,7 @@ class SharePointCrawler(BaseCrawler):
         source: "DataSource",
         job: "CrawlJob",
         file: SharePointFile,
-    ) -> Tuple[bool, bool]:
+    ) -> tuple[bool, bool]:
         """Process a single SharePoint file.
 
         Downloads the file and creates/updates the Document record.
@@ -335,8 +335,9 @@ class SharePointCrawler(BaseCrawler):
             Tuple of (is_new, success) where is_new indicates if document
             was newly created, and success indicates if processing succeeded.
         """
-        from app.models import Document, ProcessingStatus
         from sqlalchemy import select
+
+        from app.models import Document, ProcessingStatus
 
         # Create unique hash based on SharePoint item ID and source
         content_for_hash = f"sharepoint:{source.id}:{file.id}"
@@ -383,7 +384,7 @@ class SharePointCrawler(BaseCrawler):
             existing.document_date = file.modified_at
             existing.original_url = file.web_url
             existing.processing_status = ProcessingStatus.PENDING  # Re-process
-            existing.updated_at = datetime.now(timezone.utc)
+            existing.updated_at = datetime.now(UTC)
             await session.commit()
             return (False, True)  # Not new, but successful
         else:

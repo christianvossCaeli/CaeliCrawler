@@ -1,38 +1,35 @@
 """Authentication API endpoints."""
 
-import structlog
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import UTC, datetime
 from uuid import UUID
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 logger = structlog.get_logger(__name__)
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, EmailStr, Field
-from sqlalchemy import select, and_, func
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer  # noqa: E402
+from pydantic import BaseModel, EmailStr, Field  # noqa: E402
+from sqlalchemy import and_, select  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
-from app.database import get_session
-from app.models.user import User, UserRole
-from app.models.user_session import UserSession, DeviceType, parse_user_agent
-from app.core.security import (
-    verify_password,
-    get_password_hash,
-    create_access_token,
-    create_tokens_for_session,
-    hash_refresh_token,
-    verify_refresh_token,
-    create_sse_ticket,
+from app.core.deps import get_current_session_id, get_current_user  # noqa: E402
+from app.core.password_policy import check_password_strength, validate_password  # noqa: E402
+from app.core.rate_limit import check_rate_limit, get_rate_limiter  # noqa: E402
+from app.core.security import (  # noqa: E402
     MAX_SESSIONS_PER_USER,
-    REFRESH_TOKEN_EXPIRE_DAYS,
     SSE_TICKET_EXPIRE_SECONDS,
+    create_access_token,
+    create_sse_ticket,
+    create_tokens_for_session,
+    get_password_hash,
+    hash_refresh_token,
+    verify_password,
 )
-from app.core.deps import get_current_user, get_current_session_id
-from app.core.rate_limit import check_rate_limit, get_rate_limiter
-from app.core.token_blacklist import blacklist_token
-from app.core.password_policy import validate_password, check_password_strength
-from app.services.audit_service import log_login, log_logout, log_session_revoke
+from app.core.token_blacklist import blacklist_token  # noqa: E402
+from app.database import get_session  # noqa: E402
+from app.models.user import User, UserRole  # noqa: E402
+from app.models.user_session import DeviceType, UserSession, parse_user_agent  # noqa: E402
+from app.services.audit_service import log_login, log_logout, log_session_revoke  # noqa: E402
 
 # For extracting token from header
 security = HTTPBearer()
@@ -62,7 +59,7 @@ class UserResponse(BaseModel):
     is_active: bool
     is_superuser: bool
     email_verified: bool = False
-    last_login: Optional[datetime] = None
+    last_login: datetime | None = None
     created_at: datetime
     language: str = "de"
 
@@ -75,7 +72,7 @@ class TokenResponse(BaseModel):
 
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105
     expires_in: int = Field(description="Access token expiry in seconds")
     refresh_expires_in: int = Field(description="Refresh token expiry in seconds")
     user: UserResponse
@@ -92,9 +89,9 @@ class SessionResponse(BaseModel):
 
     id: UUID
     device_type: DeviceType
-    device_name: Optional[str]
-    ip_address: Optional[str]
-    location: Optional[str]
+    device_name: str | None
+    ip_address: str | None
+    location: str | None
     created_at: datetime
     last_used_at: datetime
     is_current: bool = False
@@ -106,7 +103,7 @@ class SessionResponse(BaseModel):
 class SessionListResponse(BaseModel):
     """List of user sessions."""
 
-    sessions: List[SessionResponse]
+    sessions: list[SessionResponse]
     total: int
     max_sessions: int
 
@@ -243,7 +240,7 @@ async def login(
         .where(and_(
             UserSession.user_id == user.id,
             UserSession.is_active.is_(True),
-            UserSession.expires_at > datetime.now(timezone.utc)
+            UserSession.expires_at > datetime.now(UTC)
         ))
         .order_by(UserSession.last_used_at.asc())
     )
@@ -266,7 +263,6 @@ async def login(
     tokens = create_tokens_for_session(user.id, user.role.value, UUID("00000000-0000-0000-0000-000000000000"))
 
     # Create new session
-    from datetime import timedelta
     new_session = UserSession(
         user_id=user.id,
         refresh_token_hash=tokens["refresh_token_hash"],
@@ -279,7 +275,7 @@ async def login(
     session.add(new_session)
 
     # Update last login timestamp
-    user.last_login = datetime.now(timezone.utc)
+    user.last_login = datetime.now(UTC)
 
     # Log successful login to audit log
     await log_login(session, user, ip_address=client_ip, user_agent=user_agent_str)
@@ -460,7 +456,7 @@ async def update_language(
     The language preference is stored in the user's profile and will be
     used to determine the language for API responses.
     """
-    from app.i18n import t, is_supported_locale, set_locale
+    from app.i18n import is_supported_locale, set_locale, t
 
     if not is_supported_locale(data.language):
         raise HTTPException(
@@ -548,10 +544,10 @@ async def refresh_tokens(
 
     await session.commit()
 
-    from app.core.security import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
+    from app.core.security import ACCESS_TOKEN_EXPIRE_MINUTES
 
     # Calculate remaining time on refresh token
-    remaining_refresh = int((user_session.expires_at - datetime.now(timezone.utc)).total_seconds())
+    remaining_refresh = int((user_session.expires_at - datetime.now(UTC)).total_seconds())
 
     return TokenResponse(
         access_token=access_token,
@@ -565,7 +561,7 @@ async def refresh_tokens(
 @router.get("/sessions", response_model=SessionListResponse)
 async def list_sessions(
     current_user: User = Depends(get_current_user),
-    current_session_id: Optional[UUID] = Depends(get_current_session_id),
+    current_session_id: UUID | None = Depends(get_current_session_id),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -579,7 +575,7 @@ async def list_sessions(
         .where(and_(
             UserSession.user_id == current_user.id,
             UserSession.is_active.is_(True),
-            UserSession.expires_at > datetime.now(timezone.utc)
+            UserSession.expires_at > datetime.now(UTC)
         ))
         .order_by(UserSession.last_used_at.desc())
     )
@@ -708,9 +704,11 @@ async def _send_verification_email(user: User, token: str) -> bool:
     Returns:
         True if email was sent successfully
     """
-    import aiosmtplib
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
+
+    import aiosmtplib
+
     from app.config import settings
 
     # Build verification URL
@@ -836,7 +834,7 @@ async def request_email_verification(
 
     # Rate limiting: max 1 request per 5 minutes
     if current_user.email_verification_sent_at:
-        time_since_last = datetime.now(timezone.utc) - current_user.email_verification_sent_at
+        time_since_last = datetime.now(UTC) - current_user.email_verification_sent_at
         if time_since_last < timedelta(minutes=5):
             remaining = 5 - int(time_since_last.total_seconds() / 60)
             raise HTTPException(
@@ -849,7 +847,7 @@ async def request_email_verification(
 
     # Update user
     current_user.email_verification_token = token
-    current_user.email_verification_sent_at = datetime.now(timezone.utc)
+    current_user.email_verification_sent_at = datetime.now(UTC)
 
     # Send email
     email_sent = await _send_verification_email(current_user, token)
@@ -901,7 +899,7 @@ async def confirm_email_verification(
 
     # Check token expiry (24 hours)
     if user.email_verification_sent_at:
-        token_age = datetime.now(timezone.utc) - user.email_verification_sent_at
+        token_age = datetime.now(UTC) - user.email_verification_sent_at
         if token_age > timedelta(hours=24):
             # Clear expired token
             user.email_verification_token = None

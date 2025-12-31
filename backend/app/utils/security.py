@@ -16,7 +16,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import structlog
 
@@ -39,7 +39,7 @@ class SanitizationResult:
     original_length: int
     sanitized_length: int
     was_truncated: bool
-    detected_risks: List[str]
+    detected_risks: list[str]
     risk_level: SecurityRiskLevel
 
 
@@ -62,7 +62,7 @@ class SecurityConstants:
 
 # Prompt injection detection patterns
 # These patterns detect common prompt injection techniques
-INJECTION_PATTERNS: List[Tuple[str, str, SecurityRiskLevel]] = [
+INJECTION_PATTERNS: list[tuple[str, str, SecurityRiskLevel]] = [
     # Direct instruction override attempts
     (r"(?i)\bignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|rules?)",
      "instruction_override", SecurityRiskLevel.HIGH),
@@ -150,7 +150,7 @@ def normalize_unicode(text: str) -> str:
     return normalized
 
 
-def detect_injection_patterns(text: str) -> List[Tuple[str, SecurityRiskLevel]]:
+def detect_injection_patterns(text: str) -> list[tuple[str, SecurityRiskLevel]]:
     """Detect potential prompt injection patterns in text.
 
     Args:
@@ -175,7 +175,7 @@ def detect_injection_patterns(text: str) -> List[Tuple[str, SecurityRiskLevel]]:
     return detected
 
 
-def get_max_risk_level(risks: List[Tuple[str, SecurityRiskLevel]]) -> SecurityRiskLevel:
+def get_max_risk_level(risks: list[tuple[str, SecurityRiskLevel]]) -> SecurityRiskLevel:
     """Get the maximum risk level from a list of detected risks.
 
     Args:
@@ -305,7 +305,7 @@ def escape_for_html(text: str) -> str:
 def validate_message_length(
     message: str,
     max_length: int = SecurityConstants.MAX_MESSAGE_LENGTH
-) -> Tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """Validate message length.
 
     Args:
@@ -338,10 +338,10 @@ def should_block_request(risk_level: SecurityRiskLevel) -> bool:
 
 def create_safe_prompt_context(
     user_input: str,
-    context_data: Dict[str, Any],
+    context_data: dict[str, Any],
     max_input_length: int = SecurityConstants.MAX_MESSAGE_LENGTH,
     max_context_length: int = SecurityConstants.MAX_CONTEXT_LENGTH,
-) -> Tuple[str, Dict[str, str], SanitizationResult]:
+) -> tuple[str, dict[str, str], SanitizationResult]:
     """Create a safe prompt context with sanitized user input and data.
 
     This is the main function to use when constructing AI prompts
@@ -380,8 +380,8 @@ def create_safe_prompt_context(
 def log_security_event(
     event_type: str,
     risk_level: SecurityRiskLevel,
-    details: Dict[str, Any],
-    user_id: Optional[str] = None,
+    details: dict[str, Any],
+    user_id: str | None = None,
 ) -> None:
     """Log a security-relevant event.
 

@@ -1,6 +1,7 @@
 """E2E Tests for Category-DataSource assignment functionality."""
 
 import uuid
+
 import pytest
 from httpx import AsyncClient
 

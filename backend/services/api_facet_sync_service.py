@@ -5,8 +5,8 @@ entries for matched entities. It bridges the gap between the API configuration
 system and the facet history system.
 """
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -17,7 +17,7 @@ from app.models import Entity, EntityType, FacetType
 from app.models.api_configuration import APIConfiguration, AuthType, ImportMode, SyncStatus
 from app.models.facet_value import FacetValueSourceType
 from services.facet_history_service import FacetHistoryService
-from services.smart_query.api_fetcher import RESTAPIClient, FetchResult
+from services.smart_query.api_fetcher import FetchResult, RESTAPIClient
 
 logger = structlog.get_logger()
 
@@ -33,10 +33,10 @@ class APIFacetSyncResult:
         self.facets_created: int = 0
         self.facets_updated: int = 0
         self.history_points_added: int = 0
-        self.errors: List[Dict[str, Any]] = []
-        self.warnings: List[str] = []
+        self.errors: list[dict[str, Any]] = []
+        self.warnings: list[str] = []
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "success": self.success,
@@ -201,7 +201,7 @@ class APIFacetSyncService:
                     )
 
             # Update config statistics
-            config.last_sync_at = datetime.now(timezone.utc)
+            config.last_sync_at = datetime.now(UTC)
             config.last_sync_status = SyncStatus.SUCCESS.value if not result.errors else SyncStatus.PARTIAL.value
             config.last_sync_stats = result.to_dict()
 
@@ -256,8 +256,8 @@ class APIFacetSyncService:
         self,
         match_by: str,
         match_value: Any,
-        entity_type_slug: Optional[str] = None,
-    ) -> Optional[Entity]:
+        entity_type_slug: str | None = None,
+    ) -> Entity | None:
         """
         Find an entity based on the matching configuration.
 
@@ -296,8 +296,8 @@ class APIFacetSyncService:
 
     async def _load_facet_types(
         self,
-        slugs: List[str],
-    ) -> Dict[str, FacetType]:
+        slugs: list[str],
+    ) -> dict[str, FacetType]:
         """Pre-load facet types by slug."""
         if not slugs:
             return {}
@@ -312,11 +312,11 @@ class APIFacetSyncService:
     async def _sync_facets_for_entity(
         self,
         entity: Entity,
-        record: Dict[str, Any],
-        facet_mappings: Dict[str, Any],
-        facet_types_cache: Dict[str, FacetType],
+        record: dict[str, Any],
+        facet_mappings: dict[str, Any],
+        facet_types_cache: dict[str, FacetType],
         source_url: str,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """
         Create/update facet values for an entity from an API record.
 
@@ -368,7 +368,7 @@ class APIFacetSyncService:
                     await self.history_service.add_data_point(
                         entity_id=entity.id,
                         facet_type_id=facet_type.id,
-                        recorded_at=datetime.now(timezone.utc),
+                        recorded_at=datetime.now(UTC),
                         value=numeric_value,
                         track_key=track_key,
                         annotations={

@@ -6,13 +6,14 @@ This module provides background tasks for:
 - Cleanup of archived records
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
+from celery.exceptions import SoftTimeLimitExceeded
 
-from workers.celery_app import celery_app
 from workers.async_runner import run_async
+from workers.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
 
@@ -24,9 +25,10 @@ def sync_all_external_apis():
     This task runs periodically (default: every 4 hours) and triggers
     sync for any API configuration that is due based on its sync_interval_hours.
     """
+    from sqlalchemy import select
+
     from app.database import get_celery_session_context
     from app.models.api_configuration import APIConfiguration, ImportMode
-    from sqlalchemy import select
 
     async def _check_and_sync():
         async with get_celery_session_context() as session:
@@ -71,6 +73,8 @@ def sync_all_external_apis():
     default_retry_delay=300,  # 5 minutes
     retry_backoff=True,
     retry_backoff_max=1800,  # 30 minutes max
+    soft_time_limit=1800,  # 30 minutes soft limit
+    time_limit=2100,  # 35 minutes hard limit
 )
 def sync_external_api(self, config_id: str):
     """Sync a single API configuration (entity import mode).
@@ -143,6 +147,14 @@ def sync_external_api(self, config_id: str):
 
     try:
         return run_async(_sync())
+    except SoftTimeLimitExceeded:
+        # Don't retry on timeout - it will just timeout again
+        logger.error(
+            "external_api_sync_timeout",
+            config_id=config_id,
+            soft_limit=1800,
+        )
+        raise  # Let the task fail without retry
     except Exception as e:
         # Retry on failure
         logger.warning(
@@ -151,7 +163,7 @@ def sync_external_api(self, config_id: str):
             attempt=self.request.retries + 1,
             error=str(e),
         )
-        raise self.retry(exc=e)
+        raise self.retry(exc=e) from None
 
 
 @celery_app.task(name="workers.external_api_tasks.cleanup_archived_records")
@@ -164,14 +176,16 @@ def cleanup_archived_records(days_old: int = 90):
     Args:
         days_old: Delete records archived more than this many days ago.
     """
+    from datetime import timedelta
+
+    from sqlalchemy import delete
+
     from app.database import get_celery_session_context
     from external_apis.models.sync_record import RecordStatus, SyncRecord
-    from sqlalchemy import delete
-    from datetime import timedelta
 
     async def _cleanup():
         async with get_celery_session_context() as session:
-            cutoff = datetime.now(timezone.utc) - timedelta(days=days_old)
+            cutoff = datetime.now(UTC) - timedelta(days=days_old)
 
             result = await session.execute(
                 delete(SyncRecord).where(

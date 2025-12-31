@@ -1,19 +1,19 @@
 """Tests for SharePoint client functionality."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from external_apis.clients.sharepoint_client import (
-    SharePointError,
     SharePointAuthError,
     SharePointConfigError,
+    SharePointDrive,
+    SharePointError,
+    SharePointFile,
     SharePointNotFoundError,
     SharePointPermissionError,
     SharePointRateLimitError,
-    SharePointFile,
     SharePointSite,
-    SharePointDrive,
     SharePointTokenCache,
     parse_sharepoint_site_url,
 )
@@ -129,12 +129,12 @@ class TestSharePointDataclasses:
 
     def test_sharepoint_token_cache(self):
         """Test SharePointTokenCache dataclass."""
-        expires = datetime.now(timezone.utc)
+        expires = datetime.now(UTC)
         cache = SharePointTokenCache(
             access_token="test_token",
             expires_at=expires,
         )
-        assert cache.access_token == "test_token"
+        assert cache.access_token == "test_token"  # noqa: S105
         assert cache.expires_at == expires
 
     def test_sharepoint_site(self):
@@ -166,8 +166,8 @@ class TestSharePointDataclasses:
 
     def test_sharepoint_file(self):
         """Test SharePointFile dataclass."""
-        created = datetime(2024, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
-        modified = datetime(2024, 3, 20, 14, 45, 0, tzinfo=timezone.utc)
+        created = datetime(2024, 1, 15, 10, 30, 0, tzinfo=UTC)
+        modified = datetime(2024, 3, 20, 14, 45, 0, tzinfo=UTC)
 
         file = SharePointFile(
             id="file-123",

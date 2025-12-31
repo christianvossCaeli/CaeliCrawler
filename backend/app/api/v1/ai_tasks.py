@@ -6,7 +6,7 @@ Bietet:
 - Task-Ergebnisse abrufen
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -14,10 +14,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_current_user
 from app.database import get_session
 from app.models.ai_task import AITask, AITaskStatus, AITaskType
 from app.models.user import User
-from app.core.deps import get_current_user
 
 router = APIRouter(tags=["AI Tasks"])
 
@@ -32,28 +32,28 @@ class AITaskStatusResponse(BaseModel):
     task_type: str
     status: str
     name: str
-    description: Optional[str] = None
+    description: str | None = None
 
     # Progress
     progress_current: int = 0
     progress_total: int = 0
     progress_percent: float = 0.0
-    current_item: Optional[str] = None
+    current_item: str | None = None
 
     # Timing
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    duration_seconds: Optional[float] = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    duration_seconds: float | None = None
 
     # Results
     fields_extracted: int = 0
-    avg_confidence: Optional[float] = None
+    avg_confidence: float | None = None
 
     # Error
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     # Entity reference (if applicable)
-    entity_id: Optional[str] = None
+    entity_id: str | None = None
 
 
 class AITaskResultResponse(BaseModel):
@@ -61,7 +61,7 @@ class AITaskResultResponse(BaseModel):
 
     task_id: str
     status: str
-    result_data: Dict[str, Any] = Field(default_factory=dict)
+    result_data: dict[str, Any] = Field(default_factory=dict)
 
 
 # Endpoints
@@ -132,11 +132,11 @@ async def get_ai_task_result(
     )
 
 
-@router.get("/by-entity", response_model=List[AITaskStatusResponse])
+@router.get("/by-entity", response_model=list[AITaskStatusResponse])
 async def get_entity_tasks(
     entity_id: UUID = Query(..., description="Entity-ID"),
-    task_type: Optional[str] = Query(None, description="Filter nach Task-Typ"),
-    status: Optional[str] = Query(None, description="Filter nach Status"),
+    task_type: str | None = Query(None, description="Filter nach Task-Typ"),
+    status: str | None = Query(None, description="Filter nach Status"),
     limit: int = Query(10, ge=1, le=50, description="Max. Anzahl"),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(get_current_user),
@@ -155,14 +155,14 @@ async def get_entity_tasks(
         except ValueError:
             raise HTTPException(
                 status_code=400, detail=f"Ungültiger Task-Typ: {task_type}"
-            )
+            ) from None
 
     if status:
         try:
             status_enum = AITaskStatus(status)
             query = query.where(AITask.status == status_enum)
         except ValueError:
-            raise HTTPException(status_code=400, detail=f"Ungültiger Status: {status}")
+            raise HTTPException(status_code=400, detail=f"Ungültiger Status: {status}") from None
 
     query = query.order_by(AITask.scheduled_at.desc()).limit(limit)
 

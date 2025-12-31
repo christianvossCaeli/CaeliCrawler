@@ -1,8 +1,8 @@
 """Main notification service for managing notifications."""
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -16,7 +16,6 @@ from app.models.notification import (
     NotificationEventType,
     NotificationStatus,
 )
-from app.models.notification_rule import NotificationRule
 from app.models.user import User
 from app.models.user_email import UserEmailAddress
 from services.notifications.channel_registry import (
@@ -40,7 +39,7 @@ class NotificationService:
     def __init__(
         self,
         session: AsyncSession,
-        channel_registry: Optional[NotificationChannelRegistry] = None,
+        channel_registry: NotificationChannelRegistry | None = None,
     ):
         """Initialize notification service.
 
@@ -55,8 +54,8 @@ class NotificationService:
     async def emit_event(
         self,
         event_type: NotificationEventType,
-        payload: Dict[str, Any],
-    ) -> List[str]:
+        payload: dict[str, Any],
+    ) -> list[str]:
         """Emit an event and process notifications.
 
         Args:
@@ -113,7 +112,7 @@ class NotificationService:
 
         if success:
             notification.status = NotificationStatus.SENT
-            notification.sent_at = datetime.now(timezone.utc)
+            notification.sent_at = datetime.now(UTC)
             notification.error_message = None
         else:
             notification.retry_count += 1
@@ -132,7 +131,7 @@ class NotificationService:
 
     async def _build_channel_config(
         self, notification: Notification
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build channel-specific configuration for notification.
 
         Args:
@@ -141,7 +140,7 @@ class NotificationService:
         Returns:
             Channel configuration dictionary
         """
-        config: Dict[str, Any] = {}
+        config: dict[str, Any] = {}
 
         # Get config from rule if available
         if notification.rule:
@@ -158,8 +157,8 @@ class NotificationService:
     async def _resolve_email_recipients(
         self,
         notification: Notification,
-        config: Dict[str, Any],
-    ) -> List[str]:
+        config: dict[str, Any],
+    ) -> list[str]:
         """Resolve email recipients from configuration.
 
         Args:
@@ -169,7 +168,7 @@ class NotificationService:
         Returns:
             List of email addresses
         """
-        recipients: List[str] = []
+        recipients: list[str] = []
 
         # Get specified email address IDs
         email_address_ids = config.get("email_address_ids", [])
@@ -186,9 +185,8 @@ class NotificationService:
         include_primary = config.get("include_primary", True)
         if include_primary or not recipients:
             user = await self.session.get(User, notification.user_id)
-            if user and user.email:
-                if user.email not in recipients:
-                    recipients.append(user.email)
+            if user and user.email and user.email not in recipients:
+                recipients.append(user.email)
 
         # Store recipient for tracking
         if recipients:
@@ -214,7 +212,7 @@ class NotificationService:
         if notification.user_id != user_id:
             return False
 
-        notification.read_at = datetime.now(timezone.utc)
+        notification.read_at = datetime.now(UTC)
         if notification.status == NotificationStatus.SENT:
             notification.status = NotificationStatus.READ
 
@@ -239,7 +237,7 @@ class NotificationService:
                 Notification.read_at.is_(None),
             )
             .values(
-                read_at=datetime.now(timezone.utc),
+                read_at=datetime.now(UTC),
                 status=NotificationStatus.READ,
             )
         )
@@ -274,7 +272,7 @@ class NotificationService:
 
     async def get_pending_notifications(
         self, limit: int = 100
-    ) -> List[Notification]:
+    ) -> list[Notification]:
         """Get pending notifications for sending.
 
         Args:
@@ -291,7 +289,7 @@ class NotificationService:
         )
         return list(result.scalars().all())
 
-    async def get_failed_for_retry(self, limit: int = 100) -> List[Notification]:
+    async def get_failed_for_retry(self, limit: int = 100) -> list[Notification]:
         """Get failed notifications that can be retried.
 
         Args:
@@ -302,7 +300,7 @@ class NotificationService:
         """
         from datetime import timedelta
 
-        cutoff = datetime.now(timezone.utc) - timedelta(
+        cutoff = datetime.now(UTC) - timedelta(
             seconds=settings.notification_retry_delay
         )
 
@@ -329,9 +327,10 @@ class NotificationService:
             Number of deleted notifications
         """
         from datetime import timedelta
+
         from sqlalchemy import delete
 
-        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff = datetime.now(UTC) - timedelta(days=days)
 
         result = await self.session.execute(
             delete(Notification).where(

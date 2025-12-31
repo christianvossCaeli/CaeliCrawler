@@ -1,32 +1,103 @@
 """CaeliCrawler FastAPI Application."""
 
+import re
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
+import structlog
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import structlog
 from redis.asyncio import Redis
 
 from app import __version__
-from app.config import settings
-from app.database import close_db, init_db
-from app.api.admin import categories, sources, crawler, pysis, locations, users, versions, audit, notifications, external_apis, api_import, ai_discovery, crawl_presets, api_facet_sync, sharepoint, custom_summaries
-from app.api.v1 import export, entity_types, entities, facets, relations, assistant, pysis_facets, dashboard, ai_tasks, entity_data, attachments, favorites, smart_query_history, summaries as public_summaries
-from app.api.v1.data_api import router as data_router
-from app.api.v1.analysis_api import router as analysis_router
 from app.api import auth
+from app.api.admin import (
+    ai_discovery,
+    api_facet_sync,
+    api_import,
+    audit,
+    categories,
+    crawl_presets,
+    crawler,
+    custom_summaries,
+    external_apis,
+    facet_types,
+    llm_budget,
+    llm_usage,
+    locations,
+    notifications,
+    pysis,
+    sharepoint,
+    sources,
+    users,
+    versions,
+)
+from app.api.v1 import (
+    ai_tasks,
+    assistant,
+    attachments,
+    dashboard,
+    entities,
+    entity_data,
+    entity_types,
+    export,
+    facets,
+    favorites,
+    pysis_facets,
+    relations,
+    smart_query_history,
+)
+from app.api.v1 import summaries as public_summaries
+from app.api.v1.analysis_api import router as analysis_router
+from app.api.v1.data_api import router as data_router
+from app.config import settings
 from app.core.exceptions import AppException
-from app.core.rate_limit import RateLimiter, set_rate_limiter
-from app.core.token_blacklist import TokenBlacklist, set_token_blacklist
-from app.core.security_headers import SecurityHeadersMiddleware, TrustedHostMiddleware
 from app.core.i18n_middleware import I18nMiddleware
+from app.core.rate_limit import RateLimiter, set_rate_limiter
+from app.core.security_headers import SecurityHeadersMiddleware, TrustedHostMiddleware
+from app.core.token_blacklist import TokenBlacklist, set_token_blacklist
+from app.database import close_db, init_db
 from app.i18n import load_translations
 from app.monitoring.metrics import get_metrics_router, set_app_info
 
-# Configure structured logging
+
+def sanitize_sensitive_data(
+    logger: structlog.typing.WrappedLogger,
+    method_name: str,
+    event_dict: dict,
+) -> dict:
+    """Sanitize sensitive data from log entries to prevent token leakage."""
+    # Patterns to sanitize
+    patterns = [
+        (r'Bearer\s+[A-Za-z0-9\-_\.]+', 'Bearer ***'),
+        (r'token=[A-Za-z0-9\-_\.]+', 'token=***'),
+        (r'api[_-]?key[=:]\s*[A-Za-z0-9\-_\.]+', 'api_key=***'),
+        (r'password[=:]\s*[^\s&]+', 'password=***'),
+        (r'secret[=:]\s*[A-Za-z0-9\-_\.]+', 'secret=***'),
+    ]
+
+    def sanitize_value(value: str) -> str:
+        if not isinstance(value, str):
+            return value
+        for pattern, replacement in patterns:
+            value = re.sub(pattern, replacement, value, flags=re.IGNORECASE)
+        return value
+
+    # Sanitize all string values in the event dict
+    for key, value in event_dict.items():
+        if isinstance(value, str):
+            event_dict[key] = sanitize_value(value)
+        elif isinstance(value, dict):
+            for k, v in value.items():
+                if isinstance(v, str):
+                    value[k] = sanitize_value(v)
+
+    return event_dict
+
+
+# Configure structured logging with sensitive data sanitization
 structlog.configure(
     processors=[
         structlog.stdlib.filter_by_level,
@@ -35,6 +106,7 @@ structlog.configure(
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
+        sanitize_sensitive_data,  # Custom processor to sanitize tokens/secrets
         structlog.processors.JSONRenderer() if settings.log_format == "json" else structlog.dev.ConsoleRenderer(),
     ],
     wrapper_class=structlog.stdlib.BoundLogger,
@@ -194,7 +266,7 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
             field_parts = [str(p) for p in loc if p != "body"]
             field = " -> ".join(field_parts) if field_parts else "input"
             error_type = error.get("type", "unknown")
-            msg = error.get("msg", "Invalid value")
+            error.get("msg", "Invalid value")
 
             # Translate common error types to German (user-friendly)
             if error_type == "string_too_long":
@@ -367,6 +439,21 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         sharepoint.router,
         prefix=f"{settings.admin_api_prefix}/sharepoint",
         tags=["Admin - SharePoint"],
+    )
+    app.include_router(
+        llm_usage.router,
+        prefix=settings.admin_api_prefix,
+        tags=["Admin - LLM Usage"],
+    )
+    app.include_router(
+        llm_budget.router,
+        prefix=settings.admin_api_prefix,
+        tags=["Admin - LLM Budget"],
+    )
+    app.include_router(
+        facet_types.router,
+        prefix=settings.admin_api_prefix,
+        tags=["Admin - FacetTypes"],
     )
 
     # Public API v1 (Legacy)

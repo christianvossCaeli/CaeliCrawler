@@ -2,19 +2,18 @@
 
 from datetime import timedelta
 
+import structlog
 from celery import Celery
 from celery.schedules import crontab
 from celery.signals import (
     task_failure,
     task_retry,
-    task_success,
     task_revoked,
+    task_success,
     worker_process_init,
     worker_process_shutdown,
     worker_shutdown,
 )
-
-import structlog
 
 from app.config import settings
 
@@ -64,7 +63,14 @@ celery_app.conf.update(
     # Result backend settings
     result_expires=86400,  # 24 hours
 
-    # Task routing
+    # Dead Letter Queue (DLQ) configuration
+    # Failed tasks after max_retries are sent to DLQ for later analysis
+    # Note: task_reject_on_worker_lost is already set above
+    task_acks_on_failure_or_timeout=False,
+
+    # Task routing with DLQ support
+    # Note: Requires RabbitMQ with dead letter exchange configured:
+    # rabbitmqctl set_policy DLX ".*" '{"dead-letter-exchange":"dlx"}' --apply-to queues
     task_routes={
         "workers.crawl_tasks.*": {"queue": "crawl"},
         "workers.processing_tasks.*": {"queue": "processing"},
@@ -77,6 +83,42 @@ celery_app.conf.update(
         "workers.maintenance_tasks.*": {"queue": "default"},  # Lightweight, runs on default
     },
 
+    # Queue declarations with dead letter exchange
+    task_queues={
+        "default": {
+            "exchange": "default",
+            "routing_key": "default",
+            "queue_arguments": {
+                "x-dead-letter-exchange": "dlx",
+                "x-dead-letter-routing-key": "dlq",
+            },
+        },
+        "crawl": {
+            "exchange": "crawl",
+            "routing_key": "crawl",
+            "queue_arguments": {
+                "x-dead-letter-exchange": "dlx",
+                "x-dead-letter-routing-key": "dlq.crawl",
+            },
+        },
+        "ai": {
+            "exchange": "ai",
+            "routing_key": "ai",
+            "queue_arguments": {
+                "x-dead-letter-exchange": "dlx",
+                "x-dead-letter-routing-key": "dlq.ai",
+            },
+        },
+        "processing": {
+            "exchange": "processing",
+            "routing_key": "processing",
+            "queue_arguments": {
+                "x-dead-letter-exchange": "dlx",
+                "x-dead-letter-routing-key": "dlq.processing",
+            },
+        },
+    },
+
     # Default queue
     task_default_queue="default",
 
@@ -84,9 +126,10 @@ celery_app.conf.update(
     # NOTE: Task frequencies are tuned to balance responsiveness with connection usage
     # Higher frequencies = more DB connections, lower frequencies = slower response
     beat_schedule={
+        # Category-based scheduled crawls (only for categories with schedule_enabled=True)
         "check-scheduled-crawls": {
             "task": "workers.crawl_tasks.check_scheduled_crawls",
-            "schedule": timedelta(seconds=30),  # Reduced from 5s to prevent connection exhaustion
+            "schedule": timedelta(seconds=30),
         },
         "cleanup-old-jobs": {
             "task": "workers.crawl_tasks.cleanup_old_jobs",
@@ -159,6 +202,15 @@ celery_app.conf.update(
             "task": "workers.maintenance_tasks.log_connection_stats",
             "schedule": timedelta(minutes=15),  # Every 15 minutes - for monitoring
         },
+        # LLM Usage maintenance tasks
+        "aggregate-llm-usage-monthly": {
+            "task": "workers.maintenance_tasks.aggregate_llm_usage",
+            "schedule": crontab(day_of_month=1, hour=3, minute=0),  # Monthly on 1st at 3 AM
+        },
+        "check-llm-budgets-daily": {
+            "task": "workers.maintenance_tasks.check_llm_budgets",
+            "schedule": crontab(hour=8, minute=0),  # Daily at 8 AM
+        },
     },
 )
 
@@ -187,6 +239,7 @@ def configure_worker(**kwargs):
 def cleanup_worker_process(**kwargs):
     """Clean up database connections when worker process shuts down."""
     import asyncio
+
     from app.database import dispose_celery_engine_async
 
     logger.info("worker_process_shutting_down", pid=kwargs.get("pid"))
@@ -267,7 +320,7 @@ def handle_task_failure(sender=None, task_id=None, exception=None, traceback=Non
                     "error": str(exception) if exception else "Unknown error",
                 }
             )
-    except Exception:
+    except Exception:  # noqa: S110
         # Don't fail if notification can't be sent
         pass
 

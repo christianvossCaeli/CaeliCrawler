@@ -4,11 +4,10 @@ Centralizes configuration values and lookup tables used across
 the smart query module for better maintainability.
 """
 
-from typing import Dict, List
 
 # Tag aliases for common geographic regions and source types
 # Maps user-friendly terms to all accepted variations
-TAG_ALIASES: Dict[str, List[str]] = {
+TAG_ALIASES: dict[str, list[str]] = {
     # German Bundeslaender (States)
     "nordrhein-westfalen": ["nrw", "nordrhein-westfalen"],
     "nrw": ["nrw", "nordrhein-westfalen"],

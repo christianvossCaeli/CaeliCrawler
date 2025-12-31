@@ -1,6 +1,7 @@
 """Tests for Entities API endpoints."""
 
 import uuid
+
 import pytest
 from httpx import AsyncClient
 

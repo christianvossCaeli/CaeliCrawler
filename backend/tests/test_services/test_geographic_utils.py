@@ -142,7 +142,7 @@ class TestGenericAliasResolution:
 
         # WHO should resolve to World Health Organization
         resolved = await resolve_alias_async("WHO", domain="organization")
-        assert "World Health Organization" in resolved or "WHO" == resolved
+        assert "World Health Organization" in resolved or resolved == "WHO"
 
     @pytest.mark.asyncio
     async def test_resolve_without_domain(self):

@@ -6,6 +6,31 @@
  */
 
 // =============================================================================
+// Re-exports from centralized error handling module
+// =============================================================================
+
+export {
+  isApiError,
+  isNetworkError,
+  isAuthError,
+  isForbiddenError,
+  isNotFoundError,
+  isValidationError,
+  isServerError,
+  isRetryableError,
+  hasStatus,
+  isHttpStatus,
+  getStatusCode,
+  getApiErrorMessage,
+  getFieldErrors,
+  extractFieldErrors,
+  extractErrorMessage,
+  getErrorMessage,
+  getHttpStatusCategory,
+  type HttpStatusCategory,
+} from '@/utils/errorMessage'
+
+// =============================================================================
 // Enums
 // =============================================================================
 
@@ -326,6 +351,14 @@ export interface SourceCountsResponse {
 }
 
 /**
+ * Response for source status stats endpoint
+ */
+export interface SourceStatusStatsResponse {
+  total: number
+  by_status: Record<string, number>
+}
+
+/**
  * Tag with usage count
  */
 export interface TagCount {
@@ -610,10 +643,7 @@ export const CSV_MAX_LINES = 10000
 // ```
 // =============================================================================
 
-/**
- * HTTP status code categories for error classification
- */
-export type HttpStatusCategory = 'success' | 'client_error' | 'server_error' | 'network_error'
+// HttpStatusCategory is now re-exported from @/utils/errorMessage at the top of this file
 
 /**
  * Common HTTP error status codes as constants
@@ -657,163 +687,8 @@ export interface ApiError {
   isAxiosError?: boolean
 }
 
-/**
- * Type guard to check if an error is an API error
- *
- * @param error - Unknown error to check
- * @returns True if error has API error shape (response, message, or isAxiosError)
- */
-export function isApiError(error: unknown): error is ApiError {
-  if (typeof error !== 'object' || error === null) {
-    return false
-  }
-  const e = error as Record<string, unknown>
-  return (
-    ('response' in e && typeof e.response === 'object') ||
-    ('message' in e && typeof e.message === 'string') ||
-    ('isAxiosError' in e && e.isAxiosError === true)
-  )
-}
-
-/**
- * Get HTTP status category from status code
- *
- * @param status - HTTP status code (or undefined for network errors)
- * @returns Category: 'success' (2xx), 'client_error' (4xx), 'server_error' (5xx), or 'network_error'
- */
-export function getHttpStatusCategory(status: number | undefined): HttpStatusCategory {
-  if (!status) return 'network_error'
-  if (status >= 200 && status < 300) return 'success'
-  if (status >= 400 && status < 500) return 'client_error'
-  if (status >= 500) return 'server_error'
-  return 'network_error'
-}
-
-/**
- * Check if error is a specific HTTP status
- *
- * @param error - Error to check
- * @param status - HTTP status code to match (use HTTP_STATUS constants)
- * @returns True if error has the specified status code
- *
- * @example
- * ```typescript
- * if (isHttpStatus(error, HTTP_STATUS.NOT_FOUND)) {
- *   showNotFoundMessage()
- * }
- * ```
- */
-export function isHttpStatus(error: unknown, status: number): boolean {
-  return isApiError(error) && error.response?.status === status
-}
-
-/**
- * Check if error is a network/connection error
- * Detects: ERR_NETWORK, ECONNABORTED, or missing response
- *
- * @param error - Error to check
- * @returns True if error indicates network connectivity issue
- */
-export function isNetworkError(error: unknown): boolean {
-  if (!isApiError(error)) return false
-  return (
-    error.code === 'ERR_NETWORK' ||
-    error.code === 'ECONNABORTED' ||
-    !error.response
-  )
-}
-
-/**
- * Check if error should trigger a retry (network or 5xx errors)
- * Useful for implementing automatic retry logic
- *
- * @param error - Error to check
- * @returns True if error is network error, 5xx, or 429 (rate limit)
- */
-export function isRetryableError(error: unknown): boolean {
-  if (isNetworkError(error)) return true
-  if (!isApiError(error)) return false
-  const status = error.response?.status
-  return status !== undefined && (status >= 500 || status === HTTP_STATUS.TOO_MANY_REQUESTS)
-}
-
-/**
- * Extract field-level validation errors from API response
- * Supports both simple error objects and Pydantic validation format
- *
- * @param error - API error to extract field errors from
- * @returns Map of field names to error messages (empty object if none)
- *
- * @example
- * ```typescript
- * const fieldErrors = getFieldErrors(error)
- * // { name: "Name is required", email: "Invalid email format" }
- *
- * // Use in form validation
- * nameError.value = fieldErrors.name || null
- * emailError.value = fieldErrors.email || null
- * ```
- */
-export function getFieldErrors(error: unknown): Record<string, string> {
-  if (!isApiError(error)) return {}
-
-  const data = error.response?.data
-  if (!data) return {}
-
-  // Handle simple errors object: { errors: { field: "message" } }
-  if (data.errors) {
-    const result: Record<string, string> = {}
-    for (const [field, msg] of Object.entries(data.errors)) {
-      result[field] = Array.isArray(msg) ? msg[0] : msg
-    }
-    return result
-  }
-
-  // Handle Pydantic validation errors: { detail_errors: [{ loc: ["body", "field"], msg: "..." }] }
-  if (data.detail_errors && Array.isArray(data.detail_errors)) {
-    const result: Record<string, string> = {}
-    for (const err of data.detail_errors) {
-      const field = err.loc[err.loc.length - 1]?.toString() || 'unknown'
-      result[field] = err.msg
-    }
-    return result
-  }
-
-  return {}
-}
-
-/**
- * Extract user-friendly error message from API error
- * Checks: network errors → response.data.detail → response.data.message → error.message → fallback
- *
- * @param error - Error to extract message from
- * @param fallback - Fallback message if no message can be extracted
- * @returns Human-readable error message
- *
- * @example
- * ```typescript
- * errorMessage.value = getApiErrorMessage(error, 'Operation failed')
- * ```
- */
-export function getApiErrorMessage(error: unknown, fallback: string): string {
-  if (isApiError(error)) {
-    // Check for network errors first
-    if (isNetworkError(error)) {
-      return 'Netzwerkfehler - bitte Verbindung prüfen'
-    }
-    // Extract message from response
-    return (
-      error.response?.data?.detail ||
-      error.response?.data?.message ||
-      error.message ||
-      fallback
-    )
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return fallback
-}
+// NOTE: Error handling functions have been moved to @/utils/errorMessage
+// and are re-exported at the top of this file for backward compatibility.
 
 // =============================================================================
 // Bulk Import Default State

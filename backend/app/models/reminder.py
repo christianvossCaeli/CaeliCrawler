@@ -2,10 +2,10 @@
 
 import enum
 import uuid
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Optional
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -54,17 +54,17 @@ class Reminder(Base):
     )
 
     # Optional entity reference
-    entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("entities.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    entity_type: Mapped[Optional[str]] = mapped_column(
+    entity_type: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
-    entity_name: Mapped[Optional[str]] = mapped_column(
+    entity_name: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
     )
@@ -74,7 +74,7 @@ class Reminder(Base):
         Text,
         nullable=False,
     )
-    title: Mapped[Optional[str]] = mapped_column(
+    title: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
@@ -100,17 +100,17 @@ class Reminder(Base):
     )
 
     # Tracking
-    sent_at: Mapped[Optional[datetime]] = mapped_column(
+    sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    dismissed_at: Mapped[Optional[datetime]] = mapped_column(
+    dismissed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
 
     # Additional data
-    extra_data: Mapped[Dict[str, Any]] = mapped_column(
+    extra_data: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
@@ -147,18 +147,18 @@ class Reminder(Base):
         """Check if the reminder is due."""
         return (
             self.status == ReminderStatus.PENDING
-            and self.remind_at <= datetime.now(timezone.utc)
+            and self.remind_at <= datetime.now(UTC)
         )
 
     def mark_sent(self) -> None:
         """Mark the reminder as sent."""
         self.status = ReminderStatus.SENT
-        self.sent_at = datetime.now(timezone.utc)
+        self.sent_at = datetime.now(UTC)
 
     def dismiss(self) -> None:
         """Dismiss the reminder."""
         self.status = ReminderStatus.DISMISSED
-        self.dismissed_at = datetime.now(timezone.utc)
+        self.dismissed_at = datetime.now(UTC)
 
     def cancel(self) -> None:
         """Cancel the reminder."""

@@ -3,7 +3,7 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import (
     BigInteger,
@@ -17,15 +17,15 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import TSVECTOR, UUID
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
 if TYPE_CHECKING:
-    from app.models.data_source import DataSource
     from app.models.category import Category
     from app.models.crawl_job import CrawlJob
+    from app.models.data_source import DataSource
     from app.models.extracted_data import ExtractedData
 
 
@@ -40,6 +40,7 @@ class ProcessingStatus(str, enum.Enum):
     FAILED = "FAILED"
     SKIPPED = "SKIPPED"
     FILTERED = "FILTERED"  # Skipped due to relevance filter (not wind-energy related)
+    NEEDS_REVIEW = "NEEDS_REVIEW"  # No keywords found, manual review required
 
 
 class Document(Base):
@@ -72,7 +73,7 @@ class Document(Base):
         nullable=False,
         index=True,
     )
-    crawl_job_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    crawl_job_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("crawl_jobs.id", ondelete="SET NULL"),
         nullable=True,
@@ -85,21 +86,21 @@ class Document(Base):
         nullable=False,
     )  # PDF, HTML, DOC, DOCX, etc.
     original_url: Mapped[str] = mapped_column(Text, nullable=False)
-    title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # File storage
-    file_path: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     file_hash: Mapped[str] = mapped_column(
         String(64),
         nullable=False,
         index=True,
     )  # SHA256
     file_size: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
-    page_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Extracted content
-    raw_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    search_vector: Mapped[Optional[str]] = mapped_column(
+    raw_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    search_vector: Mapped[str | None] = mapped_column(
         TSVECTOR,
         nullable=True,
     )
@@ -111,7 +112,7 @@ class Document(Base):
         nullable=False,
         index=True,
     )
-    processing_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    processing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Timestamps
     discovered_at: Mapped[datetime] = mapped_column(
@@ -119,20 +120,47 @@ class Document(Base):
         server_default=func.now(),
         nullable=False,
     )
-    downloaded_at: Mapped[Optional[datetime]] = mapped_column(
+    downloaded_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    processed_at: Mapped[Optional[datetime]] = mapped_column(
+    processed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
 
     # Document date (extracted from content or metadata)
-    document_date: Mapped[Optional[datetime]] = mapped_column(
+    document_date: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
+
+    # Page-based analysis tracking
+    page_analysis_status: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        default=None,
+    )  # "pending", "partial", "complete", "needs_review"
+    relevant_pages: Mapped[list[int] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        default=None,
+    )  # Pages with keyword matches (sorted by relevance score)
+    analyzed_pages: Mapped[list[int] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        default=None,
+    )  # Pages already sent to LLM
+    total_relevant_pages: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        default=None,
+    )  # Total count of relevant pages (for UI hint)
+    page_analysis_note: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        default=None,
+    )  # User-facing note (e.g., "15 weitere relevante Seiten verfügbar")
 
     # Relationships
     source: Mapped["DataSource"] = relationship(
@@ -144,7 +172,7 @@ class Document(Base):
         "CrawlJob",
         back_populates="documents",
     )
-    extracted_data: Mapped[List["ExtractedData"]] = relationship(
+    extracted_data: Mapped[list["ExtractedData"]] = relationship(
         "ExtractedData",
         back_populates="document",
         cascade="all, delete-orphan",

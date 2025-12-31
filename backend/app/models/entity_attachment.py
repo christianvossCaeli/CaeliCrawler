@@ -3,11 +3,10 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import (
     BigInteger,
-    Boolean,
     DateTime,
     Enum,
     ForeignKey,
@@ -91,7 +90,7 @@ class EntityAttachment(Base):
     )
 
     # User tracking
-    uploaded_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    uploaded_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
@@ -105,26 +104,26 @@ class EntityAttachment(Base):
         nullable=False,
         index=True,
     )
-    analysis_result: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    analysis_result: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
         comment="AI analysis result (description, extracted text, entities, etc.)",
     )
-    analysis_error: Mapped[Optional[str]] = mapped_column(
+    analysis_error: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
-    analyzed_at: Mapped[Optional[datetime]] = mapped_column(
+    analyzed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    ai_model_used: Mapped[Optional[str]] = mapped_column(
+    ai_model_used: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
 
     # Optional description/notes
-    description: Mapped[Optional[str]] = mapped_column(
+    description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="User-provided description or notes",
@@ -161,7 +160,7 @@ class EntityAttachment(Base):
         return self.content_type == "application/pdf"
 
     @property
-    def thumbnail_path(self) -> Optional[str]:
+    def thumbnail_path(self) -> str | None:
         """Get thumbnail path for images."""
         if self.is_image and "." in self.file_path:
             base, ext = self.file_path.rsplit(".", 1)

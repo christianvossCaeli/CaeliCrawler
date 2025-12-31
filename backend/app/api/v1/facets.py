@@ -1,58 +1,62 @@
 """API endpoints for Facet Type and Facet Value management."""
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import func, select, and_, or_
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.audit import AuditContext
+from app.core.cache import facet_type_cache
+from app.core.deps import require_editor
+from app.core.exceptions import ConflictError, NotFoundError
+from app.core.validators import validate_entity_type_slugs
 from app.database import get_session
 from app.models import (
-    FacetType, FacetValue, FacetValueHistory, Entity, EntityType, Category, Document,
-    TimeFilter, AnalysisTemplate,
+    AnalysisTemplate,
+    Category,
+    Entity,
+    EntityType,
+    FacetType,
+    FacetValue,
 )
-from app.models.facet_value import FacetValueSourceType
-from app.schemas.facet_value_history import (
-    HistoryDataPointCreate,
-    HistoryDataPointUpdate,
-    HistoryDataPointResponse,
-    HistoryBulkImport,
-    HistoryBulkImportResponse,
-    EntityHistoryResponse,
-    AggregatedHistoryResponse,
-)
-from services.facet_history_service import FacetHistoryService
-from app.models.user import User
-from app.core.deps import get_current_user, require_editor
-from app.core.audit import AuditContext
 from app.models.audit_log import AuditAction
+from app.models.facet_value import FacetValueSourceType
+from app.models.user import User
+from app.schemas.common import MessageResponse
 from app.schemas.facet_type import (
     FacetTypeCreate,
-    FacetTypeUpdate,
-    FacetTypeResponse,
     FacetTypeListResponse,
+    FacetTypeResponse,
     FacetTypeSchemaGenerateRequest,
     FacetTypeSchemaGenerateResponse,
+    FacetTypeUpdate,
     generate_slug,
 )
 from app.schemas.facet_value import (
-    FacetValueCreate,
-    FacetValueUpdate,
-    FacetValueResponse,
-    FacetValueListResponse,
-    FacetValueAggregated,
     EntityFacetsSummary,
-    FacetValueSearchResult,
+    FacetValueAggregated,
+    FacetValueCreate,
+    FacetValueListResponse,
+    FacetValueResponse,
     FacetValueSearchResponse,
+    FacetValueSearchResult,
+    FacetValueUpdate,
 )
-from app.schemas.common import MessageResponse
-from app.core.exceptions import NotFoundError, ConflictError
-from app.core.validators import validate_entity_type_slugs
-from app.core.cache import facet_type_cache
+from app.schemas.facet_value_history import (
+    AggregatedHistoryResponse,
+    EntityHistoryResponse,
+    HistoryBulkImport,
+    HistoryBulkImportResponse,
+    HistoryDataPointCreate,
+    HistoryDataPointResponse,
+    HistoryDataPointUpdate,
+)
 from app.utils.text import build_text_representation
+from services.facet_history_service import FacetHistoryService
 
 router = APIRouter()
 
@@ -66,10 +70,11 @@ router = APIRouter()
 async def list_facet_types(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=50, ge=1, le=100),
-    is_active: Optional[bool] = Query(default=None),
-    ai_extraction_enabled: Optional[bool] = Query(default=None),
-    is_time_based: Optional[bool] = Query(default=None),
-    search: Optional[str] = Query(default=None),
+    is_active: bool | None = Query(default=None),
+    ai_extraction_enabled: bool | None = Query(default=None),
+    is_time_based: bool | None = Query(default=None),
+    applicable_entity_type_slugs: list[str] | None = Query(default=None),
+    search: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
 ):
     """List all facet types with pagination."""
@@ -81,6 +86,11 @@ async def list_facet_types(
         query = query.where(FacetType.ai_extraction_enabled.is_(ai_extraction_enabled))
     if is_time_based is not None:
         query = query.where(FacetType.is_time_based.is_(is_time_based))
+    if applicable_entity_type_slugs:
+        # Filter FacetTypes that apply to any of the given entity type slugs
+        query = query.where(
+            FacetType.applicable_entity_type_slugs.overlap(applicable_entity_type_slugs)
+        )
     if search:
         # Escape SQL wildcards to prevent injection
         search_pattern = f"%{search.replace('%', '\\%').replace('_', '\\_')}%"
@@ -100,7 +110,7 @@ async def list_facet_types(
 
     # Get all value counts in a single query to avoid N+1
     facet_type_ids = [ft.id for ft in facet_types]
-    value_counts_map: Dict[UUID, int] = {}
+    value_counts_map: dict[UUID, int] = {}
 
     if facet_type_ids:
         value_counts_query = (
@@ -127,6 +137,71 @@ async def list_facet_types(
         per_page=per_page,
         pages=pages,
     )
+
+
+@router.get("/types/for-category/{category_id}", response_model=list[FacetTypeResponse])
+async def get_facet_types_for_category(
+    category_id: UUID,
+    ai_extraction_enabled: bool | None = Query(default=True),
+    is_active: bool | None = Query(default=True),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Get all FacetTypes relevant for a specific Category.
+
+    The connection is: Category → EntityTypes → FacetTypes
+    (via applicable_entity_type_slugs).
+
+    This is useful for ResultsView to load FacetTypes dynamically
+    based on the active category filter.
+    """
+    # 1. Load Category with EntityType associations (including the EntityType itself)
+    from app.models import CategoryEntityType
+    category_query = (
+        select(Category)
+        .options(
+            selectinload(Category.entity_type_associations)
+            .selectinload(CategoryEntityType.entity_type),
+            selectinload(Category.target_entity_type),
+        )
+        .where(Category.id == category_id)
+    )
+    result = await session.execute(category_query)
+    category = result.scalar_one_or_none()
+
+    if not category:
+        raise NotFoundError("Category", str(category_id))
+
+    # 2. Collect EntityType slugs from associations
+    entity_type_slugs = []
+    for assoc in category.entity_type_associations:
+        if assoc.entity_type:
+            entity_type_slugs.append(assoc.entity_type.slug)
+
+    # Also include target_entity_type for backwards compatibility
+    if category.target_entity_type and category.target_entity_type.slug not in entity_type_slugs:
+        entity_type_slugs.append(category.target_entity_type.slug)
+
+    if not entity_type_slugs:
+        return []
+
+    # 3. Load FacetTypes that apply to these EntityTypes
+    query = (
+        select(FacetType)
+        .where(FacetType.applicable_entity_type_slugs.overlap(entity_type_slugs))
+    )
+
+    if is_active is not None:
+        query = query.where(FacetType.is_active.is_(is_active))
+    if ai_extraction_enabled is not None:
+        query = query.where(FacetType.ai_extraction_enabled.is_(ai_extraction_enabled))
+
+    query = query.order_by(FacetType.display_order, FacetType.name)
+
+    result = await session.execute(query)
+    facet_types = list(result.scalars().all())
+
+    return [FacetTypeResponse.model_validate(ft) for ft in facet_types]
 
 
 @router.post("/types", response_model=FacetTypeResponse, status_code=201)
@@ -501,23 +576,23 @@ async def delete_facet_type(
 async def list_facet_values(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=50, ge=1, le=200),
-    entity_id: Optional[UUID] = Query(default=None),
-    facet_type_id: Optional[UUID] = Query(default=None),
-    facet_type_slug: Optional[str] = Query(default=None),
-    category_id: Optional[UUID] = Query(default=None),
+    entity_id: UUID | None = Query(default=None),
+    facet_type_id: UUID | None = Query(default=None),
+    facet_type_slug: str | None = Query(default=None),
+    category_id: UUID | None = Query(default=None),
     min_confidence: float = Query(default=0.0, ge=0, le=1),
-    human_verified: Optional[bool] = Query(default=None),
-    search: Optional[str] = Query(
+    human_verified: bool | None = Query(default=None),
+    search: str | None = Query(
         default=None,
         description="Search in text_representation",
         min_length=2,
     ),
-    time_filter: Optional[str] = Query(
+    time_filter: str | None = Query(
         default=None,
         description="Time filter: 'future_only', 'past_only', or 'all'",
         pattern="^(future_only|past_only|all)$",
     ),
-    is_active: Optional[bool] = Query(default=None),
+    is_active: bool | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
 ):
     """List facet values with filters and search."""
@@ -552,7 +627,7 @@ async def list_facet_values(
         )
 
     # Time-based filtering
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if time_filter == "future_only":
         query = query.where(
             or_(
@@ -580,7 +655,7 @@ async def list_facet_values(
         selectinload(FacetValue.facet_type),
         selectinload(FacetValue.category),
         selectinload(FacetValue.source_document),
-        selectinload(FacetValue.target_entity),
+        selectinload(FacetValue.target_entity).selectinload(Entity.entity_type),
     ).order_by(
         FacetValue.human_verified.desc(),
         FacetValue.confidence_score.desc(),
@@ -664,6 +739,22 @@ async def create_facet_value(
             detail=f"{reason}. Bearbeiten Sie den bestehenden Wert statt einen neuen zu erstellen.",
         )
 
+    # Validate target_entity_id if provided
+    if data.target_entity_id:
+        target_entity = await session.get(Entity, data.target_entity_id)
+        if not target_entity:
+            raise NotFoundError("Target Entity", str(data.target_entity_id))
+        # Validate that target entity type is allowed for this facet type
+        if facet_type.target_entity_type_slugs:
+            target_entity_type = await session.get(EntityType, target_entity.entity_type_id)
+            target_type_slug = target_entity_type.slug if target_entity_type else None
+            if target_type_slug and target_type_slug not in facet_type.target_entity_type_slugs:
+                raise ConflictError(
+                    "Target entity type not allowed",
+                    detail=f"Entity type '{target_type_slug}' is not allowed as target for facet type '{facet_type.name}'. "
+                           f"Allowed types: {', '.join(facet_type.target_entity_type_slugs)}",
+                )
+
     async with AuditContext(session, current_user, request) as audit:
         facet_value = FacetValue(
             entity_id=data.entity_id,
@@ -680,6 +771,7 @@ async def create_facet_value(
             confidence_score=data.confidence_score,
             ai_model_used=data.ai_model_used,
             is_active=data.is_active,
+            target_entity_id=data.target_entity_id,
         )
         session.add(facet_value)
         await session.flush()
@@ -728,7 +820,7 @@ async def get_facet_value(
             selectinload(FacetValue.facet_type),
             selectinload(FacetValue.category),
             selectinload(FacetValue.source_document),
-            selectinload(FacetValue.target_entity),
+            selectinload(FacetValue.target_entity).selectinload(Entity.entity_type),
         )
         .where(FacetValue.id == facet_value_id)
     )
@@ -804,7 +896,7 @@ async def update_facet_value(
             selectinload(FacetValue.facet_type),
             selectinload(FacetValue.category),
             selectinload(FacetValue.source_document),
-            selectinload(FacetValue.target_entity),
+            selectinload(FacetValue.target_entity).selectinload(Entity.entity_type),
         )
         .where(FacetValue.id == fv.id)
     )
@@ -831,8 +923,8 @@ async def update_facet_value(
 async def verify_facet_value(
     facet_value_id: UUID,
     verified: bool = Query(default=True),
-    verified_by: Optional[str] = Query(default=None),
-    corrections: Optional[Dict[str, Any]] = None,
+    verified_by: str | None = Query(default=None),
+    corrections: dict[str, Any] | None = None,
     current_user: User = Depends(require_editor),
     session: AsyncSession = Depends(get_session),
 ):
@@ -843,7 +935,7 @@ async def verify_facet_value(
 
     fv.human_verified = verified
     fv.verified_by = verified_by
-    fv.verified_at = datetime.now(timezone.utc)
+    fv.verified_at = datetime.now(UTC)
 
     if corrections:
         fv.human_corrections = corrections
@@ -914,7 +1006,7 @@ async def get_facets_referencing_entity(
     entity_id: UUID,
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=50, ge=1, le=200),
-    facet_type_slug: Optional[str] = Query(default=None),
+    facet_type_slug: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -982,8 +1074,8 @@ async def get_facets_referencing_entity(
 @router.get("/entity/{entity_id}/summary", response_model=EntityFacetsSummary)
 async def get_entity_facets_summary(
     entity_id: UUID,
-    category_id: Optional[UUID] = Query(default=None),
-    time_filter: Optional[str] = Query(
+    category_id: UUID | None = Query(default=None),
+    time_filter: str | None = Query(
         default=None,
         description="Time filter: 'future_only', 'past_only', or 'all'",
         pattern="^(future_only|past_only|all)$",
@@ -1017,7 +1109,12 @@ async def get_entity_facets_summary(
         )
 
     # Base query for facet values - only include values from applicable facet types
-    query = select(FacetValue).where(
+    # Eager load target_entity and its entity_type for entity references (e.g., contacts → person)
+    # Also load source_document for document info display
+    query = select(FacetValue).options(
+        selectinload(FacetValue.target_entity).selectinload(Entity.entity_type),
+        selectinload(FacetValue.source_document),
+    ).where(
         FacetValue.entity_id == entity_id,
         FacetValue.is_active.is_(True),
         FacetValue.confidence_score >= min_confidence,
@@ -1028,7 +1125,7 @@ async def get_entity_facets_summary(
         query = query.where(FacetValue.category_id == category_id)
 
     # Apply time filter
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if time_filter == "future_only":
         query = query.where(
             or_(
@@ -1049,7 +1146,7 @@ async def get_entity_facets_summary(
     values = result.scalars().all()
 
     # Group values by facet type
-    by_facet_type: Dict[UUID, List[FacetValue]] = {}
+    by_facet_type: dict[UUID, list[FacetValue]] = {}
     for fv in values:
         if fv.facet_type_id not in by_facet_type:
             by_facet_type[fv.facet_type_id] = []
@@ -1104,6 +1201,15 @@ async def get_entity_facets_summary(
                     "source_type": v.source_type.value if v.source_type else "DOCUMENT",
                     "source_url": v.source_url,
                     "created_at": v.created_at.isoformat() if v.created_at else None,
+                    # Document source info
+                    "source_document_id": str(v.source_document_id) if v.source_document_id else None,
+                    "document_title": v.source_document.title if v.source_document else None,
+                    "document_url": v.source_document.original_url if v.source_document else None,
+                    # Target entity info for entity references (e.g., contacts → person)
+                    "target_entity_id": str(v.target_entity_id) if v.target_entity_id else None,
+                    "target_entity_name": v.target_entity.name if v.target_entity else None,
+                    "target_entity_slug": v.target_entity.slug if v.target_entity else None,
+                    "target_entity_type_slug": v.target_entity.entity_type.slug if v.target_entity and v.target_entity.entity_type else None,
                 }
                 for v in sorted_values[:5]  # Show up to 5 samples
             ]
@@ -1120,6 +1226,7 @@ async def get_entity_facets_summary(
             facet_type_icon=facet_type.icon,
             facet_type_color=facet_type.color,
             facet_type_value_type=facet_type.value_type.value if hasattr(facet_type.value_type, 'value') else facet_type.value_type,
+            value_schema=facet_type.value_schema,
             display_order=facet_type.display_order or 0,
             value_count=len(type_values),
             verified_count=type_verified_count,
@@ -1153,8 +1260,8 @@ async def get_entity_facets_summary(
 @router.get("/search", response_model=FacetValueSearchResponse)
 async def search_facet_values(
     q: str = Query(..., min_length=2, description="Search query"),
-    entity_id: Optional[UUID] = Query(default=None, description="Filter by entity"),
-    facet_type_slug: Optional[str] = Query(default=None, description="Filter by facet type"),
+    entity_id: UUID | None = Query(default=None, description="Filter by entity"),
+    facet_type_slug: str | None = Query(default=None, description="Filter by facet type"),
     page: int = Query(default=1, ge=1, description="Page number"),
     per_page: int = Query(default=20, ge=1, le=100, description="Results per page"),
     session: AsyncSession = Depends(get_session),
@@ -1274,9 +1381,9 @@ async def search_facet_values(
 async def get_entity_history(
     entity_id: UUID,
     facet_type_id: UUID,
-    from_date: Optional[datetime] = Query(default=None, description="Start date filter"),
-    to_date: Optional[datetime] = Query(default=None, description="End date filter"),
-    tracks: Optional[List[str]] = Query(default=None, description="Filter by track keys"),
+    from_date: datetime | None = Query(default=None, description="Start date filter"),
+    to_date: datetime | None = Query(default=None, description="End date filter"),
+    tracks: list[str] | None = Query(default=None, description="Filter by track keys"),
     limit: int = Query(default=1000, ge=1, le=10000, description="Max points to return"),
     session: AsyncSession = Depends(get_session),
 ):
@@ -1298,7 +1405,7 @@ async def get_entity_history(
             limit=limit,
         )
     except ValueError as e:
-        raise NotFoundError("Entity or FacetType", str(e))
+        raise NotFoundError("Entity or FacetType", str(e)) from None
 
 
 @router.get("/entity/{entity_id}/history/{facet_type_id}/aggregated", response_model=AggregatedHistoryResponse)
@@ -1307,9 +1414,9 @@ async def get_entity_history_aggregated(
     facet_type_id: UUID,
     interval: str = Query(default="month", pattern="^(day|week|month|quarter|year)$"),
     method: str = Query(default="avg", pattern="^(avg|sum|min|max)$"),
-    from_date: Optional[datetime] = Query(default=None),
-    to_date: Optional[datetime] = Query(default=None),
-    tracks: Optional[List[str]] = Query(default=None),
+    from_date: datetime | None = Query(default=None),
+    to_date: datetime | None = Query(default=None),
+    tracks: list[str] | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -1331,7 +1438,7 @@ async def get_entity_history_aggregated(
             track_keys=tracks,
         )
     except ValueError as e:
-        raise NotFoundError("Entity or FacetType", str(e))
+        raise NotFoundError("Entity or FacetType", str(e)) from None
 
 
 @router.post("/entity/{entity_id}/history/{facet_type_id}", response_model=HistoryDataPointResponse, status_code=201)
@@ -1385,7 +1492,7 @@ async def add_history_data_point(
         return HistoryDataPointResponse.model_validate(data_point)
 
     except ValueError as e:
-        raise ConflictError("Invalid data", detail=str(e))
+        raise ConflictError("Invalid data", detail=str(e)) from None
 
 
 @router.post("/entity/{entity_id}/history/{facet_type_id}/bulk", response_model=HistoryBulkImportResponse)
@@ -1431,7 +1538,7 @@ async def add_history_data_points_bulk(
         return result
 
     except ValueError as e:
-        raise ConflictError("Invalid data", detail=str(e))
+        raise ConflictError("Invalid data", detail=str(e)) from None
 
 
 @router.put("/entity/{entity_id}/history/{facet_type_id}/{point_id}", response_model=HistoryDataPointResponse)

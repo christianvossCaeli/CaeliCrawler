@@ -1,6 +1,7 @@
 """E2E Tests for Facets API endpoints."""
 
 import uuid
+
 import pytest
 from httpx import AsyncClient
 

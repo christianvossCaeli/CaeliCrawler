@@ -109,7 +109,34 @@
         "LOGIN": "Anmeldung",
         "LOGOUT": "Abmeldung",
         "EXPORT": "Export",
-        "VIEW": "Ansicht"
+        "VIEW": "Ansicht",
+        "IMPORT": "Import",
+        "VERIFY": "Verifizieren",
+        "PASSWORD_CHANGE": "Passwort ändern",
+        "PASSWORD_RESET": "Passwort zurücksetzen",
+        "SESSION_REVOKE": "Sitzung widerrufen",
+        "SESSION_REVOKE_ALL": "Alle Sitzungen widerrufen",
+        "TOKEN_REFRESH": "Token erneuern",
+        "CRAWLER_START": "Crawler starten",
+        "CRAWLER_STOP": "Crawler stoppen",
+        "USER_CREATE": "Benutzer erstellen",
+        "USER_UPDATE": "Benutzer aktualisieren",
+        "USER_DELETE": "Benutzer löschen",
+        "ROLE_CHANGE": "Rolle ändern",
+        "SECURITY_ALERT": "Sicherheitswarnung",
+        "RATE_LIMIT_EXCEEDED": "Rate-Limit überschritten"
+      },
+      "clear": {
+        "button": "Verlauf leeren",
+        "title": "Audit-Log leeren",
+        "warning": "Diese Aktion ist unwiderruflich. Alle gelöschten Einträge können nicht wiederhergestellt werden.",
+        "deleteAll": "Alle Einträge löschen",
+        "deleteOlderThan": "Nur Einträge älter als Datum löschen",
+        "beforeDate": "Vor diesem Datum",
+        "confirmLabel": "Bestätigung",
+        "confirmPlaceholder": "DELETE",
+        "confirmHint": "Geben Sie 'DELETE' ein, um die Löschung zu bestätigen",
+        "confirm": "Endgültig löschen"
       }
     },
     "entityTypes": {
@@ -207,6 +234,7 @@
         "valueType": "Werttyp",
         "values": "Werte",
         "ai": "KI",
+        "review": "Prüfung",
         "system": "System",
         "active": "Aktiv"
       },
@@ -265,7 +293,29 @@
         "saveError": "Fehler beim Speichern",
         "deleteError": "Fehler beim Löschen",
         "schemaGenerated": "Schema und Einstellungen wurden generiert",
-        "schemaGenerationError": "Fehler bei der Schema-Generierung"
+        "schemaGenerationError": "Fehler bei der Schema-Generierung",
+        "approved": "\"{name}\" wurde genehmigt",
+        "rejected": "\"{name}\" wurde abgelehnt",
+        "merged": "\"{name}\" wurde zusammengeführt",
+        "reviewError": "Fehler bei der Überprüfung"
+      },
+      "review": {
+        "title": "Überprüfung ausstehend",
+        "subtitle": "Automatisch erstellte Merkmalstypen prüfen",
+        "badge": "{count} zu prüfen",
+        "needsReview": "Prüfung erforderlich",
+        "autoCreated": "Automatisch erstellt",
+        "approve": "Genehmigen",
+        "reject": "Ablehnen",
+        "merge": "Zusammenführen",
+        "mergeWith": "Zusammenführen mit",
+        "selectTarget": "Ziel-Merkmalstyp auswählen",
+        "dialog": {
+          "title": "Merkmalstyp überprüfen",
+          "approveConfirm": "Diesen Merkmalstyp genehmigen? Er wird dann für alle Benutzer verfügbar sein.",
+          "rejectConfirm": "Diesen Merkmalstyp ablehnen? Er wird deaktiviert und nicht mehr verwendet.",
+          "mergeConfirm": "Mit welchem Merkmalstyp soll \"{name}\" zusammengeführt werden?"
+        }
       }
     },
     "apiTemplates": {
@@ -426,6 +476,69 @@
         "deleted": "Vorlage gelöscht",
         "executed": "{count} Sammel-Jobs gestartet",
         "executeFailed": "Ausführung fehlgeschlagen"
+      }
+    },
+    "llmUsage": {
+      "title": "LLM-Verbrauch",
+      "subtitle": "Token-Verbrauch und Kostenanalyse für KI-Modelle",
+      "noData": "Keine Daten verfügbar",
+      "uncategorized": "Ohne Kategorie",
+      "stats": {
+        "requests": "Anfragen",
+        "tokens": "Tokens",
+        "cost": "Kosten",
+        "projected": "Prognose (Monat)"
+      },
+      "filters": {
+        "period": "Zeitraum",
+        "provider": "Anbieter",
+        "taskType": "Aufgabentyp",
+        "clear": "Filter zurücksetzen"
+      },
+      "charts": {
+        "trend": "Nutzungsverlauf",
+        "byModel": "Kosten nach Modell"
+      },
+      "tables": {
+        "byTaskType": "Nach Aufgabentyp",
+        "byCategory": "Nach Kategorie",
+        "topConsumers": "Größte Verbraucher",
+        "headers": {
+          "taskType": "Aufgabentyp",
+          "taskName": "Aufgabe",
+          "category": "Kategorie",
+          "requests": "Anfragen",
+          "tokens": "Tokens",
+          "cost": "Kosten",
+          "avgDuration": "Ø Dauer"
+        }
+      },
+      "budget": {
+        "title": "Budgets",
+        "add": "Budget erstellen",
+        "edit": "Budget bearbeiten",
+        "deleteTitle": "Budget löschen",
+        "deleteConfirm": "Möchten Sie das Budget \"{name}\" wirklich löschen?",
+        "warningAlert": "Ein oder mehrere Budgets haben die Warnschwelle überschritten.",
+        "criticalWarning": "ACHTUNG: Ein oder mehrere Budgets haben die kritische Schwelle überschritten!",
+        "headers": {
+          "name": "Name",
+          "type": "Typ",
+          "limit": "Monatliches Limit",
+          "status": "Status",
+          "active": "Aktiv"
+        },
+        "form": {
+          "name": "Name",
+          "type": "Budget-Typ",
+          "limit": "Monatliches Limit",
+          "warningThreshold": "Warnschwelle",
+          "criticalThreshold": "Kritische Schwelle",
+          "alertEmails": "E-Mail-Empfänger",
+          "alertEmailsHint": "E-Mail-Adressen für Benachrichtigungen eingeben",
+          "description": "Beschreibung",
+          "active": "Aktiv"
+        }
       }
     }
   }

@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -26,20 +26,20 @@ class ExportJob(Base):
     )
 
     # Job metadata
-    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    celery_task_id: Mapped[Optional[str]] = mapped_column(
+    celery_task_id: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         index=True,
     )
 
     # Export configuration (stored as JSON)
-    export_config: Mapped[Dict[str, Any]] = mapped_column(
+    export_config: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
         default=dict,
@@ -60,39 +60,39 @@ class ExportJob(Base):
     )
 
     # Progress tracking
-    total_records: Mapped[Optional[int]] = mapped_column(
+    total_records: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
     )
-    processed_records: Mapped[Optional[int]] = mapped_column(
-        Integer,
-        nullable=True,
-        default=0,
-    )
-    progress_percent: Mapped[Optional[int]] = mapped_column(
+    processed_records: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
         default=0,
     )
-    progress_message: Mapped[Optional[str]] = mapped_column(
+    progress_percent: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        default=0,
+    )
+    progress_message: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
 
     # Result
-    file_path: Mapped[Optional[str]] = mapped_column(
+    file_path: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
-    file_size: Mapped[Optional[int]] = mapped_column(
+    file_size: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
     )
-    download_url: Mapped[Optional[str]] = mapped_column(
+    download_url: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
-    error_message: Mapped[Optional[str]] = mapped_column(
+    error_message: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
@@ -103,15 +103,15 @@ class ExportJob(Base):
         server_default=func.now(),
         nullable=False,
     )
-    started_at: Mapped[Optional[datetime]] = mapped_column(
+    started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    completed_at: Mapped[Optional[datetime]] = mapped_column(
+    completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    expires_at: Mapped[Optional[datetime]] = mapped_column(
+    expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )

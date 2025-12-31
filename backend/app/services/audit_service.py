@@ -1,16 +1,16 @@
 """Service for creating audit log entries."""
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.audit_log import AuditLog, AuditAction
+from app.models.audit_log import AuditAction, AuditLog
 from app.models.user import User
 
 
-def compute_diff(old_data: Dict[str, Any], new_data: Dict[str, Any]) -> Dict[str, Any]:
+def compute_diff(old_data: dict[str, Any], new_data: dict[str, Any]) -> dict[str, Any]:
     """
     Compute the difference between old and new data.
 
@@ -76,12 +76,12 @@ async def create_audit_log(
     session: AsyncSession,
     action: AuditAction,
     entity_type: str,
-    entity_id: Optional[UUID] = None,
-    entity_name: Optional[str] = None,
-    changes: Optional[Dict[str, Any]] = None,
-    user: Optional[User] = None,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
+    entity_id: UUID | None = None,
+    entity_name: str | None = None,
+    changes: dict[str, Any] | None = None,
+    user: User | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> AuditLog:
     """
     Create an audit log entry.
@@ -118,9 +118,9 @@ async def create_audit_log(
 async def log_create(
     session: AsyncSession,
     entity: Any,
-    user: Optional[User] = None,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
+    user: User | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> AuditLog:
     """
     Log entity creation.
@@ -152,12 +152,12 @@ async def log_create(
 async def log_update(
     session: AsyncSession,
     entity: Any,
-    old_data: Dict[str, Any],
-    new_data: Dict[str, Any],
-    user: Optional[User] = None,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
-) -> Optional[AuditLog]:
+    old_data: dict[str, Any],
+    new_data: dict[str, Any],
+    user: User | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> AuditLog | None:
     """
     Log entity update with computed diff.
 
@@ -195,9 +195,9 @@ async def log_update(
 async def log_delete(
     session: AsyncSession,
     entity: Any,
-    user: Optional[User] = None,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
+    user: User | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> AuditLog:
     """
     Log entity deletion.
@@ -229,8 +229,8 @@ async def log_delete(
 async def log_login(
     session: AsyncSession,
     user: User,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> AuditLog:
     """Log user login."""
     return await create_audit_log(
@@ -248,8 +248,8 @@ async def log_login(
 async def log_logout(
     session: AsyncSession,
     user: User,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> AuditLog:
     """Log user logout."""
     return await create_audit_log(
@@ -267,8 +267,8 @@ async def log_logout(
 async def log_password_change(
     session: AsyncSession,
     user: User,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> AuditLog:
     """Log password change."""
     return await create_audit_log(
@@ -289,8 +289,8 @@ async def log_session_revoke(
     user: User,
     user_session: Any,
     reason: str,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> AuditLog:
     """Log session revocation."""
     return await create_audit_log(
@@ -314,8 +314,8 @@ async def log_bulk_session_revoke(
     session: AsyncSession,
     user: User,
     count: int,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> AuditLog:
     """Log bulk session revocation (sign out everywhere)."""
     return await create_audit_log(
@@ -335,8 +335,8 @@ async def log_crawler_start(
     session: AsyncSession,
     user: User,
     source: Any,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> AuditLog:
     """Log crawler start."""
     return await create_audit_log(
@@ -357,9 +357,9 @@ async def log_export(
     user: User,
     export_type: str,
     record_count: int,
-    filters: Optional[Dict[str, Any]] = None,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
+    filters: dict[str, Any] | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> AuditLog:
     """Log data export."""
     return await create_audit_log(
@@ -381,10 +381,10 @@ async def log_export(
 async def log_security_event(
     session: AsyncSession,
     event_type: str,
-    details: Dict[str, Any],
-    user: Optional[User] = None,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
+    details: dict[str, Any],
+    user: User | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> AuditLog:
     """Log security events (rate limiting, suspicious activity, etc.)."""
     return await create_audit_log(

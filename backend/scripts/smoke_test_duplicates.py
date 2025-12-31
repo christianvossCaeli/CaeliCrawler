@@ -14,25 +14,19 @@ Usage:
 
 import asyncio
 import sys
-from typing import Tuple
-from uuid import uuid4
 
 import structlog
 
 from app.database import async_session_factory
-from app.models import EntityType, FacetType, RelationType, Location
+from app.models import EntityType, FacetType, Location, RelationType
 from app.utils.similarity import (
+    compute_config_hash,
+    find_duplicate_api_configuration,
+    find_duplicate_location,
     find_similar_entity_types,
     find_similar_facet_types,
     find_similar_relation_types,
-    find_duplicate_location,
-    find_duplicate_analysis_template,
-    find_duplicate_api_configuration,
-    find_duplicate_crawl_preset,
-    find_duplicate_notification_rule,
-    compute_config_hash,
     get_hierarchy_mapping,
-    TYPE_SIMILARITY_THRESHOLD,
 )
 
 logger = structlog.get_logger(__name__)
@@ -50,19 +44,15 @@ class DuplicateDetectionSmokeTest:
         """Log test result."""
         if passed:
             self.passed += 1
-            print(f"  ✅ {test_name}")
         else:
             self.failed += 1
-            print(f"  ❌ {test_name}: {message}")
 
     def log_skip(self, test_name: str, reason: str):
         """Log skipped test."""
         self.skipped += 1
-        print(f"  ⏭️  {test_name}: {reason}")
 
     async def test_hierarchy_mappings(self):
         """Test that hierarchy level mappings work correctly."""
-        print("\n=== Hierarchy Level Mappings ===")
 
         test_cases = [
             ("Bundesland", "territorial_entity", 1),
@@ -92,8 +82,6 @@ class DuplicateDetectionSmokeTest:
 
     async def test_entity_type_similarity(self, session):
         """Test EntityType similarity detection."""
-        print("\n=== EntityType Similarity Detection ===")
-        print(f"    (Threshold: {TYPE_SIMILARITY_THRESHOLD})")
 
         # Get existing entity types for reference
         from sqlalchemy import select
@@ -106,7 +94,6 @@ class DuplicateDetectionSmokeTest:
             self.log_skip("EntityType similarity", "No existing EntityTypes found")
             return
 
-        print(f"    Existing types: {[et.name for et in existing_types]}")
 
         test_cases = [
             # (test_name, should_match, expected_match_name_substring)
@@ -159,8 +146,6 @@ class DuplicateDetectionSmokeTest:
 
     async def test_facet_type_similarity(self, session):
         """Test FacetType similarity detection."""
-        print("\n=== FacetType Similarity Detection ===")
-        print(f"    (Threshold: {TYPE_SIMILARITY_THRESHOLD})")
 
         # Get existing facet types for reference
         from sqlalchemy import select
@@ -173,7 +158,6 @@ class DuplicateDetectionSmokeTest:
             self.log_skip("FacetType similarity", "No existing FacetTypes found")
             return
 
-        print(f"    Existing types: {[ft.name for ft in existing_types]}")
 
         test_cases = [
             # (test_name, should_match, expected_match_name_substring)
@@ -229,7 +213,6 @@ class DuplicateDetectionSmokeTest:
 
     async def test_entity_matching_service(self, session):
         """Test EntityMatchingService duplicate detection."""
-        print("\n=== EntityMatchingService (Entity Duplicates) ===")
 
         from services.entity_matching_service import EntityMatchingService
 
@@ -291,8 +274,6 @@ class DuplicateDetectionSmokeTest:
 
     async def test_relation_type_similarity(self, session):
         """Test RelationType similarity detection."""
-        print("\n=== RelationType Similarity Detection ===")
-        print(f"    (Threshold: {TYPE_SIMILARITY_THRESHOLD})")
 
         # Get existing relation types for reference
         from sqlalchemy import select
@@ -305,7 +286,6 @@ class DuplicateDetectionSmokeTest:
             self.log_skip("RelationType similarity", "No existing RelationTypes found")
             return
 
-        print(f"    Existing types: {[rt.name for rt in existing_types[:5]]}...")
 
         # Test: Same name should always match
         for rt in existing_types[:3]:  # Test first 3
@@ -314,7 +294,7 @@ class DuplicateDetectionSmokeTest:
             self.log_result(
                 f"'{rt.name}' (exact) self-excluded",
                 len(matches) == 0 or matches[0][0].id != rt.id,
-                f"Self-match not excluded" if matches and matches[0][0].id == rt.id else ""
+                "Self-match not excluded" if matches and matches[0][0].id == rt.id else ""
             )
 
         # Test: Unrelated name should not match
@@ -327,7 +307,6 @@ class DuplicateDetectionSmokeTest:
 
     async def test_location_duplicate_detection(self, session):
         """Test Location duplicate detection."""
-        print("\n=== Location Duplicate Detection ===")
 
         # Get an existing location
         from sqlalchemy import select
@@ -340,7 +319,6 @@ class DuplicateDetectionSmokeTest:
             self.log_skip("Location duplicate", "No existing Locations found")
             return
 
-        print(f"    Testing with: '{existing_location.name}' ({existing_location.country})")
 
         # Test: Same name should find duplicate
         duplicate = await find_duplicate_location(
@@ -373,7 +351,6 @@ class DuplicateDetectionSmokeTest:
 
     async def test_config_hash_functions(self):
         """Test config hash computation for various models."""
-        print("\n=== Config Hash Functions ===")
 
         # Test: Same config = same hash
         config1 = {"entity_type": "windpark", "filters": {"country": "DE"}}
@@ -417,11 +394,11 @@ class DuplicateDetectionSmokeTest:
 
     async def test_api_configuration_duplicate(self, session):
         """Test APIConfiguration duplicate detection."""
-        print("\n=== APIConfiguration Duplicate Detection ===")
 
-        from app.models.api_configuration import APIConfiguration
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
+
+        from app.models.api_configuration import APIConfiguration
 
         # Get an existing API configuration
         result = await session.execute(
@@ -435,9 +412,7 @@ class DuplicateDetectionSmokeTest:
             self.log_skip("APIConfiguration duplicate", "No existing APIConfigurations found")
             return
 
-        config_name = existing.data_source.name
         base_url = existing.data_source.base_url
-        print(f"    Testing with: '{config_name}' ({base_url})")
 
         # Test: Same URL should find duplicate
         duplicate = await find_duplicate_api_configuration(
@@ -447,7 +422,7 @@ class DuplicateDetectionSmokeTest:
         )
 
         self.log_result(
-            f"Find existing by URL",
+            "Find existing by URL",
             duplicate is not None,
             "No duplicate found" if not duplicate else ""
         )
@@ -467,9 +442,6 @@ class DuplicateDetectionSmokeTest:
 
     async def run_all_tests(self):
         """Run all smoke tests."""
-        print("=" * 60)
-        print("DUPLICATE DETECTION SMOKE TESTS")
-        print("=" * 60)
 
         # Test hierarchy mappings (no DB needed)
         await self.test_hierarchy_mappings()
@@ -497,13 +469,6 @@ class DuplicateDetectionSmokeTest:
             await session.rollback()
 
         # Summary
-        print("\n" + "=" * 60)
-        print("SUMMARY")
-        print("=" * 60)
-        print(f"  Passed:  {self.passed}")
-        print(f"  Failed:  {self.failed}")
-        print(f"  Skipped: {self.skipped}")
-        print("=" * 60)
 
         return self.failed == 0
 

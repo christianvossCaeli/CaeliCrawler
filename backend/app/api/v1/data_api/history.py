@@ -5,7 +5,6 @@ Use the Entity system with EntityType.slug="municipality" for entity-level analy
 Entity history is available through the audit/versioning system.
 """
 
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -13,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
-from app.models import ExtractedData, Document, DataSource
+from app.models import DataSource, Document, ExtractedData
 from app.models.crawl_job import CrawlJob, JobStatus
 
 router = APIRouter()
@@ -21,8 +20,8 @@ router = APIRouter()
 
 @router.get("/history/crawls")
 async def get_crawl_history(
-    source_id: Optional[UUID] = Query(default=None),
-    category_id: Optional[UUID] = Query(default=None),
+    source_id: UUID | None = Query(default=None),
+    category_id: UUID | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
 ):

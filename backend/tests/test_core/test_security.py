@@ -1,28 +1,25 @@
 """Unit tests for security utilities."""
 
-import time
-from datetime import datetime, timedelta, timezone
-from uuid import UUID, uuid4
-
-import pytest
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 from app.core.security import (
-    ALGORITHM,
     ACCESS_TOKEN_EXPIRE_MINUTES,
+    ALGORITHM,
+    MAX_SESSIONS_PER_USER,
     REFRESH_TOKEN_EXPIRE_DAYS,
     SSE_TICKET_EXPIRE_SECONDS,
-    MAX_SESSIONS_PER_USER,
-    verify_password,
-    get_password_hash,
     create_access_token,
-    decode_access_token,
-    generate_refresh_token,
-    hash_refresh_token,
-    verify_refresh_token,
     create_refresh_token_response,
-    create_tokens_for_session,
     create_sse_ticket,
+    create_tokens_for_session,
+    decode_access_token,
     decode_sse_ticket,
+    generate_refresh_token,
+    get_password_hash,
+    hash_refresh_token,
+    verify_password,
+    verify_refresh_token,
 )
 
 
@@ -31,7 +28,7 @@ class TestPasswordHashing:
 
     def test_hash_password(self):
         """Test that password hashing creates a hash."""
-        password = "testpassword123"
+        password = "testpassword123"  # noqa: S105
         hashed = get_password_hash(password)
 
         assert hashed != password
@@ -41,7 +38,7 @@ class TestPasswordHashing:
 
     def test_hash_password_different_each_time(self):
         """Test that the same password produces different hashes (due to salt)."""
-        password = "testpassword123"
+        password = "testpassword123"  # noqa: S105
         hash1 = get_password_hash(password)
         hash2 = get_password_hash(password)
 
@@ -49,29 +46,29 @@ class TestPasswordHashing:
 
     def test_verify_password_correct(self):
         """Test that correct password is verified."""
-        password = "testpassword123"
+        password = "testpassword123"  # noqa: S105
         hashed = get_password_hash(password)
 
         assert verify_password(password, hashed) is True
 
     def test_verify_password_incorrect(self):
         """Test that incorrect password is rejected."""
-        password = "testpassword123"
-        wrong_password = "wrongpassword"
+        password = "testpassword123"  # noqa: S105
+        wrong_password = "wrongpassword"  # noqa: S105
         hashed = get_password_hash(password)
 
         assert verify_password(wrong_password, hashed) is False
 
     def test_verify_password_with_special_characters(self):
         """Test password verification with special characters."""
-        password = "p@$$w0rd!#%^&*()_+-=[]{}|;':\",./<>?"
+        password = "p@$$w0rd!#%^&*()_+-=[]{}|;':\",./<>?"  # noqa: S105
         hashed = get_password_hash(password)
 
         assert verify_password(password, hashed) is True
 
     def test_verify_password_with_unicode(self):
         """Test password verification with unicode characters."""
-        password = "пароль密码كلمة"
+        password = "пароль密码كلمة"  # noqa: S105
         hashed = get_password_hash(password)
 
         assert verify_password(password, hashed) is True
@@ -117,7 +114,7 @@ class TestAccessToken:
 
     def test_decode_invalid_token(self):
         """Test decoding an invalid token returns None."""
-        invalid_token = "invalid.token.here"
+        invalid_token = "invalid.token.here"  # noqa: S105
 
         payload = decode_access_token(invalid_token)
 
@@ -150,8 +147,8 @@ class TestAccessToken:
         assert "exp" in payload
 
         # Token should expire within expected time frame (with some margin)
-        exp_time = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
-        expected_exp = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        exp_time = datetime.fromtimestamp(payload["exp"], tz=UTC)
+        expected_exp = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
         # Allow 5 second margin for test execution time
         assert abs((exp_time - expected_exp).total_seconds()) < 5
@@ -226,7 +223,7 @@ class TestRefreshToken:
         assert verify_refresh_token(raw_token, token_hash)
 
         # Check expiry is in the future
-        expected_exp = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+        expected_exp = datetime.now(UTC) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
         assert abs((expires_at - expected_exp).total_seconds()) < 5
 
 
@@ -333,8 +330,8 @@ class TestSSETicket:
         payload = decode_sse_ticket(ticket)
 
         assert payload is not None
-        exp_time = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
-        expected_exp = datetime.now(timezone.utc) + timedelta(seconds=SSE_TICKET_EXPIRE_SECONDS)
+        exp_time = datetime.fromtimestamp(payload["exp"], tz=UTC)
+        expected_exp = datetime.now(UTC) + timedelta(seconds=SSE_TICKET_EXPIRE_SECONDS)
 
         # Allow 5 second margin
         assert abs((exp_time - expected_exp).total_seconds()) < 5

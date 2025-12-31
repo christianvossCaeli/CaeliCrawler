@@ -8,11 +8,11 @@ import io
 import re
 import unicodedata
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 import structlog
-from jinja2 import Environment, BaseLoader
+from jinja2 import BaseLoader, Environment
 
 
 def sanitize_filename(filename: str, max_length: int = 100) -> str:
@@ -60,12 +60,12 @@ def sanitize_filename(filename: str, max_length: int = 100) -> str:
     return filename or "export"
 
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy import select  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
+from sqlalchemy.orm import selectinload  # noqa: E402
 
-from app.models import CustomSummary, SummaryExecution, SummaryWidget
-from app.models.summary_execution import ExecutionStatus
+from app.models import CustomSummary, SummaryExecution, SummaryWidget  # noqa: E402
+from app.models.summary_execution import ExecutionStatus  # noqa: E402
 
 logger = structlog.get_logger(__name__)
 
@@ -387,14 +387,14 @@ def _format_value(value: Any) -> str:
     return str(value)
 
 
-def _get_all_keys(data: List[Dict]) -> List[str]:
+def _get_all_keys(data: list[dict]) -> list[str]:
     """Extract all unique keys from data, excluding internal keys."""
     if not data:
         return []
 
     keys = set()
     for row in data[:50]:  # Sample first 50 rows for performance
-        for key in row.keys():
+        for key in row:
             if key not in EXCLUDED_DATA_KEYS and key != 'facets':
                 keys.add(key)
 
@@ -407,7 +407,7 @@ def _get_all_keys(data: List[Dict]) -> List[str]:
     return sorted_keys
 
 
-def _get_facet_keys(data: List[Dict]) -> List[str]:
+def _get_facet_keys(data: list[dict]) -> list[str]:
     """Extract all facet keys from data."""
     if not data:
         return []
@@ -421,10 +421,10 @@ def _get_facet_keys(data: List[Dict]) -> List[str]:
 
 
 def render_data_table(
-    data: List[Dict],
+    data: list[dict],
     total: int,
     max_rows: int = 100,
-    columns_config: Optional[List[Dict]] = None,
+    columns_config: list[dict] | None = None,
 ) -> str:
     """
     Render a data table with configured or auto-detected columns.
@@ -474,7 +474,7 @@ def render_data_table(
     return ''.join(html)
 
 
-def _get_nested_value(data: Dict, key: str) -> Any:
+def _get_nested_value(data: dict, key: str) -> Any:
     """Get a value using dot notation for nested access."""
     if not key or not data:
         return None
@@ -492,7 +492,7 @@ def _get_nested_value(data: Dict, key: str) -> Any:
     return data.get(key)
 
 
-def render_map_image(data: List[Dict], total: int, pregenerated_image: Optional[str] = None) -> str:
+def render_map_image(data: list[dict], total: int, pregenerated_image: str | None = None) -> str:
     """Render a map visualization with a pre-generated screenshot.
 
     Styled to match the website's MapVisualization component with Caeli brand colors.
@@ -536,7 +536,7 @@ def render_map_image(data: List[Dict], total: int, pregenerated_image: Optional[
 
         # Info card overlay simulation (top-left style info)
         html_parts.append(
-            f'<div style="width: 700px; margin-top: 8px; display: flex; justify-content: space-between; align-items: flex-start;">'
+            '<div style="width: 700px; margin-top: 8px; display: flex; justify-content: space-between; align-items: flex-start;">'
         )
 
         # Left: Feature count (like website overlay)
@@ -580,15 +580,16 @@ def render_map_image(data: List[Dict], total: int, pregenerated_image: Optional[
     return ''.join(html_parts)
 
 
-async def _generate_map_screenshot_async(points: List[Dict], status_config: Dict, default_color: str) -> str:
+async def _generate_map_screenshot_async(points: list[dict], status_config: dict, default_color: str) -> str:
     """Generate a map screenshot using Playwright async API and Leaflet.
 
     Uses CartoDB Positron tiles and Caeli brand colors to match the website styling.
     """
     import base64
     import json
-    import tempfile
     import os
+    import tempfile
+
     from playwright.async_api import async_playwright
 
     # Calculate bounds with padding
@@ -688,7 +689,7 @@ async def _generate_map_screenshot_async(points: List[Dict], status_config: Dict
         os.unlink(html_path)
 
 
-def render_map_table(data: List[Dict], total: int) -> str:
+def render_map_table(data: list[dict], total: int) -> str:
     """Render a map data table with coordinates and all attributes."""
     if not data:
         return '<div class="no-data">Keine Standortdaten</div>'
@@ -733,8 +734,8 @@ def render_map_table(data: List[Dict], total: int) -> str:
 
 
 def render_comparison_table(
-    data: List[Dict],
-    columns_config: Optional[List[Dict]] = None,
+    data: list[dict],
+    columns_config: list[dict] | None = None,
 ) -> str:
     """
     Render a comparison table with entities as columns.
@@ -791,7 +792,7 @@ class SummaryExportService:
 
     def __init__(self, session: AsyncSession):
         self.session = session
-        self.jinja_env = Environment(loader=BaseLoader())
+        self.jinja_env = Environment(loader=BaseLoader())  # noqa: S701
         # Register helper functions as globals
         self.jinja_env.globals['render_data_table'] = render_data_table
         self.jinja_env.globals['render_map_table'] = render_map_table
@@ -801,7 +802,7 @@ class SummaryExportService:
     async def export_to_pdf(
         self,
         summary_id: UUID,
-        execution_id: Optional[UUID] = None,
+        execution_id: UUID | None = None,
     ) -> bytes:
         """
         Export summary to PDF format.
@@ -831,7 +832,7 @@ class SummaryExportService:
             raise ImportError(
                 "WeasyPrint is required for PDF export. "
                 "Install it with: pip install weasyprint"
-            )
+            ) from None
 
         # Load summary with widgets
         result = await self.session.execute(
@@ -883,7 +884,7 @@ class SummaryExportService:
     async def export_to_excel(
         self,
         summary_id: UUID,
-        execution_id: Optional[UUID] = None,
+        execution_id: UUID | None = None,
     ) -> bytes:
         """
         Export summary to Excel format.
@@ -909,14 +910,14 @@ class SummaryExportService:
 
         try:
             from openpyxl import Workbook
-            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
             from openpyxl.utils import get_column_letter
         except ImportError:
             logger.error("openpyxl not installed")
             raise ImportError(
                 "openpyxl is required for Excel export. "
                 "Install it with: pip install openpyxl"
-            )
+            ) from None
 
         # Load summary with widgets
         result = await self.session.execute(
@@ -1097,8 +1098,8 @@ class SummaryExportService:
     async def _get_execution(
         self,
         summary_id: UUID,
-        execution_id: Optional[UUID] = None,
-    ) -> Optional[SummaryExecution]:
+        execution_id: UUID | None = None,
+    ) -> SummaryExecution | None:
         """Get execution data for export."""
         if execution_id:
             result = await self.session.execute(
@@ -1159,8 +1160,8 @@ class SummaryExportService:
     def _get_configured_columns(
         self,
         widget: SummaryWidget,
-        data: List[Dict[str, Any]],
-    ) -> List[Dict[str, str]]:
+        data: list[dict[str, Any]],
+    ) -> list[dict[str, str]]:
         """
         Get column configuration from widget or auto-detect from data.
 
@@ -1206,7 +1207,7 @@ class SummaryExportService:
 
         return columns
 
-    def _get_value_by_key(self, row_data: Dict[str, Any], key: str) -> Any:
+    def _get_value_by_key(self, row_data: dict[str, Any], key: str) -> Any:
         """
         Get a value from row data using a key (supports dot notation for nested values).
 
@@ -1232,9 +1233,9 @@ class SummaryExportService:
 
     async def _generate_map_images(
         self,
-        widgets: List[SummaryWidget],
-        cached_data: Dict[str, Any],
-    ) -> Dict[str, str]:
+        widgets: list[SummaryWidget],
+        cached_data: dict[str, Any],
+    ) -> dict[str, str]:
         """
         Pre-generate map screenshots for all map widgets.
 
@@ -1245,7 +1246,7 @@ class SummaryExportService:
         Returns:
             Dict mapping widget_id to base64-encoded PNG image
         """
-        map_images: Dict[str, str] = {}
+        map_images: dict[str, str] = {}
 
         # Status colors
         status_config = {

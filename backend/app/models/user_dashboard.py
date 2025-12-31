@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -48,7 +48,7 @@ class UserDashboardPreference(Base):
     #   ],
     #   "version": 1
     # }
-    widget_config: Mapped[Dict[str, Any]] = mapped_column(
+    widget_config: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
         default=dict,
@@ -77,16 +77,16 @@ class UserDashboardPreference(Base):
         return f"<UserDashboardPreference user_id={self.user_id}>"
 
     @property
-    def widgets(self) -> List[Dict[str, Any]]:
+    def widgets(self) -> list[dict[str, Any]]:
         """Get the list of widget configurations."""
         return self.widget_config.get("widgets", [])
 
     @property
-    def enabled_widgets(self) -> List[Dict[str, Any]]:
+    def enabled_widgets(self) -> list[dict[str, Any]]:
         """Get only enabled widgets."""
         return [w for w in self.widgets if w.get("enabled", True)]
 
-    def get_widget(self, widget_id: str) -> Optional[Dict[str, Any]]:
+    def get_widget(self, widget_id: str) -> dict[str, Any] | None:
         """Get a specific widget by ID."""
         for widget in self.widgets:
             if widget.get("id") == widget_id:

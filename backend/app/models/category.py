@@ -2,21 +2,21 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from pgvector.sqlalchemy import Vector
 
 from app.database import Base
 
 if TYPE_CHECKING:
-    from app.models.data_source import DataSource
     from app.models.api_export import ApiExport
+    from app.models.category_entity_type import CategoryEntityType
+    from app.models.data_source import DataSource
     from app.models.entity_type import EntityType
     from app.models.user import User
-    from app.models.category_entity_type import CategoryEntityType
 
 
 class Category(Base):
@@ -46,36 +46,36 @@ class Category(Base):
         nullable=False,
         index=True,
     )
-    name_embedding: Mapped[Optional[List[float]]] = mapped_column(
+    name_embedding: Mapped[list[float] | None] = mapped_column(
         Vector(1536),
         nullable=True,
         comment="Embedding vector for semantic similarity search",
     )
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Purpose defines what we're looking for (e.g., "Windkraft-Restriktionen")
     purpose: Mapped[str] = mapped_column(Text, nullable=False)
 
     # Search configuration
-    search_terms: Mapped[List[str]] = mapped_column(
+    search_terms: Mapped[list[str]] = mapped_column(
         JSONB,
         default=list,
         nullable=False,
     )
-    document_types: Mapped[List[str]] = mapped_column(
+    document_types: Mapped[list[str]] = mapped_column(
         JSONB,
         default=list,
         nullable=False,
     )
 
     # URL filtering (applied to all sources in this category)
-    url_include_patterns: Mapped[List[str]] = mapped_column(
+    url_include_patterns: Mapped[list[str]] = mapped_column(
         JSONB,
         default=list,
         nullable=False,
         comment="Regex patterns - URLs must match at least one (if set)",
     )
-    url_exclude_patterns: Mapped[List[str]] = mapped_column(
+    url_exclude_patterns: Mapped[list[str]] = mapped_column(
         JSONB,
         default=list,
         nullable=False,
@@ -83,7 +83,7 @@ class Category(Base):
     )
 
     # Language configuration
-    languages: Mapped[List[str]] = mapped_column(
+    languages: Mapped[list[str]] = mapped_column(
         JSONB,
         default=lambda: ["de"],
         nullable=False,
@@ -91,7 +91,7 @@ class Category(Base):
     )
 
     # AI extraction prompt template for this category
-    ai_extraction_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ai_extraction_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Extraction handler: 'default' (entity_facet_service) or 'event' (event_extraction_service)
     extraction_handler: Mapped[str] = mapped_column(
@@ -102,14 +102,14 @@ class Category(Base):
     )
 
     # Display configuration for results view
-    display_fields: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    display_fields: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
         comment="Configuration for result display columns: {columns: [{key, label, type, width}]}",
     )
 
     # Entity reference extraction configuration
-    entity_reference_config: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    entity_reference_config: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
         comment="Config for entity reference extraction: {entity_types: ['territorial-entity', 'person']}",
@@ -121,19 +121,27 @@ class Category(Base):
         default="0 2 * * *",  # Daily at 2 AM
         nullable=False,
     )
+    # Explicit switch to enable scheduled crawling
+    # Must be set to True for automatic crawls based on schedule_cron
+    schedule_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="If true, automatic crawls are enabled based on schedule_cron",
+    )
 
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Ownership & Visibility
-    created_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
         comment="User who created this category",
     )
-    owner_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
@@ -149,7 +157,7 @@ class Category(Base):
     )
 
     # Target EntityType for extracted entities
-    target_entity_type_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    target_entity_type_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("entity_types.id", ondelete="SET NULL"),
         nullable=True,
@@ -172,14 +180,14 @@ class Category(Base):
 
     # Relationships
     # N:M relationship via junction table
-    sources: Mapped[List["DataSource"]] = relationship(
+    sources: Mapped[list["DataSource"]] = relationship(
         "DataSource",
         secondary="data_source_categories",
         back_populates="categories",
         viewonly=True,
     )
 
-    api_exports: Mapped[List["ApiExport"]] = relationship(
+    api_exports: Mapped[list["ApiExport"]] = relationship(
         "ApiExport",
         back_populates="category",
     )
@@ -201,7 +209,7 @@ class Category(Base):
     )
 
     # N:M relationship to EntityTypes via junction table (Multi-EntityType Support)
-    entity_type_associations: Mapped[List["CategoryEntityType"]] = relationship(
+    entity_type_associations: Mapped[list["CategoryEntityType"]] = relationship(
         "CategoryEntityType",
         back_populates="category",
         cascade="all, delete-orphan",
@@ -209,7 +217,7 @@ class Category(Base):
     )
 
     @property
-    def entity_types(self) -> List["EntityType"]:
+    def entity_types(self) -> list["EntityType"]:
         """Get all associated EntityTypes in extraction order."""
         return [assoc.entity_type for assoc in self.entity_type_associations]
 

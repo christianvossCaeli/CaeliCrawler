@@ -7,14 +7,14 @@ Operations:
 - create_relation_type: Create a new relation type
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import UUID
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .base import WriteOperation, OperationResult, register_operation
+from .base import OperationResult, WriteOperation, register_operation
 
 logger = structlog.get_logger()
 
@@ -36,8 +36,8 @@ class AssignFacetTypesOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         from app.models import EntityType, FacetType
 
@@ -111,7 +111,7 @@ class AssignFacetTypesOperation(WriteOperation):
                 # Get facet types
                 if auto_detect or not facet_type_slugs:
                     ft_result = await session.execute(
-                        select(FacetType).where(FacetType.is_active == True)
+                        select(FacetType).where(FacetType.is_active)
                     )
                     facet_types = list(ft_result.scalars().all())
                 else:
@@ -158,10 +158,10 @@ class LinkCategoryEntityTypesOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
-        from app.models import EntityType, Category, CategoryEntityType
+        from app.models import Category, CategoryEntityType, EntityType
 
         link_data = command.get("link_data", {})
 
@@ -176,7 +176,7 @@ class LinkCategoryEntityTypesOperation(WriteOperation):
             if auto_detect:
                 # Get all active categories
                 cat_result = await session.execute(
-                    select(Category).where(Category.is_active == True)
+                    select(Category).where(Category.is_active)
                 )
                 categories = list(cat_result.scalars().all())
             else:
@@ -252,8 +252,8 @@ class LinkExistingCategoryOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         from app.models import Category
 
@@ -303,10 +303,10 @@ class CreateRelationTypeOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
-        from app.models import RelationType, EntityType
+        from app.models import EntityType, RelationType
 
         relation_data = command.get("relation_type_data", {})
 

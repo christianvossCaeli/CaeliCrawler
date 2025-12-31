@@ -6,14 +6,16 @@ functions used by all interpreter modules.
 
 import re
 import time
-from typing import Any, Dict, List, Optional, Tuple
 
 import structlog
 from openai import AzureOpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.core.exceptions import QueryValidationError
+
+# Import centralized AI client
+from services.ai_client import get_sync_openai_client
 
 logger = structlog.get_logger()
 
@@ -65,12 +67,12 @@ class TypesCache:
 
     def __init__(self, ttl_seconds: int = TYPES_CACHE_TTL_SECONDS):
         self.ttl_seconds = ttl_seconds
-        self._facet_entity_cache: Optional[Tuple[List[Dict], List[Dict]]] = None
+        self._facet_entity_cache: tuple[list[dict], list[dict]] | None = None
         self._facet_entity_timestamp: float = 0
-        self._all_types_cache: Optional[Tuple[List[Dict], List[Dict], List[Dict], List[Dict]]] = None
+        self._all_types_cache: tuple[list[dict], list[dict], list[dict], list[dict]] | None = None
         self._all_types_timestamp: float = 0
 
-    def get_facet_entity_types(self) -> Optional[Tuple[List[Dict], List[Dict]]]:
+    def get_facet_entity_types(self) -> tuple[list[dict], list[dict]] | None:
         """Get cached facet and entity types if not expired."""
         if self._facet_entity_cache is None:
             return None
@@ -79,12 +81,12 @@ class TypesCache:
             return None
         return self._facet_entity_cache
 
-    def set_facet_entity_types(self, data: Tuple[List[Dict], List[Dict]]) -> None:
+    def set_facet_entity_types(self, data: tuple[list[dict], list[dict]]) -> None:
         """Cache facet and entity types."""
         self._facet_entity_cache = data
         self._facet_entity_timestamp = time.time()
 
-    def get_all_types(self) -> Optional[Tuple[List[Dict], List[Dict], List[Dict], List[Dict]]]:
+    def get_all_types(self) -> tuple[list[dict], list[dict], list[dict], list[dict]] | None:
         """Get cached all types (entity, facet, relation, category) if not expired."""
         if self._all_types_cache is None:
             return None
@@ -93,7 +95,7 @@ class TypesCache:
             return None
         return self._all_types_cache
 
-    def set_all_types(self, data: Tuple[List[Dict], List[Dict], List[Dict], List[Dict]]) -> None:
+    def set_all_types(self, data: tuple[list[dict], list[dict], list[dict], list[dict]]) -> None:
         """Cache all types."""
         self._all_types_cache = data
         self._all_types_timestamp = time.time()
@@ -122,26 +124,16 @@ def invalidate_types_cache() -> None:
 # Azure OpenAI Client
 # =============================================================================
 
-# Azure OpenAI client - initialized lazily
-_client = None
-
 
 def get_openai_client() -> AzureOpenAI:
     """Get or create the Azure OpenAI client.
 
+    This is a wrapper around the centralized ai_client module.
+
     Raises:
         ValueError: If Azure OpenAI is not configured
     """
-    global _client
-    if _client is None:
-        if not settings.azure_openai_api_key:
-            raise ValueError("KI-Service nicht erreichbar: Azure OpenAI ist nicht konfiguriert")
-        _client = AzureOpenAI(
-            api_key=settings.azure_openai_api_key,
-            api_version=settings.azure_openai_api_version,
-            azure_endpoint=settings.azure_openai_endpoint,
-        )
-    return _client
+    return get_sync_openai_client()
 
 
 # =============================================================================
@@ -296,9 +288,9 @@ def sanitize_user_input(content: str, max_length: int = MAX_QUERY_LENGTH) -> str
 
 
 def sanitize_conversation_messages(
-    messages: List[Dict[str, str]],
+    messages: list[dict[str, str]],
     max_messages: int = 20,
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     """Sanitize a list of conversation messages.
 
     Args:
@@ -351,22 +343,22 @@ def validate_and_sanitize_query(question: str) -> str:
         Sanitized query string
 
     Raises:
-        ValueError: If query is invalid (empty, too short, or too long after sanitization)
+        QueryValidationError: If query is invalid (empty, too short, or too long after sanitization)
     """
     if not question or not question.strip():
-        raise ValueError("Query cannot be empty")
+        raise QueryValidationError("Query cannot be empty")
 
     # Sanitize the input first
     sanitized = sanitize_user_input(question)
 
     if not sanitized:
-        raise ValueError("Query cannot be empty after sanitization")
+        raise QueryValidationError("Query cannot be empty after sanitization")
 
     query_length = len(sanitized)
     if query_length < MIN_QUERY_LENGTH:
-        raise ValueError(f"Query too short (min {MIN_QUERY_LENGTH} characters)")
+        raise QueryValidationError(f"Query too short (min {MIN_QUERY_LENGTH} characters)")
     if query_length > MAX_QUERY_LENGTH:
-        raise ValueError(f"Query too long (max {MAX_QUERY_LENGTH} characters)")
+        raise QueryValidationError(f"Query too long (max {MAX_QUERY_LENGTH} characters)")
 
     return sanitized
 
@@ -379,7 +371,7 @@ def _validate_query_input(question: str) -> None:
         question: The query string to validate
 
     Raises:
-        ValueError: If query is invalid
+        QueryValidationError: If query is invalid
     """
     validate_and_sanitize_query(question)
 
@@ -388,9 +380,9 @@ def _validate_query_input(question: str) -> None:
 # Database Type Loading
 # =============================================================================
 
-async def load_facet_and_entity_types(session: AsyncSession) -> Tuple[List[Dict], List[Dict]]:
+async def load_facet_and_entity_types(session: AsyncSession) -> tuple[list[dict], list[dict]]:
     """Load facet types and entity types from the database with TTL caching."""
-    from app.models import FacetType, EntityType
+    from app.models import EntityType, FacetType
 
     # Check cache first
     cached = _types_cache.get_facet_entity_types()
@@ -434,13 +426,13 @@ async def load_facet_and_entity_types(session: AsyncSession) -> Tuple[List[Dict]
     return result
 
 
-async def load_all_types_for_write(session: AsyncSession) -> Tuple[List[Dict], List[Dict], List[Dict], List[Dict]]:
+async def load_all_types_for_write(session: AsyncSession) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
     """Load all types needed for write command interpretation with TTL caching.
 
     Returns:
         Tuple of (entity_types, facet_types, relation_types, categories)
     """
-    from app.models import FacetType, EntityType, RelationType, Category
+    from app.models import Category, EntityType, FacetType, RelationType
 
     # Check cache first
     cached = _types_cache.get_all_types()

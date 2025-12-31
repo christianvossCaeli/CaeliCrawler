@@ -1,6 +1,5 @@
 """Helper functions for analysis API - translations and preview building."""
 
-from typing import Dict
 
 
 def operation_to_german(op: str) -> str:

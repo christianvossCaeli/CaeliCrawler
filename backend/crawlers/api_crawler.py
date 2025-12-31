@@ -5,18 +5,18 @@ Routes CUSTOM_API sources to the appropriate API client based on the
 api_type configuration.
 """
 
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Optional, List
-from uuid import UUID
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import structlog
 
-from crawlers.base import BaseCrawler, CrawlResult
 from crawlers.api_clients.base_api import APIDocument
+from crawlers.base import BaseCrawler, CrawlResult
 
 if TYPE_CHECKING:
-    from app.models import DataSource, CrawlJob, Document
     from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.models import CrawlJob, DataSource
 
 logger = structlog.get_logger()
 
@@ -68,7 +68,7 @@ class APICrawler(BaseCrawler):
             # Use celery session context since this runs inside Celery workers
             async with get_celery_session_context() as session:
                 new_count, updated_count = await self._store_documents(
-                    session, source, documents
+                    session, source, job, documents
                 )
                 result.documents_new = new_count
                 result.documents_updated = updated_count
@@ -79,14 +79,14 @@ class APICrawler(BaseCrawler):
             result.errors.append({
                 "type": type(e).__name__,
                 "message": str(e),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             })
 
         return result
 
     async def _crawl_govdata(
         self, source: "DataSource", config: dict
-    ) -> List[APIDocument]:
+    ) -> list[APIDocument]:
         """Crawl GovData.de."""
         from crawlers.api_clients.govdata_client import GovDataClient
 
@@ -123,7 +123,7 @@ class APICrawler(BaseCrawler):
 
     async def _crawl_dip_bundestag(
         self, source: "DataSource", config: dict
-    ) -> List[APIDocument]:
+    ) -> list[APIDocument]:
         """Crawl DIP Bundestag."""
         from crawlers.api_clients.dip_bundestag_client import DIPBundestagClient
 
@@ -172,7 +172,7 @@ class APICrawler(BaseCrawler):
 
     async def _crawl_fragdenstaat(
         self, source: "DataSource", config: dict
-    ) -> List[APIDocument]:
+    ) -> list[APIDocument]:
         """Crawl FragDenStaat."""
         from crawlers.api_clients.fragdenstaat_client import FragDenStaatClient
 
@@ -214,12 +214,15 @@ class APICrawler(BaseCrawler):
         self,
         session: "AsyncSession",
         source: "DataSource",
-        api_documents: List[APIDocument],
+        job: "CrawlJob",
+        api_documents: list[APIDocument],
     ) -> tuple[int, int]:
         """Store API documents in the database."""
         import hashlib
-        from app.models import Document, ProcessingStatus
+
         from sqlalchemy import select
+
+        from app.models import Document, ProcessingStatus
 
         new_count = 0
         updated_count = 0

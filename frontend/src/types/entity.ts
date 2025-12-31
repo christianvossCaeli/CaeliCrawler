@@ -256,6 +256,25 @@ export interface FacetType {
   auto_create_entity?: boolean
 }
 
+/**
+ * Display configuration for rendering FacetValues in the UI.
+ * This is stored in FacetType.value_schema.display
+ */
+export interface FacetDisplayConfig {
+  /** The primary field to display as main text (e.g., "description") */
+  primary_field?: string
+  /** Fields to display as chips/tags (e.g., ["type", "severity"]) */
+  chip_fields?: string[]
+  /** Field containing a quote to display in a quote block */
+  quote_field?: string
+  /** Field that represents severity (for color coding) */
+  severity_field?: string
+  /** Color mapping for severity values (e.g., {"hoch": "error", "mittel": "warning"}) */
+  severity_colors?: Record<string, string>
+  /** Layout style: "card", "inline", or "list" */
+  layout?: 'card' | 'inline' | 'list'
+}
+
 export interface FacetTypeValueSchema {
   type?: string
   properties?: Record<string, unknown>
@@ -269,6 +288,8 @@ export interface FacetTypeValueSchema {
   precision?: number
   tracks?: Record<string, FacetTrackConfig>
   reference_entity_type?: string
+  /** Display configuration for UI rendering */
+  display?: FacetDisplayConfig
   [key: string]: unknown
 }
 
@@ -283,6 +304,8 @@ export interface FacetTypeListParams extends PaginationParams {
   value_type?: FacetValueType
   entity_type_slug?: string
   is_active?: boolean
+  is_system?: boolean
+  needs_review?: boolean
   include_counts?: boolean
 }
 
@@ -415,6 +438,7 @@ export interface FacetValueCreate {
   confidence_score?: number
   notes?: string
   text_representation?: string
+  target_entity_id?: string
 }
 
 export interface FacetValueUpdate {

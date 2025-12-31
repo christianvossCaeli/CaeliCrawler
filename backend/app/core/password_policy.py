@@ -6,7 +6,6 @@ Enforces password strength requirements.
 
 import re
 from dataclasses import dataclass
-from typing import List, Optional
 
 
 @dataclass
@@ -14,9 +13,9 @@ class PasswordValidationResult:
     """Result of password validation."""
 
     is_valid: bool
-    errors: List[str]
+    errors: list[str]
     score: int  # 0-100 strength score
-    suggestions: List[str]
+    suggestions: list[str]
 
 
 class PasswordPolicy:

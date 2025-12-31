@@ -8,7 +8,7 @@ the exact technical filter configuration for deterministic re-execution.
 import enum
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -64,14 +64,14 @@ class CrawlPreset(Base):
         nullable=False,
         comment="User-defined name for the preset",
     )
-    description: Mapped[Optional[str]] = mapped_column(
+    description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Optional description of what this preset does",
     )
 
     # Filter configuration (mirrors StartCrawlRequest filters)
-    filters: Mapped[Dict[str, Any]] = mapped_column(
+    filters: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
         default=dict,
@@ -79,7 +79,7 @@ class CrawlPreset(Base):
     )
 
     # Scheduling
-    schedule_cron: Mapped[Optional[str]] = mapped_column(
+    schedule_cron: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
         comment="Cron expression for scheduled execution, e.g., '0 6 * * 1' (Monday 6 AM)",
@@ -90,7 +90,7 @@ class CrawlPreset(Base):
         default=False,
         comment="Whether scheduled execution is enabled",
     )
-    next_run_at: Mapped[Optional[datetime]] = mapped_column(
+    next_run_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="Next scheduled execution time",
@@ -103,12 +103,12 @@ class CrawlPreset(Base):
         default=0,
         comment="Number of times manually executed",
     )
-    last_used_at: Mapped[Optional[datetime]] = mapped_column(
+    last_used_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="Last manual execution timestamp",
     )
-    last_scheduled_run_at: Mapped[Optional[datetime]] = mapped_column(
+    last_scheduled_run_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="Last scheduled execution timestamp",

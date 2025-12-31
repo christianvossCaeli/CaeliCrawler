@@ -1,13 +1,10 @@
 """Tests for Custom Summaries API endpoints."""
 
-import asyncio
-import re
 import time
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-from fastapi import status
 
 from app.core.rate_limit import RATE_LIMITS
 
@@ -41,8 +38,9 @@ class TestCustomSummariesAdminApi:
 
     def test_create_from_prompt_schema_validation(self):
         """Test that create_from_prompt validates input schema."""
-        from app.schemas.custom_summary import SummaryCreateFromPrompt
         from pydantic import ValidationError
+
+        from app.schemas.custom_summary import SummaryCreateFromPrompt
 
         # Valid data
         valid = SummaryCreateFromPrompt(
@@ -103,7 +101,7 @@ class TestCustomSummariesAdminApi:
             expires_days=7,
             allow_export=False,
         )
-        assert share.password == "secret123"
+        assert share.password == "secret123"  # noqa: S105
         assert share.expires_days == 7
 
 
@@ -120,7 +118,7 @@ class TestPublicSummariesApi:
 
         # With password
         request = SharedSummaryAccessRequest(password="mypassword")
-        assert request.password == "mypassword"
+        assert request.password == "mypassword"  # noqa: S105
 
     def test_shared_response_schema(self):
         """Test SharedSummaryResponse schema structure."""
@@ -145,8 +143,9 @@ class TestSummaryExecutionApi:
 
     def test_execution_response_schema(self):
         """Test SummaryExecutionResponse schema."""
-        from app.schemas.custom_summary import SummaryExecutionResponse
         from datetime import datetime
+
+        from app.schemas.custom_summary import SummaryExecutionResponse
 
         response = SummaryExecutionResponse(
             id=uuid.uuid4(),
@@ -254,8 +253,9 @@ class TestWidgetPositioning:
 
     def test_widget_grid_boundary_validation(self):
         """Test widget position grid boundary validation."""
-        from app.schemas.custom_summary import SummaryWidgetCreate, GRID_COLUMNS
         from pydantic import ValidationError
+
+        from app.schemas.custom_summary import GRID_COLUMNS, SummaryWidgetCreate
 
         # Valid position (fits in grid)
         valid_widget = SummaryWidgetCreate(
@@ -394,7 +394,7 @@ class TestSecurityFeatures:
 
     def test_query_limit_constants(self):
         """Test that query limit constants are defined properly."""
-        from services.summaries.executor import MAX_QUERY_LIMIT, DEFAULT_QUERY_LIMIT
+        from services.summaries.executor import DEFAULT_QUERY_LIMIT, MAX_QUERY_LIMIT
 
         assert MAX_QUERY_LIMIT == 1000, "MAX_QUERY_LIMIT should be 1000"
         assert DEFAULT_QUERY_LIMIT == 100, "DEFAULT_QUERY_LIMIT should be 100"
@@ -402,7 +402,7 @@ class TestSecurityFeatures:
 
     def test_query_limit_enforcement(self):
         """Test that query limits are properly enforced."""
-        from services.summaries.executor import MAX_QUERY_LIMIT, DEFAULT_QUERY_LIMIT
+        from services.summaries.executor import DEFAULT_QUERY_LIMIT, MAX_QUERY_LIMIT
 
         test_cases = [
             (None, DEFAULT_QUERY_LIMIT),  # No limit -> default
@@ -417,10 +417,7 @@ class TestSecurityFeatures:
 
         for requested, expected in test_cases:
             # Simulate the limit enforcement logic
-            if requested is None or requested <= 0:
-                result = DEFAULT_QUERY_LIMIT
-            else:
-                result = min(requested, MAX_QUERY_LIMIT)
+            result = DEFAULT_QUERY_LIMIT if requested is None or requested <= 0 else min(requested, MAX_QUERY_LIMIT)
             assert result == expected, f"Failed for requested={requested}, expected={expected}, got={result}"
 
     def test_filter_whitelist_defined(self):
@@ -440,7 +437,7 @@ class TestTimingAttackProtection:
 
     def test_timing_noise_constants_defined(self):
         """Test that timing noise constants are properly defined."""
-        from app.api.v1.summaries import MIN_RESPONSE_TIME_MS, MAX_RESPONSE_TIME_MS
+        from app.api.v1.summaries import MAX_RESPONSE_TIME_MS, MIN_RESPONSE_TIME_MS
 
         # Increased from 100-200ms to 500-1000ms for better brute-force protection
         assert MIN_RESPONSE_TIME_MS == 500, "MIN_RESPONSE_TIME_MS should be 500ms"
@@ -489,8 +486,9 @@ class TestInterpretedConfigValidation:
 
     def test_interpreted_config_invalid_widget_type(self):
         """Test InterpretedConfig rejects invalid widget types."""
-        from app.schemas.custom_summary import InterpretedConfig
         from pydantic import ValidationError
+
+        from app.schemas.custom_summary import InterpretedConfig
 
         with pytest.raises(ValidationError):
             InterpretedConfig(
@@ -506,8 +504,9 @@ class TestInterpretedConfigValidation:
 
     def test_interpreted_config_max_widgets(self):
         """Test InterpretedConfig enforces max widget limit."""
-        from app.schemas.custom_summary import InterpretedConfig
         from pydantic import ValidationError
+
+        from app.schemas.custom_summary import InterpretedConfig
 
         # 21 widgets should fail (max 20)
         widgets = [
@@ -524,8 +523,9 @@ class TestInterpretedConfigValidation:
 
     def test_interpreted_config_schedule_validation(self):
         """Test InterpretedConfig validates schedule pattern."""
-        from app.schemas.custom_summary import InterpretedConfig
         from pydantic import ValidationError
+
+        from app.schemas.custom_summary import InterpretedConfig
 
         # Valid schedules
         for schedule in ["hourly", "daily", "weekly", "monthly", "none", None]:
@@ -546,8 +546,9 @@ class TestInterpretedConfigValidation:
 
     def test_interpreted_config_confidence_bounds(self):
         """Test InterpretedConfig confidence score bounds."""
-        from app.schemas.custom_summary import InterpretedConfig
         from pydantic import ValidationError
+
+        from app.schemas.custom_summary import InterpretedConfig
 
         # Valid bounds
         InterpretedConfig(theme="Test", summary_name="Test", confidence_score=0.0)

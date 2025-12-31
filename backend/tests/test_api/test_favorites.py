@@ -1,6 +1,7 @@
 """Tests for Favorites API endpoints."""
 
 import uuid
+
 import pytest
 from httpx import AsyncClient
 

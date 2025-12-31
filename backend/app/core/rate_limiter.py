@@ -13,12 +13,11 @@ Features:
 """
 
 import time
-from typing import Callable, Optional, Union
+from collections.abc import Callable
 from functools import wraps
 
 import structlog
-from fastapi import Request, HTTPException, status
-from fastapi.responses import JSONResponse
+from fastapi import HTTPException, Request, status
 
 logger = structlog.get_logger(__name__)
 
@@ -51,7 +50,7 @@ class RateLimiter:
 
     def __init__(
         self,
-        redis_url: Optional[str] = None,
+        redis_url: str | None = None,
         default_requests: int = 100,
         default_window: int = 60,
         enabled: bool = True,
@@ -94,7 +93,7 @@ class RateLimiter:
 
         return self._redis
 
-    def _get_client_identifier(self, request: Request, user_id: Optional[str] = None) -> str:
+    def _get_client_identifier(self, request: Request, user_id: str | None = None) -> str:
         """
         Get unique identifier for the client.
 
@@ -105,10 +104,7 @@ class RateLimiter:
 
         # Get real IP (consider X-Forwarded-For for proxied requests)
         forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            ip = forwarded.split(",")[0].strip()
-        else:
-            ip = request.client.host if request.client else "unknown"
+        ip = forwarded.split(",")[0].strip() if forwarded else request.client.host if request.client else "unknown"
 
         return f"ip:{ip}"
 
@@ -197,7 +193,7 @@ class RateLimiter:
         endpoint: str,
         max_requests: int,
         window: int,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
     ) -> tuple[bool, int, int]:
         """
         Check if request is within rate limit.
@@ -226,9 +222,9 @@ class RateLimiter:
 
     def limit(
         self,
-        requests: Optional[int] = None,
-        window: Optional[int] = None,
-        key_func: Optional[Callable[[Request], str]] = None,
+        requests: int | None = None,
+        window: int | None = None,
+        key_func: Callable[[Request], str] | None = None,
     ):
         """
         Decorator for rate limiting endpoints.
@@ -265,10 +261,7 @@ class RateLimiter:
                     return await func(*args, **kwargs)
 
                 # Generate key
-                if key_func:
-                    endpoint_key = key_func(request)
-                else:
-                    endpoint_key = f"{request.method}:{request.url.path}"
+                endpoint_key = key_func(request) if key_func else f"{request.method}:{request.url.path}"
 
                 # Check rate limit
                 allowed, remaining, reset_time = await self.check_rate_limit(
@@ -350,7 +343,7 @@ class RateLimitPresets:
 
 
 # Global rate limiter instance (configured in app startup)
-rate_limiter: Optional[RateLimiter] = None
+rate_limiter: RateLimiter | None = None
 
 
 def get_rate_limiter() -> RateLimiter:
@@ -369,7 +362,7 @@ def get_rate_limiter() -> RateLimiter:
 
 
 def configure_rate_limiter(
-    redis_url: Optional[str] = None,
+    redis_url: str | None = None,
     enabled: bool = True,
     default_requests: int = 100,
     default_window: int = 60,

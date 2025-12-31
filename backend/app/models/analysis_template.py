@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -45,13 +45,13 @@ class AnalysisTemplate(Base):
         nullable=False,
         index=True,
     )
-    description: Mapped[Optional[str]] = mapped_column(
+    description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
 
     # Associations
-    category_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("categories.id", ondelete="SET NULL"),
         nullable=True,
@@ -67,7 +67,7 @@ class AnalysisTemplate(Base):
     )
 
     # Facet configuration
-    facet_config: Mapped[List[Dict[str, Any]]] = mapped_column(
+    facet_config: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB,
         default=list,
         nullable=False,
@@ -75,7 +75,7 @@ class AnalysisTemplate(Base):
     )
 
     # Aggregation configuration
-    aggregation_config: Mapped[Dict[str, Any]] = mapped_column(
+    aggregation_config: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
@@ -83,7 +83,7 @@ class AnalysisTemplate(Base):
     )
 
     # Display configuration
-    display_config: Mapped[Dict[str, Any]] = mapped_column(
+    display_config: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
@@ -91,7 +91,7 @@ class AnalysisTemplate(Base):
     )
 
     # AI configuration
-    extraction_prompt_template: Mapped[Optional[str]] = mapped_column(
+    extraction_prompt_template: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Combined AI prompt template for this analysis",
@@ -139,7 +139,7 @@ class AnalysisTemplate(Base):
     category: Mapped[Optional["Category"]] = relationship("Category")
     primary_entity_type: Mapped["EntityType"] = relationship("EntityType")
 
-    def get_enabled_facet_slugs(self) -> List[str]:
+    def get_enabled_facet_slugs(self) -> list[str]:
         """Get list of enabled facet type slugs."""
         return [
             fc["facet_type_slug"]
@@ -147,7 +147,7 @@ class AnalysisTemplate(Base):
             if fc.get("enabled", True)
         ]
 
-    def get_facet_config_by_slug(self, slug: str) -> Optional[Dict[str, Any]]:
+    def get_facet_config_by_slug(self, slug: str) -> dict[str, Any] | None:
         """Get facet configuration by slug."""
         for fc in self.facet_config:
             if fc.get("facet_type_slug") == slug:

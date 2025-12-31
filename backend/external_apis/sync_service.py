@@ -8,8 +8,8 @@ This service handles the synchronization of data from external APIs:
 - Managing record lifecycle (active, missing, archived)
 """
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Set, Type
+from datetime import UTC, datetime, timedelta
+from typing import Any, Optional
 from uuid import UUID
 
 import structlog
@@ -48,11 +48,11 @@ class ExternalAPISyncService:
     """
 
     # Registry of API client classes by api_type
-    CLIENT_REGISTRY: Dict[str, Type[BaseExternalAPIClient]] = {}
+    CLIENT_REGISTRY: dict[str, type[BaseExternalAPIClient]] = {}
 
     @classmethod
     def register_client(
-        cls, api_type: str, client_class: Type[BaseExternalAPIClient]
+        cls, api_type: str, client_class: type[BaseExternalAPIClient]
     ) -> None:
         """Register an API client class for a specific api_type.
 
@@ -75,7 +75,7 @@ class ExternalAPISyncService:
         """
         self.session = session
         self.linking_service = EntityLinkingService(session)
-        self._entity_type_cache: Dict[str, EntityType] = {}
+        self._entity_type_cache: dict[str, EntityType] = {}
 
     async def __aenter__(self) -> "ExternalAPISyncService":
         """Async context manager entry."""
@@ -105,7 +105,7 @@ class ExternalAPISyncService:
             ValueError: If no client is registered for the api_type.
         """
         result = SyncResult()
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         logger.info(
             "sync_starting",
@@ -137,7 +137,7 @@ class ExternalAPISyncService:
                 )
 
             # Track which external IDs we've seen
-            seen_ids: Set[str] = set()
+            seen_ids: set[str] = set()
 
             # Process each record
             for record in records:
@@ -181,14 +181,14 @@ class ExternalAPISyncService:
             result.records_archived = archived_count
 
             # Update config with sync status
-            config.last_sync_at = datetime.now(timezone.utc)
+            config.last_sync_at = datetime.now(UTC)
             config.last_sync_status = SyncStatus.SUCCESS.value
             config.last_sync_error = None
             config.last_sync_stats = result.to_dict()
 
             await self.session.commit()
 
-            duration = (datetime.now(timezone.utc) - start_time).total_seconds()
+            duration = (datetime.now(UTC) - start_time).total_seconds()
             logger.info(
                 "sync_completed",
                 config_id=str(config.id),
@@ -203,7 +203,7 @@ class ExternalAPISyncService:
                 error=str(e),
             )
 
-            config.last_sync_at = datetime.now(timezone.utc)
+            config.last_sync_at = datetime.now(UTC)
             config.last_sync_status = SyncStatus.FAILED.value
             config.last_sync_error = str(e)
 
@@ -239,7 +239,7 @@ class ExternalAPISyncService:
             base_url=config.get_full_url(),
         )
 
-    async def _get_entity_type(self, slug: str) -> Optional[EntityType]:
+    async def _get_entity_type(self, slug: str) -> EntityType | None:
         """Get entity type by slug with caching.
 
         Args:
@@ -266,7 +266,7 @@ class ExternalAPISyncService:
         config: APIConfiguration,
         record: ExternalAPIRecord,
         entity_type: EntityType,
-    ) -> Dict[str, bool]:
+    ) -> dict[str, bool]:
         """Process a single record from the API.
 
         Args:
@@ -338,7 +338,7 @@ class ExternalAPISyncService:
 
     async def _get_sync_record(
         self, config_id: UUID, external_id: str
-    ) -> Optional[SyncRecord]:
+    ) -> SyncRecord | None:
         """Get existing sync record for an external ID.
 
         Args:
@@ -399,7 +399,7 @@ class ExternalAPISyncService:
 
         # Set API source reference
         entity.api_configuration_id = config.id
-        entity.last_seen_at = datetime.now(timezone.utc)
+        entity.last_seen_at = datetime.now(UTC)
 
         logger.debug(
             "entity_created",
@@ -438,7 +438,7 @@ class ExternalAPISyncService:
 
             entity.name_normalized = normalize_name(record.name)
 
-        entity.last_seen_at = datetime.now(timezone.utc)
+        entity.last_seen_at = datetime.now(UTC)
 
         logger.debug(
             "entity_updated",
@@ -447,8 +447,8 @@ class ExternalAPISyncService:
         )
 
     def _map_fields(
-        self, raw_data: Dict[str, Any], mappings: Dict[str, str]
-    ) -> Dict[str, Any]:
+        self, raw_data: dict[str, Any], mappings: dict[str, str]
+    ) -> dict[str, Any]:
         """Map API fields to entity core_attributes.
 
         The mapping format is: {"api_field": "attribute_path"}
@@ -461,7 +461,7 @@ class ExternalAPISyncService:
         Returns:
             Dictionary of mapped attributes.
         """
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
 
         for api_field, attr_path in mappings.items():
             value = self._get_nested_value(raw_data, api_field)
@@ -477,8 +477,8 @@ class ExternalAPISyncService:
         return result
 
     def _get_nested_value(
-        self, data: Dict[str, Any], path: str
-    ) -> Optional[Any]:
+        self, data: dict[str, Any], path: str
+    ) -> Any | None:
         """Get a value from nested dictionary using dot notation.
 
         Args:
@@ -502,9 +502,9 @@ class ExternalAPISyncService:
     async def _link_entity_to_locations(
         self,
         entity_id: UUID,
-        location_hints: List[str],
-        link_types: List[str],
-    ) -> List[UUID]:
+        location_hints: list[str],
+        link_types: list[str],
+    ) -> list[UUID]:
         """Link an entity to location-based entities.
 
         Args:
@@ -522,7 +522,7 @@ class ExternalAPISyncService:
                 entity_id, location_hints, link_types
             )
 
-            for type_slug, ids in results.items():
+            for _type_slug, ids in results.items():
                 linked_ids.extend(ids)
 
         except Exception as e:
@@ -535,7 +535,7 @@ class ExternalAPISyncService:
         return linked_ids
 
     async def _handle_missing_records(
-        self, config: APIConfiguration, seen_ids: Set[str]
+        self, config: APIConfiguration, seen_ids: set[str]
     ) -> tuple[int, int]:
         """Handle records that were not found in the current API response.
 
@@ -566,7 +566,7 @@ class ExternalAPISyncService:
 
         missing_count = 0
         archived_count = 0
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         archive_threshold = now - timedelta(days=config.inactive_after_days)
 
         for record in missing_records:
@@ -763,7 +763,7 @@ class ExternalAPISyncService:
         return updated_count
 
     def _get_text_representation(
-        self, value: Dict[str, Any], facet_type: "FacetType"
+        self, value: dict[str, Any], facet_type: "FacetType"  # noqa: F821
     ) -> str:
         """Generate text representation for a facet value.
 
@@ -774,7 +774,6 @@ class ExternalAPISyncService:
         Returns:
             Human-readable text representation.
         """
-        from app.models import FacetType as FT
 
         # Extract the actual value
         actual_value = value.get("value", value)
@@ -806,7 +805,7 @@ class ExternalAPISyncService:
         else:
             return str(actual_value)
 
-    async def _get_facet_type(self, slug: str) -> Optional["FacetType"]:
+    async def _get_facet_type(self, slug: str) -> Optional["FacetType"]:  # noqa: F821
         """Get FacetType by slug with caching.
 
         Args:
@@ -832,8 +831,8 @@ class ExternalAPISyncService:
         return self._entity_type_cache.get(cache_key)
 
     def _convert_value_for_facet(
-        self, value: Any, facet_type: "FacetType"
-    ) -> Optional[Any]:
+        self, value: Any, facet_type: "FacetType"  # noqa: F821
+    ) -> Any | None:
         """Convert a raw value to the appropriate type for a FacetType.
 
         Args:

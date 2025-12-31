@@ -1,15 +1,15 @@
 """Dashboard Service - Statistics and preferences for the dashboard."""
 
-import structlog
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import select, func, and_, desc
+import structlog
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.models import (
+    AITask,
+    AITaskStatus,
     AuditAction,
     AuditLog,
     CrawlJob,
@@ -21,13 +21,11 @@ from app.models import (
     JobStatus,
     ProcessingStatus,
     User,
-    AITask,
-    AITaskStatus,
 )
 from app.models.user_dashboard import UserDashboardPreference
 from app.schemas.dashboard import (
-    ActivityItem,
     ActivityFeedResponse,
+    ActivityItem,
     AITaskStats,
     ChartDataPoint,
     ChartDataResponse,
@@ -198,7 +196,7 @@ class DashboardService:
             documents=document_stats,
             crawler=crawler_stats,
             ai_tasks=ai_stats,
-            updated_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(UTC),
         )
 
     async def _get_entity_stats(self) -> EntityStats:
@@ -508,7 +506,7 @@ class DashboardService:
         items = []
         last_login = user.last_login
         since = last_login or (
-            datetime.now(timezone.utc) - timedelta(days=period_days)
+            datetime.now(UTC) - timedelta(days=period_days)
         )
 
         try:
@@ -692,7 +690,7 @@ class DashboardService:
     async def _get_crawler_trend_chart(self) -> ChartDataResponse:
         """Get crawler job trend over the last 30 days."""
         try:
-            thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+            thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
 
             result = await self.db.execute(
                 select(

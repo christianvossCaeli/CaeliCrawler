@@ -74,6 +74,8 @@
     "assignmentInfo": "Assign a responsible user for this entity who will receive notifications about changes.",
     "noAttributesConfigured": "No attributes configured for this entity type.",
     "path": "Path",
+    "noEntities": "No entities found",
+    "noEntitiesDescription": "No entries have been created for this entity type yet.",
     "summary": "Summary",
     "viewModes": {
       "table": "Table view",
@@ -238,7 +240,8 @@
       "pysis": "PySis",
       "attachments": "Attachments",
       "children": "Children",
-      "apiData": "API Data"
+      "apiData": "API Data",
+      "referencedBy": "Referenced By"
     },
     "apiData": {
       "title": "External API Data",
@@ -315,7 +318,9 @@
       "noConnectionsDesc": "Connections show relationships to other entities such as people, organizations, or events.",
       "noDataSources": "No data sources linked",
       "noDataSourcesDesc": "Data sources are websites or APIs that are automatically crawled to extract relevant information.",
-      "noNotes": "No notes yet"
+      "noNotes": "No notes yet",
+      "noDocuments": "No documents available",
+      "noDocumentsDesc": "No documents have been found for this entry yet. Documents are automatically extracted from linked data sources."
     },
     "noSearchResults": "No results for \"{query}\"",
     "noSearchResultsDesc": "Try a different search term or clear the search.",

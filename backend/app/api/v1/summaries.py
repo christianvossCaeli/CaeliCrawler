@@ -7,9 +7,8 @@ via share tokens, with optional password protection.
 import asyncio
 import io
 import secrets
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-from uuid import UUID
+from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -20,10 +19,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.database import get_session
-from app.models import CustomSummary, SummaryExecution, SummaryShare, SummaryWidget
-from app.models.summary_execution import ExecutionStatus
 from app.core.rate_limit import check_rate_limit
+from app.database import get_session
+from app.models import CustomSummary, SummaryExecution, SummaryShare
+from app.models.summary_execution import ExecutionStatus
 from services.summaries import SummaryExportService
 from services.summaries.export_service import sanitize_filename
 
@@ -53,17 +52,14 @@ def validate_share_token(token: str) -> bool:
         return False
 
     # Must only contain URL-safe base64 characters
-    if not re.match(r'^[A-Za-z0-9_-]+$', token):
-        return False
-
-    return True
+    return re.match(r'^[A-Za-z0-9_-]+$', token)
 
 
 # --- Schemas ---
 
 class SharedSummaryRequest(BaseModel):
     """Request body for accessing a shared summary."""
-    password: Optional[str] = None
+    password: str | None = None
 
 
 class SharedWidgetResponse(BaseModel):
@@ -71,17 +67,17 @@ class SharedWidgetResponse(BaseModel):
     id: str
     widget_type: str
     title: str
-    subtitle: Optional[str] = None
-    position: Dict[str, int]
-    visualization_config: Optional[Dict[str, Any]] = None
+    subtitle: str | None = None
+    position: dict[str, int]
+    visualization_config: dict[str, Any] | None = None
 
 
 class SharedSummaryResponse(BaseModel):
     """Response for shared summary access."""
-    summary: Dict[str, Any]
-    widgets: List[SharedWidgetResponse]
-    widget_data: Dict[str, Any]
-    last_updated: Optional[str] = None
+    summary: dict[str, Any]
+    widgets: list[SharedWidgetResponse]
+    widget_data: dict[str, Any]
+    last_updated: str | None = None
     allow_export: bool
 
 
@@ -155,7 +151,7 @@ async def access_shared_summary(
         )
 
     # Check expiry
-    if share.expires_at and share.expires_at < datetime.now(timezone.utc):
+    if share.expires_at and share.expires_at < datetime.now(UTC):
         await _add_timing_noise()  # Prevent timing attacks
         raise HTTPException(
             status_code=status.HTTP_410_GONE,
@@ -179,7 +175,7 @@ async def access_shared_summary(
 
     # Update view stats
     share.view_count += 1
-    share.last_viewed_at = datetime.now(timezone.utc)
+    share.last_viewed_at = datetime.now(UTC)
 
     # Load summary with widgets
     summary_result = await session.execute(
@@ -259,7 +255,7 @@ async def access_shared_summary(
 async def export_shared_summary(
     token: str,
     request: Request,
-    password: Optional[str] = None,
+    password: str | None = None,
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -312,7 +308,7 @@ async def export_shared_summary(
         )
 
     # Check expiry
-    if share.expires_at and share.expires_at < datetime.now(timezone.utc):
+    if share.expires_at and share.expires_at < datetime.now(UTC):
         await _add_timing_noise()  # Prevent timing attacks
         raise HTTPException(
             status_code=status.HTTP_410_GONE,
@@ -366,4 +362,4 @@ async def export_shared_summary(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"PDF-Export nicht verfügbar: {str(e)}",
-        )
+        ) from None

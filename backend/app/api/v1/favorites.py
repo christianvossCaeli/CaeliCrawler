@@ -1,18 +1,18 @@
 """API endpoints for User Favorites management."""
 
-from typing import Optional, Annotated
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.deps import get_current_user
+from app.core.exceptions import ConflictError, NotFoundError
 from app.database import get_session
 from app.models import Entity, EntityType, User
 from app.models.user_favorite import UserFavorite
-from app.core.deps import get_current_user
-from app.core.exceptions import NotFoundError, ConflictError
 from app.schemas.common import MessageResponse
 from app.schemas.favorite import (
     FavoriteCheckResponse,
@@ -29,10 +29,10 @@ router = APIRouter()
 async def list_favorites(
     page: Annotated[int, Query(ge=1, description="Page number")] = 1,
     per_page: Annotated[int, Query(ge=1, le=100, description="Items per page")] = 20,
-    entity_type_slug: Annotated[Optional[str], Query(description="Filter by entity type slug")] = None,
-    search: Annotated[Optional[str], Query(description="Search in entity name")] = None,
-    sort_by: Annotated[Optional[str], Query(description="Sort by field (created_at, entity_name)")] = None,
-    sort_order: Annotated[Optional[str], Query(description="Sort order (asc, desc)")] = "desc",
+    entity_type_slug: Annotated[str | None, Query(description="Filter by entity type slug")] = None,
+    search: Annotated[str | None, Query(description="Search in entity name")] = None,
+    sort_by: Annotated[str | None, Query(description="Sort by field (created_at, entity_name)")] = None,
+    sort_order: Annotated[str | None, Query(description="Sort order (asc, desc)")] = "desc",
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> FavoriteListResponse:

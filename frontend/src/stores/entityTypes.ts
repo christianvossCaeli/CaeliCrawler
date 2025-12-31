@@ -8,6 +8,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { entityApi } from '@/services/api'
+import { extractErrorMessage as getErrorMessage } from '@/utils/errorMessage'
 
 // ============================================================================
 // Types
@@ -32,20 +33,6 @@ export interface EntityType {
   entity_count: number
   created_at: string
   updated_at: string
-}
-
-// Helper for extracting error messages
-function getErrorMessage(err: unknown): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const response = (err as { response?: { data?: { error?: string } } }).response
-    if (response?.data?.error) {
-      return response.data.error
-    }
-  }
-  if (err instanceof Error) {
-    return err.message
-  }
-  return 'Unknown error'
 }
 
 // ============================================================================

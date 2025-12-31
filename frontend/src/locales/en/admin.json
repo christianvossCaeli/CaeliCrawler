@@ -109,7 +109,34 @@
         "LOGIN": "Login",
         "LOGOUT": "Logout",
         "EXPORT": "Export",
-        "VIEW": "View"
+        "VIEW": "View",
+        "IMPORT": "Import",
+        "VERIFY": "Verify",
+        "PASSWORD_CHANGE": "Password Change",
+        "PASSWORD_RESET": "Password Reset",
+        "SESSION_REVOKE": "Session Revoked",
+        "SESSION_REVOKE_ALL": "All Sessions Revoked",
+        "TOKEN_REFRESH": "Token Refresh",
+        "CRAWLER_START": "Crawler Start",
+        "CRAWLER_STOP": "Crawler Stop",
+        "USER_CREATE": "User Create",
+        "USER_UPDATE": "User Update",
+        "USER_DELETE": "User Delete",
+        "ROLE_CHANGE": "Role Change",
+        "SECURITY_ALERT": "Security Alert",
+        "RATE_LIMIT_EXCEEDED": "Rate Limit Exceeded"
+      },
+      "clear": {
+        "button": "Clear Log",
+        "title": "Clear Audit Log",
+        "warning": "This action is irreversible. All deleted entries cannot be recovered.",
+        "deleteAll": "Delete all entries",
+        "deleteOlderThan": "Only delete entries older than date",
+        "beforeDate": "Before this date",
+        "confirmLabel": "Confirmation",
+        "confirmPlaceholder": "DELETE",
+        "confirmHint": "Type 'DELETE' to confirm deletion",
+        "confirm": "Delete permanently"
       }
     },
     "entityTypes": {
@@ -207,6 +234,7 @@
         "valueType": "Value Type",
         "values": "Values",
         "ai": "AI",
+        "review": "Review",
         "system": "System",
         "active": "Active"
       },
@@ -265,7 +293,29 @@
         "saveError": "Error saving",
         "deleteError": "Error deleting",
         "schemaGenerated": "Schema and settings have been generated",
-        "schemaGenerationError": "Error generating schema"
+        "schemaGenerationError": "Error generating schema",
+        "approved": "\"{name}\" has been approved",
+        "rejected": "\"{name}\" has been rejected",
+        "merged": "\"{name}\" has been merged",
+        "reviewError": "Error during review"
+      },
+      "review": {
+        "title": "Review Pending",
+        "subtitle": "Review automatically created facet types",
+        "badge": "{count} to review",
+        "needsReview": "Review required",
+        "autoCreated": "Auto-created",
+        "approve": "Approve",
+        "reject": "Reject",
+        "merge": "Merge",
+        "mergeWith": "Merge with",
+        "selectTarget": "Select target facet type",
+        "dialog": {
+          "title": "Review Facet Type",
+          "approveConfirm": "Approve this facet type? It will then be available to all users.",
+          "rejectConfirm": "Reject this facet type? It will be deactivated and no longer used.",
+          "mergeConfirm": "Which facet type should \"{name}\" be merged with?"
+        }
       }
     },
     "apiTemplates": {

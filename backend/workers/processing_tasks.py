@@ -1,19 +1,17 @@
 """Celery tasks for document processing."""
 
-import hashlib
 import os
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 from uuid import UUID
 
 import structlog
 from celery.exceptions import SoftTimeLimitExceeded
 
-from workers.celery_app import celery_app
-from workers.async_runner import run_async
 from app.config import settings
+from workers.async_runner import run_async
+from workers.celery_app import celery_app
 
 logger = structlog.get_logger()
 
@@ -34,9 +32,9 @@ def process_document(self, document_id: str):
     Args:
         document_id: UUID of the document to process
     """
+
     from app.database import get_celery_session_context
     from app.models import Document, ProcessingStatus
-    import asyncio
 
     async def _process():
         async with get_celery_session_context() as session:
@@ -52,7 +50,7 @@ def process_document(self, document_id: str):
                 # Download if not already downloaded
                 if not document.file_path or not os.path.exists(document.file_path):
                     await _download_document(document)
-                    document.downloaded_at = datetime.now(timezone.utc)
+                    document.downloaded_at = datetime.now(UTC)
 
                 # Extract text and title based on document type
                 text, title = await _extract_text_and_title(document)
@@ -65,15 +63,23 @@ def process_document(self, document_id: str):
                 if not document.title and title:
                     document.title = title[:255]  # Limit to field size
 
-                # Update status
-                document.processing_status = ProcessingStatus.COMPLETED
-                document.processed_at = datetime.now(timezone.utc)
+                # Page-based relevance filtering (cost optimization)
+                await _filter_document_pages(document, session)
+
+                # Update status based on page filter result
+                if document.page_analysis_status == "needs_review":
+                    document.processing_status = ProcessingStatus.NEEDS_REVIEW
+                else:
+                    document.processing_status = ProcessingStatus.COMPLETED
+                document.processed_at = datetime.now(UTC)
 
                 logger.info(
                     "Document processed",
                     document_id=document_id,
                     type=document.document_type,
                     text_length=len(text) if text else 0,
+                    page_analysis_status=document.page_analysis_status,
+                    relevant_pages=document.total_relevant_pages,
                 )
 
             except SoftTimeLimitExceeded:
@@ -92,10 +98,18 @@ def process_document(self, document_id: str):
 
             await session.commit()
 
-            # Trigger AI analysis if text was extracted
+            # Trigger AI analysis if text was extracted and pages are relevant
             if document.processing_status == ProcessingStatus.COMPLETED and document.raw_text:
-                from workers.ai_tasks import analyze_document
-                analyze_document.delay(document_id)
+                # Only trigger if we have relevant pages (not needs_review)
+                if document.page_analysis_status in ("ready", "has_more", "pending"):
+                    from workers.ai_tasks import analyze_document
+                    analyze_document.delay(document_id)
+                else:
+                    logger.info(
+                        "Skipping AI analysis - no relevant pages",
+                        document_id=document_id,
+                        status=document.page_analysis_status,
+                    )
 
     run_async(_process())
 
@@ -133,7 +147,7 @@ async def _download_document(document) -> str:
     return str(file_path)
 
 
-async def _extract_text_and_title(document) -> tuple[Optional[str], Optional[str]]:
+async def _extract_text_and_title(document) -> tuple[str | None, str | None]:
     """Extract text and title from a document based on its type.
 
     Returns:
@@ -182,7 +196,7 @@ _FILENAME_SEPARATOR_PATTERN = re.compile(r'[_-]+')
 _UUID_HEX_PATTERN = re.compile(r'\b[a-f0-9]{8,}\b', re.IGNORECASE)
 
 
-def _title_from_filename(file_path: str) -> Optional[str]:
+def _title_from_filename(file_path: str) -> str | None:
     """Extract a readable title from the filename.
 
     Transforms a file path like '/path/to/my_document_abc123.pdf'
@@ -207,7 +221,77 @@ def _title_from_filename(file_path: str) -> Optional[str]:
     return None
 
 
-async def _extract_pdf_text_and_title(file_path: str) -> tuple[str, Optional[str]]:
+async def _filter_document_pages(document, session) -> None:
+    """
+    Filter document pages by keyword relevance for cost-efficient LLM analysis.
+
+    Sets the page_analysis_* fields on the document based on keyword matching.
+    Only pages with keyword matches will be sent to the LLM for analysis.
+    """
+    from pathlib import Path
+
+    from app.models.category import Category
+    from services.document_page_filter import DocumentPageFilter
+
+    # Skip if no file path
+    if not document.file_path or not Path(document.file_path).exists():
+        document.page_analysis_status = "pending"
+        return
+
+    # Get category for search terms
+    category = await session.get(Category, document.category_id)
+
+    # Create filter from category
+    page_filter = DocumentPageFilter.from_category(category)
+
+    # Determine content type from document type
+    content_type_map = {
+        "PDF": "application/pdf",
+        "HTML": "text/html",
+        "DOC": "application/msword",
+        "DOCX": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
+    content_type = content_type_map.get(document.document_type.upper(), "text/plain")
+
+    try:
+        # Filter document pages
+        result = page_filter.filter_document(
+            file_path=Path(document.file_path),
+            content_type=content_type,
+            title=document.title,
+            max_pages=10,  # Max 10 pages for automatic analysis
+        )
+
+        # Set document fields
+        document.relevant_pages = result.page_numbers
+        document.total_relevant_pages = result.total_relevant
+        document.page_analysis_status = result.status
+        document.page_analysis_note = result.get_note()
+        document.analyzed_pages = []  # Will be filled by document analyzer
+
+        # Also store page count if not already set
+        if not document.page_count:
+            document.page_count = result.total_pages
+
+        logger.info(
+            "Document pages filtered",
+            document_id=str(document.id),
+            total_pages=result.total_pages,
+            relevant_pages=result.total_relevant,
+            status=result.status,
+        )
+
+    except Exception as e:
+        logger.error(
+            "Page filtering failed, falling back to full document",
+            document_id=str(document.id),
+            error=str(e),
+        )
+        # Fallback: mark as pending (will process full document)
+        document.page_analysis_status = "pending"
+
+
+async def _extract_pdf_text_and_title(file_path: str) -> tuple[str, str | None]:
     """Extract text and title from PDF using PyMuPDF."""
     import fitz  # PyMuPDF
 
@@ -244,11 +328,11 @@ async def _extract_pdf_text_and_title(file_path: str) -> tuple[str, Optional[str
     return "\n".join(text_parts), title
 
 
-async def _extract_html_text_and_title(file_path: str) -> tuple[str, Optional[str]]:
+async def _extract_html_text_and_title(file_path: str) -> tuple[str, str | None]:
     """Extract text and title from HTML."""
     from bs4 import BeautifulSoup
 
-    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+    with open(file_path, encoding="utf-8", errors="ignore") as f:
         soup = BeautifulSoup(f.read(), "lxml")
 
     # Extract title
@@ -280,10 +364,11 @@ async def _extract_docx_text(file_path: str) -> str:
 @celery_app.task(name="workers.processing_tasks.process_pending_documents")
 def process_pending_documents():
     """Process all pending documents."""
+
+    from sqlalchemy import select
+
     from app.database import get_celery_session_context
     from app.models import Document, ProcessingStatus
-    from sqlalchemy import select
-    import asyncio
 
     async def _process_pending():
         async with get_celery_session_context() as session:
@@ -307,10 +392,11 @@ def process_pending_documents():
 @celery_app.task(name="workers.processing_tasks.reprocess_failed")
 def reprocess_failed_documents():
     """Reprocess failed documents."""
+
+    from sqlalchemy import update
+
     from app.database import get_celery_session_context
     from app.models import Document, ProcessingStatus
-    from sqlalchemy import select, update
-    import asyncio
 
     async def _reprocess():
         async with get_celery_session_context() as session:

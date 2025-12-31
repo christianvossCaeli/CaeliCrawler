@@ -1,9 +1,7 @@
 """E2E Tests for Analysis API endpoints."""
 
-import uuid
 import pytest
 from httpx import AsyncClient
-
 
 # =============================================================================
 # Overview & Stats Tests

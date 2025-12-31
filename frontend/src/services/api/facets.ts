@@ -17,6 +17,15 @@ export const createFacetType = (data: FacetTypeCreate) => api.post('/v1/facets/t
 export const updateFacetType = (id: string, data: FacetTypeUpdate) => api.put(`/v1/facets/types/${id}`, data)
 export const deleteFacetType = (id: string) => api.delete(`/v1/facets/types/${id}`)
 
+/**
+ * Get FacetTypes for a specific Category.
+ * Uses the Category → EntityTypes → FacetTypes connection.
+ */
+export const getFacetTypesForCategory = (categoryId: string, params?: {
+  ai_extraction_enabled?: boolean
+  is_active?: boolean
+}) => api.get(`/v1/facets/types/for-category/${categoryId}`, { params })
+
 // Facet Values
 export const getFacetValues = (params?: FacetValueListParams) => api.get('/v1/facets/values', { params })
 export const getFacetValue = (id: string) => api.get(`/v1/facets/values/${id}`)
@@ -92,3 +101,21 @@ export const getFacetsReferencingEntity = (entityId: string, params?: {
   per_page?: number
   facet_type_slug?: string
 }) => api.get(`/v1/facets/entity/${entityId}/referenced-by`, { params })
+
+// Admin: Review FacetType
+export const reviewFacetType = (id: string, data: {
+  action: 'approve' | 'reject' | 'merge'
+  merge_target_id?: string
+}) => api.post(`/admin/facet-types/${id}/review`, data)
+
+// Admin: Get FacetTypes needing review
+export const getFacetTypesNeedingReview = (params?: {
+  page?: number
+  per_page?: number
+}) => api.get('/admin/facet-types/needs-review', { params })
+
+// Admin: Bulk review
+export const bulkReviewFacetTypes = (data: {
+  ids: string[]
+  action: 'approve' | 'reject'
+}) => api.post('/admin/facet-types/bulk-review', data)

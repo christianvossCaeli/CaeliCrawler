@@ -7,10 +7,10 @@ NOTE: These tests require additional fixtures (app, test_user_token) that are no
 yet implemented. They are currently skipped.
 """
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession
+from httpx import ASGITransport, AsyncClient
 
 # Skip all tests in this module until fixtures are implemented
 pytestmark = [

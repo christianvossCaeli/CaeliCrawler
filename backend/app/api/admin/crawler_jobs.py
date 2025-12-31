@@ -1,27 +1,26 @@
 """Admin API endpoints for crawl job management."""
 
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
 from app.core.deps import require_editor
+from app.core.exceptions import NotFoundError
 from app.core.query_helpers import batch_fetch_by_ids
-from app.models import CrawlJob, DataSource, Category, JobStatus, User
+from app.database import get_session
+from app.models import Category, CrawlJob, DataSource, JobStatus, User
 from app.schemas.crawl_job import (
-    CrawlJobResponse,
-    CrawlJobListResponse,
     CrawlJobDetailResponse,
-    JobLogResponse,
+    CrawlJobListResponse,
+    CrawlJobResponse,
     JobLogEntry,
+    JobLogResponse,
     RunningJobInfo,
     RunningJobsResponse,
 )
-from app.core.exceptions import NotFoundError
 
 router = APIRouter()
 
@@ -30,9 +29,9 @@ router = APIRouter()
 async def list_jobs(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
-    status: Optional[str] = Query(default=None, description="Single status or comma-separated list (e.g. 'COMPLETED,FAILED')"),
-    category_id: Optional[UUID] = Query(default=None),
-    source_id: Optional[UUID] = Query(default=None),
+    status: str | None = Query(default=None, description="Single status or comma-separated list (e.g. 'COMPLETED,FAILED')"),
+    category_id: UUID | None = Query(default=None),
+    source_id: UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
@@ -44,7 +43,7 @@ async def list_jobs(
         status_values = [s.strip() for s in status.split(",")]
         valid_statuses = []
         for s in status_values:
-            try:
+            try:  # noqa: SIM105
                 valid_statuses.append(JobStatus(s))
             except ValueError:
                 pass  # Ignore invalid status values

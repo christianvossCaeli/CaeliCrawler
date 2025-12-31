@@ -1,11 +1,11 @@
 """Base classes for external API integration."""
 
+import hashlib
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, TypeVar, Generic
-import hashlib
-import json
+from typing import Any, TypeVar
 
 import httpx
 import structlog
@@ -29,13 +29,13 @@ class ExternalAPIRecord:
     name: str
     """Display name for the entity."""
 
-    raw_data: Dict[str, Any]
+    raw_data: dict[str, Any]
     """Complete raw data from the API response."""
 
-    location_hints: List[str] = field(default_factory=list)
+    location_hints: list[str] = field(default_factory=list)
     """Location-related fields for entity linking (e.g., municipality names)."""
 
-    modified_at: Optional[datetime] = None
+    modified_at: datetime | None = None
     """Last modification timestamp from the API (if available)."""
 
     def compute_hash(self) -> str:
@@ -70,10 +70,10 @@ class SyncResult:
     records_archived: int = 0
     """Records archived due to extended absence."""
 
-    errors: List[Dict[str, Any]] = field(default_factory=list)
+    errors: list[dict[str, Any]] = field(default_factory=list)
     """List of errors encountered during sync."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for storage."""
         return {
             "records_fetched": self.records_fetched,
@@ -88,19 +88,19 @@ class SyncResult:
 
 
 @dataclass
-class APIResponse(Generic[T]):
+class APIResponse[T]:
     """Generic API response wrapper with pagination support."""
 
-    data: List[T]
+    data: list[T]
     """List of records."""
 
-    total_count: Optional[int] = None
+    total_count: int | None = None
     """Total number of records available (for pagination)."""
 
     has_more: bool = False
     """Whether more records are available."""
 
-    next_cursor: Optional[str] = None
+    next_cursor: str | None = None
     """Cursor for fetching next page (if applicable)."""
 
 
@@ -123,9 +123,9 @@ class BaseExternalAPIClient(ABC):
 
     def __init__(
         self,
-        auth_token: Optional[str] = None,
-        base_url: Optional[str] = None,
-        timeout: Optional[int] = None,
+        auth_token: str | None = None,
+        base_url: str | None = None,
+        timeout: int | None = None,
     ):
         """Initialize the API client.
 
@@ -137,7 +137,7 @@ class BaseExternalAPIClient(ABC):
         self.auth_token = auth_token
         self.base_url = base_url
         self.timeout = timeout or self.DEFAULT_TIMEOUT
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def __aenter__(self) -> "BaseExternalAPIClient":
         """Async context manager entry."""
@@ -150,7 +150,7 @@ class BaseExternalAPIClient(ABC):
             await self._client.aclose()
             self._client = None
 
-    def _get_headers(self) -> Dict[str, str]:
+    def _get_headers(self) -> dict[str, str]:
         """Get request headers including authentication.
 
         Override this method to customize headers for specific APIs.
@@ -164,9 +164,9 @@ class BaseExternalAPIClient(ABC):
         self,
         method: str,
         url: str,
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Make an HTTP request to the API.
 
         Args:
@@ -206,8 +206,8 @@ class BaseExternalAPIClient(ABC):
     async def get(
         self,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Make a GET request.
 
         Args:
@@ -223,9 +223,9 @@ class BaseExternalAPIClient(ABC):
     async def post(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Make a POST request.
 
         Args:
@@ -240,7 +240,7 @@ class BaseExternalAPIClient(ABC):
         return await self._request("POST", url, params=params, json_data=data)
 
     @abstractmethod
-    async def fetch_all_records(self) -> List[ExternalAPIRecord]:
+    async def fetch_all_records(self) -> list[ExternalAPIRecord]:
         """Fetch all records from the API.
 
         This is the main method that sync service calls. It should:
@@ -253,7 +253,7 @@ class BaseExternalAPIClient(ABC):
         """
         pass
 
-    async def fetch_record(self, external_id: str) -> Optional[ExternalAPIRecord]:
+    async def fetch_record(self, external_id: str) -> ExternalAPIRecord | None:
         """Fetch a single record by its external ID.
 
         Override this method if the API supports fetching individual records.
@@ -281,7 +281,7 @@ class BaseExternalAPIClient(ABC):
             True if connection is successful, False otherwise.
         """
         try:
-            records = await self.fetch_all_records()
+            _records = await self.fetch_all_records()  # Side effect: validates connection
             return True
         except Exception as e:
             logger.warning(

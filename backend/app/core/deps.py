@@ -1,16 +1,15 @@
 """FastAPI dependencies for authentication and authorization."""
 
-from typing import Optional
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
-from app.models.user import User, UserRole
 from app.core.security import decode_access_token, decode_sse_ticket
 from app.core.token_blacklist import is_token_blacklisted
+from app.database import get_session
+from app.models.user import User, UserRole
 
 
 class HTTPBearer401(HTTPBearer):
@@ -22,7 +21,7 @@ class HTTPBearer401(HTTPBearer):
     - 403 Forbidden: Valid credentials but insufficient permissions
     """
 
-    async def __call__(self, request: Request) -> Optional[HTTPAuthorizationCredentials]:
+    async def __call__(self, request: Request) -> HTTPAuthorizationCredentials | None:
         try:
             return await super().__call__(request)
         except HTTPException as exc:
@@ -31,7 +30,7 @@ class HTTPBearer401(HTTPBearer):
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Not authenticated",
                     headers={"WWW-Authenticate": "Bearer"},
-                )
+                ) from None
             raise
 
 
@@ -81,7 +80,7 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
 
     user = await session.get(User, user_id)
 
@@ -102,9 +101,9 @@ async def get_current_user(
 
 
 async def get_current_user_optional(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security_optional),
     session: AsyncSession = Depends(get_session),
-) -> Optional[User]:
+) -> User | None:
     """
     Get current user if authenticated, None otherwise.
 
@@ -147,7 +146,7 @@ async def get_current_user_from_token(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
-        )
+        ) from None
 
     user = await session.get(User, user_id)
 
@@ -200,7 +199,7 @@ async def get_current_user_from_sse_ticket(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid ticket payload",
-        )
+        ) from None
 
     user = await session.get(User, user_id)
 
@@ -220,9 +219,9 @@ async def get_current_user_from_sse_ticket(
 
 
 async def get_current_user_sse(
-    ticket: Optional[str] = Query(default=None, alias="ticket", description="SSE ticket for secure SSE auth"),
-    token: Optional[str] = Query(default=None, description="JWT token for SSE auth (deprecated, use ticket)"),
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
+    ticket: str | None = Query(default=None, alias="ticket", description="SSE ticket for secure SSE auth"),
+    token: str | None = Query(default=None, description="JWT token for SSE auth (deprecated, use ticket)"),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security_optional),
     session: AsyncSession = Depends(get_session),
 ) -> User:
     """
@@ -311,7 +310,7 @@ async def require_editor_sse(
 
 async def get_current_session_id(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> Optional[UUID]:
+) -> UUID | None:
     """
     Get the current session ID from the JWT token.
 

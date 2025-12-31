@@ -8,15 +8,15 @@ This module provides background tasks for:
 - Checking for updates from data sources
 """
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 import structlog
-from app.utils.cron import croniter_for_expression, get_schedule_timezone
 
-from workers.celery_app import celery_app
+from app.utils.cron import croniter_for_expression, get_schedule_timezone
 from workers.async_runner import run_async
+from workers.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
 
@@ -63,10 +63,11 @@ def check_scheduled_summaries(self):
     This task runs periodically (default: every 60 seconds) and triggers
     execution for any summary that is due based on its schedule_cron.
     """
+    from sqlalchemy import select
+
     from app.database import get_celery_session_context
     from app.models import CustomSummary
     from app.models.custom_summary import SummaryStatus, SummaryTriggerType
-    from sqlalchemy import select
 
     async def _check_and_execute():
         async with get_celery_session_context() as session:
@@ -274,7 +275,7 @@ def execute_summary_task(self, summary_id: str, triggered_by: str = "manual", tr
                     error=str(e),
                 )
                 # Re-raise to trigger Celery retry
-                raise self.retry(exc=e)
+                raise self.retry(exc=e) from None
 
     return run_async(_execute())
 
@@ -300,10 +301,11 @@ def on_crawl_completed(self, crawl_job_id: str, category_id: str):
         crawl_job_id: UUID of the completed crawl job.
         category_id: UUID of the category that was crawled.
     """
+    from sqlalchemy import select
+
     from app.database import get_celery_session_context
     from app.models import CustomSummary
     from app.models.custom_summary import SummaryStatus, SummaryTriggerType
-    from sqlalchemy import select
 
     async def _trigger_summaries():
         async with get_celery_session_context() as session:
@@ -354,7 +356,7 @@ def on_crawl_completed(self, crawl_job_id: str, category_id: str):
             category_id=category_id,
             error=str(e),
         )
-        raise self.retry(exc=e)
+        raise self.retry(exc=e) from None
 
 
 @celery_app.task(
@@ -377,10 +379,11 @@ def on_preset_completed(self, preset_id: str):
     Args:
         preset_id: UUID of the completed crawl preset.
     """
+    from sqlalchemy import select
+
     from app.database import get_celery_session_context
     from app.models import CustomSummary
     from app.models.custom_summary import SummaryStatus, SummaryTriggerType
-    from sqlalchemy import select
 
     async def _trigger_summaries():
         async with get_celery_session_context() as session:
@@ -428,7 +431,7 @@ def on_preset_completed(self, preset_id: str):
             preset_id=preset_id,
             error=str(e),
         )
-        raise self.retry(exc=e)
+        raise self.retry(exc=e) from None
 
 
 @celery_app.task(
@@ -447,17 +450,18 @@ def cleanup_old_executions(self, max_age_days: int = 30):
     Args:
         max_age_days: Maximum age of executions to keep (default: 30 days).
     """
+    from sqlalchemy import delete, select
+
     from app.database import get_celery_session_context
     from app.models import SummaryExecution
-    from sqlalchemy import select, delete, func
 
     async def _cleanup():
         async with get_celery_session_context() as session:
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+            cutoff_date = datetime.now(UTC) - timedelta(days=max_age_days)
 
             # Get executions to keep (most recent 10 per summary)
             # This is a subquery to find the IDs to KEEP
-            keep_subquery = (
+            (
                 select(SummaryExecution.id)
                 .where(SummaryExecution.created_at >= cutoff_date)
             )
@@ -477,11 +481,11 @@ def cleanup_old_executions(self, max_age_days: int = 30):
             # Group by summary and keep newest 5
             from collections import defaultdict
             by_summary = defaultdict(list)
-            for exec_id, summary_id, created_at in old_executions:
+            for exec_id, summary_id, _created_at in old_executions:
                 by_summary[summary_id].append(exec_id)
 
             delete_ids = []
-            for summary_id, exec_ids in by_summary.items():
+            for _summary_id, exec_ids in by_summary.items():
                 # Keep first 5 (newest), delete the rest
                 if len(exec_ids) > 5:
                     delete_ids.extend(exec_ids[5:])
@@ -508,7 +512,7 @@ def cleanup_old_executions(self, max_age_days: int = 30):
             max_age_days=max_age_days,
             error=str(e),
         )
-        raise self.retry(exc=e)
+        raise self.retry(exc=e) from None
 
 
 def _get_redis_client():
@@ -522,9 +526,9 @@ def _update_check_progress(
     status: str,
     total_sources: int,
     completed_sources: int = 0,
-    current_source: Optional[str] = None,
+    current_source: str | None = None,
     message: str = "",
-    error: Optional[str] = None,
+    error: str | None = None,
 ):
     """Update progress in Redis for a check-updates task."""
     import json
@@ -537,12 +541,12 @@ def _update_check_progress(
         "current_source": current_source,
         "message": message,
         "error": error,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(UTC).isoformat(),
     }
     redis.setex(key, 3600, json.dumps(data))  # Expire after 1 hour
 
 
-def get_check_progress(task_id: str) -> Optional[Dict[str, Any]]:
+def get_check_progress(task_id: str) -> dict[str, Any] | None:
     """Get progress for a check-updates task from Redis."""
     import json
     redis = _get_redis_client()
@@ -568,10 +572,10 @@ def get_check_progress(task_id: str) -> Optional[Dict[str, Any]]:
 def check_summary_updates(
     self,
     summary_id: str,
-    source_ids: List[str],
-    source_names: List[str],
+    source_ids: list[str],
+    source_names: list[str],
     user_id: str,
-    external_api_ids: List[str] = None,
+    external_api_ids: list[str] = None,
 ):
     """
     Check for updates by crawling relevant data sources, syncing external APIs,
@@ -591,10 +595,12 @@ def check_summary_updates(
         external_api_ids: List of APIConfiguration UUIDs to sync (optional)
     """
     import time
+
+    from sqlalchemy import select
+
     from app.database import get_celery_session_context
-    from app.models import CrawlJob, JobStatus, DataSource
+    from app.models import CrawlJob, JobStatus
     from app.models.data_source_category import DataSourceCategory
-    from sqlalchemy import select, and_
     from workers.crawl_tasks import create_crawl_job
 
     external_api_ids = external_api_ids or []
@@ -620,7 +626,7 @@ def check_summary_updates(
         async with get_celery_session_context() as session:
             # Create crawl jobs for each data source
             job_ids = []
-            source_to_name = dict(zip(source_ids, source_names))
+            source_to_name = dict(zip(source_ids, source_names, strict=False))
 
             _update_check_progress(
                 task_id=task_id,
@@ -665,8 +671,8 @@ def check_summary_updates(
             # 2. Sync external APIs
             api_sync_results = []
             if external_api_ids:
-                from external_apis.sync_service import ExternalAPISyncService
                 from app.models.api_configuration import APIConfiguration
+                from external_apis.sync_service import ExternalAPISyncService
 
                 for i, api_id in enumerate(external_api_ids):
                     # Use selectinload to eagerly load data_source relationship
@@ -746,7 +752,7 @@ def check_summary_updates(
                 await session.expire_all()
 
                 crawl_completed = 0
-                for job_id, source_id in job_ids:
+                for job_id, _source_id in job_ids:
                     job = await session.get(CrawlJob, UUID(job_id))
                     if job and job.status in (JobStatus.COMPLETED, JobStatus.FAILED):
                         crawl_completed += 1
@@ -783,8 +789,8 @@ def check_summary_updates(
             )
 
             # Execute summary with force=True to ensure update
-            from services.summaries import SummaryExecutor
             from app.models import CustomSummary
+            from services.summaries import SummaryExecutor
 
             summary = await session.get(CustomSummary, UUID(summary_id))
             if summary:
@@ -837,6 +843,23 @@ def check_summary_updates(
 
     try:
         return run_async(_check_updates())
+    except celery_app.SoftTimeLimitExceeded:
+        # Graceful handling of timeout - update progress and log
+        logger.warning(
+            "check_summary_updates_timeout",
+            summary_id=summary_id,
+            task_id=task_id,
+            soft_limit=1500,
+        )
+        _update_check_progress(
+            task_id=task_id,
+            status="failed",
+            total_sources=total_sources,
+            completed_sources=0,
+            message="Zeitüberschreitung bei der Aktualisierung (25 Minuten)",
+            error="Task timed out after 25 minutes",
+        )
+        raise
     except Exception as e:
         logger.exception(
             "check_summary_updates_failed",
@@ -852,4 +875,4 @@ def check_summary_updates(
             message="Fehler bei der Aktualisierung",
             error=str(e),
         )
-        raise self.retry(exc=e)
+        raise self.retry(exc=e) from None

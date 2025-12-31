@@ -1,25 +1,21 @@
 """Celery tasks for asynchronous data exports."""
 
-import asyncio
 import csv
-import io
 import json
 import os
-import tempfile
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 import structlog
-from celery import shared_task
 
-from workers.celery_app import celery_app
 from workers.async_runner import run_async
+from workers.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
 
 # Export directory for temporary files
-EXPORT_DIR = os.environ.get("EXPORT_DIR", "/tmp/exports")
+EXPORT_DIR = os.environ.get("EXPORT_DIR", "/tmp/exports")  # noqa: S108
 
 
 def ensure_export_dir():
@@ -37,9 +33,9 @@ def ensure_export_dir():
 def async_entity_export(
     self,
     export_job_id: str,
-    export_data: Dict[str, Any],
-    user_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    export_data: dict[str, Any],
+    user_id: str | None = None,
+) -> dict[str, Any]:
     """Execute a large entity export asynchronously.
 
     Args:
@@ -72,6 +68,16 @@ def async_entity_export(
 
         return result
 
+    except celery_app.SoftTimeLimitExceeded:
+        # Graceful shutdown on timeout - mark job as failed with timeout reason
+        logger.warning(
+            "async_export_timeout",
+            job_id=export_job_id,
+            soft_limit=1800,
+        )
+        run_async(_mark_job_failed(export_job_id, "Export timed out after 30 minutes"))
+        raise
+
     except Exception as e:
         logger.error(
             "async_export_failed",
@@ -97,8 +103,9 @@ def _update_progress(task, job_id: str, progress: int, message: str):
 
 async def _mark_job_failed(job_id: str, error: str):
     """Mark export job as failed in database."""
-    from app.database import get_celery_session
     from sqlalchemy import update
+
+    from app.database import get_celery_session
     from app.models.export_job import ExportJob
 
     async with get_celery_session() as session:
@@ -108,7 +115,7 @@ async def _mark_job_failed(job_id: str, error: str):
             .values(
                 status="failed",
                 error_message=error,
-                completed_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(UTC),
             )
         )
         await session.commit()
@@ -116,14 +123,15 @@ async def _mark_job_failed(job_id: str, error: str):
 
 async def _execute_async_export(
     job_id: str,
-    export_data: Dict[str, Any],
+    export_data: dict[str, Any],
     progress_callback=None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Execute the export query and write to file."""
+    from sqlalchemy import func, select, update
+
     from app.database import get_celery_session
     from app.models import Entity, EntityType, FacetType, FacetValue
     from app.models.export_job import ExportJob
-    from sqlalchemy import select, update, func
     from services.smart_query.geographic_utils import resolve_geographic_alias
 
     ensure_export_dir()
@@ -144,7 +152,7 @@ async def _execute_async_export(
         await session.execute(
             update(ExportJob)
             .where(ExportJob.id == UUID(job_id))
-            .values(status="processing", started_at=datetime.now(timezone.utc))
+            .values(status="processing", started_at=datetime.now(UTC))
         )
         await session.commit()
 
@@ -209,7 +217,7 @@ async def _execute_async_export(
                 .where(ExportJob.id == UUID(job_id))
                 .values(
                     status="completed",
-                    completed_at=datetime.now(timezone.utc),
+                    completed_at=datetime.now(UTC),
                     processed_records=0,
                 )
             )
@@ -235,12 +243,9 @@ async def _execute_async_export(
                 if ft:
                     facet_type_map[ft_slug] = ft
 
-        # Process in batches
-        batch_size = 1000
         export_records = []
-        processed = 0
 
-        # Use streaming for large exports
+        # Load entities
         result = await session.execute(entity_query)
         entities = result.scalars().all()
 
@@ -249,7 +254,7 @@ async def _execute_async_export(
 
         # Bulk load facets
         entity_ids = [e.id for e in entities]
-        facets_by_entity: Dict[UUID, List[Dict]] = {eid: [] for eid in entity_ids}
+        facets_by_entity: dict[UUID, list[dict]] = {eid: [] for eid in entity_ids}
 
         if include_facets and entity_ids:
             facet_query = select(FacetValue).where(
@@ -325,7 +330,6 @@ async def _execute_async_export(
 
         elif export_format == "excel":
             try:
-                import openpyxl
                 from openpyxl import Workbook
 
                 file_path = os.path.join(EXPORT_DIR, f"{filename}.xlsx")
@@ -377,7 +381,7 @@ async def _execute_async_export(
             .where(ExportJob.id == UUID(job_id))
             .values(
                 status="completed",
-                completed_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(UTC),
                 processed_records=len(export_records),
                 file_path=file_path,
                 file_size=file_size,

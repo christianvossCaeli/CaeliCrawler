@@ -146,6 +146,12 @@ const router = createRouter({
       component: () => import('@/views/admin/AuditLogView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
     },
+    {
+      path: '/admin/llm-usage',
+      name: 'admin-llm-usage',
+      component: () => import('@/views/admin/LLMUsageView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
 
     // Custom Summaries routes
     {
@@ -167,6 +173,14 @@ const router = createRouter({
       name: 'shared-summary',
       component: () => import('@/views/SharedSummaryView.vue'),
       meta: { public: true }
+    },
+
+    // 403 Forbidden page
+    {
+      path: '/forbidden',
+      name: 'forbidden',
+      component: () => import('@/views/ForbiddenView.vue'),
+      meta: { requiresAuth: true }
     },
 
     // Catch-all redirect
@@ -209,12 +223,12 @@ router.beforeEach(async (
 
   // Admin routes - check admin role
   if (to.meta.requiresAdmin && !auth.isAdmin) {
-    return next({ name: 'dashboard' })
+    return next({ name: 'forbidden', query: { from: to.fullPath } })
   }
 
   // Editor routes - check editor role
   if (to.meta.requiresEditor && !auth.isEditor) {
-    return next({ name: 'dashboard' })
+    return next({ name: 'forbidden', query: { from: to.fullPath } })
   }
 
   next()

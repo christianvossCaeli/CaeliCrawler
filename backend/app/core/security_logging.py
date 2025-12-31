@@ -16,9 +16,9 @@ Usage:
     security_logger.log_auth_failure(email, reason, ip_address)
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -41,8 +41,8 @@ class SecurityEventType(str, Enum):
     AUTH_FAILURE = "security.auth.failure"
     AUTH_SUCCESS = "security.auth.success"
     AUTH_LOGOUT = "security.auth.logout"
-    AUTH_TOKEN_INVALID = "security.auth.token_invalid"
-    AUTH_TOKEN_EXPIRED = "security.auth.token_expired"
+    AUTH_TOKEN_INVALID = "security.auth.token_invalid"  # noqa: S105
+    AUTH_TOKEN_EXPIRED = "security.auth.token_expired"  # noqa: S105
 
     # Authorization
     AUTHZ_DENIED = "security.authz.denied"
@@ -73,8 +73,8 @@ class SecurityLogger:
         event_type: SecurityEventType,
         severity: str,
         message: str,
-        user_id: Optional[UUID] = None,
-        ip_address: Optional[str] = None,
+        user_id: UUID | None = None,
+        ip_address: str | None = None,
         **extra_context: Any,
     ) -> None:
         """
@@ -95,7 +95,7 @@ class SecurityLogger:
             event_type=event_type.value,
             user_id=str(user_id) if user_id else None,
             ip_address=ip_address,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             **extra_context,
         )
 
@@ -105,10 +105,10 @@ class SecurityLogger:
 
     def log_ssrf_blocked(
         self,
-        user_id: Optional[UUID],
+        user_id: UUID | None,
         url: str,
         reason: str,
-        ip_address: Optional[str] = None,
+        ip_address: str | None = None,
     ) -> None:
         """Log a blocked SSRF attempt."""
         self._log_event(
@@ -123,11 +123,11 @@ class SecurityLogger:
 
     def log_ssrf_redirect_blocked(
         self,
-        user_id: Optional[UUID],
+        user_id: UUID | None,
         original_url: str,
         redirect_url: str,
         reason: str,
-        ip_address: Optional[str] = None,
+        ip_address: str | None = None,
     ) -> None:
         """Log a blocked SSRF redirect attempt."""
         self._log_event(
@@ -147,11 +147,11 @@ class SecurityLogger:
 
     def log_rate_limit_exceeded(
         self,
-        user_id: Optional[UUID],
+        user_id: UUID | None,
         endpoint: str,
         limit: int,
         window_seconds: int,
-        ip_address: Optional[str] = None,
+        ip_address: str | None = None,
     ) -> None:
         """Log when rate limit is exceeded."""
         self._log_event(
@@ -167,11 +167,11 @@ class SecurityLogger:
 
     def log_rate_limit_warning(
         self,
-        user_id: Optional[UUID],
+        user_id: UUID | None,
         endpoint: str,
         current_count: int,
         limit: int,
-        ip_address: Optional[str] = None,
+        ip_address: str | None = None,
     ) -> None:
         """Log when approaching rate limit (80% threshold)."""
         self._log_event(
@@ -194,8 +194,8 @@ class SecurityLogger:
         self,
         email: str,
         reason: str,
-        ip_address: Optional[str] = None,
-        attempt_count: Optional[int] = None,
+        ip_address: str | None = None,
+        attempt_count: int | None = None,
     ) -> None:
         """Log authentication failure."""
         self._log_event(
@@ -212,7 +212,7 @@ class SecurityLogger:
         self,
         user_id: UUID,
         email: str,
-        ip_address: Optional[str] = None,
+        ip_address: str | None = None,
     ) -> None:
         """Log successful authentication."""
         self._log_event(
@@ -227,7 +227,7 @@ class SecurityLogger:
     def log_auth_logout(
         self,
         user_id: UUID,
-        ip_address: Optional[str] = None,
+        ip_address: str | None = None,
     ) -> None:
         """Log user logout."""
         self._log_event(
@@ -242,7 +242,7 @@ class SecurityLogger:
         self,
         token_hint: str,
         reason: str,
-        ip_address: Optional[str] = None,
+        ip_address: str | None = None,
     ) -> None:
         """Log invalid token usage attempt."""
         self._log_event(
@@ -263,8 +263,8 @@ class SecurityLogger:
         user_id: UUID,
         resource: str,
         action: str,
-        required_role: Optional[str] = None,
-        ip_address: Optional[str] = None,
+        required_role: str | None = None,
+        ip_address: str | None = None,
     ) -> None:
         """Log authorization denial."""
         self._log_event(
@@ -282,7 +282,7 @@ class SecurityLogger:
         self,
         user_id: UUID,
         attempted_action: str,
-        ip_address: Optional[str] = None,
+        ip_address: str | None = None,
     ) -> None:
         """Log potential privilege escalation attempt."""
         self._log_event(
@@ -300,12 +300,12 @@ class SecurityLogger:
 
     def log_validation_failed(
         self,
-        user_id: Optional[UUID],
+        user_id: UUID | None,
         endpoint: str,
         field: str,
         value_hint: str,
         reason: str,
-        ip_address: Optional[str] = None,
+        ip_address: str | None = None,
     ) -> None:
         """Log input validation failure."""
         self._log_event(
@@ -322,12 +322,12 @@ class SecurityLogger:
 
     def log_input_size_exceeded(
         self,
-        user_id: Optional[UUID],
+        user_id: UUID | None,
         endpoint: str,
         field: str,
         size: int,
         max_size: int,
-        ip_address: Optional[str] = None,
+        ip_address: str | None = None,
     ) -> None:
         """Log when input size exceeds limits."""
         self._log_event(
@@ -348,10 +348,10 @@ class SecurityLogger:
 
     def log_suspicious_pattern(
         self,
-        user_id: Optional[UUID],
+        user_id: UUID | None,
         pattern_type: str,
         details: str,
-        ip_address: Optional[str] = None,
+        ip_address: str | None = None,
     ) -> None:
         """Log suspicious activity pattern."""
         self._log_event(
@@ -369,7 +369,7 @@ class SecurityLogger:
         target: str,
         attempt_count: int,
         window_seconds: int,
-        ip_address: Optional[str] = None,
+        ip_address: str | None = None,
     ) -> None:
         """Log potential brute force attack."""
         self._log_event(

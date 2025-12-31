@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -36,7 +36,7 @@ class UserEmailAddress(Base):
         String(255),
         nullable=False,
     )
-    label: Mapped[Optional[str]] = mapped_column(
+    label: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )  # e.g., "Work", "Private", "Team"
@@ -52,11 +52,11 @@ class UserEmailAddress(Base):
         default=False,
         nullable=False,
     )
-    verification_token: Mapped[Optional[str]] = mapped_column(
+    verification_token: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
-    verified_at: Mapped[Optional[datetime]] = mapped_column(
+    verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )

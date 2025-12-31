@@ -1,16 +1,15 @@
 """Admin API endpoints for PySis integration."""
 
 import json
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.deps import require_editor, require_admin
+from app.core.deps import require_admin, require_editor
 from app.core.exceptions import FeatureDisabledError, NotFoundError, ValidationError
 from app.database import get_session
 from app.models import Entity, User
@@ -68,7 +67,7 @@ def require_templates_feature():
 
 @router.get("/templates", response_model=PySisFieldTemplateListResponse)
 async def list_templates(
-    is_active: Optional[bool] = Query(default=None),
+    is_active: bool | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_templates_feature),
     __: User = Depends(require_editor),
@@ -372,7 +371,7 @@ async def apply_template_to_process(
 
 # === Fields ===
 
-@router.get("/processes/{process_id}/fields", response_model=List[PySisFieldResponse])
+@router.get("/processes/{process_id}/fields", response_model=list[PySisFieldResponse])
 async def list_process_fields(
     process_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -524,16 +523,13 @@ async def pull_from_pysis(
             # Convert value to string
             str_value = None
             if value is not None:
-                if isinstance(value, (dict, list)):
-                    str_value = json.dumps(value, ensure_ascii=False)
-                else:
-                    str_value = str(value)
+                str_value = json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value)
 
             if field_name in existing_fields:
                 # Update existing field
                 field = existing_fields[field_name]
                 field.pysis_value = str_value
-                field.last_pulled_at = datetime.now(timezone.utc)
+                field.last_pulled_at = datetime.now(UTC)
 
                 # Update current value if empty or source is PYSIS
                 if field.current_value is None or field.current_value == "" or field.value_source == ValueSource.PYSIS:
@@ -552,12 +548,12 @@ async def pull_from_pysis(
                     pysis_value=str_value,
                     current_value=str_value,
                     value_source=ValueSource.PYSIS,
-                    last_pulled_at=datetime.now(timezone.utc),
+                    last_pulled_at=datetime.now(UTC),
                 )
                 session.add(new_field)
                 fields_created += 1
 
-        process.last_synced_at = datetime.now(timezone.utc)
+        process.last_synced_at = datetime.now(UTC)
         process.sync_status = SyncStatus.SYNCED
         process.sync_error = None
 
@@ -608,7 +604,7 @@ def _infer_field_type(value) -> str:
 @router.post("/processes/{process_id}/sync/push", response_model=PySisSyncResult)
 async def push_to_pysis(
     process_id: UUID,
-    field_ids: Optional[List[UUID]] = Body(None, embed=True),
+    field_ids: list[UUID] | None = Body(None, embed=True),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
@@ -647,10 +643,10 @@ async def push_to_pysis(
             for field in process.fields:
                 if field.pysis_field_name in fields_to_push:
                     field.needs_push = False
-                    field.last_pushed_at = datetime.now(timezone.utc)
+                    field.last_pushed_at = datetime.now(UTC)
                     fields_synced += 1
 
-        process.last_synced_at = datetime.now(timezone.utc)
+        process.last_synced_at = datetime.now(UTC)
         process.sync_status = SyncStatus.SYNCED
         process.sync_error = None
 
@@ -659,7 +655,7 @@ async def push_to_pysis(
         return PySisSyncResult(
             success=True,
             fields_synced=fields_synced,
-            synced_at=datetime.now(timezone.utc),
+            synced_at=datetime.now(UTC),
             errors=[],
         )
 
@@ -671,7 +667,7 @@ async def push_to_pysis(
         return PySisSyncResult(
             success=False,
             fields_synced=0,
-            synced_at=datetime.now(timezone.utc),
+            synced_at=datetime.now(UTC),
             errors=[str(e)],
         )
 
@@ -704,9 +700,9 @@ async def push_field_to_pysis(
             )
 
             field.needs_push = False
-            field.last_pushed_at = datetime.now(timezone.utc)
+            field.last_pushed_at = datetime.now(UTC)
 
-            process.last_synced_at = datetime.now(timezone.utc)
+            process.last_synced_at = datetime.now(UTC)
             process.sync_status = SyncStatus.SYNCED
             process.sync_error = None
 
@@ -715,7 +711,7 @@ async def push_field_to_pysis(
         return PySisSyncResult(
             success=True,
             fields_synced=1,
-            synced_at=datetime.now(timezone.utc),
+            synced_at=datetime.now(UTC),
             errors=[],
         )
 
@@ -727,7 +723,7 @@ async def push_field_to_pysis(
         return PySisSyncResult(
             success=False,
             fields_synced=0,
-            synced_at=datetime.now(timezone.utc),
+            synced_at=datetime.now(UTC),
             errors=[str(e)],
         )
 
@@ -737,7 +733,7 @@ async def push_field_to_pysis(
 @router.post("/processes/{process_id}/generate", response_model=PySisGenerateResult)
 async def generate_fields(
     process_id: UUID,
-    data: Optional[PySisGenerateRequest] = None,
+    data: PySisGenerateRequest | None = None,
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
@@ -754,9 +750,8 @@ async def generate_fields(
     # Count fields that will be generated
     count = 0
     for field in process.fields:
-        if field.ai_extraction_enabled:
-            if field_ids is None or str(field.id) in field_ids:
-                count += 1
+        if field.ai_extraction_enabled and (field_ids is None or str(field.id) in field_ids):
+            count += 1
 
     return PySisGenerateResult(
         success=True,
@@ -791,7 +786,7 @@ async def generate_single_field(
 @router.post("/fields/{field_id}/accept-ai", response_model=AcceptAISuggestionResult)
 async def accept_ai_suggestion(
     field_id: UUID,
-    data: Optional[AcceptAISuggestionRequest] = None,
+    data: AcceptAISuggestionRequest | None = None,
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
@@ -858,7 +853,7 @@ async def accept_ai_suggestion(
                         field.current_value,
                     )
                     field.needs_push = False
-                    field.last_pushed_at = datetime.now(timezone.utc)
+                    field.last_pushed_at = datetime.now(UTC)
                     await session.commit()
                 except Exception as e:
                     # Log error but don't fail - the AI suggestion was still accepted
@@ -1012,7 +1007,7 @@ async def restore_from_history(
 
 @router.get("/test-connection", response_model=PySisTestConnectionResult)
 async def test_pysis_connection(
-    process_id: Optional[str] = Query(default=None, description="Optional process ID to test"),
+    process_id: str | None = Query(default=None, description="Optional process ID to test"),
     _: User = Depends(require_editor),
 ):
     """Test the PySis API connection."""
@@ -1050,7 +1045,7 @@ async def list_available_processes(
 @router.post("/processes/{process_id}/analyze-for-facets", response_model=PySisAnalyzeForFacetsResult)
 async def analyze_pysis_for_facets_admin(
     process_id: UUID,
-    data: Optional[PySisAnalyzeForFacetsRequest] = None,
+    data: PySisAnalyzeForFacetsRequest | None = None,
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
@@ -1090,7 +1085,7 @@ async def analyze_pysis_for_facets_admin(
             min_confidence=data.min_field_confidence if data else 0.0,
         )
     except ValueError as e:
-        raise ValidationError(str(e))
+        raise ValidationError(str(e)) from None
 
     return PySisAnalyzeForFacetsResult(
         success=True,

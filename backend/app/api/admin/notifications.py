@@ -1,18 +1,21 @@
 """Admin API endpoints for notification management."""
 
 import secrets
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
 from app.core.audit import AuditContext
+from app.core.deps import get_current_user
+from app.core.exceptions import ConflictError, NotFoundError
+from app.database import get_session
 from app.models.audit_log import AuditAction
+from app.models.device_token import DevicePlatform, DeviceToken
 from app.models.notification import (
     Notification,
     NotificationChannel,
@@ -22,9 +25,6 @@ from app.models.notification import (
 from app.models.notification_rule import NotificationRule
 from app.models.user import User
 from app.models.user_email import UserEmailAddress
-from app.models.device_token import DeviceToken, DevicePlatform
-from app.core.deps import get_current_user
-from app.core.exceptions import NotFoundError, ConflictError
 from services.notifications.notification_service import NotificationService
 
 router = APIRouter()
@@ -39,7 +39,7 @@ class UserEmailAddressCreate(BaseModel):
     """Schema for adding an email address."""
 
     email: EmailStr
-    label: Optional[str] = None
+    label: str | None = None
 
 
 class UserEmailAddressResponse(BaseModel):
@@ -47,7 +47,7 @@ class UserEmailAddressResponse(BaseModel):
 
     id: UUID
     email: str
-    label: Optional[str] = None
+    label: str | None = None
     is_verified: bool
     is_primary: bool
     created_at: datetime
@@ -60,26 +60,26 @@ class NotificationRuleCreate(BaseModel):
     """Schema for creating a notification rule."""
 
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     event_type: NotificationEventType
     channel: NotificationChannel
-    conditions: Dict[str, Any] = {}
-    channel_config: Dict[str, Any] = {}
+    conditions: dict[str, Any] = {}
+    channel_config: dict[str, Any] = {}
     digest_enabled: bool = False
-    digest_frequency: Optional[str] = None
+    digest_frequency: str | None = None
     is_active: bool = True
 
 
 class NotificationRuleUpdate(BaseModel):
     """Schema for updating a notification rule."""
 
-    name: Optional[str] = None
-    description: Optional[str] = None
-    conditions: Optional[Dict[str, Any]] = None
-    channel_config: Optional[Dict[str, Any]] = None
-    digest_enabled: Optional[bool] = None
-    digest_frequency: Optional[str] = None
-    is_active: Optional[bool] = None
+    name: str | None = None
+    description: str | None = None
+    conditions: dict[str, Any] | None = None
+    channel_config: dict[str, Any] | None = None
+    digest_enabled: bool | None = None
+    digest_frequency: str | None = None
+    is_active: bool | None = None
 
 
 class NotificationRuleResponse(BaseModel):
@@ -87,16 +87,16 @@ class NotificationRuleResponse(BaseModel):
 
     id: UUID
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     event_type: NotificationEventType
     channel: NotificationChannel
-    conditions: Dict[str, Any]
-    channel_config: Dict[str, Any]
+    conditions: dict[str, Any]
+    channel_config: dict[str, Any]
     digest_enabled: bool
-    digest_frequency: Optional[str] = None
+    digest_frequency: str | None = None
     is_active: bool
     trigger_count: int
-    last_triggered: Optional[datetime] = None
+    last_triggered: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -113,10 +113,10 @@ class NotificationResponse(BaseModel):
     title: str
     body: str
     status: NotificationStatus
-    related_entity_type: Optional[str] = None
-    related_entity_id: Optional[UUID] = None
-    sent_at: Optional[datetime] = None
-    read_at: Optional[datetime] = None
+    related_entity_type: str | None = None
+    related_entity_id: UUID | None = None
+    sent_at: datetime | None = None
+    read_at: datetime | None = None
     created_at: datetime
 
     class Config:
@@ -126,7 +126,7 @@ class NotificationResponse(BaseModel):
 class NotificationListResponse(BaseModel):
     """Paginated list of notifications."""
 
-    items: List[NotificationResponse]
+    items: list[NotificationResponse]
     total: int
     page: int
     per_page: int
@@ -149,30 +149,30 @@ class WebhookTestRequest(BaseModel):
     """Webhook test request."""
 
     url: str
-    auth: Optional[Dict[str, Any]] = None
+    auth: dict[str, Any] | None = None
 
 
 class WebhookTestResponse(BaseModel):
     """Webhook test response."""
 
     success: bool
-    status_code: Optional[int] = None
-    response: Optional[str] = None
-    error: Optional[str] = None
+    status_code: int | None = None
+    response: str | None = None
+    error: str | None = None
 
 
 class NotificationPreferencesUpdate(BaseModel):
     """User notification preferences update."""
 
-    notifications_enabled: Optional[bool] = None
-    notification_digest_time: Optional[str] = None
+    notifications_enabled: bool | None = None
+    notification_digest_time: str | None = None
 
 
 class NotificationPreferencesResponse(BaseModel):
     """User notification preferences."""
 
     notifications_enabled: bool
-    notification_digest_time: Optional[str] = None
+    notification_digest_time: str | None = None
 
 
 class DeviceTokenCreate(BaseModel):
@@ -180,9 +180,9 @@ class DeviceTokenCreate(BaseModel):
 
     token: str
     platform: str  # "ios", "android", "web"
-    device_name: Optional[str] = None
-    app_version: Optional[str] = None
-    os_version: Optional[str] = None
+    device_name: str | None = None
+    app_version: str | None = None
+    os_version: str | None = None
 
 
 class DeviceTokenResponse(BaseModel):
@@ -191,11 +191,11 @@ class DeviceTokenResponse(BaseModel):
     id: UUID
     token: str
     platform: DevicePlatform
-    device_name: Optional[str] = None
-    app_version: Optional[str] = None
-    os_version: Optional[str] = None
+    device_name: str | None = None
+    app_version: str | None = None
+    os_version: str | None = None
     is_active: bool
-    last_used_at: Optional[datetime] = None
+    last_used_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -208,7 +208,7 @@ class DeviceTokenResponse(BaseModel):
 # =============================================================================
 
 
-@router.get("/email-addresses", response_model=List[UserEmailAddressResponse])
+@router.get("/email-addresses", response_model=list[UserEmailAddressResponse])
 async def list_email_addresses(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -314,7 +314,7 @@ async def verify_email_address(
         )
 
     email_address.is_verified = True
-    email_address.verified_at = datetime.now(timezone.utc)
+    email_address.verified_at = datetime.now(UTC)
     email_address.verification_token = None
     await session.commit()
 
@@ -352,7 +352,7 @@ async def resend_verification(
 # =============================================================================
 
 
-@router.get("/device-tokens", response_model=List[DeviceTokenResponse])
+@router.get("/device-tokens", response_model=list[DeviceTokenResponse])
 async def list_device_tokens(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -387,7 +387,7 @@ async def register_device_token(
         raise HTTPException(
             status_code=400,
             detail=f"Invalid platform. Must be one of: {', '.join(p.value for p in DevicePlatform)}",
-        )
+        ) from None
 
     # Check if token already exists (for any user)
     existing = await session.execute(
@@ -403,7 +403,7 @@ async def register_device_token(
         existing_token.app_version = data.app_version
         existing_token.os_version = data.os_version
         existing_token.is_active = True
-        existing_token.last_used_at = datetime.now(timezone.utc)
+        existing_token.last_used_at = datetime.now(UTC)
         await session.commit()
         await session.refresh(existing_token)
         return DeviceTokenResponse.model_validate(existing_token)
@@ -416,7 +416,7 @@ async def register_device_token(
         device_name=data.device_name,
         app_version=data.app_version,
         os_version=data.os_version,
-        last_used_at=datetime.now(timezone.utc),
+        last_used_at=datetime.now(UTC),
     )
     session.add(device_token)
     await session.commit()
@@ -486,7 +486,7 @@ async def deactivate_device_token(
 # =============================================================================
 
 
-@router.get("/rules", response_model=List[NotificationRuleResponse])
+@router.get("/rules", response_model=list[NotificationRuleResponse])
 async def list_rules(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -680,9 +680,9 @@ async def delete_rule(
 
 @router.get("/notifications", response_model=NotificationListResponse)
 async def list_notifications(
-    status: Optional[NotificationStatus] = None,
-    channel: Optional[NotificationChannel] = None,
-    event_type: Optional[NotificationEventType] = None,
+    status: NotificationStatus | None = None,
+    channel: NotificationChannel | None = None,
+    event_type: NotificationEventType | None = None,
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
@@ -801,7 +801,7 @@ async def test_webhook(
         "notification_id": "test-notification-id",
         "title": "Webhook Test",
         "body": "Dies ist eine Test-Benachrichtigung von CaeliCrawler",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "data": {"test": True},
     }
 
@@ -895,7 +895,7 @@ async def update_preferences(
                 raise HTTPException(
                     status_code=400,
                     detail="Invalid time format. Use HH:MM (24-hour format)",
-                )
+                ) from None
 
     for field, value in update_data.items():
         setattr(current_user, field, value)

@@ -1,13 +1,19 @@
 import { useI18n } from 'vue-i18n'
-import { format } from 'date-fns'
-import { de, enUS } from 'date-fns/locale'
 import type { SourceType, SourceStatus } from '@/types/sources'
+import {
+  getStatusColor as getGlobalStatusColor,
+  getStatusIcon as getGlobalStatusIcon,
+} from './useStatusColors'
+import { useDateFormatter } from './useDateFormatter'
 
 /**
  * Composable for source type and status helpers
  *
  * Provides consistent colors, icons, and labels across components
  * for data sources, statuses, tags, languages, and dates.
+ *
+ * Status colors and icons now use the centralized useStatusColors module
+ * to ensure consistency across the application.
  *
  * @returns Object containing helper functions:
  * - Type helpers: getTypeColor, getTypeIcon, getTypeLabel
@@ -25,7 +31,8 @@ import type { SourceType, SourceStatus } from '@/types/sources'
  * ```
  */
 export function useSourceHelpers() {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
+  const { formatDate: formatDateBase, formatRelativeTime } = useDateFormatter()
 
   // ==========================================================================
   // Type Helpers
@@ -86,33 +93,17 @@ export function useSourceHelpers() {
   }
 
   // ==========================================================================
-  // Status Helpers
+  // Status Helpers (delegating to centralized useStatusColors)
   // ==========================================================================
 
-  /** Color mapping for source statuses (Vuetify color names) */
-  const statusColors: Record<string, string> = {
-    ACTIVE: 'success',
-    PENDING: 'warning',
-    ERROR: 'error',
-    PAUSED: 'grey',
-  }
-
-  /** Icon mapping for source statuses (MDI icon names) */
-  const statusIcons: Record<string, string> = {
-    ACTIVE: 'mdi-check-circle',
-    PENDING: 'mdi-clock-outline',
-    ERROR: 'mdi-alert-circle',
-    PAUSED: 'mdi-pause-circle',
-  }
-
-  /** Get Vuetify color for source status */
+  /** Get Vuetify color for source status - uses centralized status colors */
   const getStatusColor = (status: SourceStatus | string | null): string => {
-    return status ? statusColors[status] || 'grey' : 'grey'
+    return getGlobalStatusColor(status)
   }
 
-  /** Get MDI icon name for source status */
+  /** Get MDI icon name for source status - uses centralized status icons */
   const getStatusIcon = (status: SourceStatus | string | null): string => {
-    return status ? statusIcons[status] || 'mdi-help-circle' : 'mdi-help-circle'
+    return getGlobalStatusIcon(status)
   }
 
   /** Get localized label for source status */
@@ -265,49 +256,21 @@ export function useSourceHelpers() {
   }
 
   // ==========================================================================
-  // Date Formatting
+  // Date Formatting (delegating to centralized useDateFormatter)
   // ==========================================================================
 
   /**
-   * Get date-fns locale based on current i18n locale
-   */
-  const getDateLocale = () => {
-    return locale.value === 'de' ? de : enUS
-  }
-
-  /**
-   * Format a date string
+   * Format a date string - uses centralized date formatter
    */
   const formatDate = (dateStr: string | null | undefined, formatStr = 'dd.MM.yyyy HH:mm'): string => {
-    if (!dateStr) return ''
-    try {
-      return format(new Date(dateStr), formatStr, { locale: getDateLocale() })
-    } catch {
-      return dateStr
-    }
+    return formatDateBase(dateStr, formatStr)
   }
 
   /**
-   * Format a date as relative time (e.g., "2 hours ago")
+   * Format a date as relative time (e.g., "2 hours ago") - uses centralized formatter
    */
   const formatRelativeDate = (dateStr: string | null | undefined): string => {
-    if (!dateStr) return ''
-    try {
-      const date = new Date(dateStr)
-      const now = new Date()
-      const diffMs = now.getTime() - date.getTime()
-      const diffMins = Math.floor(diffMs / 60000)
-      const diffHours = Math.floor(diffMs / 3600000)
-      const diffDays = Math.floor(diffMs / 86400000)
-
-      if (diffMins < 1) return t('common.justNow', 'just now')
-      if (diffMins < 60) return t('common.minutesAgo', { count: diffMins }, `${diffMins} min ago`)
-      if (diffHours < 24) return t('common.hoursAgo', { count: diffHours }, `${diffHours}h ago`)
-      if (diffDays < 7) return t('common.daysAgo', { count: diffDays }, `${diffDays}d ago`)
-      return formatDate(dateStr, 'dd.MM.yyyy')
-    } catch {
-      return dateStr
-    }
+    return formatRelativeTime(dateStr)
   }
 
   // ==========================================================================

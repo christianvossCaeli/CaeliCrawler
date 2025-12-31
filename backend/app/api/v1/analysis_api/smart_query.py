@@ -1,6 +1,5 @@
 """Smart Query endpoints - AI-powered natural language queries and commands."""
 
-from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
@@ -9,9 +8,10 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_current_user, require_editor
 from app.database import get_session
 from app.models.user import User
-from app.core.deps import get_current_user_optional, get_current_user, require_editor
+
 from .helpers import build_preview
 
 router = APIRouter()
@@ -39,8 +39,8 @@ class SmartQueryRequest(BaseModel):
     """Request for smart query endpoint."""
     question: str = Field(..., min_length=1, max_length=10000, description="Natural language question or command")
     allow_write: bool = Field(default=False, description="Allow write operations (create entities, facets, relations)")
-    mode: Optional[str] = Field(default=None, description="Optional mode override: 'plan' for Plan Mode assistant")
-    conversation_history: Optional[List[ConversationMessage]] = Field(
+    mode: str | None = Field(default=None, description="Optional mode override: 'plan' for Plan Mode assistant")
+    conversation_history: list[ConversationMessage] | None = Field(
         default=None,
         description="Conversation history for Plan Mode (list of previous messages)"
     )
@@ -110,13 +110,13 @@ async def smart_query_endpoint(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e),
-        )
+        ) from None
 
 
 class SmartQueryStreamRequest(BaseModel):
     """Request for streaming smart query (Plan Mode only)."""
     question: str = Field(..., min_length=1, max_length=10000, description="User's message")
-    conversation_history: Optional[List[ConversationMessage]] = Field(
+    conversation_history: list[ConversationMessage] | None = Field(
         default=None,
         description="Conversation history for Plan Mode"
     )
@@ -214,7 +214,7 @@ async def smart_write_endpoint(
     - "Finde alle Events auf denen Entscheider aus NRW teilnehmen"
     - "Starte Crawls für alle Gummersbach Datenquellen"
     """
-    from services.smart_query import interpret_write_command, execute_write_command
+    from services.smart_query import execute_write_command, interpret_write_command
 
     # First, interpret the command (now uses dynamic prompt with DB data)
     command = await interpret_write_command(write_request.question, session)
@@ -351,7 +351,7 @@ async def validate_prompt_endpoint(
     return result
 
 
-def _build_write_preview(command: Dict) -> str:
+def _build_write_preview(command: dict) -> str:
     """Build a human-readable preview of a write command."""
     operation = command.get("operation", "unknown")
     previews = []
@@ -391,7 +391,7 @@ def _build_write_preview(command: Dict) -> str:
     return " | ".join(previews) if len(previews) == 1 else "\n".join(previews)
 
 
-def _build_read_preview(query_params: Dict) -> str:
+def _build_read_preview(query_params: dict) -> str:
     """Build a human-readable preview of a read query."""
     parts = []
 

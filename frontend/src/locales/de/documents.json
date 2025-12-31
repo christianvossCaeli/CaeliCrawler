@@ -54,9 +54,27 @@
       "discovered": "Entdeckt",
       "processed": "Verarbeitet",
       "showInResults": "In Ergebnissen anzeigen",
-      "confidence": "Zuverlässigkeit"
+      "confidence": "Zuverlässigkeit",
+      "close": "Schließen"
+    },
+    "pageAnalysis": {
+      "needsReview": {
+        "title": "Keine Schlagwörter gefunden",
+        "description": "Manuelle Analyse erforderlich - das Dokument enthält keine der gesuchten Schlagwörter.",
+        "action": "Vollanalyse starten"
+      },
+      "hasMore": {
+        "title": "Weitere relevante Seiten verfügbar",
+        "pagesAnalyzed": "{analyzed} von {total} Seiten analysiert.",
+        "action": "Weitere Seiten analysieren"
+      },
+      "complete": {
+        "allPagesAnalyzed": "Alle {count} relevanten Seiten analysiert"
+      },
+      "relevantPages": "Relevante Seiten"
     },
     "stats": {
+      "title": "Dokumenten-Statistik",
       "total": "Gesamt",
       "pending": "Wartend",
       "processing": "Verarbeitung",

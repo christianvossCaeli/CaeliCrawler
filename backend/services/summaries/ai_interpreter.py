@@ -5,12 +5,15 @@ for user-defined dashboard summaries.
 """
 
 import json
-from typing import Any, Dict, List, Optional
+import time
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.models.llm_usage import LLMProvider, LLMTaskType
+from services.llm_usage_tracker import record_llm_usage
 from services.smart_query.query_interpreter import (
     get_openai_client,
     load_facet_and_entity_types,
@@ -22,8 +25,8 @@ logger = structlog.get_logger(__name__)
 
 
 def _build_summary_interpreter_prompt(
-    entity_types: List[Dict[str, Any]],
-    facet_types: List[Dict[str, Any]],
+    entity_types: list[dict[str, Any]],
+    facet_types: list[dict[str, Any]],
     prompt: str,
 ) -> str:
     """Build the prompt for interpreting a summary request.
@@ -186,8 +189,8 @@ Antworte NUR mit validem JSON."""
 async def interpret_summary_prompt(
     prompt: str,
     session: AsyncSession,
-    user_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    user_name: str | None = None,
+) -> dict[str, Any]:
     """Interpret a natural language prompt into a summary configuration.
 
     Uses AI to analyze the prompt and generate:
@@ -250,6 +253,7 @@ async def interpret_summary_prompt(
     try:
         client = get_openai_client()
 
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[
@@ -266,6 +270,19 @@ async def interpret_summary_prompt(
             max_tokens=settings.ai_summary_max_tokens,
             timeout=60,  # 60 second timeout
         )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.SUMMARIZE,
+                task_name="interpret_summary_prompt",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         # Validate response structure
         if not response.choices:
@@ -305,19 +322,19 @@ async def interpret_summary_prompt(
 
     except json.JSONDecodeError as e:
         logger.error("Failed to parse AI response as JSON", error=str(e))
-        raise RuntimeError(f"KI-Antwort konnte nicht geparst werden: {str(e)}")
+        raise RuntimeError(f"KI-Antwort konnte nicht geparst werden: {str(e)}") from None
     except ValueError:
         raise
     except Exception as e:
         logger.error("Summary interpretation failed", error=str(e), exc_info=True)
-        raise RuntimeError(f"Dashboard-Interpretation fehlgeschlagen: {str(e)}")
+        raise RuntimeError(f"Dashboard-Interpretation fehlgeschlagen: {str(e)}") from None
 
 
 def _process_widgets(
-    widgets: List[Dict[str, Any]],
-    entity_types: List[Dict[str, Any]],
-    facet_types: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    widgets: list[dict[str, Any]],
+    entity_types: list[dict[str, Any]],
+    facet_types: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """Process and validate widget configurations.
 
     - Validates entity_type and facet_types references
@@ -420,8 +437,8 @@ def _process_widgets(
 async def suggest_widgets_for_entity_type(
     entity_type_slug: str,
     session: AsyncSession,
-    focus: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    focus: str | None = None,
+) -> list[dict[str, Any]]:
     """Suggest default widgets for a given entity type.
 
     Quick helper to generate widget suggestions without full AI interpretation.
@@ -516,9 +533,9 @@ async def suggest_widgets_for_entity_type(
 
 
 def get_schedule_suggestion(
-    theme: Optional[str] = None,
-    entity_type: Optional[str] = None,
-) -> Dict[str, Any]:
+    theme: str | None = None,
+    entity_type: str | None = None,
+) -> dict[str, Any]:
     """Get schedule suggestion based on data characteristics.
 
     Args:

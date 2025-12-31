@@ -1,27 +1,26 @@
 """Admin API endpoints for user management."""
 
-import structlog
 from datetime import datetime
-from typing import List, Optional
 from uuid import UUID
 
+import structlog
 from fastapi import APIRouter, Depends, Query, Request
 
 logger = structlog.get_logger(__name__)
-from pydantic import BaseModel, EmailStr
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel, EmailStr  # noqa: E402
+from sqlalchemy import select  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
-from app.database import get_session
-from app.models.user import User, UserRole
-from app.core.deps import require_admin
-from app.core.security import get_password_hash
-from app.core.exceptions import NotFoundError, ConflictError
-from app.core.password_policy import validate_password, default_policy
-from app.core.rate_limit import check_rate_limit
-from app.core.audit import AuditContext
-from app.models.audit_log import AuditAction
-from app.core.query_helpers import PaginationParams, paginate_query
+from app.core.audit import AuditContext  # noqa: E402
+from app.core.deps import require_admin  # noqa: E402
+from app.core.exceptions import ConflictError, NotFoundError  # noqa: E402
+from app.core.password_policy import default_policy, validate_password  # noqa: E402
+from app.core.query_helpers import PaginationParams, paginate_query  # noqa: E402
+from app.core.rate_limit import check_rate_limit  # noqa: E402
+from app.core.security import get_password_hash  # noqa: E402
+from app.database import get_session  # noqa: E402
+from app.models.audit_log import AuditAction  # noqa: E402
+from app.models.user import User, UserRole  # noqa: E402
 
 router = APIRouter()
 
@@ -45,11 +44,11 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     """Schema for updating a user."""
 
-    email: Optional[EmailStr] = None
-    full_name: Optional[str] = None
-    role: Optional[UserRole] = None
-    is_active: Optional[bool] = None
-    is_superuser: Optional[bool] = None
+    email: EmailStr | None = None
+    full_name: str | None = None
+    role: UserRole | None = None
+    is_active: bool | None = None
+    is_superuser: bool | None = None
 
 
 class UserResponse(BaseModel):
@@ -61,7 +60,7 @@ class UserResponse(BaseModel):
     role: UserRole
     is_active: bool
     is_superuser: bool
-    last_login: Optional[datetime] = None
+    last_login: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -71,7 +70,7 @@ class UserResponse(BaseModel):
 class UserListResponse(BaseModel):
     """Paginated list of users."""
 
-    items: List[UserResponse]
+    items: list[UserResponse]
     total: int
     page: int
     per_page: int
@@ -99,11 +98,11 @@ class MessageResponse(BaseModel):
 async def list_users(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
-    role: Optional[UserRole] = None,
-    is_active: Optional[bool] = None,
-    search: Optional[str] = None,
-    sort_by: Optional[str] = Query(default=None, description="Sort by field (email, full_name, role, is_active, last_login, created_at)"),
-    sort_order: Optional[str] = Query(default="desc", description="Sort order (asc, desc)"),
+    role: UserRole | None = None,
+    is_active: bool | None = None,
+    search: str | None = None,
+    sort_by: str | None = Query(default=None, description="Sort by field (email, full_name, role, is_active, last_login, created_at)"),
+    sort_order: str | None = Query(default="desc", description="Sort order (asc, desc)"),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_admin),
 ):

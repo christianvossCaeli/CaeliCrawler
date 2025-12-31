@@ -20,7 +20,7 @@ Usage:
 """
 
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import structlog
 from sqlalchemy import select
@@ -29,14 +29,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Entity, EntityType
 from app.models.facet_type import FacetType
-from app.utils.text import normalize_entity_name, normalize_core_entity_name, create_slug
+from app.utils.text import create_slug, normalize_core_entity_name, normalize_entity_name
 
 logger = structlog.get_logger()
 
 
 
-import re
-from dataclasses import dataclass
+import re  # noqa: E402
+from dataclasses import dataclass  # noqa: E402
 
 
 @dataclass
@@ -44,7 +44,7 @@ class CompositeEntityMatch:
     """Result of detecting a composite entity name."""
     is_composite: bool
     pattern_type: str  # e.g., "gemeinden_und", "region_gemeinde"
-    extracted_names: List[str]
+    extracted_names: list[str]
     original_name: str
 
 
@@ -71,15 +71,15 @@ COMPOSITE_ENTITY_PATTERNS = [
 def detect_composite_entity_name(name: str) -> CompositeEntityMatch:
     """
     Detect if an entity name is a composite that should be split into multiple entities.
-    
+
     Examples of composite names that should not be created as single entities:
     - "Gemeinden Litzendorf und Buttenheim" → should use "Litzendorf" and "Buttenheim"
     - "Region Oberfranken-West, Gemeinde Litzendorf" → should use "Litzendorf"
     - "Region X, insbesondere Gemeinde Bad Rodach" → should use "Bad Rodach"
-    
+
     Args:
         name: The entity name to check
-        
+
     Returns:
         CompositeEntityMatch with detection results
     """
@@ -100,7 +100,7 @@ def detect_composite_entity_name(name: str) -> CompositeEntityMatch:
             extracted_names=[name1, name2],
             original_name=name,
         )
-    
+
     # Check for "Region X, Gemeinde/Stadt/Markt Y" pattern
     match = re.search(
         r"Region\s+[^,]+,\s+(?:Gemeinde|Stadt|Markt)\s+([^,]+?)(?:,|\s*$)",
@@ -117,7 +117,7 @@ def detect_composite_entity_name(name: str) -> CompositeEntityMatch:
             extracted_names=[extracted],
             original_name=name,
         )
-    
+
     # Check for "insbesondere Gemeinde X" pattern
     match = re.search(
         r"(?:insbesondere|speziell|vor allem)\s+(?:Gemeinde|Stadt|Markt)?\s*([^,]+?)(?:,|\s*$)",
@@ -134,7 +134,7 @@ def detect_composite_entity_name(name: str) -> CompositeEntityMatch:
             extracted_names=[extracted],
             original_name=name,
         )
-    
+
     return CompositeEntityMatch(
         is_composite=False,
         pattern_type="",
@@ -156,7 +156,7 @@ class EntityMatchingService:
 
     def __init__(self, session: AsyncSession):
         self.session = session
-        self._entity_type_cache: Dict[str, EntityType] = {}
+        self._entity_type_cache: dict[str, EntityType] = {}
 
     # Default threshold for AI-based embedding similarity search
     # 0.85 = high confidence match (same entity, different formatting)
@@ -167,18 +167,18 @@ class EntityMatchingService:
         entity_type_slug: str,
         name: str,
         country: str = "DE",
-        external_id: Optional[str] = None,
-        core_attributes: Optional[Dict[str, Any]] = None,
-        parent_id: Optional[uuid.UUID] = None,
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
-        admin_level_1: Optional[str] = None,
-        admin_level_2: Optional[str] = None,
+        external_id: str | None = None,
+        core_attributes: dict[str, Any] | None = None,
+        parent_id: uuid.UUID | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        admin_level_1: str | None = None,
+        admin_level_2: str | None = None,
         similarity_threshold: float = None,
         auto_deduplicate: bool = True,
-        created_by_id: Optional[uuid.UUID] = None,
-        owner_id: Optional[uuid.UUID] = None,
-    ) -> Optional[Entity]:
+        created_by_id: uuid.UUID | None = None,
+        owner_id: uuid.UUID | None = None,
+    ) -> Entity | None:
         """
         Get or create an entity with intelligent duplicate detection.
 
@@ -320,12 +320,91 @@ class EntityMatchingService:
             owner_id=owner_id,
         )
 
+    async def find_entity(
+        self,
+        entity_type_slug: str,
+        name: str,
+        country: str = "DE",
+        external_id: str | None = None,
+        similarity_threshold: float = None,
+    ) -> Entity | None:
+        """
+        Find an existing entity without creating a new one.
+
+        Matching order:
+        1. external_id (if provided) - exact match
+        2. name_normalized + entity_type - exact match
+        3. Core name match - structural patterns
+        4. AI embedding similarity - semantic matching (if threshold < 1.0)
+        5. Composite name detection - find component entities
+
+        Args:
+            entity_type_slug: The entity type slug
+            name: Entity name to search for
+            country: Country code for normalization (default: DE)
+            external_id: Optional external ID for API imports
+            similarity_threshold: Threshold for AI matching (default: 0.85).
+                                  Set to 1.0 to disable AI matching.
+
+        Returns:
+            Entity if found, None otherwise
+        """
+        if similarity_threshold is None:
+            similarity_threshold = self.DEFAULT_SIMILARITY_THRESHOLD
+
+        # 1. Get entity type
+        entity_type = await self._get_entity_type(entity_type_slug)
+        if not entity_type:
+            logger.debug("Entity type not found", slug=entity_type_slug)
+            return None
+
+        # 2. Normalize name
+        name_normalized = normalize_entity_name(name, country=country)
+
+        # 3. Try external_id match first (if provided)
+        if external_id:
+            entity = await self._find_by_external_id(entity_type.id, external_id)
+            if entity:
+                return entity
+
+        # 4. Try exact normalized name match
+        entity = await self._find_by_normalized_name(entity_type.id, name_normalized)
+        if entity:
+            return entity
+
+        # 5. Try core name match
+        core_match = await self._find_by_core_name(
+            entity_type.id, name, country, name_normalized
+        )
+        if core_match:
+            entity, _reason = core_match
+            return entity
+
+        # 6. Try embedding-based semantic similarity match (if threshold < 1.0)
+        if similarity_threshold < 1.0:
+            similar_entity = await self._find_similar_entity(
+                entity_type.id, name, similarity_threshold
+            )
+            if similar_entity:
+                return similar_entity
+
+        # 7. Check for composite entity names
+        composite = detect_composite_entity_name(name)
+        if composite.is_composite:
+            existing_entity = await self._resolve_composite_entity(
+                entity_type.id, composite, country
+            )
+            if existing_entity:
+                return existing_entity
+
+        return None
+
     async def batch_get_or_create_entities(
         self,
         entity_type_slug: str,
-        names: List[str],
+        names: list[str],
         country: str = "DE",
-    ) -> Dict[str, Entity]:
+    ) -> dict[str, Entity]:
         """
         Batch get or create entities for multiple names.
 
@@ -349,8 +428,8 @@ class EntityMatchingService:
             return {}
 
         # Build normalized name mapping
-        name_to_normalized: Dict[str, str] = {}
-        normalized_to_names: Dict[str, List[str]] = {}
+        name_to_normalized: dict[str, str] = {}
+        normalized_to_names: dict[str, list[str]] = {}
 
         for name in names:
             normalized = normalize_entity_name(name, country=country)
@@ -361,7 +440,7 @@ class EntityMatchingService:
 
         # Batch query existing entities
         unique_normalized = list(normalized_to_names.keys())
-        existing_entities: Dict[str, Entity] = {}
+        existing_entities: dict[str, Entity] = {}
 
         # Query in chunks to avoid SQL IN clause overflow
         chunk_size = 100
@@ -378,7 +457,7 @@ class EntityMatchingService:
                 existing_entities[entity.name_normalized] = entity
 
         # Build result mapping
-        result: Dict[str, Entity] = {}
+        result: dict[str, Entity] = {}
 
         for name in names:
             normalized = name_to_normalized[name]
@@ -401,7 +480,7 @@ class EntityMatchingService:
 
         return result
 
-    async def get_entity_type(self, slug: str) -> Optional[EntityType]:
+    async def get_entity_type(self, slug: str) -> EntityType | None:
         """
         Get entity type by slug with caching.
 
@@ -427,13 +506,13 @@ class EntityMatchingService:
         return entity_type
 
     # Alias for backwards compatibility
-    async def _get_entity_type(self, slug: str) -> Optional[EntityType]:
+    async def _get_entity_type(self, slug: str) -> EntityType | None:
         """Deprecated: Use get_entity_type instead."""
         return await self.get_entity_type(slug)
 
     async def _find_by_external_id(
         self, entity_type_id: uuid.UUID, external_id: str
-    ) -> Optional[Entity]:
+    ) -> Entity | None:
         """Find entity by external ID."""
         result = await self.session.execute(
             select(Entity).where(
@@ -446,7 +525,7 @@ class EntityMatchingService:
 
     async def _find_by_normalized_name(
         self, entity_type_id: uuid.UUID, name_normalized: str
-    ) -> Optional[Entity]:
+    ) -> Entity | None:
         """Find entity by normalized name."""
         result = await self.session.execute(
             select(Entity).where(
@@ -463,7 +542,7 @@ class EntityMatchingService:
         name: str,
         country: str = "DE",
         name_normalized: str = None,
-    ) -> Optional[Tuple[Entity, str]]:
+    ) -> tuple[Entity, str] | None:
         """
         Find entity by normalized core name.
 
@@ -532,7 +611,7 @@ class EntityMatchingService:
 
     async def _find_similar_entity(
         self, entity_type_id: uuid.UUID, name: str, threshold: float
-    ) -> Optional[Entity]:
+    ) -> Entity | None:
         """Find entity with similar name using fuzzy matching."""
         try:
             from app.utils.similarity import find_similar_entities
@@ -552,35 +631,35 @@ class EntityMatchingService:
         entity_type_id: uuid.UUID,
         composite: CompositeEntityMatch,
         country: str = "DE",
-    ) -> Optional[Entity]:
+    ) -> Entity | None:
         """
         Try to resolve a composite entity name to an existing entity.
-        
+
         When a composite name like "Gemeinden Litzendorf und Buttenheim" is detected,
         this method searches for existing entities with the extracted component names
         (e.g., "Litzendorf", "Buttenheim") and returns the first match.
-        
+
         This prevents creation of duplicate/composite entities when the individual
         entities already exist in the database.
-        
+
         Args:
             entity_type_id: The entity type ID to search within
             composite: The composite entity detection result
             country: Country code for name normalization
-            
+
         Returns:
             First matching existing entity, or None if no components exist
         """
         if not composite.is_composite or not composite.extracted_names:
             return None
-            
+
         for extracted_name in composite.extracted_names:
             # Try exact match first
             name_normalized = normalize_entity_name(extracted_name, country=country)
             entity = await self._find_by_normalized_name(entity_type_id, name_normalized)
             if entity:
                 return entity
-            
+
             # Also try searching with the full extracted name (might have location suffixes)
             # e.g., "Bad Rodach" from "insbesondere Gemeinde Bad Rodach, Landkreis Coburg"
             # Escape SQL wildcards to prevent injection
@@ -595,7 +674,7 @@ class EntityMatchingService:
             entity = result.scalar_one_or_none()
             if entity:
                 return entity
-        
+
         return None
 
     async def _create_entity_safe(
@@ -605,16 +684,16 @@ class EntityMatchingService:
         name_normalized: str,
         slug: str,
         country: str = "DE",
-        external_id: Optional[str] = None,
-        core_attributes: Optional[Dict[str, Any]] = None,
-        parent_id: Optional[uuid.UUID] = None,
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
-        admin_level_1: Optional[str] = None,
-        admin_level_2: Optional[str] = None,
-        created_by_id: Optional[uuid.UUID] = None,
-        owner_id: Optional[uuid.UUID] = None,
-    ) -> Optional[Entity]:
+        external_id: str | None = None,
+        core_attributes: dict[str, Any] | None = None,
+        parent_id: uuid.UUID | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        admin_level_1: str | None = None,
+        admin_level_2: str | None = None,
+        created_by_id: uuid.UUID | None = None,
+        owner_id: uuid.UUID | None = None,
+    ) -> Entity | None:
         """
         Create entity with race-condition safety and embedding generation.
 
@@ -719,9 +798,9 @@ class EntityMatchingService:
     async def resolve_target_entity_for_facet(
         self,
         facet_type: FacetType,
-        facet_value_data: Dict[str, Any],
-        source_entity_id: Optional[uuid.UUID] = None,
-    ) -> Optional[uuid.UUID]:
+        facet_value_data: dict[str, Any],
+        source_entity_id: uuid.UUID | None = None,
+    ) -> uuid.UUID | None:
         """
         Resolve or create a target entity for a facet value.
 
@@ -817,7 +896,7 @@ class EntityMatchingService:
 
         return None
 
-    def _extract_name_from_facet_value(self, value: Dict[str, Any]) -> Optional[str]:
+    def _extract_name_from_facet_value(self, value: dict[str, Any]) -> str | None:
         """
         Extract entity name from facet value data.
 
@@ -847,9 +926,9 @@ class EntityMatchingService:
     def _classify_entity_type(
         self,
         name: str,
-        value: Dict[str, Any],
-        allowed_types: List[str]
-    ) -> Optional[str]:
+        value: dict[str, Any],
+        allowed_types: list[str]
+    ) -> str | None:
         """
         Classify whether a name/value represents a person or organization.
 
@@ -932,7 +1011,7 @@ class EntityMatchingService:
         # Default to first allowed type
         return allowed_types[0] if allowed_types else None
 
-    def _extract_core_attributes_from_facet(self, value: Dict[str, Any]) -> Dict[str, Any]:
+    def _extract_core_attributes_from_facet(self, value: dict[str, Any]) -> dict[str, Any]:
         """
         Extract core attributes from facet value for entity creation.
 
@@ -971,8 +1050,8 @@ class EntityMatchingService:
     async def batch_resolve_target_entities(
         self,
         facet_type: FacetType,
-        facet_values: List[Dict[str, Any]],
-    ) -> Dict[int, Optional[uuid.UUID]]:
+        facet_values: list[dict[str, Any]],
+    ) -> dict[int, uuid.UUID | None]:
         """
         Batch resolve target entities for multiple facet values.
 
@@ -986,10 +1065,10 @@ class EntityMatchingService:
             Dict mapping index to target_entity_id (or None)
         """
         if not facet_type.allows_entity_reference:
-            return {i: None for i in range(len(facet_values))}
+            return dict.fromkeys(range(len(facet_values)))
 
-        results: Dict[int, Optional[uuid.UUID]] = {}
-        name_to_entity: Dict[str, uuid.UUID] = {}
+        results: dict[int, uuid.UUID | None] = {}
+        name_to_entity: dict[str, uuid.UUID] = {}
 
         for i, value in enumerate(facet_values):
             name = self._extract_name_from_facet_value(value)

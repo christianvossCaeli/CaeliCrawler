@@ -708,9 +708,12 @@ PYSIS_SCOPE=api://<scope-id>/.default
 
 ```python
 # Wichtigste periodische Tasks
+# HINWEIS: Automatische Crawls nur für Kategorien/Presets mit explizit aktiviertem Schedule
 beat_schedule = {
-    # Crawling
-    "check-scheduled-crawls": {"schedule": 5.0},  # Alle 5 Sekunden
+    # Category-based crawls (nur mit schedule_enabled=True)
+    "check-scheduled-crawls": {"schedule": 30.0},  # Alle 30 Sekunden
+    # Preset-based crawls (nur mit schedule_enabled=True)
+    "check-scheduled-presets": {"schedule": 30.0},  # Alle 30 Sekunden
 
     # Cleanup
     "cleanup-old-jobs": {"schedule": crontab(hour=3)},  # Taeglich 3:00

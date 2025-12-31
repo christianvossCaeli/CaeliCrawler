@@ -7,16 +7,16 @@ password protection and expiration.
 import secrets
 import uuid
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     func,
-    Index,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -69,14 +69,14 @@ class SummaryShare(Base):
     )
 
     # Optional password (bcrypt hashed)
-    password_hash: Mapped[Optional[str]] = mapped_column(
+    password_hash: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="bcrypt hashed password for access",
     )
 
     # Expiration
-    expires_at: Mapped[Optional[datetime]] = mapped_column(
+    expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="Optional expiration date",
@@ -97,7 +97,7 @@ class SummaryShare(Base):
         default=0,
         comment="Number of times this link was viewed",
     )
-    last_viewed_at: Mapped[Optional[datetime]] = mapped_column(
+    last_viewed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="Last view timestamp",

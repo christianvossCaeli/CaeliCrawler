@@ -1,14 +1,13 @@
 """Registry for notification channels (Strategy Pattern)."""
 
 import logging
-from typing import Dict, Optional
 
 from app.config import Settings, settings
 from app.models.notification import NotificationChannel
 from services.notifications.channels.base import NotificationChannelBase
 from services.notifications.channels.email import EmailChannel
-from services.notifications.channels.webhook import WebhookChannel
 from services.notifications.channels.in_app import InAppChannel
+from services.notifications.channels.webhook import WebhookChannel
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +21,7 @@ class NotificationChannelRegistry:
 
     def __init__(self):
         """Initialize empty channel registry."""
-        self._channels: Dict[NotificationChannel, NotificationChannelBase] = {}
+        self._channels: dict[NotificationChannel, NotificationChannelBase] = {}
 
     def register(self, channel: NotificationChannelBase) -> None:
         """Register a notification channel.
@@ -43,7 +42,7 @@ class NotificationChannelRegistry:
             del self._channels[channel_type]
             logger.debug(f"Unregistered notification channel: {channel_type.value}")
 
-    def get(self, channel_type: NotificationChannel) -> Optional[NotificationChannelBase]:
+    def get(self, channel_type: NotificationChannel) -> NotificationChannelBase | None:
         """Get channel implementation by type.
 
         Args:
@@ -65,7 +64,7 @@ class NotificationChannelRegistry:
         """
         return channel_type in self._channels
 
-    def get_all(self) -> Dict[NotificationChannel, NotificationChannelBase]:
+    def get_all(self) -> dict[NotificationChannel, NotificationChannelBase]:
         """Get all registered channels.
 
         Returns:
@@ -82,7 +81,7 @@ class NotificationChannelRegistry:
         return list(self._channels.keys())
 
     @classmethod
-    def create_default(cls, app_settings: Optional[Settings] = None) -> "NotificationChannelRegistry":
+    def create_default(cls, app_settings: Settings | None = None) -> "NotificationChannelRegistry":
         """Create registry with default channels.
 
         Args:
@@ -110,7 +109,7 @@ class NotificationChannelRegistry:
 
 
 # Global registry instance (lazy initialization)
-_default_registry: Optional[NotificationChannelRegistry] = None
+_default_registry: NotificationChannelRegistry | None = None
 
 
 def get_channel_registry() -> NotificationChannelRegistry:

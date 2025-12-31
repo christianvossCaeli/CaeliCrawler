@@ -2,10 +2,10 @@
 
 import enum
 import uuid
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, func, Index
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -74,11 +74,11 @@ class UserSession(Base):
         default=True,
         nullable=False,
     )
-    revoked_at: Mapped[Optional[datetime]] = mapped_column(
+    revoked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    revoke_reason: Mapped[Optional[str]] = mapped_column(
+    revoke_reason: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
@@ -89,23 +89,23 @@ class UserSession(Base):
         default=DeviceType.UNKNOWN,
         nullable=False,
     )
-    device_name: Mapped[Optional[str]] = mapped_column(
+    device_name: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="Parsed device name (e.g., 'Chrome on Windows')",
     )
-    user_agent: Mapped[Optional[str]] = mapped_column(
+    user_agent: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
-    ip_address: Mapped[Optional[str]] = mapped_column(
+    ip_address: Mapped[str | None] = mapped_column(
         String(45),
         nullable=True,
         comment="Supports IPv6",
     )
 
     # Location (optional, from IP)
-    location: Mapped[Optional[str]] = mapped_column(
+    location: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="Approximate location from IP",
@@ -146,7 +146,7 @@ class UserSession(Base):
     @property
     def is_expired(self) -> bool:
         """Check if session/refresh token is expired."""
-        return datetime.now(timezone.utc) > self.expires_at
+        return datetime.now(UTC) > self.expires_at
 
     @property
     def is_valid(self) -> bool:
@@ -156,17 +156,17 @@ class UserSession(Base):
     def revoke(self, reason: str = "manual") -> None:
         """Revoke this session."""
         self.is_active = False
-        self.revoked_at = datetime.now(timezone.utc)
+        self.revoked_at = datetime.now(UTC)
         self.revoke_reason = reason
 
-    def update_last_used(self, ip_address: Optional[str] = None) -> None:
+    def update_last_used(self, ip_address: str | None = None) -> None:
         """Update last used timestamp."""
-        self.last_used_at = datetime.now(timezone.utc)
+        self.last_used_at = datetime.now(UTC)
         if ip_address:
             self.ip_address = ip_address
 
 
-def parse_user_agent(user_agent: Optional[str]) -> tuple[DeviceType, str]:
+def parse_user_agent(user_agent: str | None) -> tuple[DeviceType, str]:
     """
     Parse user agent string to extract device type and name.
 

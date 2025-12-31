@@ -1102,8 +1102,12 @@ const generateAllFields = async () => {
     const response = await pysisApi.generateFields(selectedProcess.value.id)
     if (response.data.success) {
       showMessage(t('pysis.fieldsGenerated', { count: response.data.fields_generated }))
-      // Poll for updates after a delay
-      setTimeout(loadFields, 5000)
+      // Poll for updates after a delay (track timeout for cleanup)
+      const timeoutId = setTimeout(() => {
+        pendingTimeouts.delete(timeoutId as unknown as number)
+        loadFields()
+      }, 5000) as unknown as number
+      pendingTimeouts.add(timeoutId)
     } else {
       showMessage(response.data.errors?.join(', ') || t('pysis.error'), 'error')
     }
@@ -1132,8 +1136,9 @@ const generateField = async (field: PySisFieldLocal) => {
   }
 }
 
-// Track active polling intervals for cleanup
+// Track active polling intervals and timeouts for cleanup
 const pollingIntervals = new Map<string, number>()
+const pendingTimeouts = new Set<number>()
 
 const pollForFieldCompletion = (fieldId: string, fieldName: string) => {
   // Clear any existing interval for this field
@@ -1176,8 +1181,12 @@ const pollForFieldCompletion = (fieldId: string, fieldName: string) => {
   const intervalId = setInterval(checkField, 2000) as unknown as number
   pollingIntervals.set(fieldId, intervalId)
 
-  // Also check immediately after a short delay
-  setTimeout(checkField, 1500)
+  // Also check immediately after a short delay (track timeout for cleanup)
+  const initialTimeoutId = setTimeout(() => {
+    pendingTimeouts.delete(initialTimeoutId as unknown as number)
+    checkField()
+  }, 1500) as unknown as number
+  pendingTimeouts.add(initialTimeoutId)
 }
 
 const stopGenerating = (fieldId: string) => {
@@ -1189,8 +1198,12 @@ const stopGenerating = (fieldId: string) => {
 }
 
 const stopAllGenerating = () => {
+  // Clear all polling intervals
   pollingIntervals.forEach((intervalId) => clearInterval(intervalId))
   pollingIntervals.clear()
+  // Clear all pending timeouts
+  pendingTimeouts.forEach((timeoutId) => clearTimeout(timeoutId))
+  pendingTimeouts.clear()
   generatingFieldIds.value.clear()
 }
 

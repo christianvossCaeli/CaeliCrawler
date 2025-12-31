@@ -1,171 +1,173 @@
 """Pydantic Schemas for API request/response validation."""
 
-from app.schemas.category import (
-    CategoryCreate,
-    CategoryUpdate,
-    CategoryResponse,
-    CategoryListResponse,
-)
-from app.schemas.data_source import (
-    DataSourceCreate,
-    DataSourceUpdate,
-    DataSourceResponse,
-    DataSourceListResponse,
-    DataSourceBulkImport,
-)
-from app.schemas.crawl_job import (
-    CrawlJobCreate,
-    CrawlJobResponse,
-    CrawlJobListResponse,
-    CrawlJobStats,
-)
-from app.schemas.document import (
-    DocumentResponse,
-    DocumentListResponse,
-    DocumentSearchParams,
-)
-from app.schemas.extracted_data import (
-    ExtractedDataResponse,
-    ExtractedDataUpdate,
-    ExtractedDataVerify,
-)
-from app.schemas.common import (
-    PaginationParams,
-    PaginatedResponse,
-    MessageResponse,
-    ErrorResponse,
-)
-from app.schemas.location import (
-    LocationCreate,
-    LocationUpdate,
-    LocationResponse,
-    LocationListResponse,
-    LocationSearchResult,
-    LocationSearchResponse,
-    CountryInfo,
-    AdminLevelInfo,
-    AdminLevelsResponse,
-)
-
-# New Entity-Facet System
-from app.schemas.entity_type import (
-    EntityTypeCreate,
-    EntityTypeUpdate,
-    EntityTypeResponse,
-    EntityTypeListResponse,
-)
-from app.schemas.entity import (
-    EntityCreate,
-    EntityUpdate,
-    EntityResponse,
-    EntityListResponse,
-    EntityBrief,
-    EntityHierarchy,
-)
-from app.schemas.facet_type import (
-    FacetTypeCreate,
-    FacetTypeUpdate,
-    FacetTypeResponse,
-    FacetTypeListResponse,
-)
-from app.schemas.facet_value import (
-    FacetValueCreate,
-    FacetValueUpdate,
-    FacetValueResponse,
-    FacetValueListResponse,
-    FacetValueAggregated,
-    EntityFacetsSummary,
-)
-from app.schemas.relation import (
-    RelationTypeCreate,
-    RelationTypeUpdate,
-    RelationTypeResponse,
-    RelationTypeListResponse,
-    EntityRelationCreate,
-    EntityRelationUpdate,
-    EntityRelationResponse,
-    EntityRelationListResponse,
-    EntityRelationsGraph,
-)
 from app.schemas.analysis_template import (
-    AnalysisTemplateCreate,
-    AnalysisTemplateUpdate,
-    AnalysisTemplateResponse,
-    AnalysisTemplateListResponse,
-    FacetConfig,
     AggregationConfig,
+    AnalysisTemplateCreate,
+    AnalysisTemplateListResponse,
+    AnalysisTemplateResponse,
+    AnalysisTemplateUpdate,
     DisplayConfig,
-)
-from app.schemas.assistant import (
-    AssistantContext,
-    AssistantChatRequest,
-    AssistantChatResponse,
-    AssistantResponseData,
-    ConversationMessage,
-    IntentType,
-    ViewMode,
-    QueryResponse,
-    ActionPreviewResponse,
-    NavigationResponse,
-    RedirectResponse,
-    HelpResponse,
-    ActionDetails,
-    ActionChange,
-    ActionExecuteRequest,
-    ActionExecuteResponse,
-    SuggestedAction,
-    SlashCommand,
-    SLASH_COMMANDS,
-)
-
-# Custom Summaries
-from app.schemas.custom_summary import (
-    SummaryStatus,
-    SummaryTriggerType,
-    SummaryWidgetType,
-    ExecutionStatus,
-    WidgetPosition,
-    WidgetQueryConfig,
-    WidgetVisualizationConfig,
-    SummaryWidgetCreate,
-    SummaryWidgetUpdate,
-    SummaryWidgetResponse,
-    SummaryExecutionResponse,
-    SummaryExecutionDetailResponse,
-    SummaryShareCreate,
-    SummaryShareResponse,
-    SharedSummaryAccessRequest,
-    SharedSummaryResponse,
-    SummaryCreateFromPrompt,
-    SummaryCreate,
-    SummaryUpdate,
-    SummaryResponse,
-    SummaryDetailResponse,
-    SummaryListResponse,
-    SummaryFromPromptResponse,
-    SummaryExecuteRequest,
-    SummaryExecuteResponse,
-    SummaryFavoriteToggleResponse,
-    SummarySchedulePreset,
-    SCHEDULE_PRESETS as SUMMARY_SCHEDULE_PRESETS,
+    FacetConfig,
 )
 
 # API Configuration (unified external API management)
 from app.schemas.api_configuration import (
     APIConfigurationBase,
     APIConfigurationCreate,
-    APIConfigurationUpdate,
-    APIConfigurationResponse,
     APIConfigurationDetail,
     APIConfigurationListResponse,
+    APIConfigurationResponse,
+    APIConfigurationUpdate,
     SyncRecordBase,
-    SyncRecordResponse,
     SyncRecordDetail,
     SyncRecordListResponse,
+    SyncRecordResponse,
+    SyncStatsResponse,
+    TestConnectionResponse,
     TriggerSyncRequest,
     TriggerSyncResponse,
-    TestConnectionResponse,
-    SyncStatsResponse,
+)
+from app.schemas.assistant import (
+    SLASH_COMMANDS,
+    ActionChange,
+    ActionDetails,
+    ActionExecuteRequest,
+    ActionExecuteResponse,
+    ActionPreviewResponse,
+    AssistantChatRequest,
+    AssistantChatResponse,
+    AssistantContext,
+    AssistantResponseData,
+    ConversationMessage,
+    HelpResponse,
+    IntentType,
+    NavigationResponse,
+    QueryResponse,
+    RedirectResponse,
+    SlashCommand,
+    SuggestedAction,
+    ViewMode,
+)
+from app.schemas.category import (
+    CategoryCreate,
+    CategoryListResponse,
+    CategoryResponse,
+    CategoryUpdate,
+)
+from app.schemas.common import (
+    ErrorResponse,
+    MessageResponse,
+    PaginatedResponse,
+    PaginationParams,
+)
+from app.schemas.crawl_job import (
+    CrawlJobCreate,
+    CrawlJobListResponse,
+    CrawlJobResponse,
+    CrawlJobStats,
+)
+from app.schemas.custom_summary import (
+    SCHEDULE_PRESETS as SUMMARY_SCHEDULE_PRESETS,
+)
+
+# Custom Summaries
+from app.schemas.custom_summary import (
+    ExecutionStatus,
+    SharedSummaryAccessRequest,
+    SharedSummaryResponse,
+    SummaryCreate,
+    SummaryCreateFromPrompt,
+    SummaryDetailResponse,
+    SummaryExecuteRequest,
+    SummaryExecuteResponse,
+    SummaryExecutionDetailResponse,
+    SummaryExecutionResponse,
+    SummaryFavoriteToggleResponse,
+    SummaryFromPromptResponse,
+    SummaryListResponse,
+    SummaryResponse,
+    SummarySchedulePreset,
+    SummaryShareCreate,
+    SummaryShareResponse,
+    SummaryStatus,
+    SummaryTriggerType,
+    SummaryUpdate,
+    SummaryWidgetCreate,
+    SummaryWidgetResponse,
+    SummaryWidgetType,
+    SummaryWidgetUpdate,
+    WidgetPosition,
+    WidgetQueryConfig,
+    WidgetVisualizationConfig,
+)
+from app.schemas.data_source import (
+    DataSourceBulkImport,
+    DataSourceCreate,
+    DataSourceListResponse,
+    DataSourceResponse,
+    DataSourceUpdate,
+)
+from app.schemas.document import (
+    DocumentListResponse,
+    DocumentResponse,
+    DocumentSearchParams,
+)
+from app.schemas.entity import (
+    EntityBrief,
+    EntityCreate,
+    EntityHierarchy,
+    EntityListResponse,
+    EntityResponse,
+    EntityUpdate,
+)
+
+# New Entity-Facet System
+from app.schemas.entity_type import (
+    EntityTypeCreate,
+    EntityTypeListResponse,
+    EntityTypeResponse,
+    EntityTypeUpdate,
+)
+from app.schemas.extracted_data import (
+    ExtractedDataResponse,
+    ExtractedDataUpdate,
+    ExtractedDataVerify,
+)
+from app.schemas.facet_type import (
+    FacetTypeCreate,
+    FacetTypeListResponse,
+    FacetTypeResponse,
+    FacetTypeUpdate,
+)
+from app.schemas.facet_value import (
+    EntityFacetsSummary,
+    FacetValueAggregated,
+    FacetValueCreate,
+    FacetValueListResponse,
+    FacetValueResponse,
+    FacetValueUpdate,
+)
+from app.schemas.location import (
+    AdminLevelInfo,
+    AdminLevelsResponse,
+    CountryInfo,
+    LocationCreate,
+    LocationListResponse,
+    LocationResponse,
+    LocationSearchResponse,
+    LocationSearchResult,
+    LocationUpdate,
+)
+from app.schemas.relation import (
+    EntityRelationCreate,
+    EntityRelationListResponse,
+    EntityRelationResponse,
+    EntityRelationsGraph,
+    EntityRelationUpdate,
+    RelationTypeCreate,
+    RelationTypeListResponse,
+    RelationTypeResponse,
+    RelationTypeUpdate,
 )
 
 __all__ = [

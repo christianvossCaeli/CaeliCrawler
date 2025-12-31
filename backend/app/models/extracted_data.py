@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -20,8 +20,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
-    from app.models.document import Document
     from app.models.category import Category
+    from app.models.document import Document
     from app.models.entity import Entity
 
 
@@ -60,37 +60,37 @@ class ExtractedData(Base):
     extraction_type: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
-        index=True,
+        index=True,  # Indexed for filtering in stats queries
     )
 
     # Extracted structured content
-    extracted_content: Mapped[Dict[str, Any]] = mapped_column(
+    extracted_content: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
     )
-    search_vector: Mapped[Optional[str]] = mapped_column(
+    search_vector: Mapped[str | None] = mapped_column(
         TSVECTOR,
         nullable=True,
     )
 
     # AI metadata
-    confidence_score: Mapped[Optional[float]] = mapped_column(
+    confidence_score: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
     )  # 0.0 - 1.0
-    ai_model_used: Mapped[Optional[str]] = mapped_column(
+    ai_model_used: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
-    ai_prompt_version: Mapped[Optional[str]] = mapped_column(
+    ai_prompt_version: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )
-    raw_ai_response: Mapped[Optional[str]] = mapped_column(
+    raw_ai_response: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
-    tokens_used: Mapped[Optional[int]] = mapped_column(nullable=True)
+    tokens_used: Mapped[int | None] = mapped_column(nullable=True)
 
     # Human verification
     human_verified: Mapped[bool] = mapped_column(
@@ -99,27 +99,27 @@ class ExtractedData(Base):
         nullable=False,
         index=True,
     )
-    human_corrections: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    human_corrections: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
     )
-    verified_by: Mapped[Optional[str]] = mapped_column(
+    verified_by: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
-    verified_at: Mapped[Optional[datetime]] = mapped_column(
+    verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
 
     # Relevance score for this category's purpose
-    relevance_score: Mapped[Optional[float]] = mapped_column(
+    relevance_score: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
     )  # 0.0 - 1.0
 
     # Entity references - AI-extracted entity references
-    entity_references: Mapped[Optional[List[Dict[str, Any]]]] = mapped_column(
+    entity_references: Mapped[list[dict[str, Any]] | None] = mapped_column(
         JSONB,
         nullable=True,
         default=list,
@@ -127,7 +127,7 @@ class ExtractedData(Base):
     )
 
     # Primary entity link (resolved from entity_references)
-    primary_entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    primary_entity_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("entities.id", ondelete="SET NULL"),
         nullable=True,
@@ -165,7 +165,7 @@ class ExtractedData(Base):
         return self.confidence_score is not None and self.confidence_score >= 0.8
 
     @property
-    def final_content(self) -> Dict[str, Any]:
+    def final_content(self) -> dict[str, Any]:
         """Get final content (with human corrections if available)."""
         if self.human_corrections:
             merged = self.extracted_content.copy()

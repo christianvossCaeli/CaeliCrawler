@@ -3,10 +3,10 @@
 import unicodedata
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
-from sqlalchemy import String, Integer, Float, Boolean, DateTime, func, Index
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import Boolean, DateTime, Float, Index, Integer, String, func
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -40,7 +40,7 @@ class Location(Base):
     )
 
     # Official identifier (country-specific)
-    official_code: Mapped[Optional[str]] = mapped_column(
+    official_code: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
         index=True,
@@ -61,27 +61,27 @@ class Location(Base):
     )
 
     # Administrative hierarchy
-    admin_level_1: Mapped[Optional[str]] = mapped_column(
+    admin_level_1: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
         index=True,
         comment="State/Region/Bundesland/County",
     )
-    admin_level_2: Mapped[Optional[str]] = mapped_column(
+    admin_level_2: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="District/Landkreis/Province",
     )
 
     # Locality type
-    locality_type: Mapped[Optional[str]] = mapped_column(
+    locality_type: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
         comment="Type of locality (municipality, city, town, parish, etc.)",
     )
 
     # Country-specific metadata (JSONB)
-    country_metadata: Mapped[Dict[str, Any]] = mapped_column(
+    country_metadata: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
         server_default="{}",
@@ -89,21 +89,21 @@ class Location(Base):
     )
 
     # Statistics (optional)
-    population: Mapped[Optional[int]] = mapped_column(
+    population: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
     )
-    area_km2: Mapped[Optional[float]] = mapped_column(
+    area_km2: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
     )
 
     # Geographic coordinates (optional)
-    latitude: Mapped[Optional[float]] = mapped_column(
+    latitude: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
     )
-    longitude: Mapped[Optional[float]] = mapped_column(
+    longitude: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
     )

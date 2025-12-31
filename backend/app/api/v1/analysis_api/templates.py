@@ -1,26 +1,25 @@
 """AnalysisTemplate CRUD endpoints."""
 
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
-from app.models import AnalysisTemplate, Category, EntityType, FacetType
+from app.core.deps import require_admin, require_editor
+from app.core.exceptions import ConflictError, NotFoundError
 from app.core.validators import validate_facet_config_slugs
+from app.database import get_session
+from app.models import AnalysisTemplate, Category, EntityType
 from app.models.user import User
 from app.schemas.analysis_template import (
     AnalysisTemplateCreate,
-    AnalysisTemplateUpdate,
-    AnalysisTemplateResponse,
     AnalysisTemplateListResponse,
+    AnalysisTemplateResponse,
+    AnalysisTemplateUpdate,
     generate_slug,
 )
 from app.schemas.common import MessageResponse
-from app.core.exceptions import NotFoundError, ConflictError
-from app.core.deps import require_editor, require_admin
 
 router = APIRouter()
 
@@ -29,10 +28,10 @@ router = APIRouter()
 async def list_analysis_templates(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=50, ge=1, le=100),
-    category_id: Optional[UUID] = Query(default=None),
-    entity_type_id: Optional[UUID] = Query(default=None),
-    is_active: Optional[bool] = Query(default=None),
-    search: Optional[str] = Query(default=None),
+    category_id: UUID | None = Query(default=None),
+    entity_type_id: UUID | None = Query(default=None),
+    is_active: bool | None = Query(default=None),
+    search: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
 ):
     """List all analysis templates with pagination."""

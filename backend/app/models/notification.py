@@ -3,9 +3,9 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -79,7 +79,7 @@ class Notification(Base):
         nullable=False,
         index=True,
     )
-    rule_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    rule_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("notification_rules.id", ondelete="SET NULL"),
         nullable=True,
@@ -108,17 +108,17 @@ class Notification(Base):
     )
 
     # Related entities (for navigation)
-    related_entity_type: Mapped[Optional[str]] = mapped_column(
+    related_entity_type: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )  # "document", "crawl_job", "data_source", etc.
-    related_entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    related_entity_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         nullable=True,
     )
 
     # Payload (original event data)
-    payload: Mapped[Dict[str, Any]] = mapped_column(
+    payload: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
@@ -133,15 +133,15 @@ class Notification(Base):
     )
 
     # Delivery info
-    sent_at: Mapped[Optional[datetime]] = mapped_column(
+    sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    read_at: Mapped[Optional[datetime]] = mapped_column(
+    read_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    error_message: Mapped[Optional[str]] = mapped_column(
+    error_message: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
@@ -152,11 +152,11 @@ class Notification(Base):
     )
 
     # Email-specific
-    email_recipient: Mapped[Optional[str]] = mapped_column(
+    email_recipient: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
-    email_message_id: Mapped[Optional[str]] = mapped_column(
+    email_message_id: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )

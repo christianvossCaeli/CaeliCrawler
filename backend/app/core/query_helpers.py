@@ -1,7 +1,7 @@
 """Query helper utilities to avoid N+1 queries and reduce code duplication."""
 
 from dataclasses import dataclass
-from typing import Any, Dict, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
+from typing import Any, TypeVar
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -32,9 +32,9 @@ class PaginationParams:
 
 
 @dataclass
-class PaginatedResult(Generic[T]):
+class PaginatedResult[T: DeclarativeBase]:
     """Generic paginated result container."""
-    items: List[T]
+    items: list[T]
     total: int
     page: int
     per_page: int
@@ -56,7 +56,7 @@ async def paginate_query(
     session: AsyncSession,
     query: Select,
     pagination: PaginationParams,
-) -> Tuple[List[Any], int]:
+) -> tuple[list[Any], int]:
     """
     Execute a query with pagination and return items + total count.
 
@@ -118,13 +118,13 @@ async def paginate_query_with_result(
     )
 
 
-async def batch_fetch_by_ids(
+async def batch_fetch_by_ids[T: DeclarativeBase](
     session: AsyncSession,
-    model: Type[T],
-    ids: Union[Set[UUID], List[UUID]],
+    model: type[T],
+    ids: set[UUID] | list[UUID],
     *,
     id_field: str = "id",
-) -> Dict[UUID, T]:
+) -> dict[UUID, T]:
     """
     Batch fetch entities by their IDs to avoid N+1 queries.
 
@@ -170,8 +170,8 @@ async def batch_fetch_by_ids(
 
 async def batch_fetch_sources_and_categories(
     session: AsyncSession,
-    jobs: List[Any],
-) -> tuple[Dict[UUID, Any], Dict[UUID, Any]]:
+    jobs: list[Any],
+) -> tuple[dict[UUID, Any], dict[UUID, Any]]:
     """
     Batch fetch DataSources and Categories for a list of CrawlJobs.
 
@@ -185,11 +185,11 @@ async def batch_fetch_sources_and_categories(
     Returns:
         Tuple of (sources_dict, categories_dict)
     """
-    from app.models import DataSource, Category
+    from app.models import Category, DataSource
 
     # Collect unique IDs
-    source_ids: Set[UUID] = set()
-    category_ids: Set[UUID] = set()
+    source_ids: set[UUID] = set()
+    category_ids: set[UUID] = set()
 
     for job in jobs:
         if job.source_id:
@@ -206,9 +206,9 @@ async def batch_fetch_sources_and_categories(
 
 def enrich_job_with_names(
     job: Any,
-    sources_dict: Dict[UUID, Any],
-    categories_dict: Dict[UUID, Any],
-) -> Dict[str, Any]:
+    sources_dict: dict[UUID, Any],
+    categories_dict: dict[UUID, Any],
+) -> dict[str, Any]:
     """
     Enrich a CrawlJob with source and category names.
 

@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -85,12 +85,12 @@ class FacetValueHistory(Base):
         nullable=False,
         comment="The numeric value",
     )
-    value_label: Mapped[Optional[str]] = mapped_column(
+    value_label: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="Formatted value for display (e.g., '1.234,56 EUR')",
     )
-    annotations: Mapped[Dict[str, Any]] = mapped_column(
+    annotations: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
         default=dict,
@@ -104,13 +104,13 @@ class FacetValueHistory(Base):
         index=True,
         comment="How this value was created",
     )
-    source_document_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    source_document_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("documents.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    source_url: Mapped[Optional[str]] = mapped_column(
+    source_url: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Original URL where this was found",
@@ -123,7 +123,7 @@ class FacetValueHistory(Base):
         nullable=False,
         comment="Confidence score (0-1)",
     )
-    ai_model_used: Mapped[Optional[str]] = mapped_column(
+    ai_model_used: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
@@ -134,11 +134,11 @@ class FacetValueHistory(Base):
         default=False,
         nullable=False,
     )
-    verified_by: Mapped[Optional[str]] = mapped_column(
+    verified_by: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
-    verified_at: Mapped[Optional[datetime]] = mapped_column(
+    verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )

@@ -18,6 +18,7 @@ export interface Category {
   url_include_patterns?: string[]
   url_exclude_patterns?: string[]
   schedule_cron?: string
+  schedule_enabled?: boolean
   ai_extraction_prompt?: string
   is_active: boolean
   source_count?: number
@@ -38,6 +39,7 @@ export interface CategoryFormData {
   url_include_patterns: string[]
   url_exclude_patterns: string[]
   schedule_cron: string
+  schedule_enabled: boolean
   ai_extraction_prompt: string
   is_active: boolean
 }
@@ -94,6 +96,11 @@ export function useCategoriesView() {
   const selectedCategory = ref<Category | null>(null)
   const categorySources = ref<CategorySource[]>([])
   const categorySourcesLoading = ref(false)
+  const totalCategories = ref(0)
+  const categoryPage = ref(1)
+  const categoryPerPage = ref(20)
+  const categorySortBy = ref<string>('name')
+  const categorySortOrder = ref<'asc' | 'desc'>('asc')
 
   // Filters
   const categoryFilters = ref<CategoryFilters>({
@@ -134,62 +141,42 @@ export function useCategoriesView() {
 
   const availableLanguages = languageFilterOptions
 
-  // Filtered categories
-  const filteredCategories = computed(() => {
-    let result = categories.value
-
-    // Search filter
-    if (categoryFilters.value.search) {
-      const search = categoryFilters.value.search.toLowerCase()
-      result = result.filter(c =>
-        c.name?.toLowerCase().includes(search) ||
-        c.purpose?.toLowerCase().includes(search) ||
-        c.description?.toLowerCase().includes(search)
-      )
-    }
-
-    // Status filter
-    if (categoryFilters.value.status) {
-      const isActive = categoryFilters.value.status === 'active'
-      result = result.filter(c => c.is_active === isActive)
-    }
-
-    // Documents filter
-    if (categoryFilters.value.hasDocuments) {
-      if (categoryFilters.value.hasDocuments === 'with') {
-        result = result.filter(c => (c.document_count || 0) > 0)
-      } else {
-        result = result.filter(c => (c.document_count || 0) === 0)
-      }
-    }
-
-    // Language filter
-    if (categoryFilters.value.language) {
-      result = result.filter(c =>
-        (c.languages || ['de']).includes(categoryFilters.value.language as string)
-      )
-    }
-
-    return result
-  })
+  // Filtered categories (server-side)
+  const filteredCategories = computed(() => categories.value)
 
   // Computed stats for sources dialog
-  const categorySourcesStats = computed(() => {
-    const sources = categorySources.value
-    return {
-      total: sources.length,
-      active: sources.filter(s => s.status === 'ACTIVE').length,
-      pending: sources.filter(s => s.status === 'PENDING').length,
-      error: sources.filter(s => s.status === 'ERROR').length,
-    }
+  const categorySourcesStats = ref({
+    total: 0,
+    active: 0,
+    pending: 0,
+    error: 0,
   })
+  const categorySourcesTotal = ref(0)
+  const categorySourcesPage = ref(1)
+  const categorySourcesPerPage = ref(20)
+  const categorySourcesSearch = ref('')
+  const categorySourcesCategoryId = ref<string | null>(null)
 
   // Methods
   const loadCategories = async () => {
     loading.value = true
     try {
-      const response = await adminApi.getCategories({ per_page: 100 })
+      const params: Record<string, unknown> = {
+        page: categoryPage.value,
+        per_page: categoryPerPage.value,
+        sort_by: categorySortBy.value,
+        sort_order: categorySortOrder.value,
+      }
+      if (categoryFilters.value.search) params.search = categoryFilters.value.search
+      if (categoryFilters.value.status) params.is_active = categoryFilters.value.status === 'active'
+      if (categoryFilters.value.hasDocuments) params.has_documents = categoryFilters.value.hasDocuments === 'with'
+      if (categoryFilters.value.language) params.language = categoryFilters.value.language
+
+      const response = await adminApi.getCategories(params)
       categories.value = response.data.items
+      totalCategories.value = response.data.total
+      categoryPage.value = response.data.page
+      categoryPerPage.value = response.data.per_page
     } catch (error) {
       logger.error('Failed to load categories:', error)
       showSnackbar(t('categories.messages.loadError'), 'error')
@@ -234,16 +221,45 @@ export function useCategoriesView() {
     }
   }
 
-  const loadSourcesForCategory = async (categoryId: string) => {
+  const loadSourcesForCategory = async (
+    categoryId: string,
+    options?: { page?: number; perPage?: number; search?: string }
+  ) => {
     categorySources.value = []
     categorySourcesLoading.value = true
 
+    const page = options?.page ?? categorySourcesPage.value
+    const perPage = options?.perPage ?? categorySourcesPerPage.value
+    const search = options?.search ?? categorySourcesSearch.value
+
+    categorySourcesPage.value = page
+    categorySourcesPerPage.value = perPage
+    categorySourcesSearch.value = search
+
+    const shouldRefreshStats = categorySourcesCategoryId.value !== categoryId
+    categorySourcesCategoryId.value = categoryId
+
     try {
-      const response = await adminApi.getSources({
+      const params: Record<string, unknown> = {
         category_id: categoryId,
-        per_page: 10000,
-      })
+        page,
+        per_page: perPage,
+      }
+      if (search) params.search = search
+      const response = await adminApi.getSources(params)
       categorySources.value = response.data.items
+      categorySourcesTotal.value = response.data.total
+
+      if (shouldRefreshStats) {
+        const statsResponse = await adminApi.getSourceStatusStats({ category_id: categoryId })
+        const counts = statsResponse.data.by_status || {}
+        categorySourcesStats.value = {
+          total: statsResponse.data.total || 0,
+          active: counts.ACTIVE || 0,
+          pending: counts.PENDING || 0,
+          error: counts.ERROR || 0,
+        }
+      }
     } catch (error) {
       logger.error('Failed to load sources for category:', error)
       showSnackbar(t('categories.messages.sourcesLoadError'), 'error')
@@ -296,6 +312,15 @@ export function useCategoriesView() {
     categorySourcesLoading,
     categoryFilters,
     snackbar,
+    totalCategories,
+    categoryPage,
+    categoryPerPage,
+    categorySortBy,
+    categorySortOrder,
+    categorySourcesTotal,
+    categorySourcesPage,
+    categorySourcesPerPage,
+    categorySourcesSearch,
 
     // Computed
     filteredCategories,

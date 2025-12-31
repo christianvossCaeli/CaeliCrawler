@@ -5,13 +5,14 @@ Validates API suggestions by making HTTP requests and analyzing responses.
 """
 
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from urllib.parse import urlparse
 
 import httpx
 import structlog
 
 from app.core.retry import API_RETRY_CONFIG, retry_async
+
 from .models import (
     APISuggestion,
     APIValidationResult,
@@ -41,7 +42,7 @@ BLOCKED_HOST_PATTERNS = [
 ]
 
 
-def is_safe_url(url: str) -> Tuple[bool, Optional[str]]:
+def is_safe_url(url: str) -> tuple[bool, str | None]:
     """
     Check if URL is safe (not internal/private).
 
@@ -82,7 +83,7 @@ class APIValidator:
     """Validates API suggestions by testing endpoints."""
 
     def __init__(self):
-        self.client: Optional[httpx.AsyncClient] = None
+        self.client: httpx.AsyncClient | None = None
 
     async def __aenter__(self):
         self.client = httpx.AsyncClient(
@@ -338,7 +339,7 @@ class APIValidator:
             field_mapping=field_mapping,
         )
 
-    def _extract_items(self, data: Any) -> Tuple[List[Dict], str]:
+    def _extract_items(self, data: Any) -> tuple[list[dict], str]:
         """
         Extract list of items from JSON response.
 
@@ -369,9 +370,8 @@ class APIValidator:
 
         # Check for nested data
         for key, value in data.items():
-            if isinstance(value, list) and len(value) > 0:
-                if isinstance(value[0], dict):
-                    return value, key
+            if isinstance(value, list) and len(value) > 0 and isinstance(value[0], dict):
+                return value, key
 
         # Single object might be valid for some APIs
         if len(data) > 2:  # Has multiple fields
@@ -379,7 +379,7 @@ class APIValidator:
 
         return [], ""
 
-    def _detect_field_mapping(self, sample: Dict[str, Any]) -> Dict[str, str]:
+    def _detect_field_mapping(self, sample: dict[str, Any]) -> dict[str, str]:
         """
         Try to automatically detect field mapping from sample item.
         """
@@ -425,8 +425,8 @@ class APIValidator:
 
     async def validate_all(
         self,
-        suggestions: List[APISuggestion],
-    ) -> List[APIValidationResult]:
+        suggestions: list[APISuggestion],
+    ) -> list[APIValidationResult]:
         """
         Validate multiple API suggestions.
 
@@ -455,8 +455,8 @@ class APIValidator:
 
 
 async def validate_api_suggestions(
-    suggestions: List[APISuggestion],
-) -> List[APIValidationResult]:
+    suggestions: list[APISuggestion],
+) -> list[APIValidationResult]:
     """
     Convenience function to validate API suggestions.
 

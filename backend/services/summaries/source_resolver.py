@@ -8,13 +8,11 @@ This module resolves relevant data sources for a summary by analyzing:
 """
 
 from dataclasses import dataclass
-from typing import List, Set, Union
 from uuid import UUID
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.models import (
     Category,
@@ -24,8 +22,8 @@ from app.models import (
     DataSource,
     EntityType,
 )
-from app.models.data_source_category import DataSourceCategory
 from app.models.api_configuration import APIConfiguration
+from app.models.data_source_category import DataSourceCategory
 
 logger = structlog.get_logger(__name__)
 
@@ -33,8 +31,8 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class ResolvedSources:
     """Container for resolved sources from different types."""
-    data_sources: List[DataSource]
-    external_apis: List[APIConfiguration]
+    data_sources: list[DataSource]
+    external_apis: list[APIConfiguration]
 
     @property
     def total_count(self) -> int:
@@ -44,7 +42,7 @@ class ResolvedSources:
     def is_empty(self) -> bool:
         return self.total_count == 0
 
-    def get_all_names(self) -> List[str]:
+    def get_all_names(self) -> list[str]:
         """Get names of all sources."""
         names = []
         for ds in self.data_sources:
@@ -55,7 +53,7 @@ class ResolvedSources:
         return names
 
 
-def extract_entity_types_from_summary(summary: CustomSummary) -> Set[str]:
+def extract_entity_types_from_summary(summary: CustomSummary) -> set[str]:
     """
     Extract all entity type slugs from a summary's widgets and config.
 
@@ -65,7 +63,7 @@ def extract_entity_types_from_summary(summary: CustomSummary) -> Set[str]:
     Returns:
         Set of entity type slugs
     """
-    entity_types: Set[str] = set()
+    entity_types: set[str] = set()
 
     # From widgets
     for widget in summary.widgets:
@@ -84,7 +82,7 @@ def extract_entity_types_from_summary(summary: CustomSummary) -> Set[str]:
 async def get_sources_for_category(
     session: AsyncSession,
     category_id: UUID,
-) -> List[DataSource]:
+) -> list[DataSource]:
     """
     Get all active data sources for a category.
 
@@ -100,7 +98,7 @@ async def get_sources_for_category(
         .join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id)
         .where(
             DataSourceCategory.category_id == category_id,
-            DataSource.is_active == True,
+            DataSource.is_active,
         )
     )
     return list(result.scalars().all())
@@ -109,7 +107,7 @@ async def get_sources_for_category(
 async def get_sources_for_preset(
     session: AsyncSession,
     preset_id: UUID,
-) -> List[DataSource]:
+) -> list[DataSource]:
     """
     Get all data sources that match a preset's filter configuration.
 
@@ -127,7 +125,7 @@ async def get_sources_for_preset(
     filters = preset.filters or {}
 
     # Build base query
-    query = select(DataSource).where(DataSource.is_active == True)
+    query = select(DataSource).where(DataSource.is_active)
 
     # Apply category filter if present
     if filters.get("category_id"):
@@ -154,7 +152,7 @@ async def get_sources_for_preset(
 async def get_categories_for_entity_type(
     session: AsyncSession,
     entity_type_slug: str,
-) -> List[Category]:
+) -> list[Category]:
     """
     Get all categories that use a specific entity type.
 
@@ -184,7 +182,7 @@ async def get_categories_for_entity_type(
         .join(CategoryEntityType, Category.id == CategoryEntityType.category_id)
         .where(
             CategoryEntityType.entity_type_id == entity_type.id,
-            Category.is_active == True,
+            Category.is_active,
         )
     )
     return list(result.scalars().all())
@@ -193,7 +191,7 @@ async def get_categories_for_entity_type(
 async def get_external_apis_for_entity_type(
     session: AsyncSession,
     entity_type_slug: str,
-) -> List[APIConfiguration]:
+) -> list[APIConfiguration]:
     """
     Get all active API configurations that create entities of a given type.
 
@@ -207,8 +205,8 @@ async def get_external_apis_for_entity_type(
     result = await session.execute(
         select(APIConfiguration).where(
             APIConfiguration.entity_type_slug == entity_type_slug,
-            APIConfiguration.is_active == True,
-            APIConfiguration.sync_enabled == True,
+            APIConfiguration.is_active,
+            APIConfiguration.sync_enabled,
         )
     )
     return list(result.scalars().all())
@@ -217,7 +215,7 @@ async def get_external_apis_for_entity_type(
 async def resolve_sources_for_summary(
     session: AsyncSession,
     summary: CustomSummary,
-) -> List[DataSource]:
+) -> list[DataSource]:
     """
     Resolve all relevant data sources for a summary.
 
@@ -260,9 +258,9 @@ async def resolve_all_sources_for_summary(
     Returns:
         ResolvedSources containing both DataSources and APIConfigurations
     """
-    source_ids: Set[UUID] = set()
+    source_ids: set[UUID] = set()
     source_objects: dict[UUID, DataSource] = {}
-    api_ids: Set[UUID] = set()
+    api_ids: set[UUID] = set()
     api_objects: dict[UUID, APIConfiguration] = {}
 
     logger.info(
@@ -342,7 +340,7 @@ async def resolve_all_sources_for_summary(
     )
 
 
-async def get_source_names(sources: List[DataSource]) -> List[str]:
+async def get_source_names(sources: list[DataSource]) -> list[str]:
     """
     Get human-readable names for a list of sources.
 

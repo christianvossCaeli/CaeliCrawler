@@ -871,3 +871,186 @@ body {
 .progress-width-sm {
   width: 100px;
 }
+
+/* ===========================================
+   WCAG Touch Target Utilities
+   ===========================================
+
+   WCAG 2.1 Success Criterion 2.5.5 requires
+   touch targets to be at least 44x44 CSS pixels.
+   These utilities ensure accessible touch targets
+   for interactive elements.
+   =========================================== */
+
+/* Touch target wrapper - invisible expansion of touch area */
+.touch-target {
+  position: relative;
+}
+
+.touch-target::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  min-height: 44px;
+  width: 100%;
+  height: 100%;
+}
+
+/* Ensure minimum touch target size for icon buttons */
+.v-btn--icon.v-btn--size-x-small,
+.v-btn--icon.v-btn--size-small {
+  position: relative;
+}
+
+/* Touch target expansion for small icon buttons via pseudo-element */
+.v-btn--icon.v-btn--size-x-small::after,
+.v-btn--icon.v-btn--size-small::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: inherit;
+}
+
+/* Explicit touch-target-44 class for any element */
+.touch-target-44 {
+  min-width: 44px !important;
+  min-height: 44px !important;
+}
+
+/* Touch-friendly button sizing for mobile */
+@media (hover: none) and (pointer: coarse) {
+  /* Mobile devices - increase all small buttons to touch-friendly size */
+  .v-btn--icon.v-btn--size-x-small {
+    min-width: 40px !important;
+    min-height: 40px !important;
+  }
+
+  .v-btn--icon.v-btn--size-small {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  /* Table action buttons on mobile */
+  .table-actions .v-btn {
+    min-width: 44px !important;
+    height: 44px !important;
+  }
+
+  .table-actions .v-btn--size-x-small {
+    min-width: 40px !important;
+    height: 40px !important;
+  }
+
+  /* Increase spacing between buttons on mobile */
+  .table-actions {
+    gap: 8px;
+  }
+}
+
+/* Touch-friendly chip actions */
+.v-chip .v-chip__close {
+  min-width: 24px;
+  min-height: 24px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .v-chip .v-chip__close {
+    min-width: 32px;
+    min-height: 32px;
+  }
+}
+
+/* ===========================================
+   Enhanced Touch Targets - All Devices
+   ===========================================
+   Updated per WCAG 2.1 Level AAA (2.5.5)
+   These ensure minimum 44px touch targets
+   on both desktop and mobile for better UX.
+   =========================================== */
+
+/* List item actions */
+.v-list-item__append .v-btn,
+.v-list-item__prepend .v-btn {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+/* Card action buttons */
+.v-card-actions .v-btn--icon {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+/* Navigation rail buttons */
+.v-navigation-drawer .v-btn--icon {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Search clear buttons */
+.v-field__clearable .v-btn {
+  min-width: 36px;
+  min-height: 36px;
+}
+
+/* Tab buttons - ensure clickable area */
+.v-tab {
+  min-height: 44px;
+}
+
+/* Expansion panel headers */
+.v-expansion-panel-title {
+  min-height: 48px;
+}
+
+/* Dialog close buttons */
+.v-dialog .v-btn--icon.position-absolute {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Pagination buttons */
+.v-pagination .v-btn {
+  min-width: 36px;
+  min-height: 36px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .v-pagination .v-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Breadcrumb links */
+.v-breadcrumbs-item {
+  min-height: 32px;
+  padding: 4px 8px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .v-breadcrumbs-item {
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+}
+
+/* Tree view expand/collapse buttons */
+.v-treeview-node__toggle {
+  min-width: 36px;
+  min-height: 36px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .v-treeview-node__toggle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

@@ -19,7 +19,7 @@ Example usage:
 
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional, Set
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -30,7 +30,7 @@ from app.utils.cron import normalize_cron_expression
 VALID_EXTRACTION_HANDLERS = ("default", "event")
 
 # Known ISO 639-1 language codes
-VALID_LANGUAGE_CODES: Set[str] = {
+VALID_LANGUAGE_CODES: set[str] = {
     "de", "en", "fr", "nl", "it", "es", "pl", "da", "pt", "sv",
     "no", "fi", "cs", "hu", "ro", "bg", "el", "tr", "ru", "uk",
     "ar", "zh", "ja", "ko"
@@ -47,9 +47,9 @@ def generate_slug(name: str) -> str:
 
 
 def _validate_regex_patterns_impl(
-    patterns: Optional[List[str]],
+    patterns: list[str] | None,
     allow_none: bool = False,
-) -> Optional[List[str]]:
+) -> list[str] | None:
     """
     Shared implementation for regex pattern validation.
 
@@ -71,14 +71,14 @@ def _validate_regex_patterns_impl(
                 re.compile(pattern)
                 validated.append(pattern)
             except re.error as e:
-                raise ValueError(f"Invalid regex pattern '{pattern}': {e}")
+                raise ValueError(f"Invalid regex pattern '{pattern}': {e}") from None
     return validated
 
 
 def _validate_languages_impl(
-    languages: Optional[List[str]],
+    languages: list[str] | None,
     allow_none: bool = False,
-) -> Optional[List[str]]:
+) -> list[str] | None:
     """
     Shared implementation for ISO 639-1 language code validation.
 
@@ -112,7 +112,7 @@ def _validate_languages_impl(
     return validated
 
 
-def _validate_cron_expression(cron: Optional[str]) -> Optional[str]:
+def _validate_cron_expression(cron: str | None) -> str | None:
     """
     Validate cron expression format.
 
@@ -159,28 +159,28 @@ class _CategoryFieldsMixin(BaseModel):
     """Shared fields for Category schemas (without validators)."""
 
     name: str = Field(..., min_length=1, max_length=255, description="Category name")
-    description: Optional[str] = Field(None, description="Category description")
+    description: str | None = Field(None, description="Category description")
     purpose: str = Field(..., min_length=1, description="Purpose of this category (e.g., 'Windkraft-Restriktionen analysieren')")
-    search_terms: List[str] = Field(default_factory=list, description="Search terms for this category")
-    document_types: List[str] = Field(default_factory=list, description="Document types to search for")
+    search_terms: list[str] = Field(default_factory=list, description="Search terms for this category")
+    document_types: list[str] = Field(default_factory=list, description="Document types to search for")
 
     # URL filtering (applied to all sources in this category)
-    url_include_patterns: List[str] = Field(
+    url_include_patterns: list[str] = Field(
         default_factory=list,
         description="Regex patterns - URLs must match at least one (if set)",
     )
-    url_exclude_patterns: List[str] = Field(
+    url_exclude_patterns: list[str] = Field(
         default_factory=list,
         description="Regex patterns - URLs matching any will be skipped",
     )
 
     # Language configuration
-    languages: List[str] = Field(
+    languages: list[str] = Field(
         default_factory=lambda: ["de"],
         description="Language codes (ISO 639-1) for this category, e.g. ['de', 'en']",
     )
 
-    ai_extraction_prompt: Optional[str] = Field(None, description="Custom AI extraction prompt")
+    ai_extraction_prompt: str | None = Field(None, description="Custom AI extraction prompt")
     extraction_handler: Literal["default", "event"] = Field(
         default="default",
         description="Handler for processing extractions: 'default' (entity_facet_service) or 'event' (event_extraction_service)",
@@ -188,6 +188,10 @@ class _CategoryFieldsMixin(BaseModel):
     schedule_cron: str = Field(
         default="0 2 * * *",
         description="Cron expression for scheduled crawls (5 or 6 fields, seconds optional)",
+    )
+    schedule_enabled: bool = Field(
+        default=False,
+        description="If true, automatic crawls are enabled based on schedule_cron. Must be explicitly set to enable scheduled crawling.",
     )
     is_active: bool = Field(default=True, description="Whether category is active")
 
@@ -198,21 +202,26 @@ class _CategoryFieldsMixin(BaseModel):
     )
 
     # Target EntityType for extracted entities
-    target_entity_type_id: Optional[UUID] = Field(
+    target_entity_type_id: UUID | None = Field(
         None,
         description="EntityType for extracted entities (e.g., 'event-besuche-nrw')",
     )
 
     # Display configuration for results view
-    display_fields: Optional[Dict[str, Any]] = Field(
+    display_fields: dict[str, Any] | None = Field(
         None,
         description="Configuration for result display columns: {columns: [{key, label, type, width}]}",
     )
 
     # Entity reference extraction configuration
-    entity_reference_config: Optional[Dict[str, Any]] = Field(
+    entity_reference_config: dict[str, Any] | None = Field(
         None,
-        description="Config for entity reference extraction: {entity_types: ['territorial-entity']}",
+        description=(
+            "Config for entity reference extraction. Supported keys: "
+            "entity_types: list of entity type slugs to extract; "
+            "field_mappings: {field_name: entity_type}; "
+            "default_entity_id: UUID of fallback entity when no entities are extracted"
+        ),
     )
 
 
@@ -221,19 +230,19 @@ class CategoryBase(_CategoryFieldsMixin):
 
     @field_validator("url_include_patterns", "url_exclude_patterns", mode="before")
     @classmethod
-    def validate_regex_patterns(cls, v: Optional[List[str]]) -> List[str]:
+    def validate_regex_patterns(cls, v: list[str] | None) -> list[str]:
         """Validate that all patterns are valid regex expressions."""
         return _validate_regex_patterns_impl(v, allow_none=False)
 
     @field_validator("languages", mode="before")
     @classmethod
-    def validate_languages(cls, v: Optional[List[str]]) -> List[str]:
+    def validate_languages(cls, v: list[str] | None) -> list[str]:
         """Validate ISO 639-1 language codes."""
         return _validate_languages_impl(v, allow_none=False)
 
     @field_validator("schedule_cron", mode="before")
     @classmethod
-    def validate_schedule_cron(cls, v: Optional[str]) -> str:
+    def validate_schedule_cron(cls, v: str | None) -> str:
         """Validate cron expression format."""
         if v is None:
             return "0 2 * * *"  # Default: daily at 2 AM
@@ -244,7 +253,7 @@ class CategoryBase(_CategoryFieldsMixin):
 class CategoryCreate(CategoryBase):
     """Schema for creating a new category."""
 
-    slug: Optional[str] = Field(None, description="URL-friendly slug (auto-generated if not provided)")
+    slug: str | None = Field(None, description="URL-friendly slug (auto-generated if not provided)")
 
     @field_validator("slug", mode="before")
     @classmethod
@@ -257,32 +266,33 @@ class CategoryCreate(CategoryBase):
 class CategoryUpdate(BaseModel):
     """Schema for updating a category."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = None
-    purpose: Optional[str] = None
-    search_terms: Optional[List[str]] = None
-    document_types: Optional[List[str]] = None
-    url_include_patterns: Optional[List[str]] = None
-    url_exclude_patterns: Optional[List[str]] = None
-    languages: Optional[List[str]] = None
-    ai_extraction_prompt: Optional[str] = None
-    extraction_handler: Optional[Literal["default", "event"]] = None
-    schedule_cron: Optional[str] = None
-    is_active: Optional[bool] = None
-    is_public: Optional[bool] = None
-    target_entity_type_id: Optional[UUID] = None
-    display_fields: Optional[Dict[str, Any]] = None
-    entity_reference_config: Optional[Dict[str, Any]] = None
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    purpose: str | None = None
+    search_terms: list[str] | None = None
+    document_types: list[str] | None = None
+    url_include_patterns: list[str] | None = None
+    url_exclude_patterns: list[str] | None = None
+    languages: list[str] | None = None
+    ai_extraction_prompt: str | None = None
+    extraction_handler: Literal["default", "event"] | None = None
+    schedule_cron: str | None = None
+    schedule_enabled: bool | None = None
+    is_active: bool | None = None
+    is_public: bool | None = None
+    target_entity_type_id: UUID | None = None
+    display_fields: dict[str, Any] | None = None
+    entity_reference_config: dict[str, Any] | None = None
 
     @field_validator("url_include_patterns", "url_exclude_patterns", mode="before")
     @classmethod
-    def validate_regex_patterns(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+    def validate_regex_patterns(cls, v: list[str] | None) -> list[str] | None:
         """Validate that all patterns are valid regex expressions."""
         return _validate_regex_patterns_impl(v, allow_none=True)
 
     @field_validator("languages", mode="before")
     @classmethod
-    def validate_languages(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+    def validate_languages(cls, v: list[str] | None) -> list[str] | None:
         """Validate ISO 639-1 language codes."""
         return _validate_languages_impl(v, allow_none=True)
 
@@ -302,8 +312,8 @@ class CategoryResponse(_CategoryFieldsMixin):
     updated_at: datetime
 
     # Ownership
-    created_by_id: Optional[UUID] = Field(None, description="User who created this category")
-    owner_id: Optional[UUID] = Field(None, description="User who owns this category")
+    created_by_id: UUID | None = Field(None, description="User who created this category")
+    owner_id: UUID | None = Field(None, description="User who owns this category")
 
     # Computed fields
     source_count: int = Field(default=0, description="Number of data sources")
@@ -341,7 +351,7 @@ class CategoryResponse(_CategoryFieldsMixin):
 class CategoryListResponse(BaseModel):
     """Schema for category list response."""
 
-    items: List[CategoryResponse]
+    items: list[CategoryResponse]
     total: int
     page: int
     per_page: int
@@ -356,7 +366,7 @@ class CategoryStats(BaseModel):
     source_count: int
     document_count: int
     extracted_count: int
-    last_crawl: Optional[datetime]
+    last_crawl: datetime | None
     active_jobs: int
 
 
@@ -368,7 +378,7 @@ class CategoryStats(BaseModel):
 class EntityTypeSuggestion(BaseModel):
     """Suggested EntityType for AI setup - can be new or existing."""
 
-    id: Optional[UUID] = Field(None, description="UUID if existing, None if new")
+    id: UUID | None = Field(None, description="UUID if existing, None if new")
     name: str = Field(..., description="EntityType name")
     slug: str = Field(..., description="EntityType slug")
     name_plural: str = Field(..., description="Plural name")
@@ -382,7 +392,7 @@ class EntityTypeSuggestion(BaseModel):
 class FacetTypeSuggestion(BaseModel):
     """Suggested FacetType for AI setup - can be new or existing."""
 
-    id: Optional[UUID] = Field(None, description="UUID if existing, None if new")
+    id: UUID | None = Field(None, description="UUID if existing, None if new")
     name: str = Field(..., description="FacetType name")
     slug: str = Field(..., description="FacetType slug")
     name_plural: str = Field(..., description="Plural name")
@@ -408,19 +418,19 @@ class CategoryAiSetupPreview(BaseModel):
     )
 
     # List of existing EntityTypes user can choose instead
-    existing_entity_types: List[EntityTypeSuggestion] = Field(
+    existing_entity_types: list[EntityTypeSuggestion] = Field(
         default_factory=list,
         description="Existing EntityTypes that might be suitable",
     )
 
     # Suggested FacetTypes
-    suggested_facet_types: List[FacetTypeSuggestion] = Field(
+    suggested_facet_types: list[FacetTypeSuggestion] = Field(
         default_factory=list,
         description="Suggested FacetTypes for this category",
     )
 
     # Existing FacetTypes that might be reusable
-    existing_facet_types: List[FacetTypeSuggestion] = Field(
+    existing_facet_types: list[FacetTypeSuggestion] = Field(
         default_factory=list,
         description="Existing FacetTypes that could be reused",
     )
@@ -431,17 +441,17 @@ class CategoryAiSetupPreview(BaseModel):
     )
 
     # Generated search terms
-    suggested_search_terms: List[str] = Field(
+    suggested_search_terms: list[str] = Field(
         default_factory=list,
         description="Suggested search terms",
     )
 
     # Generated URL patterns
-    suggested_url_include_patterns: List[str] = Field(
+    suggested_url_include_patterns: list[str] = Field(
         default_factory=list,
         description="Suggested URL include patterns",
     )
-    suggested_url_exclude_patterns: List[str] = Field(
+    suggested_url_exclude_patterns: list[str] = Field(
         default_factory=list,
         description="Suggested URL exclude patterns",
     )
@@ -458,7 +468,7 @@ class CategoryAiSetupRequest(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255, description="Category name")
     purpose: str = Field(..., min_length=1, description="Purpose/intent for this category")
-    description: Optional[str] = Field(None, description="Optional additional description")
+    description: str | None = Field(None, description="Optional additional description")
 
 
 class CategoryCreateWithAiSetup(CategoryCreate):
@@ -474,23 +484,23 @@ class CategoryCreateWithAiSetup(CategoryCreate):
         default=True,
         description="If true, create new EntityType from ai_entity_type_config",
     )
-    use_existing_entity_type_id: Optional[UUID] = Field(
+    use_existing_entity_type_id: UUID | None = Field(
         None,
         description="If create_new_entity_type is false, use this existing EntityType",
     )
-    ai_entity_type_config: Optional[EntityTypeSuggestion] = Field(
+    ai_entity_type_config: EntityTypeSuggestion | None = Field(
         None,
         description="EntityType config to create (if create_new_entity_type is true)",
     )
 
     # FacetTypes to create
-    facet_types_to_create: List[FacetTypeSuggestion] = Field(
+    facet_types_to_create: list[FacetTypeSuggestion] = Field(
         default_factory=list,
         description="New FacetTypes to create and associate with the EntityType",
     )
 
     # Existing FacetTypes to associate
-    facet_type_ids_to_associate: List[UUID] = Field(
+    facet_type_ids_to_associate: list[UUID] = Field(
         default_factory=list,
         description="Existing FacetType IDs to associate with the EntityType",
     )

@@ -3,8 +3,9 @@
 Tests the refactored interpreter modules in services/smart_query/interpreters/
 """
 
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class TestInterpretersModuleStructure:
@@ -18,23 +19,8 @@ class TestInterpretersModuleStructure:
             AI_TEMPERATURE_MEDIUM,
             MAX_TOKENS_QUERY,
             MAX_TOKENS_WRITE,
-            MAX_TOKENS_PLAN_MODE,
-            SSE_EVENT_START,
-            SSE_EVENT_CHUNK,
             SSE_EVENT_DONE,
-            SSE_EVENT_ERROR,
-            # Functions
-            interpret_query,
-            interpret_write_command,
-            interpret_plan_query,
-            interpret_plan_query_stream,
-            detect_compound_query,
-            sanitize_user_input,
-            sanitize_conversation_messages,
-            validate_and_sanitize_query,
-            invalidate_types_cache,
-            # Classes
-            TypesCache,
+            SSE_EVENT_START,
         )
 
         # Verify constants have expected values
@@ -48,12 +34,11 @@ class TestInterpretersModuleStructure:
     def test_backward_compatible_imports(self):
         """Test that imports from query_interpreter.py still work."""
         from services.smart_query.query_interpreter import (
+            interpret_plan_query,
             interpret_query,
             interpret_write_command,
-            interpret_plan_query,
-            TypesCache,
-            sanitize_user_input,
             invalidate_types_cache,
+            sanitize_user_input,
         )
 
         # These should all be callable
@@ -136,7 +121,7 @@ class TestSanitizeUserInput:
 
     def test_truncates_long_input(self):
         """Test that long input is truncated."""
-        from services.smart_query.interpreters import sanitize_user_input, MAX_QUERY_LENGTH
+        from services.smart_query.interpreters import MAX_QUERY_LENGTH, sanitize_user_input
 
         long_input = "a" * (MAX_QUERY_LENGTH + 1000)
         sanitized = sanitize_user_input(long_input)
@@ -255,7 +240,7 @@ class TestValidateAndSanitizeQuery:
         before the length validation check, so queries are never rejected for being
         too long - they're simply truncated silently.
         """
-        from services.smart_query.interpreters import validate_and_sanitize_query, MAX_QUERY_LENGTH
+        from services.smart_query.interpreters import MAX_QUERY_LENGTH, validate_and_sanitize_query
 
         # Create a realistic long query that won't be stripped by sanitization
         words = "Zeige mir alle Gemeinden in "

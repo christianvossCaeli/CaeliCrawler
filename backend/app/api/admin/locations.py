@@ -1,37 +1,36 @@
 """Location management API endpoints (internationalized municipalities)."""
 
 import math
-from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import AuditContext
+from app.core.deps import require_admin, require_editor
 from app.countries import get_country_config, get_supported_countries, is_country_supported
 from app.database import get_session
-from app.core.deps import require_editor, require_admin
-from app.core.audit import AuditContext
-from app.models.audit_log import AuditAction
 from app.models import User
+from app.models.audit_log import AuditAction
 from app.models.location import Location
+from app.schemas.common import MessageResponse
 from app.schemas.location import (
+    AdminLevelInfo,
+    AdminLevelsResponse,
+    CountryInfo,
     LocationCreate,
     LocationListResponse,
     LocationResponse,
     LocationSearchResponse,
     LocationSearchResult,
     LocationUpdate,
-    CountryInfo,
-    AdminLevelInfo,
-    AdminLevelsResponse,
 )
-from app.schemas.common import MessageResponse
 
 router = APIRouter()
 
 
-@router.get("/countries", response_model=List[CountryInfo])
+@router.get("/countries", response_model=list[CountryInfo])
 async def list_countries(
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
@@ -67,7 +66,7 @@ async def list_countries(
 async def get_admin_levels(
     country: str = Query(..., min_length=2, max_length=2, description="Country code"),
     level: int = Query(1, ge=1, le=2, description="Admin level (1 or 2)"),
-    parent: Optional[str] = Query(None, description="Parent admin level value (for level 2)"),
+    parent: str | None = Query(None, description="Parent admin level value (for level 2)"),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
@@ -145,10 +144,10 @@ async def link_all_sources(
 async def list_locations_with_sources(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=100, ge=1, le=10000),
-    country: Optional[str] = Query(None, min_length=2, max_length=2, description="Filter by country"),
-    admin_level_1: Optional[str] = Query(None, description="Filter by admin level 1 (e.g., Bundesland)"),
-    admin_level_2: Optional[str] = Query(None, description="Filter by admin level 2 (e.g., Landkreis)"),
-    search: Optional[str] = Query(None),
+    country: str | None = Query(None, min_length=2, max_length=2, description="Filter by country"),
+    admin_level_1: str | None = Query(None, description="Filter by admin level 1 (e.g., Bundesland)"),
+    admin_level_2: str | None = Query(None, description="Filter by admin level 2 (e.g., Landkreis)"),
+    search: str | None = Query(None),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
@@ -159,7 +158,8 @@ async def list_locations_with_sources(
     Source counts are no longer available via this endpoint.
     Use the Entity system for geographic data.
     """
-    from sqlalchemy import func as sql_func, literal
+    from sqlalchemy import func as sql_func
+    from sqlalchemy import literal
 
     # Normalize country filter
     if country:
@@ -262,8 +262,8 @@ async def list_locations_with_sources(
 async def search_locations(
     q: str = Query(..., min_length=1, description="Search query"),
     limit: int = Query(default=20, ge=1, le=100, description="Maximum results"),
-    country: Optional[str] = Query(None, min_length=2, max_length=2, description="Filter by country"),
-    admin_level_1: Optional[str] = Query(None, description="Filter by state/region"),
+    country: str | None = Query(None, min_length=2, max_length=2, description="Filter by country"),
+    admin_level_1: str | None = Query(None, description="Filter by state/region"),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
@@ -334,9 +334,9 @@ async def search_locations(
 async def list_locations(
     page: int = Query(default=1, ge=1, description="Page number"),
     per_page: int = Query(default=50, ge=1, le=200, description="Items per page"),
-    country: Optional[str] = Query(None, min_length=2, max_length=2, description="Filter by country"),
-    admin_level_1: Optional[str] = Query(None, description="Filter by state/region"),
-    search: Optional[str] = Query(None, description="Search by name"),
+    country: str | None = Query(None, min_length=2, max_length=2, description="Filter by country"),
+    admin_level_1: str | None = Query(None, description="Filter by state/region"),
+    search: str | None = Query(None, description="Search by name"),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
@@ -404,7 +404,7 @@ async def list_locations(
     )
 
 
-@router.get("/states", response_model=List[str])
+@router.get("/states", response_model=list[str])
 async def list_states(
     country: str = Query(default="DE", min_length=2, max_length=2),
     session: AsyncSession = Depends(get_session),
@@ -634,6 +634,7 @@ async def enrich_admin_levels(
     Rate limited to 1 request/second per Nominatim policy.
     """
     import asyncio
+
     import httpx
 
     country = country.upper()

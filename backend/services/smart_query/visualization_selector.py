@@ -13,22 +13,25 @@ Best Practices Applied:
 
 import hashlib
 import json
-from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple
+import time
+from typing import Any
 
 import structlog
 
 from app.config import settings
 from app.core.cache import TTLCache
+from app.models.llm_usage import LLMProvider, LLMTaskType
 from app.schemas.visualization import (
-    VisualizationType,
-    VisualizationConfig,
-    VisualizationColumn,
-    ColumnType,
     ChartAxis,
     ChartSeries,
+    ColumnType,
     StatCard,
+    VisualizationColumn,
+    VisualizationConfig,
+    VisualizationType,
 )
+from services.llm_usage_tracker import record_llm_usage
+
 from .query_interpreter import get_openai_client
 from .utils import clean_json_response
 
@@ -68,7 +71,7 @@ AI_CACHE_ENABLED = True  # Can be disabled for testing
 def _generate_cache_key(
     query: str,
     data_count: int,
-    fields: Tuple[str, ...],
+    fields: tuple[str, ...],
     has_time: bool,
     has_geo: bool,
 ) -> str:
@@ -114,7 +117,7 @@ def _generate_cache_key(
 
 # In-memory cache for AI responses with TTL and max size
 # TTL: 30 min, max 128 entries (visualization choices are context-dependent)
-_ai_response_cache: TTLCache[Dict[str, Any]] = TTLCache(default_ttl=1800, max_size=AI_CACHE_SIZE)
+_ai_response_cache: TTLCache[dict[str, Any]] = TTLCache(default_ttl=1800, max_size=AI_CACHE_SIZE)
 
 
 def invalidate_visualization_cache() -> None:
@@ -193,10 +196,10 @@ class VisualizationSelector:
 
     async def select_visualization(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         user_query: str,
-        facet_types: Optional[List[str]] = None,
-        user_hint: Optional[str] = None,
+        facet_types: list[str] | None = None,
+        user_hint: str | None = None,
     ) -> VisualizationConfig:
         """
         Select the best visualization format for the given data.
@@ -234,9 +237,9 @@ class VisualizationSelector:
 
     def _analyze_data(
         self,
-        data: List[Dict[str, Any]],
-        facet_types: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        data: list[dict[str, Any]],
+        facet_types: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Analyze data structure for visualization selection."""
         if not data:
             return {
@@ -255,7 +258,7 @@ class VisualizationSelector:
         time_fields = []
         has_geo = False
 
-        def analyze_object(obj: Dict, prefix: str = ""):
+        def analyze_object(obj: dict, prefix: str = ""):
             nonlocal has_geo
             for key, value in obj.items():
                 full_key = f"{prefix}{key}" if prefix else key
@@ -267,7 +270,7 @@ class VisualizationSelector:
                 elif key.lower() == "geometry" and isinstance(value, dict):
                     if "type" in value and "coordinates" in value:
                         has_geo = True
-                elif key.lower() == "coordinates" and isinstance(value, dict):
+                elif key.lower() == "coordinates" and isinstance(value, dict):  # noqa: SIM102
                     if "lat" in value or "lon" in value:
                         has_geo = True
 
@@ -312,7 +315,7 @@ class VisualizationSelector:
             "facet_types": facet_types or [],
         }
 
-    def _has_geo_data(self, item: Dict[str, Any]) -> bool:
+    def _has_geo_data(self, item: dict[str, Any]) -> bool:
         """Check if an item has geographic data."""
         # Direct coordinates
         if item.get("latitude") is not None and item.get("longitude") is not None:
@@ -327,16 +330,13 @@ class VisualizationSelector:
 
         # Nested coordinates
         coords = item.get("coordinates")
-        if isinstance(coords, dict) and ("lat" in coords or "lon" in coords):
-            return True
-
-        return False
+        return bool(isinstance(coords, dict) and ("lat" in coords or "lon" in coords))
 
     def _quick_select(
         self,
-        analysis: Dict[str, Any],
+        analysis: dict[str, Any],
         user_query: str,
-    ) -> Optional[VisualizationType]:
+    ) -> VisualizationType | None:
         """
         Quick selection for trivial cases only.
 
@@ -382,10 +382,10 @@ class VisualizationSelector:
 
     async def _ai_select(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         user_query: str,
-        analysis: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        analysis: dict[str, Any],
+    ) -> dict[str, Any]:
         """Use AI to select visualization for complex cases.
 
         Includes caching to reduce API calls for similar queries.
@@ -425,12 +425,26 @@ class VisualizationSelector:
             data_sample=data_sample[:2000],  # Limit sample size
         )
 
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=1000,
         )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.CHAT,
+                task_name="_ai_select",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         content = response.choices[0].message.content.strip()
         content = clean_json_response(content)
@@ -486,9 +500,9 @@ class VisualizationSelector:
     def _build_config_for_type(
         self,
         viz_type: VisualizationType,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         user_query: str,
-        analysis: Optional[Dict[str, Any]] = None,
+        analysis: dict[str, Any] | None = None,
     ) -> VisualizationConfig:
         """Build visualization config for a specific type."""
         if analysis is None:
@@ -515,9 +529,9 @@ class VisualizationSelector:
 
     def _build_table_config(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         title: str,
-        analysis: Dict[str, Any],
+        analysis: dict[str, Any],
     ) -> VisualizationConfig:
         """Build table visualization config."""
         columns = []
@@ -564,9 +578,9 @@ class VisualizationSelector:
 
     def _build_bar_chart_config(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         title: str,
-        analysis: Dict[str, Any],
+        analysis: dict[str, Any],
     ) -> VisualizationConfig:
         """Build bar chart visualization config."""
         # Use entity_name as category (x-axis)
@@ -611,9 +625,9 @@ class VisualizationSelector:
 
     def _build_line_chart_config(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         title: str,
-        analysis: Dict[str, Any],
+        analysis: dict[str, Any],
     ) -> VisualizationConfig:
         """Build line chart visualization config."""
         time_fields = analysis.get("time_fields", [])
@@ -653,9 +667,9 @@ class VisualizationSelector:
 
     def _build_pie_chart_config(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         title: str,
-        analysis: Dict[str, Any],
+        analysis: dict[str, Any],
     ) -> VisualizationConfig:
         """Build pie chart visualization config."""
         # Use entity_name as category
@@ -684,31 +698,28 @@ class VisualizationSelector:
 
     def _build_stat_card_config(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         title: str,
-        analysis: Dict[str, Any],
+        analysis: dict[str, Any],
     ) -> VisualizationConfig:
         """Build stat card visualization config."""
         cards = []
 
         for item in data[:4]:  # Max 4 cards
-            if "entity_name" in item:
-                label = item["entity_name"]
-            else:
-                label = "Wert"
+            label = item.get("entity_name", "Wert")
 
             # Find first numeric value
             value = None
             unit = None
 
             if "facets" in item:
-                for facet_key, facet_value in item.get("facets", {}).items():
+                for _facet_key, facet_value in item.get("facets", {}).items():
                     if isinstance(facet_value, dict) and "value" in facet_value:
                         value = facet_value["value"]
                         break
 
             if value is None and "core_attributes" in item:
-                for attr_key, attr_value in item.get("core_attributes", {}).items():
+                for _attr_key, attr_value in item.get("core_attributes", {}).items():
                     if isinstance(attr_value, (int, float)):
                         value = attr_value
                         break
@@ -728,9 +739,9 @@ class VisualizationSelector:
 
     def _build_comparison_config(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         title: str,
-        analysis: Dict[str, Any],
+        analysis: dict[str, Any],
     ) -> VisualizationConfig:
         """Build comparison visualization config."""
         # Get list of facets to compare
@@ -746,9 +757,9 @@ class VisualizationSelector:
 
     def _build_map_config(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         title: str,
-        analysis: Dict[str, Any],
+        analysis: dict[str, Any],
     ) -> VisualizationConfig:
         """Build map visualization config."""
         geo_count = analysis.get("geo_count", 0)
@@ -762,7 +773,7 @@ class VisualizationSelector:
 
     def _build_text_config(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         title: str,
         user_query: str,
     ) -> VisualizationConfig:
@@ -793,8 +804,8 @@ class VisualizationSelector:
 
     def _build_config_from_ai(
         self,
-        ai_result: Dict[str, Any],
-        data: List[Dict[str, Any]],
+        ai_result: dict[str, Any],
+        data: list[dict[str, Any]],
     ) -> VisualizationConfig:
         """Build visualization config from AI response."""
         viz_type_str = ai_result.get("visualization_type", "table")

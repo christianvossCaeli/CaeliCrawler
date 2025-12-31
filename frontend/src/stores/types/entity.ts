@@ -77,22 +77,26 @@ export interface FacetType {
   description: string | null
   value_type: string
   value_schema: Record<string, unknown> | null
-  applicable_entity_type_slugs: string[]
-  icon: string
-  color: string
-  display_order: number
-  aggregation_method: string
-  deduplication_fields: string[]
-  is_time_based: boolean
-  time_field_path: string | null
-  default_time_filter: string | null
-  ai_extraction_enabled: boolean
-  ai_extraction_prompt: string | null
-  is_active: boolean
-  is_system: boolean
-  value_count: number
-  created_at: string
-  updated_at: string
+  applicable_entity_type_slugs?: string[]
+  icon?: string
+  color?: string
+  display_order?: number
+  aggregation_method?: string
+  deduplication_fields?: string[]
+  is_time_based?: boolean
+  time_field_path?: string | null
+  default_time_filter?: string | null
+  ai_extraction_enabled?: boolean
+  ai_extraction_prompt?: string | null
+  is_active?: boolean
+  is_system?: boolean
+  value_count?: number
+  created_at?: string
+  updated_at?: string
+  // Entity reference configuration (for linking facets to other entities)
+  allows_entity_reference?: boolean
+  target_entity_type_slugs?: string[]
+  auto_create_entity?: boolean
 }
 
 export interface FacetValue {
@@ -105,7 +109,7 @@ export interface FacetValue {
   category_id: string | null
   category_name: string | null
   value: unknown
-  text_representation: string
+  text_representation?: string
   event_date: string | null
   valid_from: string | null
   valid_until: string | null
@@ -294,18 +298,5 @@ export interface EntityReport {
 // Utilities
 // ============================================================================
 
-/**
- * Extract error message from unknown error object
- */
-export function getErrorMessage(err: unknown): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const response = (err as { response?: { data?: { error?: string } } }).response
-    if (response?.data?.error) {
-      return response.data.error
-    }
-  }
-  if (err instanceof Error) {
-    return err.message
-  }
-  return 'Unknown error'
-}
+// Re-export error message utility from centralized location
+export { extractErrorMessage as getErrorMessage } from '@/utils/errorMessage'

@@ -41,6 +41,8 @@ export interface CategoryBase {
   extraction_handler: ExtractionHandler;
   /** Cron expression for scheduled crawls (5 or 6 fields, e.g., "0 2 * * *") */
   schedule_cron: string;
+  /** If true, automatic crawls are enabled based on schedule_cron. Must be explicitly set. */
+  schedule_enabled: boolean;
   /** Whether category is active for crawling */
   is_active: boolean;
   /** If true, visible to all users */
@@ -76,6 +78,8 @@ export interface CategoryCreate {
   extraction_handler?: ExtractionHandler;
   /** Cron expression for scheduled crawls */
   schedule_cron?: string;
+  /** If true, automatic crawls are enabled based on schedule_cron */
+  schedule_enabled?: boolean;
   /** Whether category is active for crawling */
   is_active?: boolean;
   /** If true, visible to all users */

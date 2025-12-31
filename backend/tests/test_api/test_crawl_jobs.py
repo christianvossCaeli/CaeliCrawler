@@ -1,9 +1,9 @@
 """E2E Tests for Crawl Jobs API endpoints."""
 
-import pytest
 import uuid
-from httpx import AsyncClient, ReadTimeout
 
+import pytest
+from httpx import AsyncClient, ReadTimeout
 
 # Custom marker for tests that require Celery workers
 requires_celery = pytest.mark.skipif(

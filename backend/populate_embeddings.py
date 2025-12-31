@@ -16,8 +16,8 @@ Options:
     --force     Regenerate all embeddings (even existing ones)
 """
 
-import asyncio
 import argparse
+import asyncio
 import sys
 from pathlib import Path
 
@@ -25,16 +25,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from app.database import async_session_factory
+from app.models import Category, EntityType, FacetType
 from app.utils.similarity import (
-    populate_all_embeddings,
-    batch_update_type_embeddings,
     batch_update_embeddings,
     batch_update_facet_value_embeddings,
     batch_update_relation_type_embeddings,
+    batch_update_type_embeddings,
     get_similarity_stats,
+    populate_all_embeddings,
     reset_similarity_stats,
 )
-from app.models import EntityType, FacetType, Category
 
 
 async def main():
@@ -53,11 +53,6 @@ async def main():
 
     only_missing = not args.force
 
-    print("=" * 60)
-    print("Embedding Population Script")
-    print("=" * 60)
-    print(f"Mode: {'Force regenerate all' if args.force else 'Only missing embeddings'}")
-    print()
 
     reset_similarity_stats()
 
@@ -65,11 +60,9 @@ async def main():
         results = {}
 
         if args.all:
-            print("Populating ALL embeddings...")
             results = await populate_all_embeddings(session, only_missing=only_missing)
         else:
             if args.types:
-                print("Populating type embeddings...")
                 results["entity_types"] = await batch_update_type_embeddings(
                     session, EntityType, only_missing
                 )
@@ -85,40 +78,25 @@ async def main():
                 await session.commit()
 
             if args.entities:
-                print("Populating Entity embeddings...")
                 results["entities"] = await batch_update_embeddings(
                     session, only_missing=only_missing
                 )
                 await session.commit()
 
             if args.facets:
-                print("Populating FacetValue embeddings...")
                 results["facet_values"] = await batch_update_facet_value_embeddings(
                     session, only_missing=only_missing
                 )
                 await session.commit()
 
     # Print results
-    print()
-    print("=" * 60)
-    print("Results:")
-    print("=" * 60)
 
     total = 0
-    for key, count in results.items():
-        print(f"  {key}: {count} updated")
+    for _key, count in results.items():
         total += count
 
-    print("-" * 60)
-    print(f"  TOTAL: {total} embeddings updated")
-    print()
 
-    stats = get_similarity_stats()
-    print("Statistics:")
-    print(f"  Embeddings generated: {stats['embeddings_generated']}")
-    print(f"  Cache hits: {stats['cache_hits']}")
-    print()
-    print("Done!")
+    get_similarity_stats()
 
 
 if __name__ == "__main__":

@@ -12,7 +12,8 @@ Exports:
 
 import json
 import re
-from typing import Any, Dict, List, Tuple
+import time
+from typing import Any
 
 import structlog
 from sqlalchemy import select
@@ -20,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models import EntityType, FacetType
+from app.models.llm_usage import LLMProvider, LLMTaskType
 from app.schemas.assistant import (
     AssistantContext,
     AssistantResponseData,
@@ -29,6 +31,7 @@ from app.schemas.assistant import (
     SuggestedAction,
 )
 from services.assistant.common import get_openai_client
+from services.llm_usage_tracker import record_llm_usage
 from services.translations import Translator
 
 logger = structlog.get_logger()
@@ -38,9 +41,9 @@ async def handle_facet_management_request(
     db: AsyncSession,
     message: str,
     context: AssistantContext,
-    intent_data: Dict[str, Any],
+    intent_data: dict[str, Any],
     translator: Translator
-) -> Tuple[AssistantResponseData, List[SuggestedAction]]:
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Handle facet type management requests.
 
     Args:
@@ -98,7 +101,7 @@ async def handle_facet_management_request(
         ), []
 
 
-async def _get_all_facet_types(db: AsyncSession) -> List[FacetType]:
+async def _get_all_facet_types(db: AsyncSession) -> list[FacetType]:
     """Get all active facet types.
 
     Args:
@@ -116,9 +119,9 @@ async def _get_all_facet_types(db: AsyncSession) -> List[FacetType]:
 
 
 async def _list_facet_types(
-    facet_types: List[FacetType],
+    facet_types: list[FacetType],
     translator: Translator
-) -> Tuple[FacetManagementResponse, List[SuggestedAction]]:
+) -> tuple[FacetManagementResponse, list[SuggestedAction]]:
     """List all available facet types.
 
     Args:
@@ -145,7 +148,7 @@ async def _list_facet_types(
 
     msg = f"**{len(facet_list)} Facet-Typen verfügbar:**\n\n"
     for ft in facet_list[:10]:
-        icon = ft.get("icon", "mdi-tag")
+        ft.get("icon", "mdi-tag")
         desc = ft.get("description", "Keine Beschreibung")[:50]
         msg += f"- **{ft['name']}** (`{ft['slug']}`): {desc}\n"
 
@@ -164,9 +167,9 @@ async def _preview_create_facet_type(
     db: AsyncSession,
     facet_name: str,
     facet_description: str,
-    target_entity_types: List[str],
-    existing_facet_types: List[FacetType]
-) -> Tuple[FacetManagementResponse, List[SuggestedAction]]:
+    target_entity_types: list[str],
+    existing_facet_types: list[FacetType]
+) -> tuple[FacetManagementResponse, list[SuggestedAction]]:
     """Preview facet type creation.
 
     Args:
@@ -225,8 +228,8 @@ async def _preview_create_facet_type(
 
 async def _handle_assign_facet_type(
     db: AsyncSession,
-    target_entity_types: List[str]
-) -> Tuple[FacetManagementResponse, List[SuggestedAction]]:
+    target_entity_types: list[str]
+) -> tuple[FacetManagementResponse, list[SuggestedAction]]:
     """Handle facet type assignment to entity types.
 
     Args:
@@ -263,9 +266,9 @@ async def _handle_assign_facet_type(
 
 async def _suggest_facet_types_with_llm(
     current_entity_type: str,
-    existing_facet_types: List[FacetType],
+    existing_facet_types: list[FacetType],
     user_message: str
-) -> Tuple[FacetManagementResponse, List[SuggestedAction]]:
+) -> tuple[FacetManagementResponse, list[SuggestedAction]]:
     """Use LLM to suggest new facet types based on context.
 
     Args:
@@ -305,6 +308,7 @@ Regeln:
 """
 
     try:
+        start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[
@@ -315,6 +319,19 @@ Regeln:
             max_tokens=500,
             response_format={"type": "json_object"}
         )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.CHAT,
+                task_name="_suggest_facet_types_with_llm",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
 
         result = json.loads(response.choices[0].message.content)
         suggestions = result.get("suggestions", [])
@@ -347,4 +364,4 @@ Regeln:
 
     except Exception as e:
         logger.error("facet_suggestion_error", error=str(e))
-        raise RuntimeError(f"KI-Service Fehler: Facet-Vorschläge konnten nicht generiert werden - {str(e)}")
+        raise RuntimeError(f"KI-Service Fehler: Facet-Vorschläge konnten nicht generiert werden - {str(e)}") from None

@@ -6,30 +6,29 @@ import ipaddress
 import json
 import os
 import socket
-from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.audit import AuditContext
+from app.core.deps import get_current_user
 from app.database import get_session
-from app.models import ExtractedData, Document, DataSource, DataSourceCategory, Category
+from app.models import Category, DataSource, DataSourceCategory, Document, ExtractedData
+from app.models.audit_log import AuditAction
 from app.models.export_job import ExportJob
 from app.models.user import User
-from app.core.deps import get_current_user
-from app.core.audit import AuditContext
-from app.models.audit_log import AuditAction
 
 router = APIRouter()
 
 # Export directory (should match workers/export_tasks.py)
-EXPORT_DIR = os.environ.get("EXPORT_DIR", "/tmp/exports")
+EXPORT_DIR = os.environ.get("EXPORT_DIR", "/tmp/exports")  # noqa: S108
 
 
 # =============================================================================
@@ -40,12 +39,12 @@ class AsyncExportRequest(BaseModel):
     """Request body for starting an async export."""
     entity_type: str = "territorial_entity"
     format: str = "json"  # json, csv, excel
-    location_filter: Optional[str] = None
-    facet_types: Optional[List[str]] = None
-    position_keywords: Optional[List[str]] = None
-    country: Optional[str] = None
+    location_filter: str | None = None
+    facet_types: list[str] | None = None
+    position_keywords: list[str] | None = None
+    country: str | None = None
     include_facets: bool = True
-    filename: Optional[str] = None
+    filename: str | None = None
 
 
 class ExportJobResponse(BaseModel):
@@ -53,15 +52,15 @@ class ExportJobResponse(BaseModel):
     id: str
     status: str
     export_format: str
-    total_records: Optional[int]
-    processed_records: Optional[int]
-    progress_percent: Optional[int]
-    progress_message: Optional[str]
-    file_size: Optional[int]
-    error_message: Optional[str]
-    created_at: Optional[str]
-    started_at: Optional[str]
-    completed_at: Optional[str]
+    total_records: int | None
+    processed_records: int | None
+    progress_percent: int | None
+    progress_message: str | None
+    file_size: int | None
+    error_message: str | None
+    created_at: str | None
+    started_at: str | None
+    completed_at: str | None
     is_downloadable: bool
 
 
@@ -87,7 +86,7 @@ BLOCKED_IP_RANGES = [
 ]
 
 
-def validate_webhook_url(url: str) -> Tuple[bool, str]:
+def validate_webhook_url(url: str) -> tuple[bool, str]:
     """
     Validate URL for SSRF protection.
 
@@ -133,8 +132,8 @@ def validate_webhook_url(url: str) -> Tuple[bool, str]:
 
 async def _bulk_load_related_data(
     session: AsyncSession,
-    extractions: List[ExtractedData]
-) -> tuple[Dict[UUID, Document], Dict[UUID, DataSource], Dict[UUID, Category]]:
+    extractions: list[ExtractedData]
+) -> tuple[dict[UUID, Document], dict[UUID, DataSource], dict[UUID, Category]]:
     """Bulk-load all related documents, sources, and categories for extractions.
 
     Returns dictionaries mapping IDs to their respective objects.
@@ -153,10 +152,10 @@ async def _bulk_load_related_data(
         .options(selectinload(Document.source))
         .where(Document.id.in_(doc_ids))
     )
-    docs_by_id: Dict[UUID, Document] = {doc.id: doc for doc in docs_result.scalars().all()}
+    docs_by_id: dict[UUID, Document] = {doc.id: doc for doc in docs_result.scalars().all()}
 
     # Extract sources from loaded documents
-    sources_by_id: Dict[UUID, DataSource] = {
+    sources_by_id: dict[UUID, DataSource] = {
         doc.source.id: doc.source
         for doc in docs_by_id.values()
         if doc.source
@@ -166,16 +165,16 @@ async def _bulk_load_related_data(
     cats_result = await session.execute(
         select(Category).where(Category.id.in_(cat_ids))
     )
-    cats_by_id: Dict[UUID, Category] = {cat.id: cat for cat in cats_result.scalars().all()}
+    cats_by_id: dict[UUID, Category] = {cat.id: cat for cat in cats_result.scalars().all()}
 
     return docs_by_id, sources_by_id, cats_by_id
 
 
 @router.get("/json")
 async def export_json(
-    category_id: Optional[UUID] = Query(default=None),
-    source_id: Optional[UUID] = Query(default=None),
-    min_confidence: Optional[float] = Query(default=None, ge=0, le=1),
+    category_id: UUID | None = Query(default=None),
+    source_id: UUID | None = Query(default=None),
+    min_confidence: float | None = Query(default=None, ge=0, le=1),
     human_verified_only: bool = Query(default=False),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(get_current_user),
@@ -231,9 +230,9 @@ async def export_json(
 
 @router.get("/csv")
 async def export_csv(
-    category_id: Optional[UUID] = Query(default=None),
-    source_id: Optional[UUID] = Query(default=None),
-    min_confidence: Optional[float] = Query(default=None, ge=0, le=1),
+    category_id: UUID | None = Query(default=None),
+    source_id: UUID | None = Query(default=None),
+    min_confidence: float | None = Query(default=None, ge=0, le=1),
     human_verified_only: bool = Query(default=False),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(get_current_user),
@@ -307,14 +306,15 @@ async def export_csv(
 
 @router.get("/changes")
 async def get_changes_feed(
-    since: Optional[str] = Query(default=None, description="ISO datetime to get changes since"),
-    category_id: Optional[UUID] = Query(default=None),
+    since: str | None = Query(default=None, description="ISO datetime to get changes since"),
+    category_id: UUID | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=1000),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(get_current_user),
 ):
     """Get a feed of recent changes (for polling)."""
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     from app.models import ChangeLog
 
     query = select(ChangeLog)
@@ -353,7 +353,7 @@ async def get_changes_feed(
             for c in changes
         ],
         "count": len(changes),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 
@@ -426,6 +426,7 @@ async def start_async_export(
     Use GET /export/async/{job_id}/download to download when complete.
     """
     from uuid import uuid4
+
     from workers.export_tasks import async_entity_export
 
     # Create export job record
@@ -450,7 +451,7 @@ async def start_async_export(
             export_config=export_config,
             export_format=export_request.format,
             status="pending",
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+            expires_at=datetime.now(UTC) + timedelta(hours=24),
         )
         session.add(export_job)
 
@@ -528,7 +529,7 @@ async def get_export_job_status(
                 meta = task_result.info or {}
                 export_job.progress_percent = meta.get("progress", 0)
                 export_job.progress_message = meta.get("message", "")
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
     return ExportJobResponse(**export_job.to_dict())
@@ -631,20 +632,20 @@ async def cancel_export_job(
         try:
             from workers.celery_app import celery_app
             celery_app.control.revoke(export_job.celery_task_id, terminate=True)
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
     # Update status
     export_job.status = "cancelled"
-    export_job.completed_at = datetime.now(timezone.utc)
+    export_job.completed_at = datetime.now(UTC)
     await session.commit()
 
     return {"message": "Export job cancelled", "job_id": str(job_id)}
 
 
-@router.get("/async", response_model=List[ExportJobResponse])
+@router.get("/async", response_model=list[ExportJobResponse])
 async def list_export_jobs(
-    status_filter: Optional[str] = Query(default=None, description="Filter by status"),
+    status_filter: str | None = Query(default=None, description="Filter by status"),
     limit: int = Query(default=20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),

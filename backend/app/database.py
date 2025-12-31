@@ -13,8 +13,8 @@ Connection Pool Strategy:
 - pool_pre_ping validates connections before use
 """
 
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager, suppress
 
 import structlog
 from sqlalchemy import MetaData, text
@@ -95,10 +95,8 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
             # Always rollback any uncommitted transaction to prevent
             # "idle in transaction" connections. This is a no-op if the
             # endpoint already committed or if no transaction was started.
-            try:
+            with suppress(Exception):
                 await session.rollback()
-            except Exception:
-                pass
 
 
 @asynccontextmanager
@@ -115,21 +113,15 @@ async def get_session_context() -> AsyncGenerator[AsyncSession, None]:
         try:
             await session.commit()
         except Exception:
-            try:
+            with suppress(Exception):
                 await session.rollback()
-            except Exception:
-                pass
     except Exception:
-        try:
+        with suppress(Exception):
             await session.rollback()
-        except Exception:
-            pass
         raise
     finally:
-        try:
+        with suppress(Exception):
             await session.close()
-        except Exception:
-            pass
 
 
 async def init_db() -> None:
@@ -213,23 +205,17 @@ async def get_celery_session_context() -> AsyncGenerator[AsyncSession, None]:
             await session.commit()
         except Exception:
             # If commit fails, try rollback
-            try:
+            with suppress(Exception):
                 await session.rollback()
-            except Exception:
-                pass
     except Exception:
         # On exception, always rollback
-        try:
+        with suppress(Exception):
             await session.rollback()
-        except Exception:
-            pass
         raise
     finally:
         # ALWAYS close the session
-        try:
+        with suppress(Exception):
             await session.close()
-        except Exception:
-            pass
 
 
 def reset_celery_engine():
@@ -243,7 +229,7 @@ def reset_celery_engine():
                 loop.create_task(_celery_engine.dispose())
             else:
                 loop.run_until_complete(_celery_engine.dispose())
-        except Exception:
+        except Exception:  # noqa: S110
             pass
     _celery_engine = None
     _celery_session_factory = None

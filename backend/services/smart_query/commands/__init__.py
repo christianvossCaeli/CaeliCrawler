@@ -16,27 +16,27 @@ Adding new commands:
     3. Register with @registry.register("operation_name")
 """
 
+from .api_sync_commands import (
+    SetupAPIFacetSyncCommand,
+    TriggerAPISyncCommand,
+)
 from .base import BaseCommand, CommandResult
-from .registry import CommandRegistry
 from .entity_commands import (
     CreateEntityCommand,
-    UpdateEntityCommand,
     DeleteEntityCommand,
+    UpdateEntityCommand,
 )
 from .facet_commands import (
     CreateFacetCommand,
     CreateFacetTypeCommand,
     DeleteFacetCommand,
 )
-from .api_sync_commands import (
-    SetupAPIFacetSyncCommand,
-    TriggerAPISyncCommand,
-)
 from .query_commands import (
     QueryDataCommand,
     QueryExternalCommand,
     QueryFacetHistoryCommand,
 )
+from .registry import CommandRegistry
 
 __all__ = [
     "BaseCommand",

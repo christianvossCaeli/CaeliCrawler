@@ -3,7 +3,7 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -66,7 +66,7 @@ class PySisFieldTemplate(Base):
         unique=True,
         comment="Template name, e.g., 'Standard Windenergie Felder'",
     )
-    description: Mapped[Optional[str]] = mapped_column(
+    description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Description of what this template is for",
@@ -74,7 +74,7 @@ class PySisFieldTemplate(Base):
 
     # Field definitions as JSON array
     # [{internal_name, pysis_field_name, field_type, ai_extraction_prompt}]
-    fields: Mapped[List[Dict[str, Any]]] = mapped_column(
+    fields: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB,
         default=list,
         nullable=False,
@@ -127,7 +127,7 @@ class PySisProcess(Base):
     )
 
     # Entity FK (primary)
-    entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("entities.id", ondelete="CASCADE"),
         nullable=True,
@@ -136,7 +136,7 @@ class PySisProcess(Base):
     )
 
     # Entity name (for display/legacy compatibility)
-    entity_name: Mapped[Optional[str]] = mapped_column(
+    entity_name: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         index=True,
@@ -151,19 +151,19 @@ class PySisProcess(Base):
     )
 
     # Display info
-    name: Mapped[Optional[str]] = mapped_column(
+    name: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="Optional display name for this process",
     )
-    description: Mapped[Optional[str]] = mapped_column(
+    description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Notes about this process",
     )
 
     # Template reference (optional)
-    template_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    template_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("pysis_field_templates.id", ondelete="SET NULL"),
         nullable=True,
@@ -171,7 +171,7 @@ class PySisProcess(Base):
     )
 
     # Sync metadata
-    last_synced_at: Mapped[Optional[datetime]] = mapped_column(
+    last_synced_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="Last successful sync with PySis",
@@ -181,7 +181,7 @@ class PySisProcess(Base):
         default=SyncStatus.NEVER,
         nullable=False,
     )
-    sync_error: Mapped[Optional[str]] = mapped_column(
+    sync_error: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Last sync error message if any",
@@ -208,7 +208,7 @@ class PySisProcess(Base):
         "PySisFieldTemplate",
         lazy="selectin",
     )
-    fields: Mapped[List["PySisProcessField"]] = relationship(
+    fields: Mapped[list["PySisProcessField"]] = relationship(
         "PySisProcessField",
         back_populates="process",
         cascade="all, delete-orphan",
@@ -274,24 +274,24 @@ class PySisProcessField(Base):
         nullable=False,
         comment="Whether to auto-extract this field via AI",
     )
-    ai_extraction_prompt: Mapped[Optional[str]] = mapped_column(
+    ai_extraction_prompt: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Custom AI prompt for extracting this field",
     )
 
     # Value storage
-    current_value: Mapped[Optional[str]] = mapped_column(
+    current_value: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Current value (JSON string for complex types)",
     )
-    ai_extracted_value: Mapped[Optional[str]] = mapped_column(
+    ai_extracted_value: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Last AI-extracted value",
     )
-    manual_value: Mapped[Optional[str]] = mapped_column(
+    manual_value: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Manual override value",
@@ -304,17 +304,17 @@ class PySisProcessField(Base):
     )
 
     # PySis sync state
-    pysis_value: Mapped[Optional[str]] = mapped_column(
+    pysis_value: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Last value fetched from PySis API",
     )
-    last_pushed_at: Mapped[Optional[datetime]] = mapped_column(
+    last_pushed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="When value was last pushed to PySis",
     )
-    last_pulled_at: Mapped[Optional[datetime]] = mapped_column(
+    last_pulled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="When value was last pulled from PySis",
@@ -327,12 +327,12 @@ class PySisProcessField(Base):
     )
 
     # AI extraction metadata
-    confidence_score: Mapped[Optional[float]] = mapped_column(
+    confidence_score: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
         comment="AI confidence score if AI-extracted (0.0-1.0)",
     )
-    extraction_document_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    extraction_document_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("documents.id", ondelete="SET NULL"),
         nullable=True,
@@ -363,7 +363,7 @@ class PySisProcessField(Base):
     )
 
     @property
-    def effective_value(self) -> Optional[str]:
+    def effective_value(self) -> str | None:
         """
         Get the effective value based on source priority.
         Priority: MANUAL > AI > PYSIS
@@ -378,7 +378,7 @@ class PySisProcessField(Base):
         return f"<PySisProcessField(id={self.id}, internal='{self.internal_name}', pysis='{self.pysis_field_name}')>"
 
     # Relationship to history
-    history: Mapped[List["PySisFieldHistory"]] = relationship(
+    history: Mapped[list["PySisFieldHistory"]] = relationship(
         "PySisFieldHistory",
         back_populates="field",
         cascade="all, delete-orphan",
@@ -412,7 +412,7 @@ class PySisFieldHistory(Base):
     )
 
     # Value snapshot
-    value: Mapped[Optional[str]] = mapped_column(
+    value: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="The value at this point in history",
@@ -424,7 +424,7 @@ class PySisFieldHistory(Base):
     )
 
     # AI metadata (if AI-generated)
-    confidence_score: Mapped[Optional[float]] = mapped_column(
+    confidence_score: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
         comment="AI confidence score if AI-generated",

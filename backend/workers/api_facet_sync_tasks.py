@@ -5,14 +5,14 @@ This module provides background tasks for:
 - Executing API-to-Facet synchronization based on cron schedules
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
-from app.utils.cron import croniter_for_expression, get_schedule_timezone
 
-from workers.celery_app import celery_app
+from app.utils.cron import croniter_for_expression, get_schedule_timezone
 from workers.async_runner import run_async
+from workers.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
 
@@ -32,9 +32,10 @@ def check_scheduled_api_syncs():
     sync execution for any APIConfiguration that is due based on its next_run_at.
     Only configurations with import_mode=FACETS or BOTH are checked.
     """
+    from sqlalchemy import select
+
     from app.database import get_celery_session_context
     from app.models.api_configuration import APIConfiguration, ImportMode
-    from sqlalchemy import select
 
     async def _check_and_execute():
         async with get_celery_session_context() as session:
@@ -71,7 +72,7 @@ def check_scheduled_api_syncs():
             for config in configs:
                 # Calculate next run based on sync_interval_hours
                 # For more complex scheduling, you could add a schedule_cron field
-                next_run = datetime.now(timezone.utc)
+                next_run = datetime.now(UTC)
                 from datetime import timedelta
                 next_run = next_run + timedelta(hours=config.sync_interval_hours)
                 config.next_run_at = next_run
@@ -121,11 +122,12 @@ def sync_api_config_to_facets(self, config_id: str):
     Args:
         config_id: UUID of the APIConfiguration to sync.
     """
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
     from app.database import get_celery_session_context
     from app.models.api_configuration import APIConfiguration, ImportMode
     from services.api_facet_sync_service import APIFacetSyncService
-    from sqlalchemy import select
-    from sqlalchemy.orm import selectinload
 
     async def _sync():
         async with get_celery_session_context() as session:
@@ -201,7 +203,7 @@ def sync_api_config_to_facets(self, config_id: str):
                 await session.commit()
 
                 # Retry the task
-                raise self.retry(exc=e)
+                raise self.retry(exc=e) from None
 
     return run_async(_sync())
 
@@ -227,7 +229,7 @@ def _emit_sync_notification(config, result: dict):
                 "history_points_added": result.get("history_points_added", 0),
             },
         )
-    except Exception:
+    except Exception:  # noqa: S110
         # Don't fail sync if notification fails
         pass
 
@@ -242,11 +244,12 @@ def sync_api_config_now(config_id: str):
     Args:
         config_id: UUID of the APIConfiguration to sync.
     """
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
     from app.database import get_celery_session_context
     from app.models.api_configuration import APIConfiguration, ImportMode
     from services.api_facet_sync_service import APIFacetSyncService
-    from sqlalchemy import select
-    from sqlalchemy.orm import selectinload
 
     async def _sync():
         async with get_celery_session_context() as session:

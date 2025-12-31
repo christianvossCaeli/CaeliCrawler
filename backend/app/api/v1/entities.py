@@ -1,52 +1,48 @@
 """API endpoints for Entity management."""
 
 import json
-import structlog
-from typing import Any, Dict, List, Optional, Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 logger = structlog.get_logger(__name__)
-from sqlalchemy import delete, func, select, text, and_, or_
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, delete, func, or_, select, text  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
-from app.database import get_session
-from app.models import Entity, EntityType, FacetValue, EntityRelation
-from app.models.document import Document
-from app.models.data_source import DataSource
-from app.models.user import User
-from app.core.deps import get_current_user, require_editor
-from app.core.audit import AuditContext
-from app.models.audit_log import AuditAction
-from app.utils.text import normalize_entity_name
-from services.entity_matching_service import EntityMatchingService
+from app.core.audit import AuditContext  # noqa: E402
+from app.core.deps import require_editor  # noqa: E402
+from app.database import get_session  # noqa: E402
+from app.models import Entity, EntityRelation, EntityType, FacetValue  # noqa: E402
+from app.models.audit_log import AuditAction  # noqa: E402
+from app.models.data_source import DataSource  # noqa: E402
+from app.models.document import Document  # noqa: E402
+from app.models.user import User  # noqa: E402
+from app.utils.text import normalize_entity_name  # noqa: E402
 
 # Import for external API data
 try:
-    from external_apis.models.sync_record import SyncRecord
     from app.models.api_configuration import APIConfiguration
+    from external_apis.models.sync_record import SyncRecord
     EXTERNAL_API_AVAILABLE = True
 except ImportError:
     EXTERNAL_API_AVAILABLE = False
-from app.schemas.entity import (
-    EntityCreate,
-    EntityUpdate,
-    EntityResponse,
-    EntityListResponse,
-    EntityBrief,
-    EntityHierarchy,
-    LocationFilterOptionsResponse,
+from app.core.exceptions import ConflictError, NotFoundError  # noqa: E402
+from app.schemas.common import MessageResponse  # noqa: E402
+from app.schemas.entity import (  # noqa: E402
     AttributeFilterOptionsResponse,
+    EntityBrief,
+    EntityCreate,
+    EntityHierarchy,
+    EntityListResponse,
+    EntityResponse,
+    EntityUpdate,
     FilterableAttribute,
-    EntityDocumentsResponse,
-    EntitySourcesResponse,
-    EntityExternalDataResponse,
     GeoJSONFeatureCollection,
+    LocationFilterOptionsResponse,
 )
-from app.schemas.common import MessageResponse
-from app.core.exceptions import NotFoundError, ConflictError
-from app.utils.text import create_slug as generate_slug
+from app.utils.text import create_slug as generate_slug  # noqa: E402
 
 router = APIRouter()
 
@@ -55,20 +51,20 @@ router = APIRouter()
 async def list_entities(
     page: Annotated[int, Query(ge=1, description="Page number")] = 1,
     per_page: Annotated[int, Query(ge=1, le=500, description="Items per page")] = 50,
-    entity_type_id: Annotated[Optional[UUID], Query(description="Filter by entity type ID")] = None,
-    entity_type_slug: Annotated[Optional[str], Query(description="Filter by entity type slug")] = None,
-    parent_id: Annotated[Optional[UUID], Query(description="Filter by parent entity ID")] = None,
-    hierarchy_level: Annotated[Optional[int], Query(description="Filter by hierarchy level")] = None,
-    is_active: Annotated[Optional[bool], Query(description="Filter by active status")] = None,
-    search: Annotated[Optional[str], Query(description="Search in entity name or external ID")] = None,
-    country: Annotated[Optional[str], Query(description="Filter by country code (DE, GB, etc.)")] = None,
-    admin_level_1: Annotated[Optional[str], Query(description="Filter by admin level 1 (Bundesland, Region)")] = None,
-    admin_level_2: Annotated[Optional[str], Query(description="Filter by admin level 2 (Landkreis, District)")] = None,
-    core_attr_filters: Annotated[Optional[str], Query(description="JSON-encoded core_attributes filters, e.g. {\"locality_type\": \"Stadt\"}")] = None,
-    api_configuration_id: Annotated[Optional[UUID], Query(description="Filter by API configuration ID")] = None,
-    has_facets: Annotated[Optional[bool], Query(description="Filter by whether entity has facet values")] = None,
-    sort_by: Annotated[Optional[str], Query(description="Sort by field (name, hierarchy_path, facet_count, relation_count)")] = None,
-    sort_order: Annotated[Optional[str], Query(description="Sort order (asc, desc)")] = "asc",
+    entity_type_id: Annotated[UUID | None, Query(description="Filter by entity type ID")] = None,
+    entity_type_slug: Annotated[str | None, Query(description="Filter by entity type slug")] = None,
+    parent_id: Annotated[UUID | None, Query(description="Filter by parent entity ID")] = None,
+    hierarchy_level: Annotated[int | None, Query(description="Filter by hierarchy level")] = None,
+    is_active: Annotated[bool | None, Query(description="Filter by active status")] = None,
+    search: Annotated[str | None, Query(description="Search in entity name or external ID")] = None,
+    country: Annotated[str | None, Query(description="Filter by country code (DE, GB, etc.)")] = None,
+    admin_level_1: Annotated[str | None, Query(description="Filter by admin level 1 (Bundesland, Region)")] = None,
+    admin_level_2: Annotated[str | None, Query(description="Filter by admin level 2 (Landkreis, District)")] = None,
+    core_attr_filters: Annotated[str | None, Query(description="JSON-encoded core_attributes filters, e.g. {\"locality_type\": \"Stadt\"}")] = None,
+    api_configuration_id: Annotated[UUID | None, Query(description="Filter by API configuration ID")] = None,
+    has_facets: Annotated[bool | None, Query(description="Filter by whether entity has facet values")] = None,
+    sort_by: Annotated[str | None, Query(description="Sort by field (name, hierarchy_path, facet_count, relation_count)")] = None,
+    sort_order: Annotated[str | None, Query(description="Sort order (asc, desc)")] = "asc",
     session: AsyncSession = Depends(get_session),
 ) -> EntityListResponse:
     """List entities with filters."""
@@ -135,7 +131,7 @@ async def list_entities(
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid core_attr_filters parameter: {str(e)}"
-            )
+            ) from None
 
     if search:
         # Use parameterized query pattern to prevent SQL injection
@@ -191,10 +187,7 @@ async def list_entities(
         )
         query = query.outerjoin(facet_count_subq, Entity.id == facet_count_subq.c.entity_id)
         order_col = func.coalesce(facet_count_subq.c.facet_count, 0)
-        if sort_desc:
-            query = query.order_by(order_col.desc(), Entity.name)
-        else:
-            query = query.order_by(order_col, Entity.name)
+        query = query.order_by(order_col.desc(), Entity.name) if sort_desc else query.order_by(order_col, Entity.name)
     elif sort_by == "relation_count":
         # Create subquery for relation counts (source + target)
         source_count_subq = (
@@ -222,10 +215,7 @@ async def list_entities(
             query = query.order_by(total_rel_count, Entity.name)
     elif sort_by and sort_by in sortable_columns:
         order_col = sortable_columns[sort_by]
-        if sort_desc:
-            query = query.order_by(order_col.desc(), Entity.name)
-        else:
-            query = query.order_by(order_col, Entity.name)
+        query = query.order_by(order_col.desc(), Entity.name) if sort_desc else query.order_by(order_col, Entity.name)
     else:
         # Default sorting
         query = query.order_by(Entity.hierarchy_path, Entity.name)
@@ -246,7 +236,7 @@ async def list_entities(
 
     # Collect entity IDs for batch queries
     entity_ids = [e.id for e in entities]
-    entity_type_ids = list(set(e.entity_type_id for e in entities))
+    entity_type_ids = list({e.entity_type_id for e in entities})
 
     # Initialize empty maps
     entity_types_map: dict = {}
@@ -301,7 +291,7 @@ async def list_entities(
         children_counts_map = dict(children_counts_result.fetchall())
 
     # Batch load parent names (1 query instead of N)
-    parent_ids = list(set(e.parent_id for e in entities if e.parent_id))
+    parent_ids = list({e.parent_id for e in entities if e.parent_id})
     parent_names_map: dict = {}
     if parent_ids:
         parent_result = await session.execute(
@@ -444,7 +434,7 @@ async def create_entity(
 @router.get("/hierarchy/{entity_type_slug}")
 async def get_entity_hierarchy(
     entity_type_slug: str,
-    root_id: Optional[UUID] = Query(default=None, description="Start from this entity"),
+    root_id: UUID | None = Query(default=None, description="Start from this entity"),
     max_depth: int = Query(default=3, ge=1, le=10),
     session: AsyncSession = Depends(get_session),
 ) -> EntityHierarchy:
@@ -469,8 +459,8 @@ async def get_entity_hierarchy(
     all_entities = list(all_entities_result.scalars().all())
 
     # Build lookup maps for efficient tree construction
-    entities_by_id: Dict[UUID, Entity] = {e.id: e for e in all_entities}
-    children_by_parent: Dict[Optional[UUID], List[Entity]] = {}
+    _entities_by_id: dict[UUID, Entity] = {e.id: e for e in all_entities}  # Reserved for future lookup
+    children_by_parent: dict[UUID | None, list[Entity]] = {}
 
     for entity in all_entities:
         parent_key = entity.parent_id
@@ -478,7 +468,7 @@ async def get_entity_hierarchy(
             children_by_parent[parent_key] = []
         children_by_parent[parent_key].append(entity)
 
-    def build_tree_from_cache(parent_id: Optional[UUID], depth: int) -> List[Dict[str, Any]]:
+    def build_tree_from_cache(parent_id: UUID | None, depth: int) -> list[dict[str, Any]]:
         """Build tree from cached entities - no database queries."""
         if depth > max_depth:
             return []
@@ -512,7 +502,7 @@ async def get_entity_hierarchy(
     )
 
 
-def _count_nodes(tree: List[Dict]) -> int:
+def _count_nodes(tree: list[dict]) -> int:
     """Count total nodes in tree."""
     for node in tree:
         yield 1
@@ -526,8 +516,8 @@ def _count_nodes(tree: List[Dict]) -> int:
 
 @router.get("/filter-options/location", response_model=LocationFilterOptionsResponse)
 async def get_location_filter_options(
-    country: Optional[str] = Query(default=None, description="Filter admin_level_1 options by country"),
-    admin_level_1: Optional[str] = Query(default=None, description="Filter admin_level_2 options by admin_level_1"),
+    country: str | None = Query(default=None, description="Filter admin_level_1 options by country"),
+    admin_level_1: str | None = Query(default=None, description="Filter admin_level_2 options by admin_level_1"),
     session: AsyncSession = Depends(get_session),
 ):
     """Get available filter options for location fields (country, admin_level_1, admin_level_2)."""
@@ -572,7 +562,7 @@ async def get_location_filter_options(
 @router.get("/filter-options/attributes", response_model=AttributeFilterOptionsResponse)
 async def get_attribute_filter_options(
     entity_type_slug: str = Query(..., description="Entity type slug to get attribute options for"),
-    attribute_key: Optional[str] = Query(default=None, description="Specific attribute key to get values for"),
+    attribute_key: str | None = Query(default=None, description="Specific attribute key to get values for"),
     session: AsyncSession = Depends(get_session),
 ):
     """Get available filter options for core_attributes based on entity type schema.
@@ -637,11 +627,11 @@ async def get_attribute_filter_options(
 
 @router.get("/geojson", response_model=GeoJSONFeatureCollection)
 async def get_entities_geojson(
-    entity_type_slug: Optional[str] = Query(default=None, description="Filter by entity type slug"),
-    country: Optional[str] = Query(default=None, description="Filter by country code"),
-    admin_level_1: Optional[str] = Query(default=None, description="Filter by admin level 1"),
-    admin_level_2: Optional[str] = Query(default=None, description="Filter by admin level 2"),
-    search: Optional[str] = Query(default=None, description="Search in name"),
+    entity_type_slug: str | None = Query(default=None, description="Filter by entity type slug"),
+    country: str | None = Query(default=None, description="Filter by country code"),
+    admin_level_1: str | None = Query(default=None, description="Filter by admin level 1"),
+    admin_level_2: str | None = Query(default=None, description="Filter by admin level 2"),
+    search: str | None = Query(default=None, description="Search in name"),
     include_geometry: bool = Query(default=True, description="Include polygon/boundary geometries"),
     limit: int = Query(default=50000, ge=1, le=100000, description="Max entities to return"),
     session: AsyncSession = Depends(get_session),
@@ -714,7 +704,7 @@ async def get_entities_geojson(
     total_without = (await session.execute(count_without_query)).scalar() or 0
 
     # Get entity type info for icons/colors
-    entity_type_ids = list(set(row.entity_type_id for row in rows))
+    entity_type_ids = list({row.entity_type_id for row in rows})
     entity_types_map = {}
     if entity_type_ids:
         et_result = await session.execute(
@@ -776,7 +766,7 @@ async def get_entities_geojson(
 
 async def _build_entity_response(
     entity: Entity,
-    entity_type: Optional[EntityType],
+    entity_type: EntityType | None,
     session: AsyncSession,
 ) -> EntityResponse:
     """
@@ -917,7 +907,7 @@ async def get_entity_children(
     children = result.scalars().all()
 
     # Batch load entity types to avoid N+1
-    entity_type_ids = list(set(c.entity_type_id for c in children))
+    entity_type_ids = list({c.entity_type_id for c in children})
     entity_types_map = {}
     if entity_type_ids:
         entity_types_result = await session.execute(
@@ -1279,7 +1269,6 @@ async def get_entity_sources(
 
     Returns all unique DataSources for this entity.
     """
-    from sqlalchemy import or_
 
     # Verify entity exists
     entity = await session.get(Entity, entity_id)

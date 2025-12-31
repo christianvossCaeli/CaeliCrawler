@@ -9,34 +9,39 @@ them to the Entity-Facet system. It handles:
 """
 
 import json
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+import time
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 
 import structlog
 
 from app.config import settings
+from app.models.llm_usage import LLMProvider, LLMTaskType
+from services.llm_usage_tracker import record_llm_usage
 from workers.async_runner import run_async
+
 from .common import (
-    PYSIS_MAX_CONTEXT_LENGTH,
-    PYSIS_TEXT_REPR_MAX_LENGTH,
-    PYSIS_SUMMARY_MAX_LENGTH,
-    PYSIS_MIN_TEXT_LENGTH,
-    PYSIS_MIN_DEDUP_TEXT_LENGTH,
+    AI_EXTRACTION_MAX_TOKENS,
+    AI_EXTRACTION_TEMPERATURE,
     PYSIS_BASE_CONFIDENCE,
     PYSIS_CONFIDENCE_BOOST,
-    PYSIS_MAX_CONFIDENCE,
     PYSIS_DUPLICATE_SIMILARITY_THRESHOLD,
-    AI_EXTRACTION_TEMPERATURE,
-    AI_EXTRACTION_MAX_TOKENS,
+    PYSIS_MAX_CONFIDENCE,
+    PYSIS_MAX_CONTEXT_LENGTH,
+    PYSIS_MIN_DEDUP_TEXT_LENGTH,
+    PYSIS_MIN_TEXT_LENGTH,
+    PYSIS_SUMMARY_MAX_LENGTH,
+    PYSIS_TEXT_REPR_MAX_LENGTH,
 )
 
 if TYPE_CHECKING:
     from openai import AsyncAzureOpenAI
     from sqlalchemy.ext.asyncio import AsyncSession
-    from app.models.pysis import PySisProcess, PySisProcessField
-    from app.models.facet_type import FacetType
+
     from app.models.entity import Entity
+    from app.models.facet_type import FacetType
+    from app.models.pysis import PySisProcess, PySisProcessField
 
 logger = structlog.get_logger()
 
@@ -61,7 +66,7 @@ def register_tasks(celery_app):
         soft_time_limit=600,  # 10 minutes soft limit
         time_limit=660,  # 11 minutes hard limit
     )
-    def extract_pysis_fields(self, process_id: str, field_ids: Optional[list[str]] = None):
+    def extract_pysis_fields(self, process_id: str, field_ids: list[str] | None = None):
         """
         Extract PySis field values from municipality documents using AI.
 
@@ -74,17 +79,16 @@ def register_tasks(celery_app):
             process_id: UUID of the PySis process
             field_ids: Optional list of specific field UUIDs to extract
         """
-        import asyncio
         run_async(_extract_pysis_fields_async(process_id, field_ids, self.request.id))
 
 
-    async def _extract_pysis_fields_async(process_id: str, field_ids: Optional[list[str]], celery_task_id: Optional[str] = None):
+    async def _extract_pysis_fields_async(process_id: str, field_ids: list[str] | None, celery_task_id: str | None = None):
         """Async implementation of PySis field extraction."""
-        from app.database import get_celery_session_context
-        from app.models.pysis import PySisProcess, PySisProcessField, ValueSource
-        from app.models import ExtractedData, AITask, AITaskStatus, AITaskType
         from sqlalchemy import select
-        from datetime import datetime, timezone
+
+        from app.database import get_celery_session_context
+        from app.models import AITask, AITaskStatus, AITaskType, ExtractedData
+        from app.models.pysis import PySisProcess, PySisProcessField
 
         async with get_celery_session_context() as session:
             # Load process
@@ -115,7 +119,7 @@ def register_tasks(celery_app):
                 name=f"PySis Feld-Extraktion: {process.entity_name or process.name}",
                 description=f"Extrahiere {len(fields)} Felder für Prozess {process.pysis_process_id}",
                 process_id=process.id,
-                started_at=datetime.now(timezone.utc),
+                started_at=datetime.now(UTC),
                 progress_total=len(fields),
                 celery_task_id=celery_task_id,
             )
@@ -254,7 +258,7 @@ def register_tasks(celery_app):
             ai_task = await session.get(AITask, task_id)
             if ai_task:
                 ai_task.status = AITaskStatus.COMPLETED
-                ai_task.completed_at = datetime.now(timezone.utc)
+                ai_task.completed_at = datetime.now(UTC)
                 ai_task.progress_current = len(fields)
                 ai_task.current_item = None
                 ai_task.fields_extracted = fields_extracted
@@ -287,10 +291,7 @@ def register_tasks(celery_app):
 
         # Build extraction prompt
         custom_prompt = field.ai_extraction_prompt or ""
-        if custom_prompt:
-            extraction_instruction = custom_prompt
-        else:
-            extraction_instruction = f"Extrahiere Informationen zu: {field.internal_name}"
+        extraction_instruction = custom_prompt or f"Extrahiere Informationen zu: {field.internal_name}"
 
         system_prompt = f"""Du bist ein Experte für die Extraktion von Informationen aus kommunalen Dokumenten zu Windenergie-Projekten.
 
@@ -313,6 +314,7 @@ def register_tasks(celery_app):
     """
 
         try:
+            start_time = time.time()
             response = await client.chat.completions.create(
                 model=settings.azure_openai_deployment_name,
                 messages=[
@@ -323,6 +325,19 @@ def register_tasks(celery_app):
                 max_tokens=2000,
                 response_format={"type": "json_object"},
             )
+
+            if response.usage:
+                await record_llm_usage(
+                    provider=LLMProvider.AZURE_OPENAI,
+                    model=settings.azure_openai_deployment_name,
+                    task_type=LLMTaskType.EXTRACT,
+                    task_name="_extract_single_pysis_field",
+                    prompt_tokens=response.usage.prompt_tokens,
+                    completion_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens,
+                    duration_ms=int((time.time() - start_time) * 1000),
+                    is_error=False,
+                )
 
             result = json.loads(response.choices[0].message.content)
             value = result.get("value")
@@ -342,10 +357,21 @@ def register_tasks(celery_app):
 
         except json.JSONDecodeError as e:
             logger.error("Failed to parse AI response as JSON", error=str(e))
-            raise RuntimeError(f"KI-Service Fehler: AI-Antwort konnte nicht verarbeitet werden - {str(e)}")
+            raise RuntimeError(f"KI-Service Fehler: AI-Antwort konnte nicht verarbeitet werden - {str(e)}") from None
         except Exception as e:
             logger.exception("Azure OpenAI API call failed for PySis field extraction")
-            raise RuntimeError(f"KI-Service nicht erreichbar: {str(e)}")
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.EXTRACT,
+                task_name="_extract_single_pysis_field",
+                prompt_tokens=0,
+                completion_tokens=0,
+                total_tokens=0,
+                duration_ms=0,
+                is_error=True,
+            )
+            raise RuntimeError(f"KI-Service nicht erreichbar: {str(e)}") from None
 
 
     @celery_app.task(name="workers.ai_tasks.convert_extractions_to_facets")
@@ -365,7 +391,6 @@ def register_tasks(celery_app):
             batch_size: Number of extractions to process per batch
             entity_type_slug: Entity type to create (default: territorial_entity)
         """
-        import asyncio
         run_async(_convert_extractions_async(min_confidence, batch_size, entity_type_slug))
 
 
@@ -375,11 +400,11 @@ def register_tasks(celery_app):
         entity_type_slug: str,
     ):
         """Async implementation of extraction to facet conversion."""
+        from sqlalchemy import func, select
+
         from app.database import get_celery_session_context
-        from app.models import ExtractedData, DataSource, Entity, FacetValue
+        from app.models import DataSource, ExtractedData
         from services.entity_facet_service import convert_extraction_to_facets
-        from sqlalchemy import select, func
-        from sqlalchemy.orm import joinedload
 
         async with get_celery_session_context() as session:
             # Count total extractions to process
@@ -492,7 +517,7 @@ def register_tasks(celery_app):
         process_id: str,
         include_empty: bool = False,
         min_confidence: float = 0.0,
-        existing_task_id: Optional[str] = None,
+        existing_task_id: str | None = None,
     ):
         """
         Analyze PySis fields and create FacetValues.
@@ -503,7 +528,6 @@ def register_tasks(celery_app):
             min_confidence: Minimum field confidence
             existing_task_id: Existing AITask ID (to avoid duplicate creation)
         """
-        import asyncio
         run_async(_analyze_pysis_for_facets_async(
             process_id,
             include_empty,
@@ -517,15 +541,15 @@ def register_tasks(celery_app):
         process_id: str,
         include_empty: bool,
         min_confidence: float,
-        celery_task_id: Optional[str] = None,
-        existing_task_id: Optional[str] = None,
+        celery_task_id: str | None = None,
+        existing_task_id: str | None = None,
     ):
         """Async implementation of PySis-to-Facets analysis."""
-        from app.database import get_celery_session_context
-        from app.models.pysis import PySisProcess, PySisProcessField
-        from app.models import AITask, AITaskStatus, AITaskType, Entity, FacetType
         from sqlalchemy import select
-        from datetime import datetime, timezone
+
+        from app.database import get_celery_session_context
+        from app.models import AITask, AITaskStatus, AITaskType, Entity, FacetType
+        from app.models.pysis import PySisProcess
 
         async with get_celery_session_context() as session:
             # Helper to mark task as failed if it exists
@@ -535,7 +559,7 @@ def register_tasks(celery_app):
                     if task:
                         task.status = AITaskStatus.FAILED
                         task.error_message = error_msg
-                        task.completed_at = datetime.now(timezone.utc)
+                        task.completed_at = datetime.now(UTC)
                         await session.commit()
 
             # 1. Load process
@@ -593,7 +617,7 @@ def register_tasks(celery_app):
                     name=f"PySis-Facet-Analyse: {entity.name}",
                     description=f"Extrahiere {len(facet_types)} Facet-Typen aus {len(process.fields)} PySis-Feldern",
                     process_id=process.id,
-                    started_at=datetime.now(timezone.utc),
+                    started_at=datetime.now(UTC),
                     progress_total=len(facet_types),
                     celery_task_id=celery_task_id,
                 )
@@ -624,7 +648,7 @@ def register_tasks(celery_app):
 
             if not field_data:
                 ai_task.status = AITaskStatus.COMPLETED
-                ai_task.completed_at = datetime.now(timezone.utc)
+                ai_task.completed_at = datetime.now(UTC)
                 ai_task.error_message = "Keine Felder zum Analysieren"
                 await session.commit()
                 return
@@ -648,7 +672,7 @@ def register_tasks(celery_app):
                 ai_task = await session.get(AITask, task_id)
                 ai_task.status = AITaskStatus.FAILED
                 ai_task.error_message = str(e)
-                ai_task.completed_at = datetime.now(timezone.utc)
+                ai_task.completed_at = datetime.now(UTC)
                 await session.commit()
                 raise
 
@@ -666,7 +690,7 @@ def register_tasks(celery_app):
             # 7. Complete task
             ai_task = await session.get(AITask, task_id)
             ai_task.status = AITaskStatus.COMPLETED
-            ai_task.completed_at = datetime.now(timezone.utc)
+            ai_task.completed_at = datetime.now(UTC)
             ai_task.fields_extracted = sum(facet_counts.values())
             await session.commit()
 
@@ -679,10 +703,10 @@ def register_tasks(celery_app):
 
 
     async def _extract_facets_from_pysis_fields_dynamic(
-        fields: List[Dict[str, Any]],
+        fields: list[dict[str, Any]],
         entity_name: str,
-        facet_types: List["FacetType"],
-    ) -> Dict[str, Any]:
+        facet_types: list["FacetType"],
+    ) -> dict[str, Any]:
         """
         Extract facets from PySis field values using AI with dynamic FacetTypes.
 
@@ -790,6 +814,7 @@ def register_tasks(celery_app):
     """
 
         try:
+            start_time = time.time()
             response = await client.chat.completions.create(
                 model=settings.azure_openai_deployment_name,
                 messages=[
@@ -800,6 +825,19 @@ def register_tasks(celery_app):
                 max_tokens=AI_EXTRACTION_MAX_TOKENS,
                 response_format={"type": "json_object"},
             )
+
+            if response.usage:
+                await record_llm_usage(
+                    provider=LLMProvider.AZURE_OPENAI,
+                    model=settings.azure_openai_deployment_name,
+                    task_type=LLMTaskType.EXTRACT,
+                    task_name="_extract_facets_from_pysis_fields_dynamic",
+                    prompt_tokens=response.usage.prompt_tokens,
+                    completion_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens,
+                    duration_ms=int((time.time() - start_time) * 1000),
+                    is_error=False,
+                )
 
             # Validate response structure
             if not response.choices:
@@ -814,18 +852,29 @@ def register_tasks(celery_app):
 
         except json.JSONDecodeError as e:
             logger.error("Failed to parse AI response", error=str(e))
-            raise RuntimeError(f"KI-Service Fehler: AI-Antwort konnte nicht verarbeitet werden - {str(e)}")
+            raise RuntimeError(f"KI-Service Fehler: AI-Antwort konnte nicht verarbeitet werden - {str(e)}") from None
         except RuntimeError:
             raise  # Re-raise our own RuntimeErrors
         except Exception as e:
             logger.exception("Azure OpenAI API call failed for PySis facet extraction")
-            raise RuntimeError(f"KI-Service nicht erreichbar: {str(e)}")
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.EXTRACT,
+                task_name="_extract_facets_from_pysis_fields_dynamic",
+                prompt_tokens=0,
+                completion_tokens=0,
+                total_tokens=0,
+                duration_ms=0,
+                is_error=True,
+            )
+            raise RuntimeError(f"KI-Service nicht erreichbar: {str(e)}") from None
 
 
     def _build_pysis_source_metadata(
-        item_source_fields: List[str],
-        pysis_fields_dict: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        item_source_fields: list[str],
+        pysis_fields_dict: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Build metadata dict with source field names and their values.
 
@@ -856,12 +905,12 @@ def register_tasks(celery_app):
     async def _create_facets_from_pysis_extraction_dynamic(
         session: "AsyncSession",
         entity: "Entity",
-        extractions: Dict[str, Any],
-        facet_types: List["FacetType"],
+        extractions: dict[str, Any],
+        facet_types: list["FacetType"],
         task_id: UUID,
         process: Optional["PySisProcess"] = None,
-        field_data: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, int]:
+        field_data: list[dict[str, Any]] | None = None,
+    ) -> dict[str, int]:
         """
         Create FacetValues from AI extraction dynamically based on FacetTypes.
 
@@ -940,6 +989,7 @@ def register_tasks(celery_app):
                         text_representation=text_content[:PYSIS_SUMMARY_MAX_LENGTH],
                         confidence_score=base_confidence,
                         source_type=FacetValueSourceType.PYSIS,
+                        facet_type=ft,  # Pass FacetType for entity reference resolution
                     )
                     counts[ft.slug] = 1
             else:
@@ -1016,6 +1066,7 @@ def register_tasks(celery_app):
                             base_confidence + PYSIS_CONFIDENCE_BOOST
                         ),
                         source_type=FacetValueSourceType.PYSIS,
+                        facet_type=ft,  # Pass FacetType for entity reference resolution
                     )
                     counts[ft.slug] += 1
 
@@ -1045,9 +1096,9 @@ def register_tasks(celery_app):
     def enrich_facet_values_from_pysis(
         self,
         entity_id: str,
-        facet_type_id: Optional[str] = None,
+        facet_type_id: str | None = None,
         overwrite_existing: bool = False,
-        existing_task_id: Optional[str] = None,
+        existing_task_id: str | None = None,
     ):
         """
         Enrich existing FacetValues with data from PySis fields.
@@ -1058,7 +1109,6 @@ def register_tasks(celery_app):
             overwrite_existing: Replace existing field values
             existing_task_id: Existing AITask ID (to avoid duplicate creation)
         """
-        import asyncio
         run_async(_enrich_facet_values_from_pysis_async(
             entity_id,
             facet_type_id,
@@ -1070,18 +1120,18 @@ def register_tasks(celery_app):
 
     async def _enrich_facet_values_from_pysis_async(
         entity_id: str,
-        facet_type_id: Optional[str],
+        facet_type_id: str | None,
         overwrite_existing: bool,
-        celery_task_id: Optional[str] = None,
-        existing_task_id: Optional[str] = None,
+        celery_task_id: str | None = None,
+        existing_task_id: str | None = None,
     ):
         """Async implementation of FacetValue enrichment from PySis."""
-        from app.database import get_celery_session_context
-        from app.models.pysis import PySisProcess
-        from app.models import AITask, AITaskStatus, AITaskType, Entity, FacetType, FacetValue
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
-        from datetime import datetime, timezone
+
+        from app.database import get_celery_session_context
+        from app.models import AITask, AITaskStatus, AITaskType, Entity, FacetValue
+        from app.models.pysis import PySisProcess
 
         async with get_celery_session_context() as session:
             # Helper to mark task as failed if it exists
@@ -1091,7 +1141,7 @@ def register_tasks(celery_app):
                     if task:
                         task.status = AITaskStatus.FAILED
                         task.error_message = error_msg
-                        task.completed_at = datetime.now(timezone.utc)
+                        task.completed_at = datetime.now(UTC)
                         await session.commit()
 
             entity = await session.get(Entity, UUID(entity_id))
@@ -1170,7 +1220,7 @@ def register_tasks(celery_app):
                     status=AITaskStatus.RUNNING,
                     name=f"FacetValue-Anreicherung: {entity.name}",
                     description=f"Reichere {len(facet_values)} FacetValues mit PySis-Daten an",
-                    started_at=datetime.now(timezone.utc),
+                    started_at=datetime.now(UTC),
                     progress_total=len(facet_values),
                     celery_task_id=celery_task_id,
                 )
@@ -1187,7 +1237,7 @@ def register_tasks(celery_app):
             except ValueError as e:
                 ai_task.status = AITaskStatus.FAILED
                 ai_task.error_message = str(e)
-                ai_task.completed_at = datetime.now(timezone.utc)
+                ai_task.completed_at = datetime.now(UTC)
                 await session.commit()
                 return
 
@@ -1218,7 +1268,7 @@ def register_tasks(celery_app):
 
                     if enriched_value and enriched_value != fv.value:
                         fv.value = enriched_value
-                        fv.updated_at = datetime.now(timezone.utc)
+                        fv.updated_at = datetime.now(UTC)
                         fv.ai_model_used = settings.azure_openai_deployment_name
 
                         # Update text representation
@@ -1244,7 +1294,7 @@ def register_tasks(celery_app):
             # 7. Complete task
             ai_task = await session.get(AITask, task_id)
             ai_task.status = AITaskStatus.COMPLETED
-            ai_task.completed_at = datetime.now(timezone.utc)
+            ai_task.completed_at = datetime.now(UTC)
             ai_task.fields_extracted = enriched_count
             await session.commit()
 
@@ -1258,12 +1308,12 @@ def register_tasks(celery_app):
 
     async def _enrich_single_facet_value(
         client: "AsyncAzureOpenAI",
-        current_value: Dict[str, Any],
-        value_schema: Dict[str, Any],
-        pysis_fields: List[Dict[str, Any]],
+        current_value: dict[str, Any],
+        value_schema: dict[str, Any],
+        pysis_fields: list[dict[str, Any]],
         entity_name: str,
         overwrite_existing: bool,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Enrich a single FacetValue using AI.
 
@@ -1328,6 +1378,7 @@ def register_tasks(celery_app):
     Erfinde KEINE Informationen."""
 
         try:
+            start_time = time.time()
             response = await client.chat.completions.create(
                 model=settings.azure_openai_deployment_name,
                 messages=[
@@ -1338,6 +1389,19 @@ def register_tasks(celery_app):
                 max_tokens=1000,
                 response_format={"type": "json_object"},
             )
+
+            if response.usage:
+                await record_llm_usage(
+                    provider=LLMProvider.AZURE_OPENAI,
+                    model=settings.azure_openai_deployment_name,
+                    task_type=LLMTaskType.EXTRACT,
+                    task_name="_enrich_single_facet_value",
+                    prompt_tokens=response.usage.prompt_tokens,
+                    completion_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens,
+                    duration_ms=int((time.time() - start_time) * 1000),
+                    is_error=False,
+                )
 
             enriched = json.loads(response.choices[0].message.content)
 
@@ -1353,6 +1417,17 @@ def register_tasks(celery_app):
 
         except Exception as e:
             logger.error("AI enrichment failed", error=str(e))
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.EXTRACT,
+                task_name="_enrich_single_facet_value",
+                prompt_tokens=0,
+                completion_tokens=0,
+                total_tokens=0,
+                duration_ms=0,
+                is_error=True,
+            )
             return None
 
 

@@ -31,7 +31,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import structlog
-from sqlalchemy import select, func, text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_factory
@@ -135,7 +135,7 @@ async def generate_embeddings(
                 logger.info(f"Processing batch {batch_num}/{total_batches}...")
                 embeddings = await ai_service.generate_embeddings(names)
 
-                for entity, embedding in zip(batch, embeddings):
+                for entity, embedding in zip(batch, embeddings, strict=False):
                     try:
                         # Update via ORM - pgvector handles the conversion
                         entity.name_embedding = embedding
@@ -196,14 +196,13 @@ async def main():
 
     args = parser.parse_args()
 
-    updated = await generate_embeddings(
+    await generate_embeddings(
         entity_type_slug=args.entity_type,
         force=args.force,
         limit=args.limit,
         batch_size=args.batch_size,
     )
 
-    print(f"\nUpdated {updated} entities with embeddings.")
 
 
 if __name__ == "__main__":

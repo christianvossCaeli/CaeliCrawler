@@ -3,7 +3,7 @@
 import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Any, Dict, List
+from typing import Any
 
 import aiosmtplib
 
@@ -19,7 +19,7 @@ class EmailChannel(NotificationChannelBase):
 
     channel_type = NotificationChannel.EMAIL
 
-    async def send(self, notification: Notification, config: Dict[str, Any]) -> bool:
+    async def send(self, notification: Notification, config: dict[str, Any]) -> bool:
         """Send email notification.
 
         Args:
@@ -29,7 +29,7 @@ class EmailChannel(NotificationChannelBase):
         Returns:
             True if email was sent successfully
         """
-        recipients: List[str] = config.get("recipients", [])
+        recipients: list[str] = config.get("recipients", [])
         if not recipients:
             logger.warning(f"No recipients for notification {notification.id}")
             return False
@@ -56,7 +56,7 @@ class EmailChannel(NotificationChannelBase):
             logger.error(f"Failed to send email for notification {notification.id}: {e}")
             return False
 
-    async def validate_config(self, config: Dict[str, Any]) -> bool:
+    async def validate_config(self, config: dict[str, Any]) -> bool:
         """Validate email channel configuration.
 
         Args:
@@ -73,7 +73,7 @@ class EmailChannel(NotificationChannelBase):
         return has_addresses or has_recipients or include_primary
 
     def _create_message(
-        self, notification: Notification, recipients: List[str]
+        self, notification: Notification, recipients: list[str]
     ) -> MIMEMultipart:
         """Create MIME message for email.
 

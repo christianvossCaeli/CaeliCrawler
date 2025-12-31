@@ -8,13 +8,13 @@ kept as a standalone function for maintainability. The Command class
 delegates to this function.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import UUID
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .base import WriteOperation, OperationResult, register_operation
+from .base import OperationResult, WriteOperation, register_operation
 
 logger = structlog.get_logger()
 
@@ -33,8 +33,8 @@ class FetchAndCreateFromApiOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         # Import the complex implementation from the dedicated module
         from .api_import_impl import execute_fetch_and_create

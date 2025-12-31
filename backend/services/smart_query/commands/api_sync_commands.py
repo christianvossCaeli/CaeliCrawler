@@ -4,18 +4,17 @@ Commands for setting up scheduled API-to-Facet synchronization.
 """
 
 from datetime import datetime
-from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 import structlog
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import EntityType, FacetType
+from app.models.api_configuration import APIConfiguration, AuthType, ImportMode
 from app.models.data_source import DataSource, SourceType
-from app.models.api_configuration import APIConfiguration, ImportMode, AuthType
 from app.utils.cron import croniter_for_expression, get_schedule_timezone
+
 from .base import BaseCommand, CommandResult
 from .registry import default_registry
 
@@ -56,7 +55,7 @@ class SetupAPIFacetSyncCommand(BaseCommand):
         }
     """
 
-    async def validate(self) -> Optional[str]:
+    async def validate(self) -> str | None:
         """Validate sync configuration."""
         config = self.data.get("sync_config", {})
 
@@ -125,7 +124,7 @@ class SetupAPIFacetSyncCommand(BaseCommand):
 
         # Check and create missing FacetTypes
         created_facet_types = []
-        for api_field, mapping in facet_mapping.items():
+        for _api_field, mapping in facet_mapping.items():
             ft_slug = mapping.get("facet_type_slug")
 
             ft_result = await self.session.execute(
@@ -302,7 +301,7 @@ class TriggerAPISyncCommand(BaseCommand):
         }
     """
 
-    async def validate(self) -> Optional[str]:
+    async def validate(self) -> str | None:
         """Validate trigger request."""
         if not self.data.get("config_id") and not self.data.get("config_name"):
             return "config_id oder config_name erforderlich"

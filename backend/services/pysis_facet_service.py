@@ -12,8 +12,8 @@ Kann von verschiedenen Stellen aufgerufen werden:
 - API-Endpunkte (UI-Buttons)
 """
 
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -36,7 +36,7 @@ class PySisFacetService:
     async def analyze_for_facets(
         self,
         entity_id: UUID,
-        process_id: Optional[UUID] = None,
+        process_id: UUID | None = None,
         include_empty: bool = False,
         min_confidence: float = 0.0,
     ) -> AITask:
@@ -82,9 +82,9 @@ class PySisFacetService:
             task_type=AITaskType.PYSIS_TO_FACETS,
             status=AITaskStatus.PENDING,
             name=f"PySis-Facet-Analyse: {entity.name}",
-            description=f"Analysiere PySis-Felder und erstelle Facets",
+            description="Analysiere PySis-Felder und erstelle Facets",
             process_id=process.id,
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
         )
         self.db.add(ai_task)
         await self.db.commit()
@@ -110,7 +110,7 @@ class PySisFacetService:
     async def enrich_facets_from_pysis(
         self,
         entity_id: UUID,
-        facet_type_id: Optional[UUID] = None,
+        facet_type_id: UUID | None = None,
         overwrite: bool = False,
     ) -> AITask:
         """
@@ -128,7 +128,7 @@ class PySisFacetService:
         Returns:
             AITask für Progress-Tracking
         """
-        from workers.ai_tasks import enrich_facet_values_from_pysis, analyze_pysis_fields_for_facets
+        from workers.ai_tasks import enrich_facet_values_from_pysis
 
         # Validiere Entity existiert
         entity = await self.db.get(Entity, entity_id)
@@ -166,7 +166,7 @@ class PySisFacetService:
             status=AITaskStatus.PENDING,
             name=f"Facet-Anreicherung: {entity.name}",
             description=f"Reichere {facet_count} Facets mit PySis-Daten an",
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
             progress_total=facet_count,
         )
         self.db.add(ai_task)
@@ -195,7 +195,7 @@ class PySisFacetService:
         self,
         entity_id: UUID,
         operation: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Zeigt Vorschau was bei einer Operation passieren würde.
 
@@ -322,7 +322,7 @@ class PySisFacetService:
     async def get_pysis_status(
         self,
         entity_id: UUID,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Zeigt den PySis-Status einer Entity.
 
@@ -422,7 +422,7 @@ class PySisFacetService:
     async def get_entity_pysis_summary(
         self,
         entity_id: UUID,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Kurze Zusammenfassung für UI-Anzeige.
 

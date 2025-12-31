@@ -9,23 +9,24 @@ and announcements from municipal websites. Supports:
 """
 
 import asyncio
+import contextlib
 import hashlib
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from urllib.parse import urljoin, urlparse
 from xml.etree import ElementTree
 
 import httpx
-from bs4 import BeautifulSoup
 import structlog
+from bs4 import BeautifulSoup
 
-from crawlers.base import BaseCrawler, CrawlResult
 from app.config import settings
+from crawlers.base import BaseCrawler, CrawlResult
 
 if TYPE_CHECKING:
-    from app.models import DataSource, CrawlJob
+    from app.models import CrawlJob, DataSource
 
 logger = structlog.get_logger()
 
@@ -36,9 +37,9 @@ class NewsArticle:
     url: str
     title: str
     content: str
-    published_date: Optional[datetime] = None
-    author: Optional[str] = None
-    summary: Optional[str] = None
+    published_date: datetime | None = None
+    author: str | None = None
+    summary: str | None = None
 
 
 class NewsCrawler(BaseCrawler):
@@ -53,12 +54,12 @@ class NewsCrawler(BaseCrawler):
 
     def __init__(self):
         super().__init__()
-        self.articles: List[NewsArticle] = []
+        self.articles: list[NewsArticle] = []
 
     async def crawl(self, source: "DataSource", job: "CrawlJob") -> CrawlResult:
         """Crawl news source for articles."""
         from app.database import get_celery_session_context
-        from app.models import Document, ProcessingStatus, Category
+        from app.models import Category
 
         result = CrawlResult()
         config = source.crawl_config or {}
@@ -134,12 +135,12 @@ class NewsCrawler(BaseCrawler):
             result.errors.append({
                 "error": str(e),
                 "type": type(e).__name__,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             })
 
         return result
 
-    async def _crawl_rss(self, rss_url: str, max_articles: int) -> List[NewsArticle]:
+    async def _crawl_rss(self, rss_url: str, max_articles: int) -> list[NewsArticle]:
         """Parse RSS/Atom feed for articles."""
         articles = []
 
@@ -153,7 +154,7 @@ class NewsCrawler(BaseCrawler):
                 response.raise_for_status()
 
                 # Parse XML
-                root = ElementTree.fromstring(response.content)
+                root = ElementTree.fromstring(response.content)  # noqa: S314
 
                 # Handle RSS 2.0
                 if root.tag == "rss":
@@ -185,7 +186,7 @@ class NewsCrawler(BaseCrawler):
 
         return articles
 
-    def _parse_rss_item(self, item) -> Optional[NewsArticle]:
+    def _parse_rss_item(self, item) -> NewsArticle | None:
         """Parse RSS 2.0 item."""
         title = item.findtext("title")
         link = item.findtext("link")
@@ -202,7 +203,7 @@ class NewsCrawler(BaseCrawler):
             try:
                 from email.utils import parsedate_to_datetime
                 published = parsedate_to_datetime(pub_date)
-            except Exception:
+            except Exception:  # noqa: S110
                 pass
 
         return NewsArticle(
@@ -213,7 +214,7 @@ class NewsCrawler(BaseCrawler):
             summary=self._clean_html(description or "")[:500] if description else None,
         )
 
-    def _parse_atom_entry(self, entry, ns: Dict) -> Optional[NewsArticle]:
+    def _parse_atom_entry(self, entry, ns: dict) -> NewsArticle | None:
         """Parse Atom entry with namespace."""
         title = entry.findtext("atom:title", namespaces=ns)
         link_elem = entry.find("atom:link[@rel='alternate']", ns)
@@ -230,10 +231,8 @@ class NewsCrawler(BaseCrawler):
         # Parse date
         published = None
         if updated:
-            try:
+            with contextlib.suppress(Exception):
                 published = datetime.fromisoformat(updated.replace("Z", "+00:00"))
-            except Exception:
-                pass
 
         return NewsArticle(
             url=link,
@@ -243,7 +242,7 @@ class NewsCrawler(BaseCrawler):
             summary=self._clean_html(summary or "")[:500] if summary else None,
         )
 
-    def _parse_atom_entry_simple(self, entry) -> Optional[NewsArticle]:
+    def _parse_atom_entry_simple(self, entry) -> NewsArticle | None:
         """Parse Atom entry without namespace."""
         title = entry.findtext("title")
         link_elem = entry.find("link[@rel='alternate']")
@@ -259,10 +258,8 @@ class NewsCrawler(BaseCrawler):
 
         published = None
         if updated:
-            try:
+            with contextlib.suppress(Exception):
                 published = datetime.fromisoformat(updated.replace("Z", "+00:00"))
-            except Exception:
-                pass
 
         return NewsArticle(
             url=link,
@@ -274,7 +271,7 @@ class NewsCrawler(BaseCrawler):
 
     async def _crawl_html_news(
         self, base_url: str, news_path: str, max_articles: int
-    ) -> List[NewsArticle]:
+    ) -> list[NewsArticle]:
         """Crawl HTML news page for articles.
 
         Performance optimized: Uses controlled parallelism with semaphore
@@ -297,7 +294,7 @@ class NewsCrawler(BaseCrawler):
 
         async def fetch_article_with_limit(
             client: httpx.AsyncClient, url: str
-        ) -> Optional[NewsArticle]:
+        ) -> NewsArticle | None:
             """Fetch article with rate limiting and semaphore control."""
             async with semaphore:
                 await asyncio.sleep(settings.crawler_default_delay)
@@ -353,7 +350,7 @@ class NewsCrawler(BaseCrawler):
 
         return articles
 
-    def _find_article_links(self, soup: BeautifulSoup, base_url: str) -> List[str]:
+    def _find_article_links(self, soup: BeautifulSoup, base_url: str) -> list[str]:
         """Find article links in a news listing page."""
         links = []
         base_domain = urlparse(base_url).netloc
@@ -395,7 +392,7 @@ class NewsCrawler(BaseCrawler):
 
     async def _extract_article(
         self, client: httpx.AsyncClient, url: str
-    ) -> Optional[NewsArticle]:
+    ) -> NewsArticle | None:
         """Extract article content from a page."""
         response = await client.get(url)
         response.raise_for_status()
@@ -446,12 +443,10 @@ class NewsCrawler(BaseCrawler):
         # Look for date in meta tags
         date_meta = soup.find("meta", {"property": "article:published_time"})
         if date_meta and date_meta.get("content"):
-            try:
+            with contextlib.suppress(Exception):
                 published = datetime.fromisoformat(
                     date_meta["content"].replace("Z", "+00:00")
                 )
-            except Exception:
-                pass
 
         # Look for date in text
         if not published:
@@ -473,7 +468,7 @@ class NewsCrawler(BaseCrawler):
                                 int(match.group(3))
                             )
                         break
-                    except Exception:
+                    except Exception:  # noqa: S110
                         pass
 
         return NewsArticle(
@@ -484,8 +479,8 @@ class NewsCrawler(BaseCrawler):
         )
 
     def _filter_by_keywords(
-        self, articles: List[NewsArticle], keywords: List[str]
-    ) -> List[NewsArticle]:
+        self, articles: list[NewsArticle], keywords: list[str]
+    ) -> list[NewsArticle]:
         """Filter articles by keywords (case-insensitive)."""
         if not keywords:
             return articles
@@ -518,8 +513,9 @@ class NewsCrawler(BaseCrawler):
         Performance optimized: Uses bulk loading and single commit instead of
         individual commits per article. Reduces N+1 queries and transaction overhead.
         """
-        from app.models import Document, ProcessingStatus
         from sqlalchemy import select
+
+        from app.models import Document, ProcessingStatus
 
         if not self.articles:
             return 0, 0
@@ -615,10 +611,7 @@ class NewsCrawler(BaseCrawler):
 
                 new_hash = self.compute_hash(response.content)
 
-                if source.content_hash and source.content_hash != new_hash:
-                    return True
-
-                return False
+                return bool(source.content_hash and source.content_hash != new_hash)
 
         except Exception as e:
             self.logger.error("Change detection failed", error=str(e))

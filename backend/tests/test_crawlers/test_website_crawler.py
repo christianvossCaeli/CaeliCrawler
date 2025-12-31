@@ -1,13 +1,14 @@
 """Unit tests for WebsiteCrawler functionality."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
+
 import httpx
+import pytest
 
 from crawlers.website_crawler import (
     WebsiteCrawler,
-    get_shared_http_client,
     close_shared_http_client,
+    get_shared_http_client,
 )
 
 

@@ -1,35 +1,37 @@
 """Admin API endpoints for crawler control operations."""
 
 from datetime import date
-from typing import Optional
 from uuid import UUID
 
+import structlog
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
-from app.core.deps import require_editor, require_admin
-from app.core.rate_limit import check_rate_limit
-from app.core.audit import AuditContext
-from app.models.audit_log import AuditAction
-from app.models import (
+logger = structlog.get_logger(__name__)
+from sqlalchemy import func, select  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
+
+from app.core.audit import AuditContext  # noqa: E402
+from app.core.deps import require_admin, require_editor  # noqa: E402
+from app.core.exceptions import NotFoundError, ValidationError  # noqa: E402
+from app.core.rate_limit import check_rate_limit  # noqa: E402
+from app.database import get_session  # noqa: E402
+from app.models import (  # noqa: E402
+    Category,
     CrawlJob,
     DataSource,
-    Category,
     JobStatus,
     SourceStatus,
     SourceType,
     User,
 )
-from app.schemas.crawl_job import (
+from app.models.audit_log import AuditAction  # noqa: E402
+from app.schemas.common import MessageResponse  # noqa: E402
+from app.schemas.crawl_job import (  # noqa: E402
+    CrawlerStatusResponse,
     CrawlJobStats,
     StartCrawlRequest,
     StartCrawlResponse,
-    CrawlerStatusResponse,
 )
-from app.schemas.common import MessageResponse
-from app.core.exceptions import NotFoundError, ValidationError
 
 router = APIRouter()
 
@@ -55,8 +57,8 @@ async def start_crawl(
     # Rate limit: 5 crawl starts per minute (resource intensive)
     await check_rate_limit(http_request, "crawler_start", identifier=str(current_user.id))
 
-    from workers.crawl_tasks import create_crawl_job
     from app.models import DataSourceCategory
+    from workers.crawl_tasks import create_crawl_job
 
     job_ids = []
 
@@ -123,7 +125,7 @@ async def start_crawl(
                 status_enum = SourceStatus(crawl_request.status)
                 query = query.where(DataSource.status == status_enum)
             except ValueError:
-                raise ValidationError(f"Invalid status: {crawl_request.status}")
+                raise ValidationError(f"Invalid status: {crawl_request.status}") from None
         else:
             # Default: only active/pending sources
             query = query.where(DataSource.status.in_([SourceStatus.ACTIVE, SourceStatus.PENDING]))
@@ -134,7 +136,7 @@ async def start_crawl(
                 type_enum = SourceType(crawl_request.source_type)
                 query = query.where(DataSource.source_type == type_enum)
             except ValueError:
-                raise ValidationError(f"Invalid source type: {crawl_request.source_type}")
+                raise ValidationError(f"Invalid source type: {crawl_request.source_type}") from None
 
         # Search filter
         if crawl_request.search:
@@ -313,49 +315,39 @@ async def get_crawler_stats(
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
-    """Get overall crawler statistics."""
+    """Get overall crawler statistics (optimized: 3 queries instead of 7)."""
     from app.models import Document
 
-    total_jobs = (await session.execute(select(func.count(CrawlJob.id)))).scalar()
+    # Query 1: All job stats in one query using conditional aggregation
+    job_stats = (await session.execute(
+        select(
+            func.count(CrawlJob.id).label("total"),
+            func.count().filter(CrawlJob.status == JobStatus.RUNNING).label("running"),
+            func.count().filter(CrawlJob.status == JobStatus.COMPLETED).label("completed"),
+            func.count().filter(CrawlJob.status == JobStatus.FAILED).label("failed"),
+            func.sum(CrawlJob.pages_crawled).label("total_pages"),
+            func.avg(
+                func.extract('epoch', CrawlJob.completed_at) -
+                func.extract('epoch', CrawlJob.started_at)
+            ).filter(
+                CrawlJob.status == JobStatus.COMPLETED,
+                CrawlJob.started_at.isnot(None),
+                CrawlJob.completed_at.isnot(None),
+            ).label("avg_duration"),
+        )
+    )).one()
 
-    running_jobs = (await session.execute(
-        select(func.count()).where(CrawlJob.status == JobStatus.RUNNING)
-    )).scalar()
-
-    completed_jobs = (await session.execute(
-        select(func.count()).where(CrawlJob.status == JobStatus.COMPLETED)
-    )).scalar()
-
-    failed_jobs = (await session.execute(
-        select(func.count()).where(CrawlJob.status == JobStatus.FAILED)
-    )).scalar()
-
+    # Query 2: Total documents
     total_documents = (await session.execute(select(func.count(Document.id)))).scalar()
 
-    total_pages = (await session.execute(
-        select(func.sum(CrawlJob.pages_crawled))
-    )).scalar() or 0
-
-    # Average duration of completed jobs
-    avg_duration = (await session.execute(
-        select(func.avg(
-            func.extract('epoch', CrawlJob.completed_at) -
-            func.extract('epoch', CrawlJob.started_at)
-        )).where(
-            CrawlJob.status == JobStatus.COMPLETED,
-            CrawlJob.started_at.isnot(None),
-            CrawlJob.completed_at.isnot(None),
-        )
-    )).scalar()
-
     return CrawlJobStats(
-        total_jobs=total_jobs,
-        running_jobs=running_jobs,
-        completed_jobs=completed_jobs,
-        failed_jobs=failed_jobs,
-        total_documents=total_documents,
-        total_pages_crawled=total_pages,
-        avg_duration_seconds=float(avg_duration) if avg_duration else None,
+        total_jobs=job_stats.total or 0,
+        running_jobs=job_stats.running or 0,
+        completed_jobs=job_stats.completed or 0,
+        failed_jobs=job_stats.failed or 0,
+        total_documents=total_documents or 0,
+        total_pages_crawled=job_stats.total_pages or 0,
+        avg_duration_seconds=float(job_stats.avg_duration) if job_stats.avg_duration else None,
     )
 
 
@@ -364,34 +356,33 @@ async def get_crawler_status(
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
 ):
-    """Get current crawler status (running jobs, queued jobs, etc.)."""
+    """Get current crawler status (optimized: 2 queries instead of 5)."""
     from workers.celery_app import celery_app
 
-    running_jobs = (await session.execute(
-        select(func.count()).where(CrawlJob.status == JobStatus.RUNNING)
-    )).scalar() or 0
-
-    pending_jobs = (await session.execute(
-        select(func.count()).where(CrawlJob.status == JobStatus.PENDING)
-    )).scalar() or 0
-
-    # Jobs completed/failed today
     today = date.today()
-    completed_today = (await session.execute(
-        select(func.count()).where(
-            CrawlJob.status == JobStatus.COMPLETED,
-            func.date(CrawlJob.completed_at) == today
-        )
-    )).scalar() or 0
 
-    failed_today = (await session.execute(
-        select(func.count()).where(
-            CrawlJob.status == JobStatus.FAILED,
-            func.date(CrawlJob.completed_at) == today
+    # Query 1: All counts in one query using conditional aggregation
+    job_counts = (await session.execute(
+        select(
+            func.count().filter(CrawlJob.status == JobStatus.RUNNING).label("running"),
+            func.count().filter(CrawlJob.status == JobStatus.PENDING).label("pending"),
+            func.count().filter(
+                CrawlJob.status == JobStatus.COMPLETED,
+                func.date(CrawlJob.completed_at) == today
+            ).label("completed_today"),
+            func.count().filter(
+                CrawlJob.status == JobStatus.FAILED,
+                func.date(CrawlJob.completed_at) == today
+            ).label("failed_today"),
         )
-    )).scalar() or 0
+    )).one()
 
-    # Last completed job
+    running_jobs = job_counts.running or 0
+    pending_jobs = job_counts.pending or 0
+    completed_today = job_counts.completed_today or 0
+    failed_today = job_counts.failed_today or 0
+
+    # Query 2: Last completed job (separate for ORDER BY + LIMIT)
     last_completed = (await session.execute(
         select(CrawlJob.completed_at)
         .where(CrawlJob.status == JobStatus.COMPLETED)
@@ -440,7 +431,7 @@ async def get_crawler_status(
 @router.post("/reanalyze", response_model=MessageResponse)
 async def reanalyze_documents(
     request: Request,
-    category_id: Optional[UUID] = Query(default=None),
+    category_id: UUID | None = Query(default=None),
     reanalyze_all: bool = Query(default=False, description="Re-analyze all documents, not just low confidence"),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_admin),
@@ -451,9 +442,10 @@ async def reanalyze_documents(
     - If category_id is provided, only re-analyzes documents in that category
     - If reanalyze_all=True, re-analyzes ALL documents (otherwise only low confidence)
     """
+    from sqlalchemy import delete
+
     from app.models import ExtractedData
     from workers.ai_tasks import analyze_document
-    from sqlalchemy import delete
 
     # Build query
     query = select(ExtractedData.document_id).distinct()

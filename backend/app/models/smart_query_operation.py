@@ -4,7 +4,7 @@ import enum
 import hashlib
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -86,21 +86,21 @@ class SmartQueryOperation(Base):
     )
 
     # Parsed interpretation from AI (for display and re-execution)
-    interpretation: Mapped[Dict[str, Any]] = mapped_column(
+    interpretation: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
     )
 
     # Execution result summary
-    result_summary: Mapped[Dict[str, Any]] = mapped_column(
+    result_summary: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
     )
 
     # User-friendly display name (auto-generated or user-edited)
-    display_name: Mapped[Optional[str]] = mapped_column(
+    display_name: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
@@ -145,7 +145,7 @@ class SmartQueryOperation(Base):
     def compute_hash(command_text: str) -> str:
         """Compute MD5 hash of normalized command text for deduplication."""
         normalized = command_text.strip().lower()
-        return hashlib.md5(normalized.encode()).hexdigest()
+        return hashlib.md5(normalized.encode()).hexdigest()  # noqa: S324
 
     def __repr__(self) -> str:
         return f"<SmartQueryOperation(id={self.id}, type={self.operation_type}, favorite={self.is_favorite})>"

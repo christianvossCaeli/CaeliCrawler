@@ -1,11 +1,10 @@
 """Unit tests for the crawler filter pipeline."""
 
-import pytest
 from crawlers.filters import (
-    FilterResult,
-    URLPatternFilter,
     FileSizeFilter,
     FilterPipeline,
+    FilterResult,
+    URLPatternFilter,
 )
 
 

@@ -2,8 +2,8 @@
 
 import enum
 import uuid
-from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import (
     DateTime,
@@ -78,7 +78,7 @@ class SyncRecord(Base):
         nullable=False,
         index=True,
     )
-    entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("entities.id", ondelete="SET NULL"),
         nullable=True,
@@ -105,7 +105,7 @@ class SyncRecord(Base):
         nullable=False,
         index=True,
     )
-    last_modified_at: Mapped[Optional[datetime]] = mapped_column(
+    last_modified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="Modification timestamp from API (if available)",
@@ -123,14 +123,14 @@ class SyncRecord(Base):
         default=RecordStatus.ACTIVE.value,
         index=True,
     )
-    missing_since: Mapped[Optional[datetime]] = mapped_column(
+    missing_since: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="When the record was first not found in API",
     )
 
     # Raw Data Cache
-    raw_data: Mapped[Dict[str, Any]] = mapped_column(
+    raw_data: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
         default=dict,
@@ -138,20 +138,20 @@ class SyncRecord(Base):
     )
 
     # Entity Linking Results
-    linked_entity_ids: Mapped[List[uuid.UUID]] = mapped_column(
+    linked_entity_ids: Mapped[list[uuid.UUID]] = mapped_column(
         ARRAY(UUID(as_uuid=True)),
         nullable=False,
         default=list,
         comment="IDs of entities linked via entity linking service",
     )
-    linking_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    linking_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
         comment="Metadata about entity linking (confidence, method, etc.)",
     )
 
     # Error Tracking
-    last_error: Mapped[Optional[str]] = mapped_column(
+    last_error: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
@@ -184,7 +184,7 @@ class SyncRecord(Base):
         foreign_keys=[entity_id],
     )
 
-    def mark_seen(self, content_hash: str, raw_data: Dict[str, Any]) -> bool:
+    def mark_seen(self, content_hash: str, raw_data: dict[str, Any]) -> bool:
         """Mark this record as seen in the current sync.
 
         Args:
@@ -194,10 +194,9 @@ class SyncRecord(Base):
         Returns:
             True if the record was updated (content changed), False otherwise.
         """
-        from datetime import timezone as tz
 
         was_updated = self.content_hash != content_hash
-        self.last_seen_at = datetime.now(tz.utc)
+        self.last_seen_at = datetime.now(UTC)
         self.content_hash = content_hash
         self.raw_data = raw_data
         self.sync_status = RecordStatus.UPDATED.value if was_updated else RecordStatus.ACTIVE.value
@@ -207,10 +206,9 @@ class SyncRecord(Base):
 
     def mark_missing(self) -> None:
         """Mark this record as missing from the API."""
-        from datetime import timezone as tz
 
         if self.sync_status != RecordStatus.MISSING.value:
-            self.missing_since = datetime.now(tz.utc)
+            self.missing_since = datetime.now(UTC)
         self.sync_status = RecordStatus.MISSING.value
 
     def mark_archived(self) -> None:

@@ -1,6 +1,7 @@
 """E2E Tests for DataSource Tags functionality."""
 
 import uuid
+
 import pytest
 from httpx import AsyncClient
 

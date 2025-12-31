@@ -1,7 +1,6 @@
 """Validation helpers for referential integrity checks."""
 
-from typing import Any, Dict, List, Set, Tuple
-from uuid import UUID
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 async def validate_entity_type_slugs(
     session: AsyncSession,
-    slugs: List[str],
-) -> Tuple[Set[str], Set[str]]:
+    slugs: list[str],
+) -> tuple[set[str], set[str]]:
     """Validate that entity type slugs exist in the database.
 
     Args:
@@ -36,8 +35,8 @@ async def validate_entity_type_slugs(
 
 async def validate_facet_type_slugs(
     session: AsyncSession,
-    slugs: List[str],
-) -> Tuple[Set[str], Set[str]]:
+    slugs: list[str],
+) -> tuple[set[str], set[str]]:
     """Validate that facet type slugs exist in the database.
 
     Args:
@@ -63,8 +62,8 @@ async def validate_facet_type_slugs(
 
 async def validate_facet_config_slugs(
     session: AsyncSession,
-    facet_config: List[Dict[str, Any]],
-) -> Tuple[Set[str], Set[str]]:
+    facet_config: list[dict[str, Any]],
+) -> tuple[set[str], set[str]]:
     """Validate facet_type_slug references in facet_config JSONB.
 
     Args:
@@ -82,7 +81,7 @@ async def validate_facet_config_slugs(
     return await validate_facet_type_slugs(session, slugs)
 
 
-async def get_valid_entity_type_slugs(session: AsyncSession) -> Set[str]:
+async def get_valid_entity_type_slugs(session: AsyncSession) -> set[str]:
     """Get all valid entity type slugs from the database."""
     from app.models import EntityType
 
@@ -90,7 +89,7 @@ async def get_valid_entity_type_slugs(session: AsyncSession) -> Set[str]:
     return {row[0] for row in result.all()}
 
 
-async def get_valid_facet_type_slugs(session: AsyncSession) -> Set[str]:
+async def get_valid_facet_type_slugs(session: AsyncSession) -> set[str]:
     """Get all valid facet type slugs from the database."""
     from app.models import FacetType
 

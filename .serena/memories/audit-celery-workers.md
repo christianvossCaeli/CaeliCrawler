@@ -90,8 +90,9 @@ docker-compose.yml (3 Healthchecks)
 | beat | - | - | Scheduler für periodische Tasks |
 
 ### Beat Schedule (wichtige Tasks)
-- check-scheduled-crawls: 30s
-- check-scheduled-presets: 30s
+- check-scheduled-crawls: 30s (nur Kategorien mit `schedule_enabled=True`)
+- check-scheduled-presets: 30s (nur Presets mit `schedule_enabled=True`)
+- **WICHTIG**: Automatische Crawls erfordern explizite Aktivierung via `schedule_enabled`
 - check-scheduled-api-syncs: 1min
 - check-scheduled-summaries: 1min
 - cleanup-idle-connections: 5min

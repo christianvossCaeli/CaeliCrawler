@@ -295,6 +295,7 @@ export const useAuthStore = defineStore('auth', () => {
     // Actions
     login,
     logout,
+    clearLocalAuth,
     fetchCurrentUser,
     changePassword,
     hasRole,

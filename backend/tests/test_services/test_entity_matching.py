@@ -1,13 +1,13 @@
 """Tests for Entity Matching Service - Composite Entity Detection."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
+
+import pytest
 
 from services.entity_matching_service import (
     EntityMatchingService,
     detect_composite_entity_name,
-    CompositeEntityMatch,
 )
 
 

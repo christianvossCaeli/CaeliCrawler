@@ -47,6 +47,10 @@ export const analyzeDocument = (id: string, skipRelevanceCheck = false) =>
 export const processAllPending = () => api.post('/admin/crawler/documents/process-pending')
 export const stopAllProcessing = () => api.post('/admin/crawler/documents/stop-all')
 export const reanalyzeFiltered = (limit = 100) => api.post('/admin/crawler/documents/reanalyze-filtered', null, { params: { limit } })
+export const bulkProcessDocuments = (data: { document_ids: string[] }) =>
+  api.post('/admin/crawler/documents/bulk-process', data)
+export const bulkAnalyzeDocuments = (data: { document_ids: string[]; skip_relevance_check?: boolean }) =>
+  api.post('/admin/crawler/documents/bulk-analyze', data)
 
 // Users
 export const getUsers = (params?: UserListParams) => api.get('/admin/users', { params })
@@ -373,3 +377,64 @@ export const getDashboardInsights = (params?: { period_days?: number }) =>
   api.get('/v1/dashboard/insights', { params })
 export const getDashboardChartData = (chartType: string) =>
   api.get(`/v1/dashboard/charts/${chartType}`)
+
+// LLM Usage Analytics
+export const getLLMAnalytics = (params?: {
+  period?: '24h' | '7d' | '30d' | '90d'
+  provider?: 'azure_openai' | 'anthropic'
+  model?: string
+  task_type?: string
+  category_id?: string
+}) => api.get('/admin/llm-usage/analytics', { params })
+
+export const getLLMCostProjection = () => api.get('/admin/llm-usage/cost-projection')
+
+export const getLLMUsageByCategory = (params?: { period?: string; limit?: number }) =>
+  api.get('/admin/llm-usage/by-category', { params })
+
+export const getLLMDocumentUsage = (documentId: string) =>
+  api.get(`/admin/llm-usage/document/${documentId}`)
+
+export const exportLLMUsageData = (params?: { period?: string; format?: 'csv' | 'json' }) =>
+  api.get('/admin/llm-usage/export', { params, responseType: 'blob' })
+
+// LLM Budget Management
+export const getLLMBudgets = (params?: { active_only?: boolean }) =>
+  api.get('/admin/llm-budget', { params })
+
+export const getLLMBudgetStatus = () => api.get('/admin/llm-budget/status')
+
+export const getLLMBudgetAlerts = (params?: { budget_id?: string; limit?: number }) =>
+  api.get('/admin/llm-budget/alerts', { params })
+
+export const getLLMBudget = (budgetId: string) => api.get(`/admin/llm-budget/${budgetId}`)
+
+export const createLLMBudget = (data: {
+  name: string
+  budget_type: 'global' | 'category' | 'task_type' | 'model'
+  reference_id?: string
+  reference_value?: string
+  monthly_limit_cents: number
+  warning_threshold_percent?: number
+  critical_threshold_percent?: number
+  alert_emails?: string[]
+  description?: string
+  is_active?: boolean
+}) => api.post('/admin/llm-budget', data)
+
+export const updateLLMBudget = (
+  budgetId: string,
+  data: {
+    name?: string
+    monthly_limit_cents?: number
+    warning_threshold_percent?: number
+    critical_threshold_percent?: number
+    alert_emails?: string[]
+    description?: string
+    is_active?: boolean
+  }
+) => api.put(`/admin/llm-budget/${budgetId}`, data)
+
+export const deleteLLMBudget = (budgetId: string) => api.delete(`/admin/llm-budget/${budgetId}`)
+
+export const triggerLLMBudgetCheck = () => api.post('/admin/llm-budget/check-alerts')

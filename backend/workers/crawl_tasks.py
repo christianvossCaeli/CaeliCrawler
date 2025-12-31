@@ -1,26 +1,26 @@
 """Celery tasks for crawling operations."""
 
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import structlog
 from celery.exceptions import SoftTimeLimitExceeded
 
-from workers.celery_app import celery_app
 from workers.async_runner import run_async
+from workers.celery_app import celery_app
 
 logger = structlog.get_logger()
 
 # Try to import metrics (optional - may not be available in all environments)
 try:
     from app.monitoring.metrics import (
-        crawler_jobs_total,
-        crawler_jobs_running,
-        crawler_pages_crawled,
         crawler_documents_found,
         crawler_errors_total,
         crawler_job_duration_seconds,
+        crawler_jobs_running,
+        crawler_jobs_total,
+        crawler_pages_crawled,
     )
     METRICS_AVAILABLE = True
 except ImportError:
@@ -47,7 +47,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
         force: Force crawl even if recently crawled
     """
     from app.database import get_celery_session_context
-    from app.models import DataSource, CrawlJob, JobStatus, SourceStatus
+    from app.models import CrawlJob, DataSource, JobStatus, SourceStatus
 
     async def _crawl():
         async with get_celery_session_context() as session:
@@ -73,7 +73,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                 job.status = JobStatus.FAILED
                 job.error_count = 1
                 job.error_log = [{
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "error": f"URL validation failed: {error_msg}",
                     "type": "URLValidationError",
                 }]
@@ -84,7 +84,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
 
             # Update job status
             job.status = JobStatus.RUNNING
-            job.started_at = datetime.now(timezone.utc)
+            job.started_at = datetime.now(UTC)
             job.celery_task_id = self.request.id
             await session.commit()
 
@@ -110,7 +110,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
 
                 # Update job with results
                 job.status = JobStatus.COMPLETED
-                job.completed_at = datetime.now(timezone.utc)
+                job.completed_at = datetime.now(UTC)
                 job.pages_crawled = result.pages_crawled
                 job.documents_found = result.documents_found
                 job.documents_processed = result.documents_processed
@@ -119,7 +119,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                 job.stats = result.stats
 
                 # Update source
-                source.last_crawl = datetime.now(timezone.utc)
+                source.last_crawl = datetime.now(UTC)
                 source.status = SourceStatus.ACTIVE
                 source.error_message = None
 
@@ -191,10 +191,10 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                     source_name=source.name,
                 )
                 job.status = JobStatus.FAILED
-                job.completed_at = datetime.now(timezone.utc)
+                job.completed_at = datetime.now(UTC)
                 job.error_count += 1
                 job.error_log.append({
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "error": "Task exceeded soft time limit (55 minutes)",
                     "type": "SoftTimeLimitExceeded",
                 })
@@ -225,10 +225,10 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
             except Exception as e:
                 logger.exception("Crawl failed", source_id=source_id, error=str(e))
                 job.status = JobStatus.FAILED
-                job.completed_at = datetime.now(timezone.utc)
+                job.completed_at = datetime.now(UTC)
                 job.error_count += 1
                 job.error_log.append({
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "error": str(e),
                     "type": type(e).__name__,
                 })
@@ -264,17 +264,25 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
 
 @celery_app.task(name="workers.crawl_tasks.check_scheduled_crawls")
 def check_scheduled_crawls():
-    """Check for sources due for scheduled crawling."""
+    """Check for sources due for scheduled crawling.
+
+    IMPORTANT: Only processes categories with schedule_enabled=True.
+    This ensures crawls only happen when explicitly enabled by the user.
+    """
+    from sqlalchemy import select
+
     from app.database import get_celery_session_context
     from app.models import Category, DataSource, DataSourceCategory, SourceStatus
-    from sqlalchemy import select
     from app.utils.cron import croniter_for_expression, get_schedule_timezone
 
     async def _check():
         async with get_celery_session_context() as session:
-            # Get all active categories
+            # Only get categories that are active AND have schedule_enabled=True
             result = await session.execute(
-                select(Category).where(Category.is_active.is_(True))
+                select(Category).where(
+                    Category.is_active.is_(True),
+                    Category.schedule_enabled.is_(True),  # Must be explicitly enabled!
+                )
             )
             categories = result.scalars().all()
 
@@ -321,7 +329,11 @@ def check_scheduled_crawls():
                     create_crawl_job.delay(str(source.id), str(category.id))
                     jobs_created += 1
 
-            logger.info("Scheduled crawl check completed", jobs_created=jobs_created)
+            logger.info(
+                "scheduled_crawl_check_completed",
+                jobs_created=jobs_created,
+                categories_with_schedule=len(categories),
+            )
 
     run_async(_check())
 
@@ -338,22 +350,26 @@ def create_crawl_job(source_id: str, category_id: str, force: bool = False):
     Returns:
         Job ID if created, None if duplicate was skipped
     """
+    from sqlalchemy import and_, select
+
     from app.database import get_celery_session_context
     from app.models import CrawlJob, JobStatus
-    from sqlalchemy import select, and_
 
     async def _create():
         async with get_celery_session_context() as session:
             # Check for existing PENDING or RUNNING job for same source+category
+            # Use FOR UPDATE lock to prevent race conditions between workers
             if not force:
                 existing_job = await session.execute(
-                    select(CrawlJob).where(
+                    select(CrawlJob)
+                    .where(
                         and_(
                             CrawlJob.source_id == UUID(source_id),
                             CrawlJob.category_id == UUID(category_id),
                             CrawlJob.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
                         )
                     )
+                    .with_for_update(skip_locked=True)
                 )
                 existing = existing_job.scalar_one_or_none()
 
@@ -395,14 +411,15 @@ def create_crawl_job(source_id: str, category_id: str, force: bool = False):
 @celery_app.task(name="workers.crawl_tasks.cleanup_old_jobs")
 def cleanup_old_jobs():
     """Clean up old completed/failed jobs."""
+    from sqlalchemy import delete
+
     from app.database import get_celery_session_context
     from app.models import CrawlJob, JobStatus
-    from sqlalchemy import delete
 
     async def _cleanup():
         async with get_celery_session_context() as session:
             # Delete jobs older than 30 days
-            cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+            cutoff = datetime.now(UTC) - timedelta(days=30)
 
             result = await session.execute(
                 delete(CrawlJob).where(
@@ -421,9 +438,10 @@ def cleanup_old_jobs():
 @celery_app.task(name="workers.crawl_tasks.detect_changes")
 def detect_changes(source_id: str):
     """Detect changes on a data source without full crawl."""
-    from app.database import get_celery_session_context
-    from app.models import DataSource, ChangeLog, ChangeType
     import httpx
+
+    from app.database import get_celery_session_context
+    from app.models import ChangeLog, ChangeType, DataSource
 
     async def _detect():
         async with get_celery_session_context() as session:
@@ -459,7 +477,7 @@ def detect_changes(source_id: str):
                             new_hash=new_hash,
                         )
                         session.add(change)
-                        source.last_change_detected = datetime.now(timezone.utc)
+                        source.last_change_detected = datetime.now(UTC)
 
                         logger.info("Change detected", source_id=source_id)
 

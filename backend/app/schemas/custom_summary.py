@@ -2,11 +2,10 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
-
 
 # --- Enums ---
 
@@ -60,16 +59,16 @@ class InterpretedWidgetConfig(BaseModel):
 
     widget_type: SummaryWidgetType
     title: str = Field(..., min_length=1, max_length=255)
-    subtitle: Optional[str] = Field(None, max_length=500)
-    entity_type: Optional[str] = Field(None, max_length=100)
-    facet_types: List[str] = Field(default_factory=list, max_length=20)
-    filters: Dict[str, Any] = Field(default_factory=dict)
-    limit: Optional[int] = Field(None, ge=1, le=1000)
-    sort_by: Optional[str] = Field(None, max_length=100)
-    sort_order: Optional[str] = Field(None, pattern="^(asc|desc)$")
-    aggregate: Optional[str] = Field(None, pattern="^(count|sum|avg|min|max)$")
-    group_by: Optional[str] = Field(None, max_length=100)
-    visualization: Dict[str, Any] = Field(default_factory=dict)
+    subtitle: str | None = Field(None, max_length=500)
+    entity_type: str | None = Field(None, max_length=100)
+    facet_types: list[str] = Field(default_factory=list, max_length=20)
+    filters: dict[str, Any] = Field(default_factory=dict)
+    limit: int | None = Field(None, ge=1, le=1000)
+    sort_by: str | None = Field(None, max_length=100)
+    sort_order: str | None = Field(None, pattern="^(asc|desc)$")
+    aggregate: str | None = Field(None, pattern="^(count|sum|avg|min|max)$")
+    group_by: str | None = Field(None, max_length=100)
+    visualization: dict[str, Any] = Field(default_factory=dict)
 
     model_config = {"extra": "forbid"}
 
@@ -84,29 +83,29 @@ class InterpretedConfig(BaseModel):
 
     theme: str = Field(..., min_length=1, max_length=255, description="Detected topic/theme")
     summary_name: str = Field(..., min_length=1, max_length=255, description="Suggested summary name")
-    description: Optional[str] = Field(None, max_length=2000)
-    widgets: List[InterpretedWidgetConfig] = Field(
+    description: str | None = Field(None, max_length=2000)
+    widgets: list[InterpretedWidgetConfig] = Field(
         default_factory=list,
         max_length=20,
         description="Suggested widgets (max 20)"
     )
-    suggested_schedule: Optional[str] = Field(
+    suggested_schedule: str | None = Field(
         None,
         max_length=50,
         pattern="^(hourly|daily|weekly|monthly|none)?$",
         description="Suggested update schedule"
     )
-    entity_types_detected: List[str] = Field(
+    entity_types_detected: list[str] = Field(
         default_factory=list,
         max_length=50,
         description="Entity types found in prompt"
     )
-    facet_types_detected: List[str] = Field(
+    facet_types_detected: list[str] = Field(
         default_factory=list,
         max_length=100,
         description="Facet types found in prompt"
     )
-    confidence_score: Optional[float] = Field(
+    confidence_score: float | None = Field(
         None,
         ge=0.0,
         le=1.0,
@@ -130,21 +129,21 @@ class WidgetPosition(BaseModel):
 class WidgetQueryConfig(BaseModel):
     """Query configuration for a widget."""
 
-    entity_type: Optional[str] = Field(None, description="Entity type slug")
-    facet_types: List[str] = Field(default_factory=list, description="Facet type slugs to include")
-    filters: Dict[str, Any] = Field(default_factory=dict, description="Filter conditions")
-    sort_by: Optional[str] = Field(None, description="Field to sort by (prefix with - for desc)")
-    sort_order: Optional[str] = Field(None, pattern="^(asc|desc)$", description="Sort order")
-    limit: Optional[int] = Field(None, ge=1, le=1000, description="Result limit")
-    aggregate: Optional[str] = Field(None, description="Aggregation: count, sum, avg")
-    group_by: Optional[str] = Field(None, description="Field to group by")
+    entity_type: str | None = Field(None, description="Entity type slug")
+    facet_types: list[str] = Field(default_factory=list, description="Facet type slugs to include")
+    filters: dict[str, Any] = Field(default_factory=dict, description="Filter conditions")
+    sort_by: str | None = Field(None, description="Field to sort by (prefix with - for desc)")
+    sort_order: str | None = Field(None, pattern="^(asc|desc)$", description="Sort order")
+    limit: int | None = Field(None, ge=1, le=1000, description="Result limit")
+    aggregate: str | None = Field(None, description="Aggregation: count, sum, avg")
+    group_by: str | None = Field(None, description="Field to group by")
 
 
 class WidgetVisualizationConfig(BaseModel):
     """Visualization configuration for a widget (Chart.js compatible)."""
 
     # Table config
-    columns: Optional[List[Dict[str, Any]]] = Field(
+    columns: list[dict[str, Any]] | None = Field(
         None,
         description="Table column definitions: [{field, label, sortable, width}]"
     )
@@ -152,22 +151,22 @@ class WidgetVisualizationConfig(BaseModel):
     rows_per_page: int = Field(default=10, ge=5, le=100)
 
     # Chart config (Chart.js)
-    x_axis: Optional[Dict[str, Any]] = Field(None, description="X-axis config: {field, label}")
-    y_axis: Optional[Dict[str, Any]] = Field(None, description="Y-axis config: {field, label}")
-    color: Optional[str] = Field(None, description="Primary color (hex)")
-    colors: Optional[List[str]] = Field(None, description="Color palette for multi-series")
+    x_axis: dict[str, Any] | None = Field(None, description="X-axis config: {field, label}")
+    y_axis: dict[str, Any] | None = Field(None, description="Y-axis config: {field, label}")
+    color: str | None = Field(None, description="Primary color (hex)")
+    colors: list[str] | None = Field(None, description="Color palette for multi-series")
     horizontal: bool = Field(default=False, description="Horizontal bar chart")
     stacked: bool = Field(default=False, description="Stacked chart")
     show_legend: bool = Field(default=True)
     show_labels: bool = Field(default=False, description="Show data labels")
 
     # Stat card config
-    trend: Optional[str] = Field(None, pattern="^(up|down|neutral)$")
-    trend_value: Optional[str] = Field(None, description="Trend display value")
-    format: Optional[str] = Field(None, description="Number format")
+    trend: str | None = Field(None, pattern="^(up|down|neutral)$")
+    trend_value: str | None = Field(None, description="Trend display value")
+    format: str | None = Field(None, description="Number format")
 
     # Text widget
-    content: Optional[str] = Field(None, description="Markdown content for text widget")
+    content: str | None = Field(None, description="Markdown content for text widget")
 
 
 # Grid configuration constants
@@ -180,7 +179,7 @@ class SummaryWidgetCreate(BaseModel):
 
     widget_type: SummaryWidgetType
     title: str = Field(..., min_length=1, max_length=255)
-    subtitle: Optional[str] = Field(None, max_length=500)
+    subtitle: str | None = Field(None, max_length=500)
     position_x: int = Field(default=0, ge=0, le=GRID_COLUMNS - 1)
     position_y: int = Field(default=0, ge=0, le=MAX_GRID_ROWS)
     width: int = Field(default=2, ge=1, le=GRID_COLUMNS)
@@ -202,14 +201,14 @@ class SummaryWidgetCreate(BaseModel):
 class SummaryWidgetUpdate(BaseModel):
     """Schema for updating a widget."""
 
-    title: Optional[str] = Field(None, min_length=1, max_length=255)
-    subtitle: Optional[str] = Field(None, max_length=500)
-    position_x: Optional[int] = Field(None, ge=0, le=GRID_COLUMNS - 1)
-    position_y: Optional[int] = Field(None, ge=0, le=MAX_GRID_ROWS)
-    width: Optional[int] = Field(None, ge=1, le=GRID_COLUMNS)
-    height: Optional[int] = Field(None, ge=1, le=6)
-    query_config: Optional[Dict[str, Any]] = None
-    visualization_config: Optional[Dict[str, Any]] = None
+    title: str | None = Field(None, min_length=1, max_length=255)
+    subtitle: str | None = Field(None, max_length=500)
+    position_x: int | None = Field(None, ge=0, le=GRID_COLUMNS - 1)
+    position_y: int | None = Field(None, ge=0, le=MAX_GRID_ROWS)
+    width: int | None = Field(None, ge=1, le=GRID_COLUMNS)
+    height: int | None = Field(None, ge=1, le=6)
+    query_config: dict[str, Any] | None = None
+    visualization_config: dict[str, Any] | None = None
 
     @model_validator(mode="after")
     def validate_position_within_grid(self) -> "SummaryWidgetUpdate":
@@ -217,7 +216,7 @@ class SummaryWidgetUpdate(BaseModel):
         Validate that position + width doesn't exceed grid when both are provided.
         Note: Full validation happens at API level with existing widget data.
         """
-        if self.position_x is not None and self.width is not None:
+        if self.position_x is not None and self.width is not None:  # noqa: SIM102
             if self.position_x + self.width > GRID_COLUMNS:
                 raise ValueError(
                     f"Widget extends beyond grid boundary: position_x ({self.position_x}) + "
@@ -232,10 +231,10 @@ class SummaryWidgetResponse(BaseModel):
     id: UUID
     widget_type: SummaryWidgetType
     title: str
-    subtitle: Optional[str]
+    subtitle: str | None
     position: WidgetPosition
-    query_config: Dict[str, Any]
-    visualization_config: Dict[str, Any]
+    query_config: dict[str, Any]
+    visualization_config: dict[str, Any]
     display_order: int
     created_at: datetime
     updated_at: datetime
@@ -272,13 +271,13 @@ class SummaryExecutionResponse(BaseModel):
     id: UUID
     status: ExecutionStatus
     triggered_by: str
-    trigger_details: Optional[Dict[str, Any]]
+    trigger_details: dict[str, Any] | None
     has_changes: bool
-    relevance_score: Optional[float]
-    relevance_reason: Optional[str]
-    duration_ms: Optional[int]
+    relevance_score: float | None
+    relevance_reason: str | None
+    duration_ms: int | None
     created_at: datetime
-    completed_at: Optional[datetime]
+    completed_at: datetime | None
 
     model_config = {"from_attributes": True}
 
@@ -286,8 +285,8 @@ class SummaryExecutionResponse(BaseModel):
 class SummaryExecutionDetailResponse(SummaryExecutionResponse):
     """Schema for execution detail with cached data."""
 
-    cached_data: Dict[str, Any] = Field(default_factory=dict)
-    error_message: Optional[str] = None
+    cached_data: dict[str, Any] = Field(default_factory=dict)
+    error_message: str | None = None
 
 
 # --- Share Schemas ---
@@ -295,8 +294,8 @@ class SummaryExecutionDetailResponse(SummaryExecutionResponse):
 class SummaryShareCreate(BaseModel):
     """Schema for creating a share link."""
 
-    password: Optional[str] = Field(None, min_length=4, max_length=50, description="Optional access password")
-    expires_days: Optional[int] = Field(None, ge=1, le=365, description="Days until expiration")
+    password: str | None = Field(None, min_length=4, max_length=50, description="Optional access password")
+    expires_days: int | None = Field(None, ge=1, le=365, description="Days until expiration")
     allow_export: bool = Field(default=False, description="Allow recipient to export")
 
 
@@ -307,10 +306,10 @@ class SummaryShareResponse(BaseModel):
     share_token: str
     share_url: str
     has_password: bool
-    expires_at: Optional[datetime]
+    expires_at: datetime | None
     allow_export: bool
     view_count: int
-    last_viewed_at: Optional[datetime]
+    last_viewed_at: datetime | None
     is_active: bool
     created_at: datetime
 
@@ -320,17 +319,17 @@ class SummaryShareResponse(BaseModel):
 class SharedSummaryAccessRequest(BaseModel):
     """Request to access a shared summary."""
 
-    password: Optional[str] = Field(None, description="Access password if required")
+    password: str | None = Field(None, description="Access password if required")
 
 
 class SharedSummaryResponse(BaseModel):
     """Response for shared summary access."""
 
     summary_name: str
-    summary_description: Optional[str]
-    widgets: List[SummaryWidgetResponse]
-    data: Dict[str, Any] = Field(description="Cached data per widget")
-    last_updated: Optional[datetime]
+    summary_description: str | None
+    widgets: list[SummaryWidgetResponse]
+    data: dict[str, Any] = Field(description="Cached data per widget")
+    last_updated: datetime | None
     allow_export: bool
 
 
@@ -340,39 +339,39 @@ class SummaryCreateFromPrompt(BaseModel):
     """Schema for creating a summary from natural language prompt."""
 
     prompt: str = Field(..., min_length=10, max_length=2000, description="Natural language description")
-    name: Optional[str] = Field(None, max_length=255, description="Optional custom name (KI suggests if not provided)")
+    name: str | None = Field(None, max_length=255, description="Optional custom name (KI suggests if not provided)")
 
 
 class SummaryCreate(BaseModel):
     """Schema for manual summary creation."""
 
     name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = Field(None, max_length=2000)
+    description: str | None = Field(None, max_length=2000)
     original_prompt: str = Field(..., min_length=10, max_length=2000)
-    interpreted_config: Dict[str, Any] = Field(default_factory=dict)
-    layout_config: Dict[str, Any] = Field(default_factory=dict)
+    interpreted_config: dict[str, Any] = Field(default_factory=dict)
+    layout_config: dict[str, Any] = Field(default_factory=dict)
     trigger_type: SummaryTriggerType = Field(default=SummaryTriggerType.MANUAL)
-    schedule_cron: Optional[str] = Field(None, max_length=100)
-    trigger_category_id: Optional[UUID] = None
-    trigger_preset_id: Optional[UUID] = None
+    schedule_cron: str | None = Field(None, max_length=100)
+    trigger_category_id: UUID | None = None
+    trigger_preset_id: UUID | None = None
 
 
 class SummaryUpdate(BaseModel):
     """Schema for updating a summary."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = Field(None, max_length=2000)
-    layout_config: Optional[Dict[str, Any]] = None
-    trigger_type: Optional[SummaryTriggerType] = None
-    schedule_cron: Optional[str] = Field(None, max_length=100)
-    trigger_category_id: Optional[UUID] = None
-    trigger_preset_id: Optional[UUID] = None
-    schedule_enabled: Optional[bool] = None
-    check_relevance: Optional[bool] = None
-    relevance_threshold: Optional[float] = Field(None, ge=0, le=1)
-    auto_expand: Optional[bool] = None
-    is_favorite: Optional[bool] = None
-    status: Optional[SummaryStatus] = None
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = Field(None, max_length=2000)
+    layout_config: dict[str, Any] | None = None
+    trigger_type: SummaryTriggerType | None = None
+    schedule_cron: str | None = Field(None, max_length=100)
+    trigger_category_id: UUID | None = None
+    trigger_preset_id: UUID | None = None
+    schedule_enabled: bool | None = None
+    check_relevance: bool | None = None
+    relevance_threshold: float | None = Field(None, ge=0, le=1)
+    auto_expand: bool | None = None
+    is_favorite: bool | None = None
+    status: SummaryStatus | None = None
 
 
 class SummaryResponse(BaseModel):
@@ -381,23 +380,23 @@ class SummaryResponse(BaseModel):
     id: UUID
     user_id: UUID
     name: str
-    description: Optional[str]
+    description: str | None
     original_prompt: str
-    interpreted_config: Dict[str, Any]
-    layout_config: Dict[str, Any]
+    interpreted_config: dict[str, Any]
+    layout_config: dict[str, Any]
     status: SummaryStatus
     trigger_type: SummaryTriggerType
-    schedule_cron: Optional[str]
-    trigger_category_id: Optional[UUID]
-    trigger_preset_id: Optional[UUID]
+    schedule_cron: str | None
+    trigger_category_id: UUID | None
+    trigger_preset_id: UUID | None
     schedule_enabled: bool
-    next_run_at: Optional[datetime]
+    next_run_at: datetime | None
     check_relevance: bool
     relevance_threshold: float
     auto_expand: bool
     is_favorite: bool
     execution_count: int
-    last_executed_at: Optional[datetime]
+    last_executed_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -407,14 +406,14 @@ class SummaryResponse(BaseModel):
 class SummaryDetailResponse(SummaryResponse):
     """Schema for summary detail with widgets and last execution."""
 
-    widgets: List[SummaryWidgetResponse] = Field(default_factory=list)
-    last_execution: Optional[SummaryExecutionDetailResponse] = None
+    widgets: list[SummaryWidgetResponse] = Field(default_factory=list)
+    last_execution: SummaryExecutionDetailResponse | None = None
     # Cache expiration metadata
-    cache_expired: Optional[bool] = Field(
+    cache_expired: bool | None = Field(
         None,
         description="True if cached data is older than TTL (default: 24h)"
     )
-    cache_age_hours: Optional[float] = Field(
+    cache_age_hours: float | None = Field(
         None,
         description="Age of cached data in hours"
     )
@@ -423,7 +422,7 @@ class SummaryDetailResponse(SummaryResponse):
 class SummaryListResponse(BaseModel):
     """Schema for summary list response."""
 
-    items: List[SummaryResponse]
+    items: list[SummaryResponse]
     total: int
     page: int
     per_page: int
@@ -435,7 +434,7 @@ class SummaryFromPromptResponse(BaseModel):
 
     id: UUID
     name: str
-    interpretation: Dict[str, Any] = Field(description="KI-interpreted configuration")
+    interpretation: dict[str, Any] = Field(description="KI-interpreted configuration")
     widgets_created: int
     message: str
 
@@ -452,7 +451,7 @@ class SummaryExecuteResponse(BaseModel):
     execution_id: UUID
     status: ExecutionStatus
     has_changes: bool
-    cached_data: Optional[Dict[str, Any]] = Field(None, description="Data if completed")
+    cached_data: dict[str, Any] | None = Field(None, description="Data if completed")
     message: str
 
 
@@ -475,7 +474,7 @@ class SummarySchedulePreset(BaseModel):
 
 
 # Predefined schedule options for frontend
-SCHEDULE_PRESETS: List[SummarySchedulePreset] = [
+SCHEDULE_PRESETS: list[SummarySchedulePreset] = [
     SummarySchedulePreset(label="hourly", cron="0 * * * *", description="Every hour"),
     SummarySchedulePreset(label="daily_morning", cron="0 8 * * *", description="Daily at 8:00 AM"),
     SummarySchedulePreset(label="daily_evening", cron="0 18 * * *", description="Daily at 6:00 PM"),
@@ -510,6 +509,6 @@ class CheckUpdatesProgressResponse(BaseModel):
     status: CheckUpdatesStatus = Field(..., description="Current task status")
     total_sources: int = Field(..., description="Total number of sources to crawl")
     completed_sources: int = Field(default=0, description="Number of sources already crawled")
-    current_source: Optional[str] = Field(None, description="Name of currently crawling source")
+    current_source: str | None = Field(None, description="Name of currently crawling source")
     message: str = Field(..., description="Human-readable progress message")
-    error: Optional[str] = Field(None, description="Error message if failed")
+    error: str | None = Field(None, description="Error message if failed")

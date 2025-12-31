@@ -1,8 +1,8 @@
 """Schemas for the AI Assistant Chat functionality."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -38,11 +38,11 @@ class AssistantContext(BaseModel):
     """Context information about the current app state."""
 
     current_route: str = Field(..., description="Current route path")
-    current_entity_id: Optional[str] = Field(None, description="ID of the current entity if on detail page")
-    current_entity_type: Optional[str] = Field(None, description="Type slug of the current entity")
-    current_entity_name: Optional[str] = Field(None, description="Name of the current entity")
+    current_entity_id: str | None = Field(None, description="ID of the current entity if on detail page")
+    current_entity_type: str | None = Field(None, description="Type slug of the current entity")
+    current_entity_name: str | None = Field(None, description="Name of the current entity")
     view_mode: ViewMode = Field(default=ViewMode.UNKNOWN, description="Current view mode")
-    available_actions: List[str] = Field(default_factory=list, description="Actions available on current page")
+    available_actions: list[str] = Field(default_factory=list, description="Actions available on current page")
 
 
 class ConversationMessage(BaseModel):
@@ -50,8 +50,8 @@ class ConversationMessage(BaseModel):
 
     role: Literal["user", "assistant"] = Field(..., description="Who sent this message")
     content: str = Field(..., description="Message content")
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
 
 
 class AttachmentInfo(BaseModel):
@@ -75,14 +75,14 @@ class AssistantChatRequest(BaseModel):
 
     message: str = Field(..., min_length=1, max_length=10000, description="User's message")
     context: AssistantContext = Field(..., description="Current app context")
-    conversation_history: List[ConversationMessage] = Field(
+    conversation_history: list[ConversationMessage] = Field(
         default_factory=list,
         max_length=20,
         description="Previous messages in the conversation"
     )
     mode: Literal["read", "write"] = Field(default="read", description="Current chat mode")
     language: Literal["de", "en"] = Field(default="de", description="Language for responses")
-    attachment_ids: List[str] = Field(default_factory=list, description="IDs of uploaded attachments")
+    attachment_ids: list[str] = Field(default_factory=list, description="IDs of uploaded attachments")
 
 
 # Response Types
@@ -100,11 +100,11 @@ class QuerySuggestion(BaseModel):
 class QueryResultData(BaseModel):
     """Data returned from a query."""
 
-    items: List[Dict[str, Any]] = Field(default_factory=list)
+    items: list[dict[str, Any]] = Field(default_factory=list)
     total: int = Field(default=0)
-    grouping: Optional[str] = None
-    query_interpretation: Optional[Dict[str, Any]] = None
-    suggestions: Optional[List[Dict[str, Any]]] = Field(
+    grouping: str | None = None
+    query_interpretation: dict[str, Any] | None = None
+    suggestions: list[dict[str, Any]] | None = Field(
         default=None,
         description="Correction suggestions when no results found"
     )
@@ -116,7 +116,7 @@ class QueryResponse(BaseModel):
     type: Literal["query_result"] = "query_result"
     message: str = Field(..., description="Human-readable summary")
     data: QueryResultData = Field(..., description="Query results")
-    follow_up_suggestions: List[str] = Field(default_factory=list)
+    follow_up_suggestions: list[str] = Field(default_factory=list)
 
 
 class ActionChange(BaseModel):
@@ -126,19 +126,18 @@ class ActionChange(BaseModel):
     from_value: Any = Field(alias="from")
     to_value: Any = Field(alias="to")
 
-    class Config:
-        populate_by_name = True
+    model_config = {"populate_by_name": True}
 
 
 class ActionDetails(BaseModel):
     """Details of an action to be executed."""
 
     type: str = Field(..., description="Action type: update_entity, create_facet, delete_relation, etc.")
-    target_id: Optional[str] = Field(None, description="ID of the target entity")
-    target_name: Optional[str] = Field(None, description="Name of the target entity")
-    target_type: Optional[str] = Field(None, description="Type of the target entity")
-    changes: Dict[str, ActionChange] = Field(default_factory=dict)
-    create_data: Optional[Dict[str, Any]] = Field(None, description="Data for create operations")
+    target_id: str | None = Field(None, description="ID of the target entity")
+    target_name: str | None = Field(None, description="Name of the target entity")
+    target_type: str | None = Field(None, description="Type of the target entity")
+    changes: dict[str, ActionChange] = Field(default_factory=dict)
+    create_data: dict[str, Any] | None = Field(None, description="Data for create operations")
 
 
 class ActionPreviewResponse(BaseModel):
@@ -154,9 +153,9 @@ class NavigationTarget(BaseModel):
     """Target for navigation."""
 
     route: str = Field(..., description="Route to navigate to")
-    entity_type: Optional[str] = None
-    entity_slug: Optional[str] = None
-    entity_name: Optional[str] = None
+    entity_type: str | None = None
+    entity_slug: str | None = None
+    entity_name: str | None = None
 
 
 class NavigationResponse(BaseModel):
@@ -172,7 +171,7 @@ class RedirectResponse(BaseModel):
 
     type: Literal["redirect_to_smart_query"] = "redirect_to_smart_query"
     message: str
-    prefilled_query: Optional[str] = Field(None, description="Query to prefill in Smart Query")
+    prefilled_query: str | None = Field(None, description="Query to prefill in Smart Query")
     write_mode: bool = Field(default=True)
 
 
@@ -181,8 +180,8 @@ class HelpResponse(BaseModel):
 
     type: Literal["help"] = "help"
     message: str
-    help_topics: List[Dict[str, str]] = Field(default_factory=list)
-    suggested_commands: List[str] = Field(default_factory=list)
+    help_topics: list[dict[str, str]] = Field(default_factory=list)
+    suggested_commands: list[str] = Field(default_factory=list)
 
 
 class ErrorResponseData(BaseModel):
@@ -190,7 +189,7 @@ class ErrorResponseData(BaseModel):
 
     type: Literal["error"] = "error"
     message: str
-    error_code: Optional[str] = None
+    error_code: str | None = None
 
 
 class DiscussionResponse(BaseModel):
@@ -198,9 +197,9 @@ class DiscussionResponse(BaseModel):
 
     type: Literal["discussion"] = "discussion"
     message: str = Field(..., description="AI response to the discussion/document")
-    analysis_type: Optional[str] = Field(None, description="Type of analysis: requirements, planning, document, general")
-    key_points: List[str] = Field(default_factory=list, description="Key points extracted from the discussion")
-    recommendations: List[str] = Field(default_factory=list, description="Recommendations or next steps")
+    analysis_type: str | None = Field(None, description="Type of analysis: requirements, planning, document, general")
+    key_points: list[str] = Field(default_factory=list, description="Key points extracted from the discussion")
+    recommendations: list[str] = Field(default_factory=list, description="Recommendations or next steps")
 
 
 class SuggestedAction(BaseModel):
@@ -234,8 +233,8 @@ class AssistantChatResponse(BaseModel):
 
     success: bool = True
     response: AssistantResponseData
-    suggested_actions: List[SuggestedAction] = Field(default_factory=list)
-    conversation_id: Optional[str] = Field(None, description="ID for conversation tracking")
+    suggested_actions: list[SuggestedAction] = Field(default_factory=list)
+    conversation_id: str | None = Field(None, description="ID for conversation tracking")
 
 
 # Action Execution
@@ -252,8 +251,8 @@ class ActionExecuteResponse(BaseModel):
 
     success: bool
     message: str
-    affected_entity_id: Optional[str] = None
-    affected_entity_name: Optional[str] = None
+    affected_entity_id: str | None = None
+    affected_entity_name: str | None = None
     refresh_required: bool = Field(default=True, description="Whether the UI should refresh")
 
 
@@ -265,7 +264,7 @@ class SlashCommand(BaseModel):
     command: str = Field(..., description="Command name without slash")
     description: str
     usage: str
-    examples: List[str] = Field(default_factory=list)
+    examples: list[str] = Field(default_factory=list)
 
 
 SLASH_COMMANDS = [
@@ -320,11 +319,11 @@ class BatchActionRequest(BaseModel):
     """Request to perform a batch action on multiple entities."""
 
     action_type: BatchActionType = Field(..., description="Type of batch action")
-    target_filter: Dict[str, Any] = Field(
+    target_filter: dict[str, Any] = Field(
         ...,
         description="Filter to select target entities (e.g. entity_type, location)"
     )
-    action_data: Dict[str, Any] = Field(
+    action_data: dict[str, Any] = Field(
         ...,
         description="Data for the action (e.g. facet_type, value)"
     )
@@ -347,11 +346,11 @@ class BatchActionResponse(BaseModel):
 
     success: bool = True
     affected_count: int = Field(..., description="Number of entities affected")
-    preview: List[BatchActionPreview] = Field(
+    preview: list[BatchActionPreview] = Field(
         default_factory=list,
         description="Preview of first 10 affected entities"
     )
-    batch_id: Optional[str] = Field(
+    batch_id: str | None = Field(
         None,
         description="ID for tracking batch execution (empty for dry_run)"
     )
@@ -365,7 +364,7 @@ class BatchStatusResponse(BaseModel):
     status: Literal["pending", "running", "completed", "failed"] = "pending"
     processed: int = 0
     total: int = 0
-    errors: List[Dict[str, str]] = Field(default_factory=list)
+    errors: list[dict[str, str]] = Field(default_factory=list)
     message: str = ""
 
 
@@ -375,10 +374,10 @@ class BatchActionChatResponse(BaseModel):
     type: Literal["batch_preview"] = "batch_preview"
     message: str
     affected_count: int
-    preview: List[BatchActionPreview]
+    preview: list[BatchActionPreview]
     action_type: str
-    action_data: Dict[str, Any]
-    target_filter: Dict[str, Any]
+    action_data: dict[str, Any]
+    target_filter: dict[str, Any]
     requires_confirmation: bool = True
 
 
@@ -404,12 +403,12 @@ class ContextActionResponse(BaseModel):
     type: Literal["context_action"] = "context_action"
     message: str
     action: str  # The action that was/will be executed
-    entity_id: Optional[str] = None
-    entity_name: Optional[str] = None
-    task_id: Optional[str] = None  # For async operations
-    facet_value_id: Optional[str] = None  # ID of created facet value
-    preview: Optional[Dict[str, Any]] = None  # Preview data
-    status: Optional[Dict[str, Any]] = None  # Status data (for show_pysis_status)
+    entity_id: str | None = None
+    entity_name: str | None = None
+    task_id: str | None = None  # For async operations
+    facet_value_id: str | None = None  # ID of created facet value
+    preview: dict[str, Any] | None = None  # Preview data
+    status: dict[str, Any] | None = None  # Status data (for show_pysis_status)
     requires_confirmation: bool = False
     success: bool = True
 
@@ -437,8 +436,8 @@ class WizardStepOption(BaseModel):
 
     value: str
     label: str
-    description: Optional[str] = None
-    icon: Optional[str] = None
+    description: str | None = None
+    icon: str | None = None
 
 
 class WizardStep(BaseModel):
@@ -447,13 +446,13 @@ class WizardStep(BaseModel):
     id: str = Field(..., description="Unique step identifier")
     question: str = Field(..., description="The question to ask the user")
     input_type: WizardInputType = Field(..., description="Type of input expected")
-    options: Optional[List[WizardStepOption]] = Field(None, description="Options for select types")
-    placeholder: Optional[str] = Field(None, description="Placeholder text for input")
-    validation: Optional[Dict[str, Any]] = Field(None, description="Validation rules")
-    entity_type: Optional[str] = Field(None, description="Entity type for entity_search")
-    default_value: Optional[Any] = Field(None, description="Default value")
+    options: list[WizardStepOption] | None = Field(None, description="Options for select types")
+    placeholder: str | None = Field(None, description="Placeholder text for input")
+    validation: dict[str, Any] | None = Field(None, description="Validation rules")
+    entity_type: str | None = Field(None, description="Entity type for entity_search")
+    default_value: Any | None = Field(None, description="Default value")
     required: bool = Field(default=True, description="Whether this step is required")
-    help_text: Optional[str] = Field(None, description="Additional help text")
+    help_text: str | None = Field(None, description="Additional help text")
 
 
 class WizardState(BaseModel):
@@ -464,7 +463,7 @@ class WizardState(BaseModel):
     current_step_id: str = Field(..., description="ID of the current step")
     current_step_index: int = Field(default=0, description="Index of current step")
     total_steps: int = Field(..., description="Total number of steps")
-    answers: Dict[str, Any] = Field(default_factory=dict, description="Collected answers")
+    answers: dict[str, Any] = Field(default_factory=dict, description="Collected answers")
     completed: bool = Field(default=False, description="Whether wizard is complete")
     cancelled: bool = Field(default=False, description="Whether wizard was cancelled")
 
@@ -475,8 +474,8 @@ class WizardDefinition(BaseModel):
     type: str = Field(..., description="Wizard type identifier")
     name: str = Field(..., description="Display name")
     description: str = Field(..., description="Description of what this wizard does")
-    steps: List[WizardStep] = Field(..., description="List of wizard steps")
-    icon: Optional[str] = Field(None, description="Icon for the wizard")
+    steps: list[WizardStep] = Field(..., description="List of wizard steps")
+    icon: str | None = Field(None, description="Icon for the wizard")
 
 
 class WizardResponse(BaseModel):
@@ -509,9 +508,9 @@ class ReminderCreate(BaseModel):
 
     message: str = Field(..., min_length=1, max_length=1000, description="Reminder message")
     remind_at: datetime = Field(..., description="When to send the reminder")
-    title: Optional[str] = Field(None, max_length=255, description="Optional title")
-    entity_id: Optional[str] = Field(None, description="Optional entity ID to link")
-    entity_type: Optional[str] = Field(None, description="Entity type if entity_id is provided")
+    title: str | None = Field(None, max_length=255, description="Optional title")
+    entity_id: str | None = Field(None, description="Optional entity ID to link")
+    entity_type: str | None = Field(None, description="Entity type if entity_id is provided")
     repeat: ReminderRepeatType = Field(default=ReminderRepeatType.NONE, description="Repeat interval")
 
 
@@ -520,20 +519,20 @@ class ReminderResponse(BaseModel):
 
     id: str
     message: str
-    title: Optional[str] = None
+    title: str | None = None
     remind_at: datetime
     repeat: str
     status: str
-    entity_id: Optional[str] = None
-    entity_type: Optional[str] = None
-    entity_name: Optional[str] = None
+    entity_id: str | None = None
+    entity_type: str | None = None
+    entity_name: str | None = None
     created_at: datetime
 
 
 class ReminderListResponse(BaseModel):
     """Response with list of reminders."""
 
-    items: List[ReminderResponse]
+    items: list[ReminderResponse]
     total: int
 
 
@@ -563,15 +562,15 @@ class FacetTypePreview(BaseModel):
     """Preview of a facet type to be created or assigned."""
 
     name: str
-    name_plural: Optional[str] = None
-    slug: Optional[str] = None
-    description: Optional[str] = None
+    name_plural: str | None = None
+    slug: str | None = None
+    description: str | None = None
     value_type: str = "structured"
     icon: str = "mdi-tag"
     color: str = "#607D8B"
-    applicable_entity_type_slugs: List[str] = Field(default_factory=list)
+    applicable_entity_type_slugs: list[str] = Field(default_factory=list)
     ai_extraction_enabled: bool = True
-    ai_extraction_prompt: Optional[str] = None
+    ai_extraction_prompt: str | None = None
 
 
 class FacetManagementResponse(BaseModel):
@@ -580,8 +579,8 @@ class FacetManagementResponse(BaseModel):
     type: Literal["facet_management"] = "facet_management"
     message: str
     action: FacetManagementAction
-    facet_type_preview: Optional[FacetTypePreview] = None
-    existing_facet_types: Optional[List[Dict[str, Any]]] = None
-    target_entity_types: Optional[List[str]] = None
+    facet_type_preview: FacetTypePreview | None = None
+    existing_facet_types: list[dict[str, Any]] | None = None
+    target_entity_types: list[str] | None = None
     requires_confirmation: bool = True
     auto_suggested: bool = False  # True if AI suggested new facet types

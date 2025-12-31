@@ -1,20 +1,20 @@
 """Admin API endpoints for version history."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import require_viewer
 from app.database import get_session
 from app.models.user import User
-from app.core.deps import require_viewer
 from app.services.versioning_service import (
-    get_version_history,
     get_version,
     get_version_count,
+    get_version_history,
     reconstruct_at_version,
 )
 
@@ -33,11 +33,11 @@ class VersionResponse(BaseModel):
     entity_type: str
     entity_id: UUID
     version_number: int
-    diff: Dict[str, Any]
+    diff: dict[str, Any]
     has_snapshot: bool
-    user_id: Optional[UUID] = None
-    user_email: Optional[str] = None
-    change_reason: Optional[str] = None
+    user_id: UUID | None = None
+    user_email: str | None = None
+    change_reason: str | None = None
     created_at: datetime
 
     class Config:
@@ -47,7 +47,7 @@ class VersionResponse(BaseModel):
 class VersionListResponse(BaseModel):
     """Paginated version list."""
 
-    items: List[VersionResponse]
+    items: list[VersionResponse]
     total: int
     entity_type: str
     entity_id: UUID
@@ -59,7 +59,7 @@ class EntityStateResponse(BaseModel):
     entity_type: str
     entity_id: UUID
     version_number: int
-    state: Dict[str, Any]
+    state: dict[str, Any]
 
 
 # =============================================================================

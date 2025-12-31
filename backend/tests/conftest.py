@@ -2,7 +2,7 @@
 
 import asyncio
 import os
-from typing import AsyncGenerator, Generator, Dict
+from collections.abc import AsyncGenerator, Generator
 
 import pytest
 import pytest_asyncio
@@ -44,13 +44,13 @@ async def auth_token(client: AsyncClient) -> str:
 
 
 @pytest_asyncio.fixture(scope="function")
-async def auth_headers(auth_token: str) -> Dict[str, str]:
+async def auth_headers(auth_token: str) -> dict[str, str]:
     """Get authentication headers."""
     return {"Authorization": f"Bearer {auth_token}"}
 
 
 @pytest_asyncio.fixture(scope="function")
-async def admin_client(auth_headers: Dict[str, str]) -> AsyncGenerator[AsyncClient, None]:
+async def admin_client(auth_headers: dict[str, str]) -> AsyncGenerator[AsyncClient, None]:
     """Create authenticated test client for admin API calls."""
     async with AsyncClient(base_url=API_BASE_URL, timeout=30.0, headers=auth_headers) as ac:
         yield ac

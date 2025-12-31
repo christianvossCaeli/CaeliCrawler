@@ -31,6 +31,8 @@ export const bulkImportSources = (data: import('@/types/sources').DataSourceBulk
 export const resetSource = (id: string) => api.post(`/admin/sources/${id}/reset`)
 export const getSourceCounts = () =>
   api.get<import('@/types/sources').SourceCountsResponse>('/admin/sources/meta/counts')
+export const getSourceStatusStats = (params?: { category_id?: string }) =>
+  api.get<import('@/types/sources').SourceStatusStatsResponse>('/admin/sources/meta/status-stats', { params })
 export const getAvailableTags = () =>
   api.get<import('@/types/sources').TagsResponse>('/admin/sources/meta/tags')
 export const getSourcesByTags = (params: {
@@ -159,14 +161,23 @@ export interface ExtractionStatsParams {
 
 export const getExtractedData = (params?: ExtractedDataParams) => api.get('/v1/data/', { params })
 export const getExtractionStats = (params?: ExtractionStatsParams) => api.get('/v1/data/stats', { params })
+export const getUnverifiedCount = () => api.get<{ unverified: number }>('/v1/data/stats/unverified-count')
 export const getExtractionLocations = () => api.get('/v1/data/locations')
 export const getExtractionCountries = () => api.get('/v1/data/countries')
 export const getDisplayConfig = (categoryId: string) => api.get(`/v1/data/display-config/${categoryId}`)
+export const getGlobalDisplayConfig = () => api.get('/v1/data/display-config')
+export const getExtractionsByEntity = (entityId: string, params?: { page?: number; per_page?: number }) =>
+  api.get(`/v1/data/by-entity/${entityId}`, { params })
 export const getDocuments = (params?: DocumentListParams) => api.get('/v1/data/documents', { params })
 export const getDocument = (id: string) => api.get(`/v1/data/documents/${id}`)
 export const getDocumentLocations = () => api.get('/v1/data/documents/locations')
+export const getDocumentStats = (params?: DocumentListParams) => api.get('/v1/data/documents/stats', { params })
 export const searchDocuments = (params: { q: string; category_id?: string; limit?: number }, signal?: AbortSignal) =>
   api.get('/v1/data/search', { params, signal })
+export const triggerFullAnalysis = (documentId: string) =>
+  api.post(`/v1/data/documents/${documentId}/full-analysis`)
+export const analyzeMorePages = (documentId: string) =>
+  api.post(`/v1/data/documents/${documentId}/analyze-pages`)
 export const verifyExtraction = (id: string, data: { verified: boolean; corrections?: Record<string, unknown> }) =>
   api.put(`/v1/data/extracted/${id}/verify`, data)
 

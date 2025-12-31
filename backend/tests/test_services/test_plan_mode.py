@@ -3,8 +3,8 @@
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 import httpx
+import pytest
 
 
 class TestCallClaudeForPlanMode:
@@ -52,7 +52,7 @@ class TestCallClaudeForPlanMode:
                 mock_client.post = AsyncMock(return_value=mock_response)
                 mock_client_class.return_value.__aenter__.return_value = mock_client
 
-                result = await call_claude_for_plan_mode(
+                await call_claude_for_plan_mode(
                     system_prompt="Test prompt",
                     messages=long_messages,
                 )
@@ -243,7 +243,7 @@ class TestInterpretPlanQuery:
         """Test successful plan mode interpretation."""
         from services.smart_query.query_interpreter import interpret_plan_query
 
-        with patch(
+        with patch(  # noqa: SIM117
             "services.smart_query.interpreters.plan_interpreter.load_all_types_for_write",
             new=AsyncMock(return_value=(
                 [{"slug": "person", "name": "Person"}],  # entity_types
@@ -273,57 +273,55 @@ class TestInterpretPlanQuery:
         with patch(
             "services.smart_query.interpreters.plan_interpreter.load_all_types_for_write",
             new=AsyncMock(return_value=([], [], [], []))
-        ):
-            with patch(
-                "services.smart_query.interpreters.plan_interpreter.call_claude_for_plan_mode",
-                new=AsyncMock(return_value="""
+        ), patch(
+            "services.smart_query.interpreters.plan_interpreter.call_claude_for_plan_mode",
+            new=AsyncMock(return_value="""
 Hier ist dein **Fertiger Prompt:**
 
 > Zeige mir alle Gemeinden in NRW mit Pain Points
 
 **Modus:** Lese-Modus
 """)
-            ):
-                result = await interpret_plan_query(
-                    question="Test question",
-                    session=session,
-                )
+        ):
+            result = await interpret_plan_query(
+                question="Test question",
+                session=session,
+            )
 
-                assert result["has_generated_prompt"] is True
-                assert result["generated_prompt"] is not None
-                assert result["suggested_mode"] == "read"
+            assert result["has_generated_prompt"] is True
+            assert result["generated_prompt"] is not None
+            assert result["suggested_mode"] == "read"
 
     @pytest.mark.asyncio
     async def test_fallback_to_openai(self, session):
         """Test fallback to OpenAI when Claude is unavailable."""
         from services.smart_query.query_interpreter import interpret_plan_query
 
-        with patch(
+        with patch(  # noqa: SIM117
             "services.smart_query.interpreters.plan_interpreter.load_all_types_for_write",
             new=AsyncMock(return_value=([], [], [], []))
+        ), patch(
+            "services.smart_query.interpreters.plan_interpreter.call_claude_for_plan_mode",
+            new=AsyncMock(return_value=None)  # Simulate Claude unavailable
         ):
             with patch(
-                "services.smart_query.interpreters.plan_interpreter.call_claude_for_plan_mode",
-                new=AsyncMock(return_value=None)  # Simulate Claude unavailable
-            ):
-                with patch(
-                    "services.smart_query.interpreters.plan_interpreter.get_openai_client"
-                ) as mock_openai:
-                    mock_client = MagicMock()
-                    mock_response = MagicMock()
-                    mock_response.choices = [
-                        MagicMock(message=MagicMock(content="OpenAI fallback response"))
-                    ]
-                    mock_client.chat.completions.create.return_value = mock_response
-                    mock_openai.return_value = mock_client
+                "services.smart_query.interpreters.plan_interpreter.get_openai_client"
+            ) as mock_openai:
+                mock_client = MagicMock()
+                mock_response = MagicMock()
+                mock_response.choices = [
+                    MagicMock(message=MagicMock(content="OpenAI fallback response"))
+                ]
+                mock_client.chat.completions.create.return_value = mock_response
+                mock_openai.return_value = mock_client
 
-                    result = await interpret_plan_query(
-                        question="Test question",
-                        session=session,
-                    )
+                result = await interpret_plan_query(
+                    question="Test question",
+                    session=session,
+                )
 
-                    assert result["success"] is True
-                    assert result["message"] == "OpenAI fallback response"
+                assert result["success"] is True
+                assert result["message"] == "OpenAI fallback response"
 
 
 class TestInterpretPlanQueryStream:
@@ -499,6 +497,7 @@ class TestTypesCache:
     def test_cache_expires_after_ttl(self):
         """Test cache expires after TTL seconds."""
         import time
+
         from services.smart_query.query_interpreter import TypesCache
 
         cache = TypesCache(ttl_seconds=0.1)  # 100ms TTL
@@ -538,8 +537,8 @@ class TestTypesCache:
     def test_global_invalidate_function(self):
         """Test the global invalidate_types_cache function."""
         from services.smart_query.query_interpreter import (
-            invalidate_types_cache,
             _types_cache,
+            invalidate_types_cache,
         )
 
         # Set some data in the global cache

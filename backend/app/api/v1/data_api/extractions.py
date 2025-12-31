@@ -1,7 +1,6 @@
 """Extracted data endpoints."""
 
-from datetime import date
-from typing import Optional
+from datetime import UTC, date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -9,18 +8,19 @@ from sqlalchemy import String, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import require_editor
+from app.core.exceptions import NotFoundError
 from app.database import get_session
-from app.models import ExtractedData, Document, Category
+from app.models import Category, Document, ExtractedData
 from app.models.user import User
 from app.schemas.extracted_data import (
-    ExtractedDataResponse,
+    DisplayColumn,
+    DisplayFieldsConfig,
     ExtractedDataListResponse,
+    ExtractedDataResponse,
     ExtractedDataVerify,
     ExtractionStats,
-    DisplayFieldsConfig,
-    DisplayColumn,
 )
-from app.core.exceptions import NotFoundError
+
 from .loaders import bulk_load_documents_with_sources
 
 router = APIRouter()
@@ -29,14 +29,14 @@ router = APIRouter()
 def apply_extraction_filters(
     query,
     *,
-    category_id: Optional[UUID] = None,
-    source_id: Optional[UUID] = None,
-    extraction_type: Optional[str] = None,
-    min_confidence: Optional[float] = None,
-    human_verified: Optional[bool] = None,
-    created_from: Optional[date] = None,
-    created_to: Optional[date] = None,
-    search: Optional[str] = None,
+    category_id: UUID | None = None,
+    source_id: UUID | None = None,
+    extraction_type: str | None = None,
+    min_confidence: float | None = None,
+    human_verified: bool | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
+    search: str | None = None,
 ):
     """Apply shared filters for extracted data queries."""
     if source_id is not None or search:
@@ -76,19 +76,19 @@ def apply_extraction_filters(
 async def list_extracted_data(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
-    category_id: Optional[UUID] = Query(default=None),
-    source_id: Optional[UUID] = Query(default=None),
-    extraction_type: Optional[str] = Query(default=None),
-    min_confidence: Optional[float] = Query(default=None, ge=0, le=1, description="Minimum confidence score filter"),
-    human_verified: Optional[bool] = Query(default=None),
-    created_from: Optional[date] = Query(default=None, description="Filter by created date from (YYYY-MM-DD)"),
-    created_to: Optional[date] = Query(default=None, description="Filter by created date to (YYYY-MM-DD)"),
-    search: Optional[str] = Query(
+    category_id: UUID | None = Query(default=None),
+    source_id: UUID | None = Query(default=None),
+    extraction_type: str | None = Query(default=None),
+    min_confidence: float | None = Query(default=None, ge=0, le=1, description="Minimum confidence score filter"),
+    human_verified: bool | None = Query(default=None),
+    created_from: date | None = Query(default=None, description="Filter by created date from (YYYY-MM-DD)"),
+    created_to: date | None = Query(default=None, description="Filter by created date to (YYYY-MM-DD)"),
+    search: str | None = Query(
         default=None,
         description="Search in document title, URL, extracted content, corrections, and entity references",
     ),
-    sort_by: Optional[str] = Query(default="created_at", description="Field to sort by"),
-    sort_order: Optional[str] = Query(default="desc", description="Sort order: asc or desc"),
+    sort_by: str | None = Query(default="created_at", description="Field to sort by"),
+    sort_order: str | None = Query(default="desc", description="Sort order: asc or desc"),
     session: AsyncSession = Depends(get_session),
 ):
     """List extracted data with filters."""
@@ -109,12 +109,18 @@ async def list_extracted_data(
     total = (await session.execute(count_query)).scalar()
 
     # Dynamic sorting
+    # entity_count uses JSONB array length for sorting
+    entity_count_expr = func.coalesce(
+        func.jsonb_array_length(ExtractedData.entity_references),
+        0
+    )
     sortable_fields = {
         "created_at": ExtractedData.created_at,
         "confidence_score": ExtractedData.confidence_score,
         "relevance_score": ExtractedData.relevance_score,
         "extraction_type": ExtractedData.extraction_type,
         "human_verified": ExtractedData.human_verified,
+        "entity_count": entity_count_expr,
     }
     sort_column = sortable_fields.get(sort_by, ExtractedData.created_at)
     if sort_order == "asc":
@@ -176,14 +182,14 @@ async def list_extracted_data(
 
 @router.get("/stats", response_model=ExtractionStats)
 async def get_extraction_stats(
-    category_id: Optional[UUID] = Query(default=None),
-    source_id: Optional[UUID] = Query(default=None),
-    extraction_type: Optional[str] = Query(default=None),
-    min_confidence: Optional[float] = Query(default=None, ge=0, le=1, description="Minimum confidence score filter"),
-    human_verified: Optional[bool] = Query(default=None),
-    created_from: Optional[date] = Query(default=None, description="Filter by created date from (YYYY-MM-DD)"),
-    created_to: Optional[date] = Query(default=None, description="Filter by created date to (YYYY-MM-DD)"),
-    search: Optional[str] = Query(
+    category_id: UUID | None = Query(default=None),
+    source_id: UUID | None = Query(default=None),
+    extraction_type: str | None = Query(default=None),
+    min_confidence: float | None = Query(default=None, ge=0, le=1, description="Minimum confidence score filter"),
+    human_verified: bool | None = Query(default=None),
+    created_from: date | None = Query(default=None, description="Filter by created date from (YYYY-MM-DD)"),
+    created_to: date | None = Query(default=None, description="Filter by created date to (YYYY-MM-DD)"),
+    search: str | None = Query(
         default=None,
         description="Search in document title, URL, extracted content, corrections, and entity references",
     ),
@@ -258,6 +264,20 @@ async def get_extraction_stats(
     )
 
 
+@router.get("/stats/unverified-count")
+async def get_unverified_count(
+    session: AsyncSession = Depends(get_session),
+):
+    """Get only the count of unverified extractions (optimized for badge display)."""
+    count = (await session.execute(
+        select(func.count())
+        .select_from(ExtractedData)
+        .where(ExtractedData.human_verified.is_(False))
+    )).scalar() or 0
+
+    return {"unverified": count}
+
+
 @router.put("/extracted/{extraction_id}/verify", response_model=ExtractedDataResponse)
 async def verify_extraction(
     extraction_id: UUID,
@@ -266,7 +286,7 @@ async def verify_extraction(
     session: AsyncSession = Depends(get_session),
 ):
     """Verify extracted data and optionally apply corrections."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     extraction = await session.get(ExtractedData, extraction_id)
     if not extraction:
@@ -276,7 +296,7 @@ async def verify_extraction(
     if data.verified:
         verifier = current_user.full_name or current_user.email or str(current_user.id)
         extraction.verified_by = verifier
-        extraction.verified_at = datetime.now(timezone.utc)
+        extraction.verified_at = datetime.now(UTC)
     else:
         extraction.verified_by = None
         extraction.verified_at = None
@@ -288,6 +308,141 @@ async def verify_extraction(
     await session.refresh(extraction)
 
     return ExtractedDataResponse.model_validate(extraction)
+
+
+@router.get("/by-entity/{entity_id}", response_model=ExtractedDataListResponse)
+async def get_extractions_by_entity(
+    entity_id: UUID,
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Get extracted data that references a specific entity.
+
+    Searches in both primary_entity_id and entity_references JSONB field.
+    """
+    # Build query to find extractions referencing this entity
+    # Either via primary_entity_id or in entity_references array
+    entity_id_str = str(entity_id)
+
+    query = select(ExtractedData).where(
+        or_(
+            ExtractedData.primary_entity_id == entity_id,
+            # JSONB containment: check if entity_id is in any entity_references entry
+            ExtractedData.entity_references.op('@>')([{"entity_id": entity_id_str}]),
+        )
+    ).order_by(ExtractedData.created_at.desc())
+
+    # Count total
+    count_query = select(func.count()).select_from(query.subquery())
+    total = (await session.execute(count_query)).scalar() or 0
+
+    # Paginate
+    query = query.offset((page - 1) * per_page).limit(per_page)
+    result = await session.execute(query)
+    extractions = result.scalars().all()
+
+    # Bulk-load related data
+    doc_ids = {ext.document_id for ext in extractions if ext.document_id}
+    docs_by_id = await bulk_load_documents_with_sources(session, doc_ids)
+
+    # Enrich with document and source info
+    items = []
+    for ext in extractions:
+        doc = docs_by_id.get(ext.document_id)
+        source = doc.source if doc else None
+
+        ext_dict = {
+            "id": ext.id,
+            "document_id": ext.document_id,
+            "category_id": ext.category_id,
+            "extraction_type": ext.extraction_type,
+            "extracted_content": ext.extracted_content,
+            "confidence_score": ext.confidence_score,
+            "ai_model_used": ext.ai_model_used,
+            "ai_prompt_version": ext.ai_prompt_version,
+            "tokens_used": ext.tokens_used,
+            "human_verified": ext.human_verified,
+            "human_corrections": ext.human_corrections,
+            "verified_by": ext.verified_by,
+            "verified_at": ext.verified_at,
+            "relevance_score": ext.relevance_score,
+            "created_at": ext.created_at,
+            "updated_at": ext.updated_at,
+            "entity_references": ext.entity_references,
+            "primary_entity_id": ext.primary_entity_id,
+            "final_content": ext.final_content,
+            "document_title": doc.title if doc else None,
+            "document_url": doc.original_url if doc else None,
+            "source_name": source.name if source else None,
+        }
+        items.append(ExtractedDataResponse.model_validate(ext_dict))
+
+    return ExtractedDataListResponse(
+        items=items,
+        total=total,
+        page=page,
+        per_page=per_page,
+        pages=(total + per_page - 1) // per_page if per_page > 0 else 0,
+    )
+
+
+@router.get("/display-config", response_model=DisplayFieldsConfig)
+async def get_global_display_config(
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Get global display configuration for the results view without category filter.
+
+    Analyzes existing entity_references in extracted_data to determine
+    which entity type columns to show.
+    """
+    # Query distinct entity types from entity_references JSONB
+    # Uses PostgreSQL JSONB array element extraction
+    entity_types_query = select(
+        func.jsonb_array_elements(ExtractedData.entity_references).op('->>')('entity_type').label('entity_type')
+    ).where(
+        ExtractedData.entity_references.isnot(None),
+        func.jsonb_array_length(ExtractedData.entity_references) > 0
+    ).distinct().limit(10)
+
+    result = await session.execute(entity_types_query)
+    entity_types = [row.entity_type for row in result if row.entity_type]
+
+    # Build columns
+    columns = [
+        DisplayColumn(key="document", label="Dokument", type="document_link", width="220px"),
+    ]
+
+    entity_ref_cols = []
+    label_map = {
+        "territorial-entity": "Kommune",
+        "person": "Person",
+        "organization": "Organisation",
+    }
+
+    for entity_type in entity_types:
+        label = label_map.get(entity_type, entity_type.replace("-", " ").title())
+        columns.append(DisplayColumn(
+            key=f"entity_references.{entity_type}",
+            label=label,
+            type="entity_link",
+            width="150px",
+        ))
+        entity_ref_cols.append(entity_type)
+
+    columns.extend([
+        DisplayColumn(key="confidence_score", label="Konfidenz", type="confidence", width="110px"),
+        DisplayColumn(key="relevance_score", label="Relevanz", type="confidence", width="110px"),
+        DisplayColumn(key="human_verified", label="Geprüft", type="boolean", width="80px"),
+        DisplayColumn(key="created_at", label="Erfasst", type="date", width="100px"),
+    ])
+
+    return DisplayFieldsConfig(
+        columns=columns,
+        entity_reference_columns=entity_ref_cols,
+    )
 
 
 @router.get("/display-config/{category_id}", response_model=DisplayFieldsConfig)

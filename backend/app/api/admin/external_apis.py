@@ -5,7 +5,6 @@ This module handles the unified API configuration that combines
 entity imports and facet syncing functionality.
 """
 
-from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -14,13 +13,13 @@ from sqlalchemy import Integer, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.database import get_session
+from app.core.audit import AuditContext
 from app.core.deps import require_admin
 from app.core.rate_limit import check_rate_limit
-from app.core.audit import AuditContext
-from app.models.audit_log import AuditAction
+from app.database import get_session
 from app.models import User
 from app.models.api_configuration import APIConfiguration, ImportMode
+from app.models.audit_log import AuditAction
 from app.schemas.api_configuration import (
     APIConfigurationCreate,
     APIConfigurationDetail,
@@ -48,29 +47,40 @@ router = APIRouter(tags=["API Configuration"])
 
 @router.get("", response_model=APIConfigurationListResponse)
 async def list_api_configurations(
-    is_active: Optional[bool] = Query(None),
-    api_type: Optional[str] = Query(None),
-    import_mode: Optional[str] = Query(None),
-    data_source_id: Optional[UUID] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    is_active: bool | None = Query(None),
+    api_type: str | None = Query(None),
+    import_mode: str | None = Query(None),
+    data_source_id: UUID | None = Query(None),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_admin),
 ):
-    """List all API configurations."""
-    query = (
-        select(APIConfiguration)
-        .options(selectinload(APIConfiguration.data_source))
-    )
+    """List all API configurations with pagination."""
+    base_query = select(APIConfiguration)
 
+    # Apply filters
     if is_active is not None:
-        query = query.where(APIConfiguration.is_active == is_active)
+        base_query = base_query.where(APIConfiguration.is_active == is_active)
     if api_type:
-        query = query.where(APIConfiguration.api_type == api_type)
+        base_query = base_query.where(APIConfiguration.api_type == api_type)
     if import_mode:
-        query = query.where(APIConfiguration.import_mode == import_mode)
+        base_query = base_query.where(APIConfiguration.import_mode == import_mode)
     if data_source_id:
-        query = query.where(APIConfiguration.data_source_id == data_source_id)
+        base_query = base_query.where(APIConfiguration.data_source_id == data_source_id)
 
-    query = query.order_by(APIConfiguration.created_at.desc())
+    # Get total count
+    count_query = select(func.count()).select_from(base_query.subquery())
+    total = (await session.execute(count_query)).scalar() or 0
+
+    # Apply pagination and ordering
+    query = (
+        base_query
+        .options(selectinload(APIConfiguration.data_source))
+        .order_by(APIConfiguration.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
 
     result = await session.execute(query)
     configs = result.scalars().all()
@@ -85,7 +95,10 @@ async def list_api_configurations(
 
     return APIConfigurationListResponse(
         items=items,
-        total=len(configs),
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=(total + page_size - 1) // page_size if total > 0 else 0,
     )
 
 
@@ -323,7 +336,7 @@ async def delete_api_configuration(
         await session.delete(config)
         await session.commit()
 
-    return MessageResponse(message=f"API configuration deleted successfully")
+    return MessageResponse(message="API configuration deleted successfully")
 
 
 # ============================================================================
@@ -335,7 +348,7 @@ async def delete_api_configuration(
 async def trigger_sync(
     config_id: UUID,
     http_request: Request,
-    sync_request: Optional[TriggerSyncRequest] = None,
+    sync_request: TriggerSyncRequest | None = None,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_admin),
 ):
@@ -470,7 +483,7 @@ async def get_sync_stats(
 @router.get("/{config_id}/records", response_model=SyncRecordListResponse)
 async def list_sync_records(
     config_id: UUID,
-    status: Optional[str] = Query(None),
+    status: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
@@ -575,7 +588,7 @@ async def delete_sync_record(
 # ============================================================================
 
 
-@router.get("/types/available", response_model=List[str])
+@router.get("/types/available", response_model=list[str])
 async def list_available_api_types(
     _: User = Depends(require_admin),
 ):
@@ -588,7 +601,7 @@ async def list_available_api_types(
     return list(ExternalAPISyncService.CLIENT_REGISTRY.keys())
 
 
-@router.get("/import-modes/available", response_model=List[str])
+@router.get("/import-modes/available", response_model=list[str])
 async def list_import_modes(
     _: User = Depends(require_admin),
 ):
@@ -604,17 +617,17 @@ async def list_import_modes(
 class SaveFromDiscoveryRequest(BaseModel):
     """Request to save a discovered API as a configuration."""
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     api_type: str = "rest"
     base_url: str
     endpoint: str
-    documentation_url: Optional[str] = None
+    documentation_url: str | None = None
     auth_required: bool = False
     field_mapping: dict = Field(default_factory=dict)
-    keywords: List[str] = Field(default_factory=list)
-    default_tags: List[str] = Field(default_factory=list)
+    keywords: list[str] = Field(default_factory=list)
+    default_tags: list[str] = Field(default_factory=list)
     confidence: float = 0.8
-    validation_item_count: Optional[int] = None
+    validation_item_count: int | None = None
 
 
 @router.post("/save-from-discovery", response_model=APIConfigurationResponse, status_code=201)
@@ -645,7 +658,7 @@ async def save_api_from_discovery(
     # Create DataSource
     data_source = DataSource(
         name=request.name,
-        description=request.description or f"Via AI-Discovery erstellt",
+        description=request.description or "Via AI-Discovery erstellt",
         base_url=request.base_url,
         source_type=SourceType.REST_API,
         is_active=True,

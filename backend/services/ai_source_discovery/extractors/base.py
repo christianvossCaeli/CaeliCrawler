@@ -1,8 +1,7 @@
 """Base class for content extractors."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, List
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urljoin, urlparse
 
 from ..models import ExtractedSource, SearchStrategy
 
@@ -30,7 +29,7 @@ class BaseExtractor(ABC):
         url: str,
         html_content: str,
         strategy: SearchStrategy,
-    ) -> List[ExtractedSource]:
+    ) -> list[ExtractedSource]:
         """
         Extract data sources from the content.
 
@@ -78,10 +77,7 @@ class BaseExtractor(ABC):
             return False
 
         # Must be HTTP(S)
-        if url.startswith(("http://", "https://")):
-            return True
-
-        return False
+        return bool(url.startswith(("http://", "https://")))
 
     def _clean_text(self, text: str) -> str:
         """Clean extracted text."""

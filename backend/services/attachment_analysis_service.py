@@ -1,19 +1,20 @@
 """Service for AI-based analysis of entity attachments."""
 
 import base64
-from datetime import datetime, timezone
+import time
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.models import AITask, AITaskStatus, AITaskType, Entity, FacetType
 from app.models.entity_attachment import AttachmentAnalysisStatus, EntityAttachment
+from app.models.llm_usage import LLMProvider, LLMTaskType
+from services.llm_usage_tracker import record_llm_usage
 
 logger = structlog.get_logger()
 
@@ -65,7 +66,7 @@ class AttachmentAnalysisService:
             status=AITaskStatus.PENDING,
             name=f"Attachment-Analyse: {attachment.filename}",
             description=f"Analysiere {attachment.content_type} fuer Entity '{entity.name}'",
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
             progress_total=3,  # 1: Load, 2: Analyze, 3: Extract facets
             result_data={
                 "attachment_id": str(attachment_id),
@@ -102,7 +103,7 @@ class AttachmentAnalysisService:
 
         return ai_task
 
-    async def get_analysis_status(self, attachment_id: UUID) -> Dict[str, Any]:
+    async def get_analysis_status(self, attachment_id: UUID) -> dict[str, Any]:
         """Get current analysis status for an attachment."""
         attachment = await self.db.get(EntityAttachment, attachment_id)
         if not attachment:
@@ -121,8 +122,8 @@ class AttachmentAnalysisService:
 async def analyze_image_with_vision(
     image_path: Path,
     entity_name: str,
-    facet_types: List[FacetType],
-) -> Dict[str, Any]:
+    facet_types: list[FacetType],
+) -> dict[str, Any]:
     """
     Analyze an image using Azure OpenAI Vision API.
 
@@ -201,31 +202,59 @@ ANTWORTFORMAT (JSON):
     # Get vision deployment name
     deployment = settings.azure_openai_deployment_vision or settings.azure_openai_deployment_name
 
-    response = await client.chat.completions.create(
-        model=deployment,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{media_type};base64,{base64_image}",
-                            "detail": "high",
+    start_time = time.time()
+    try:
+        response = await client.chat.completions.create(
+            model=deployment,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{media_type};base64,{base64_image}",
+                                "detail": "high",
+                            },
                         },
-                    },
-                    {
-                        "type": "text",
-                        "text": f"Analysiere dieses Bild fuer die Entity '{entity_name}'.",
-                    },
-                ],
-            },
-        ],
-        temperature=0.2,
-        max_tokens=4096,
-        response_format={"type": "json_object"},
-    )
+                        {
+                            "type": "text",
+                            "text": f"Analysiere dieses Bild fuer die Entity '{entity_name}'.",
+                        },
+                    ],
+                },
+            ],
+            temperature=0.2,
+            max_tokens=4096,
+            response_format={"type": "json_object"},
+        )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.ATTACHMENT_ANALYSIS,
+                task_name="analyze_image_with_vision",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
+    except Exception:
+        await record_llm_usage(
+            provider=LLMProvider.AZURE_OPENAI,
+            model=settings.azure_openai_deployment_name,
+            task_type=LLMTaskType.ATTACHMENT_ANALYSIS,
+            task_name="analyze_image_with_vision",
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+            duration_ms=int((time.time() - start_time) * 1000),
+            is_error=True,
+        )
+        raise
 
     import json
 
@@ -239,8 +268,8 @@ ANTWORTFORMAT (JSON):
 async def analyze_pdf_with_ai(
     pdf_path: Path,
     entity_name: str,
-    facet_types: List[FacetType],
-) -> Dict[str, Any]:
+    facet_types: list[FacetType],
+) -> dict[str, Any]:
     """
     Analyze a PDF by extracting text and analyzing with AI.
 
@@ -322,19 +351,47 @@ ANTWORTFORMAT (JSON):
 }}
 """
 
-    response = await client.chat.completions.create(
-        model=settings.azure_openai_deployment_name,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": f"Analysiere folgenden PDF-Text fuer die Entity '{entity_name}':\n\n{extracted_text}",
-            },
-        ],
-        temperature=0.2,
-        max_tokens=4096,
-        response_format={"type": "json_object"},
-    )
+    start_time = time.time()
+    try:
+        response = await client.chat.completions.create(
+            model=settings.azure_openai_deployment_name,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": f"Analysiere folgenden PDF-Text fuer die Entity '{entity_name}':\n\n{extracted_text}",
+                },
+            ],
+            temperature=0.2,
+            max_tokens=4096,
+            response_format={"type": "json_object"},
+        )
+
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.ATTACHMENT_ANALYSIS,
+                task_name="analyze_pdf_with_ai",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
+    except Exception:
+        await record_llm_usage(
+            provider=LLMProvider.AZURE_OPENAI,
+            model=settings.azure_openai_deployment_name,
+            task_type=LLMTaskType.ATTACHMENT_ANALYSIS,
+            task_name="analyze_pdf_with_ai",
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+            duration_ms=int((time.time() - start_time) * 1000),
+            is_error=True,
+        )
+        raise
 
     import json
 
@@ -379,11 +436,11 @@ async def extract_pdf_text(pdf_path: Path) -> str:
 
 
 async def extract_facet_suggestions(
-    analysis_result: Dict[str, Any],
+    analysis_result: dict[str, Any],
     entity_id: UUID,
-    facet_types: List[FacetType],
+    facet_types: list[FacetType],
     db: AsyncSession,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Extract and validate facet suggestions from analysis result.
 

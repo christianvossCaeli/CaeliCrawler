@@ -9,11 +9,12 @@ The API is based on CKAN (Comprehensive Knowledge Archive Network).
 API Documentation: https://www.govdata.de/ckan-api
 """
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any
 
-from crawlers.api_clients.base_api import BaseAPIClient, APIResponse, APIDocument
+from crawlers.api_clients.base_api import APIDocument, APIResponse, BaseAPIClient
 
 
 @dataclass
@@ -23,59 +24,59 @@ class GovDataDataset:
     id: str
     name: str  # URL-safe name/slug
     title: str
-    notes: Optional[str] = None  # Description
+    notes: str | None = None  # Description
 
     # Organization
-    organization_id: Optional[str] = None
-    organization_name: Optional[str] = None
-    organization_title: Optional[str] = None
+    organization_id: str | None = None
+    organization_name: str | None = None
+    organization_title: str | None = None
 
     # Classification
-    groups: List[Dict[str, str]] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
-    categories: List[str] = field(default_factory=list)
+    groups: list[dict[str, str]] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    categories: list[str] = field(default_factory=list)
 
     # License
-    license_id: Optional[str] = None
-    license_title: Optional[str] = None
-    license_url: Optional[str] = None
+    license_id: str | None = None
+    license_title: str | None = None
+    license_url: str | None = None
 
     # Resources (files, APIs)
-    resources: List[Dict[str, Any]] = field(default_factory=list)
+    resources: list[dict[str, Any]] = field(default_factory=list)
     num_resources: int = 0
 
     # Metadata
-    author: Optional[str] = None
-    author_email: Optional[str] = None
-    maintainer: Optional[str] = None
-    maintainer_email: Optional[str] = None
+    author: str | None = None
+    author_email: str | None = None
+    maintainer: str | None = None
+    maintainer_email: str | None = None
 
     # Temporal coverage
-    temporal_start: Optional[datetime] = None
-    temporal_end: Optional[datetime] = None
+    temporal_start: datetime | None = None
+    temporal_end: datetime | None = None
 
     # Geographic coverage
-    spatial: Optional[str] = None
-    spatial_text: Optional[str] = None
+    spatial: str | None = None
+    spatial_text: str | None = None
 
     # URLs
-    url: Optional[str] = None
+    url: str | None = None
 
     # Dates
-    created: Optional[datetime] = None
-    modified: Optional[datetime] = None
+    created: datetime | None = None
+    modified: datetime | None = None
 
     # State
     state: str = "active"
     is_private: bool = False
 
     # DCAT-AP.de specific
-    dcat_type: Optional[str] = None
-    political_geocoding_uri: Optional[str] = None
-    political_geocoding_level_uri: Optional[str] = None
+    dcat_type: str | None = None
+    political_geocoding_uri: str | None = None
+    political_geocoding_level_uri: str | None = None
 
     # Extra fields
-    extras: Dict[str, Any] = field(default_factory=dict)
+    extras: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -87,18 +88,18 @@ class GovDataResource:
     url: str
     format: str
 
-    description: Optional[str] = None
-    mimetype: Optional[str] = None
-    size: Optional[int] = None
-    hash: Optional[str] = None
+    description: str | None = None
+    mimetype: str | None = None
+    size: int | None = None
+    hash: str | None = None
 
-    created: Optional[datetime] = None
-    modified: Optional[datetime] = None
+    created: datetime | None = None
+    modified: datetime | None = None
 
     # Resource type
-    resource_type: Optional[str] = None
-    cache_url: Optional[str] = None
-    cache_last_updated: Optional[datetime] = None
+    resource_type: str | None = None
+    cache_url: str | None = None
+    cache_last_updated: datetime | None = None
 
 
 @dataclass
@@ -108,11 +109,11 @@ class GovDataOrganization:
     id: str
     name: str
     title: str
-    description: Optional[str] = None
-    image_url: Optional[str] = None
+    description: str | None = None
+    image_url: str | None = None
     state: str = "active"
     package_count: int = 0
-    created: Optional[datetime] = None
+    created: datetime | None = None
 
 
 class GovDataClient(BaseAPIClient):
@@ -172,11 +173,11 @@ class GovDataClient(BaseAPIClient):
         rows: int = 100,
         start: int = 0,
         sort: str = "score desc, metadata_modified desc",
-        filter_query: Optional[str] = None,
-        organization: Optional[str] = None,
-        groups: Optional[List[str]] = None,
-        tags: Optional[List[str]] = None,
-        res_format: Optional[str] = None,
+        filter_query: str | None = None,
+        organization: str | None = None,
+        groups: list[str] | None = None,
+        tags: list[str] | None = None,
+        res_format: str | None = None,
         **kwargs,
     ) -> APIResponse[APIDocument]:
         """
@@ -259,7 +260,7 @@ class GovDataClient(BaseAPIClient):
         self,
         location: str,
         query: str = "",
-        political_level: Optional[str] = None,
+        political_level: str | None = None,
         **kwargs,
     ) -> APIResponse[APIDocument]:
         """
@@ -290,7 +291,7 @@ class GovDataClient(BaseAPIClient):
 
     async def search_by_format(
         self,
-        formats: List[str],
+        formats: list[str],
         query: str = "",
         **kwargs,
     ) -> APIResponse[APIDocument]:
@@ -308,7 +309,7 @@ class GovDataClient(BaseAPIClient):
             **kwargs,
         )
 
-    async def get_dataset(self, dataset_id: str) -> Optional[GovDataDataset]:
+    async def get_dataset(self, dataset_id: str) -> GovDataDataset | None:
         """
         Get a single dataset by ID or name.
 
@@ -321,7 +322,7 @@ class GovDataClient(BaseAPIClient):
 
         return self._parse_dataset(data.get("result", {}))
 
-    async def get_document(self, document_id: str) -> Optional[APIDocument]:
+    async def get_document(self, document_id: str) -> APIDocument | None:
         """Get dataset and convert to APIDocument."""
         dataset = await self.get_dataset(document_id)
         if dataset:
@@ -356,7 +357,7 @@ class GovDataClient(BaseAPIClient):
             else:
                 yield self._parse_organization(org_data)
 
-    async def get_organization(self, org_id: str) -> Optional[GovDataOrganization]:
+    async def get_organization(self, org_id: str) -> GovDataOrganization | None:
         """Get a single organization by ID or name."""
         data = await self.get("organization_show", {"id": org_id})
         if not data or not data.get("success"):
@@ -364,7 +365,7 @@ class GovDataClient(BaseAPIClient):
 
         return self._parse_organization(data.get("result", {}))
 
-    async def get_groups(self) -> AsyncIterator[Dict[str, Any]]:
+    async def get_groups(self) -> AsyncIterator[dict[str, Any]]:
         """Get all groups (categories)."""
         data = await self.get("group_list", {"all_fields": True})
         if not data or not data.get("success"):
@@ -373,7 +374,7 @@ class GovDataClient(BaseAPIClient):
         for group in data.get("result", []):
             yield group
 
-    async def get_tags(self, query: Optional[str] = None) -> List[str]:
+    async def get_tags(self, query: str | None = None) -> list[str]:
         """
         Get available tags.
 
@@ -393,7 +394,7 @@ class GovDataClient(BaseAPIClient):
     async def get_recently_changed(
         self,
         limit: int = 50,
-    ) -> List[GovDataDataset]:
+    ) -> list[GovDataDataset]:
         """Get recently modified datasets."""
         data = await self.get("recently_changed_packages_activity_list", {"limit": limit})
         if not data or not data.get("success"):
@@ -450,7 +451,7 @@ class GovDataClient(BaseAPIClient):
 
             start += batch_size
 
-    def _parse_dataset(self, data: Dict[str, Any]) -> GovDataDataset:
+    def _parse_dataset(self, data: dict[str, Any]) -> GovDataDataset:
         """Parse CKAN package data into GovDataDataset."""
         org = data.get("organization") or {}
         extras = {e["key"]: e["value"] for e in data.get("extras", [])}
@@ -489,7 +490,7 @@ class GovDataClient(BaseAPIClient):
             extras=extras,
         )
 
-    def _parse_organization(self, data: Dict[str, Any]) -> GovDataOrganization:
+    def _parse_organization(self, data: dict[str, Any]) -> GovDataOrganization:
         """Parse CKAN organization data."""
         return GovDataOrganization(
             id=data.get("id", ""),

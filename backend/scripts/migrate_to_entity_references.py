@@ -10,14 +10,13 @@ Run with: python -m scripts.migrate_to_entity_references
 """
 
 import asyncio
-from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_factory
-from app.models import ExtractedData, Category, Entity, EntityType
+from app.models import Category, Entity, EntityType, ExtractedData
 from app.utils.text import normalize_entity_name
 
 
@@ -25,7 +24,7 @@ async def resolve_entity(
     session: AsyncSession,
     entity_type_slug: str,
     entity_name: str,
-) -> Optional[UUID]:
+) -> UUID | None:
     """Resolve an entity name to its UUID."""
     try:
         et_result = await session.execute(
@@ -51,7 +50,6 @@ async def resolve_entity(
 
 async def migrate_extracted_data(session: AsyncSession, batch_size: int = 100):
     """Migrate ExtractedData municipality to entity_references."""
-    print("Migrating ExtractedData...")
 
     # Get all ExtractedData without entity_references but with municipality
     offset = 0
@@ -104,14 +102,11 @@ async def migrate_extracted_data(session: AsyncSession, batch_size: int = 100):
 
         await session.commit()
         offset += batch_size
-        print(f"  Processed {offset} records, migrated {total_migrated}, skipped {total_skipped}")
 
-    print(f"Migration complete: {total_migrated} migrated, {total_skipped} skipped")
 
 
 async def update_categories(session: AsyncSession):
     """Set default entity_reference_config and display_fields for categories."""
-    print("Updating Categories...")
 
     # Default configuration for categories that analyze documents
     default_entity_ref_config = {
@@ -152,25 +147,18 @@ async def update_categories(session: AsyncSession):
     for cat in categories:
         cat.entity_reference_config = default_entity_ref_config
         cat.display_fields = default_display_fields
-        updated += 1
+        updated += 1  # noqa: SIM113
 
     await session.commit()
-    print(f"Updated {updated} categories with default configuration")
 
 
 async def main():
     """Run the migration."""
-    print("=" * 60)
-    print("Entity References Migration")
-    print("=" * 60)
 
     async with async_session_factory() as session:
         await migrate_extracted_data(session)
         await update_categories(session)
 
-    print("=" * 60)
-    print("Migration complete!")
-    print("=" * 60)
 
 
 if __name__ == "__main__":

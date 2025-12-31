@@ -20,19 +20,19 @@ Usage:
 """
 
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator, Optional
 
+from fastapi import APIRouter, Response
 from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    REGISTRY,
     Counter,
     Gauge,
     Histogram,
     Info,
-    REGISTRY,
     generate_latest,
-    CONTENT_TYPE_LATEST,
 )
-from fastapi import APIRouter, Response
 
 # === Crawler Job Metrics ===
 
@@ -167,7 +167,7 @@ class CrawlerJobTracker:
 
     def __init__(self, source_type: str):
         self.source_type = source_type
-        self.start_time: Optional[float] = None
+        self.start_time: float | None = None
         self.pages = 0
         self.documents = 0
         self.status = "completed"

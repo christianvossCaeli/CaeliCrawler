@@ -8,20 +8,19 @@ Crawls RSS and Atom feeds from various sources including:
 - Parliamentary updates
 """
 
-import asyncio
 import hashlib
 import re
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from email.utils import parsedate_to_datetime
-from typing import Any, AsyncIterator, Dict, List, Optional
 from xml.etree import ElementTree as ET
 
 import httpx
 import structlog
 
-from crawlers.base import BaseCrawler, CrawlResult
 from app.config import settings
+from crawlers.base import BaseCrawler, CrawlResult
 
 logger = structlog.get_logger()
 
@@ -33,30 +32,30 @@ class FeedItem:
     id: str
     title: str
     link: str
-    description: Optional[str] = None
-    content: Optional[str] = None
+    description: str | None = None
+    content: str | None = None
 
     # Dates
-    published: Optional[datetime] = None
-    updated: Optional[datetime] = None
+    published: datetime | None = None
+    updated: datetime | None = None
 
     # Author
-    author: Optional[str] = None
-    author_email: Optional[str] = None
+    author: str | None = None
+    author_email: str | None = None
 
     # Classification
-    categories: List[str] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
+    categories: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
     # Enclosures (attachments)
-    enclosures: List[Dict[str, str]] = field(default_factory=list)
+    enclosures: list[dict[str, str]] = field(default_factory=list)
 
     # Source feed info
-    source_title: Optional[str] = None
-    source_link: Optional[str] = None
+    source_title: str | None = None
+    source_link: str | None = None
 
     # Computed
-    content_hash: Optional[str] = None
+    content_hash: str | None = None
 
 
 @dataclass
@@ -68,21 +67,21 @@ class Feed:
     feed_url: str
     feed_type: str  # "rss" or "atom"
 
-    description: Optional[str] = None
-    language: Optional[str] = None
-    copyright: Optional[str] = None
-    generator: Optional[str] = None
+    description: str | None = None
+    language: str | None = None
+    copyright: str | None = None
+    generator: str | None = None
 
     # Update info
-    last_build_date: Optional[datetime] = None
-    ttl: Optional[int] = None  # Time to live in minutes
+    last_build_date: datetime | None = None
+    ttl: int | None = None  # Time to live in minutes
 
     # Image
-    image_url: Optional[str] = None
-    image_title: Optional[str] = None
+    image_url: str | None = None
+    image_title: str | None = None
 
     # Items
-    items: List[FeedItem] = field(default_factory=list)
+    items: list[FeedItem] = field(default_factory=list)
 
 
 class RSSCrawler(BaseCrawler):
@@ -116,7 +115,7 @@ class RSSCrawler(BaseCrawler):
 
     def __init__(self):
         super().__init__()
-        self.client: Optional[httpx.AsyncClient] = None
+        self.client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -139,9 +138,10 @@ class RSSCrawler(BaseCrawler):
 
     async def crawl(self, source, job) -> CrawlResult:
         """Crawl RSS/Atom feed from a data source."""
+        from sqlalchemy import select
+
         from app.database import get_session_context
         from app.models import Document, ProcessingStatus
-        from sqlalchemy import select
 
         result = CrawlResult()
 
@@ -174,16 +174,13 @@ class RSSCrawler(BaseCrawler):
 
                     # Find PDF or document attachments
                     file_url = None
-                    mime_type = None
                     for enc in item.enclosures:
                         enc_type = enc.get("type", "")
                         if "pdf" in enc_type or enc.get("url", "").lower().endswith(".pdf"):
                             file_url = enc.get("url")
-                            mime_type = "application/pdf"
                             break
                         elif not file_url:
                             file_url = enc.get("url")
-                            mime_type = enc_type
 
                     # Create document
                     doc = Document(
@@ -222,7 +219,7 @@ class RSSCrawler(BaseCrawler):
 
         return result
 
-    async def fetch_feed(self, url: str) -> Optional[Feed]:
+    async def fetch_feed(self, url: str) -> Feed | None:
         """Fetch and parse a feed from URL."""
         client = await self._get_client()
 
@@ -237,12 +234,12 @@ class RSSCrawler(BaseCrawler):
             self.logger.error("Failed to fetch feed", url=url, error=str(e))
             return None
 
-    def parse_feed(self, content: str, feed_url: str) -> Optional[Feed]:
+    def parse_feed(self, content: str, feed_url: str) -> Feed | None:
         """Parse RSS or Atom feed content."""
         try:
             # Clean up content
             content = self._clean_xml(content)
-            root = ET.fromstring(content)
+            root = ET.fromstring(content)  # noqa: S314
 
             # Detect feed type
             if root.tag == "rss" or root.tag.endswith("}rss"):
@@ -305,7 +302,7 @@ class RSSCrawler(BaseCrawler):
 
         return feed
 
-    def _parse_rss_item(self, elem: ET.Element) -> Optional[FeedItem]:
+    def _parse_rss_item(self, elem: ET.Element) -> FeedItem | None:
         """Parse RSS item element."""
         link = self._get_text(elem, "link")
         guid = self._get_text(elem, "guid")
@@ -370,7 +367,7 @@ class RSSCrawler(BaseCrawler):
 
         return feed
 
-    def _parse_atom_entry(self, elem: ET.Element, ns: str) -> Optional[FeedItem]:
+    def _parse_atom_entry(self, elem: ET.Element, ns: str) -> FeedItem | None:
         """Parse Atom entry element."""
         entry_id = self._get_text(elem, f"{{{ns}}}id")
         link = self._get_atom_link(elem, "alternate")
@@ -461,18 +458,15 @@ class RSSCrawler(BaseCrawler):
 
         return feed
 
-    def _get_text(self, elem: ET.Element, path: str, namespace: Optional[str] = None) -> Optional[str]:
+    def _get_text(self, elem: ET.Element, path: str, namespace: str | None = None) -> str | None:
         """Get text content from element."""
-        if namespace:
-            child = elem.find(path, {path.split(":")[0]: namespace})
-        else:
-            child = elem.find(path)
+        child = elem.find(path, {path.split(":")[0]: namespace}) if namespace else elem.find(path)
 
         if child is not None and child.text:
             return child.text.strip()
         return None
 
-    def _get_atom_link(self, elem: ET.Element, rel: str = "alternate") -> Optional[str]:
+    def _get_atom_link(self, elem: ET.Element, rel: str = "alternate") -> str | None:
         """Get Atom link by relation type."""
         ns = self.NAMESPACES["atom"]
         for link in elem.findall(f"{{{ns}}}link"):
@@ -480,7 +474,7 @@ class RSSCrawler(BaseCrawler):
                 return link.get("href")
         return None
 
-    def _parse_rss_date(self, date_str: Optional[str]) -> Optional[datetime]:
+    def _parse_rss_date(self, date_str: str | None) -> datetime | None:
         """Parse RSS date format (RFC 822)."""
         if not date_str:
             return None
@@ -489,7 +483,7 @@ class RSSCrawler(BaseCrawler):
         except (ValueError, TypeError):
             return None
 
-    def _parse_atom_date(self, date_str: Optional[str]) -> Optional[datetime]:
+    def _parse_atom_date(self, date_str: str | None) -> datetime | None:
         """Parse Atom date format (ISO 8601)."""
         if not date_str:
             return None
@@ -519,7 +513,7 @@ class RSSCrawler(BaseCrawler):
     async def iterate_feed_items(
         self,
         url: str,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
     ) -> AsyncIterator[FeedItem]:
         """
         Iterate through feed items.

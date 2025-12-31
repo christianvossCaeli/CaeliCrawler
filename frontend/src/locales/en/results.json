@@ -27,6 +27,7 @@
     "columns": {
       "document": "Document",
       "type": "Type",
+      "entities": "Entities",
       "municipality": "Municipality",
       "confidence": "Confidence",
       "verified": "Verified",
@@ -66,7 +67,17 @@
       "tokens": "Tokens",
       "source": "Source",
       "noTitle": "(No Title)",
-      "url": "URL"
+      "url": "URL",
+      "entityReferences": "Entity References",
+      "relevantEntities": "Relevant Entities",
+      "noEntityReferences": "No entity references found",
+      "primaryEntity": "Linked Entity",
+      "primary": "Primary",
+      "entityType": "Entity Type",
+      "role": "Role",
+      "confidence": "Confidence",
+      "clickToView": "Click to view",
+      "notLinked": "Not linked to an entity"
     },
     "messages": {
       "verified": "Result verified",

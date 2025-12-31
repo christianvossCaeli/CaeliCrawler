@@ -13,10 +13,8 @@ The service maintains backward compatibility with existing imports.
 """
 
 import json
-import re
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
-from uuid import UUID
+import time
+from typing import Any
 
 import structlog
 from sqlalchemy import select
@@ -24,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models import FacetType
+from app.models.llm_usage import LLMProvider, LLMTaskType
 from app.schemas.assistant import (
     AssistantChatResponse,
     AssistantContext,
@@ -35,29 +34,30 @@ from app.schemas.assistant import (
 )
 from app.utils.security import (
     SecurityConstants,
+    log_security_event,
     sanitize_for_prompt,
     should_block_request,
     validate_message_length,
-    log_security_event,
 )
-from services.assistant.common import get_openai_client
 from services.assistant.action_executor import (
     execute_action,
     execute_batch_action,
-    preview_inline_edit,
     handle_batch_action_intent,
+    preview_inline_edit,
 )
+from services.assistant.common import get_openai_client
 from services.assistant.context_actions import handle_context_action
-from services.assistant.query_handler import handle_query, handle_context_query
+from services.assistant.prompts import INTENT_CLASSIFICATION_PROMPT
+from services.assistant.query_handler import handle_context_query, handle_query
 from services.assistant.response_formatter import (
     generate_help_response,
+    handle_discussion,
+    handle_image_analysis,
     handle_navigation,
     handle_summarize,
-    handle_image_analysis,
-    handle_discussion,
     suggest_smart_query_redirect,
 )
-from services.assistant.prompts import INTENT_CLASSIFICATION_PROMPT
+from services.llm_usage_tracker import record_llm_usage
 from services.smart_query import SmartQueryService
 from services.translations import Translator
 
@@ -80,7 +80,7 @@ class AssistantService:
         self.smart_query_service = SmartQueryService(db)
         self._facet_types_cache = None
 
-    async def _get_facet_types(self) -> List[FacetType]:
+    async def _get_facet_types(self) -> list[FacetType]:
         """Get all active facet types (cached for session).
 
         Returns:
@@ -93,7 +93,7 @@ class AssistantService:
             self._facet_types_cache = result.scalars().all()
         return self._facet_types_cache
 
-    async def _get_facet_type_by_slug(self, slug: str) -> Optional[FacetType]:
+    async def _get_facet_type_by_slug(self, slug: str) -> FacetType | None:
         """Get a facet type by slug.
 
         Args:
@@ -112,10 +112,10 @@ class AssistantService:
         self,
         message: str,
         context: AssistantContext,
-        conversation_history: List[ConversationMessage],
+        conversation_history: list[ConversationMessage],
         mode: str = "read",
         language: str = "de",
-        attachments: Optional[List[Dict[str, Any]]] = None
+        attachments: list[dict[str, Any]] | None = None
     ) -> AssistantChatResponse:
         """Process a user message and return an appropriate response.
 
@@ -224,7 +224,7 @@ class AssistantService:
         self,
         message: str,
         context: AssistantContext
-    ) -> Tuple[IntentType, Dict[str, Any]]:
+    ) -> tuple[IntentType, dict[str, Any]]:
         """Classify the user's intent using LLM.
 
         Args:
@@ -251,6 +251,7 @@ class AssistantService:
         )
 
         try:
+            start_time = time.time()
             response = client.chat.completions.create(
                 model=settings.azure_openai_deployment_name,
                 messages=[
@@ -262,6 +263,19 @@ class AssistantService:
                 response_format={"type": "json_object"}
             )
 
+            if response.usage:
+                await record_llm_usage(
+                    provider=LLMProvider.AZURE_OPENAI,
+                    model=settings.azure_openai_deployment_name,
+                    task_type=LLMTaskType.CHAT,
+                    task_name="_classify_intent",
+                    prompt_tokens=response.usage.prompt_tokens,
+                    completion_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens,
+                    duration_ms=int((time.time() - start_time) * 1000),
+                    is_error=False,
+                )
+
             result = json.loads(response.choices[0].message.content)
             intent_str = result.get("intent", "QUERY").upper()
             intent = IntentType(intent_str.lower())
@@ -271,16 +285,16 @@ class AssistantService:
 
         except Exception as e:
             logger.error("intent_classification_error", error=str(e))
-            raise ValueError(f"KI-Klassifizierung fehlgeschlagen: {str(e)}")
+            raise ValueError(f"KI-Klassifizierung fehlgeschlagen: {str(e)}") from None
 
     async def _route_intent(
         self,
         intent: IntentType,
         message: str,
         context: AssistantContext,
-        intent_data: Dict[str, Any],
+        intent_data: dict[str, Any],
         mode: str
-    ) -> Tuple[AssistantResponseData, List[SuggestedAction]]:
+    ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
         """Route intent to appropriate handler.
 
         Args:
@@ -432,9 +446,9 @@ class AssistantService:
         self,
         message: str,
         context: AssistantContext,
-        intent_data: Dict[str, Any],
+        intent_data: dict[str, Any],
         mode: str
-    ) -> Tuple[AssistantResponseData, List[SuggestedAction]]:
+    ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
         """Handle facet management requests.
 
         Args:
@@ -465,9 +479,9 @@ class AssistantService:
 
     async def execute_action(
         self,
-        action: "ActionDetails",
+        action: "ActionDetails",  # noqa: F821
         context: AssistantContext
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Execute a confirmed action.
 
         Args:
@@ -482,10 +496,10 @@ class AssistantService:
     async def execute_batch_action(
         self,
         action_type: str,
-        target_filter: Dict[str, Any],
-        action_data: Dict[str, Any],
+        target_filter: dict[str, Any],
+        action_data: dict[str, Any],
         dry_run: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Execute a batch action on multiple entities.
 
         Args:
@@ -505,10 +519,10 @@ class AssistantService:
         self,
         message: str,
         context: AssistantContext,
-        conversation_history: List[ConversationMessage],
+        conversation_history: list[ConversationMessage],
         mode: str = "read",
         language: str = "de",
-        attachments: Optional[List[Dict[str, Any]]] = None
+        attachments: list[dict[str, Any]] | None = None
     ):
         """Process a user message and yield streaming response chunks.
 

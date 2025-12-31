@@ -1,8 +1,9 @@
 """Unit tests for base crawler functionality."""
 
-import pytest
 import hashlib
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
+
+import pytest
 
 from crawlers.base import BaseCrawler, CrawlResult, get_crawler_for_source
 

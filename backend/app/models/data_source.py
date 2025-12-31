@@ -3,13 +3,11 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import (
-    Boolean,
     DateTime,
     Enum,
-    ForeignKey,
     String,
     Text,
     UniqueConstraint,
@@ -76,39 +74,40 @@ class DataSource(Base):
     source_type: Mapped[SourceType] = mapped_column(
         Enum(SourceType, name="source_type"),
         nullable=False,
+        index=True,
     )
     base_url: Mapped[str] = mapped_column(Text, nullable=False)
-    api_endpoint: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    api_endpoint: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Configuration
-    crawl_config: Mapped[Dict[str, Any]] = mapped_column(
+    crawl_config: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
     )
-    auth_config: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    auth_config: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
     )
 
     # Crawl state
-    last_crawl: Mapped[Optional[datetime]] = mapped_column(
+    last_crawl: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    last_change_detected: Mapped[Optional[datetime]] = mapped_column(
+    last_change_detected: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # HTTP conditional request headers (for 304 Not Modified)
-    last_modified_header: Mapped[Optional[str]] = mapped_column(
+    last_modified_header: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="HTTP Last-Modified header from last crawl",
     )
-    etag_header: Mapped[Optional[str]] = mapped_column(
+    etag_header: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="HTTP ETag header from last crawl",
@@ -121,10 +120,10 @@ class DataSource(Base):
         nullable=False,
         index=True,
     )
-    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Additional metadata (e.g., Bundesland, Einwohner, coordinates)
-    extra_data: Mapped[Dict[str, Any]] = mapped_column(
+    extra_data: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
@@ -133,7 +132,7 @@ class DataSource(Base):
     # Tags for filtering/search (NOT entity coupling!)
     # Examples: ["nrw", "kommunal", "windkraft", "gemeinde"]
     # Used by Smart Query to find relevant sources for categories
-    tags: Mapped[List[str]] = mapped_column(
+    tags: Mapped[list[str]] = mapped_column(
         JSONB,
         default=list,
         nullable=False,
@@ -148,6 +147,7 @@ class DataSource(Base):
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
+        index=True,
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -158,7 +158,7 @@ class DataSource(Base):
 
     # Relationships
     # N:M relationship via junction table
-    categories: Mapped[List["Category"]] = relationship(
+    categories: Mapped[list["Category"]] = relationship(
         "Category",
         secondary="data_source_categories",
         back_populates="sources",
@@ -166,23 +166,23 @@ class DataSource(Base):
     )
 
     # Junction table entries (for direct access)
-    category_links: Mapped[List["DataSourceCategory"]] = relationship(
+    category_links: Mapped[list["DataSourceCategory"]] = relationship(
         "DataSourceCategory",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
 
-    crawl_jobs: Mapped[List["CrawlJob"]] = relationship(
+    crawl_jobs: Mapped[list["CrawlJob"]] = relationship(
         "CrawlJob",
         back_populates="source",
         cascade="all, delete-orphan",
     )
-    documents: Mapped[List["Document"]] = relationship(
+    documents: Mapped[list["Document"]] = relationship(
         "Document",
         back_populates="source",
         cascade="all, delete-orphan",
     )
-    change_logs: Mapped[List["ChangeLog"]] = relationship(
+    change_logs: Mapped[list["ChangeLog"]] = relationship(
         "ChangeLog",
         back_populates="source",
         cascade="all, delete-orphan",

@@ -1,82 +1,37 @@
 """Document endpoints."""
 
-from typing import List, Optional
+from datetime import datetime, time
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
-from app.models import Document, DataSource, Category, ExtractedData, ProcessingStatus
-from app.schemas.document import (
-    DocumentResponse,
-    DocumentListResponse,
-    DocumentDetailResponse,
-)
 from app.core.exceptions import NotFoundError
-from .loaders import bulk_load_sources, bulk_load_categories
+from app.database import get_session
+from app.models import Category, DataSource, Document, ExtractedData, ProcessingStatus
+from app.schemas.document import (
+    DocumentDetailResponse,
+    DocumentListResponse,
+    DocumentProcessingStatsResponse,
+    DocumentResponse,
+)
+
+from .loaders import bulk_load_categories, bulk_load_sources
 
 router = APIRouter()
 
 
-@router.get("/locations", response_model=List[str])
-async def list_extraction_locations(
-    session: AsyncSession = Depends(get_session),
+def apply_document_filters(
+    query,
+    category_id: UUID | None,
+    source_id: UUID | None,
+    document_type: str | None,
+    processing_status: ProcessingStatus | None,
+    search: str | None,
+    discovered_from: str | None,
+    discovered_to: str | None,
 ):
-    """
-    Legacy endpoint - location_name no longer exists on DataSource.
-
-    DataSources are now decoupled from location data.
-    Use Entity-based location queries instead.
-    """
-    return []
-
-
-@router.get("/countries", response_model=List[dict])
-async def list_extraction_countries(
-    session: AsyncSession = Depends(get_session),
-):
-    """
-    Legacy endpoint - country no longer exists on DataSource.
-
-    DataSources are now decoupled from location data.
-    Use Entity-based location queries instead.
-    """
-    return []
-
-
-@router.get("/documents/locations", response_model=List[str])
-async def list_document_locations(
-    session: AsyncSession = Depends(get_session),
-):
-    """
-    Legacy endpoint - location_name no longer exists on DataSource.
-
-    DataSources are now decoupled from location data.
-    Use Entity-based location queries instead.
-    """
-    return []
-
-
-@router.get("/documents", response_model=DocumentListResponse)
-async def list_documents(
-    page: int = Query(default=1, ge=1),
-    per_page: int = Query(default=20, ge=1, le=500),
-    category_id: Optional[UUID] = Query(default=None),
-    source_id: Optional[UUID] = Query(default=None),
-    document_type: Optional[str] = Query(default=None),
-    processing_status: Optional[ProcessingStatus] = Query(default=None),
-    search: Optional[str] = Query(default=None, description="Search in title and URL"),
-    discovered_from: Optional[str] = Query(default=None, description="Filter by discovered date from (YYYY-MM-DD)"),
-    discovered_to: Optional[str] = Query(default=None, description="Filter by discovered date to (YYYY-MM-DD)"),
-    sort_by: Optional[str] = Query(default=None, description="Sort by field (title, document_type, processing_status, source_name, discovered_at, file_size)"),
-    sort_order: Optional[str] = Query(default="desc", description="Sort order (asc, desc)"),
-    session: AsyncSession = Depends(get_session),
-):
-    """List documents with filters and sorting."""
-    query = select(Document)
-
     if category_id:
         query = query.where(Document.category_id == category_id)
     if source_id:
@@ -94,9 +49,86 @@ async def list_documents(
             (Document.original_url.ilike(search_pattern, escape='\\'))
         )
     if discovered_from:
-        query = query.where(Document.discovered_at >= discovered_from)
+        # Parse date string to datetime for proper comparison
+        from_date = datetime.strptime(discovered_from, "%Y-%m-%d")
+        query = query.where(Document.discovered_at >= from_date)
     if discovered_to:
-        query = query.where(Document.discovered_at <= discovered_to + " 23:59:59")
+        # Parse date string and set to end of day (23:59:59)
+        to_date = datetime.combine(
+            datetime.strptime(discovered_to, "%Y-%m-%d").date(),
+            time(23, 59, 59)
+        )
+        query = query.where(Document.discovered_at <= to_date)
+    return query
+
+
+@router.get("/locations", response_model=list[str])
+async def list_extraction_locations(
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Legacy endpoint - location_name no longer exists on DataSource.
+
+    DataSources are now decoupled from location data.
+    Use Entity-based location queries instead.
+    """
+    return []
+
+
+@router.get("/countries", response_model=list[dict])
+async def list_extraction_countries(
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Legacy endpoint - country no longer exists on DataSource.
+
+    DataSources are now decoupled from location data.
+    Use Entity-based location queries instead.
+    """
+    return []
+
+
+@router.get("/documents/locations", response_model=list[str])
+async def list_document_locations(
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Legacy endpoint - location_name no longer exists on DataSource.
+
+    DataSources are now decoupled from location data.
+    Use Entity-based location queries instead.
+    """
+    return []
+
+
+@router.get("/documents", response_model=DocumentListResponse)
+async def list_documents(
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=500),
+    category_id: UUID | None = Query(default=None),
+    source_id: UUID | None = Query(default=None),
+    document_type: str | None = Query(default=None),
+    processing_status: ProcessingStatus | None = Query(default=None),
+    search: str | None = Query(default=None, description="Search in title and URL"),
+    discovered_from: str | None = Query(default=None, description="Filter by discovered date from (YYYY-MM-DD)"),
+    discovered_to: str | None = Query(default=None, description="Filter by discovered date to (YYYY-MM-DD)"),
+    sort_by: str | None = Query(default=None, description="Sort by field (title, document_type, processing_status, source_name, discovered_at, file_size)"),
+    sort_order: str | None = Query(default="desc", description="Sort order (asc, desc)"),
+    session: AsyncSession = Depends(get_session),
+):
+    """List documents with filters and sorting."""
+    query = select(Document)
+
+    query = apply_document_filters(
+        query,
+        category_id,
+        source_id,
+        document_type,
+        processing_status,
+        search,
+        discovered_from,
+        discovered_to,
+    )
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
@@ -180,6 +212,50 @@ async def list_documents(
     )
 
 
+@router.get("/documents/stats", response_model=DocumentProcessingStatsResponse)
+async def get_document_stats(
+    category_id: UUID | None = Query(default=None),
+    source_id: UUID | None = Query(default=None),
+    document_type: str | None = Query(default=None),
+    search: str | None = Query(default=None, description="Search in title and URL"),
+    discovered_from: str | None = Query(default=None, description="Filter by discovered date from (YYYY-MM-DD)"),
+    discovered_to: str | None = Query(default=None, description="Filter by discovered date to (YYYY-MM-DD)"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Return document counts grouped by processing status."""
+    filtered_query = apply_document_filters(
+        select(Document),
+        category_id,
+        source_id,
+        document_type,
+        None,
+        search,
+        discovered_from,
+        discovered_to,
+    ).subquery()
+
+    total = (await session.execute(select(func.count()).select_from(filtered_query))).scalar() or 0
+
+    status_result = await session.execute(
+        select(filtered_query.c.processing_status, func.count())
+        .group_by(filtered_query.c.processing_status)
+    )
+    raw_counts = {
+        row[0].value if row[0] else "UNKNOWN": row[1]
+        for row in status_result.fetchall()
+    }
+
+    by_status = {
+        status.value: raw_counts.get(status.value, 0)
+        for status in ProcessingStatus
+    }
+
+    return DocumentProcessingStatsResponse(
+        total=total,
+        by_status=by_status,
+    )
+
+
 @router.get("/documents/{document_id}", response_model=DocumentDetailResponse)
 async def get_document(
     document_id: UUID,
@@ -241,7 +317,7 @@ async def get_document(
 @router.get("/search")
 async def search_documents(
     q: str = Query(..., min_length=2, description="Search query"),
-    category_id: Optional[UUID] = Query(default=None),
+    category_id: UUID | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
@@ -284,4 +360,145 @@ async def search_documents(
         "page": page,
         "per_page": per_page,
         "query": q,
+    }
+
+
+@router.post("/documents/{document_id}/analyze-pages")
+async def analyze_additional_pages(
+    document_id: UUID,
+    page_numbers: list[int] | None = Query(
+        default=None,
+        description="Specific page numbers to analyze. If empty, analyzes remaining relevant pages."
+    ),
+    max_pages: int = Query(default=10, ge=1, le=50, description="Maximum pages to analyze"),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Analyze additional pages of a document.
+
+    Use this endpoint to:
+    - Analyze remaining relevant pages when page_analysis_status is "has_more"
+    - Analyze specific pages manually
+
+    Returns the triggered task ID.
+    """
+    document = await session.get(Document, document_id)
+    if not document:
+        raise NotFoundError("Document", str(document_id))
+
+    # Determine which pages to analyze
+    if page_numbers:
+        # User specified specific pages
+        pages_to_analyze = page_numbers[:max_pages]
+    elif document.relevant_pages and document.analyzed_pages:
+        # Analyze remaining relevant pages
+        analyzed = set(document.analyzed_pages)
+        remaining = [p for p in document.relevant_pages if p not in analyzed]
+        pages_to_analyze = remaining[:max_pages]
+    elif document.relevant_pages:
+        # First analysis
+        pages_to_analyze = document.relevant_pages[:max_pages]
+    else:
+        return {
+            "status": "error",
+            "message": "No relevant pages to analyze. Use /full-analysis for documents without keywords.",
+        }
+
+    if not pages_to_analyze:
+        return {
+            "status": "complete",
+            "message": "All relevant pages have been analyzed.",
+            "analyzed_pages": document.analyzed_pages,
+        }
+
+    # Trigger analysis task
+    from workers.ai_tasks import analyze_document
+    task = analyze_document.delay(str(document_id), skip_relevance_check=True)
+
+    return {
+        "status": "started",
+        "task_id": str(task.id),
+        "pages_to_analyze": pages_to_analyze,
+        "message": f"Analysis started for {len(pages_to_analyze)} pages",
+    }
+
+
+@router.post("/documents/{document_id}/full-analysis")
+async def trigger_full_analysis(
+    document_id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Trigger full document analysis (ignoring page filtering).
+
+    Use this endpoint for:
+    - Documents with page_analysis_status = "needs_review" (no keywords found)
+    - Manual override to analyze entire document
+
+    This bypasses page-based filtering and analyzes the full document.
+    """
+    document = await session.get(Document, document_id)
+    if not document:
+        raise NotFoundError("Document", str(document_id))
+
+    if not document.raw_text:
+        return {
+            "status": "error",
+            "message": "Document has no text content to analyze.",
+        }
+
+    # Reset page analysis status to force full analysis
+    document.page_analysis_status = "pending"
+    document.relevant_pages = None
+    document.analyzed_pages = None
+    document.page_analysis_note = "Manuelle Vollanalyse gestartet"
+    document.processing_status = ProcessingStatus.ANALYZING
+
+    await session.commit()
+
+    # Trigger analysis task
+    from workers.ai_tasks import analyze_document
+    task = analyze_document.delay(str(document_id), skip_relevance_check=True)
+
+    return {
+        "status": "started",
+        "task_id": str(task.id),
+        "message": "Full document analysis started",
+    }
+
+
+@router.get("/documents/{document_id}/page-analysis")
+async def get_page_analysis_status(
+    document_id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Get the page analysis status for a document.
+
+    Returns information about:
+    - Which pages are relevant (have keyword matches)
+    - Which pages have been analyzed
+    - Whether more pages need analysis
+    """
+    document = await session.get(Document, document_id)
+    if not document:
+        raise NotFoundError("Document", str(document_id))
+
+    analyzed_count = len(document.analyzed_pages) if document.analyzed_pages else 0
+    relevant_count = document.total_relevant_pages or 0
+
+    return {
+        "document_id": str(document_id),
+        "page_count": document.page_count,
+        "page_analysis_status": document.page_analysis_status,
+        "relevant_pages": document.relevant_pages,
+        "analyzed_pages": document.analyzed_pages,
+        "total_relevant_pages": relevant_count,
+        "pages_remaining": max(0, relevant_count - analyzed_count),
+        "page_analysis_note": document.page_analysis_note,
+        "can_analyze_more": (
+            document.page_analysis_status in ("has_more", "partial") and
+            analyzed_count < relevant_count
+        ),
+        "needs_manual_review": document.page_analysis_status == "needs_review",
     }

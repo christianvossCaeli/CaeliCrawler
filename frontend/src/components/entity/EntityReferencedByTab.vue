@@ -159,10 +159,9 @@ async function loadFacets() {
 function navigateToEntity(facet: FacetValue) {
   if (!facet.entity_id) return
 
-  // We need to get the entity type slug - for now we'll use a generic route
-  // In a full implementation, you'd include entity_type_slug in the API response
+  // Use the generic entity-by-id route for navigation
   router.push({
-    name: 'entity-detail-by-id',
+    name: 'entity-by-id',
     params: { id: facet.entity_id },
   })
 }

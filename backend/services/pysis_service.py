@@ -6,8 +6,8 @@ methods for pulling/pushing process data to PySis.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import httpx
 import structlog
@@ -35,18 +35,18 @@ class PySisService:
 
     def __init__(
         self,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        tenant_id: Optional[str] = None,
-        api_base_url: Optional[str] = None,
-        scope: Optional[str] = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        tenant_id: str | None = None,
+        api_base_url: str | None = None,
+        scope: str | None = None,
     ):
         self.client_id = client_id or settings.pysis_client_id
         self.client_secret = client_secret or settings.pysis_client_secret
         self.tenant_id = tenant_id or settings.pysis_tenant_id
         self.api_base_url = api_base_url or settings.pysis_api_base_url
         self.scope = scope or settings.pysis_scope
-        self._token_cache: Optional[PySisTokenCache] = None
+        self._token_cache: PySisTokenCache | None = None
         self.logger = logger.bind(service="PySisService")
 
     @property
@@ -66,9 +66,8 @@ class PySisService:
         Uses client credentials flow with token caching.
         """
         # Check cache first (with 5 min buffer before expiry)
-        if self._token_cache:
-            if self._token_cache.expires_at > datetime.now(timezone.utc) + timedelta(minutes=5):
-                return self._token_cache.access_token
+        if self._token_cache and self._token_cache.expires_at > datetime.now(UTC) + timedelta(minutes=5):
+            return self._token_cache.access_token
 
         if not self.is_configured:
             raise ValueError("PySis API credentials not configured")
@@ -95,7 +94,7 @@ class PySisService:
             expires_in = data.get("expires_in", 3600)
             self._token_cache = PySisTokenCache(
                 access_token=data["access_token"],
-                expires_at=datetime.now(timezone.utc) + timedelta(seconds=expires_in - 300),
+                expires_at=datetime.now(UTC) + timedelta(seconds=expires_in - 300),
             )
 
             self.logger.info("OAuth token obtained", expires_in=expires_in)
@@ -106,7 +105,7 @@ class PySisService:
         method: str,
         endpoint: str,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make authenticated request to PySis API."""
         token = await self._get_access_token()
         url = f"{self.api_base_url}{endpoint}"
@@ -138,7 +137,7 @@ class PySisService:
 
             return response.json()
 
-    async def list_processes(self) -> List[Dict[str, Any]]:
+    async def list_processes(self) -> list[dict[str, Any]]:
         """
         List all available processes from PySis.
 
@@ -176,7 +175,7 @@ class PySisService:
         self.logger.warning("No list processes endpoint found in PySis API")
         return []
 
-    async def get_process(self, process_id: str) -> Dict[str, Any]:
+    async def get_process(self, process_id: str) -> dict[str, Any]:
         """
         Pull current process data from PySis.
 
@@ -194,8 +193,8 @@ class PySisService:
     async def update_process(
         self,
         process_id: str,
-        fields: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        fields: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Push field updates to PySis.
 
@@ -233,11 +232,11 @@ class PySisService:
         process_id: str,
         field_name: str,
         value: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Update a specific field in PySis process."""
         return await self.update_process(process_id, {field_name: value})
 
-    async def test_connection(self, process_id: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, process_id: str | None = None) -> dict[str, Any]:
         """
         Test the PySis connection.
 
@@ -248,8 +247,8 @@ class PySisService:
             Dict with connection status and process data if available
         """
         try:
-            # First test if we can get a token
-            token = await self._get_access_token()
+            # First test if we can get a token (side effect: validates credentials)
+            _token = await self._get_access_token()
 
             result = {
                 "connected": True,
@@ -278,7 +277,7 @@ class PySisService:
 
 
 # Singleton instance
-_pysis_service: Optional[PySisService] = None
+_pysis_service: PySisService | None = None
 
 
 def get_pysis_service() -> PySisService:

@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { de, enUS } from 'date-fns/locale'
 
 export function useDateFormatter() {
-  const { locale } = useI18n()
+  const { locale, t } = useI18n()
   const dateLocale = computed(() => (locale.value === 'de' ? de : enUS))
 
   function formatDate(
@@ -20,8 +20,32 @@ export function useDateFormatter() {
     }
   }
 
+  /**
+   * Format a date as relative time (e.g., "2 hours ago")
+   */
+  function formatRelativeTime(dateStr: string | null | undefined): string {
+    if (!dateStr) return ''
+    try {
+      const date = new Date(dateStr)
+      const now = new Date()
+      const diffMs = now.getTime() - date.getTime()
+      const diffMins = Math.floor(diffMs / 60000)
+      const diffHours = Math.floor(diffMs / 3600000)
+      const diffDays = Math.floor(diffMs / 86400000)
+
+      if (diffMins < 1) return t('common.justNow', 'just now')
+      if (diffMins < 60) return t('common.minutesAgo', { count: diffMins }, `${diffMins} min ago`)
+      if (diffHours < 24) return t('common.hoursAgo', { count: diffHours }, `${diffHours}h ago`)
+      if (diffDays < 7) return t('common.daysAgo', { count: diffDays }, `${diffDays}d ago`)
+      return formatDate(dateStr, 'dd.MM.yyyy')
+    } catch {
+      return dateStr
+    }
+  }
+
   return {
     dateLocale,
     formatDate,
+    formatRelativeTime,
   }
 }

@@ -65,6 +65,8 @@ export const STATUS_COLORS: Record<string, string> = {
   disabled: 'grey',
   archived: 'error',
   ARCHIVED: 'error',
+  filtered: 'grey',
+  FILTERED: 'grey',
 }
 
 /**
@@ -126,6 +128,8 @@ export const STATUS_ICONS: Record<string, string> = {
   disabled: 'mdi-minus-circle',
   archived: 'mdi-archive',
   ARCHIVED: 'mdi-archive',
+  filtered: 'mdi-filter-remove',
+  FILTERED: 'mdi-filter-remove',
 }
 
 /**

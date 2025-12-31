@@ -6,8 +6,7 @@ Handles fetching data from various external APIs:
 - Custom REST APIs
 """
 
-import asyncio
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from urllib.parse import urlparse
 
 import httpx
@@ -22,9 +21,9 @@ DEFAULT_TIMEOUT = 30.0
 async def fetch_api_preview(
     api_type: str,
     api_url: str,
-    params: Dict[str, Any],
+    params: dict[str, Any],
     sample_size: int = 10,
-) -> Tuple[List[Dict[str, Any]], int, Dict[str, str], List[str]]:
+) -> tuple[list[dict[str, Any]], int, dict[str, str], list[str]]:
     """
     Fetch a preview of data from an external API.
 
@@ -50,10 +49,10 @@ async def fetch_api_preview(
 async def fetch_all_from_api(
     api_type: str,
     api_url: str,
-    params: Dict[str, Any],
-    field_mapping: Dict[str, str],
+    params: dict[str, Any],
+    field_mapping: dict[str, str],
     max_items: int = 1000,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Fetch all data from an external API.
 
@@ -83,9 +82,9 @@ async def fetch_all_from_api(
 
 async def _fetch_wikidata_preview(
     api_url: str,
-    params: Dict[str, Any],
+    params: dict[str, Any],
     sample_size: int,
-) -> Tuple[List[Dict[str, Any]], int, Dict[str, str], List[str]]:
+) -> tuple[list[dict[str, Any]], int, dict[str, str], list[str]]:
     """Fetch preview from Wikidata SPARQL endpoint."""
     sparql_query = params.get("sparql_query", "")
     if not sparql_query:
@@ -156,10 +155,10 @@ async def _fetch_wikidata_preview(
 
 async def _fetch_all_wikidata(
     api_url: str,
-    params: Dict[str, Any],
-    field_mapping: Dict[str, str],
+    params: dict[str, Any],
+    field_mapping: dict[str, str],
     max_items: int,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Fetch all results from Wikidata SPARQL endpoint."""
     sparql_query = params.get("sparql_query", "")
     if not sparql_query:
@@ -206,9 +205,9 @@ async def _fetch_all_wikidata(
 
 async def _fetch_oparl_preview(
     api_url: str,
-    params: Dict[str, Any],
+    params: dict[str, Any],
     sample_size: int,
-) -> Tuple[List[Dict[str, Any]], int, Dict[str, str], List[str]]:
+) -> tuple[list[dict[str, Any]], int, dict[str, str], list[str]]:
     """Fetch preview from OParl API."""
     async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
         response = await client.get(api_url)
@@ -250,10 +249,10 @@ async def _fetch_oparl_preview(
 
 async def _fetch_all_oparl(
     api_url: str,
-    params: Dict[str, Any],
-    field_mapping: Dict[str, str],
+    params: dict[str, Any],
+    field_mapping: dict[str, str],
     max_items: int,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Fetch all bodies from OParl API."""
     async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
         response = await client.get(api_url)
@@ -288,9 +287,9 @@ async def _fetch_all_oparl(
 
 async def _fetch_custom_preview(
     api_url: str,
-    params: Dict[str, Any],
+    params: dict[str, Any],
     sample_size: int,
-) -> Tuple[List[Dict[str, Any]], int, Dict[str, str], List[str]]:
+) -> tuple[list[dict[str, Any]], int, dict[str, str], list[str]]:
     """Fetch preview from a custom REST API."""
     async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
         response = await client.get(api_url, params=params.get("query_params", {}))
@@ -323,7 +322,7 @@ async def _fetch_custom_preview(
 
         if not url:
             # Try to find any URL-like field
-            for key, value in record.items():
+            for _key, value in record.items():
                 if isinstance(value, str) and value.startswith("http"):
                     url = value
                     break
@@ -351,10 +350,10 @@ async def _fetch_custom_preview(
 
 async def _fetch_all_custom(
     api_url: str,
-    params: Dict[str, Any],
-    field_mapping: Dict[str, str],
+    params: dict[str, Any],
+    field_mapping: dict[str, str],
     max_items: int,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Fetch all data from a custom REST API."""
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.get(api_url, params=params.get("query_params", {}))

@@ -1,13 +1,12 @@
 """Celery tasks for notification operations."""
 
-import asyncio
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import structlog
 
-from workers.celery_app import celery_app
 from workers.async_runner import run_async
+from workers.celery_app import celery_app
 
 logger = structlog.get_logger()
 
@@ -47,7 +46,7 @@ def send_notification(self, notification_id: str):
 
 
 @celery_app.task(name="workers.notification_tasks.emit_event")
-def emit_event(event_type: str, payload: Dict[str, Any]):
+def emit_event(event_type: str, payload: dict[str, Any]):
     """Emit a notification event and create notifications for matching rules.
 
     This task is called from other tasks (crawl, processing, AI) when
@@ -99,14 +98,15 @@ def process_digests():
     This task runs periodically (hourly) to send digest summaries
     instead of individual notifications.
     """
+    from sqlalchemy import func, select
+
     from app.database import get_celery_session_context
     from app.models.notification import Notification, NotificationStatus
     from app.models.notification_rule import NotificationRule
-    from sqlalchemy import select, func
 
     async def _process():
         async with get_celery_session_context() as session:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             processed_count = 0
 
             # Find rules with digest enabled
@@ -131,7 +131,7 @@ def process_digests():
                             should_send = True
                     elif now.hour == 8:  # Default 8 AM
                         should_send = True
-                elif rule.digest_frequency == "weekly":
+                elif rule.digest_frequency == "weekly":  # noqa: SIM102
                     # Send on Monday
                     if now.weekday() == 0 and now.hour == 8:
                         should_send = True

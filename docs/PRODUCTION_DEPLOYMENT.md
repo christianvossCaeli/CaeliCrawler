@@ -1308,14 +1308,15 @@ celery-worker-ai:
 
 ```python
 # Automatische Tasks
+# HINWEIS: Automatische Crawls nur für Kategorien mit schedule_enabled=True
 beat_schedule = {
+    'check-scheduled-crawls': {
+        'task': 'workers.crawl_tasks.check_scheduled_crawls',
+        'schedule': timedelta(seconds=30),  # Nur Kategorien mit schedule_enabled=True
+    },
     'process-pending-documents': {
         'task': 'workers.processing_tasks.process_pending_documents',
         'schedule': crontab(minute='*/5'),  # Alle 5 Min
-    },
-    'check-scheduled-crawls': {
-        'task': 'workers.crawl_tasks.check_scheduled_crawls',
-        'schedule': crontab(minute='*/15'),  # Alle 15 Min
     },
     'cleanup-old-jobs': {
         'task': 'workers.crawl_tasks.cleanup_old_jobs',

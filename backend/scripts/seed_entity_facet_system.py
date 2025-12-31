@@ -20,16 +20,15 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select
+
 from app.database import get_session_context
 from app.models import (
-    EntityType,
-    Entity,
-    FacetType,
-    RelationType,
     AnalysisTemplate,
     Category,
+    EntityType,
+    FacetType,
+    RelationType,
 )
-
 
 # =============================================================================
 # SYSTEM ENTITY TYPES
@@ -161,6 +160,19 @@ FACET_TYPES = [
                 "quote": {"type": "string"},
             },
             "required": ["description"],
+            # Display configuration for generic rendering
+            "display": {
+                "primary_field": "description",
+                "chip_fields": ["type", "severity"],
+                "quote_field": "quote",
+                "severity_field": "severity",
+                "severity_colors": {
+                    "hoch": "error",
+                    "mittel": "warning",
+                    "niedrig": "info",
+                },
+                "layout": "card",
+            },
         },
         "applicable_entity_type_slugs": ["territorial_entity"],
         "aggregation_method": "dedupe",
@@ -187,6 +199,13 @@ FACET_TYPES = [
                 "quote": {"type": "string"},
             },
             "required": ["description"],
+            # Display configuration for generic rendering
+            "display": {
+                "primary_field": "description",
+                "chip_fields": ["type"],
+                "quote_field": "quote",
+                "layout": "card",
+            },
         },
         "applicable_entity_type_slugs": ["territorial_entity"],
         "aggregation_method": "dedupe",
@@ -216,6 +235,19 @@ FACET_TYPES = [
                 "sentiment": {"type": "string", "enum": ["positiv", "neutral", "negativ"]},
             },
             "required": ["name"],
+            # Display configuration for generic rendering
+            "display": {
+                "primary_field": "name",
+                "chip_fields": ["role", "sentiment"],
+                "quote_field": "statement",
+                "severity_field": "sentiment",
+                "severity_colors": {
+                    "positiv": "success",
+                    "neutral": "grey",
+                    "negativ": "error",
+                },
+                "layout": "card",
+            },
         },
         "applicable_entity_type_slugs": ["territorial_entity", "organization"],
         "aggregation_method": "dedupe",
@@ -245,6 +277,12 @@ FACET_TYPES = [
                 "source": {"type": "string"},
             },
             "required": ["event_name"],
+            # Display configuration for generic rendering
+            "display": {
+                "primary_field": "event_name",
+                "chip_fields": ["role", "event_date", "event_location"],
+                "layout": "card",
+            },
         },
         "applicable_entity_type_slugs": ["person"],
         "aggregation_method": "list",
@@ -264,6 +302,14 @@ FACET_TYPES = [
         "color": "#607D8B",
         "display_order": 5,
         "value_type": "text",
+        "value_schema": {
+            "type": "string",
+            # Display configuration for generic rendering
+            "display": {
+                "primary_field": "text",
+                "layout": "inline",
+            },
+        },
         "applicable_entity_type_slugs": [],  # All entity types
         "aggregation_method": "list",
         "is_time_based": False,
@@ -290,7 +336,6 @@ FACET_TYPES = [
 
 async def seed_entity_types(session) -> dict:
     """Seed entity types and return mapping of slug -> id."""
-    print("\n=== Seeding Entity Types ===")
     entity_type_ids = {}
 
     for et_data in ENTITY_TYPES:
@@ -301,7 +346,6 @@ async def seed_entity_types(session) -> dict:
         existing = result.scalar_one_or_none()
 
         if existing:
-            print(f"  EntityType '{et_data['slug']}' already exists, skipping")
             entity_type_ids[et_data["slug"]] = existing.id
             continue
 
@@ -311,7 +355,6 @@ async def seed_entity_types(session) -> dict:
         )
         session.add(entity_type)
         entity_type_ids[et_data["slug"]] = entity_type.id
-        print(f"  Created EntityType: {et_data['name']} ({et_data['slug']})")
 
     await session.flush()
     return entity_type_ids
@@ -319,7 +362,6 @@ async def seed_entity_types(session) -> dict:
 
 async def seed_facet_types(session) -> dict:
     """Seed facet types and return mapping of slug -> id."""
-    print("\n=== Seeding Facet Types ===")
     facet_type_ids = {}
 
     for ft_data in FACET_TYPES:
@@ -330,7 +372,6 @@ async def seed_facet_types(session) -> dict:
         existing = result.scalar_one_or_none()
 
         if existing:
-            print(f"  FacetType '{ft_data['slug']}' already exists, skipping")
             facet_type_ids[ft_data["slug"]] = existing.id
             continue
 
@@ -340,7 +381,6 @@ async def seed_facet_types(session) -> dict:
         )
         session.add(facet_type)
         facet_type_ids[ft_data["slug"]] = facet_type.id
-        print(f"  Created FacetType: {ft_data['name']} ({ft_data['slug']})")
 
     await session.flush()
     return facet_type_ids
@@ -348,7 +388,6 @@ async def seed_facet_types(session) -> dict:
 
 async def seed_relation_types(session, entity_type_ids: dict) -> dict:
     """Seed relation types."""
-    print("\n=== Seeding Relation Types ===")
     relation_type_ids = {}
 
     relation_types = [
@@ -432,7 +471,6 @@ async def seed_relation_types(session, entity_type_ids: dict) -> dict:
         existing = result.scalar_one_or_none()
 
         if existing:
-            print(f"  RelationType '{rt_data['slug']}' already exists, skipping")
             relation_type_ids[rt_data["slug"]] = existing.id
             continue
 
@@ -442,7 +480,6 @@ async def seed_relation_types(session, entity_type_ids: dict) -> dict:
         )
         session.add(relation_type)
         relation_type_ids[rt_data["slug"]] = relation_type.id
-        print(f"  Created RelationType: {rt_data['name']} ({rt_data['slug']})")
 
     await session.flush()
     return relation_type_ids
@@ -450,7 +487,6 @@ async def seed_relation_types(session, entity_type_ids: dict) -> dict:
 
 async def seed_analysis_templates(session, entity_type_ids: dict, facet_type_ids: dict):
     """Seed analysis templates."""
-    print("\n=== Seeding Analysis Templates ===")
 
     # Get default category if exists
     result = await session.execute(
@@ -537,7 +573,6 @@ async def seed_analysis_templates(session, entity_type_ids: dict, facet_type_ids
         existing = result.scalar_one_or_none()
 
         if existing:
-            print(f"  AnalysisTemplate '{tmpl_data['slug']}' already exists, skipping")
             continue
 
         template = AnalysisTemplate(
@@ -545,37 +580,24 @@ async def seed_analysis_templates(session, entity_type_ids: dict, facet_type_ids
             **tmpl_data,
         )
         session.add(template)
-        print(f"  Created AnalysisTemplate: {tmpl_data['name']} ({tmpl_data['slug']})")
 
     await session.flush()
 
 
 async def main():
     """Main seed function."""
-    print("=" * 60)
-    print("ENTITY-FACET SYSTEM SEED")
-    print("=" * 60)
 
     async with get_session_context() as session:
         try:
             # Seed in order (respecting FK dependencies)
             entity_type_ids = await seed_entity_types(session)
             facet_type_ids = await seed_facet_types(session)
-            relation_type_ids = await seed_relation_types(session, entity_type_ids)
+            await seed_relation_types(session, entity_type_ids)
             await seed_analysis_templates(session, entity_type_ids, facet_type_ids)
 
             await session.commit()
-            print("\n" + "=" * 60)
-            print("SEED COMPLETED SUCCESSFULLY")
-            print("=" * 60)
-            print(f"\nCreated:")
-            print(f"  - {len(entity_type_ids)} Entity Types")
-            print(f"  - {len(facet_type_ids)} Facet Types")
-            print(f"  - {len(relation_type_ids)} Relation Types")
-            print(f"  - 3 Analysis Templates")
 
-        except Exception as e:
-            print(f"\nERROR: {e}")
+        except Exception:
             await session.rollback()
             raise
 

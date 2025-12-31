@@ -6,21 +6,21 @@ This module contains Celery tasks for entity-related AI operations:
 """
 
 import json
-from datetime import datetime, timezone
+import time
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import structlog
 from celery.exceptions import SoftTimeLimitExceeded
 
 from app.config import settings
+from app.models.llm_usage import LLMProvider, LLMTaskType
+from services.llm_usage_tracker import record_llm_usage
 from workers.async_runner import run_async
-from .common import _texts_similar
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-    from app.models.entity import Entity
     from app.models.facet_type import FacetType
 
 logger = structlog.get_logger()
@@ -49,8 +49,8 @@ def register_tasks(celery_app):
     def analyze_entity_data_for_facets(
         self,
         entity_id: str,
-        source_types: List[str],
-        target_facet_types: List[str],
+        source_types: list[str],
+        target_facet_types: list[str],
         task_id: str,
     ):
         """
@@ -67,7 +67,6 @@ def register_tasks(celery_app):
             target_facet_types: List of facet type slugs to generate
             task_id: AITask ID for progress tracking
         """
-        import asyncio
         run_async(_analyze_entity_data_for_facets_async(
             entity_id,
             source_types,
@@ -78,18 +77,19 @@ def register_tasks(celery_app):
 
     async def _analyze_entity_data_for_facets_async(
         entity_id: str,
-        source_types: List[str],
-        target_facet_types: List[str],
+        source_types: list[str],
+        target_facet_types: list[str],
         task_id: str,
     ):
         """Async implementation of entity data analysis."""
+        from sqlalchemy import select
+
         from app.database import get_celery_session_context
         from app.models import AITask, AITaskStatus, Entity, FacetType
-        from sqlalchemy import select
         from services.entity_data_facet_service import (
             collect_entity_data,
-            get_existing_facets,
             compute_value_hash,
+            get_existing_facets,
         )
 
         async with get_celery_session_context() as session:
@@ -99,7 +99,7 @@ def register_tasks(celery_app):
                 if task:
                     task.status = AITaskStatus.FAILED
                     task.error_message = error_msg
-                    task.completed_at = datetime.now(timezone.utc)
+                    task.completed_at = datetime.now(UTC)
                     await session.commit()
 
             try:
@@ -251,7 +251,7 @@ def register_tasks(celery_app):
                     },
                 }
                 ai_task.status = AITaskStatus.COMPLETED
-                ai_task.completed_at = datetime.now(timezone.utc)
+                ai_task.completed_at = datetime.now(UTC)
                 ai_task.progress_current = ai_task.progress_total
                 ai_task.current_item = None
                 await session.commit()
@@ -270,11 +270,11 @@ def register_tasks(celery_app):
 
 
     async def _run_entity_data_ai_analysis(
-        collected_data: Dict[str, Any],
-        existing_facets: List[Dict[str, Any]],
-        facet_types: List["FacetType"],
+        collected_data: dict[str, Any],
+        existing_facets: list[dict[str, Any]],
+        facet_types: list["FacetType"],
         entity_name: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Run AI analysis on collected entity data.
 
@@ -391,6 +391,8 @@ def register_tasks(celery_app):
       "analysis_notes": "Kurze Notiz zur Analyse"
     }}"""
 
+        start_time = time.time()
+
         try:
             response = await client.chat.completions.create(
                 model=settings.azure_openai_deployment_name,
@@ -403,15 +405,42 @@ def register_tasks(celery_app):
                 response_format={"type": "json_object"},
             )
 
+            # Track LLM usage
+            if response.usage:
+                await record_llm_usage(
+                    provider=LLMProvider.AZURE_OPENAI,
+                    model=settings.azure_openai_deployment_name,
+                    task_type=LLMTaskType.ENTITY_ANALYSIS,
+                    task_name="entity_data_ai_analysis",
+                    prompt_tokens=response.usage.prompt_tokens,
+                    completion_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens,
+                    duration_ms=int((time.time() - start_time) * 1000),
+                    is_error=False,
+                )
+
             result = json.loads(response.choices[0].message.content)
             return result
 
         except json.JSONDecodeError as e:
             logger.error("Failed to parse AI response", error=str(e))
-            raise RuntimeError(f"KI-Service Fehler: AI-Antwort konnte nicht verarbeitet werden")
+            raise RuntimeError("KI-Service Fehler: AI-Antwort konnte nicht verarbeitet werden") from None
         except Exception as e:
+            # Track error
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.ENTITY_ANALYSIS,
+                task_name="entity_data_ai_analysis",
+                prompt_tokens=0,
+                completion_tokens=0,
+                total_tokens=0,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=True,
+                error_message=str(e),
+            )
             logger.exception("AI analysis failed")
-            raise RuntimeError(f"KI-Service nicht erreichbar: {str(e)}")
+            raise RuntimeError(f"KI-Service nicht erreichbar: {str(e)}") from None
 
 
     def _texts_similar(text1: str, text2: str, threshold: float = 0.7) -> bool:
@@ -467,7 +496,6 @@ def register_tasks(celery_app):
             task_id: AITask ID for progress tracking
             extract_facets: Whether to extract facet suggestions
         """
-        import asyncio
         run_async(_analyze_attachment_async(attachment_id, task_id, extract_facets))
 
 
@@ -477,12 +505,11 @@ def register_tasks(celery_app):
         extract_facets: bool,
     ):
         """Async implementation of attachment analysis."""
-        from pathlib import Path
+        from sqlalchemy import select
+
         from app.database import get_celery_session_context
         from app.models import AITask, AITaskStatus, Entity, FacetType
         from app.models.entity_attachment import AttachmentAnalysisStatus, EntityAttachment
-        from sqlalchemy import select
-        from sqlalchemy.orm import selectinload
 
         async with get_celery_session_context() as session:
             # Helper to mark task as failed
@@ -491,7 +518,7 @@ def register_tasks(celery_app):
                 if ai_task:
                     ai_task.status = AITaskStatus.FAILED
                     ai_task.error_message = error_msg
-                    ai_task.completed_at = datetime.now(timezone.utc)
+                    ai_task.completed_at = datetime.now(UTC)
                 attachment = await session.get(EntityAttachment, UUID(attachment_id))
                 if attachment:
                     attachment.analysis_status = AttachmentAnalysisStatus.FAILED
@@ -595,13 +622,13 @@ def register_tasks(celery_app):
                 # 6. Update attachment with result
                 attachment.analysis_status = AttachmentAnalysisStatus.COMPLETED
                 attachment.analysis_result = analysis_result
-                attachment.analyzed_at = datetime.now(timezone.utc)
+                attachment.analyzed_at = datetime.now(UTC)
                 attachment.ai_model_used = analysis_result.get("ai_model_used")
 
                 # 7. Update task as completed
                 if ai_task:
                     ai_task.status = AITaskStatus.COMPLETED
-                    ai_task.completed_at = datetime.now(timezone.utc)
+                    ai_task.completed_at = datetime.now(UTC)
                     ai_task.progress_current = ai_task.progress_total
                     ai_task.current_item = None
                     ai_task.result_data = {

@@ -8,20 +8,21 @@ Enables complex queries like:
 
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select, and_, or_
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import RelationDepthError
 from app.models import (
     Entity,
-    EntityType,
     EntityRelation,
-    RelationType,
+    EntityType,
     FacetType,
     FacetValue,
+    RelationType,
 )
 
 logger = structlog.get_logger()
@@ -40,10 +41,10 @@ class RelationHop:
         self,
         relation_type_slug: str,
         direction: str = "source",  # "source" = follow from source to target, "target" = follow from target to source
-        facet_filter: Optional[str] = None,  # Optional: only include if entity has this facet
-        negative_facet_filter: Optional[str] = None,  # Optional: exclude if entity has this facet
-        position_filter: Optional[List[str]] = None,  # Optional: filter by position
-        location_filter: Optional[str] = None,  # Optional: filter by admin_level_1
+        facet_filter: str | None = None,  # Optional: only include if entity has this facet
+        negative_facet_filter: str | None = None,  # Optional: exclude if entity has this facet
+        position_filter: list[str] | None = None,  # Optional: filter by position
+        location_filter: str | None = None,  # Optional: filter by admin_level_1
     ):
         self.relation_type_slug = relation_type_slug
         self.direction = direction
@@ -59,9 +60,9 @@ class RelationHop:
 class RelationChain:
     """Represents a chain of relation hops."""
 
-    def __init__(self, hops: List[RelationHop]):
+    def __init__(self, hops: list[RelationHop]):
         if len(hops) > MAX_RELATION_DEPTH:
-            raise ValueError(f"Relation chain exceeds maximum depth of {MAX_RELATION_DEPTH}")
+            raise RelationDepthError(MAX_RELATION_DEPTH)
         self.hops = hops
 
     def __repr__(self) -> str:
@@ -73,10 +74,10 @@ class RelationResolver:
 
     def __init__(self, session: AsyncSession):
         self.session = session
-        self._relation_type_cache: Dict[str, RelationType] = {}
-        self._facet_type_cache: Dict[str, FacetType] = {}
-        self._entity_type_cache: Dict[str, EntityType] = {}
-        self._cache_timestamp: Optional[datetime] = None
+        self._relation_type_cache: dict[str, RelationType] = {}
+        self._facet_type_cache: dict[str, FacetType] = {}
+        self._entity_type_cache: dict[str, EntityType] = {}
+        self._cache_timestamp: datetime | None = None
 
     async def _ensure_cache(self) -> None:
         """Ensure caches are populated and not stale."""
@@ -112,9 +113,9 @@ class RelationResolver:
 
     async def resolve_relation_chain(
         self,
-        starting_entity_ids: List[UUID],
+        starting_entity_ids: list[UUID],
         chain: RelationChain,
-    ) -> Tuple[List[UUID], Dict[UUID, List[Dict[str, Any]]]]:
+    ) -> tuple[list[UUID], dict[UUID, list[dict[str, Any]]]]:
         """Resolve a relation chain starting from a set of entities.
 
         Args:
@@ -132,7 +133,7 @@ class RelationResolver:
             return [], {}
 
         current_ids = set(starting_entity_ids)
-        paths: Dict[UUID, List[Dict[str, Any]]] = {
+        paths: dict[UUID, list[dict[str, Any]]] = {
             eid: [{"entity_id": eid, "hop": 0}] for eid in starting_entity_ids
         }
 
@@ -159,11 +160,11 @@ class RelationResolver:
 
     async def _resolve_single_hop(
         self,
-        entity_ids: Set[UUID],
+        entity_ids: set[UUID],
         hop: RelationHop,
-        current_paths: Dict[UUID, List[Dict[str, Any]]],
+        current_paths: dict[UUID, list[dict[str, Any]]],
         hop_number: int,
-    ) -> Tuple[Set[UUID], Dict[UUID, List[Dict[str, Any]]]]:
+    ) -> tuple[set[UUID], dict[UUID, list[dict[str, Any]]]]:
         """Resolve a single hop in the relation chain.
 
         Args:
@@ -216,8 +217,8 @@ class RelationResolver:
             return set(), {}
 
         # Collect next entity IDs
-        next_ids: Set[UUID] = set()
-        entity_mapping: Dict[UUID, Set[UUID]] = defaultdict(set)  # source -> targets
+        next_ids: set[UUID] = set()
+        entity_mapping: dict[UUID, set[UUID]] = defaultdict(set)  # source -> targets
 
         for rel in relations:
             source_id = getattr(rel, source_field)
@@ -236,7 +237,7 @@ class RelationResolver:
             )
 
         # Update paths
-        new_paths: Dict[UUID, List[Dict[str, Any]]] = {}
+        new_paths: dict[UUID, list[dict[str, Any]]] = {}
         for source_id, targets in entity_mapping.items():
             if source_id not in current_paths:
                 continue
@@ -259,12 +260,12 @@ class RelationResolver:
 
     async def _apply_hop_filters(
         self,
-        entity_ids: Set[UUID],
-        facet_filter: Optional[str] = None,
-        negative_facet_filter: Optional[str] = None,
-        position_filter: Optional[List[str]] = None,
-        location_filter: Optional[str] = None,
-    ) -> Set[UUID]:
+        entity_ids: set[UUID],
+        facet_filter: str | None = None,
+        negative_facet_filter: str | None = None,
+        position_filter: list[str] | None = None,
+        location_filter: str | None = None,
+    ) -> set[UUID]:
         """Apply additional filters to entities at a hop.
 
         Args:
@@ -341,11 +342,11 @@ class RelationResolver:
     async def resolve_entities_with_related_facets(
         self,
         primary_entity_type_slug: str,
-        relation_chain: List[Dict[str, Any]],
-        target_facet_types: List[str],
-        negative_facet_types: Optional[List[str]] = None,
-        base_filters: Optional[Dict[str, Any]] = None,
-    ) -> List[UUID]:
+        relation_chain: list[dict[str, Any]],
+        target_facet_types: list[str],
+        negative_facet_types: list[str] | None = None,
+        base_filters: dict[str, Any] | None = None,
+    ) -> list[UUID]:
         """Find entities of a given type whose related entities (via relation chain) have specific facets.
 
         Example:
@@ -507,8 +508,8 @@ class RelationResolver:
     async def get_relation_path_details(
         self,
         entity_id: UUID,
-        relation_chain: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+        relation_chain: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
         """Get detailed path information for a single entity through a relation chain.
 
         Useful for explaining why an entity matched a multi-hop query.
@@ -537,7 +538,7 @@ class RelationResolver:
             return []
 
         # Collect all entity IDs from paths
-        all_entity_ids: Set[UUID] = set()
+        all_entity_ids: set[UUID] = set()
         for entity_paths in paths.values():
             for path in entity_paths:
                 for hop_info in path:
@@ -547,7 +548,7 @@ class RelationResolver:
                             all_entity_ids.add(hop_info["from_entity"])
 
         # Load entity details
-        entity_details: Dict[UUID, Entity] = {}
+        entity_details: dict[UUID, Entity] = {}
         if all_entity_ids:
             result = await self.session.execute(
                 select(Entity).where(Entity.id.in_(all_entity_ids))
@@ -557,7 +558,7 @@ class RelationResolver:
 
         # Build detailed paths
         detailed_paths = []
-        for final_id, entity_paths in paths.items():
+        for _final_id, entity_paths in paths.items():
             for path in entity_paths:
                 detailed_path = []
                 for hop_info in path:
@@ -587,7 +588,7 @@ async def get_relation_resolver(session: AsyncSession) -> RelationResolver:
     return RelationResolver(session)
 
 
-def parse_relation_chain_from_query(query_params: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+def parse_relation_chain_from_query(query_params: dict[str, Any]) -> list[dict[str, Any]] | None:
     """Parse relation chain configuration from query parameters.
 
     Handles both simple and complex relation chain formats.

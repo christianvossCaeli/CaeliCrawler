@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -18,13 +18,13 @@ class CommandResult:
     success: bool
     message: str
     operation: str = ""
-    created_items: List[Dict[str, Any]] = field(default_factory=list)
-    updated_items: List[Dict[str, Any]] = field(default_factory=list)
-    deleted_items: List[Dict[str, Any]] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    extra: Dict[str, Any] = field(default_factory=dict)
+    created_items: list[dict[str, Any]] = field(default_factory=list)
+    updated_items: list[dict[str, Any]] = field(default_factory=list)
+    deleted_items: list[dict[str, Any]] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    extra: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert result to dictionary for API response."""
         result = {
             "success": self.success,
@@ -55,7 +55,7 @@ class CommandResult:
         cls,
         message: str,
         operation: str = "",
-        created_items: Optional[List[Dict]] = None,
+        created_items: list[dict] | None = None,
         **extra
     ) -> "CommandResult":
         """Create a success result."""
@@ -88,8 +88,8 @@ class BaseCommand(ABC):
     def __init__(
         self,
         session: AsyncSession,
-        data: Dict[str, Any],
-        current_user_id: Optional[UUID] = None,
+        data: dict[str, Any],
+        current_user_id: UUID | None = None,
     ):
         """
         Initialize the command.
@@ -104,7 +104,7 @@ class BaseCommand(ABC):
         self.current_user_id = current_user_id
 
     @abstractmethod
-    async def validate(self) -> Optional[str]:
+    async def validate(self) -> str | None:
         """
         Validate the input data.
 

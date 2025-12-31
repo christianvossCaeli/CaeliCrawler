@@ -3,7 +3,7 @@
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 
@@ -20,7 +20,7 @@ class FilterResult:
     reason: str
     relevance_score: float = 0.5
     filter_name: str = ""
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 class CrawlFilter(ABC):
@@ -32,9 +32,9 @@ class CrawlFilter(ABC):
     def check(
         self,
         url: str,
-        content: Optional[bytes] = None,
-        text: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        content: bytes | None = None,
+        text: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> FilterResult:
         """
         Check if content should be processed.
@@ -58,8 +58,8 @@ class URLPatternFilter(CrawlFilter):
 
     def __init__(
         self,
-        include_patterns: Optional[List[str]] = None,
-        exclude_patterns: Optional[List[str]] = None,
+        include_patterns: list[str] | None = None,
+        exclude_patterns: list[str] | None = None,
     ):
         self.include_patterns = []
         self.exclude_patterns = []
@@ -79,30 +79,29 @@ class URLPatternFilter(CrawlFilter):
     def check(
         self,
         url: str,
-        content: Optional[bytes] = None,
-        text: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        content: bytes | None = None,
+        text: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> FilterResult:
         # Check exclude patterns first (blacklist)
         for pattern in self.exclude_patterns:
             if pattern.search(url):
                 return FilterResult(
                     should_process=False,
-                    reason=f"url_excluded_by_pattern",
+                    reason="url_excluded_by_pattern",
                     relevance_score=0.0,
                     filter_name=self.name,
                     details={"pattern": pattern.pattern},
                 )
 
         # Check include patterns (whitelist) - if set, must match at least one
-        if self.include_patterns:
-            if not any(p.search(url) for p in self.include_patterns):
-                return FilterResult(
-                    should_process=False,
-                    reason="url_not_in_include_patterns",
-                    relevance_score=0.0,
-                    filter_name=self.name,
-                )
+        if self.include_patterns and not any(p.search(url) for p in self.include_patterns):
+            return FilterResult(
+                should_process=False,
+                reason="url_not_in_include_patterns",
+                relevance_score=0.0,
+                filter_name=self.name,
+            )
 
         return FilterResult(
             should_process=True,
@@ -128,9 +127,9 @@ class FileSizeFilter(CrawlFilter):
     def check(
         self,
         url: str,
-        content: Optional[bytes] = None,
-        text: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        content: bytes | None = None,
+        text: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> FilterResult:
         if content is None:
             # Can't check size without content
@@ -176,7 +175,7 @@ class KeywordFilter(CrawlFilter):
 
     def __init__(
         self,
-        keywords: Optional[List[str]] = None,
+        keywords: list[str] | None = None,
         min_keywords: int = 2,
         min_score: float = 0.2,
     ):
@@ -194,9 +193,9 @@ class KeywordFilter(CrawlFilter):
     def check(
         self,
         url: str,
-        content: Optional[bytes] = None,
-        text: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        content: bytes | None = None,
+        text: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> FilterResult:
         if not text:
             # Can't check keywords without text
@@ -240,7 +239,7 @@ class FilterPipeline:
     Stops on first rejection (fail-fast) for efficiency.
     """
 
-    def __init__(self, filters: Optional[List[CrawlFilter]] = None):
+    def __init__(self, filters: list[CrawlFilter] | None = None):
         self.filters = filters or []
         self.logger = structlog.get_logger(component="filter_pipeline")
 
@@ -252,9 +251,9 @@ class FilterPipeline:
     def process(
         self,
         url: str,
-        content: Optional[bytes] = None,
-        text: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        content: bytes | None = None,
+        text: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> FilterResult:
         """
         Run all filters on the content.
@@ -297,8 +296,8 @@ class FilterPipeline:
     def create_default(
         cls,
         category=None,
-        url_include_patterns: Optional[List[str]] = None,
-        url_exclude_patterns: Optional[List[str]] = None,
+        url_include_patterns: list[str] | None = None,
+        url_exclude_patterns: list[str] | None = None,
     ) -> "FilterPipeline":
         """
         Create a default filter pipeline.

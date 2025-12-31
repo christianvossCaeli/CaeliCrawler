@@ -1,7 +1,7 @@
 """Document schemas for API validation."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -15,24 +15,31 @@ class DocumentResponse(BaseModel):
     id: UUID
     source_id: UUID
     category_id: UUID
-    crawl_job_id: Optional[UUID]
+    crawl_job_id: UUID | None
     document_type: str
     original_url: str
-    title: Optional[str]
-    file_path: Optional[str]
+    title: str | None
+    file_path: str | None
     file_hash: str
     file_size: int
-    page_count: Optional[int]
+    page_count: int | None
     processing_status: ProcessingStatus
-    processing_error: Optional[str]
+    processing_error: str | None
     discovered_at: datetime
-    downloaded_at: Optional[datetime]
-    processed_at: Optional[datetime]
-    document_date: Optional[datetime]
+    downloaded_at: datetime | None
+    processed_at: datetime | None
+    document_date: datetime | None
+
+    # Page-based analysis tracking
+    page_analysis_status: str | None = None
+    relevant_pages: list[int] | None = None
+    analyzed_pages: list[int] | None = None
+    total_relevant_pages: int | None = None
+    page_analysis_note: str | None = None
 
     # Related info
-    source_name: Optional[str] = None
-    category_name: Optional[str] = None
+    source_name: str | None = None
+    category_name: str | None = None
     has_extracted_data: bool = False
     extraction_count: int = 0
 
@@ -42,40 +49,47 @@ class DocumentResponse(BaseModel):
 class DocumentDetailResponse(DocumentResponse):
     """Detailed document response with text content."""
 
-    raw_text: Optional[str] = None
-    extracted_data: List[Dict[str, Any]] = Field(default_factory=list)
+    raw_text: str | None = None
+    extracted_data: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class DocumentListResponse(BaseModel):
     """Schema for document list response."""
 
-    items: List[DocumentResponse]
+    items: list[DocumentResponse]
     total: int
     page: int
     per_page: int
     pages: int
 
 
+class DocumentProcessingStatsResponse(BaseModel):
+    """Aggregated document counts by processing status."""
+
+    total: int
+    by_status: dict[str, int] = Field(default_factory=dict)
+
+
 class DocumentSearchParams(BaseModel):
     """Parameters for document search."""
 
-    query: Optional[str] = Field(None, description="Full-text search query")
-    category_id: Optional[UUID] = Field(None, description="Filter by category")
-    source_id: Optional[UUID] = Field(None, description="Filter by source")
-    document_type: Optional[str] = Field(None, description="Filter by document type")
-    processing_status: Optional[ProcessingStatus] = Field(None, description="Filter by status")
-    from_date: Optional[datetime] = Field(None, description="Documents discovered after this date")
-    to_date: Optional[datetime] = Field(None, description="Documents discovered before this date")
-    has_extracted_data: Optional[bool] = Field(None, description="Filter by extraction status")
-    min_confidence: Optional[float] = Field(None, ge=0, le=1, description="Minimum confidence score")
+    query: str | None = Field(None, description="Full-text search query")
+    category_id: UUID | None = Field(None, description="Filter by category")
+    source_id: UUID | None = Field(None, description="Filter by source")
+    document_type: str | None = Field(None, description="Filter by document type")
+    processing_status: ProcessingStatus | None = Field(None, description="Filter by status")
+    from_date: datetime | None = Field(None, description="Documents discovered after this date")
+    to_date: datetime | None = Field(None, description="Documents discovered before this date")
+    has_extracted_data: bool | None = Field(None, description="Filter by extraction status")
+    min_confidence: float | None = Field(None, ge=0, le=1, description="Minimum confidence score")
 
 
 class DocumentStats(BaseModel):
     """Statistics for documents."""
 
     total: int
-    by_status: Dict[str, int]
-    by_type: Dict[str, int]
-    by_category: Dict[str, int]
+    by_status: dict[str, int]
+    by_type: dict[str, int]
+    by_category: dict[str, int]
     total_size_bytes: int
-    avg_page_count: Optional[float]
+    avg_page_count: float | None

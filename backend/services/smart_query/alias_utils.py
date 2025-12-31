@@ -6,21 +6,24 @@ This module provides generic, AI-based functions for:
 - Fuzzy matching suggestions
 """
 
+import time
+
 import structlog
-from typing import Optional, Tuple, List, Dict
 
 from app.core.cache import TTLCache
+from app.models.llm_usage import LLMProvider, LLMTaskType
+from services.llm_usage_tracker import record_llm_usage
 
 logger = structlog.get_logger(__name__)
 
 # Caches for AI-based lookups with TTL and max size
 # Alias cache: 30 min TTL, max 500 entries
-_alias_cache: TTLCache[Optional[str]] = TTLCache(default_ttl=1800, max_size=500)
+_alias_cache: TTLCache[str | None] = TTLCache(default_ttl=1800, max_size=500)
 # Term expansion cache: 1 hour TTL, max 300 entries (expansions are more stable)
-_term_expansion_cache: TTLCache[List[str]] = TTLCache(default_ttl=3600, max_size=300)
+_term_expansion_cache: TTLCache[list[str]] = TTLCache(default_ttl=3600, max_size=300)
 
 
-def invalidate_alias_cache(domain: Optional[str] = None) -> int:
+def invalidate_alias_cache(domain: str | None = None) -> int:
     """
     Invalidate alias cache entries.
 
@@ -37,7 +40,7 @@ def invalidate_alias_cache(domain: Optional[str] = None) -> int:
         return -1  # -1 indicates full clear
 
 
-def invalidate_term_expansion_cache(context: Optional[str] = None) -> int:
+def invalidate_term_expansion_cache(context: str | None = None) -> int:
     """
     Invalidate term expansion cache entries.
 
@@ -89,7 +92,7 @@ def levenshtein_distance(s1: str, s2: str) -> int:
 
 async def resolve_alias_async(
     alias: str,
-    domain: Optional[str] = None
+    domain: str | None = None
 ) -> str:
     """
     Resolve an alias/abbreviation to its canonical form using AI.
@@ -119,13 +122,14 @@ async def resolve_alias_async(
         return cached if cached != "__NONE__" else alias
 
     try:
-        from services.ai_client import AzureOpenAIClientFactory
         from app.config import settings
+        from services.ai_client import AzureOpenAIClientFactory
 
         client = AzureOpenAIClientFactory.create_client()
 
         domain_hint = f"\nContext/Domain: {domain}" if domain else ""
 
+        start_time = time.time()
         response = await client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
             messages=[
@@ -151,6 +155,19 @@ Return ONLY the canonical form or "NONE", nothing else."""
             max_tokens=100,
         )
 
+        if response.usage:
+            await record_llm_usage(
+                provider=LLMProvider.AZURE_OPENAI,
+                model=settings.azure_openai_deployment_name,
+                task_type=LLMTaskType.CHAT,
+                task_name="resolve_alias_async",
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                duration_ms=int((time.time() - start_time) * 1000),
+                is_error=False,
+            )
+
         result = response.choices[0].message.content.strip()
 
         if result.upper() == "NONE" or result.lower() == alias.lower():
@@ -167,7 +184,7 @@ Return ONLY the canonical form or "NONE", nothing else."""
         return alias
 
 
-def resolve_alias(alias: str, domain: Optional[str] = None) -> str:
+def resolve_alias(alias: str, domain: str | None = None) -> str:
     """Synchronous wrapper for resolve_alias_async.
 
     Note: If called from an async context, returns the original alias unchanged.
@@ -206,16 +223,17 @@ DEFAULT_FUZZY_THRESHOLD = 2
 
 async def get_known_values_from_db(
     entity_type_slug: str,
-    hierarchy_level: Optional[int] = None
-) -> List[str]:
+    hierarchy_level: int | None = None
+) -> list[str]:
     """
     Get list of known values from the database for fuzzy matching.
 
     This is a generic function that can retrieve any type of entity names.
     """
     try:
-        from app.database import get_session_context
         from sqlalchemy import select
+
+        from app.database import get_session_context
         from app.models import Entity, EntityType
 
         async with get_session_context() as session:
@@ -244,9 +262,9 @@ async def get_known_values_from_db(
 
 async def suggest_correction_async(
     input_text: str,
-    known_values: List[str],
+    known_values: list[str],
     threshold: int = DEFAULT_FUZZY_THRESHOLD
-) -> Optional[Tuple[str, str, int]]:
+) -> tuple[str, str, int] | None:
     """
     Suggest a correction for a potentially misspelled term.
 
@@ -265,7 +283,7 @@ async def suggest_correction_async(
 
     normalized = input_text.lower().strip()
 
-    best_match: Optional[Tuple[str, str, int]] = None
+    best_match: tuple[str, str, int] | None = None
     min_distance = threshold + 1
 
     for value in known_values:
@@ -279,9 +297,9 @@ async def suggest_correction_async(
 
 def suggest_correction(
     input_text: str,
-    known_values: List[str],
+    known_values: list[str],
     threshold: int = DEFAULT_FUZZY_THRESHOLD
-) -> Optional[Tuple[str, str, int]]:
+) -> tuple[str, str, int] | None:
     """Synchronous wrapper for suggest_correction_async."""
     import asyncio
     try:
@@ -294,7 +312,7 @@ def suggest_correction(
 
 
 # Backward compatibility: geo-specific wrappers
-async def get_known_regions_from_db() -> List[str]:
+async def get_known_regions_from_db() -> list[str]:
     """Backward compatible - gets known regions."""
     return await get_known_values_from_db("territorial_entity", hierarchy_level=1)
 
@@ -302,7 +320,7 @@ async def get_known_regions_from_db() -> List[str]:
 async def suggest_geo_correction_async(
     input_text: str,
     threshold: int = DEFAULT_FUZZY_THRESHOLD
-) -> Optional[Tuple[str, str, int]]:
+) -> tuple[str, str, int] | None:
     """Backward compatible wrapper for geographic corrections."""
     # First try AI-based resolution
     resolved = await resolve_alias_async(input_text, domain="geographic")
@@ -316,7 +334,7 @@ async def suggest_geo_correction_async(
 def suggest_geo_correction(
     input_text: str,
     threshold: int = DEFAULT_FUZZY_THRESHOLD
-) -> Optional[Tuple[str, str, int]]:
+) -> tuple[str, str, int] | None:
     """Backward compatible synchronous wrapper."""
     import asyncio
     try:
@@ -330,10 +348,10 @@ def suggest_geo_correction(
 
 async def find_all_suggestions_async(
     input_text: str,
-    known_values: List[str],
+    known_values: list[str],
     threshold: int = DEFAULT_FUZZY_THRESHOLD,
     max_suggestions: int = 3
-) -> List[Tuple[str, str, int]]:
+) -> list[tuple[str, str, int]]:
     """
     Find all suggestions within the threshold distance.
 
@@ -366,7 +384,7 @@ async def find_all_geo_suggestions_async(
     input_text: str,
     threshold: int = DEFAULT_FUZZY_THRESHOLD,
     max_suggestions: int = 3
-) -> List[Tuple[str, str, int]]:
+) -> list[tuple[str, str, int]]:
     """Backward compatible wrapper for geographic suggestions."""
     resolved = await resolve_alias_async(input_text, domain="geographic")
     if resolved != input_text:
@@ -380,7 +398,7 @@ def find_all_geo_suggestions(
     input_text: str,
     threshold: int = DEFAULT_FUZZY_THRESHOLD,
     max_suggestions: int = 3
-) -> List[Tuple[str, str, int]]:
+) -> list[tuple[str, str, int]]:
     """Backward compatible synchronous wrapper."""
     import asyncio
     try:
@@ -394,10 +412,10 @@ def find_all_geo_suggestions(
 
 async def resolve_with_suggestion_async(
     input_text: str,
-    domain: Optional[str] = None,
-    known_values: Optional[List[str]] = None,
+    domain: str | None = None,
+    known_values: list[str] | None = None,
     threshold: int = DEFAULT_FUZZY_THRESHOLD
-) -> Tuple[str, Optional[str]]:
+) -> tuple[str, str | None]:
     """
     Resolve an input with optional suggestion for typos.
 
@@ -430,10 +448,10 @@ async def resolve_with_suggestion_async(
 
 def resolve_with_suggestion(
     input_text: str,
-    domain: Optional[str] = None,
-    known_values: Optional[List[str]] = None,
+    domain: str | None = None,
+    known_values: list[str] | None = None,
     threshold: int = DEFAULT_FUZZY_THRESHOLD
-) -> Tuple[str, Optional[str]]:
+) -> tuple[str, str | None]:
     """Synchronous wrapper."""
     import asyncio
     try:
@@ -464,8 +482,8 @@ async def expand_terms_async(
     Returns:
         List of expanded terms with duplicates removed.
     """
-    from services.ai_client import AzureOpenAIClientFactory
     from app.config import settings
+    from services.ai_client import AzureOpenAIClientFactory
 
     expanded = []
 
@@ -482,6 +500,7 @@ async def expand_terms_async(
         try:
             client = AzureOpenAIClientFactory.create_client()
 
+            start_time = time.time()
             response = await client.chat.completions.create(
                 model=settings.azure_openai_deployment_name,
                 messages=[
@@ -505,6 +524,19 @@ Maximum 10 terms."""
                 temperature=0,
                 max_tokens=200,
             )
+
+            if response.usage:
+                await record_llm_usage(
+                    provider=LLMProvider.AZURE_OPENAI,
+                    model=settings.azure_openai_deployment_name,
+                    task_type=LLMTaskType.CHAT,
+                    task_name="expand_terms_async",
+                    prompt_tokens=response.usage.prompt_tokens,
+                    completion_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens,
+                    duration_ms=int((time.time() - start_time) * 1000),
+                    is_error=False,
+                )
 
             import json
             result = response.choices[0].message.content.strip()

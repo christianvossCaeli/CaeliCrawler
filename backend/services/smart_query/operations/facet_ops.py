@@ -8,16 +8,16 @@ Operations:
 """
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select, and_, or_
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .base import WriteOperation, OperationResult, register_operation
 from ..entity_operations import find_entity_by_name
 from ..utils import generate_slug
+from .base import OperationResult, WriteOperation, register_operation
 
 logger = structlog.get_logger()
 
@@ -26,7 +26,7 @@ logger = structlog.get_logger()
 class CreateFacetTypeOperation(WriteOperation):
     """Create a new FacetType."""
 
-    def validate(self, command: Dict[str, Any]) -> Optional[str]:
+    def validate(self, command: dict[str, Any]) -> str | None:
         facet_type_data = command.get("facet_type_data", {})
         if not facet_type_data.get("name"):
             return "Name für Facet-Typ erforderlich"
@@ -35,8 +35,8 @@ class CreateFacetTypeOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         from app.models import FacetType
         from app.utils.similarity import find_similar_facet_types
@@ -158,7 +158,7 @@ class CreateFacetTypeOperation(WriteOperation):
 class AssignFacetTypeOperation(WriteOperation):
     """Assign a FacetType to EntityTypes."""
 
-    def validate(self, command: Dict[str, Any]) -> Optional[str]:
+    def validate(self, command: dict[str, Any]) -> str | None:
         assign_data = command.get("assign_facet_type_data", {})
         if not assign_data.get("facet_type_slug"):
             return "Facet-Typ-Slug erforderlich"
@@ -169,8 +169,8 @@ class AssignFacetTypeOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         from app.models import FacetType
 
@@ -210,8 +210,8 @@ class DeleteFacetOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         from app.models import Entity, FacetType, FacetValue
 
@@ -330,7 +330,7 @@ class DeleteFacetOperation(WriteOperation):
 class AddHistoryPointOperation(WriteOperation):
     """Add a data point to a history-type facet."""
 
-    def validate(self, command: Dict[str, Any]) -> Optional[str]:
+    def validate(self, command: dict[str, Any]) -> str | None:
         history_data = command.get("history_point_data", {})
         if history_data.get("value") is None:
             return "Wert (value) erforderlich"
@@ -343,8 +343,8 @@ class AddHistoryPointOperation(WriteOperation):
     async def execute(
         self,
         session: AsyncSession,
-        command: Dict[str, Any],
-        user_id: Optional[UUID] = None,
+        command: dict[str, Any],
+        user_id: UUID | None = None,
     ) -> OperationResult:
         from app.models import Entity, FacetType
         from services.facet_history_service import FacetHistoryService

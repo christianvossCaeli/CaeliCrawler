@@ -3,7 +3,7 @@
 import ipaddress
 import logging
 import socket
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 import httpx
@@ -28,7 +28,7 @@ BLOCKED_IP_RANGES = [
 ]
 
 
-def is_safe_webhook_url(url: str) -> Tuple[bool, str, Optional[str]]:
+def is_safe_webhook_url(url: str) -> tuple[bool, str, str | None]:
     """
     Validate webhook URL for SSRF protection.
 
@@ -73,7 +73,7 @@ def is_safe_webhook_url(url: str) -> Tuple[bool, str, Optional[str]]:
         return False, f"Invalid URL: {str(e)}", None
 
 
-def create_pinned_url(original_url: str, resolved_ip: str) -> Tuple[str, str]:
+def create_pinned_url(original_url: str, resolved_ip: str) -> tuple[str, str]:
     """
     Create a URL with IP instead of hostname for DNS rebinding protection.
 
@@ -101,7 +101,7 @@ class WebhookChannel(NotificationChannelBase):
 
     channel_type = NotificationChannel.WEBHOOK
 
-    async def send(self, notification: Notification, config: Dict[str, Any]) -> bool:
+    async def send(self, notification: Notification, config: dict[str, Any]) -> bool:
         """Send notification via HTTP webhook.
 
         Args:
@@ -162,7 +162,7 @@ class WebhookChannel(NotificationChannelBase):
             logger.error(f"Failed to send webhook for notification {notification.id}: {e}")
             return False
 
-    async def validate_config(self, config: Dict[str, Any]) -> bool:
+    async def validate_config(self, config: dict[str, Any]) -> bool:
         """Validate webhook channel configuration.
 
         Args:
@@ -192,7 +192,7 @@ class WebhookChannel(NotificationChannelBase):
 
         return True
 
-    def _build_headers(self, config: Dict[str, Any]) -> Dict[str, str]:
+    def _build_headers(self, config: dict[str, Any]) -> dict[str, str]:
         """Build HTTP headers for webhook request.
 
         Args:
@@ -230,7 +230,7 @@ class WebhookChannel(NotificationChannelBase):
 
         return headers
 
-    def _build_payload(self, notification: Notification) -> Dict[str, Any]:
+    def _build_payload(self, notification: Notification) -> dict[str, Any]:
         """Build JSON payload for webhook.
 
         Args:

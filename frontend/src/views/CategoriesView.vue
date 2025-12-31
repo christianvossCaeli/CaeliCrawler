@@ -9,7 +9,7 @@
       :title="$t('categories.title')"
       :subtitle="$t('categories.subtitle')"
       icon="mdi-folder-multiple"
-      :count="filteredCategories.length"
+      :count="totalCategories"
     >
       <template #actions>
         <v-btn v-if="canEdit" variant="tonal" color="primary" @click="openCreateDialog">
@@ -25,17 +25,23 @@
       :status-options="statusFilterOptions"
       :document-options="documentFilterOptions"
       :language-options="languageFilterOptions"
-      @update:filters="categoryFilters = $event"
-      @search="loadCategories"
+      @update:filters="handleFiltersUpdate"
+      @search="handleSearchSubmit"
     />
 
     <!-- Categories Table -->
     <CategoriesTree
-      :categories="filteredCategories"
+      :categories="categories"
       :loading="loading"
       :language-options="languageFilterOptions"
+      :total="totalCategories"
+      :page="categoryPage"
+      :items-per-page="categoryPerPage"
+      :sort-by="categorySortBy"
+      :sort-order="categorySortOrder"
       :can-edit="canEdit"
       :can-admin="canAdmin"
+      @update:options="handleTableOptionsUpdate"
       @edit="openEditDialog"
       @delete="confirmDelete"
       @view-sources="showSourcesForCategory"
@@ -86,7 +92,15 @@
       v-model="sourcesDialog"
       :category="selectedCategoryForSources"
       :sources="categorySources"
+      :total="categorySourcesTotal"
       :stats="categorySourcesStats"
+      :loading="categorySourcesLoading"
+      :page="categorySourcesPage"
+      :per-page="categorySourcesPerPage"
+      :search="categorySourcesSearch"
+      @update:page="handleSourcesPageChange"
+      @update:per-page="handleSourcesPerPageChange"
+      @update:search="handleSourcesSearch"
       @navigate-to-sources="navigateToSourcesFiltered"
     />
 
@@ -182,14 +196,23 @@ const {
   categories,
   selectedCategory,
   categorySources,
+  categorySourcesLoading,
   categoryFilters,
   snackbar,
-  filteredCategories,
+  totalCategories,
+  categoryPage,
+  categoryPerPage,
+  categorySortBy,
+  categorySortOrder,
   statusFilterOptions,
   documentFilterOptions,
   languageFilterOptions,
   availableLanguages,
   categorySourcesStats,
+  categorySourcesTotal,
+  categorySourcesPage,
+  categorySourcesPerPage,
+  categorySourcesSearch,
   loadCategories,
   showSnackbar,
   deleteCategory,
@@ -305,6 +328,7 @@ const formData = ref<CategoryFormData>({
   url_include_patterns: [],
   url_exclude_patterns: [],
   schedule_cron: '0 2 * * *',
+  schedule_enabled: false,
   ai_extraction_prompt: '',
   is_active: true,
 })
@@ -326,6 +350,7 @@ const openCreateDialog = () => {
     url_include_patterns: [],
     url_exclude_patterns: [],
     schedule_cron: '0 2 * * *',
+    schedule_enabled: false,
     ai_extraction_prompt: '',
     is_active: true,
   }
@@ -349,6 +374,7 @@ const openEditDialog = async (category: Category) => {
     url_include_patterns: category.url_include_patterns || [],
     url_exclude_patterns: category.url_exclude_patterns || [],
     schedule_cron: category.schedule_cron || '0 2 * * *',
+    schedule_enabled: category.schedule_enabled ?? false,
     ai_extraction_prompt: category.ai_extraction_prompt || '',
     is_active: category.is_active,
   }
@@ -593,6 +619,49 @@ const openSummaryDialog = (category: Category) => {
 const handleSummaryCreated = (result: { id: string; name: string }) => {
   showSnackbar(t('summaries.messages.created', { name: result.name }), 'success')
   router.push({ name: 'summary-dashboard', params: { id: result.id } })
+}
+
+// Filter and pagination handlers
+const handleFiltersUpdate = (newFilters: typeof categoryFilters.value) => {
+  categoryFilters.value = newFilters
+  categoryPage.value = 1 // Reset to first page on filter change
+  loadCategories()
+}
+
+const handleSearchSubmit = () => {
+  categoryPage.value = 1
+  loadCategories()
+}
+
+const handleTableOptionsUpdate = (options: { page: number; itemsPerPage: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }) => {
+  categoryPage.value = options.page
+  categoryPerPage.value = options.itemsPerPage
+  if (options.sortBy) categorySortBy.value = options.sortBy
+  if (options.sortOrder) categorySortOrder.value = options.sortOrder
+  loadCategories()
+}
+
+// Sources dialog pagination handlers
+const handleSourcesPageChange = (page: number) => {
+  if (selectedCategoryForSources.value) {
+    loadSourcesForCategory(selectedCategoryForSources.value.id, { page })
+  }
+}
+
+const handleSourcesPerPageChange = (perPage: number) => {
+  if (selectedCategoryForSources.value) {
+    loadSourcesForCategory(selectedCategoryForSources.value.id, { perPage, page: 1 })
+  }
+}
+
+let sourcesSearchTimeout: ReturnType<typeof setTimeout> | null = null
+const handleSourcesSearch = (search: string) => {
+  if (sourcesSearchTimeout) clearTimeout(sourcesSearchTimeout)
+  sourcesSearchTimeout = setTimeout(() => {
+    if (selectedCategoryForSources.value) {
+      loadSourcesForCategory(selectedCategoryForSources.value.id, { search, page: 1 })
+    }
+  }, 300)
 }
 
 // Lifecycle

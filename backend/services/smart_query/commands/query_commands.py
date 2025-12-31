@@ -3,25 +3,20 @@
 Commands for querying entity/facet data with visualization support.
 """
 
-from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 import structlog
 
 from app.schemas.visualization import (
     QueryDataConfig,
-    QueryDataResponse,
-    QueryExternalConfig,
-    QueryExternalResponse,
     QueryFilters,
     TimeRangeConfig,
-    SourceInfo,
-    SuggestedAction,
 )
-from .base import BaseCommand, CommandResult
-from .registry import default_registry
+
 from ..data_query_service import DataQueryService
 from ..visualization_selector import VisualizationSelector
+from .base import BaseCommand, CommandResult
+from .registry import default_registry
 
 logger = structlog.get_logger()
 
@@ -60,7 +55,7 @@ class QueryDataCommand(BaseCommand):
 
     operation_name = "query_data"
 
-    async def validate(self) -> Optional[str]:
+    async def validate(self) -> str | None:
         """Validate query configuration."""
         config = self.data.get("query_config", {})
 
@@ -176,7 +171,7 @@ class QueryExternalCommand(BaseCommand):
 
     operation_name = "query_external"
 
-    async def validate(self) -> Optional[str]:
+    async def validate(self) -> str | None:
         """Validate external query configuration."""
         config = self.data.get("query_config", {})
 
@@ -194,6 +189,7 @@ class QueryExternalCommand(BaseCommand):
         """Execute external API query."""
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
+
         from app.models.api_configuration import APIConfiguration
 
         config_data = self.data.get("query_config", {})
@@ -234,8 +230,8 @@ class QueryExternalCommand(BaseCommand):
                 select(APIConfiguration)
                 .options(selectinload(APIConfiguration.data_source))
                 .where(
-                    APIConfiguration.is_active == True,
-                    APIConfiguration.is_template == True,
+                    APIConfiguration.is_active,
+                    APIConfiguration.is_template,
                 )
             )
             configs = result.scalars().all()
@@ -312,7 +308,7 @@ class QueryExternalCommand(BaseCommand):
                 data_source="external_api",
                 api_name=api_name,
                 api_url=api_url,
-                template_id=str(template.id) if template else None,
+                template_id=None,  # External API, no template
                 visualization=visualization.model_dump() if visualization else None,
                 explanation=f"Live-Daten von {api_name}",
                 source_info={
@@ -377,7 +373,7 @@ class QueryFacetHistoryCommand(BaseCommand):
 
     operation_name = "query_facet_history"
 
-    async def validate(self) -> Optional[str]:
+    async def validate(self) -> str | None:
         """Validate history query configuration."""
         config = self.data.get("query_config", {})
 

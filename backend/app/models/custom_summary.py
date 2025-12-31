@@ -7,7 +7,7 @@ via cron schedules or event triggers (crawl completion).
 import enum
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -15,11 +15,11 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     func,
-    Index,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -27,12 +27,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
-    from app.models.user import User
     from app.models.category import Category
     from app.models.crawl_preset import CrawlPreset
-    from app.models.summary_widget import SummaryWidget
     from app.models.summary_execution import SummaryExecution
     from app.models.summary_share import SummaryShare
+    from app.models.summary_widget import SummaryWidget
+    from app.models.user import User
 
 
 class SummaryStatus(str, enum.Enum):
@@ -86,7 +86,7 @@ class CustomSummary(Base):
         nullable=False,
         comment="User-defined name for the summary",
     )
-    description: Mapped[Optional[str]] = mapped_column(
+    description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Optional description",
@@ -100,7 +100,7 @@ class CustomSummary(Base):
     )
 
     # KI-interpreted configuration
-    interpreted_config: Mapped[Dict[str, Any]] = mapped_column(
+    interpreted_config: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
         default=dict,
@@ -117,7 +117,7 @@ class CustomSummary(Base):
     # }
 
     # Layout configuration
-    layout_config: Mapped[Dict[str, Any]] = mapped_column(
+    layout_config: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
         default=dict,
@@ -143,18 +143,18 @@ class CustomSummary(Base):
         nullable=False,
         default=SummaryTriggerType.MANUAL,
     )
-    schedule_cron: Mapped[Optional[str]] = mapped_column(
+    schedule_cron: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
         comment="Cron expression for scheduled execution (like CrawlPreset)",
     )
-    trigger_category_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    trigger_category_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("categories.id", ondelete="SET NULL"),
         nullable=True,
         comment="Category ID for crawl_category trigger",
     )
-    trigger_preset_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    trigger_preset_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("crawl_presets.id", ondelete="SET NULL"),
         nullable=True,
@@ -168,7 +168,7 @@ class CustomSummary(Base):
         default=False,
         comment="Whether scheduled/triggered execution is enabled",
     )
-    next_run_at: Mapped[Optional[datetime]] = mapped_column(
+    next_run_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="Next scheduled execution time",
@@ -203,12 +203,12 @@ class CustomSummary(Base):
         default=0,
         comment="Total number of executions",
     )
-    last_executed_at: Mapped[Optional[datetime]] = mapped_column(
+    last_executed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="Last execution timestamp",
     )
-    last_data_hash: Mapped[Optional[str]] = mapped_column(
+    last_data_hash: Mapped[str | None] = mapped_column(
         String(64),
         nullable=True,
         comment="Hash of last execution data for change detection",
@@ -254,19 +254,19 @@ class CustomSummary(Base):
         "CrawlPreset",
         foreign_keys=[trigger_preset_id],
     )
-    widgets: Mapped[List["SummaryWidget"]] = relationship(
+    widgets: Mapped[list["SummaryWidget"]] = relationship(
         "SummaryWidget",
         back_populates="summary",
         cascade="all, delete-orphan",
         order_by="SummaryWidget.display_order",
     )
-    executions: Mapped[List["SummaryExecution"]] = relationship(
+    executions: Mapped[list["SummaryExecution"]] = relationship(
         "SummaryExecution",
         back_populates="summary",
         cascade="all, delete-orphan",
         order_by="SummaryExecution.created_at.desc()",
     )
-    shares: Mapped[List["SummaryShare"]] = relationship(
+    shares: Mapped[list["SummaryShare"]] = relationship(
         "SummaryShare",
         back_populates="summary",
         cascade="all, delete-orphan",

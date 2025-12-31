@@ -7,27 +7,25 @@ and caching the results.
 import asyncio
 import hashlib
 import json
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select, update, and_, text
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.models import (
     CustomSummary,
-    SummaryWidget,
-    SummaryExecution,
     Entity,
     EntityType,
     FacetType,
     FacetValue,
+    SummaryExecution,
+    SummaryWidget,
 )
 from app.models.summary_execution import ExecutionStatus
-from app.schemas.visualization import QueryDataConfig
 
 logger = structlog.get_logger(__name__)
 
@@ -96,7 +94,7 @@ class SummaryExecutor:
         self,
         summary_id: UUID,
         triggered_by: str = "manual",
-        trigger_details: Optional[Dict[str, Any]] = None,
+        trigger_details: dict[str, Any] | None = None,
         force: bool = False,
     ) -> SummaryExecution:
         """
@@ -136,7 +134,7 @@ class SummaryExecutor:
                 triggered_by=triggered_by,
                 trigger_details=trigger_details,
                 relevance_reason="Übersprungen: Eine andere Ausführung läuft bereits",
-                completed_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(UTC),
             )
             self.session.add(skipped_execution)
             await self.session.commit()
@@ -169,7 +167,7 @@ class SummaryExecutor:
                     triggered_by=triggered_by,
                     trigger_details=trigger_details,
                     relevance_reason="Übersprungen: Summary ist durch eine andere Transaktion gesperrt",
-                    completed_at=datetime.now(timezone.utc),
+                    completed_at=datetime.now(UTC),
                 )
                 self.session.add(skipped_execution)
                 await self.session.commit()
@@ -182,14 +180,14 @@ class SummaryExecutor:
             status=ExecutionStatus.RUNNING,
             triggered_by=triggered_by,
             trigger_details=trigger_details,
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
         )
         self.session.add(execution)
         await self.session.flush()
 
         try:
             # Execute queries for all widgets
-            cached_data: Dict[str, Any] = {}
+            cached_data: dict[str, Any] = {}
 
             for widget in summary.widgets:
                 widget_key = f"widget_{widget.id}"
@@ -200,7 +198,7 @@ class SummaryExecutor:
                         timeout=WIDGET_EXECUTION_TIMEOUT_SECONDS,
                     )
                     cached_data[widget_key] = widget_data
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.warning(
                         "widget_query_timeout",
                         widget_id=str(widget.id),
@@ -258,7 +256,7 @@ class SummaryExecutor:
                     execution.relevance_reason = relevance["reason"]
                     execution.data_hash = data_hash
                     execution.has_changes = False
-                    execution.completed_at = datetime.now(timezone.utc)
+                    execution.completed_at = datetime.now(UTC)
                     execution.duration_ms = self._calculate_duration(execution)
                     await self.session.commit()
 
@@ -277,7 +275,7 @@ class SummaryExecutor:
             execution.data_hash = data_hash
             execution.has_changes = has_changes
             execution.status = ExecutionStatus.COMPLETED
-            execution.completed_at = datetime.now(timezone.utc)
+            execution.completed_at = datetime.now(UTC)
             execution.duration_ms = self._calculate_duration(execution)
 
             # Update summary statistics atomically using SQL UPDATE
@@ -315,12 +313,12 @@ class SummaryExecutor:
 
             return execution
 
-        except asyncio.TimeoutError as e:
+        except TimeoutError:
             # Timeout errors - mark as failed, don't retry
             await self.session.rollback()
             execution.status = ExecutionStatus.FAILED
             execution.error_message = "Execution timeout - query took too long"
-            execution.completed_at = datetime.now(timezone.utc)
+            execution.completed_at = datetime.now(UTC)
             execution.duration_ms = self._calculate_duration(execution)
             await self._safe_commit(summary_id)
             logger.error(
@@ -335,7 +333,7 @@ class SummaryExecutor:
             await self.session.rollback()
             execution.status = ExecutionStatus.FAILED
             execution.error_message = f"Connection error: {str(e)}"
-            execution.completed_at = datetime.now(timezone.utc)
+            execution.completed_at = datetime.now(UTC)
             execution.duration_ms = self._calculate_duration(execution)
             await self._safe_commit(summary_id)
             logger.error(
@@ -350,7 +348,7 @@ class SummaryExecutor:
             await self.session.rollback()
             execution.status = ExecutionStatus.FAILED
             execution.error_message = f"Validation error: {str(e)}"
-            execution.completed_at = datetime.now(timezone.utc)
+            execution.completed_at = datetime.now(UTC)
             execution.duration_ms = self._calculate_duration(execution)
             await self._safe_commit(summary_id)
             logger.error(
@@ -365,7 +363,7 @@ class SummaryExecutor:
             await self.session.rollback()
             execution.status = ExecutionStatus.FAILED
             execution.error_message = f"{type(e).__name__}: {str(e)}"
-            execution.completed_at = datetime.now(timezone.utc)
+            execution.completed_at = datetime.now(UTC)
             execution.duration_ms = self._calculate_duration(execution)
             await self._safe_commit(summary_id)
             logger.exception(
@@ -391,7 +389,7 @@ class SummaryExecutor:
     async def _execute_widget_query(
         self,
         widget: SummaryWidget,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Execute query for a single widget.
 
@@ -417,7 +415,7 @@ class SummaryExecutor:
         requested_limit = query_config.get("limit", DEFAULT_QUERY_LIMIT)
         limit = min(requested_limit, MAX_QUERY_LIMIT) if requested_limit else DEFAULT_QUERY_LIMIT
         aggregate = query_config.get("aggregate")
-        group_by = query_config.get("group_by")
+        query_config.get("group_by")
 
         # Handle aggregation queries
         if aggregate == "count" and not facet_types:
@@ -437,7 +435,7 @@ class SummaryExecutor:
         # Build entity query
         query = select(Entity).where(
             Entity.entity_type_id == entity_type.id,
-            Entity.is_active == True,
+            Entity.is_active,
         )
 
         # Apply filters
@@ -533,7 +531,7 @@ class SummaryExecutor:
             "query_time_ms": query_time,
         }
 
-    async def _get_entity_type(self, slug: str) -> Optional[EntityType]:
+    async def _get_entity_type(self, slug: str) -> EntityType | None:
         """Get entity type by slug."""
         result = await self.session.execute(
             select(EntityType).where(EntityType.slug == slug)
@@ -543,7 +541,7 @@ class SummaryExecutor:
     async def _count_entities(
         self,
         entity_type_slug: str,
-        filters: Dict[str, Any],
+        filters: dict[str, Any],
     ) -> int:
         """Count entities matching filters."""
         from sqlalchemy import func
@@ -554,14 +552,14 @@ class SummaryExecutor:
 
         query = select(func.count(Entity.id)).where(
             Entity.entity_type_id == entity_type.id,
-            Entity.is_active == True,
+            Entity.is_active,
         )
         query = self._apply_filters(query, filters)
 
         result = await self.session.execute(query)
         return result.scalar() or 0
 
-    def _apply_filters(self, query, filters: Dict[str, Any]):
+    def _apply_filters(self, query, filters: dict[str, Any]):
         """Apply filters to entity query.
 
         Only whitelisted filter keys are applied to prevent injection.
@@ -603,9 +601,9 @@ class SummaryExecutor:
 
     async def _load_facet_values(
         self,
-        entity_ids: List[UUID],
-        facet_type_slugs: List[str],
-    ) -> Dict[UUID, Dict[str, Any]]:
+        entity_ids: list[UUID],
+        facet_type_slugs: list[str],
+    ) -> dict[UUID, dict[str, Any]]:
         """Load facet values for entities."""
         if not entity_ids or not facet_type_slugs:
             return {}
@@ -640,7 +638,7 @@ class SummaryExecutor:
             )
 
         # Build result dict
-        result: Dict[UUID, Dict[str, Any]] = {}
+        result: dict[UUID, dict[str, Any]] = {}
         for fv in facet_values:
             if fv.entity_id not in result:
                 result[fv.entity_id] = {}
@@ -657,14 +655,14 @@ class SummaryExecutor:
 
     def _sort_data(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         sort_by: str,
         sort_order: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Sort data by field."""
         reverse = sort_order == "desc"
 
-        def get_sort_value(item: Dict[str, Any]) -> Any:
+        def get_sort_value(item: dict[str, Any]) -> Any:
             if sort_by.startswith("facets."):
                 facet_key = sort_by.replace("facets.", "")
                 facet_data = item.get("facets", {}).get(facet_key, {})
@@ -679,9 +677,9 @@ class SummaryExecutor:
 
     def _truncate_cached_data(
         self,
-        cached_data: Dict[str, Any],
+        cached_data: dict[str, Any],
         max_size_bytes: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Truncate cached data to fit within size limit.
 
@@ -696,7 +694,7 @@ class SummaryExecutor:
             Truncated cached data
         """
         # Calculate current size
-        def get_size(data: Dict[str, Any]) -> int:
+        def get_size(data: dict[str, Any]) -> int:
             return len(json.dumps(data, default=str).encode("utf-8"))
 
         current_size = get_size(cached_data)
@@ -733,7 +731,7 @@ class SummaryExecutor:
 
         # Final check - if still too large, truncate more aggressively
         if get_size(truncated_data) > max_size_bytes:
-            for key, _, widget_data in widget_sizes:
+            for key, _, _widget_data in widget_sizes:
                 if isinstance(truncated_data.get(key), dict):
                     data_list = truncated_data[key].get("data", [])
                     if isinstance(data_list, list) and len(data_list) > 10:
@@ -748,7 +746,7 @@ class SummaryExecutor:
 
         return truncated_data
 
-    def _calculate_data_hash(self, data: Dict[str, Any]) -> str:
+    def _calculate_data_hash(self, data: dict[str, Any]) -> str:
         """Calculate SHA256 hash of data for change detection.
 
         Excludes non-deterministic fields like query_time_ms that change
@@ -757,13 +755,11 @@ class SummaryExecutor:
 
         def consistent_json_encoder(obj: Any) -> Any:
             """Encode objects consistently for deterministic hashing."""
-            from datetime import datetime, date
-            from uuid import UUID
+            from datetime import date, datetime
             from decimal import Decimal
+            from uuid import UUID
 
-            if isinstance(obj, datetime):
-                return obj.isoformat()
-            elif isinstance(obj, date):
+            if isinstance(obj, (datetime, date)):
                 return obj.isoformat()
             elif isinstance(obj, UUID):
                 return str(obj)
@@ -802,9 +798,9 @@ class SummaryExecutor:
     async def _check_relevance(
         self,
         summary: CustomSummary,
-        new_data: Dict[str, Any],
+        new_data: dict[str, Any],
         data_hash: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Check if update is relevant using semantic analysis.
 
@@ -869,8 +865,8 @@ class SummaryExecutor:
     async def _check_auto_expand(
         self,
         summary: CustomSummary,
-        cached_data: Dict[str, Any],
-    ) -> List:
+        cached_data: dict[str, Any],
+    ) -> list:
         """
         Check for auto-expand opportunities and return suggestions.
 
@@ -905,7 +901,7 @@ class SummaryExecutor:
         self,
         summary_id: UUID,
         completed_only: bool = True,
-    ) -> Optional[SummaryExecution]:
+    ) -> SummaryExecution | None:
         """
         Get the latest execution for a summary.
 

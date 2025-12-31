@@ -16,6 +16,7 @@
       @update:text-representation="$emit('update:text-representation', $event)"
       @update:source-url="$emit('update:source-url', $event)"
       @update:confidence-score="$emit('update:confidence-score', $event)"
+      @update:target-entity-id="$emit('update:facet-target-entity-id', $event)"
       @save="$emit('save-facet')"
       @close="$emit('close-facet-dialog')"
     />
@@ -307,6 +308,7 @@ const emit = defineEmits<{
   'update:text-representation': [value: string]
   'update:source-url': [value: string]
   'update:confidence-score': [value: number]
+  'update:facet-target-entity-id': [value: string | null]
   'save-facet': []
   'close-facet-dialog': []
   'update:facet-details-dialog': [value: boolean]

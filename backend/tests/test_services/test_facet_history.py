@@ -1,13 +1,14 @@
 """Tests for Facet History Service."""
 
-import pytest
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
-from app.models.facet_value_history import FacetValueHistory
-from app.models.facet_type import FacetType, ValueType
+import pytest
+
 from app.models.entity import Entity
+from app.models.facet_type import FacetType, ValueType
+from app.models.facet_value_history import FacetValueHistory
 from services.facet_history_service import FacetHistoryService
 
 

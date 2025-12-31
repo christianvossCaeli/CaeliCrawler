@@ -8,15 +8,10 @@ that may fail due to transient errors (network issues, rate limits, etc.)
 import asyncio
 import functools
 import random
+from collections.abc import Callable
 from typing import (
     Any,
-    Callable,
-    Optional,
-    Set,
-    Tuple,
-    Type,
     TypeVar,
-    Union,
 )
 
 import structlog
@@ -29,7 +24,7 @@ T = TypeVar("T")
 class RetryError(Exception):
     """Raised when all retry attempts have been exhausted."""
 
-    def __init__(self, message: str, last_exception: Optional[Exception] = None):
+    def __init__(self, message: str, last_exception: Exception | None = None):
         super().__init__(message)
         self.last_exception = last_exception
 
@@ -45,9 +40,9 @@ class RetryConfig:
         exponential_base: float = 2.0,
         jitter: bool = True,
         jitter_factor: float = 0.1,
-        retryable_exceptions: Optional[Tuple[Type[Exception], ...]] = None,
-        non_retryable_exceptions: Optional[Tuple[Type[Exception], ...]] = None,
-        on_retry: Optional[Callable[[Exception, int], None]] = None,
+        retryable_exceptions: tuple[type[Exception], ...] | None = None,
+        non_retryable_exceptions: tuple[type[Exception], ...] | None = None,
+        on_retry: Callable[[Exception, int], None] | None = None,
     ):
         """
         Initialize retry configuration.
@@ -92,7 +87,7 @@ class RetryConfig:
         if self.jitter:
             # Add +/- jitter_factor random variation
             jitter_range = delay * self.jitter_factor
-            delay += random.uniform(-jitter_range, jitter_range)
+            delay += random.uniform(-jitter_range, jitter_range)  # noqa: S311
 
         return max(0, delay)
 
@@ -155,10 +150,10 @@ LLM_RETRY_CONFIG = RetryConfig(
 )
 
 
-async def retry_async(
+async def retry_async[T](
     func: Callable[..., T],
     *args: Any,
-    config: Optional[RetryConfig] = None,
+    config: RetryConfig | None = None,
     **kwargs: Any,
 ) -> T:
     """
@@ -177,7 +172,7 @@ async def retry_async(
         RetryError: If all attempts fail
     """
     config = config or NETWORK_RETRY_CONFIG
-    last_exception: Optional[Exception] = None
+    last_exception: Exception | None = None
 
     for attempt in range(config.max_attempts):
         try:
@@ -207,7 +202,7 @@ async def retry_async(
                 raise RetryError(
                     f"Failed after {config.max_attempts} attempts: {str(e)}",
                     last_exception=e,
-                )
+                ) from None
 
             # Calculate delay and wait
             delay = config.calculate_delay(attempt)
@@ -234,9 +229,9 @@ async def retry_async(
 
 
 def with_retry(
-    config: Optional[RetryConfig] = None,
-    max_attempts: Optional[int] = None,
-    base_delay: Optional[float] = None,
+    config: RetryConfig | None = None,
+    max_attempts: int | None = None,
+    base_delay: float | None = None,
 ):
     """
     Decorator to add retry logic to an async function.
@@ -287,7 +282,7 @@ class RetryContext:
                     await retry.handle_error(e)
     """
 
-    def __init__(self, config: Optional[RetryConfig] = None, **kwargs):
+    def __init__(self, config: RetryConfig | None = None, **kwargs):
         """
         Initialize retry context.
 

@@ -11,12 +11,11 @@ Tests cover:
 - Multi-hop relations
 """
 
-import pytest
 from datetime import datetime, timedelta
+from unittest.mock import AsyncMock
 from uuid import uuid4
-from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest_asyncio
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -343,7 +342,7 @@ class TestMultiHopRelations:
     @pytest.mark.asyncio
     async def test_relation_chain_creation(self):
         """Test RelationChain creation."""
-        from services.smart_query.relation_resolver import RelationHop, RelationChain
+        from services.smart_query.relation_resolver import RelationChain, RelationHop
 
         hop1 = RelationHop("works_for", "source")
         hop2 = RelationHop("organizes", "target")
@@ -355,11 +354,7 @@ class TestMultiHopRelations:
     @pytest.mark.asyncio
     async def test_relation_chain_max_depth(self):
         """Test that RelationChain enforces max depth."""
-        from services.smart_query.relation_resolver import (
-            RelationHop,
-            RelationChain,
-            MAX_RELATION_DEPTH
-        )
+        from services.smart_query.relation_resolver import MAX_RELATION_DEPTH, RelationChain, RelationHop
 
         hops = [RelationHop(f"relation_{i}", "source")
                 for i in range(MAX_RELATION_DEPTH + 1)]
@@ -658,7 +653,7 @@ class TestMultiHopPerformance:
 
         # Simulate grouping by facet presence (common multi-hop operation)
         with_facets = [e for e in entities if e["facets"]]
-        without_facets = [e for e in entities if not e["facets"]]
+        [e for e in entities if not e["facets"]]
 
         # Build lookup index
         entity_by_id = {e["id"]: e for e in entities}

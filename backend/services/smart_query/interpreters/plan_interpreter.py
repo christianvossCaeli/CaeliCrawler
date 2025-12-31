@@ -6,28 +6,33 @@ formulate the correct prompts for Smart Query operations.
 
 import json as json_module
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
+from uuid import UUID
 
 import httpx
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.exceptions import AIInterpretationError, SessionRequiredError
+from app.models.llm_usage import LLMProvider, LLMTaskType
+from services.llm_usage_tracker import estimate_tokens, record_llm_usage
+
 from ..prompts import build_plan_mode_prompt
 from .base import (
     AI_TEMPERATURE_MEDIUM,
     MAX_TOKENS_PLAN_MODE,
-    STREAMING_CONNECT_TIMEOUT,
-    STREAMING_READ_TIMEOUT,
-    STREAMING_TOTAL_TIMEOUT,
-    SSE_EVENT_START,
     SSE_EVENT_CHUNK,
     SSE_EVENT_DONE,
     SSE_EVENT_ERROR,
+    SSE_EVENT_START,
+    STREAMING_CONNECT_TIMEOUT,
+    STREAMING_READ_TIMEOUT,
+    STREAMING_TOTAL_TIMEOUT,
     get_openai_client,
-    sanitize_user_input,
-    sanitize_conversation_messages,
     load_all_types_for_write,
+    sanitize_conversation_messages,
+    sanitize_user_input,
 )
 
 logger = structlog.get_logger()
@@ -35,7 +40,7 @@ logger = structlog.get_logger()
 
 async def call_claude_for_plan_mode_stream(
     system_prompt: str,
-    messages: List[Dict[str, str]],
+    messages: list[dict[str, str]],
     max_tokens: int = MAX_TOKENS_PLAN_MODE,
 ):
     """Call Claude Opus for Plan Mode with streaming response.
@@ -81,7 +86,7 @@ async def call_claude_for_plan_mode_stream(
     )
 
     try:
-        async with httpx.AsyncClient(timeout=timeout_config) as client:
+        async with httpx.AsyncClient(timeout=timeout_config) as client:  # noqa: SIM117
             async with client.stream(
                 "POST",
                 settings.anthropic_api_endpoint,
@@ -167,9 +172,10 @@ async def call_claude_for_plan_mode_stream(
 
 async def call_claude_for_plan_mode(
     system_prompt: str,
-    messages: List[Dict[str, str]],
+    messages: list[dict[str, str]],
     max_tokens: int = MAX_TOKENS_PLAN_MODE,
-) -> Optional[str]:
+    user_id: UUID | None = None,
+) -> str | None:
     """Call Claude Opus for Plan Mode with conversation history.
 
     Uses the Azure-hosted Anthropic endpoint configured in settings.
@@ -178,6 +184,7 @@ async def call_claude_for_plan_mode(
         system_prompt: The system prompt with Smart Query documentation
         messages: Conversation history as list of {"role": "user"|"assistant", "content": "..."}
         max_tokens: Maximum tokens in response
+        user_id: Optional user ID for tracking
 
     Returns:
         Response content or None on error
@@ -192,6 +199,13 @@ async def call_claude_for_plan_mode(
     if not sanitized_messages:
         logger.warning("No valid messages after sanitization")
         return None
+
+    start_time = time.time()
+    is_error = False
+    error_message = None
+    prompt_tokens = 0
+    completion_tokens = 0
+    response_text = None
 
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
@@ -212,36 +226,73 @@ async def call_claude_for_plan_mode(
             response.raise_for_status()
             data = response.json()
 
+            # Extract token usage from Claude response
+            usage = data.get("usage", {})
+            prompt_tokens = usage.get("input_tokens", 0)
+            completion_tokens = usage.get("output_tokens", 0)
+
             # Extract content from Claude response
             if "content" in data and len(data["content"]) > 0:
-                return data["content"][0].get("text", "")
-
-            logger.warning("Claude API returned empty content")
-            return None
+                response_text = data["content"][0].get("text", "")
+            else:
+                logger.warning("Claude API returned empty content")
 
     except httpx.TimeoutException:
         logger.error("Claude API request timed out after 120 seconds")
-        return None
+        is_error = True
+        error_message = "Request timed out after 120 seconds"
     except httpx.HTTPStatusError as e:
         logger.error(
             "Claude API HTTP error",
             status_code=e.response.status_code,
             detail=e.response.text[:500] if e.response.text else None,
         )
-        return None
+        is_error = True
+        error_message = f"HTTP error: {e.response.status_code}"
     except httpx.HTTPError as e:
         logger.error("Claude API request failed", error=str(e))
-        return None
+        is_error = True
+        error_message = str(e)
     except Exception as e:
         logger.error("Claude API unexpected error", error=str(e), exc_info=True)
-        return None
+        is_error = True
+        error_message = str(e)
+
+    # Record LLM usage
+    duration_ms = int((time.time() - start_time) * 1000)
+
+    # Estimate tokens if not provided by API
+    if prompt_tokens == 0:
+        prompt_tokens = estimate_tokens(system_prompt) + sum(
+            estimate_tokens(m.get("content", "")) for m in sanitized_messages
+        )
+    if completion_tokens == 0 and response_text:
+        completion_tokens = estimate_tokens(response_text)
+
+    try:
+        await record_llm_usage(
+            provider=LLMProvider.ANTHROPIC,
+            model=settings.anthropic_model,
+            task_type=LLMTaskType.PLAN_MODE,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            task_name="smart_query_plan_mode",
+            user_id=user_id,
+            duration_ms=duration_ms,
+            is_error=is_error,
+            error_message=error_message,
+        )
+    except Exception as e:
+        logger.warning("Failed to record LLM usage", error=str(e))
+
+    return response_text
 
 
 async def interpret_plan_query(
     question: str,
     session: AsyncSession,
-    conversation_history: Optional[List[Dict[str, str]]] = None,
-) -> Dict[str, Any]:
+    conversation_history: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
     """Interpret a plan mode query using Claude Opus.
 
     The Plan Mode is an interactive assistant that helps users formulate
@@ -268,7 +319,7 @@ async def interpret_plan_query(
     import re
 
     if not session:
-        raise ValueError("Database session is required for plan mode")
+        raise SessionRequiredError("plan mode")
 
     # Sanitize the current question
     sanitized_question = sanitize_user_input(question)
@@ -328,12 +379,27 @@ async def interpret_plan_query(
                     "content": msg["content"],
                 })
 
+            start_time = time.time()
             response = client.chat.completions.create(
                 model=settings.azure_openai_deployment_name,
                 messages=openai_messages,
                 temperature=AI_TEMPERATURE_MEDIUM,
                 max_tokens=MAX_TOKENS_PLAN_MODE,
             )
+
+            if response.usage:
+                await record_llm_usage(
+                    provider=LLMProvider.AZURE_OPENAI,
+                    model=settings.azure_openai_deployment_name,
+                    task_type=LLMTaskType.PLAN_MODE,
+                    task_name="interpret_plan_query_openai_fallback",
+                    prompt_tokens=response.usage.prompt_tokens,
+                    completion_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens,
+                    duration_ms=int((time.time() - start_time) * 1000),
+                    is_error=False,
+                )
+
             response_text = response.choices[0].message.content.strip()
 
         # Analyze the response to detect if a prompt was generated
@@ -372,17 +438,17 @@ async def interpret_plan_query(
             "suggested_mode": suggested_mode,
         }
 
-    except ValueError:
+    except (SessionRequiredError, AIInterpretationError):
         raise
     except Exception as e:
         logger.error("Failed to interpret plan query", error=str(e), exc_info=True)
-        raise RuntimeError(f"Plan-Modus Fehler: {str(e)}")
+        raise AIInterpretationError("Plan-Modus", detail=str(e)) from None
 
 
 async def interpret_plan_query_stream(
     question: str,
     session: AsyncSession,
-    conversation_history: Optional[List[Dict[str, str]]] = None,
+    conversation_history: list[dict[str, str]] | None = None,
 ):
     """Interpret a plan mode query with streaming response.
 

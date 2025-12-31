@@ -11,6 +11,23 @@
     @update:options="handleOptionsUpdate"
     @click:row="(_event: Event, { item }: { item: Entity }) => $emit('entity-click', item)"
   >
+    <!-- Error / Empty State -->
+    <template #no-data>
+      <TableErrorState
+        v-if="error"
+        :title="t('common.loadError')"
+        :message="errorMessage || t('errors.generic')"
+        :details="errorDetails"
+        :retrying="loading"
+        @retry="$emit('retry')"
+      />
+      <EmptyState
+        v-else
+        icon="mdi-database-search-outline"
+        :title="t('entities.noEntities')"
+        :description="t('entities.noEntitiesDescription')"
+      />
+    </template>
     <template #item.name="{ item }">
       <div class="d-flex align-center">
         <v-icon
@@ -84,6 +101,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Entity, EntityType } from '@/types/entity'
+import { TableErrorState, EmptyState } from '@/components/common'
 
 interface FeatureFlags {
   entityHierarchyEnabled?: boolean
@@ -105,6 +123,12 @@ interface Props {
   flags: FeatureFlags
   sortBy?: SortItem[]
   canEdit?: boolean
+  /** Whether an error occurred during data loading */
+  error?: boolean
+  /** User-friendly error message */
+  errorMessage?: string
+  /** Technical error details */
+  errorDetails?: string
 }
 
 interface Emits {
@@ -114,11 +138,16 @@ interface Emits {
   (e: 'entity-click', entity: Entity): void
   (e: 'entity-edit', entity: Entity): void
   (e: 'entity-delete', entity: Entity): void
+  /** Emitted when user clicks retry after an error */
+  (e: 'retry'): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
   sortBy: () => [],
   canEdit: true,
+  error: false,
+  errorMessage: undefined,
+  errorDetails: undefined,
 })
 const emit = defineEmits<Emits>()
 

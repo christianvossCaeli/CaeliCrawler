@@ -3,32 +3,32 @@
 import asyncio
 import hashlib
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Set
+from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import httpx
-from bs4 import BeautifulSoup
 import structlog
+from bs4 import BeautifulSoup
 from tenacity import (
     retry,
+    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception_type,
 )
 
-from crawlers.base import BaseCrawler, CrawlResult
-from crawlers.robots_txt import RobotsTxtChecker
 from app.config import settings
 from app.services.crawler_progress import crawler_progress
+from crawlers.base import BaseCrawler, CrawlResult
+from crawlers.robots_txt import RobotsTxtChecker
 from services.relevance_checker import check_relevance
 
 logger = structlog.get_logger()
 
 # Module-level HTTP client storage with loop tracking
-_http_client: Optional[httpx.AsyncClient] = None
-_http_client_loop_id: Optional[int] = None
+_http_client: httpx.AsyncClient | None = None
+_http_client_loop_id: int | None = None
 
 
 async def get_shared_http_client() -> httpx.AsyncClient:
@@ -58,9 +58,9 @@ async def get_shared_http_client() -> httpx.AsyncClient:
     if needs_recreation:
         # Close old client if it exists and is on a different loop
         if _http_client is not None and not _http_client.is_closed:
-            try:
+            try:  # noqa: SIM105
                 await _http_client.aclose()
-            except Exception:
+            except Exception:  # noqa: S110
                 pass  # Ignore errors when closing stale client
 
         _http_client = httpx.AsyncClient(
@@ -102,11 +102,11 @@ class WebsiteCrawler(BaseCrawler):
             respect_robots: If True, respects robots.txt directives (default: True)
         """
         super().__init__()
-        self.visited_urls: Set[str] = set()
-        self.document_urls: Set[str] = set()
-        self.html_documents: List[Dict[str, Any]] = []  # Captured HTML pages
-        self.url_include_patterns: List[re.Pattern] = []
-        self.url_exclude_patterns: List[re.Pattern] = []
+        self.visited_urls: set[str] = set()
+        self.document_urls: set[str] = set()
+        self.html_documents: list[dict[str, Any]] = []  # Captured HTML pages
+        self.url_include_patterns: list[re.Pattern] = []
+        self.url_exclude_patterns: list[re.Pattern] = []
         self.filtered_urls_count: int = 0
         self.robots_blocked_count: int = 0
         self.capture_html_content: bool = True  # Enable HTML content capture by default
@@ -141,7 +141,7 @@ class WebsiteCrawler(BaseCrawler):
         response.raise_for_status()
         return response
 
-    def _compile_url_patterns(self, config: Dict[str, Any], category=None) -> None:
+    def _compile_url_patterns(self, config: dict[str, Any], category=None) -> None:
         """
         Compile URL include/exclude regex patterns from config and category.
 
@@ -201,10 +201,9 @@ class WebsiteCrawler(BaseCrawler):
                 return False
 
         # Check include patterns (whitelist) - if set, URL must match at least one
-        if self.url_include_patterns:
-            if not any(pattern.search(url) for pattern in self.url_include_patterns):
-                self.filtered_urls_count += 1
-                return False
+        if self.url_include_patterns and not any(pattern.search(url) for pattern in self.url_include_patterns):
+            self.filtered_urls_count += 1
+            return False
 
         return True
 
@@ -221,11 +220,10 @@ class WebsiteCrawler(BaseCrawler):
             return False
 
         # Then check robots.txt (async, may need network request)
-        if self.respect_robots:
-            if not await self.robots_checker.can_fetch(url):
-                self.robots_blocked_count += 1
-                self.logger.debug("url_blocked_by_robots_txt", url=url)
-                return False
+        if self.respect_robots and not await self.robots_checker.can_fetch(url):
+            self.robots_blocked_count += 1
+            self.logger.debug("url_blocked_by_robots_txt", url=url)
+            return False
 
         return True
 
@@ -237,7 +235,7 @@ class WebsiteCrawler(BaseCrawler):
 
         return soup.get_text(separator="\n", strip=True)
 
-    def _get_page_title(self, soup: BeautifulSoup) -> Optional[str]:
+    def _get_page_title(self, soup: BeautifulSoup) -> str | None:
         """Extract page title from HTML."""
         title_tag = soup.find("title")
         if title_tag:
@@ -294,7 +292,7 @@ class WebsiteCrawler(BaseCrawler):
     async def crawl(self, source, job) -> CrawlResult:
         """Crawl a website for documents."""
         from app.database import get_session_context
-        from app.models import Document, ProcessingStatus, Category
+        from app.models import Category, Document, ProcessingStatus
 
         result = CrawlResult()
         config = source.crawl_config or {}
@@ -421,8 +419,8 @@ class WebsiteCrawler(BaseCrawler):
                         file_size=len(html_doc["html_content"]),
                         raw_text=html_doc["text_content"].replace('\x00', ''),  # Pre-extracted text
                         processing_status=ProcessingStatus.COMPLETED,  # Skip download, go to analysis
-                        downloaded_at=datetime.now(timezone.utc),
-                        processed_at=datetime.now(timezone.utc),
+                        downloaded_at=datetime.now(UTC),
+                        processed_at=datetime.now(UTC),
                     )
                     session.add(doc)
                     await session.flush()  # Get the doc.id
@@ -466,7 +464,7 @@ class WebsiteCrawler(BaseCrawler):
         start_url: str,
         max_depth: int,
         max_pages: int,
-        download_extensions: List[str],
+        download_extensions: list[str],
         result: CrawlResult,
         job,
         category=None,
@@ -562,7 +560,7 @@ class WebsiteCrawler(BaseCrawler):
         start_url: str,
         max_depth: int,
         max_pages: int,
-        download_extensions: List[str],
+        download_extensions: list[str],
         result: CrawlResult,
         job,
         category=None,
@@ -717,6 +715,7 @@ class WebsiteCrawler(BaseCrawler):
         if last_modified or etag:
             async with get_session_context() as session:
                 from sqlalchemy import update
+
                 from app.models import DataSource
 
                 await session.execute(

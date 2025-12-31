@@ -1,12 +1,11 @@
 """Wikipedia-specific extractor for list pages."""
 
-from typing import List
 from urllib.parse import urlparse
 
 import structlog
 
-from .base import BaseExtractor
 from ..models import ExtractedSource, SearchStrategy
+from .base import BaseExtractor
 
 logger = structlog.get_logger()
 
@@ -30,7 +29,7 @@ class WikipediaExtractor(BaseExtractor):
         url: str,
         html_content: str,
         strategy: SearchStrategy,
-    ) -> List[ExtractedSource]:
+    ) -> list[ExtractedSource]:
         """Extract data from Wikipedia list pages."""
         try:
             from bs4 import BeautifulSoup
@@ -86,7 +85,7 @@ class WikipediaExtractor(BaseExtractor):
 
         return unique_sources
 
-    def _extract_from_infobox(self, infobox, base_url: str) -> List[ExtractedSource]:
+    def _extract_from_infobox(self, infobox, base_url: str) -> list[ExtractedSource]:
         """Extract from Wikipedia infobox."""
         sources = []
 
@@ -122,7 +121,7 @@ class WikipediaExtractor(BaseExtractor):
 
         return sources
 
-    def _extract_from_wikitable(self, table, base_url: str) -> List[ExtractedSource]:
+    def _extract_from_wikitable(self, table, base_url: str) -> list[ExtractedSource]:
         """Extract from Wikipedia sortable/wikitable."""
         sources = []
 
@@ -186,7 +185,7 @@ class WikipediaExtractor(BaseExtractor):
 
         return sources
 
-    def _extract_from_list(self, lst, base_url: str) -> List[ExtractedSource]:
+    def _extract_from_list(self, lst, base_url: str) -> list[ExtractedSource]:
         """Extract from ul/ol lists with external links."""
         sources = []
 

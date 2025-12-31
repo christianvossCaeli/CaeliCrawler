@@ -2,10 +2,10 @@
 
 from external_apis.clients.auction_client import CaeliAuctionClient
 from external_apis.clients.sharepoint_client import (
-    SharePointClient,
-    SharePointError,
     SharePointAuthError,
+    SharePointClient,
     SharePointConfigError,
+    SharePointError,
     SharePointNotFoundError,
     SharePointPermissionError,
     SharePointRateLimitError,

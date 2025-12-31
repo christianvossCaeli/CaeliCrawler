@@ -1,9 +1,27 @@
 <template>
-  <v-breadcrumbs :items="breadcrumbs" class="px-0">
-    <template #prepend>
-      <v-icon icon="mdi-home" size="small"></v-icon>
-    </template>
-  </v-breadcrumbs>
+  <nav aria-label="Breadcrumb" class="breadcrumb-nav">
+    <v-breadcrumbs :items="breadcrumbs" class="px-0">
+      <template #prepend>
+        <v-icon icon="mdi-home" size="small" aria-hidden="true"></v-icon>
+      </template>
+      <template #item="{ item, index }">
+        <v-breadcrumbs-item
+          v-if="item.to && !item.disabled"
+          :to="item.to"
+          :title="item.title"
+        >
+          {{ item.title }}
+        </v-breadcrumbs-item>
+        <span
+          v-else
+          :aria-current="index === breadcrumbs.length - 1 ? 'page' : undefined"
+          class="text-medium-emphasis"
+        >
+          {{ item.title }}
+        </span>
+      </template>
+    </v-breadcrumbs>
+  </nav>
 </template>
 
 <script setup lang="ts">
@@ -29,3 +47,9 @@ const breadcrumbs = computed(() => {
   ]
 })
 </script>
+
+<style scoped>
+.breadcrumb-nav {
+  display: block;
+}
+</style>

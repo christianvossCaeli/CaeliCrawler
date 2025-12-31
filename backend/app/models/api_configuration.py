@@ -15,8 +15,8 @@ from __future__ import annotations
 import enum
 import os
 import uuid
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     Boolean,
@@ -155,7 +155,7 @@ class APIConfiguration(Base):
     # Entity Configuration (for import_mode: entities or both)
     # ==========================================================================
 
-    entity_type_slug: Mapped[Optional[str]] = mapped_column(
+    entity_type_slug: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
         comment="Target EntityType slug (e.g., wind_project)",
@@ -221,24 +221,24 @@ class APIConfiguration(Base):
         nullable=False,
         default=24,
     )
-    last_sync_at: Mapped[Optional[datetime]] = mapped_column(
+    last_sync_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    last_sync_status: Mapped[Optional[str]] = mapped_column(
+    last_sync_status: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )
-    last_sync_error: Mapped[Optional[str]] = mapped_column(
+    last_sync_error: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
-    last_sync_stats: Mapped[Optional[dict[str, Any]]] = mapped_column(
+    last_sync_stats: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
         comment="Statistics from last sync (records_fetched, entities_matched, facets_updated)",
     )
-    next_run_at: Mapped[Optional[datetime]] = mapped_column(
+    next_run_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="Next scheduled sync execution time",
@@ -300,7 +300,7 @@ class APIConfiguration(Base):
         default=False,
         comment="Whether this is a reusable template",
     )
-    documentation_url: Mapped[Optional[str]] = mapped_column(
+    documentation_url: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Link to API documentation",
@@ -337,20 +337,20 @@ class APIConfiguration(Base):
     # Relationships
     # ==========================================================================
 
-    data_source: Mapped["DataSource"] = relationship(
+    data_source: Mapped[DataSource] = relationship(
         "DataSource",
         back_populates="api_config",
     )
 
     # Entities created by this configuration
-    managed_entities: Mapped[list["Entity"]] = relationship(
+    managed_entities: Mapped[list[Entity]] = relationship(
         "Entity",
         back_populates="api_source",
         foreign_keys="Entity.api_configuration_id",
     )
 
     # Sync records for tracking individual API records
-    sync_records: Mapped[list["SyncRecord"]] = relationship(
+    sync_records: Mapped[list[SyncRecord]] = relationship(
         "SyncRecord",
         back_populates="api_configuration",
         cascade="all, delete-orphan",
@@ -360,7 +360,7 @@ class APIConfiguration(Base):
     # Methods
     # ==========================================================================
 
-    def get_auth_token(self) -> Optional[str]:
+    def get_auth_token(self) -> str | None:
         """Get the authentication token from environment variable.
 
         The auth_config should contain a reference to an environment variable,
@@ -414,7 +414,7 @@ class APIConfiguration(Base):
         if self.last_sync_at is None:
             return True
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         next_sync = self.last_sync_at + timedelta(hours=self.sync_interval_hours)
         return now >= next_sync
 

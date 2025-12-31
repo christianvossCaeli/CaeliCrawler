@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 import asyncio
-import sys
-import os
 import logging
+import os
 
 # Disable SQL logging
 logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
@@ -21,40 +20,29 @@ Verknüpfe das Ganze mit den passenden bestehenden Analysethemen.
 Kannst du das einrichten?"""
 
 async def main():
-    print("=" * 60)
-    print("Smart Query Import")
-    print("=" * 60)
-    
+
     from app.core.database import SessionLocal
     db = SessionLocal()
-    
+
     try:
         from services.smart_query import SmartQueryService
         service = SmartQueryService(db)
-        
-        print(f"\nPrompt: {PROMPT[:80]}...")
-        print("\n1. Interpreting query...")
-        
+
+
         result = await service.interpret_query(PROMPT)
-        
-        print(f"   Steps: {len(result.get('steps', []))}")
-        for i, step in enumerate(result.get('steps', []), 1):
-            print(f"   {i}. {step.get('name', 'Unknown')}")
-        
+
+        for _i, _step in enumerate(result.get('steps', []), 1):
+            pass
+
         if result.get('needs_confirmation'):
-            print("\n2. Executing steps...")
             exec_result = await service.execute_steps(result['steps'])
-            print(f"\n3. Done!")
-            print(f"   Success: {exec_result.get('success', False)}")
             if exec_result.get('results'):
                 for r in exec_result['results']:
-                    status = "✓" if r.get('success') else "✗"
-                    print(f"   {status} {r.get('step_name', 'Unknown')}: {r.get('message', '')[:60]}")
+                    "✓" if r.get('success') else "✗"
         else:
-            print(f"\nResult: {result.get('message', str(result))[:200]}")
-            
-    except Exception as e:
-        print(f"\nERROR: {e}")
+            pass
+
+    except Exception:
         import traceback
         traceback.print_exc()
     finally:

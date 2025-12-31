@@ -7,11 +7,12 @@ German municipalities. See: https://oparl.org/
 Supports OParl 1.0 and 1.1 specifications.
 """
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any
 
-from crawlers.api_clients.base_api import BaseAPIClient, APIResponse, APIDocument
+from crawlers.api_clients.base_api import APIDocument, APIResponse, BaseAPIClient
 
 
 @dataclass
@@ -20,31 +21,31 @@ class OparlBody:
 
     id: str
     name: str
-    short_name: Optional[str] = None
-    website: Optional[str] = None
-    license: Optional[str] = None
-    license_valid_since: Optional[datetime] = None
-    oparl_since: Optional[datetime] = None
-    ags: Optional[str] = None  # Amtlicher Gemeindeschlüssel
-    rgs: Optional[str] = None  # Regionalschlüssel
-    equivalent: List[str] = field(default_factory=list)
-    contact_email: Optional[str] = None
-    contact_name: Optional[str] = None
+    short_name: str | None = None
+    website: str | None = None
+    license: str | None = None
+    license_valid_since: datetime | None = None
+    oparl_since: datetime | None = None
+    ags: str | None = None  # Amtlicher Gemeindeschlüssel
+    rgs: str | None = None  # Regionalschlüssel
+    equivalent: list[str] = field(default_factory=list)
+    contact_email: str | None = None
+    contact_name: str | None = None
 
     # Navigation URLs
-    organization_url: Optional[str] = None
-    person_url: Optional[str] = None
-    meeting_url: Optional[str] = None
-    paper_url: Optional[str] = None
-    legislative_term_url: Optional[str] = None
-    membership_url: Optional[str] = None
-    consultation_url: Optional[str] = None
+    organization_url: str | None = None
+    person_url: str | None = None
+    meeting_url: str | None = None
+    paper_url: str | None = None
+    legislative_term_url: str | None = None
+    membership_url: str | None = None
+    consultation_url: str | None = None
 
-    location: Optional[Dict[str, Any]] = None
-    classification: Optional[str] = None
+    location: dict[str, Any] | None = None
+    classification: str | None = None
 
-    created: Optional[datetime] = None
-    modified: Optional[datetime] = None
+    created: datetime | None = None
+    modified: datetime | None = None
 
 
 @dataclass
@@ -52,37 +53,37 @@ class OparlPaper:
     """OParl Paper (Drucksache) representation."""
 
     id: str
-    name: Optional[str] = None
-    reference: Optional[str] = None  # Drucksachennummer
-    date: Optional[datetime] = None
-    paper_type: Optional[str] = None
+    name: str | None = None
+    reference: str | None = None  # Drucksachennummer
+    date: datetime | None = None
+    paper_type: str | None = None
 
-    body_id: Optional[str] = None
-    body_name: Optional[str] = None
+    body_id: str | None = None
+    body_name: str | None = None
 
     # Related entities
-    originator_persons: List[str] = field(default_factory=list)
-    originator_organizations: List[str] = field(default_factory=list)
-    consultation_urls: List[str] = field(default_factory=list)
-    under_direction_of: List[str] = field(default_factory=list)
+    originator_persons: list[str] = field(default_factory=list)
+    originator_organizations: list[str] = field(default_factory=list)
+    consultation_urls: list[str] = field(default_factory=list)
+    under_direction_of: list[str] = field(default_factory=list)
 
     # Files
-    main_file: Optional[Dict[str, Any]] = None
-    auxiliary_files: List[Dict[str, Any]] = field(default_factory=list)
+    main_file: dict[str, Any] | None = None
+    auxiliary_files: list[dict[str, Any]] = field(default_factory=list)
 
     # Locations
-    locations: List[Dict[str, Any]] = field(default_factory=list)
+    locations: list[dict[str, Any]] = field(default_factory=list)
 
     # Superordinate/subordinate papers
-    superordinate_paper: Optional[str] = None
-    subordinate_papers: List[str] = field(default_factory=list)
-    related_papers: List[str] = field(default_factory=list)
+    superordinate_paper: str | None = None
+    subordinate_papers: list[str] = field(default_factory=list)
+    related_papers: list[str] = field(default_factory=list)
 
-    keyword: List[str] = field(default_factory=list)
-    web: Optional[str] = None
+    keyword: list[str] = field(default_factory=list)
+    web: str | None = None
 
-    created: Optional[datetime] = None
-    modified: Optional[datetime] = None
+    created: datetime | None = None
+    modified: datetime | None = None
     deleted: bool = False
 
 
@@ -91,29 +92,29 @@ class OparlMeeting:
     """OParl Meeting (Sitzung) representation."""
 
     id: str
-    name: Optional[str] = None
-    meeting_state: Optional[str] = None
+    name: str | None = None
+    meeting_state: str | None = None
     cancelled: bool = False
 
-    start: Optional[datetime] = None
-    end: Optional[datetime] = None
+    start: datetime | None = None
+    end: datetime | None = None
 
-    location: Optional[Dict[str, Any]] = None
-    organization_urls: List[str] = field(default_factory=list)
+    location: dict[str, Any] | None = None
+    organization_urls: list[str] = field(default_factory=list)
 
     # Agenda and results
-    agenda_item_urls: List[str] = field(default_factory=list)
-    agenda_items: List[Dict[str, Any]] = field(default_factory=list)
-    invitation_file: Optional[Dict[str, Any]] = None
-    results_protocol_file: Optional[Dict[str, Any]] = None
-    verbatim_protocol_file: Optional[Dict[str, Any]] = None
-    auxiliary_files: List[Dict[str, Any]] = field(default_factory=list)
+    agenda_item_urls: list[str] = field(default_factory=list)
+    agenda_items: list[dict[str, Any]] = field(default_factory=list)
+    invitation_file: dict[str, Any] | None = None
+    results_protocol_file: dict[str, Any] | None = None
+    verbatim_protocol_file: dict[str, Any] | None = None
+    auxiliary_files: list[dict[str, Any]] = field(default_factory=list)
 
-    keyword: List[str] = field(default_factory=list)
-    web: Optional[str] = None
+    keyword: list[str] = field(default_factory=list)
+    web: str | None = None
 
-    created: Optional[datetime] = None
-    modified: Optional[datetime] = None
+    created: datetime | None = None
+    modified: datetime | None = None
 
 
 class OparlClient(BaseAPIClient):
@@ -150,10 +151,10 @@ class OparlClient(BaseAPIClient):
         super().__init__(**kwargs)
         self.system_url = system_url.rstrip("/")
         self.BASE_URL = system_url
-        self._system_info: Optional[Dict[str, Any]] = None
-        self._bodies_cache: Dict[str, OparlBody] = {}
+        self._system_info: dict[str, Any] | None = None
+        self._bodies_cache: dict[str, OparlBody] = {}
 
-    async def get_system_info(self) -> Dict[str, Any]:
+    async def get_system_info(self) -> dict[str, Any]:
         """Get OParl system information."""
         if not self._system_info:
             self._system_info = await self.get(self.system_url) or {}
@@ -178,7 +179,7 @@ class OparlClient(BaseAPIClient):
                 self._bodies_cache[body.id] = body
                 yield body
 
-    async def get_body(self, body_id: str) -> Optional[OparlBody]:
+    async def get_body(self, body_id: str) -> OparlBody | None:
         """Get a single body by ID or URL."""
         if body_id in self._bodies_cache:
             return self._bodies_cache[body_id]
@@ -193,9 +194,9 @@ class OparlClient(BaseAPIClient):
     async def get_papers(
         self,
         body: OparlBody,
-        modified_since: Optional[datetime] = None,
-        created_since: Optional[datetime] = None,
-        paper_type: Optional[str] = None,
+        modified_since: datetime | None = None,
+        created_since: datetime | None = None,
+        paper_type: str | None = None,
         max_pages: int = 100,
     ) -> AsyncIterator[OparlPaper]:
         """
@@ -241,9 +242,9 @@ class OparlClient(BaseAPIClient):
     async def get_meetings(
         self,
         body: OparlBody,
-        modified_since: Optional[datetime] = None,
-        start_after: Optional[datetime] = None,
-        start_before: Optional[datetime] = None,
+        modified_since: datetime | None = None,
+        start_after: datetime | None = None,
+        start_before: datetime | None = None,
         max_pages: int = 50,
     ) -> AsyncIterator[OparlMeeting]:
         """
@@ -285,7 +286,7 @@ class OparlClient(BaseAPIClient):
         self,
         body: OparlBody,
         max_pages: int = 20,
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:
         """Get organizations (Gremien, Fraktionen) from a body."""
         org_url = body.organization_url
         if not org_url:
@@ -302,7 +303,7 @@ class OparlClient(BaseAPIClient):
         self,
         body: OparlBody,
         max_pages: int = 20,
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:
         """Get persons (Mitglieder) from a body."""
         persons_url = body.person_url
         if not persons_url:
@@ -318,7 +319,7 @@ class OparlClient(BaseAPIClient):
     async def search(
         self,
         query: str,
-        body: Optional[OparlBody] = None,
+        body: OparlBody | None = None,
         object_type: str = "paper",
         **kwargs,
     ) -> APIResponse[APIDocument]:
@@ -331,10 +332,7 @@ class OparlClient(BaseAPIClient):
         """
         documents = []
 
-        if body:
-            bodies = [body]
-        else:
-            bodies = [b async for b in self.get_bodies()]
+        bodies = [body] if body else [b async for b in self.get_bodies()]
 
         query_lower = query.lower()
 
@@ -358,7 +356,7 @@ class OparlClient(BaseAPIClient):
             total_count=len(documents),
         )
 
-    async def get_document(self, document_id: str) -> Optional[APIDocument]:
+    async def get_document(self, document_id: str) -> APIDocument | None:
         """Get a single document by URL/ID."""
         data = await self.get(document_id)
         if not data:
@@ -377,9 +375,9 @@ class OparlClient(BaseAPIClient):
 
     def _extract_pagination_info(
         self,
-        response: Dict[str, Any],
-        current_params: Dict[str, Any],
-    ) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
+        response: dict[str, Any],
+        current_params: dict[str, Any],
+    ) -> tuple[str | None, dict[str, Any] | None]:
         """Extract OParl pagination info."""
         # OParl uses links.next pattern
         links = response.get("links", {})
@@ -399,7 +397,7 @@ class OparlClient(BaseAPIClient):
 
         return None, None
 
-    def _parse_body(self, data: Dict[str, Any]) -> OparlBody:
+    def _parse_body(self, data: dict[str, Any]) -> OparlBody:
         """Parse body data into OparlBody object."""
         return OparlBody(
             id=data.get("id", ""),
@@ -427,7 +425,7 @@ class OparlClient(BaseAPIClient):
             modified=self.parse_datetime(data.get("modified")),
         )
 
-    def _parse_paper(self, data: Dict[str, Any]) -> OparlPaper:
+    def _parse_paper(self, data: dict[str, Any]) -> OparlPaper:
         """Parse paper data into OparlPaper object."""
         return OparlPaper(
             id=data.get("id", ""),
@@ -452,7 +450,7 @@ class OparlClient(BaseAPIClient):
             deleted=data.get("deleted", False),
         )
 
-    def _parse_meeting(self, data: Dict[str, Any]) -> OparlMeeting:
+    def _parse_meeting(self, data: dict[str, Any]) -> OparlMeeting:
         """Parse meeting data into OparlMeeting object."""
         return OparlMeeting(
             id=data.get("id", ""),

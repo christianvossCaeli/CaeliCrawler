@@ -1,8 +1,8 @@
 """EntityRelation model for storing relationships between entities."""
 
 import uuid
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -21,9 +21,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
-    from app.models.relation_type import RelationType
-    from app.models.entity import Entity
     from app.models.document import Document
+    from app.models.entity import Entity
+    from app.models.relation_type import RelationType
 
 
 class EntityRelation(Base):
@@ -62,7 +62,7 @@ class EntityRelation(Base):
     )
 
     # Relationship attributes
-    attributes: Mapped[Dict[str, Any]] = mapped_column(
+    attributes: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
@@ -70,25 +70,25 @@ class EntityRelation(Base):
     )
 
     # Validity period
-    valid_from: Mapped[Optional[datetime]] = mapped_column(
+    valid_from: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="When this relationship starts",
     )
-    valid_until: Mapped[Optional[datetime]] = mapped_column(
+    valid_until: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="When this relationship ends",
     )
 
     # Source tracking
-    source_document_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    source_document_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("documents.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    source_url: Mapped[Optional[str]] = mapped_column(
+    source_url: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
@@ -100,7 +100,7 @@ class EntityRelation(Base):
         nullable=False,
         index=True,
     )
-    ai_model_used: Mapped[Optional[str]] = mapped_column(
+    ai_model_used: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
@@ -112,11 +112,11 @@ class EntityRelation(Base):
         nullable=False,
         index=True,
     )
-    verified_by: Mapped[Optional[str]] = mapped_column(
+    verified_by: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
-    verified_at: Mapped[Optional[datetime]] = mapped_column(
+    verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -176,12 +176,10 @@ class EntityRelation(Base):
     @property
     def is_valid(self) -> bool:
         """Check if this relationship is currently valid based on validity period."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if self.valid_from and now < self.valid_from:
             return False
-        if self.valid_until and now > self.valid_until:
-            return False
-        return True
+        return not (self.valid_until and now > self.valid_until)
 
     def __repr__(self) -> str:
         return f"<EntityRelation(id={self.id}, type={self.relation_type_id}, source={self.source_entity_id}, target={self.target_entity_id})>"

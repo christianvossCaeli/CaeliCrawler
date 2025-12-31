@@ -7,7 +7,7 @@ existing relevant summaries.
 
 import re
 from difflib import SequenceMatcher
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -27,13 +27,13 @@ class DuplicateCandidate:
         self,
         summary: CustomSummary,
         similarity_score: float,
-        match_reasons: List[str],
+        match_reasons: list[str],
     ):
         self.summary = summary
         self.similarity_score = similarity_score
         self.match_reasons = match_reasons
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         return {
             "summary_id": str(self.summary.id),
@@ -52,10 +52,10 @@ async def find_duplicate_summaries(
     session: AsyncSession,
     user_id: UUID,
     prompt: str,
-    entity_types: Optional[List[str]] = None,
+    entity_types: list[str] | None = None,
     threshold: float = 0.5,
     limit: int = 5,
-) -> List[DuplicateCandidate]:
+) -> list[DuplicateCandidate]:
     """
     Find potentially duplicate summaries for a user.
 
@@ -95,7 +95,7 @@ async def find_duplicate_summaries(
     normalized_prompt = _normalize_text(prompt)
     prompt_keywords = _extract_keywords(prompt)
 
-    candidates: List[DuplicateCandidate] = []
+    candidates: list[DuplicateCandidate] = []
 
     for summary in summaries:
         score, reasons = _calculate_similarity(
@@ -173,17 +173,17 @@ def _extract_keywords(text: str) -> set:
 def _calculate_similarity(
     new_prompt: str,
     new_keywords: set,
-    new_entity_types: List[str],
+    new_entity_types: list[str],
     existing_summary: CustomSummary,
-) -> Tuple[float, List[str]]:
+) -> tuple[float, list[str]]:
     """
     Calculate similarity between new prompt and existing summary.
 
     Returns:
         Tuple of (similarity_score, list_of_reasons)
     """
-    scores: List[float] = []
-    reasons: List[str] = []
+    scores: list[float] = []
+    reasons: list[str] = []
 
     # 1. Text similarity (40% weight)
     existing_prompt = _normalize_text(existing_summary.original_prompt)
@@ -252,7 +252,7 @@ async def check_summary_exists_for_category(
     session: AsyncSession,
     user_id: UUID,
     category_id: UUID,
-) -> Optional[CustomSummary]:
+) -> CustomSummary | None:
     """
     Check if a summary already exists for a specific category.
 
@@ -285,7 +285,7 @@ async def find_summaries_for_entity_type(
     user_id: UUID,
     entity_type_slug: str,
     limit: int = 5,
-) -> List[CustomSummary]:
+) -> list[CustomSummary]:
     """
     Find summaries that use a specific entity type.
 
@@ -300,8 +300,6 @@ async def find_summaries_for_entity_type(
     Returns:
         List of matching CustomSummary objects
     """
-    from sqlalchemy import cast, String
-    from sqlalchemy.dialects.postgresql import JSONB
 
     # Search in interpreted_config.primary_entity_type
     result = await session.execute(
