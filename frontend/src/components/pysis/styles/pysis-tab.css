@@ -1,0 +1,67 @@
+/**
+ * PySis Tab Styles
+ *
+ * Shared styles for PySis integration components.
+ */
+
+.field-value-input {
+  font-size: 0.85rem;
+}
+
+.field-value-preview {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: rgba(var(--v-theme-on-surface), 0.03);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 32px;
+  transition: background-color 0.2s;
+}
+
+.field-value-preview:hover {
+  background-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.field-value-preview:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
+}
+
+.ai-suggestion {
+  padding: 8px;
+  border-radius: 4px;
+  background-color: rgba(var(--v-theme-info), 0.08);
+  border-left: 3px solid rgb(var(--v-theme-info));
+}
+
+.ai-suggestion-text {
+  padding: 4px;
+  background-color: rgba(var(--v-theme-surface), 0.8);
+  border-radius: 2px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+.table-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.generating-indicator {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  background-color: rgba(var(--v-theme-info), 0.1);
+  border-radius: 4px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
