@@ -170,7 +170,7 @@
     </div>
 
     <!-- Clear History Dialog -->
-    <v-dialog v-model="showClearDialog" max-width="400">
+    <v-dialog v-model="showClearDialog" :max-width="DIALOG_SIZES.XS">
       <v-card>
         <v-card-title>{{ t('smartQuery.history.clearTitle') }}</v-card-title>
         <v-card-text>
@@ -195,14 +195,17 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSmartQueryHistoryStore, type SmartQueryOperation } from '@/stores/smartQueryHistory'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { DIALOG_SIZES } from '@/config/ui'
+import { useDateFormatter } from '@/composables'
 
 const emit = defineEmits<{
   close: []
   rerun: [command: string, interpretation: Record<string, unknown>]
 }>()
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const historyStore = useSmartQueryHistoryStore()
 const { showSuccess, showError } = useSnackbar()
+const { formatRelativeTime } = useDateFormatter()
 
 const filter = ref<'all' | 'favorites'>('all')
 const showClearDialog = ref(false)
@@ -228,16 +231,16 @@ const filteredHistory = computed(() => {
 
 // Operation type labels and colors
 const operationLabels: Record<string, string> = {
-  start_crawl: 'Crawl',
-  create_category_setup: 'Setup',
-  create_entity: 'Entity',
-  create_entity_type: 'Type',
-  create_facet: 'Facet',
-  create_relation: 'Relation',
-  fetch_and_create_from_api: 'Import',
-  discover_sources: 'Discovery',
-  combined: 'Combined',
-  other: 'Other',
+  START_CRAWL: 'Crawl',
+  CREATE_CATEGORY_SETUP: 'Setup',
+  CREATE_ENTITY: 'Entity',
+  CREATE_ENTITY_TYPE: 'Type',
+  CREATE_FACET: 'Facet',
+  CREATE_RELATION: 'Relation',
+  FETCH_AND_CREATE_FROM_API: 'Import',
+  DISCOVER_SOURCES: 'Discovery',
+  COMBINED: 'Combined',
+  OTHER: 'Other',
 }
 
 const operationFilterOptions = computed(() => {
@@ -261,16 +264,16 @@ const operationFilterOptions = computed(() => {
 })
 
 const operationColors: Record<string, string> = {
-  start_crawl: 'blue',
-  create_category_setup: 'purple',
-  create_entity: 'green',
-  create_entity_type: 'teal',
-  create_facet: 'orange',
-  create_relation: 'cyan',
-  fetch_and_create_from_api: 'indigo',
-  discover_sources: 'deep-purple',
-  combined: 'grey',
-  other: 'grey',
+  START_CRAWL: 'blue',
+  CREATE_CATEGORY_SETUP: 'purple',
+  CREATE_ENTITY: 'green',
+  CREATE_ENTITY_TYPE: 'teal',
+  CREATE_FACET: 'orange',
+  CREATE_RELATION: 'cyan',
+  FETCH_AND_CREATE_FROM_API: 'indigo',
+  DISCOVER_SOURCES: 'deep-purple',
+  COMBINED: 'grey',
+  OTHER: 'grey',
 }
 
 const emptyMessage = computed(() => {
@@ -291,26 +294,7 @@ function getOperationColor(type: string): string {
   return operationColors[type] || 'grey'
 }
 
-function formatRelativeTime(dateStr: string): string {
-  const now = new Date()
-  const then = new Date(dateStr)
-  const diffMs = now.getTime() - then.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
-
-  if (diffMins < 1) {
-    return t('smartQuery.history.justNow')
-  } else if (diffMins < 60) {
-    return t('smartQuery.history.minutesAgo', { n: diffMins })
-  } else if (diffHours < 24) {
-    return t('smartQuery.history.hoursAgo', { n: diffHours })
-  } else if (diffDays < 7) {
-    return t('smartQuery.history.daysAgo', { n: diffDays })
-  } else {
-    return then.toLocaleDateString(locale.value === 'de' ? 'de-DE' : 'en-US')
-  }
-}
+// formatRelativeTime is now from useDateFormatter
 
 async function handleRerun(item: SmartQueryOperation) {
   emit('rerun', item.command_text, item.interpretation)

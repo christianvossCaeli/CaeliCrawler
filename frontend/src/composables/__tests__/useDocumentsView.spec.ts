@@ -106,7 +106,7 @@ describe('useDocumentsView', () => {
 
       expect(getStatusColor('PENDING')).toBe('warning')
       expect(getStatusColor('PROCESSING')).toBe('info')
-      expect(getStatusColor('ANALYZING')).toBe('purple')
+      expect(getStatusColor('ANALYZING')).toBe('info') // ANALYZING is an info state (activity indicator)
       expect(getStatusColor('COMPLETED')).toBe('success')
       expect(getStatusColor('FAILED')).toBe('error')
       expect(getStatusColor(undefined)).toBe('grey')

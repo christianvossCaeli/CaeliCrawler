@@ -65,8 +65,12 @@ describe('Plan Mode Types', () => {
       expect(getErrorDetail(undefined)).toBeUndefined()
     })
 
-    it('should return undefined for primitive types', () => {
-      expect(getErrorDetail('error')).toBeUndefined()
+    it('should return string value for string input', () => {
+      // Strings are valid error messages, so they're returned as-is
+      expect(getErrorDetail('error')).toBe('error')
+    })
+
+    it('should return undefined for non-string primitive types', () => {
       expect(getErrorDetail(123)).toBeUndefined()
       expect(getErrorDetail(true)).toBeUndefined()
     })

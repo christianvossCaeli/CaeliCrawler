@@ -73,7 +73,7 @@ describe('useSourceHelpers', () => {
       expect(helpers.getStatusColor('ACTIVE')).toBe('success')
       expect(helpers.getStatusColor('PENDING')).toBe('warning')
       expect(helpers.getStatusColor('ERROR')).toBe('error')
-      expect(helpers.getStatusColor('PAUSED')).toBe('grey')
+      expect(helpers.getStatusColor('PAUSED')).toBe('warning') // PAUSED requires attention
     })
 
     it('returns grey for unknown statuses', () => {

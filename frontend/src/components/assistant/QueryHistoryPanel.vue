@@ -118,6 +118,7 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { QueryHistoryItem } from '@/composables/useAssistant'
+import { useDateFormatter } from '@/composables'
 
 const props = defineProps<{
   queryHistory: QueryHistoryItem[]
@@ -131,7 +132,8 @@ const emit = defineEmits<{
   clear: []
 }>()
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const { formatRelativeTime } = useDateFormatter()
 
 const filter = ref<'all' | 'favorites'>('all')
 
@@ -145,27 +147,6 @@ const filteredHistory = computed(() => {
   }
   return sorted
 })
-
-function formatRelativeTime(date: Date): string {
-  const now = new Date()
-  const then = new Date(date)
-  const diffMs = now.getTime() - then.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
-
-  if (diffMins < 1) {
-    return t('assistant.queryHistory.justNow')
-  } else if (diffMins < 60) {
-    return t('assistant.queryHistory.minutesAgo', { n: diffMins })
-  } else if (diffHours < 24) {
-    return t('assistant.queryHistory.hoursAgo', { n: diffHours })
-  } else if (diffDays < 7) {
-    return t('assistant.queryHistory.daysAgo', { n: diffDays })
-  } else {
-    return then.toLocaleDateString(locale.value === 'de' ? 'de-DE' : 'en-US')
-  }
-}
 
 function handleRerun(item: QueryHistoryItem) {
   emit('rerun', item.query)

@@ -32,8 +32,10 @@ describe('getErrorDetail', () => {
     expect(getErrorDetail(error)).toBe('Standard error')
   })
 
-  it('should return Unknown error for non-objects', () => {
-    expect(getErrorDetail('string error')).toBe('Unknown error')
+  it('should handle string errors and non-objects', () => {
+    // Strings are valid error messages, returned as-is
+    expect(getErrorDetail('string error')).toBe('string error')
+    // Non-string primitives fall back to 'Unknown error'
     expect(getErrorDetail(123)).toBe('Unknown error')
     expect(getErrorDetail(null)).toBe('Unknown error')
     expect(getErrorDetail(undefined)).toBe('Unknown error')

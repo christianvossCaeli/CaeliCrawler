@@ -160,13 +160,14 @@ describe('Auth Store', () => {
       expect(store.error).toBe('Invalid email or password')
     })
 
-    it('uses i18n fallback on login failure without detail', async () => {
+    it('uses error message on login failure', async () => {
       vi.mocked(api.post).mockRejectedValueOnce(new Error('Network error'))
 
       const result = await store.login('test@example.com', 'password123')
 
       expect(result).toBe(false)
-      expect(store.error).toBe('common.loginFailed')
+      // Uses actual error message when available
+      expect(store.error).toBe('Network error')
     })
 
     it('sets isLoading during login', async () => {
@@ -595,13 +596,14 @@ describe('Auth Store', () => {
       expect(result.error).toBe('Current password is incorrect')
     })
 
-    it('uses i18n fallback on password change failure without detail', async () => {
+    it('uses error message on password change failure', async () => {
       vi.mocked(api.post).mockRejectedValueOnce(new Error('Network error'))
 
       const result = await store.changePassword('oldPassword', 'newPassword')
 
       expect(result.success).toBe(false)
-      expect(result.error).toBe('common.passwordChangeError')
+      // Uses actual error message when available
+      expect(result.error).toBe('Network error')
     })
   })
 })

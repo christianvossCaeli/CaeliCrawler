@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="summary-dashboard" role="main" :aria-label="t('summaries.dashboard.ariaLabel')">
+  <div class="summary-dashboard" role="main" :aria-label="t('summaries.dashboard.ariaLabel')">
     <!-- Loading State (initial load) -->
     <div v-if="isLoading && !summary" class="d-flex justify-center align-center py-12" role="status" aria-live="polite">
       <v-progress-circular indeterminate size="64" color="primary" :aria-label="t('common.loading')" />
@@ -252,7 +252,7 @@
     />
 
     <!-- Delete Widget Confirmation Dialog -->
-    <v-dialog v-model="showDeleteDialog" max-width="400" role="alertdialog" aria-modal="true">
+    <v-dialog v-model="showDeleteDialog" :max-width="DIALOG_SIZES.XS" role="alertdialog" aria-modal="true">
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon color="warning" class="mr-2" aria-hidden="true">mdi-alert</v-icon>
@@ -274,7 +274,7 @@
     </v-dialog>
 
     <!-- Check Updates Progress Dialog -->
-    <v-dialog v-model="showCheckUpdatesDialog" max-width="450" persistent>
+    <v-dialog v-model="showCheckUpdatesDialog" :max-width="DIALOG_SIZES.XS" persistent>
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon color="primary" class="mr-2" aria-hidden="true">mdi-cloud-refresh</v-icon>
@@ -324,7 +324,7 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-  </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -340,6 +340,12 @@ import SummaryAddWidgetDialog from '@/components/summaries/SummaryAddWidgetDialo
 import SummaryWidgetEditDialog from '@/components/summaries/SummaryWidgetEditDialog.vue'
 import SummaryWidgetRenderer from '@/components/summaries/SummaryWidgetRenderer.vue'
 import SummaryHistoryDialog from '@/components/summaries/SummaryHistoryDialog.vue'
+import { DIALOG_SIZES } from '@/config/ui'
+import { usePageContextProvider } from '@/composables/usePageContext'
+import type { PageContextData, WidgetSummary } from '@/composables/assistant/types'
+import { useDateFormatter } from '@/composables'
+
+const { formatRelativeTime } = useDateFormatter()
 
 const { t } = useI18n()
 const route = useRoute()
@@ -384,13 +390,79 @@ const checkUpdatesProgressPercent = computed(() => {
 
 const statusColor = computed(() => {
   switch (summary.value?.status) {
-    case 'active': return 'success'
-    case 'draft': return 'grey'
-    case 'paused': return 'warning'
-    case 'archived': return 'error'
+    case 'ACTIVE': return 'success'
+    case 'DRAFT': return 'grey'
+    case 'PAUSED': return 'warning'
+    case 'ARCHIVED': return 'error'
     default: return 'grey'
   }
 })
+
+// Page Context Provider for AI Assistant awareness
+const { updateContext } = usePageContextProvider(
+  '/summary-dashboard/',
+  (): PageContextData => ({
+    // Summary identification
+    summary_id: summary.value?.id || undefined,
+    summary_name: summary.value?.name || undefined,
+
+    // Widget information
+    widgets: widgets.value?.map((w): WidgetSummary => ({
+      id: w.id,
+      type: w.widget_type,
+      title: w.title,
+      position: {
+        x: w.position?.x || 0,
+        y: w.position?.y || 0,
+        w: w.position?.w || 1,
+        h: w.position?.h || 1
+      }
+    })) || [],
+
+    // Available features for this view
+    available_features: [
+      'add_widget',
+      'edit_widget',
+      'remove_widget',
+      'reorder_widgets',
+      'configure_widget',
+      'refresh_data',
+      'share',
+      'export',
+      'check_updates'
+    ],
+
+    // Available actions based on context
+    available_actions: [
+      'add_widget',
+      'edit_widget',
+      'configure_widget',
+      'refresh',
+      ...(editMode.value ? ['reorder_widgets', 'remove_widget'] : [])
+    ]
+  })
+)
+
+// Update context when summary or widgets change
+watch([summary, widgets, editMode], () => {
+  if (summary.value) {
+    updateContext({
+      summary_id: summary.value.id,
+      summary_name: summary.value.name,
+      widgets: widgets.value?.map((w): WidgetSummary => ({
+        id: w.id,
+        type: w.widget_type,
+        title: w.title,
+        position: {
+          x: w.position?.x || 0,
+          y: w.position?.y || 0,
+          w: w.position?.w || 1,
+          h: w.position?.h || 1
+        }
+      })) || []
+    })
+  }
+}, { deep: true })
 
 // Methods
 async function loadSummary() {
@@ -597,24 +669,7 @@ async function exportExcel() {
   }
 }
 
-function formatRelativeTime(dateStr?: string | null): string {
-  if (!dateStr) return '-'
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-
-  if (minutes < 1) return t('common.justNow')
-  if (minutes < 60) return t('common.minutesAgo', { n: minutes })
-  if (hours < 24) return t('common.hoursAgo', { n: hours })
-  // Use browser locale for consistent date formatting
-  return date.toLocaleDateString(undefined, {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-}
+// formatRelativeTime is now from useDateFormatter
 
 // Lifecycle
 onMounted(() => {

@@ -70,8 +70,8 @@ describe('useCustomSummariesStore', () => {
     original_prompt: 'Show me data',
     interpreted_config: {},
     layout_config: {},
-    status: 'active',
-    trigger_type: 'manual',
+    status: 'ACTIVE',
+    trigger_type: 'MANUAL',
     schedule_cron: null,
     trigger_category_id: null,
     trigger_preset_id: null,
@@ -106,7 +106,7 @@ describe('useCustomSummariesStore', () => {
 
   const createMockExecution = (overrides?: Partial<SummaryExecution>): SummaryExecution => ({
     id: 'exec-1',
-    status: 'completed',
+    status: 'COMPLETED',
     triggered_by: 'manual',
     trigger_details: null,
     has_changes: true,
@@ -214,7 +214,7 @@ describe('useCustomSummariesStore', () => {
         page: 2,
         per_page: 10,
         favorites_only: true,
-        status: 'active',
+        status: 'ACTIVE',
         search: 'test',
         sort_by: 'name',
         sort_order: 'asc',
@@ -225,7 +225,7 @@ describe('useCustomSummariesStore', () => {
           page: 2,
           per_page: 10,
           favorites_only: true,
-          status: 'active',
+          status: 'ACTIVE',
           search: 'test',
           sort_by: 'name',
           sort_order: 'asc',
@@ -318,15 +318,21 @@ describe('useCustomSummariesStore', () => {
     })
 
     it('should handle API errors', async () => {
-      vi.mocked(customSummariesApi.createFromPrompt).mockRejectedValue(
-        new Error('Failed to create')
-      )
+      // Simulate an API error with response (not treated as network error)
+      const apiError = {
+        response: {
+          status: 500,
+          data: { detail: 'Server processing failed' },
+        },
+        message: 'Request failed with status code 500',
+      }
+      vi.mocked(customSummariesApi.createFromPrompt).mockRejectedValue(apiError)
 
       const store = useCustomSummariesStore()
       const result = await store.createFromPrompt({ prompt: 'Test' })
 
       expect(result).toBeNull()
-      expect(store.error).toBe('Failed to create')
+      expect(store.error).toBe('Server processing failed')
       expect(store.isCreating).toBe(false)
     })
 
@@ -492,7 +498,7 @@ describe('useCustomSummariesStore', () => {
     it('should execute summary successfully', async () => {
       const mockResult = {
         execution_id: 'exec-1',
-        status: 'completed' as ExecutionStatus,
+        status: 'COMPLETED' as ExecutionStatus,
         has_changes: true,
         message: 'Success',
       }
@@ -543,7 +549,7 @@ describe('useCustomSummariesStore', () => {
     it('should update currentSummary execution count', async () => {
       const mockResult = {
         execution_id: 'exec-1',
-        status: 'completed' as ExecutionStatus,
+        status: 'COMPLETED' as ExecutionStatus,
         has_changes: true,
         message: 'Success',
       }
@@ -814,9 +820,9 @@ describe('useCustomSummariesStore', () => {
     it('should compute activeSummaries correctly', () => {
       const store = useCustomSummariesStore()
       store.summaries = [
-        createMockSummary({ id: '1', status: 'active' }),
-        createMockSummary({ id: '2', status: 'draft' }),
-        createMockSummary({ id: '3', status: 'active' }),
+        createMockSummary({ id: '1', status: 'ACTIVE' }),
+        createMockSummary({ id: '2', status: 'DRAFT' }),
+        createMockSummary({ id: '3', status: 'ACTIVE' }),
       ]
 
       expect(store.activeSummaries).toHaveLength(2)
