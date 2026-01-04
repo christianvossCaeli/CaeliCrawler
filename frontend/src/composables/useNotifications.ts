@@ -1,345 +1,47 @@
-import { ref, computed } from 'vue'
-import { notificationApi } from '@/services/api'
-import { useLogger } from '@/composables/useLogger'
+/**
+ * useNotifications Composable
+ *
+ * Wrapper around the Pinia notifications store for backwards compatibility.
+ * New code should prefer using useNotificationsStore() directly.
+ *
+ * @deprecated Use useNotificationsStore() from '@/stores/notifications' instead
+ */
 
-const logger = useLogger('useNotifications')
+import { storeToRefs } from 'pinia'
+import {
+  useNotificationsStore,
+  type Notification,
+  type NotificationRule,
+  type NotificationRuleConditions,
+  type NotificationRuleChannelConfig,
+  type UserEmailAddress,
+  type EventType,
+  type Channel,
+  type NotificationPreferences,
+} from '@/stores/notifications'
 
-// Helper for type-safe error handling
-function getErrorDetail(err: unknown): string | undefined {
-  if (err && typeof err === 'object') {
-    const e = err as { response?: { data?: { detail?: string } }; message?: string }
-    if (e.response?.data?.detail) return e.response.data.detail
-    if (e.message) return e.message
-  }
-  if (err instanceof Error) return err.message
-  return undefined
+// Re-export types for backwards compatibility
+export type {
+  Notification,
+  NotificationRule,
+  NotificationRuleConditions,
+  NotificationRuleChannelConfig,
+  UserEmailAddress,
+  EventType,
+  Channel,
+  NotificationPreferences,
 }
 
-// Types
-export interface Notification {
-  id: string
-  event_type: string
-  channel: string
-  title: string
-  body: string
-  status: string
-  related_entity_type?: string
-  related_entity_id?: string
-  sent_at?: string
-  read_at?: string
-  created_at: string
-}
-
-export interface NotificationRuleConditions {
-  min_confidence?: number | null
-  keywords?: string[]
-  [key: string]: unknown
-}
-
-export interface NotificationRuleChannelConfig {
-  email_address_ids?: string[]
-  include_primary?: boolean
-  url?: string
-  auth?: {
-    type: string
-    token?: string
-    username?: string
-    password?: string
-  }
-  [key: string]: unknown
-}
-
-export interface NotificationRule {
-  id: string
-  name: string
-  description?: string
-  event_type: string
-  channel: string
-  conditions: NotificationRuleConditions
-  channel_config: NotificationRuleChannelConfig
-  digest_enabled: boolean
-  digest_frequency?: string
-  is_active: boolean
-  trigger_count: number
-  last_triggered?: string
-  created_at: string
-  updated_at: string
-}
-
-export interface UserEmailAddress {
-  id: string
-  email: string
-  label?: string
-  is_verified: boolean
-  is_primary: boolean
-  created_at: string
-}
-
-export interface EventType {
-  value: string
-  label: string
-  description: string
-}
-
-export interface Channel {
-  value: string
-  label: string
-  description: string
-  available: boolean
-}
-
-export interface NotificationPreferences {
-  notifications_enabled: boolean
-  notification_digest_time?: string
-}
-
-// State
-const notifications = ref<Notification[]>([])
-const rules = ref<NotificationRule[]>([])
-const emailAddresses = ref<UserEmailAddress[]>([])
-const eventTypes = ref<EventType[]>([])
-const channels = ref<Channel[]>([])
-const preferences = ref<NotificationPreferences>({
-  notifications_enabled: true,
-  notification_digest_time: undefined,
-})
-const unreadCount = ref(0)
-const loading = ref(false)
-const error = ref<string | null>(null)
-
-// Pagination
-const totalNotifications = ref(0)
-const currentPage = ref(1)
-const perPage = ref(20)
-
+/**
+ * Composable for notifications management
+ *
+ * @deprecated Use useNotificationsStore() directly for better performance
+ */
 export function useNotifications() {
-  // Load notifications
-  const loadNotifications = async (params?: {
-    status?: string
-    channel?: string
-    event_type?: string
-    page?: number
-    per_page?: number
-  }) => {
-    loading.value = true
-    error.value = null
-    try {
-      const response = await notificationApi.getNotifications(params)
-      notifications.value = response.data.items
-      totalNotifications.value = response.data.total
-      currentPage.value = response.data.page
-      perPage.value = response.data.per_page
-    } catch (e: unknown) {
-      error.value = getErrorDetail(e) || 'Fehler beim Laden der Benachrichtigungen'
-      throw e
-    } finally {
-      loading.value = false
-    }
-  }
+  const store = useNotificationsStore()
 
-  // Load unread count
-  const loadUnreadCount = async () => {
-    try {
-      const response = await notificationApi.getUnreadCount()
-      unreadCount.value = response.data.count
-    } catch (e) {
-      logger.error('Failed to load unread count:', e)
-    }
-  }
-
-  // Load rules
-  const loadRules = async () => {
-    loading.value = true
-    error.value = null
-    try {
-      const response = await notificationApi.getRules()
-      rules.value = response.data
-    } catch (e: unknown) {
-      error.value = getErrorDetail(e) || 'Fehler beim Laden der Regeln'
-      throw e
-    } finally {
-      loading.value = false
-    }
-  }
-
-  // Load email addresses
-  const loadEmailAddresses = async () => {
-    try {
-      const response = await notificationApi.getEmailAddresses()
-      emailAddresses.value = response.data
-    } catch (e: unknown) {
-      error.value = getErrorDetail(e) || 'Fehler beim Laden der Email-Adressen'
-      throw e
-    }
-  }
-
-  // Load event types and channels
-  const loadMeta = async () => {
-    try {
-      const [typesRes, channelsRes] = await Promise.all([
-        notificationApi.getEventTypes(),
-        notificationApi.getChannels(),
-      ])
-      eventTypes.value = typesRes.data
-      channels.value = channelsRes.data
-    } catch (e) {
-      logger.error('Failed to load meta:', e)
-    }
-  }
-
-  // Load preferences
-  const loadPreferences = async () => {
-    try {
-      const response = await notificationApi.getPreferences()
-      preferences.value = response.data
-    } catch (e) {
-      logger.error('Failed to load preferences:', e)
-    }
-  }
-
-  // Mark notification as read
-  const markAsRead = async (id: string) => {
-    try {
-      await notificationApi.markAsRead(id)
-      const notification = notifications.value.find((n) => n.id === id)
-      if (notification && !notification.read_at) {
-        notification.read_at = new Date().toISOString()
-        notification.status = 'READ'
-        if (unreadCount.value > 0) unreadCount.value--
-      }
-    } catch (e: unknown) {
-      error.value = getErrorDetail(e) || 'Fehler beim Markieren als gelesen'
-      throw e
-    }
-  }
-
-  // Mark all as read
-  const markAllAsRead = async () => {
-    try {
-      await notificationApi.markAllAsRead()
-      notifications.value.forEach((n) => {
-        if (!n.read_at) {
-          n.read_at = new Date().toISOString()
-          n.status = 'READ'
-        }
-      })
-      unreadCount.value = 0
-    } catch (e: unknown) {
-      error.value = getErrorDetail(e) || 'Fehler beim Markieren aller als gelesen'
-      throw e
-    }
-  }
-
-  // Create rule
-  const createRule = async (data: Partial<NotificationRule>) => {
-    loading.value = true
-    try {
-      const response = await notificationApi.createRule(data)
-      rules.value.unshift(response.data)
-      return response.data
-    } catch (e: unknown) {
-      error.value = getErrorDetail(e) || 'Fehler beim Erstellen der Regel'
-      throw e
-    } finally {
-      loading.value = false
-    }
-  }
-
-  // Update rule
-  const updateRule = async (id: string, data: Partial<NotificationRule>) => {
-    loading.value = true
-    try {
-      const response = await notificationApi.updateRule(id, data)
-      const index = rules.value.findIndex((r) => r.id === id)
-      if (index !== -1) {
-        rules.value[index] = response.data
-      }
-      return response.data
-    } catch (e: unknown) {
-      error.value = getErrorDetail(e) || 'Fehler beim Aktualisieren der Regel'
-      throw e
-    } finally {
-      loading.value = false
-    }
-  }
-
-  // Delete rule
-  const deleteRule = async (id: string) => {
-    try {
-      await notificationApi.deleteRule(id)
-      rules.value = rules.value.filter((r) => r.id !== id)
-    } catch (e: unknown) {
-      error.value = getErrorDetail(e) || 'Fehler beim Loeschen der Regel'
-      throw e
-    }
-  }
-
-  // Toggle rule active status
-  const toggleRuleActive = async (rule: NotificationRule) => {
-    return updateRule(rule.id, { is_active: !rule.is_active })
-  }
-
-  // Add email address
-  const addEmailAddress = async (data: { email: string; label?: string }) => {
-    try {
-      const response = await notificationApi.addEmailAddress(data)
-      emailAddresses.value.unshift(response.data)
-      return response.data
-    } catch (e: unknown) {
-      error.value = getErrorDetail(e) || 'Fehler beim Hinzufuegen der Email-Adresse'
-      throw e
-    }
-  }
-
-  // Delete email address
-  const deleteEmailAddress = async (id: string) => {
-    try {
-      await notificationApi.deleteEmailAddress(id)
-      emailAddresses.value = emailAddresses.value.filter((ea) => ea.id !== id)
-    } catch (e: unknown) {
-      error.value = getErrorDetail(e) || 'Fehler beim Loeschen der Email-Adresse'
-      throw e
-    }
-  }
-
-  // Update preferences
-  const updatePreferences = async (data: Partial<NotificationPreferences>) => {
-    try {
-      const response = await notificationApi.updatePreferences(data)
-      preferences.value = response.data
-      return response.data
-    } catch (e: unknown) {
-      error.value = getErrorDetail(e) || 'Fehler beim Aktualisieren der Einstellungen'
-      throw e
-    }
-  }
-
-  // Test webhook
-  const testWebhook = async (url: string, auth?: { type?: string; username?: string; password?: string; token?: string }) => {
-    try {
-      // Transform auth to match API expected format
-      let transformedAuth: { type: string; config: Record<string, string> } | undefined
-      if (auth?.type) {
-        const config: Record<string, string> = {}
-        if (auth.username) config.username = auth.username
-        if (auth.password) config.password = auth.password
-        if (auth.token) config.token = auth.token
-        transformedAuth = { type: auth.type, config }
-      }
-      const response = await notificationApi.testWebhook({ url, auth: transformedAuth })
-      return response.data
-    } catch (e: unknown) {
-      error.value = getErrorDetail(e) || 'Fehler beim Testen des Webhooks'
-      throw e
-    }
-  }
-
-  // Computed
-  const hasUnread = computed(() => unreadCount.value > 0)
-  const totalPages = computed(() => Math.ceil(totalNotifications.value / perPage.value))
-
-  return {
-    // State
+  // Use storeToRefs for reactive state
+  const {
     notifications,
     rules,
     emailAddresses,
@@ -352,27 +54,53 @@ export function useNotifications() {
     totalNotifications,
     currentPage,
     perPage,
+    hasUnread,
+    totalPages,
+    sseConnected,
+  } = storeToRefs(store)
+
+  return {
+    // State (reactive refs from store)
+    notifications,
+    rules,
+    emailAddresses,
+    eventTypes,
+    channels,
+    preferences,
+    unreadCount,
+    loading,
+    error,
+    totalNotifications,
+    currentPage,
+    perPage,
+    sseConnected,
 
     // Computed
     hasUnread,
     totalPages,
 
-    // Actions
-    loadNotifications,
-    loadUnreadCount,
-    loadRules,
-    loadEmailAddresses,
-    loadMeta,
-    loadPreferences,
-    markAsRead,
-    markAllAsRead,
-    createRule,
-    updateRule,
-    deleteRule,
-    toggleRuleActive,
-    addEmailAddress,
-    deleteEmailAddress,
-    updatePreferences,
-    testWebhook,
+    // Actions (bound to store)
+    loadNotifications: store.loadNotifications,
+    loadUnreadCount: store.loadUnreadCount,
+    loadRules: store.loadRules,
+    loadEmailAddresses: store.loadEmailAddresses,
+    loadMeta: store.loadMeta,
+    loadPreferences: store.loadPreferences,
+    markAsRead: store.markAsRead,
+    markAllAsRead: store.markAllAsRead,
+    createRule: store.createRule,
+    updateRule: store.updateRule,
+    deleteRule: store.deleteRule,
+    toggleRuleActive: store.toggleRuleActive,
+    addEmailAddress: store.addEmailAddress,
+    deleteEmailAddress: store.deleteEmailAddress,
+    updatePreferences: store.updatePreferences,
+    testWebhook: store.testWebhook,
+
+    // SSE actions
+    initRealtime: store.initRealtime,
+    cleanupRealtime: store.cleanupRealtime,
+    connectSSE: store.connectSSE,
+    disconnectSSE: store.disconnectSSE,
   }
 }

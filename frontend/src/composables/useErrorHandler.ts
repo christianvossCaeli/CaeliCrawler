@@ -14,8 +14,8 @@ import { useI18n } from 'vue-i18n'
 import { useSnackbar } from './useSnackbar'
 import { useLogger } from '@/composables/useLogger'
 
-// Re-export all utilities from centralized module
-export {
+// Import utilities from centralized module
+import {
   extractErrorMessage,
   getErrorMessage,
   getStatusCode,
@@ -29,16 +29,20 @@ export {
   hasStatus,
 } from '@/utils/errorMessage'
 
-import {
+// Re-export for consumers who import from this composable
+export {
   extractErrorMessage,
+  getErrorMessage,
+  getStatusCode,
+  isApiError,
   isNetworkError,
   isAuthError,
   isForbiddenError,
   isNotFoundError,
   isValidationError,
   isServerError,
-  getStatusCode,
-} from '@/utils/errorMessage'
+  hasStatus,
+}
 
 const logger = useLogger('useErrorHandler')
 

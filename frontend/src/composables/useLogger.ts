@@ -80,20 +80,20 @@ export interface LoggerConfig {
   globalMetadata?: Record<string, unknown>
 }
 
-const LOG_LEVELS: Record<LogLevel, number> = {
+const LOG_LEVELS = {
   debug: 0,
   info: 1,
   warn: 2,
   error: 3,
-}
+} satisfies Record<LogLevel, number>
 
 // Log level colors for console output
-const LOG_COLORS: Record<LogLevel, string> = {
+const LOG_COLORS = {
   debug: '#9E9E9E', // Gray
   info: '#2196F3',  // Blue
   warn: '#FF9800',  // Orange
   error: '#F44336', // Red
-}
+} satisfies Record<LogLevel, string>
 
 // Track errors sent in this session
 let errorsSentThisSession = 0

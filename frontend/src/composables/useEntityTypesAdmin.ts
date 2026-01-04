@@ -9,7 +9,7 @@ import { useI18n } from 'vue-i18n'
 import { entityApi, facetApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useLogger } from '@/composables/useLogger'
-import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { getErrorMessage } from '@/utils/errorMessage'
 import { useAuthStore } from '@/stores/auth'
 
 // ============================================================================

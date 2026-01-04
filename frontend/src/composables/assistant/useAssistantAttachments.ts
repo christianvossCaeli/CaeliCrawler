@@ -6,7 +6,11 @@
 
 import { ref, type Ref } from 'vue'
 import { assistantApi } from '@/services/api'
+import { extractErrorMessage } from '@/utils/errorMessage'
+import { useLogger } from '@/composables/useLogger'
 import type { AttachmentInfo, AttachmentUploadResponse, ConversationMessage } from './types'
+
+const logger = useLogger('useAssistantAttachments')
 
 export interface UseAssistantAttachmentsOptions {
   messages: Ref<ConversationMessage[]>
@@ -70,8 +74,7 @@ export function useAssistantAttachments(options: UseAssistantAttachmentsOptions)
 
       return true
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { detail?: string } }; message?: string }
-      error.value = err.response?.data?.detail || err.message || 'Fehler beim Upload'
+      error.value = extractErrorMessage(e)
       return false
     } finally {
       isUploading.value = false
@@ -82,20 +85,33 @@ export function useAssistantAttachments(options: UseAssistantAttachmentsOptions)
   async function removeAttachment(attachmentId: string) {
     try {
       await assistantApi.deleteAttachment(attachmentId)
-    } catch (e) {
-      // Ignore delete errors
+    } catch (e: unknown) {
+      // Log but don't block UI - server cleanup is best-effort
+      logger.warn('Failed to delete attachment from server:', {
+        attachmentId,
+        error: extractErrorMessage(e),
+      })
     }
     pendingAttachments.value = pendingAttachments.value.filter(a => a.id !== attachmentId)
   }
 
   // Clear all pending attachments
   async function clearAttachments() {
+    const failedCleanups: string[] = []
     for (const attachment of pendingAttachments.value) {
       try {
         await assistantApi.deleteAttachment(attachment.id)
-      } catch (e) {
-        // Ignore delete errors
+      } catch (e: unknown) {
+        // Track but don't block - server cleanup is best-effort
+        failedCleanups.push(attachment.id)
+        logger.warn('Failed to delete attachment during cleanup:', {
+          attachmentId: attachment.id,
+          error: extractErrorMessage(e),
+        })
       }
+    }
+    if (failedCleanups.length > 0) {
+      logger.warn(`Cleanup completed with ${failedCleanups.length} server-side failures`)
     }
     pendingAttachments.value = []
   }
@@ -145,8 +161,7 @@ export function useAssistantAttachments(options: UseAssistantAttachmentsOptions)
 
       return result.success
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { detail?: string } }; message?: string }
-      error.value = err.response?.data?.detail || err.message || 'Fehler beim Speichern'
+      error.value = extractErrorMessage(e)
       const errorMessage: ConversationMessage = {
         role: 'assistant',
         content: `Fehler: ${error.value}`,

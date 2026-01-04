@@ -218,14 +218,28 @@ export function useAsyncState<T>(
     { ...operationOptions, initialData: initialData ?? undefined }
   )
 
+  // Track timeout for cleanup
+  let delayTimeoutId: ReturnType<typeof setTimeout> | null = null
+
   // Auto-execute on mount
   if (immediate) {
     if (delay > 0) {
-      setTimeout(() => operation.execute(), delay)
+      delayTimeoutId = setTimeout(() => {
+        delayTimeoutId = null
+        operation.execute()
+      }, delay)
     } else {
       operation.execute()
     }
   }
+
+  // Cleanup on unmount to prevent memory leaks
+  onUnmounted(() => {
+    if (delayTimeoutId !== null) {
+      clearTimeout(delayTimeoutId)
+      delayTimeoutId = null
+    }
+  })
 
   return {
     ...operation,

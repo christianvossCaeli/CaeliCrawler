@@ -8,6 +8,9 @@
 import { ref, computed, watch, onUnmounted, type ComputedRef, type WatchStopHandle } from 'vue'
 import { useRoute } from 'vue-router'
 import type { PageContextData } from './assistant/types'
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger('usePageContext')
 
 // Global registry for context providers (singleton pattern for SSR safety)
 const contextProviders = ref<Map<string, () => PageContextData>>(new Map())
@@ -125,7 +128,7 @@ export function usePageContext() {
           return
         } catch (err) {
           const error = err instanceof Error ? err : new Error(String(err))
-          console.warn(`[usePageContext] Error getting context for ${pattern}:`, error)
+          logger.warn(`Error getting context for ${pattern}:`, error)
           contextError.value = error.message
 
           // Call registered error callback for this pattern

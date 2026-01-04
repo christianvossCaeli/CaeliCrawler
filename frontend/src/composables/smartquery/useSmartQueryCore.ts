@@ -45,6 +45,12 @@ export function useSmartQuery() {
   const fromAssistant = ref(false)
   const currentStep = ref(1)
 
+  // Request guard to prevent concurrent query execution
+  const isExecuting = ref(false)
+
+  // AbortController for non-streaming queries
+  const queryAbortController = ref<AbortController | null>(null)
+
   // Granular loading state
   const loadingState = ref<LoadingState>({ ...DEFAULT_LOADING_STATE })
 
@@ -139,10 +145,23 @@ export function useSmartQuery() {
 
     if (!question.value.trim() && !attachments.hasAttachments()) return
 
+    // Request guard: prevent concurrent query execution
+    if (isExecuting.value) {
+      logger.debug('Query execution blocked - another query is already running')
+      return
+    }
+
+    isExecuting.value = true
     setLoadingPhase('validating')
     error.value = null
     results.value = null
     previewData.value = null
+
+    // Cancel any previous query
+    if (queryAbortController.value) {
+      queryAbortController.value.abort()
+    }
+    queryAbortController.value = new AbortController()
 
     try {
       setLoadingPhase('interpreting', 20)
@@ -160,9 +179,16 @@ export function useSmartQuery() {
 
       setLoadingPhase('processing', 90)
     } catch (e: unknown) {
+      // Don't show error if request was aborted
+      if (e instanceof Error && e.name === 'AbortError') {
+        logger.debug('Query was cancelled')
+        return
+      }
       error.value = getErrorDetail(e) || t('smartQueryView.errors.queryError')
     } finally {
       setLoadingPhase('idle')
+      isExecuting.value = false
+      queryAbortController.value = null
     }
   }
 
@@ -215,6 +241,8 @@ export function useSmartQuery() {
       question: question.value,
       preview_only: true,
       confirmed: false,
+    }, {
+      signal: queryAbortController.value?.signal,
     })
 
     if (response.data.mode === 'preview' && response.data.success) {
@@ -231,6 +259,8 @@ export function useSmartQuery() {
     const response = await api.post('/v1/analysis/smart-query', {
       question: question.value,
       allow_write: false,
+    }, {
+      signal: queryAbortController.value?.signal,
     })
     results.value = response.data
   }
@@ -241,11 +271,18 @@ export function useSmartQuery() {
   async function confirmWrite() {
     if (!question.value.trim()) return
 
+    // Request guard: prevent double-submission
+    if (isExecuting.value) {
+      logger.debug('Write confirmation blocked - another operation is already running')
+      return
+    }
+
+    isExecuting.value = true
     loading.value = true
     error.value = null
     currentStep.value = 1
 
-    const isAiGeneration = previewData.value?.interpretation?.operation === 'create_category_setup'
+    const isAiGeneration = previewData.value?.interpretation?.operation === 'CREATE_CATEGORY_SETUP'
     let stepInterval: ReturnType<typeof setInterval> | null = null
 
     if (isAiGeneration) {
@@ -272,6 +309,7 @@ export function useSmartQuery() {
         clearInterval(stepInterval)
       }
       loading.value = false
+      isExecuting.value = false
     }
   }
 
@@ -289,6 +327,7 @@ export function useSmartQuery() {
     results.value = null
     previewData.value = null
     question.value = ''
+    fromAssistant.value = false
   }
 
   /**
@@ -403,6 +442,26 @@ export function useSmartQuery() {
     return !!urlQuery
   }
 
+  /**
+   * Cleanup function for component unmount
+   * Cancels active streams and resets state
+   */
+  function cleanup() {
+    // Cancel any active SSE streams
+    planMode.cancelStream()
+    // Cancel any active non-streaming queries
+    if (queryAbortController.value) {
+      queryAbortController.value.abort()
+      queryAbortController.value = null
+    }
+    // Stop speech recognition if active
+    if (speech.isListening.value) {
+      speech.stopListening()
+    }
+    // Clear attachments
+    attachments.clearAttachments()
+  }
+
   return {
     // Core state
     question,
@@ -415,6 +474,7 @@ export function useSmartQuery() {
     fromAssistant,
     currentStep,
     showHistory,
+    isExecuting,
 
     // Attachments (from composed module)
     pendingAttachments: attachments.pendingAttachments,
@@ -453,5 +513,6 @@ export function useSmartQuery() {
     handleHistoryRerun,
     sendResultsToAssistant,
     initializeFromContext,
+    cleanup,
   }
 }

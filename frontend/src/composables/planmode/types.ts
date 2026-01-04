@@ -70,15 +70,26 @@ export const TRIM_THRESHOLD = 25
 export const TRIM_TARGET = 20
 
 /**
- * Helper for type-safe error handling
+ * Trim conversation array to prevent memory leaks.
+ * Keeps first message and most recent messages up to TRIM_TARGET.
+ *
+ * @param messages - Array of messages to trim
+ * @returns Trimmed array if above threshold, original array otherwise
  */
-export function getErrorDetail(err: unknown): string | undefined {
-  if (err && typeof err === 'object') {
-    const e = err as AxiosLikeError
-    return e.response?.data?.detail || e.message
+export function trimConversationArray<T>(messages: T[]): T[] {
+  if (messages.length > TRIM_THRESHOLD) {
+    const firstMessage = messages[0]
+    const recentMessages = messages.slice(-(TRIM_TARGET - 1))
+    return [firstMessage, ...recentMessages]
   }
-  return undefined
+  return messages
 }
+
+/**
+ * Helper for type-safe error handling
+ * Re-exported from centralized error utilities
+ */
+export { getErrorMessage as getErrorDetail } from '@/utils/errorMessage'
 
 /**
  * Cast unknown error to AxiosLikeError

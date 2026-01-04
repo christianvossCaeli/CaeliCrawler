@@ -3,7 +3,8 @@ import { useI18n } from 'vue-i18n'
 import { useSnackbar } from './useSnackbar'
 import { relationApi, entityApi } from '@/services/api'
 import { useEntityStore } from '@/stores/entity'
-import { getCachedData, setCachedData } from './useEntityDetailHelpers'
+import { entityDetailCache } from '@/utils/cache'
+import { extractErrorMessage } from '@/utils/errorMessage'
 import type { Entity } from '@/stores/entity'
 import { useLogger } from '@/composables/useLogger'
 
@@ -81,7 +82,7 @@ export function useEntityRelations(entity: Entity | null) {
 
     // Check cache first
     const cacheKey = `relations_${entity.id}`
-    const cached = getCachedData<Relation[]>(cacheKey)
+    const cached = entityDetailCache.get(cacheKey) as Relation[] | undefined
     if (cached) {
       relations.value = cached
       relationsLoaded.value = true
@@ -97,7 +98,7 @@ export function useEntityRelations(entity: Entity | null) {
       relationsLoaded.value = true
 
       // Cache the result
-      setCachedData(cacheKey, relations.value)
+      entityDetailCache.set(cacheKey, relations.value)
     } catch (e) {
       logger.error('Failed to load relations', e)
       showError(t('entityDetail.messages.relationsLoadError'))
@@ -233,8 +234,7 @@ export function useEntityRelations(entity: Entity | null) {
       await loadRelations()
       return true
     } catch (e: unknown) {
-      const error = e as { response?: { data?: { detail?: string } } }
-      showError(error.response?.data?.detail || t('entityDetail.messages.relationSaveError'))
+      showError(extractErrorMessage(e))
       return false
     } finally {
       savingRelation.value = false
@@ -258,8 +258,7 @@ export function useEntityRelations(entity: Entity | null) {
       await loadRelations()
       return true
     } catch (e: unknown) {
-      const error = e as { response?: { data?: { detail?: string } } }
-      showError(error.response?.data?.detail || t('entityDetail.messages.deleteError'))
+      showError(extractErrorMessage(e))
       return false
     } finally {
       deletingRelation.value = false

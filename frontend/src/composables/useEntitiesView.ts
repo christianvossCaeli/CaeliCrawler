@@ -7,7 +7,7 @@ import { useSnackbar } from '@/composables/useSnackbar'
 import { useFeatureFlags } from '@/composables/useFeatureFlags'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import { useLogger } from '@/composables/useLogger'
-import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { getErrorMessage } from '@/utils/errorMessage'
 import type { Entity } from '@/types/entity'
 import type { AnalysisTemplate } from '@/stores/entity'
 
@@ -81,6 +81,10 @@ export function useEntitiesView() {
   const viewMode = ref<'table' | 'cards' | 'map'>('table')
   const hasGeoData = ref(false)
   const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([])
+
+  // Bulk selection
+  const showBulkSelect = ref(false)
+  const selectedEntities = ref<Entity[]>([])
 
 
   // Data
@@ -621,6 +625,10 @@ export function useEntitiesView() {
     viewMode,
     hasGeoData,
     sortBy,
+
+    // Bulk selection
+    showBulkSelect,
+    selectedEntities,
 
     // Data
     categories,

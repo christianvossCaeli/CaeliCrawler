@@ -30,6 +30,7 @@ export {
   MAX_CONVERSATION_MESSAGES,
   TRIM_THRESHOLD,
   TRIM_TARGET,
+  trimConversationArray,
   getErrorDetail,
   asAxiosError,
 } from './types'

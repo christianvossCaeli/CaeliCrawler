@@ -10,7 +10,7 @@ import { facetApi, entityApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import { useLogger } from '@/composables/useLogger'
-import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { getErrorMessage } from '@/utils/errorMessage'
 import { useAuthStore } from '@/stores/auth'
 
 // ============================================================================

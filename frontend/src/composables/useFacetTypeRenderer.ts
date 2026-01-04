@@ -8,6 +8,13 @@
  */
 
 import type { FacetType, FacetDisplayConfig, FacetTypeValueSchema, FacetGroup } from '@/types/entity'
+import {
+  SEVERITY_NORMALIZE_MAP,
+  SEVERITY_COLORS,
+  type SeverityLevel,
+  getDefaultFacetTypeIcon,
+  getDefaultFacetTypeColor,
+} from '@/config/facetMappings'
 
 /**
  * Resolved display configuration with defaults applied
@@ -31,16 +38,15 @@ export interface ChipData {
 }
 
 /**
- * Default severity color mapping (German labels)
+ * Build severity color map from centralized config (handles both German and English keys)
  */
-const DEFAULT_SEVERITY_COLORS: Record<string, string> = {
-  hoch: 'error',
-  mittel: 'warning',
-  niedrig: 'info',
-  high: 'error',
-  medium: 'warning',
-  low: 'info',
-}
+const DEFAULT_SEVERITY_COLORS: Record<string, string> = Object.entries(SEVERITY_NORMALIZE_MAP).reduce(
+  (acc, [key, normalized]) => {
+    acc[key] = SEVERITY_COLORS[normalized as SeverityLevel]
+    return acc
+  },
+  {} as Record<string, string>,
+)
 
 /**
  * Mapping from FacetType slug to extracted_content field name
@@ -237,40 +243,24 @@ export function useFacetTypeRenderer() {
 
   /**
    * Get default icon for a FacetType if not specified
+   * @see {@link @/config/facetMappings} for centralized configuration
    */
   function getIcon(facetType: FacetType): string {
     if (facetType.icon) {
       return facetType.icon
     }
-
-    // Default icons based on slug
-    const defaultIcons: Record<string, string> = {
-      pain_point: 'mdi-alert-circle',
-      positive_signal: 'mdi-lightbulb-on',
-      contact: 'mdi-account',
-      summary: 'mdi-text-box',
-    }
-
-    return defaultIcons[facetType.slug] || 'mdi-tag'
+    return getDefaultFacetTypeIcon(facetType.slug)
   }
 
   /**
    * Get default color for a FacetType if not specified
+   * @see {@link @/config/facetMappings} for centralized configuration
    */
   function getColor(facetType: FacetType): string {
     if (facetType.color) {
       return facetType.color
     }
-
-    // Default colors based on slug
-    const defaultColors: Record<string, string> = {
-      pain_point: '#F44336', // error/red
-      positive_signal: '#4CAF50', // success/green
-      contact: '#2196F3', // primary/blue
-      summary: '#9E9E9E', // grey
-    }
-
-    return defaultColors[facetType.slug] || '#757575'
+    return getDefaultFacetTypeColor(facetType.slug)
   }
 
   /**

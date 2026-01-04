@@ -2,19 +2,12 @@ import { ref, toValue, type MaybeRefOrGetter } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSnackbar } from './useSnackbar'
 import { adminApi, entityApi } from '@/services/api'
-import { getCachedData, setCachedData, clearCachedData } from './useEntityDetailHelpers'
+import { entityDetailCache } from '@/utils/cache'
 import { useLogger } from '@/composables/useLogger'
+import { emitCrawlerEvent } from '@/composables/useCrawlerEvents'
+import { getErrorMessage as getErrorDetail } from '@/utils/errorMessage'
 
 const logger = useLogger('useEntityDataSources')
-
-// Helper for type-safe error handling
-function getErrorDetail(err: unknown): string | undefined {
-  if (err && typeof err === 'object') {
-    const e = err as { response?: { data?: { detail?: string } } }
-    return e.response?.data?.detail
-  }
-  return undefined
-}
 
 export interface DataSource {
   id: string
@@ -51,7 +44,7 @@ export function useEntityDataSources(entityIdRef: MaybeRefOrGetter<string | unde
 
     // Check cache first
     const cacheKey = `datasources_${entityId}`
-    const cached = getCachedData<DataSource[]>(cacheKey)
+    const cached = entityDetailCache.get(cacheKey) as DataSource[] | undefined
     if (cached) {
       dataSources.value = cached
       return
@@ -65,7 +58,7 @@ export function useEntityDataSources(entityIdRef: MaybeRefOrGetter<string | unde
       dataSources.value = response.data.sources || []
 
       // Cache the result
-      setCachedData(cacheKey, dataSources.value)
+      entityDetailCache.set(cacheKey, dataSources.value)
     } catch (e) {
       logger.error('Failed to load data sources', e)
       dataSources.value = []
@@ -137,7 +130,7 @@ export function useEntityDataSources(entityIdRef: MaybeRefOrGetter<string | unde
       selectedSourceToLink.value = null
 
       // Invalidate cache and reload
-      clearCachedData(`datasources_${entityId}`)
+      entityDetailCache.invalidate(`datasources_${entityId}`)
       await loadDataSources()
       return true
     } catch (e) {
@@ -155,6 +148,8 @@ export function useEntityDataSources(entityIdRef: MaybeRefOrGetter<string | unde
       await adminApi.startCrawl({ source_ids: [source.id] })
       showSuccess(t('entityDetail.messages.crawlStarted', { name: source.name }))
       source.hasRunningJob = true
+      // Notify CrawlerView to refresh immediately
+      emitCrawlerEvent('crawl-started', { sourceIds: [source.id] })
     } catch (e: unknown) {
       showError(getErrorDetail(e) || t('entityDetail.messages.crawlStartError'))
     } finally {
@@ -165,7 +160,7 @@ export function useEntityDataSources(entityIdRef: MaybeRefOrGetter<string | unde
   async function reloadDataSources() {
     const entityId = toValue(entityIdRef)
     if (entityId) {
-      clearCachedData(`datasources_${entityId}`)
+      entityDetailCache.invalidate(`datasources_${entityId}`)
       await loadDataSources()
     }
   }

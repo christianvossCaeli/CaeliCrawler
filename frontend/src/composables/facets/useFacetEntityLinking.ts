@@ -4,14 +4,15 @@
  * Handles linking facets to other entities (e.g., contacts).
  */
 
-import { ref, onUnmounted, type Ref, type ComputedRef } from 'vue'
+import { ref, type Ref, type ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { useSearchDebounce } from '@/composables/useDebounce'
 import { facetApi, entityApi } from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
 import type { Entity } from '@/stores/entity'
-import type { FacetValue, EntitySearchResult } from './types'
+import type { FacetValue, EntitySearchResult, EntitySearchResponseItem } from './types'
 
 const logger = useLogger('useFacetEntityLinking')
 
@@ -35,9 +36,27 @@ export function useFacetEntityLinking(
   const selectedTargetEntityId = ref<string | null>(null)
   const entitySearchQuery = ref('')
   const entitySearchResults = ref<EntitySearchResult[]>([])
-  const searchingEntities = ref(false)
   const savingEntityLink = ref(false)
-  let entitySearchTimeout: ReturnType<typeof setTimeout> | null = null
+
+  // Debounced entity search
+  const { search: debouncedEntitySearch, isPending: searchingEntities, cancel: cancelSearch } = useSearchDebounce(
+    async (query: string): Promise<EntitySearchResult[]> => {
+      const response = await entityApi.searchEntities({ q: query, per_page: 20 })
+      const items = response.data.items || []
+      const e = getEntity()
+
+      return items
+        .filter((item: EntitySearchResponseItem) => item.id !== e?.id)
+        .map((item: EntitySearchResponseItem): EntitySearchResult => ({
+          id: item.id,
+          name: item.name,
+          entity_type_name: item.entity_type_name || item.entity_type?.name || 'Entity',
+          entity_type_icon: item.entity_type?.icon || 'mdi-folder',
+          entity_type_color: item.entity_type?.color || 'primary',
+        }))
+    },
+    { minLength: 2, delay: 300 }
+  )
 
   // Functions
   function navigateToTargetEntity(facet: FacetValue) {
@@ -65,50 +84,24 @@ export function useFacetEntityLinking(
     selectedTargetEntityId.value = null
     entitySearchQuery.value = ''
     entitySearchResults.value = []
+    cancelSearch()
   }
 
   async function searchEntities(query: string) {
-    // Clear any existing timeout
-    if (entitySearchTimeout) {
-      clearTimeout(entitySearchTimeout)
-      entitySearchTimeout = null
-    }
-
     if (!query || query.length < 2) {
       entitySearchResults.value = []
       return
     }
 
-    entitySearchTimeout = setTimeout(async () => {
-      searchingEntities.value = true
-      try {
-        const response = await entityApi.searchEntities({ q: query, per_page: 20 })
-        const items = response.data.items || []
-        const e = getEntity()
-
-        entitySearchResults.value = items
-          .filter((item: { id: string }) => item.id !== e?.id)
-          .map(
-            (item: {
-              id: string
-              name: string
-              entity_type_name?: string
-              entity_type?: { name?: string; icon?: string; color?: string }
-            }) => ({
-              id: item.id,
-              name: item.name,
-              entity_type_name: item.entity_type_name || item.entity_type?.name || 'Entity',
-              entity_type_icon: item.entity_type?.icon || 'mdi-folder',
-              entity_type_color: item.entity_type?.color || 'primary',
-            }),
-          )
-      } catch (err) {
-        logger.error('Failed to search entities', err)
-        showError(t('entityDetail.messages.entitySearchError', 'Fehler bei der Entity-Suche'))
-      } finally {
-        searchingEntities.value = false
+    try {
+      const results = await debouncedEntitySearch(query)
+      if (results) {
+        entitySearchResults.value = results
       }
-    }, 300)
+    } catch (err) {
+      logger.error('Failed to search entities', err)
+      showError(t('entityDetail.messages.entitySearchError', 'Fehler bei der Entity-Suche'))
+    }
   }
 
   async function saveEntityLink() {
@@ -143,13 +136,7 @@ export function useFacetEntityLinking(
     }
   }
 
-  // Cleanup
-  onUnmounted(() => {
-    if (entitySearchTimeout) {
-      clearTimeout(entitySearchTimeout)
-      entitySearchTimeout = null
-    }
-  })
+  // Note: useSearchDebounce handles cleanup automatically via onUnmounted
 
   return {
     // State

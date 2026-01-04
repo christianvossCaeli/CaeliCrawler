@@ -55,6 +55,20 @@ export interface EntitySearchResult {
   entity_type_color?: string
 }
 
+/**
+ * Raw entity search response item from API
+ */
+export interface EntitySearchResponseItem {
+  id: string
+  name: string
+  entity_type_name?: string
+  entity_type?: {
+    name?: string
+    icon?: string
+    color?: string
+  }
+}
+
 // Compatible type for SourceDetailsDialog
 export interface SourceFacet {
   source_type: string

@@ -6,6 +6,7 @@
 
 import { ref, type Ref } from 'vue'
 import { assistantApi } from '@/services/api'
+import { extractErrorMessage } from '@/utils/errorMessage'
 import { useLogger } from '@/composables/useLogger'
 import type {
   Reminder,
@@ -14,9 +15,6 @@ import type {
 } from './types'
 
 const logger = useLogger('useAssistantReminders')
-
-// Module-level interval reference for cleanup
-let reminderPollInterval: ReturnType<typeof setInterval> | null = null
 
 export interface UseAssistantRemindersOptions {
   messages: Ref<ConversationMessage[]>
@@ -33,6 +31,9 @@ export function useAssistantReminders(options: UseAssistantRemindersOptions) {
   // Reminder state
   const reminders = ref<Reminder[]>([])
   const dueReminders = ref<Reminder[]>([])
+
+  // Instance-level interval reference (moved from module level for multi-instance safety)
+  let reminderPollInterval: ReturnType<typeof setInterval> | null = null
 
   /**
    * Load reminders for the current user
@@ -73,7 +74,7 @@ export function useAssistantReminders(options: UseAssistantRemindersOptions) {
     remindAt: Date,
     options?: {
       title?: string
-      repeat?: 'none' | 'daily' | 'weekly' | 'monthly'
+      repeat?: 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY'
     }
   ): Promise<boolean> {
     try {
@@ -83,7 +84,7 @@ export function useAssistantReminders(options: UseAssistantRemindersOptions) {
         title: options?.title,
         entity_id: currentContext.value.current_entity_id || undefined,
         entity_type: currentContext.value.current_entity_type || undefined,
-        repeat: options?.repeat || 'none',
+        repeat: options?.repeat || 'NONE',
       })
 
       if (response.data.success) {
@@ -103,8 +104,7 @@ export function useAssistantReminders(options: UseAssistantRemindersOptions) {
       }
       return false
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { detail?: string } }; message?: string }
-      error.value = err.response?.data?.detail || err.message || 'Fehler beim Erstellen der Erinnerung'
+      error.value = extractErrorMessage(e)
       return false
     }
   }

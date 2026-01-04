@@ -7,6 +7,7 @@
 import { ref, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { assistantApi } from '@/services/api'
+import { extractErrorMessage } from '@/utils/errorMessage'
 import { useLogger } from '@/composables/useLogger'
 import type {
   ActiveWizard,
@@ -84,8 +85,7 @@ export function useAssistantWizard(options: UseAssistantWizardOptions) {
 
       return true
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { detail?: string } }; message?: string }
-      error.value = err.response?.data?.detail || err.message || 'Fehler beim Starten des Wizards'
+      error.value = extractErrorMessage(e)
       return false
     } finally {
       isWizardLoading.value = false
@@ -151,8 +151,7 @@ export function useAssistantWizard(options: UseAssistantWizardOptions) {
 
       return true
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { detail?: string } }; message?: string }
-      error.value = err.response?.data?.detail || err.message || 'Fehler bei der Wizard-Antwort'
+      error.value = extractErrorMessage(e)
       return false
     } finally {
       isWizardLoading.value = false
@@ -181,8 +180,7 @@ export function useAssistantWizard(options: UseAssistantWizardOptions) {
 
       return true
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { detail?: string } }; message?: string }
-      error.value = err.response?.data?.detail || err.message || 'Fehler beim Zurückgehen'
+      error.value = extractErrorMessage(e)
       return false
     } finally {
       isWizardLoading.value = false

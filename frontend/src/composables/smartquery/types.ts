@@ -146,7 +146,7 @@ export const DEFAULT_LOADING_STATE: LoadingState = {
 /**
  * Loading phase messages (German)
  */
-export const LOADING_PHASE_MESSAGES: Record<LoadingPhase, string> = {
+export const LOADING_PHASE_MESSAGES = {
   idle: '',
   validating: 'Eingabe wird validiert...',
   interpreting: 'Anfrage wird analysiert...',
@@ -154,23 +154,10 @@ export const LOADING_PHASE_MESSAGES: Record<LoadingPhase, string> = {
   generating: 'Antwort wird generiert...',
   streaming: 'Antwort wird empfangen...',
   processing: 'Ergebnisse werden verarbeitet...',
-}
+} satisfies Record<LoadingPhase, string>
 
 /**
  * Helper function for type-safe error handling
+ * Re-exported from centralized error utilities
  */
-export function getErrorDetail(err: unknown): string {
-  if (err && typeof err === 'object') {
-    const e = err as { response?: { data?: { detail?: string } }; message?: string }
-    if (e.response?.data?.detail) {
-      return e.response.data.detail
-    }
-    if (e.message) {
-      return e.message
-    }
-  }
-  if (err instanceof Error) {
-    return err.message
-  }
-  return 'Unknown error'
-}
+export { extractErrorMessage as getErrorDetail } from '@/utils/errorMessage'

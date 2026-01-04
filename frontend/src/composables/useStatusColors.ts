@@ -19,6 +19,8 @@ export const STATUS_COLORS: Record<string, string> = {
   healthy: 'success',
   extracted: 'success',
   EXTRACTED: 'success',
+  processed: 'success',
+  PROCESSED: 'success',
   enabled: 'success',
   true: 'success',
 
@@ -61,6 +63,7 @@ export const STATUS_COLORS: Record<string, string> = {
   cancelled: 'grey',
   CANCELLED: 'grey',
   draft: 'grey',
+  DRAFT: 'grey',
   unknown: 'grey',
   disabled: 'grey',
   archived: 'error',
@@ -82,6 +85,8 @@ export const STATUS_ICONS: Record<string, string> = {
   healthy: 'mdi-heart-pulse',
   extracted: 'mdi-check-circle',
   EXTRACTED: 'mdi-check-circle',
+  processed: 'mdi-check-circle',
+  PROCESSED: 'mdi-check-circle',
   enabled: 'mdi-check-circle',
   true: 'mdi-check-circle',
 
@@ -124,6 +129,7 @@ export const STATUS_ICONS: Record<string, string> = {
   cancelled: 'mdi-cancel',
   CANCELLED: 'mdi-cancel',
   draft: 'mdi-file-edit',
+  DRAFT: 'mdi-file-edit',
   unknown: 'mdi-help-circle',
   disabled: 'mdi-minus-circle',
   archived: 'mdi-archive',

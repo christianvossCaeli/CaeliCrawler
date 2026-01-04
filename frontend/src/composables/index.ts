@@ -132,10 +132,33 @@ export {
   type EnrichmentPreviewData,
 } from './useEntityEnrichment'
 export { useEntityFacets, type NewFacet } from './useEntityFacets'
+// Results module - refactored into modular structure
 export {
+  useResults,
   useResultsView,
+  useResultsState,
+  useResultsFilters,
+  useResultsActions,
+  useResultsHelpers,
   type EntityReference,
   type SignalItem,
   type DecisionMaker,
   type SearchResult,
-} from './useResultsView'
+  type ResultsStats,
+  type DynamicContentField,
+  normalizeResultItem,
+} from './results'
+export {
+  usePageContext,
+  usePageContextProvider,
+  useCurrentPageContext,
+  getAvailableFeaturesForRoute,
+  getAvailableActionsForContext,
+} from './usePageContext'
+export {
+  useCrawlerEvents,
+  emitCrawlerEvent,
+  onCrawlerEvent,
+  type CrawlerEvent,
+  type CrawlerEventType,
+} from './useCrawlerEvents'

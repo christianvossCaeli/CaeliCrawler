@@ -4,9 +4,10 @@
  * Handles facet search, filtering, and expansion.
  */
 
-import { ref, type Ref, type ComputedRef } from 'vue'
+import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import { facetApi } from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
 import type { Entity } from '@/stores/entity'
@@ -29,9 +30,23 @@ export function useFacetSearch(
 
   // State
   const facetSearchQuery = ref('')
+  const debouncedSearchQuery = ref('')
   const expandedFacets = ref<string[]>([])
   const expandedFacetValues = ref<Record<string, FacetValue[]>>({})
   const loadingMoreFacets = ref<Record<string, boolean>>({})
+
+  // Debounce the search query to avoid excessive filtering on every keystroke
+  const { debouncedFn: updateDebouncedQuery } = useDebounce(
+    (query: string) => {
+      debouncedSearchQuery.value = query
+    },
+    { delay: DEBOUNCE_DELAYS.FAST }
+  )
+
+  // Watch for changes and debounce
+  watch(facetSearchQuery, (newQuery) => {
+    updateDebouncedQuery(newQuery)
+  })
 
   // Functions
   function matchesFacetSearch(facet: FacetValue, query: string): boolean {
@@ -55,8 +70,9 @@ export function useFacetSearch(
     const slug = facetGroup.facet_type_slug
     const allFacets = expandedFacetValues.value[slug] || facetGroup.sample_values || []
 
-    if (facetSearchQuery.value) {
-      const query = facetSearchQuery.value.toLowerCase()
+    // Use debounced query for filtering to avoid excessive re-renders
+    if (debouncedSearchQuery.value) {
+      const query = debouncedSearchQuery.value.toLowerCase()
       return allFacets.filter((f: FacetValue) => matchesFacetSearch(f, query))
     }
 
@@ -122,13 +138,19 @@ export function useFacetSearch(
 
   function resetSearch() {
     facetSearchQuery.value = ''
+    debouncedSearchQuery.value = ''
     expandedFacets.value = []
     expandedFacetValues.value = {}
   }
 
+  // Computed: whether search is active
+  const isSearchActive = computed(() => debouncedSearchQuery.value.length > 0)
+
   return {
     // State
     facetSearchQuery,
+    debouncedSearchQuery,
+    isSearchActive,
     expandedFacets,
     expandedFacetValues,
     loadingMoreFacets,

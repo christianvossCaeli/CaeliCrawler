@@ -1,150 +1,91 @@
+/**
+ * Categories View Composable
+ *
+ * Provides view-specific state and logic for the Categories view.
+ * Uses useCategoriesStore as the single source of truth for category data.
+ */
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { adminApi } from '@/services/api'
+import { categoryApi } from '@/services/api/categories'
+import { useCategoriesStore } from '@/stores/categories'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import { useLogger } from '@/composables/useLogger'
+import { getStatusColor } from '@/composables/useStatusColors'
+import { emitCrawlerEvent } from '@/composables/useCrawlerEvents'
+import type {
+  CategoryResponse,
+  CategoryFormData,
+  CategoryFilters,
+  CategorySource,
+  DataSourcesTabState,
+  CrawlerFilter,
+  SnackbarState,
+} from '@/types/category'
+import {
+  DEFAULT_DATA_SOURCES_TAB_STATE,
+  DEFAULT_CRAWLER_FILTER,
+  DEFAULT_SNACKBAR_STATE,
+} from '@/types/category'
 
 const logger = useLogger('useCategoriesView')
 
-export interface Category {
-  id: string
-  name: string
-  description?: string
-  purpose: string
-  search_terms?: string[]
-  document_types?: string[]
-  languages?: string[]
-  url_include_patterns?: string[]
-  url_exclude_patterns?: string[]
-  schedule_cron?: string
-  schedule_enabled?: boolean
-  ai_extraction_prompt?: string
-  is_active: boolean
-  source_count?: number
-  document_count?: number
-  target_entity_type?: {
-    id: string
-    name: string
-  }
-}
-
-export interface CategoryFormData {
-  name: string
-  description: string
-  purpose: string
-  search_terms: string[]
-  document_types: string[]
-  languages: string[]
-  url_include_patterns: string[]
-  url_exclude_patterns: string[]
-  schedule_cron: string
-  schedule_enabled: boolean
-  ai_extraction_prompt: string
-  is_active: boolean
-}
-
-export interface CategoryFilters {
-  search: string
-  status: string | null
-  hasDocuments: string | null
-  language: string | null
-}
-
-export interface CategorySource {
-  id: string
-  name: string
-  status?: string
-  source_type?: string
-  base_url?: string
-  last_crawled_at?: string
-  is_assigned?: boolean
-}
-
-export interface DataSourcesTabState {
-  selectedTags: string[]
-  matchMode: 'all' | 'any'
-  foundSources: CategorySource[]
-  loading: boolean
-  assigning: boolean
-  availableTags: string[]
-}
-
-export interface CrawlerFilter {
-  search: string | null
-  limit: number | null
-  status: string | null
-  source_type: string | null
-}
-
-export interface SnackbarState {
-  show: boolean
-  text: string
-  color: 'success' | 'error' | 'warning' | 'info'
+// Re-export types for backward compatibility
+export type {
+  CategoryFormData,
+  CategoryFilters,
+  CategorySource,
+  DataSourcesTabState,
+  CrawlerFilter,
+  SnackbarState,
 }
 
 /**
+ * @deprecated Use CategoryResponse from @/types/category instead
+ * Kept for backward compatibility
+ */
+export type Category = CategoryResponse
+
+/**
+ * Language option type
+ */
+export interface LanguageOption {
+  code: string
+  name: string
+  flag: string
+}
+
+/**
+ * Available languages for categories
+ */
+export const AVAILABLE_LANGUAGES: LanguageOption[] = [
+  { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
+  { code: 'en', name: 'English', flag: '🇬🇧' },
+  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  { code: 'nl', name: 'Nederlands', flag: '🇳🇱' },
+  { code: 'it', name: 'Italiano', flag: '🇮🇹' },
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'pl', name: 'Polski', flag: '🇵🇱' },
+  { code: 'da', name: 'Dansk', flag: '🇩🇰' },
+]
+
+/**
  * Shared state and logic for Categories view
+ * Uses useCategoriesStore as single source of truth
  */
 export function useCategoriesView() {
   const { t } = useI18n()
   const router = useRouter()
+  const store = useCategoriesStore()
 
-  // State
-  const loading = ref(false)
-  const categories = ref<Category[]>([])
-  const selectedCategory = ref<Category | null>(null)
+  // Get reactive references from store
+  const { categories, selectedCategory, loading, pagination, filters } = storeToRefs(store)
+
+  // View-specific state (not in store)
   const categorySources = ref<CategorySource[]>([])
   const categorySourcesLoading = ref(false)
-  const totalCategories = ref(0)
-  const categoryPage = ref(1)
-  const categoryPerPage = ref(20)
-  const categorySortBy = ref<string>('name')
-  const categorySortOrder = ref<'asc' | 'desc'>('asc')
-
-  // Filters
-  const categoryFilters = ref<CategoryFilters>({
-    search: '',
-    status: null,
-    hasDocuments: null,
-    language: null,
-  })
-
-  // Snackbar
-  const snackbar = ref<SnackbarState>({
-    show: false,
-    text: '',
-    color: 'success',
-  })
-
-  // Filter options
-  const statusFilterOptions = computed(() => [
-    { value: 'active', label: t('categories.statusOptions.active') },
-    { value: 'inactive', label: t('categories.statusOptions.inactive') },
-  ])
-
-  const documentFilterOptions = computed(() => [
-    { value: 'with', label: t('categories.filters.withDocuments') },
-    { value: 'without', label: t('categories.filters.withoutDocuments') },
-  ])
-
-  const languageFilterOptions = [
-    { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
-    { code: 'en', name: 'English', flag: '🇬🇧' },
-    { code: 'fr', name: 'Français', flag: '🇫🇷' },
-    { code: 'nl', name: 'Nederlands', flag: '🇳🇱' },
-    { code: 'it', name: 'Italiano', flag: '🇮🇹' },
-    { code: 'es', name: 'Español', flag: '🇪🇸' },
-    { code: 'pl', name: 'Polski', flag: '🇵🇱' },
-    { code: 'da', name: 'Dansk', flag: '🇩🇰' },
-  ]
-
-  const availableLanguages = languageFilterOptions
-
-  // Filtered categories (server-side)
-  const filteredCategories = computed(() => categories.value)
-
-  // Computed stats for sources dialog
   const categorySourcesStats = ref({
     total: 0,
     active: 0,
@@ -157,31 +98,56 @@ export function useCategoriesView() {
   const categorySourcesSearch = ref('')
   const categorySourcesCategoryId = ref<string | null>(null)
 
-  // Methods
-  const loadCategories = async () => {
-    loading.value = true
-    try {
-      const params: Record<string, unknown> = {
-        page: categoryPage.value,
-        per_page: categoryPerPage.value,
-        sort_by: categorySortBy.value,
-        sort_order: categorySortOrder.value,
-      }
-      if (categoryFilters.value.search) params.search = categoryFilters.value.search
-      if (categoryFilters.value.status) params.is_active = categoryFilters.value.status === 'active'
-      if (categoryFilters.value.hasDocuments) params.has_documents = categoryFilters.value.hasDocuments === 'with'
-      if (categoryFilters.value.language) params.language = categoryFilters.value.language
+  // Snackbar
+  const snackbar = ref<SnackbarState>({ ...DEFAULT_SNACKBAR_STATE })
 
-      const response = await adminApi.getCategories(params)
-      categories.value = response.data.items
-      totalCategories.value = response.data.total
-      categoryPage.value = response.data.page
-      categoryPerPage.value = response.data.per_page
+  // Computed values derived from store
+  const totalCategories = computed(() => pagination.value.total)
+  const categoryPage = computed({
+    get: () => pagination.value.page,
+    set: (value: number) => store.setPagination({ page: value }),
+  })
+  const categoryPerPage = computed({
+    get: () => pagination.value.perPage,
+    set: (value: number) => store.setPagination({ perPage: value }),
+  })
+  const categorySortBy = computed({
+    get: () => pagination.value.sortBy,
+    set: (value: string) => store.setPagination({ sortBy: value }),
+  })
+  const categorySortOrder = computed({
+    get: () => pagination.value.sortOrder,
+    set: (value: 'asc' | 'desc') => store.setPagination({ sortOrder: value }),
+  })
+  const categoryFilters = computed({
+    get: () => filters.value,
+    set: (value: CategoryFilters) => store.setFilters(value),
+  })
+
+  // Filtered categories (server-side)
+  const filteredCategories = computed(() => categories.value)
+
+  // Filter options
+  const statusFilterOptions = computed(() => [
+    { value: 'active', label: t('categories.statusOptions.active') },
+    { value: 'inactive', label: t('categories.statusOptions.inactive') },
+  ])
+
+  const documentFilterOptions = computed(() => [
+    { value: 'with', label: t('categories.filters.withDocuments') },
+    { value: 'without', label: t('categories.filters.withoutDocuments') },
+  ])
+
+  const languageFilterOptions = AVAILABLE_LANGUAGES
+  const availableLanguages = AVAILABLE_LANGUAGES
+
+  // Methods - delegate to store
+  const loadCategories = async () => {
+    try {
+      await store.fetchCategories()
     } catch (error) {
       logger.error('Failed to load categories:', error)
       showSnackbar(t('categories.messages.loadError'), 'error')
-    } finally {
-      loading.value = false
     }
   }
 
@@ -195,9 +161,8 @@ export function useCategoriesView() {
 
   const deleteCategory = async (categoryId: string) => {
     try {
-      await adminApi.deleteCategory(categoryId)
+      await store.deleteCategory(categoryId)
       showSnackbar(t('categories.messages.deleted'), 'success')
-      await loadCategories()
       return true
     } catch (error) {
       logger.error('Failed to delete category:', error)
@@ -271,25 +236,14 @@ export function useCategoriesView() {
   const navigateToSourcesFiltered = (categoryId: string) => {
     router.push({
       path: '/sources',
-      query: { category_id: categoryId }
+      query: { category_id: categoryId },
     })
   }
 
   // Helper functions
   const getLanguageFlag = (code: string): string => {
-    const lang = availableLanguages.find(l => l.code === code)
+    const lang = availableLanguages.find((l) => l.code === code)
     return lang?.flag || code.toUpperCase()
-  }
-
-  const getStatusColor = (status?: string) => {
-    if (!status) return 'grey'
-    const colors: Record<string, string> = {
-      ACTIVE: 'success',
-      PENDING: 'warning',
-      ERROR: 'error',
-      PAUSED: 'grey',
-    }
-    return colors[status] || 'grey'
   }
 
   const getSourceTypeIcon = (type?: string) => {
@@ -304,31 +258,35 @@ export function useCategoriesView() {
   }
 
   return {
-    // State
+    // State (from store via storeToRefs)
     loading,
     categories,
     selectedCategory,
+
+    // View-specific state
     categorySources,
     categorySourcesLoading,
-    categoryFilters,
     snackbar,
-    totalCategories,
-    categoryPage,
-    categoryPerPage,
-    categorySortBy,
-    categorySortOrder,
     categorySourcesTotal,
     categorySourcesPage,
     categorySourcesPerPage,
     categorySourcesSearch,
 
-    // Computed
+    // Computed (wrapping store)
+    totalCategories,
+    categoryPage,
+    categoryPerPage,
+    categorySortBy,
+    categorySortOrder,
+    categoryFilters,
     filteredCategories,
+    categorySourcesStats,
+
+    // Filter options
     statusFilterOptions,
     documentFilterOptions,
     languageFilterOptions,
     availableLanguages,
-    categorySourcesStats,
 
     // Methods
     loadCategories,
@@ -340,6 +298,9 @@ export function useCategoriesView() {
     getLanguageFlag,
     getStatusColor,
     getSourceTypeIcon,
+
+    // Store instance for direct access if needed
+    store,
   }
 }
 
@@ -353,12 +314,7 @@ export function useCategoryCrawler() {
   const startingCrawler = ref(false)
   const selectedCategoryForCrawler = ref<Category | null>(null)
   const crawlerFilteredCount = ref(0)
-  const crawlerFilter = ref<CrawlerFilter>({
-    search: null,
-    limit: null,
-    status: null,
-    source_type: null,
-  })
+  const crawlerFilter = ref<CrawlerFilter>({ ...DEFAULT_CRAWLER_FILTER })
 
   const updateCrawlerFilteredCount = async () => {
     if (!selectedCategoryForCrawler.value) return
@@ -439,6 +395,8 @@ export function useCategoryCrawler() {
 
       await adminApi.startCrawl(params)
       crawlerDialog.value = false
+      // Notify CrawlerView to refresh immediately
+      emitCrawlerEvent('crawl-started')
 
       return {
         success: true,
@@ -475,19 +433,14 @@ export function useCategoryCrawler() {
 export function useCategoryDataSources() {
   const { t } = useI18n()
 
-  const dataSourcesTab = ref<DataSourcesTabState>({
-    selectedTags: [],
-    matchMode: 'all',
-    foundSources: [],
-    loading: false,
-    assigning: false,
-    availableTags: [],
-  })
+  const dataSourcesTab = ref<DataSourcesTabState>({ ...DEFAULT_DATA_SOURCES_TAB_STATE })
 
   const loadAvailableTags = async () => {
     try {
       const response = await adminApi.getAvailableTags()
-      dataSourcesTab.value.availableTags = (response.data.tags || []).map((t: { tag: string }) => t.tag)
+      dataSourcesTab.value.availableTags = (response.data.tags || []).map(
+        (t: { tag: string }) => t.tag
+      )
     } catch (error) {
       logger.error('Failed to load available tags:', error)
       dataSourcesTab.value.availableTags = []
@@ -510,7 +463,7 @@ export function useCategoryDataSources() {
         limit: 1000,
       })
 
-      const assignedSourceIds = new Set(assignedSources.map(s => s.id))
+      const assignedSourceIds = new Set(assignedSources.map((s) => s.id))
       dataSourcesTab.value.foundSources = response.data.map((source: CategorySource) => ({
         ...source,
         is_assigned: assignedSourceIds.has(source.id),
@@ -529,13 +482,13 @@ export function useCategoryDataSources() {
 
     dataSourcesTab.value.assigning = true
     try {
-      const response = await adminApi.assignSourcesByTags(categoryId, {
+      const response = await categoryApi.assignSourcesByTags(categoryId, {
         tags: dataSourcesTab.value.selectedTags,
         match_mode: dataSourcesTab.value.matchMode,
         mode: 'add',
       })
 
-      const assignedCount = response.data.assigned_count || dataSourcesTab.value.foundSources.length
+      const assignedCount = response.data.assigned || dataSourcesTab.value.foundSources.length
       return {
         success: true,
         count: assignedCount,

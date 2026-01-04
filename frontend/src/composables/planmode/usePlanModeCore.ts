@@ -10,8 +10,9 @@ import { useI18n } from 'vue-i18n'
 import { api } from '@/services/api'
 import { usePlanModeSSE } from './usePlanModeSSE'
 import type { PlanMessage, PlanModeResult, GeneratedPrompt, ValidationResult } from './types'
-import { MAX_CONVERSATION_MESSAGES, TRIM_THRESHOLD, TRIM_TARGET, getErrorDetail, asAxiosError } from './types'
+import { MAX_CONVERSATION_MESSAGES, trimConversationArray, getErrorDetail, asAxiosError } from './types'
 import { useLogger } from '@/composables/useLogger'
+import { useCurrentPageContext } from '@/composables/usePageContext'
 
 const logger = useLogger('usePlanModeCore')
 
@@ -30,6 +31,9 @@ export function usePlanMode() {
   const validating = ref(false)
   const validationResult = ref<ValidationResult | null>(null)
 
+  // Get current page context for context-aware responses
+  const currentPageContext = useCurrentPageContext()
+
   // Compose with SSE module
   const sse = usePlanModeSSE({
     conversation,
@@ -37,6 +41,7 @@ export function usePlanMode() {
     streaming,
     error,
     results,
+    pageContext: currentPageContext,
   })
 
   // Computed properties
@@ -60,10 +65,9 @@ export function usePlanMode() {
    * Trim conversation to prevent memory leaks
    */
   function trimConversation(): void {
-    if (conversation.value.length > TRIM_THRESHOLD) {
-      const firstMessage = conversation.value[0]
-      const recentMessages = conversation.value.slice(-(TRIM_TARGET - 1))
-      conversation.value = [firstMessage, ...recentMessages]
+    const before = conversation.value.length
+    conversation.value = trimConversationArray(conversation.value)
+    if (conversation.value.length < before) {
       logger.info(`Trimmed conversation to ${conversation.value.length} messages`)
     }
   }

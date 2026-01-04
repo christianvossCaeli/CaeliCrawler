@@ -9,6 +9,7 @@ import { useI18n } from 'vue-i18n'
 import { pysisApi } from '@/services/api'
 import { useDateFormatter } from '@/composables/useDateFormatter'
 import { useLogger } from '@/composables/useLogger'
+import { addToSet, removeFromSet, clearSet } from '@/utils/immutableSet'
 
 // =============================================================================
 // Types
@@ -520,7 +521,7 @@ export function usePySisProcess(
   const generateField = async (field: PySisField): Promise<void> => {
     const response = await pysisApi.generateField(field.id)
     if (response.data.success) {
-      generatingFieldIds.value.add(field.id)
+      generatingFieldIds.value = addToSet(generatingFieldIds.value, field.id)
       pollForFieldCompletion(field.id, field.internal_name)
     } else {
       throw new Error(response.data.errors?.join(', ') || t('pysis.error'))
@@ -643,7 +644,7 @@ export function usePySisProcess(
   }
 
   const stopGenerating = (fieldId: string): void => {
-    generatingFieldIds.value.delete(fieldId)
+    generatingFieldIds.value = removeFromSet(generatingFieldIds.value, fieldId)
     if (pollingIntervals.has(fieldId)) {
       clearInterval(pollingIntervals.get(fieldId))
       pollingIntervals.delete(fieldId)
@@ -655,7 +656,7 @@ export function usePySisProcess(
     pollingIntervals.clear()
     pendingTimeouts.forEach((timeoutId) => clearTimeout(timeoutId))
     pendingTimeouts.clear()
-    generatingFieldIds.value.clear()
+    generatingFieldIds.value = clearSet()
   }
 
   // ==========================================================================

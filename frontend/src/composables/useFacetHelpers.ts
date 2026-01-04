@@ -8,7 +8,14 @@
  * - Generic text facets
  */
 
+import { useI18n } from 'vue-i18n'
 import { formatNumber } from '@/utils/viewHelpers'
+import {
+  getSeverityColor as _getSeverityColor,
+  getSeverityIcon as _getSeverityIcon,
+  getSentimentColor as _getSentimentColor,
+  getConfidenceColor as _getConfidenceColor,
+} from '@/config/facetMappings'
 
 export interface FacetValue {
   id?: string
@@ -20,13 +27,27 @@ export interface FacetValue {
   event_date?: string
 }
 
-// Attribute translations for entity display
+/**
+ * List of attribute keys that have i18n translations.
+ * @deprecated Use i18n keys directly via t('attributes.{key}')
+ */
+export const attributeTranslationKeys = [
+  'country', 'state', 'county', 'population', 'area_km2',
+  'academic_title', 'first_name', 'last_name', 'email', 'phone',
+  'role', 'org_type', 'address', 'event_date', 'event_end_date',
+  'location', 'organizer', 'event_type', 'description',
+] as const
+
+/**
+ * @deprecated Use i18n via t('attributes.{key}') instead.
+ * Kept for backwards compatibility.
+ */
 export const attributeTranslations: Record<string, string> = {
   country: 'Land',
   state: 'Bundesland',
   county: 'Landkreis',
   population: 'Einwohner',
-  area_km2: 'Flaeche (km2)',
+  area_km2: 'Fläche (km²)',
   academic_title: 'Titel',
   first_name: 'Vorname',
   last_name: 'Nachname',
@@ -44,15 +65,22 @@ export const attributeTranslations: Record<string, string> = {
 }
 
 export function useFacetHelpers() {
+  const { t, te } = useI18n()
+
   /**
-   * Format attribute key for display
+   * Format attribute key for display using i18n
    */
   function formatAttributeKey(key: string, schema?: { properties?: Record<string, { title?: string }> }): string {
     // First try to get title from entity type's attribute_schema
     if (schema?.properties?.[key]?.title) {
       return schema.properties[key].title
     }
-    // Then try the translation map
+    // Then try i18n translation
+    const i18nKey = `attributes.${key}`
+    if (te(i18nKey)) {
+      return t(i18nKey)
+    }
+    // Fallback to legacy translation map (for backwards compatibility)
     if (attributeTranslations[key]) {
       return attributeTranslations[key]
     }
@@ -82,12 +110,10 @@ export function useFacetHelpers() {
 
   /**
    * Get confidence score color
+   * @see {@link @/config/facetMappings} for centralized configuration
    */
   function getConfidenceColor(score: number | null | undefined): string {
-    if (!score) return 'grey'
-    if (score >= 0.8) return 'success'
-    if (score >= 0.5) return 'warning'
-    return 'error'
+    return _getConfidenceColor(score)
   }
 
   // --- Structured Facet Value Helpers ---
@@ -133,26 +159,18 @@ export function useFacetHelpers() {
 
   /**
    * Get severity color
+   * @see {@link @/config/facetMappings} for centralized configuration
    */
   function getSeverityColor(severity: string | null): string {
-    if (!severity) return 'grey'
-    const s = severity.toLowerCase()
-    if (s === 'hoch' || s === 'high') return 'error'
-    if (s === 'mittel' || s === 'medium') return 'warning'
-    if (s === 'niedrig' || s === 'low') return 'success'
-    return 'grey'
+    return _getSeverityColor(severity)
   }
 
   /**
    * Get severity icon
+   * @see {@link @/config/facetMappings} for centralized configuration
    */
   function getSeverityIcon(severity: string | null): string {
-    if (!severity) return 'mdi-minus'
-    const s = severity.toLowerCase()
-    if (s === 'hoch' || s === 'high') return 'mdi-alert'
-    if (s === 'mittel' || s === 'medium') return 'mdi-alert-circle-outline'
-    if (s === 'niedrig' || s === 'low') return 'mdi-information-outline'
-    return 'mdi-minus'
+    return _getSeverityIcon(severity)
   }
 
   // --- Contact Helpers ---
@@ -218,13 +236,10 @@ export function useFacetHelpers() {
 
   /**
    * Get sentiment color
+   * @see {@link @/config/facetMappings} for centralized configuration
    */
   function getSentimentColor(sentiment: string | null): string {
-    if (!sentiment) return 'grey'
-    const s = sentiment.toLowerCase()
-    if (s === 'positiv' || s === 'positive') return 'success'
-    if (s === 'negativ' || s === 'negative') return 'error'
-    return 'grey'
+    return _getSentimentColor(sentiment)
   }
 
   // --- Source Status Helpers ---

@@ -12,7 +12,7 @@ import { format } from 'date-fns'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import { useLogger } from '@/composables/useLogger'
-import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { getErrorMessage } from '@/utils/errorMessage'
 import { useDateFormatter } from '@/composables/useDateFormatter'
 import { useAuthStore } from '@/stores/auth'
 import { getStatusColor } from '@/composables/useStatusColors'
@@ -99,6 +99,24 @@ export function useDocumentsView() {
   const bulkAnalyzing = ref(false)
   const processingIds = ref(new Set<string>())
   const analyzingIds = ref(new Set<string>())
+
+  // Helper functions for immutable Set updates (ensures Vue reactivity)
+  const addProcessingId = (id: string) => {
+    processingIds.value = new Set([...processingIds.value, id])
+  }
+  const removeProcessingId = (id: string) => {
+    const newSet = new Set(processingIds.value)
+    newSet.delete(id)
+    processingIds.value = newSet
+  }
+  const addAnalyzingId = (id: string) => {
+    analyzingIds.value = new Set([...analyzingIds.value, id])
+  }
+  const removeAnalyzingId = (id: string) => {
+    const newSet = new Set(analyzingIds.value)
+    newSet.delete(id)
+    analyzingIds.value = newSet
+  }
   const triggeringFullAnalysis = ref(false)
   const analyzingMorePages = ref(false)
 
@@ -322,7 +340,7 @@ export function useDocumentsView() {
       showError(t('common.forbidden'))
       return
     }
-    processingIds.value.add(doc.id)
+    addProcessingId(doc.id)
     try {
       await adminApi.processDocument(doc.id)
       showSuccess(t('documents.processStarted'))
@@ -330,7 +348,7 @@ export function useDocumentsView() {
     } catch (error) {
       showError(getErrorMessage(error) || t('documents.processError'))
     } finally {
-      processingIds.value.delete(doc.id)
+      removeProcessingId(doc.id)
     }
   }
 
@@ -339,7 +357,7 @@ export function useDocumentsView() {
       showError(t('common.forbidden'))
       return
     }
-    analyzingIds.value.add(doc.id)
+    addAnalyzingId(doc.id)
     try {
       await adminApi.analyzeDocument(doc.id, true)
       showSuccess(t('documents.analysisStarted'))
@@ -347,7 +365,7 @@ export function useDocumentsView() {
     } catch (error) {
       showError(getErrorMessage(error) || t('documents.analysisError'))
     } finally {
-      analyzingIds.value.delete(doc.id)
+      removeAnalyzingId(doc.id)
     }
   }
 

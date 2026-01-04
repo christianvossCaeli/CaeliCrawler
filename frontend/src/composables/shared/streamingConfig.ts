@@ -57,16 +57,16 @@ export const STREAMING_CONFIG: Record<StreamingMode, StreamingConfig> = {
 
   /**
    * Assistant - Interactive chat interface
-   * Larger conversation history allowed
+   * Larger conversation history allowed, with frontend timeout as safety net
    */
   assistant: {
-    timeout: 0, // No frontend timeout (backend handles it)
+    timeout: 180_000, // 180s (3 min) - frontend safety net for stalled connections
     maxMessages: 50,
     autoScroll: true,
     retry: {
       enabled: true,
-      maxAttempts: 1,
-      baseDelayMs: 500,
+      maxAttempts: 2,
+      baseDelayMs: 1000,
     },
   },
 

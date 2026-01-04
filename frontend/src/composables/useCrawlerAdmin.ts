@@ -13,23 +13,17 @@ import { useSnackbar } from '@/composables/useSnackbar'
 import { useCrawlPresetsStore } from '@/stores/crawlPresets'
 import { useAuthStore } from '@/stores/auth'
 import { useLogger } from '@/composables/useLogger'
-import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { getErrorMessage } from '@/utils/errorMessage'
 import { getStatusColor } from '@/composables/useStatusColors'
+import { onCrawlerEvent } from '@/composables/useCrawlerEvents'
+import type { JobLog, JobLogEntry } from '@/types/admin'
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export interface LogEntry {
-  status: string
-  url: string
-  timestamp: string
-}
-
-export interface JobLog {
-  current_url: string
-  log_entries: LogEntry[]
-}
+// Re-export for backwards compatibility
+export type { JobLog, JobLogEntry }
 
 export interface CrawlerJobError {
   error: string
@@ -118,10 +112,16 @@ export function useCrawlerAdmin() {
   const confirmTitle = ref('')
   const selectedJob = ref<CrawlerJob | null>(null)
 
+  // Bulk selection state
+  const selectedJobIds = ref<Set<string>>(new Set())
+  const bulkActionLoading = ref(false)
+
   let refreshInterval: number | null = null
   let logRefreshInterval: number | null = null
   let eventSource: EventSource | null = null
-  const useSSE = ref(true)
+  let unsubscribeCrawlerEvents: (() => void) | null = null
+  // SSE disabled - causes flickering when connection fails partially
+  const useSSE = ref(false)
 
   const status = ref<CrawlerStatus>({
     running_jobs: 0,
@@ -143,6 +143,7 @@ export function useCrawlerAdmin() {
   // ============================================================================
 
   const headers = computed(() => [
+    { title: '', key: 'select', sortable: false, width: '50px' },
     { title: t('crawler.source'), key: 'source_name', sortable: true },
     { title: t('crawler.category'), key: 'category_name', sortable: true },
     { title: t('crawler.status'), key: 'status', sortable: true },
@@ -156,6 +157,43 @@ export function useCrawlerAdmin() {
     if (!statusFilter.value) return jobs.value
     return jobs.value.filter(j => j.status === statusFilter.value)
   })
+
+  // Jobs that can be selected for bulk actions (failed, cancelled, completed)
+  const selectableJobs = computed(() => {
+    return filteredJobs.value.filter(j =>
+      j.status === 'FAILED' || j.status === 'CANCELLED' || j.status === 'COMPLETED'
+    )
+  })
+
+  // Jobs that can be retried (failed or cancelled)
+  const retryableSelectedJobs = computed(() => {
+    return Array.from(selectedJobIds.value)
+      .map(id => jobs.value.find(j => j.id === id))
+      .filter((j): j is CrawlerJob => !!j && (j.status === 'FAILED' || j.status === 'CANCELLED'))
+  })
+
+  // Jobs that can be deleted (failed, cancelled, or completed)
+  const deletableSelectedJobs = computed(() => {
+    return Array.from(selectedJobIds.value)
+      .map(id => jobs.value.find(j => j.id === id))
+      .filter((j): j is CrawlerJob =>
+        !!j && (j.status === 'FAILED' || j.status === 'CANCELLED' || j.status === 'COMPLETED')
+      )
+  })
+
+  // Check if all selectable jobs in current filter are selected
+  const allSelectableSelected = computed(() => {
+    if (selectableJobs.value.length === 0) return false
+    return selectableJobs.value.every(j => selectedJobIds.value.has(j.id))
+  })
+
+  // Check if some but not all are selected (indeterminate state)
+  const someSelected = computed(() => {
+    if (selectedJobIds.value.size === 0) return false
+    return !allSelectableSelected.value
+  })
+
+  const selectedCount = computed(() => selectedJobIds.value.size)
 
   // ============================================================================
   // Helper Functions
@@ -278,9 +316,162 @@ export function useCrawlerAdmin() {
   }
 
   async function showJobDetails(job: CrawlerJob) {
-    const response = await adminApi.getCrawlerJob(job.id)
-    selectedJob.value = response.data
-    detailsDialog.value = true
+    try {
+      const response = await adminApi.getCrawlerJob(job.id)
+      selectedJob.value = response.data
+      detailsDialog.value = true
+    } catch (error) {
+      logger.error('Failed to load job details:', error)
+      showError(getErrorMessage(error) || t('common.error'))
+    }
+  }
+
+  // ============================================================================
+  // Bulk Selection & Actions
+  // ============================================================================
+
+  function toggleJobSelection(jobId: string) {
+    const newSet = new Set(selectedJobIds.value)
+    if (newSet.has(jobId)) {
+      newSet.delete(jobId)
+    } else {
+      newSet.add(jobId)
+    }
+    selectedJobIds.value = newSet
+  }
+
+  function toggleSelectAll() {
+    if (allSelectableSelected.value) {
+      // Deselect all selectable jobs in current filter
+      const newSet = new Set(selectedJobIds.value)
+      selectableJobs.value.forEach(j => newSet.delete(j.id))
+      selectedJobIds.value = newSet
+    } else {
+      // Select all selectable jobs in current filter
+      const newSet = new Set(selectedJobIds.value)
+      selectableJobs.value.forEach(j => newSet.add(j.id))
+      selectedJobIds.value = newSet
+    }
+  }
+
+  function clearSelection() {
+    selectedJobIds.value = new Set()
+  }
+
+  function isJobSelected(jobId: string): boolean {
+    return selectedJobIds.value.has(jobId)
+  }
+
+  async function bulkRetryJobs() {
+    const jobsToRetry = retryableSelectedJobs.value
+    if (jobsToRetry.length === 0) return
+
+    showConfirm(
+      t('crawler.bulkRetryTitle'),
+      t('crawler.bulkRetryMessage', { count: jobsToRetry.length }),
+      async () => {
+        bulkActionLoading.value = true
+
+        // Execute all retries in parallel
+        const results = await Promise.allSettled(
+          jobsToRetry.map(job => adminApi.retryJob(job.id))
+        )
+
+        const successCount = results.filter(r => r.status === 'fulfilled').length
+        const errorCount = results.filter(r => r.status === 'rejected').length
+
+        // Remove successfully retried jobs from selection
+        const successfulJobIds = jobsToRetry
+          .filter((_, index) => results[index].status === 'fulfilled')
+          .map(job => job.id)
+
+        const newSelection = new Set(selectedJobIds.value)
+        successfulJobIds.forEach(id => newSelection.delete(id))
+        selectedJobIds.value = newSelection
+
+        if (successCount > 0) {
+          showSuccess(t('crawler.bulkRetrySuccess', { count: successCount }))
+        }
+        if (errorCount > 0) {
+          showError(t('crawler.bulkRetryPartialError', { count: errorCount }))
+        }
+
+        bulkActionLoading.value = false
+        await loadData()
+      }
+    )
+  }
+
+  async function bulkDeleteJobs() {
+    const jobsToDelete = deletableSelectedJobs.value
+    if (jobsToDelete.length === 0) return
+
+    showConfirm(
+      t('crawler.bulkDeleteTitle'),
+      t('crawler.bulkDeleteMessage', { count: jobsToDelete.length }),
+      async () => {
+        bulkActionLoading.value = true
+
+        // Execute all deletes in parallel
+        const results = await Promise.allSettled(
+          jobsToDelete.map(job => adminApi.deleteJob(job.id))
+        )
+
+        const successCount = results.filter(r => r.status === 'fulfilled').length
+        const errorCount = results.filter(r => r.status === 'rejected').length
+
+        // Remove successfully deleted jobs from selection
+        const successfulJobIds = jobsToDelete
+          .filter((_, index) => results[index].status === 'fulfilled')
+          .map(job => job.id)
+
+        const newSelection = new Set(selectedJobIds.value)
+        successfulJobIds.forEach(id => newSelection.delete(id))
+        selectedJobIds.value = newSelection
+
+        if (successCount > 0) {
+          showSuccess(t('crawler.bulkDeleteSuccess', { count: successCount }))
+        }
+        if (errorCount > 0) {
+          showError(t('crawler.bulkDeletePartialError', { count: errorCount }))
+        }
+
+        bulkActionLoading.value = false
+        await loadData()
+      }
+    )
+  }
+
+  async function cleanupFailedJobs() {
+    const failedJobs = jobs.value.filter(j => j.status === 'FAILED')
+    if (failedJobs.length === 0) {
+      showError(t('crawler.noFailedJobsToCleanup'))
+      return
+    }
+
+    showConfirm(
+      t('crawler.cleanupFailedTitle'),
+      t('crawler.cleanupFailedMessage', { count: failedJobs.length }),
+      async () => {
+        bulkActionLoading.value = true
+
+        // Execute all deletes in parallel
+        const results = await Promise.allSettled(
+          failedJobs.map(job => adminApi.deleteJob(job.id))
+        )
+
+        const successCount = results.filter(r => r.status === 'fulfilled').length
+
+        if (successCount > 0) {
+          showSuccess(t('crawler.cleanupSuccess', { count: successCount }))
+          // Clear selection as deleted jobs are no longer valid
+          clearSelection()
+        }
+
+        bulkActionLoading.value = false
+        await loadData()
+      }
+    )
   }
 
   // ============================================================================
@@ -317,33 +508,23 @@ export function useCrawlerAdmin() {
   async function doStopAllCrawlers() {
     stoppingAll.value = true
     try {
-      let cancelledCount = 0
+      // Collect all job IDs to cancel
       const jobsToCancel = new Set<string>()
+      runningJobs.value.forEach(job => jobsToCancel.add(job.id))
+      jobs.value
+        .filter(j => j.status === 'PENDING' || j.status === 'RUNNING')
+        .forEach(job => jobsToCancel.add(job.id))
 
-      for (const job of runningJobs.value) {
-        jobsToCancel.add(job.id)
-      }
+      // Cancel all jobs in parallel
+      const jobResults = await Promise.allSettled(
+        Array.from(jobsToCancel).map(jobId => adminApi.cancelJob(jobId))
+      )
+      const cancelledCount = jobResults.filter(r => r.status === 'fulfilled').length
 
-      for (const job of jobs.value.filter(j => j.status === 'PENDING' || j.status === 'RUNNING')) {
-        jobsToCancel.add(job.id)
-      }
-
-      for (const jobId of jobsToCancel) {
-        try {
-          await adminApi.cancelJob(jobId)
-          cancelledCount++
-        } catch {
-          // Continue with other jobs
-        }
-      }
-
-      for (const task of runningAiTasks.value) {
-        try {
-          await adminApi.cancelAiTask(task.id)
-        } catch {
-          // Continue
-        }
-      }
+      // Cancel all AI tasks in parallel
+      await Promise.allSettled(
+        runningAiTasks.value.map(task => adminApi.cancelAiTask(task.id))
+      )
 
       showSuccess(t('crawler.jobsStopped', { count: cancelledCount }))
       await loadData()
@@ -400,8 +581,8 @@ export function useCrawlerAdmin() {
       runningJobs.value = data.map((j: CrawlerJob) => ({
         ...j,
         id: j.id,
-        source_name: j.source_name || 'Unknown',
-        category_name: j.category_name || '-',
+        source_name: j.source_name || '',
+        category_name: j.category_name || '',
         pages_crawled: j.pages_crawled || 0,
         documents_found: j.documents_found || 0,
       }))
@@ -422,10 +603,28 @@ export function useCrawlerAdmin() {
     }
   }
 
+  // Adaptive polling interval based on running jobs
+  const POLL_INTERVAL_ACTIVE = 3000  // 3s when jobs running (faster updates)
+  const POLL_INTERVAL_IDLE = 10000   // 10s when idle (quicker detection of new jobs)
+  let currentPollInterval = POLL_INTERVAL_IDLE
+
   function startPolling() {
-    if (!refreshInterval) {
-      refreshInterval = window.setInterval(loadData, 5000)
+    if (refreshInterval) return
+
+    const poll = async () => {
+      await loadData()
+
+      // Adjust interval based on running jobs
+      const newInterval = status.value.running_jobs > 0 ? POLL_INTERVAL_ACTIVE : POLL_INTERVAL_IDLE
+      if (newInterval !== currentPollInterval) {
+        currentPollInterval = newInterval
+        stopPolling()
+        refreshInterval = window.setInterval(poll, currentPollInterval)
+      }
     }
+
+    currentPollInterval = status.value.running_jobs > 0 ? POLL_INTERVAL_ACTIVE : POLL_INTERVAL_IDLE
+    refreshInterval = window.setInterval(poll, currentPollInterval)
   }
 
   function stopPolling() {
@@ -469,6 +668,24 @@ export function useCrawlerAdmin() {
       }
     }
 
+    // Subscribe to global crawler events (e.g., when crawl started from other views)
+    unsubscribeCrawlerEvents = onCrawlerEvent((event) => {
+      if (event.type === 'crawl-started') {
+        logger.debug('Received crawl-started event, refreshing data')
+        // Immediate refresh when a crawl is started
+        loadData()
+        // Switch to active polling interval
+        if (currentPollInterval !== POLL_INTERVAL_ACTIVE) {
+          currentPollInterval = POLL_INTERVAL_ACTIVE
+          stopPolling()
+          startPolling()
+        }
+      } else if (event.type === 'crawl-completed' || event.type === 'crawl-cancelled') {
+        // Refresh on completion/cancellation
+        loadData()
+      }
+    })
+
     // Try SSE first, fallback to polling
     if (useSSE.value) {
       try {
@@ -487,6 +704,10 @@ export function useCrawlerAdmin() {
     stopPolling()
     if (logRefreshInterval) {
       clearInterval(logRefreshInterval)
+    }
+    if (unsubscribeCrawlerEvents) {
+      unsubscribeCrawlerEvents()
+      unsubscribeCrawlerEvents = null
     }
   }
 
@@ -517,10 +738,18 @@ export function useCrawlerAdmin() {
     selectedJob,
     status,
     stats,
+    selectedJobIds,
+    bulkActionLoading,
 
     // Computed
     headers,
     filteredJobs,
+    selectableJobs,
+    retryableSelectedJobs,
+    deletableSelectedJobs,
+    allSelectableSelected,
+    someSelected,
+    selectedCount,
 
     // Stores
     presetsStore,
@@ -540,6 +769,15 @@ export function useCrawlerAdmin() {
     retryJob,
     cancelAiTask,
     showJobDetails,
+
+    // Bulk Selection & Actions
+    toggleJobSelection,
+    toggleSelectAll,
+    clearSelection,
+    isJobSelected,
+    bulkRetryJobs,
+    bulkDeleteJobs,
+    cleanupFailedJobs,
 
     // Confirmation
     executeConfirmedAction,

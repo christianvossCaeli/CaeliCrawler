@@ -36,8 +36,10 @@ export interface UseDebounceOptions {
   trailing?: boolean
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export interface UseDebounceReturn<T extends (...args: any[]) => any> {
+/** Generic function type for debounce operations */
+type AnyFunction = (...args: never[]) => unknown
+
+export interface UseDebounceReturn<T extends AnyFunction> {
   /** The debounced function */
   debouncedFn: T
   /** Cancel pending execution */
@@ -80,8 +82,7 @@ export const DEBOUNCE_DELAYS = {
 /**
  * Creates a debounced version of a function
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function useDebounce<T extends (...args: any[]) => any>(
+export function useDebounce<T extends AnyFunction>(
   fn: T,
   options: UseDebounceOptions = {}
 ): UseDebounceReturn<T> {
@@ -127,8 +128,7 @@ export function useDebounce<T extends (...args: any[]) => any>(
 /**
  * Creates a throttled version of a function
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function useThrottle<T extends (...args: any[]) => any>(
+export function useThrottle<T extends AnyFunction>(
   fn: T,
   delay: number = DEBOUNCE_DELAYS.API
 ): T {

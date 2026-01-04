@@ -6,6 +6,7 @@
 
 import { ref, type Ref } from 'vue'
 import { assistantApi } from '@/services/api'
+import { extractErrorMessage } from '@/utils/errorMessage'
 import { useLogger } from '@/composables/useLogger'
 import type {
   BatchStatus,
@@ -152,8 +153,7 @@ export function useAssistantBatch(options: UseAssistantBatchOptions) {
 
       return true
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { detail?: string } }; message?: string }
-      error.value = err.response?.data?.detail || err.message || 'Fehler bei Batch-Operation'
+      error.value = extractErrorMessage(e)
       return false
     } finally {
       isLoading.value = false

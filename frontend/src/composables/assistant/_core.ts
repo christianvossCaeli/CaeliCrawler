@@ -366,12 +366,12 @@ export function useAssistant() {
               const parsed = JSON.parse(dataStr)
               const validationResult = validateStreamEvent(parsed)
 
-              if (!validationResult.success) {
+              if (!validationResult.success || !validationResult.data) {
                 logger.warn('Invalid stream event:', validationResult.error?.issues)
                 continue
               }
 
-              const data = validationResult.data!
+              const data = validationResult.data
 
               switch (data.type) {
                 case 'status':
@@ -467,7 +467,7 @@ export function useAssistant() {
   // Handle special response types
   function handleResponseType(responseData: ResponseData) {
     if (responseData.type === 'action_preview' && responseData.requires_confirmation) {
-      pendingAction.value = responseData.action as AssistantAction | null
+      pendingAction.value = responseData.action as unknown as AssistantAction | null
     } else if (responseData.type === 'navigation') {
       const target = responseData.target
       if (target?.route) {

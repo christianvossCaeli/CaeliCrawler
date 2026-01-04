@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { aiTasksApi, entityDataApi } from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
 
@@ -140,6 +140,11 @@ export function useEntityEnrichment() {
   function cleanup() {
     stopEnrichmentTaskPolling()
   }
+
+  // Auto-cleanup on unmount to prevent memory leaks
+  onUnmounted(() => {
+    cleanup()
+  })
 
   return {
     enrichmentTaskId,

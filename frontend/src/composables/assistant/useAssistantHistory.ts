@@ -9,8 +9,7 @@ import { useLogger } from '@/composables/useLogger'
 import type {
   ConversationMessage,
   QueryHistoryItem,
-  StoredMessage,
-  StoredQueryHistoryItem,
+  ResponseData,
 } from './types'
 import {
   STORAGE_KEY,
@@ -18,6 +17,7 @@ import {
   MAX_HISTORY_LENGTH,
   MAX_QUERY_HISTORY_LENGTH,
 } from './types'
+import { validateStoredMessages, validateStoredQueryHistory } from './validation'
 
 const logger = useLogger('useAssistantHistory')
 
@@ -31,19 +31,32 @@ export function useAssistantHistory(options: UseAssistantHistoryOptions) {
   // Query history state
   const queryHistory = ref<QueryHistoryItem[]>([])
 
-  // Load conversation history from local storage
+  // Load conversation history from local storage with validation
   function loadHistory() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored) {
-        const parsed = JSON.parse(stored) as StoredMessage[]
-        messages.value = parsed.map((msg) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp)
-        }))
+        const parsed = JSON.parse(stored)
+        const result = validateStoredMessages(parsed)
+
+        if (result.success && result.data) {
+          messages.value = result.data.map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+            timestamp: new Date(msg.timestamp),
+            metadata: msg.metadata,
+            response_type: msg.response_type,
+            response_data: msg.response_data as ResponseData | undefined
+          }))
+        } else {
+          // Invalid format - clear corrupted data
+          logger.warn('Invalid conversation history format, clearing:', result.error?.issues)
+          localStorage.removeItem(STORAGE_KEY)
+        }
       }
     } catch (e) {
       logger.error('Failed to load assistant history:', e)
+      localStorage.removeItem(STORAGE_KEY)
     }
   }
 
@@ -57,19 +70,28 @@ export function useAssistantHistory(options: UseAssistantHistoryOptions) {
     }
   }
 
-  // Load query history from local storage
+  // Load query history from local storage with validation
   function loadQueryHistory() {
     try {
       const stored = localStorage.getItem(QUERY_HISTORY_KEY)
       if (stored) {
-        const parsed = JSON.parse(stored) as StoredQueryHistoryItem[]
-        queryHistory.value = parsed.map((item) => ({
-          ...item,
-          timestamp: new Date(item.timestamp)
-        }))
+        const parsed = JSON.parse(stored)
+        const result = validateStoredQueryHistory(parsed)
+
+        if (result.success && result.data) {
+          queryHistory.value = result.data.map((item) => ({
+            ...item,
+            timestamp: new Date(item.timestamp)
+          }))
+        } else {
+          // Invalid format - clear corrupted data
+          logger.warn('Invalid query history format, clearing:', result.error?.issues)
+          localStorage.removeItem(QUERY_HISTORY_KEY)
+        }
       }
     } catch (e) {
       logger.error('Failed to load query history:', e)
+      localStorage.removeItem(QUERY_HISTORY_KEY)
     }
   }
 
