@@ -42,14 +42,25 @@ export interface QueryResultData {
   mode: 'read' | 'write'
 }
 
+// Context TTL in milliseconds (5 minutes - accounts for slow navigation)
+const CONTEXT_TTL_MS = 5 * 60 * 1000
+
 export const useQueryContextStore = defineStore('queryContext', () => {
   // State
   const pendingContext = ref<QueryContextData | null>(null)
   const lastResults = ref<QueryResultData | null>(null)
   const returnToAssistant = ref(false)
+  const isConsuming = ref(false) // Lock to prevent race conditions
+
+  // Check if context is still valid (not expired)
+  function isContextValid(context: QueryContextData | null): boolean {
+    if (!context) return false
+    const age = Date.now() - context.timestamp.getTime()
+    return age < CONTEXT_TTL_MS
+  }
 
   // Computed
-  const hasContext = computed(() => pendingContext.value !== null)
+  const hasContext = computed(() => isContextValid(pendingContext.value))
   const hasResults = computed(() => lastResults.value !== null)
 
   // Actions
@@ -80,10 +91,26 @@ export const useQueryContextStore = defineStore('queryContext', () => {
 
   /**
    * Get and consume the pending context (used by Smart Query)
+   * Uses a lock to prevent race conditions when multiple components try to consume
    */
   function consumeContext(): QueryContextData | null {
+    // Prevent race condition: if already consuming, return null
+    if (isConsuming.value) {
+      return null
+    }
+
+    // Check if context is still valid
+    if (!isContextValid(pendingContext.value)) {
+      pendingContext.value = null
+      return null
+    }
+
+    // Lock, consume, unlock
+    isConsuming.value = true
     const context = pendingContext.value
     pendingContext.value = null
+    isConsuming.value = false
+
     return context
   }
 
@@ -111,6 +138,7 @@ export const useQueryContextStore = defineStore('queryContext', () => {
     pendingContext.value = null
     lastResults.value = null
     returnToAssistant.value = false
+    isConsuming.value = false // Reset lock
   }
 
   /**

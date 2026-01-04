@@ -175,35 +175,35 @@
 
             <!-- Empty State -->
             <template #no-data>
-              <div class="text-center py-8">
-                <v-icon size="64" color="grey-lighten-1" class="mb-4">
-                  {{ store.hasActiveFilters ? 'mdi-filter-off' : 'mdi-database-off' }}
-                </v-icon>
-                <h3 class="text-h6 text-medium-emphasis mb-2">
-                  {{ store.hasActiveFilters ? $t('sources.empty.noFilterResults') : $t('sources.empty.noSources') }}
-                </h3>
-                <p class="text-body-2 text-disabled mb-4">
-                  {{ store.hasActiveFilters ? $t('sources.empty.adjustFilters') : $t('sources.empty.createFirst') }}
-                </p>
-                <v-btn
-                  v-if="store.hasActiveFilters"
-                  variant="tonal"
-                  color="primary"
-                  @click="clearAllFilters"
-                >
+              <TableErrorState
+                v-if="store.error"
+                :title="$t('common.loadError')"
+                :message="store.error || $t('errors.generic')"
+                :retrying="store.sourcesLoading"
+                @retry="store.fetchSources(1)"
+              />
+              <EmptyState
+                v-else-if="store.hasActiveFilters"
+                icon="mdi-filter-off"
+                :title="$t('sources.empty.noFilterResults')"
+                :description="$t('sources.empty.adjustFilters')"
+              >
+                <v-btn variant="tonal" color="primary" @click="clearAllFilters">
                   <v-icon start>mdi-filter-off</v-icon>
                   {{ $t('sources.filters.clearAll') }}
                 </v-btn>
-                <v-btn
-                  v-else-if="canEdit"
-                  variant="tonal"
-                  color="primary"
-                  @click="openCreateDialog"
-                >
+              </EmptyState>
+              <EmptyState
+                v-else
+                icon="mdi-database-off"
+                :title="$t('sources.empty.noSources')"
+                :description="$t('sources.empty.createFirst')"
+              >
+                <v-btn v-if="canEdit" variant="tonal" color="primary" @click="openCreateDialog">
                   <v-icon start>mdi-plus</v-icon>
                   {{ $t('sources.actions.create') }}
                 </v-btn>
-              </div>
+              </EmptyState>
             </template>
           </v-data-table-server>
         </v-card>
@@ -225,7 +225,7 @@
               @show-category-info="showCategoryInfo"
             />
             <template #fallback>
-              <v-dialog :model-value="true" max-width="600" persistent>
+              <v-dialog :model-value="true" :max-width="DIALOG_SIZES.MD" persistent>
                 <v-card class="d-flex align-center justify-center pa-8">
                   <v-progress-circular indeterminate color="primary" size="48" />
                 </v-card>
@@ -245,7 +245,7 @@
               @import="handleBulkImport"
             />
             <template #fallback>
-              <v-dialog :model-value="true" max-width="800" persistent>
+              <v-dialog :model-value="true" :max-width="DIALOG_SIZES.LG" persistent>
                 <v-card class="d-flex align-center justify-center pa-8">
                   <v-progress-circular indeterminate color="primary" size="48" />
                 </v-card>
@@ -273,7 +273,7 @@
               @imported="onApiImported"
             />
             <template #fallback>
-              <v-dialog :model-value="true" max-width="900" persistent>
+              <v-dialog :model-value="true" :max-width="DIALOG_SIZES.XL" persistent>
                 <v-card class="d-flex align-center justify-center pa-8">
                   <v-progress-circular indeterminate color="primary" size="48" />
                 </v-card>
@@ -291,7 +291,7 @@
               @imported="onAiDiscoveryImported"
             />
             <template #fallback>
-              <v-dialog :model-value="true" max-width="1200" persistent>
+              <v-dialog :model-value="true" :max-width="DIALOG_SIZES.XXL" persistent>
                 <v-card class="d-flex align-center justify-center pa-8">
                   <v-progress-circular indeterminate color="primary" size="48" />
                 </v-card>
@@ -325,6 +325,7 @@
 import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { storeToRefs } from 'pinia'
 import { useDebounceFn } from '@vueuse/core'
 import { useSourcesStore } from '@/stores/sources'
@@ -339,10 +340,13 @@ import {
   SourcesTableActions,
 } from '@/components/sources'
 import { useSourceHelpers } from '@/composables/useSourceHelpers'
-import { PageHeader, ErrorBoundary } from '@/components/common'
+import { PageHeader, ErrorBoundary, TableErrorState, EmptyState } from '@/components/common'
+import { extractErrorMessage } from '@/utils/errorMessage'
 import { SEARCH, TABLE_HEADERS, ACTION_CLEANUP_DELAY } from '@/config/sources'
 import type { BulkImportState, DataSourceResponse, SourceType, SourceStatus } from '@/types/sources'
 import { useLogger } from '@/composables/useLogger'
+import { usePageContextProvider, PAGE_FEATURES, PAGE_ACTIONS } from '@/composables/usePageContext'
+import type { PageContextData } from '@/composables/assistant/types'
 
 const logger = useLogger('SourcesView')
 
@@ -410,6 +414,30 @@ const snackbar = ref({
   text: '',
   color: 'success',
 })
+
+// Page Context Provider for AI Assistant awareness
+usePageContextProvider(
+  '/sources',
+  (): PageContextData => ({
+    // Source context
+    source_id: store.selectedSource?.id || undefined,
+    source_type: store.selectedSource?.source_type || undefined,
+    source_status: store.selectedSource?.status as 'active' | 'error' | 'disabled' | undefined,
+
+    // List context
+    total_count: store.sourcesTotal,
+    filters: {
+      search_query: store.filters.search || undefined
+    },
+
+    // Features and actions
+    available_features: [...PAGE_FEATURES.source],
+    available_actions: [
+      ...PAGE_ACTIONS.base,
+      'add_source', 'edit_source', 'test_connection'
+    ]
+  })
+)
 
 /** Per-source loading states for individual actions */
 const actionLoading = ref<{
@@ -701,13 +729,7 @@ const handleBulkImport = async (data: BulkImportState) => {
     )
   } catch (error) {
     logger.error('Bulk import failed:', error)
-    // Extract detailed error message from API response
-    const apiError = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
-    const errorDetail = apiError.response?.data?.detail
-      || apiError.response?.data?.message
-      || apiError.message
-      || t('sources.messages.bulkImportError')
-    showSnackbar(errorDetail, 'error')
+    showSnackbar(extractErrorMessage(error), 'error')
   }
 }
 

@@ -1,10 +1,12 @@
 <template>
   <div>
-    <!-- Skeleton Loader for initial load -->
-    <DocumentsSkeleton v-if="loading && initialLoad" />
+    <!-- Skeleton/Content Transition -->
+    <transition name="fade" mode="out-in">
+      <!-- Skeleton Loader for initial load -->
+      <DocumentsSkeleton v-if="loading && initialLoad" key="skeleton" />
 
-    <!-- Main Content -->
-    <template v-else>
+      <!-- Main Content -->
+      <div v-else key="content">
     <PageHeader
       :title="$t('documents.title')"
       :subtitle="$t('documents.subtitle')"
@@ -52,7 +54,7 @@
           {{ $t('documents.actions.processAll') }} ({{ stats.pending }})
         </v-btn>
         <v-btn
-          color="success"
+          color="info"
           variant="outlined"
           prepend-icon="mdi-download"
           @click="exportCsv"
@@ -281,13 +283,21 @@
         @update:options="onTableOptionsUpdate"
       >
         <template #item.title="{ item }">
-          <div class="py-2">
-            <div class="font-weight-medium truncate-md" :title="item.title || item.original_url">
+          <div class="py-2 d-flex align-center">
+            <div class="font-weight-medium" :title="item.title || item.original_url">
               {{ item.title || $t('documents.detail.noTitle') }}
             </div>
-            <div class="text-caption text-medium-emphasis truncate-md">
-              <a :href="item.original_url" target="_blank" class="text-decoration-none">{{ item.original_url }}</a>
-            </div>
+            <v-btn
+              v-if="item.original_url"
+              icon="mdi-link-variant"
+              size="x-small"
+              variant="text"
+              density="compact"
+              class="ml-2"
+              :href="item.original_url"
+              target="_blank"
+              :title="item.original_url"
+            />
           </div>
         </template>
 
@@ -328,8 +338,17 @@
             <v-btn v-if="canEdit && item.processing_status === 'PENDING'" icon="mdi-play" size="small" variant="tonal" color="primary" :title="$t('documents.actions.process')" :aria-label="$t('documents.actions.process')" :loading="processingIds.has(item.id)" @click="processDocument(item)"></v-btn>
             <v-btn v-if="canEdit && (item.processing_status === 'COMPLETED' || item.processing_status === 'FILTERED')" icon="mdi-brain" size="small" variant="tonal" color="info" :title="$t('documents.actions.analyze')" :aria-label="$t('documents.actions.analyze')" :loading="analyzingIds.has(item.id)" @click="analyzeDocument(item)"></v-btn>
             <v-btn v-if="canEdit && item.file_path" icon="mdi-download" size="small" variant="tonal" color="success" :title="$t('common.download')" :aria-label="$t('common.download')" @click="downloadDocument(item)"></v-btn>
-            <v-btn icon="mdi-open-in-new" size="small" variant="tonal" :title="$t('common.open')" :aria-label="$t('common.open')" :href="item.original_url" target="_blank"></v-btn>
             <v-btn icon="mdi-information" size="small" variant="tonal" :title="$t('common.details')" :aria-label="$t('common.details')" @click="showDetails(item)"></v-btn>
+          </div>
+        </template>
+
+        <template #no-data>
+          <div class="text-center py-8">
+            <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-file-document-outline</v-icon>
+            <h3 class="text-h6 mb-2">{{ $t('documents.emptyState.title', 'Keine Dokumente') }}</h3>
+            <p class="text-body-2 text-medium-emphasis">
+              {{ $t('documents.emptyState.description', 'Es wurden noch keine Dokumente gecrawlt. Konfigurieren Sie Quellen und starten Sie einen Crawl.') }}
+            </p>
           </div>
         </template>
       </v-data-table-server>
@@ -338,7 +357,7 @@
     <!-- Details Dialog -->
     <v-dialog
       v-model="detailsDialog"
-      max-width="900"
+      :max-width="DIALOG_SIZES.XL"
       scrollable
       :aria-label="$t('documents.detail.title')"
     >
@@ -520,7 +539,8 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-    </template>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -533,9 +553,12 @@
  */
 import { onMounted, computed } from 'vue'
 import { useDocumentsView } from '@/composables/useDocumentsView'
+import { DIALOG_SIZES } from '@/config/ui'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DocumentsSkeleton from '@/components/documents/DocumentsSkeleton.vue'
 import { useAuthStore } from '@/stores/auth'
+import { usePageContextProvider, PAGE_ACTIONS } from '@/composables/usePageContext'
+import type { PageContextData } from '@/composables/assistant/types'
 
 // Initialize composable with all state and methods
 const {
@@ -627,6 +650,23 @@ const {
 const auth = useAuthStore()
 const canEdit = computed(() => auth.isEditor)
 const canAdmin = computed(() => auth.isAdmin)
+
+// Page Context Provider for KI-Assistant awareness
+usePageContextProvider(
+  '/documents',
+  (): PageContextData => ({
+    current_route: '/documents',
+    view_mode: 'list',
+    total_count: totalDocuments.value,
+    selected_count: selectedDocuments.value.length,
+    filters: {
+      search_query: searchQuery.value || undefined,
+      location_filter: locationFilter.value || undefined
+    },
+    available_features: ['bulk_process', 'bulk_analyze', 'export', 'filter', 'search'],
+    available_actions: [...PAGE_ACTIONS.base, 'process_document', 'analyze_document', 'bulk_process', 'bulk_analyze']
+  })
+)
 
 // Explicitly mark unused but template-required variables
 void documents

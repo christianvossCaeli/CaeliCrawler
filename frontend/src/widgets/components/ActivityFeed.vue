@@ -85,6 +85,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useDashboardStore } from '@/stores/dashboard'
+import { useDateFormatter } from '@/composables'
 import { handleKeyboardClick } from '../composables'
 import BaseWidget from '../BaseWidget.vue'
 import type { WidgetDefinition, WidgetConfig, ActivityItem } from '../types'
@@ -98,6 +99,7 @@ const props = defineProps<{
 const router = useRouter()
 const { t } = useI18n()
 const store = useDashboardStore()
+const { formatDateShort } = useDateFormatter()
 const loading = ref(true)
 const error = ref<string | null>(null)
 
@@ -157,8 +159,8 @@ const formatTime = (timestamp: string): string => {
   if (diff < 86400000) return t('common.hoursAgo', { n: Math.floor(diff / 3600000) })
   if (diff < 604800000) return t('common.daysAgo', { n: Math.floor(diff / 86400000) })
 
-  // Use i18n date formatting for older dates
-  return t('common.dateFormat', { date: date.toLocaleDateString() })
+  // Use centralized date formatting for older dates
+  return t('common.dateFormat', { date: formatDateShort(date) })
 }
 
 // Entity types that can be navigated to (model class names from audit log)

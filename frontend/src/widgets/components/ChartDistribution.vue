@@ -29,7 +29,7 @@
                 {{ item.label }}
               </span>
               <span class="text-caption font-weight-medium">
-                {{ item.value.toLocaleString() }}
+                {{ formatNumber(item.value) }}
               </span>
             </div>
             <v-progress-linear
@@ -43,7 +43,7 @@
 
         <!-- Total -->
         <div class="text-center text-caption text-medium-emphasis">
-          {{ $t('common.total') }}: {{ total.toLocaleString() }}
+          {{ $t('common.total') }}: {{ formatNumber(total) }}
         </div>
       </div>
     </template>
@@ -63,6 +63,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { dashboardApi } from '@/services/api'
+import { useDateFormatter } from '@/composables'
 import { handleKeyboardClick } from '../composables'
 import BaseWidget from '../BaseWidget.vue'
 import type { WidgetDefinition, WidgetConfig, ChartDataResponse, ChartItemWithPercentage } from '../types'
@@ -74,6 +75,7 @@ const props = defineProps<{
 }>()
 
 const router = useRouter()
+const { formatNumber } = useDateFormatter()
 const loading = ref(true)
 const error = ref<string | null>(null)
 const chartData = ref<ChartDataResponse | null>(null)

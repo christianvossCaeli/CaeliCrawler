@@ -7,6 +7,48 @@
 import DOMPurify from 'dompurify'
 
 /**
+ * Centralized DOMPurify configuration for consistent XSS protection
+ *
+ * BASIC: For simple text formatting (bold, code, line breaks)
+ * EXTENDED: Adds support for entity chips with data attributes
+ * MARKDOWN: Full markdown support including links
+ */
+export const DOMPURIFY_CONFIG = {
+  /** Basic config for simple message formatting */
+  BASIC: {
+    ALLOWED_TAGS: ['strong', 'code', 'br', 'span'],
+    ALLOWED_ATTR: ['class'],
+  },
+  /** Extended config for entity chips with interactive attributes */
+  EXTENDED: {
+    ALLOWED_TAGS: ['strong', 'code', 'br', 'span'],
+    ALLOWED_ATTR: ['class', 'data-type', 'data-slug', 'role', 'tabindex'],
+  },
+  /** Visualization config - text-only formatting without attributes */
+  VISUALIZATION: {
+    ALLOWED_TAGS: ['strong', 'em', 'b', 'i', 'br', 'ul', 'li', 'p'],
+    ALLOWED_ATTR: [] as string[],
+  },
+  /** Full markdown config with links, lists and enhanced security */
+  MARKDOWN: {
+    ALLOWED_TAGS: [
+      'p', 'br', 'strong', 'em', 'b', 'i', 'u', 's', 'del',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'ul', 'ol', 'li',
+      'blockquote', 'pre', 'code',
+      'a', 'span', 'div',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'hr',
+    ],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'id'],
+    ALLOW_DATA_ATTR: false,
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'style'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onchange', 'onsubmit'],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
+  },
+}
+
+/**
  * Escapes HTML special characters to prevent XSS
  */
 export function escapeHtml(text: string): string {
@@ -41,10 +83,7 @@ export function formatMessage(content: string): string {
     .replace(/\[\[(\w+):([^:]+):([^\]]+)\]\]/g, '<span class="entity-link">$3</span>')
 
   // 3. Final sanitization with DOMPurify for defense-in-depth
-  return DOMPurify.sanitize(formatted, {
-    ALLOWED_TAGS: ['strong', 'code', 'br', 'span'],
-    ALLOWED_ATTR: ['class'],
-  })
+  return DOMPurify.sanitize(formatted, DOMPURIFY_CONFIG.BASIC)
 }
 
 /**
@@ -59,46 +98,4 @@ export function formatMessageTime(
     hour: '2-digit',
     minute: '2-digit',
   })
-}
-
-/**
- * Formats a date relative to now (e.g., "2 minutes ago", "yesterday")
- */
-export function formatRelativeTime(
-  date: Date,
-  locale: string = 'de',
-): string {
-  const now = new Date()
-  const diff = now.getTime() - new Date(date).getTime()
-  const seconds = Math.floor(diff / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
-
-  const translations = {
-    de: {
-      justNow: 'Gerade eben',
-      minutesAgo: (n: number) => `Vor ${n} Minute${n === 1 ? '' : 'n'}`,
-      hoursAgo: (n: number) => `Vor ${n} Stunde${n === 1 ? '' : 'n'}`,
-      yesterday: 'Gestern',
-      daysAgo: (n: number) => `Vor ${n} Tagen`,
-    },
-    en: {
-      justNow: 'Just now',
-      minutesAgo: (n: number) => `${n} minute${n === 1 ? '' : 's'} ago`,
-      hoursAgo: (n: number) => `${n} hour${n === 1 ? '' : 's'} ago`,
-      yesterday: 'Yesterday',
-      daysAgo: (n: number) => `${n} days ago`,
-    },
-  }
-
-  const t = translations[locale as keyof typeof translations] || translations.en
-
-  if (seconds < 60) return t.justNow
-  if (minutes < 60) return t.minutesAgo(minutes)
-  if (hours < 24) return t.hoursAgo(hours)
-  if (days === 1) return t.yesterday
-  if (days < 7) return t.daysAgo(days)
-
-  return formatMessageTime(date, locale)
 }

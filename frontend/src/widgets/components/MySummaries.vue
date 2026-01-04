@@ -127,6 +127,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useCustomSummariesStore, type CustomSummary } from '@/stores/customSummaries'
+import { useStatusColors } from '@/composables/useStatusColors'
 import { handleKeyboardClick } from '../composables'
 import BaseWidget from '../BaseWidget.vue'
 import WidgetEmptyState from './WidgetEmptyState.vue'
@@ -142,6 +143,7 @@ const props = defineProps<{
 const { t } = useI18n()
 const router = useRouter()
 const store = useCustomSummariesStore()
+const { getStatusColor, getStatusIcon } = useStatusColors()
 const loading = ref(true)
 const error = ref<string | null>(null)
 
@@ -179,25 +181,6 @@ const displayedSummaries = computed(() => {
   return [...favorites, ...others].slice(0, 6)
 })
 
-const getStatusColor = (status: string): string => {
-  const colorMap: Record<string, string> = {
-    active: 'success',
-    draft: 'grey',
-    paused: 'warning',
-    archived: 'grey-darken-1',
-  }
-  return colorMap[status] || 'grey'
-}
-
-const getStatusIcon = (status: string): string => {
-  const iconMap: Record<string, string> = {
-    active: 'mdi-check-circle',
-    draft: 'mdi-pencil',
-    paused: 'mdi-pause-circle',
-    archived: 'mdi-archive',
-  }
-  return iconMap[status] || 'mdi-help-circle'
-}
 
 const formatTime = (timestamp: string | null | undefined): string => {
   if (!timestamp) return t('summaries.neverExecuted')

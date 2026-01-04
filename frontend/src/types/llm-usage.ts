@@ -2,23 +2,25 @@
  * LLM Usage Analytics Types
  */
 
-export type LLMProvider = 'azure_openai' | 'anthropic'
+export type LLMProvider = 'AZURE_OPENAI' | 'OPENAI' | 'ANTHROPIC'
 
 export type LLMTaskType =
-  | 'summarize'
-  | 'extract'
-  | 'classify'
-  | 'embedding'
-  | 'vision'
-  | 'chat'
-  | 'plan_mode'
-  | 'discovery'
-  | 'entity_analysis'
-  | 'attachment_analysis'
-  | 'relevance_check'
-  | 'custom'
+  | 'SUMMARIZE'
+  | 'EXTRACT'
+  | 'CLASSIFY'
+  | 'EMBEDDING'
+  | 'VISION'
+  | 'CHAT'
+  | 'PLAN_MODE'
+  | 'DISCOVERY'
+  | 'ENTITY_ANALYSIS'
+  | 'ATTACHMENT_ANALYSIS'
+  | 'RELEVANCE_CHECK'
+  | 'CUSTOM'
 
-export type BudgetType = 'global' | 'category' | 'task_type' | 'model'
+export type BudgetType = 'GLOBAL' | 'CATEGORY' | 'TASK_TYPE' | 'MODEL' | 'USER'
+
+export type LimitRequestStatus = 'PENDING' | 'APPROVED' | 'DENIED'
 
 // === Analytics Types ===
 
@@ -74,6 +76,19 @@ export interface LLMUsageTopConsumer {
   cost_cents: number
 }
 
+export interface LLMUsageByUser {
+  user_id: string | null
+  user_email: string | null
+  user_name: string | null
+  request_count: number
+  total_tokens: number
+  prompt_tokens: number
+  completion_tokens: number
+  cost_cents: number
+  models_used: string[]
+  has_credentials: boolean
+}
+
 export interface LLMUsageAnalytics {
   period_start: string
   period_end: string
@@ -81,6 +96,7 @@ export interface LLMUsageAnalytics {
   by_model: LLMUsageByModel[]
   by_task: LLMUsageByTask[]
   by_category: LLMUsageByCategory[]
+  by_user: LLMUsageByUser[]
   daily_trend: LLMUsageTrend[]
   top_consumers: LLMUsageTopConsumer[]
 }
@@ -106,6 +122,7 @@ export interface LLMBudgetConfig {
   critical_threshold_percent: number
   alert_emails: string[]
   is_active: boolean
+  blocks_on_limit: boolean
   last_warning_sent_at: string | null
   last_critical_sent_at: string | null
   description: string | null
@@ -124,6 +141,8 @@ export interface BudgetStatus {
   critical_threshold_percent: number
   is_warning: boolean
   is_critical: boolean
+  is_blocked: boolean
+  blocks_on_limit: boolean
   projected_month_end_cents: number
 }
 
@@ -131,6 +150,7 @@ export interface BudgetStatusList {
   budgets: BudgetStatus[]
   any_warning: boolean
   any_critical: boolean
+  any_blocked: boolean
 }
 
 export interface BudgetAlert {
@@ -193,28 +213,74 @@ export const PERIOD_OPTIONS: PeriodOption[] = [
 ]
 
 export const PROVIDER_LABELS: Record<LLMProvider, string> = {
-  azure_openai: 'Azure OpenAI',
-  anthropic: 'Anthropic Claude',
+  AZURE_OPENAI: 'Azure OpenAI',
+  OPENAI: 'OpenAI',
+  ANTHROPIC: 'Anthropic Claude',
 }
 
 export const TASK_TYPE_LABELS: Record<LLMTaskType, string> = {
-  summarize: 'Zusammenfassen',
-  extract: 'Extrahieren',
-  classify: 'Klassifizieren',
-  embedding: 'Embeddings',
-  vision: 'Bildanalyse',
-  chat: 'Chat',
-  plan_mode: 'Plan Mode',
-  discovery: 'Discovery',
-  entity_analysis: 'Entity-Analyse',
-  attachment_analysis: 'Anhang-Analyse',
-  relevance_check: 'Relevanz-Check',
-  custom: 'Benutzerdefiniert',
+  SUMMARIZE: 'Zusammenfassen',
+  EXTRACT: 'Extrahieren',
+  CLASSIFY: 'Klassifizieren',
+  EMBEDDING: 'Embeddings',
+  VISION: 'Bildanalyse',
+  CHAT: 'Chat',
+  PLAN_MODE: 'Plan Mode',
+  DISCOVERY: 'Discovery',
+  ENTITY_ANALYSIS: 'Entity-Analyse',
+  ATTACHMENT_ANALYSIS: 'Anhang-Analyse',
+  RELEVANCE_CHECK: 'Relevanz-Check',
+  CUSTOM: 'Benutzerdefiniert',
 }
 
 export const BUDGET_TYPE_LABELS: Record<BudgetType, string> = {
-  global: 'Global',
-  category: 'Pro Kategorie',
-  task_type: 'Pro Task-Typ',
-  model: 'Pro Modell',
+  GLOBAL: 'Global',
+  CATEGORY: 'Pro Kategorie',
+  TASK_TYPE: 'Pro Task-Typ',
+  MODEL: 'Pro Modell',
+  USER: 'Pro Benutzer',
 }
+
+// === User Budget Types ===
+
+export interface UserBudgetStatus {
+  budget_id: string
+  monthly_limit_cents: number
+  current_usage_cents: number
+  usage_percent: number
+  is_warning: boolean
+  is_critical: boolean
+  is_blocked: boolean
+}
+
+export interface LimitIncreaseRequest {
+  id: string
+  user_id: string
+  budget_id: string
+  requested_limit_cents: number
+  current_limit_cents: number
+  reason: string
+  status: LimitRequestStatus
+  reviewed_by: string | null
+  reviewed_at: string | null
+  admin_notes: string | null
+  created_at: string
+  user_email?: string | null
+}
+
+export interface LimitIncreaseRequestCreate {
+  requested_limit_cents: number
+  reason: string
+}
+
+export interface LimitRequestListResponse {
+  requests: LimitIncreaseRequest[]
+  total: number
+  pending_count: number
+}
+
+export const LIMIT_REQUEST_STATUS_LABELS = {
+  PENDING: 'Ausstehend',
+  APPROVED: 'Genehmigt',
+  DENIED: 'Abgelehnt',
+} satisfies Record<LimitRequestStatus, string>

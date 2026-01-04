@@ -70,11 +70,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { api } from '@/services/api'
 import { useSmartQuery } from '@/composables/useSmartQuery'
+import { usePageContextProvider, PAGE_FEATURES, PAGE_ACTIONS } from '@/composables/usePageContext'
+import type { PageContextData } from '@/composables/assistant/types'
 import SmartQueryToolbar from '@/components/smartquery/SmartQueryToolbar.vue'
 import SmartQueryInput from '@/components/smartquery/SmartQueryInput.vue'
 import SmartQueryResults from '@/components/smartquery/SmartQueryResults.vue'
@@ -118,7 +120,22 @@ const {
   handleHistoryRerun,
   sendResultsToAssistant,
   initializeFromContext,
+  cleanup,
 } = useSmartQuery()
+
+// Page Context Provider für KI-Assistenten
+usePageContextProvider(
+  '/smart-query',
+  (): PageContextData => ({
+    current_route: '/smart-query',
+    view_mode: currentMode.value,
+    current_query: question.value || undefined,
+    query_mode: currentMode.value as 'read' | 'write' | 'plan',
+    query_result_count: Array.isArray(results.value) ? results.value.length : 0,
+    available_features: [...PAGE_FEATURES.smartQuery],
+    available_actions: [...PAGE_ACTIONS.base, 'execute_query', 'save_query', 'export_results']
+  })
+)
 
 // Summary creation
 const showSummaryCreateDialog = ref(false)
@@ -255,6 +272,11 @@ onMounted(() => {
   if (hasContext && fromAssistant.value && question.value.trim()) {
     executeQuery()
   }
+})
+
+// Cleanup on unmount - cancel active streams and clear resources
+onBeforeUnmount(() => {
+  cleanup()
 })
 </script>
 

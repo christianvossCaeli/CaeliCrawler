@@ -49,3 +49,16 @@ export type { User, UserRole } from './auth'
 
 // LLM Usage store
 export { useLLMUsageStore } from './llmUsage'
+
+// Notifications store
+export { useNotificationsStore } from './notifications'
+export type {
+  Notification,
+  NotificationRule,
+  NotificationRuleConditions,
+  NotificationRuleChannelConfig,
+  UserEmailAddress,
+  EventType,
+  Channel,
+  NotificationPreferences,
+} from './notifications'

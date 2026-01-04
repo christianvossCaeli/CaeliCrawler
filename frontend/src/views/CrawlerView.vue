@@ -133,8 +133,7 @@
                   height="8"
                   rounded
                   color="info"
-                  style="width: 100px"
-                  class="mr-2"
+                  class="col-width-md mr-2"
                 ></v-progress-linear>
                 <span class="text-caption mr-2">{{ Math.round(task.progress_percent ?? 0) }}%</span>
                 <v-btn
@@ -207,26 +206,27 @@
               <div v-if="jobLogs[rj.id]" class="pa-2">
                 <div class="text-subtitle-2 mb-2">
                   {{ $t('crawler.currentUrl') }}:
-                  <code class="text-caption">{{ jobLogs[rj.id].current_url || '-' }}</code>
+                  <code class="text-caption text-truncate d-block" style="max-width: 100%;">{{ jobLogs[rj.id].entries?.[0]?.message || '-' }}</code>
                 </div>
-                <v-divider class="mb-2"></v-divider>
-                <div class="text-subtitle-2 mb-1">{{ $t('crawler.recentActivities') }}:</div>
+                <v-divider v-if="(jobLogs[rj.id].entries?.length || 0) > 1" class="mb-2"></v-divider>
+                <div v-if="(jobLogs[rj.id].entries?.length || 0) > 1" class="text-subtitle-2 mb-1">{{ $t('crawler.crawledUrls') }}:</div>
                 <v-virtual-scroll
-                  :items="jobLogs[rj.id].log_entries || []"
-                  height="200"
-                  item-height="32"
+                  v-if="(jobLogs[rj.id].entries?.length || 0) > 1"
+                  :items="jobLogs[rj.id].entries?.slice(1) || []"
+                  height="180"
+                  item-height="28"
                 >
                   <template #default="{ item }">
                     <div class="d-flex align-center py-1" style="font-family: monospace; font-size: 11px;">
                       <v-icon
-                        :color="item.status === 'document' ? 'success' : (item.status === 'error' ? 'error' : 'grey')"
+                        :color="item.level === 'ERROR' ? 'error' : (item.level === 'WARNING' ? 'warning' : 'grey')"
                         size="x-small"
-                        class="mr-2"
+                        class="mr-1"
                       >
-                        {{ item.status === 'document' ? 'mdi-file-document' : (item.status === 'error' ? 'mdi-alert' : 'mdi-web') }}
+                        {{ item.level === 'ERROR' ? 'mdi-alert' : (item.level === 'WARNING' ? 'mdi-alert-circle' : 'mdi-check') }}
                       </v-icon>
-                      <span class="text-truncate flex-grow-1">{{ item.url }}</span>
-                      <span class="text-caption text-medium-emphasis ml-2">{{ formatLogTime(item.timestamp) }}</span>
+                      <span class="text-caption text-medium-emphasis mr-2" style="min-width: 60px;">{{ formatLogTime(item.timestamp) }}</span>
+                      <span class="text-truncate flex-grow-1">{{ item.message }}</span>
                     </div>
                   </template>
                 </v-virtual-scroll>
@@ -245,7 +245,20 @@
     <v-card>
       <v-card-title>
         <v-row align="center">
-          <v-col>{{ $t('crawler.crawlJobs') }}</v-col>
+          <v-col class="d-flex align-center ga-2">
+            {{ $t('crawler.crawlJobs') }}
+            <v-btn
+              v-if="stats.failed_jobs > 0"
+              color="error"
+              variant="tonal"
+              size="small"
+              :loading="bulkActionLoading"
+              prepend-icon="mdi-broom"
+              @click="cleanupFailedJobs"
+            >
+              {{ $t('crawler.cleanupFailed', { count: stats.failed_jobs }) }}
+            </v-btn>
+          </v-col>
           <v-col cols="auto">
             <v-btn-toggle v-model="statusFilter" color="primary" mandatory>
               <v-btn value="">{{ $t('crawler.all') }}</v-btn>
@@ -257,12 +270,91 @@
         </v-row>
       </v-card-title>
 
+      <!-- Bulk Actions Bar -->
+      <v-slide-y-transition>
+        <div
+          v-if="selectedCount > 0"
+          class="d-flex align-center px-4 py-2 ga-2"
+        >
+          <v-checkbox
+            :model-value="allSelectableSelected"
+            :indeterminate="someSelected"
+            hide-details
+            density="compact"
+            color="primary"
+            :aria-label="$t('crawler.selectAll')"
+            @update:model-value="toggleSelectAll"
+          ></v-checkbox>
+          <span class="text-body-2 font-weight-medium">
+            {{ $t('crawler.selectedCount', { count: selectedCount }) }}
+          </span>
+          <v-spacer></v-spacer>
+
+          <v-btn
+            v-if="retryableSelectedJobs.length > 0"
+            color="warning"
+            variant="tonal"
+            size="small"
+            :loading="bulkActionLoading"
+            prepend-icon="mdi-refresh"
+            class="mr-2"
+            @click="bulkRetryJobs"
+          >
+            {{ $t('crawler.retrySelected', { count: retryableSelectedJobs.length }) }}
+          </v-btn>
+          <v-btn
+            v-if="deletableSelectedJobs.length > 0"
+            color="error"
+            variant="tonal"
+            size="small"
+            :loading="bulkActionLoading"
+            prepend-icon="mdi-delete"
+            class="mr-2"
+            @click="bulkDeleteJobs"
+          >
+            {{ $t('crawler.deleteSelected', { count: deletableSelectedJobs.length }) }}
+          </v-btn>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            :aria-label="$t('crawler.clearSelection')"
+            @click="clearSelection"
+          ></v-btn>
+        </div>
+      </v-slide-y-transition>
+
       <v-data-table
         :headers="headers"
         :items="filteredJobs"
         :loading="loading"
         :items-per-page="20"
       >
+        <!-- Header Checkbox for Select All -->
+        <template #header.select>
+          <v-checkbox
+            v-if="selectableJobs.length > 0"
+            :model-value="allSelectableSelected"
+            :indeterminate="someSelected"
+            hide-details
+            density="compact"
+            color="primary"
+            :aria-label="$t('crawler.selectAll')"
+            @update:model-value="toggleSelectAll"
+          ></v-checkbox>
+        </template>
+
+        <!-- Row Checkbox -->
+        <template #item.select="{ item }">
+          <v-checkbox
+            v-if="item.status === 'FAILED' || item.status === 'CANCELLED' || item.status === 'COMPLETED'"
+            :model-value="isJobSelected(item.id)"
+            hide-details
+            density="compact"
+            @update:model-value="toggleJobSelection(item.id)"
+          ></v-checkbox>
+        </template>
+
         <template #item.status="{ item }">
           <v-chip :color="getStatusColor(item.status)" size="small">
             <v-icon v-if="item.status === 'RUNNING'" class="mr-1" size="small">mdi-loading mdi-spin</v-icon>
@@ -308,7 +400,7 @@
             <v-btn
               v-if="item.status === 'RUNNING'"
               icon="mdi-stop"
-              size="small"
+              size="default"
               variant="tonal"
               color="error"
               :title="$t('common.cancel')"
@@ -318,7 +410,7 @@
             <v-btn
               v-if="item.status === 'FAILED' || item.status === 'CANCELLED'"
               icon="mdi-refresh"
-              size="small"
+              size="default"
               variant="tonal"
               color="warning"
               :title="$t('crawler.retry')"
@@ -327,7 +419,7 @@
             ></v-btn>
             <v-btn
               icon="mdi-information"
-              size="small"
+              size="default"
               variant="tonal"
               :title="$t('common.details')"
               :aria-label="$t('common.showDetails')"
@@ -335,11 +427,19 @@
             ></v-btn>
           </div>
         </template>
+
+        <template #no-data>
+          <EmptyState
+            icon="mdi-spider-web"
+            :title="$t('crawler.emptyState.title', 'Keine Crawl-Jobs')"
+            :description="$t('crawler.emptyState.description', 'Es wurden noch keine Crawl-Jobs gestartet. Konfigurieren Sie Quellen und starten Sie einen Crawl.')"
+          />
+        </template>
       </v-data-table>
     </v-card>
 
     <!-- Confirmation Dialog -->
-    <v-dialog v-model="confirmDialog" max-width="450">
+    <v-dialog v-model="confirmDialog" :max-width="DIALOG_SIZES.XS">
       <v-card>
         <v-card-title class="text-h6">
           <v-icon color="warning" class="mr-2">mdi-alert</v-icon>
@@ -359,7 +459,7 @@
     </v-dialog>
 
     <!-- Job Details Dialog -->
-    <v-dialog v-model="detailsDialog" max-width="800">
+    <v-dialog v-model="detailsDialog" :max-width="DIALOG_SIZES.LG">
       <v-card v-if="selectedJob">
         <v-card-title>{{ $t('crawler.jobDetails') }}</v-card-title>
         <v-card-text>
@@ -450,8 +550,11 @@
  */
 import { onMounted } from 'vue'
 import { useCrawlerAdmin } from '@/composables/useCrawlerAdmin'
+import { usePageContextProvider, PAGE_FEATURES, PAGE_ACTIONS } from '@/composables/usePageContext'
+import type { PageContextData, CrawlJobSummary } from '@/composables/assistant/types'
 import CrawlPresetsTab from '@/components/crawler/CrawlPresetsTab.vue'
-import PageHeader from '@/components/common/PageHeader.vue'
+import { PageHeader, EmptyState } from '@/components/common'
+import { DIALOG_SIZES } from '@/config/ui'
 
 // Initialize composable with all state and methods
 const {
@@ -472,10 +575,17 @@ const {
   selectedJob,
   status,
   stats,
+  bulkActionLoading,
 
   // Computed
   headers,
   filteredJobs,
+  selectableJobs,
+  retryableSelectedJobs,
+  deletableSelectedJobs,
+  allSelectableSelected,
+  someSelected,
+  selectedCount,
 
   // Stores
   presetsStore,
@@ -495,6 +605,15 @@ const {
   cancelAiTask,
   showJobDetails,
 
+  // Bulk Selection & Actions
+  toggleJobSelection,
+  toggleSelectAll,
+  clearSelection,
+  isJobSelected,
+  bulkRetryJobs,
+  bulkDeleteJobs,
+  cleanupFailedJobs,
+
   // Confirmation
   executeConfirmedAction,
 
@@ -505,9 +624,29 @@ const {
   initialize,
 } = useCrawlerAdmin()
 
-// Explicitly mark unused but template-required variables
-void jobs
+// Page Context Provider für KI-Assistenten
+usePageContextProvider(
+  '/crawler',
+  (): PageContextData => ({
+    current_route: '/crawler',
+    view_mode: 'crawler',
+    active_jobs: runningJobs.value.map((job): CrawlJobSummary => ({
+      job_id: job.id,
+      category_name: job.category_name || '',
+      status: job.status,
+      progress: job.pages_crawled || 0
+    })),
+    crawl_status: status.value.running_jobs > 0 ? 'running' : 'idle',
+    total_count: jobs.value.length,
+    available_features: [...PAGE_FEATURES.crawler],
+    available_actions: [
+      ...PAGE_ACTIONS.base,
+      ...(status.value.running_jobs > 0 ? ['pause_job', 'cancel_job'] : ['start_job'])
+    ]
+  })
+)
 
 // Initialize on mount
 onMounted(() => initialize())
 </script>
+

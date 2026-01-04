@@ -273,6 +273,13 @@ export const searchCache = createCache<Record<string, unknown>>({
   maxEntries: 20,
 })
 
+/** Cache for entity detail data (relations, data sources, etc.) - 5 min TTL */
+export const entityDetailCache = createCache<unknown>({
+  name: 'entity-details',
+  ttl: 5 * 60 * 1000,
+  maxEntries: 100,
+})
+
 // =============================================================================
 // Composable for Cache Integration
 // =============================================================================

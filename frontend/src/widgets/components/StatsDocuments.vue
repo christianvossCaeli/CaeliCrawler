@@ -20,7 +20,7 @@
           @click="navigateTo()"
           @keydown="handleKeydown($event)"
         >
-          {{ store.stats.documents.total.toLocaleString() }}
+          {{ formatNumber(store.stats.documents.total) }}
         </div>
         <div class="text-caption text-medium-emphasis mt-1">
           {{ $t('dashboard.widgets.statsDocuments.total') }}
@@ -41,7 +41,7 @@
             @keydown="handleKeydown($event, 'COMPLETED')"
           >
             <div class="text-h6 font-weight-medium text-success">
-              {{ store.stats.documents.by_status?.COMPLETED?.toLocaleString() || 0 }}
+              {{ formatNumber(store.stats.documents.by_status?.COMPLETED) || 0 }}
             </div>
             <div class="text-caption text-medium-emphasis">
               {{ $t('dashboard.widgets.statsDocuments.processed') }}
@@ -60,7 +60,7 @@
             @keydown="handleKeydown($event, 'FILTERED')"
           >
             <div class="text-h6 font-weight-medium text-grey">
-              {{ store.stats.documents.by_status.FILTERED.toLocaleString() }}
+              {{ formatNumber(store.stats.documents.by_status.FILTERED) }}
             </div>
             <div class="text-caption text-medium-emphasis">
               {{ $t('dashboard.widgets.statsDocuments.filtered') }}
@@ -79,7 +79,7 @@
             @keydown="handleKeydown($event, 'PENDING')"
           >
             <div class="text-h6 font-weight-medium text-warning">
-              {{ store.stats.documents.by_status.PENDING.toLocaleString() }}
+              {{ formatNumber(store.stats.documents.by_status.PENDING) }}
             </div>
             <div class="text-caption text-medium-emphasis">
               {{ $t('dashboard.widgets.statsDocuments.pending') }}
@@ -98,7 +98,7 @@
             @keydown="handleKeydown($event, 'FAILED')"
           >
             <div class="text-h6 font-weight-medium text-error">
-              {{ store.stats.documents.by_status.FAILED.toLocaleString() }}
+              {{ formatNumber(store.stats.documents.by_status.FAILED) }}
             </div>
             <div class="text-caption text-medium-emphasis">
               {{ $t('dashboard.widgets.statsDocuments.failed') }}
@@ -122,6 +122,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDashboardStore } from '@/stores/dashboard'
+import { useDateFormatter } from '@/composables'
 import { handleKeyboardClick } from '../composables'
 import BaseWidget from '../BaseWidget.vue'
 import type { WidgetDefinition, WidgetConfig } from '../types'
@@ -134,6 +135,7 @@ const props = defineProps<{
 
 const router = useRouter()
 const store = useDashboardStore()
+const { formatNumber } = useDateFormatter()
 const loading = ref(true)
 const error = ref<string | null>(null)
 

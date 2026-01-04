@@ -12,18 +12,18 @@ import type { LimitRequestStatus, UserBudgetStatus } from '@/types/llm-usage'
  * Using consistent 'warning' for pending to draw attention
  */
 export const LIMIT_REQUEST_COLORS: Record<LimitRequestStatus, string> = {
-  pending: 'warning',
-  approved: 'success',
-  denied: 'error',
+  PENDING: 'warning',
+  APPROVED: 'success',
+  DENIED: 'error',
 }
 
 /**
  * Status icons for limit requests
  */
 export const LIMIT_REQUEST_ICONS: Record<LimitRequestStatus, string> = {
-  pending: 'mdi-clock-outline',
-  approved: 'mdi-check-circle',
-  denied: 'mdi-close-circle',
+  PENDING: 'mdi-clock-outline',
+  APPROVED: 'mdi-check-circle',
+  DENIED: 'mdi-close-circle',
 }
 
 /**

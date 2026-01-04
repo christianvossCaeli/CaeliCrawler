@@ -1,20 +1,8 @@
 import { api } from './client'
-import type { CategoryCreate, CategoryUpdate, CategoryListParams, DocumentListParams, ExportListParams } from '@/types/category'
+import type { DocumentListParams, ExportListParams } from '@/types/category'
 
-// Categories
-export const getCategories = (params?: CategoryListParams) => api.get('/admin/categories', { params })
-export const getCategory = (id: string) => api.get(`/admin/categories/${id}`)
-export const createCategory = (data: CategoryCreate | Record<string, unknown>) => api.post('/admin/categories', data)
-export const updateCategory = (id: string, data: CategoryUpdate) => api.put(`/admin/categories/${id}`, data)
-export const deleteCategory = (id: string) => api.delete(`/admin/categories/${id}`)
-export const getCategoryStats = (id: string) => api.get(`/admin/categories/${id}/stats`)
-export const previewCategoryAiSetup = (data: { name: string; purpose: string; description?: string }) =>
-  api.post('/admin/categories/preview-ai-setup', data)
-export const assignSourcesByTags = (categoryId: string, data: {
-  tags: string[]
-  match_mode?: 'all' | 'any'
-  mode?: 'add' | 'replace'
-}) => api.post(`/admin/categories/${categoryId}/assign-sources-by-tags`, data)
+// Note: Category API functions have been moved to categories.ts
+// Import from there: import { categoryApi } from '@/services/api/categories'
 
 // Data Sources
 export const getSources = (params?: import('@/types/sources').DataSourceListParams) =>
@@ -180,6 +168,16 @@ export const analyzeMorePages = (documentId: string) =>
   api.post(`/v1/data/documents/${documentId}/analyze-pages`)
 export const verifyExtraction = (id: string, data: { verified: boolean; corrections?: Record<string, unknown> }) =>
   api.put(`/v1/data/extracted/${id}/verify`, data)
+
+export interface BulkVerifyResponse {
+  verified_ids: string[]
+  failed_ids: string[]
+  verified_count: number
+  failed_count: number
+}
+
+export const bulkVerifyExtractions = (data: { ids: string[] }) =>
+  api.put<BulkVerifyResponse>('/v1/data/extracted/bulk-verify', data)
 
 // Municipalities (Gemeinden)
 export const getMunicipalities = (params?: { country?: string; admin_level_1?: string; search?: string; page?: number; per_page?: number }) =>

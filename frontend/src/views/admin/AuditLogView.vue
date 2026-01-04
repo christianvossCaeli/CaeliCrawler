@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid>
+  <div>
     <!-- Header -->
     <PageHeader
       :title="t('admin.auditLog.title')"
@@ -181,11 +181,22 @@
         <template #item.created_at="{ item }">
           {{ formatDate(item.created_at) }}
         </template>
+
+        <!-- Empty State -->
+        <template #no-data>
+          <div class="text-center py-8">
+            <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-history</v-icon>
+            <h3 class="text-h6 mb-2">{{ t('admin.auditLog.emptyState.title', 'Keine Einträge') }}</h3>
+            <p class="text-body-2 text-medium-emphasis">
+              {{ t('admin.auditLog.emptyState.description', 'Es wurden noch keine Audit-Log-Einträge erfasst.') }}
+            </p>
+          </div>
+        </template>
       </v-data-table-server>
     </v-card>
 
     <!-- Changes Dialog -->
-    <v-dialog v-model="changesDialogOpen" max-width="600">
+    <v-dialog v-model="changesDialogOpen" :max-width="DIALOG_SIZES.MD">
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon start>mdi-delta</v-icon>
@@ -223,7 +234,7 @@
     </v-dialog>
 
     <!-- Clear Audit Log Dialog -->
-    <v-dialog v-model="clearDialogOpen" max-width="500" persistent>
+    <v-dialog v-model="clearDialogOpen" :max-width="DIALOG_SIZES.SM" persistent>
       <v-card>
         <v-card-title class="d-flex align-center text-error">
           <v-icon start color="error">mdi-alert</v-icon>
@@ -278,12 +289,13 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-  </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import api from '@/services/api'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PageHeader from '@/components/common/PageHeader.vue'

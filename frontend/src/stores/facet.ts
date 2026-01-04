@@ -1,20 +1,35 @@
 /**
- * Facet Store
+ * Facet Value Store
  *
- * Manages facet types and facet values for the Entity-Facet system.
+ * Manages facet values for the Entity-Facet system.
+ * For facet type definitions, use useFacetTypesStore from './facetTypes'
+ *
+ * Features:
+ * - Caching for entity facets summary (TTL-based)
+ * - Batch operations (bulkVerify, bulkDelete)
+ * - Optimistic updates with rollback on error
  */
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { facetApi } from '@/services/api'
 import type {
-  FacetTypeCreate,
-  FacetTypeUpdate,
   FacetValueCreate,
   FacetValueUpdate,
 } from '@/types/entity'
-import type { FacetType, FacetValue, EntityFacetsSummary } from './types/entity'
+import type { FacetValue, EntityFacetsSummary } from './types/entity'
 import { getErrorMessage } from './types/entity'
+
+// ============================================================================
+// Cache Configuration
+// ============================================================================
+
+const CACHE_TTL_MS = 30_000 // 30 seconds
+
+interface CacheEntry<T> {
+  data: T
+  timestamp: number
+}
 
 // ============================================================================
 // Store Definition
@@ -25,10 +40,6 @@ export const useFacetStore = defineStore('facet', () => {
   // State
   // ========================================
 
-  // Facet Types
-  const facetTypes = ref<FacetType[]>([])
-  const facetTypesLoading = ref(false)
-
   // Facet Values
   const facetValues = ref<FacetValue[]>([])
   const facetValuesLoading = ref(false)
@@ -37,112 +48,16 @@ export const useFacetStore = defineStore('facet', () => {
   // Error handling
   const error = ref<string | null>(null)
 
-  // ========================================
-  // Computed
-  // ========================================
-
-  const activeFacetTypes = computed(() =>
-    facetTypes.value.filter(ft => ft.is_active)
-  )
-
-  const timeBasedFacetTypes = computed(() =>
-    facetTypes.value.filter(ft => ft.is_time_based && ft.is_active)
-  )
-
-  const aiEnabledFacetTypes = computed(() =>
-    facetTypes.value.filter(ft => ft.ai_extraction_enabled && ft.is_active)
-  )
+  // Cache for entity facets summary
+  const summaryCache = ref<Map<string, CacheEntry<EntityFacetsSummary>>>(new Map())
 
   // ========================================
-  // Facet Type Actions
+  // Computed Properties
   // ========================================
 
-  async function fetchFacetTypes(params?: Record<string, unknown>) {
-    facetTypesLoading.value = true
-    error.value = null
-    try {
-      const response = await facetApi.getFacetTypes(params)
-      facetTypes.value = response.data.items
-      return response.data
-    } catch (err: unknown) {
-      error.value = getErrorMessage(err) || 'Failed to fetch facet types'
-      throw err
-    } finally {
-      facetTypesLoading.value = false
-    }
-  }
-
-  async function fetchFacetType(id: string) {
-    try {
-      const response = await facetApi.getFacetType(id)
-      return response.data
-    } catch (err: unknown) {
-      error.value = getErrorMessage(err) || 'Failed to fetch facet type'
-      throw err
-    }
-  }
-
-  async function fetchFacetTypeBySlug(slug: string) {
-    try {
-      const response = await facetApi.getFacetTypeBySlug(slug)
-      return response.data
-    } catch (err: unknown) {
-      error.value = getErrorMessage(err) || 'Failed to fetch facet type'
-      throw err
-    }
-  }
-
-  async function createFacetType(data: FacetTypeCreate) {
-    try {
-      const response = await facetApi.createFacetType(data)
-      // Refresh the list to include the new facet type
-      await fetchFacetTypes()
-      return response.data
-    } catch (err: unknown) {
-      error.value = getErrorMessage(err) || 'Failed to create facet type'
-      throw err
-    }
-  }
-
-  async function updateFacetType(id: string, data: FacetTypeUpdate) {
-    try {
-      const response = await facetApi.updateFacetType(id, data)
-      // Update local state
-      const index = facetTypes.value.findIndex(ft => ft.id === id)
-      if (index >= 0) {
-        facetTypes.value[index] = response.data
-      }
-      return response.data
-    } catch (err: unknown) {
-      error.value = getErrorMessage(err) || 'Failed to update facet type'
-      throw err
-    }
-  }
-
-  async function deleteFacetType(id: string) {
-    try {
-      await facetApi.deleteFacetType(id)
-      facetTypes.value = facetTypes.value.filter(ft => ft.id !== id)
-    } catch (err: unknown) {
-      error.value = getErrorMessage(err) || 'Failed to delete facet type'
-      throw err
-    }
-  }
-
-  async function generateFacetTypeSchema(data: {
-    name: string
-    name_plural?: string
-    description?: string
-    applicable_entity_types?: string[]
-  }) {
-    try {
-      const response = await facetApi.generateFacetTypeSchema(data)
-      return response.data
-    } catch (err: unknown) {
-      error.value = getErrorMessage(err) || 'Failed to generate facet type schema'
-      throw err
-    }
-  }
+  const hasFacetValues = computed(() => facetValues.value.length > 0)
+  const hasError = computed(() => error.value !== null)
+  const isEmpty = computed(() => !facetValuesLoading.value && facetValues.value.length === 0)
 
   // ========================================
   // Facet Value Actions
@@ -222,13 +137,51 @@ export const useFacetStore = defineStore('facet', () => {
     }
   }
 
-  async function fetchEntityFacetsSummary(entityId: string, params?: Record<string, unknown>): Promise<EntityFacetsSummary> {
+  async function fetchEntityFacetsSummary(
+    entityId: string,
+    params?: Record<string, unknown>,
+    options?: { skipCache?: boolean }
+  ): Promise<EntityFacetsSummary> {
+    const cacheKey = `${entityId}:${JSON.stringify(params || {})}`
+
+    // Check cache first (unless skipCache is true)
+    if (!options?.skipCache) {
+      const cached = summaryCache.value.get(cacheKey)
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+        return cached.data
+      }
+    }
+
     try {
       const response = await facetApi.getEntityFacetsSummary(entityId, params)
+
+      // Store in cache
+      summaryCache.value.set(cacheKey, {
+        data: response.data,
+        timestamp: Date.now(),
+      })
+
       return response.data
     } catch (err: unknown) {
       error.value = getErrorMessage(err) || 'Failed to fetch entity facets summary'
       throw err
+    }
+  }
+
+  /**
+   * Invalidate cache for a specific entity
+   */
+  function invalidateSummaryCache(entityId?: string) {
+    if (entityId) {
+      // Remove all cache entries for this entity
+      for (const key of summaryCache.value.keys()) {
+        if (key.startsWith(`${entityId}:`)) {
+          summaryCache.value.delete(key)
+        }
+      }
+    } else {
+      // Clear entire cache
+      summaryCache.value.clear()
     }
   }
 
@@ -248,6 +201,164 @@ export const useFacetStore = defineStore('facet', () => {
   }
 
   // ========================================
+  // Batch Operations
+  // ========================================
+
+  /**
+   * Verify multiple facet values at once
+   */
+  async function bulkVerifyFacetValues(
+    ids: string[],
+    verified: boolean,
+    verifiedBy?: string
+  ): Promise<{ success: string[]; failed: string[] }> {
+    const results = { success: [] as string[], failed: [] as string[] }
+
+    // Process in parallel with Promise.allSettled
+    const promises = ids.map(async (id) => {
+      try {
+        await verifyFacetValue(id, verified, verifiedBy)
+        return { id, success: true }
+      } catch {
+        return { id, success: false }
+      }
+    })
+
+    const settled = await Promise.allSettled(promises)
+    settled.forEach((result) => {
+      if (result.status === 'fulfilled') {
+        if (result.value.success) {
+          results.success.push(result.value.id)
+        } else {
+          results.failed.push(result.value.id)
+        }
+      }
+    })
+
+    return results
+  }
+
+  /**
+   * Delete multiple facet values at once
+   */
+  async function bulkDeleteFacetValues(
+    ids: string[]
+  ): Promise<{ success: string[]; failed: string[] }> {
+    const results = { success: [] as string[], failed: [] as string[] }
+
+    // Process in parallel with Promise.allSettled
+    const promises = ids.map(async (id) => {
+      try {
+        await deleteFacetValue(id)
+        return { id, success: true }
+      } catch {
+        return { id, success: false }
+      }
+    })
+
+    const settled = await Promise.allSettled(promises)
+    settled.forEach((result) => {
+      if (result.status === 'fulfilled') {
+        if (result.value.success) {
+          results.success.push(result.value.id)
+        } else {
+          results.failed.push(result.value.id)
+        }
+      }
+    })
+
+    return results
+  }
+
+  // ========================================
+  // Optimistic Update Operations
+  // ========================================
+
+  /**
+   * Update facet value with optimistic update and rollback on error
+   */
+  async function updateFacetValueOptimistic(id: string, data: FacetValueUpdate) {
+    const index = facetValues.value.findIndex(fv => fv.id === id)
+    const previousValue = index >= 0 ? { ...facetValues.value[index] } : null
+
+    // Optimistic update
+    if (index >= 0) {
+      facetValues.value[index] = { ...facetValues.value[index], ...data } as FacetValue
+    }
+
+    try {
+      const response = await facetApi.updateFacetValue(id, data)
+      // Update with actual server response
+      if (index >= 0) {
+        facetValues.value[index] = response.data
+      }
+      return response.data
+    } catch (err: unknown) {
+      // Rollback on error
+      if (index >= 0 && previousValue) {
+        facetValues.value[index] = previousValue as FacetValue
+      }
+      error.value = getErrorMessage(err) || 'Failed to update facet value'
+      throw err
+    }
+  }
+
+  /**
+   * Delete facet value with optimistic update and rollback on error
+   */
+  async function deleteFacetValueOptimistic(id: string) {
+    const index = facetValues.value.findIndex(fv => fv.id === id)
+    const previousValues = [...facetValues.value]
+
+    // Optimistic delete
+    if (index >= 0) {
+      facetValues.value.splice(index, 1)
+    }
+
+    try {
+      await facetApi.deleteFacetValue(id)
+    } catch (err: unknown) {
+      // Rollback on error
+      facetValues.value = previousValues
+      error.value = getErrorMessage(err) || 'Failed to delete facet value'
+      throw err
+    }
+  }
+
+  /**
+   * Verify facet value with optimistic update and rollback on error
+   */
+  async function verifyFacetValueOptimistic(id: string, verified: boolean, verifiedBy?: string) {
+    const index = facetValues.value.findIndex(fv => fv.id === id)
+    const previousValue = index >= 0 ? { ...facetValues.value[index] } : null
+
+    // Optimistic update
+    if (index >= 0) {
+      facetValues.value[index] = {
+        ...facetValues.value[index],
+        human_verified: verified,
+        verified_by: verifiedBy,
+      } as FacetValue
+    }
+
+    try {
+      const response = await facetApi.verifyFacetValue(id, { verified, verified_by: verifiedBy })
+      // Update with actual server response
+      if (index >= 0) {
+        facetValues.value[index] = response.data
+      }
+      return response.data
+    } catch (err: unknown) {
+      // Rollback on error
+      if (index >= 0 && previousValue) {
+        facetValues.value[index] = previousValue as FacetValue
+      }
+      error.value = getErrorMessage(err) || 'Failed to verify facet value'
+      throw err
+    }
+  }
+
+  // ========================================
   // Utility Functions
   // ========================================
 
@@ -256,7 +367,6 @@ export const useFacetStore = defineStore('facet', () => {
   }
 
   function resetState() {
-    facetTypes.value = []
     facetValues.value = []
     facetValuesTotal.value = 0
     error.value = null
@@ -268,26 +378,15 @@ export const useFacetStore = defineStore('facet', () => {
 
   return {
     // State
-    facetTypes,
-    facetTypesLoading,
     facetValues,
     facetValuesLoading,
     facetValuesTotal,
     error,
 
     // Computed
-    activeFacetTypes,
-    timeBasedFacetTypes,
-    aiEnabledFacetTypes,
-
-    // Facet Type Actions
-    fetchFacetTypes,
-    fetchFacetType,
-    fetchFacetTypeBySlug,
-    createFacetType,
-    updateFacetType,
-    deleteFacetType,
-    generateFacetTypeSchema,
+    hasFacetValues,
+    hasError,
+    isEmpty,
 
     // Facet Value Actions
     fetchFacetValues,
@@ -299,11 +398,21 @@ export const useFacetStore = defineStore('facet', () => {
     fetchEntityFacetsSummary,
     searchFacetValues,
 
+    // Batch Operations
+    bulkVerifyFacetValues,
+    bulkDeleteFacetValues,
+
+    // Optimistic Updates
+    updateFacetValueOptimistic,
+    deleteFacetValueOptimistic,
+    verifyFacetValueOptimistic,
+
     // Utility
     clearError,
     resetState,
+    invalidateSummaryCache,
   }
 })
 
 // Re-export types for convenience
-export type { FacetType, FacetValue, EntityFacetsSummary, FacetValueAggregated } from './types/entity'
+export type { FacetValue, EntityFacetsSummary, FacetValueAggregated } from './types/entity'

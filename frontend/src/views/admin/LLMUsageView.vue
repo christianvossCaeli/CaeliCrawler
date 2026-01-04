@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid>
+  <div>
     <!-- Header -->
     <PageHeader
       :title="t('admin.llmUsage.title')"
@@ -29,6 +29,27 @@
         </v-menu>
       </template>
     </PageHeader>
+
+    <!-- Error Alert -->
+    <v-alert
+      v-if="store.error"
+      type="error"
+      variant="tonal"
+      class="mb-4"
+      closable
+      @click:close="store.error = null"
+    >
+      <div class="d-flex align-center justify-space-between">
+        <div>
+          <v-icon start>mdi-alert-circle</v-icon>
+          {{ store.error }}
+        </div>
+        <v-btn variant="text" size="small" @click="refresh">
+          <v-icon start size="small">mdi-refresh</v-icon>
+          {{ t('common.retry') }}
+        </v-btn>
+      </div>
+    </v-alert>
 
     <!-- Budget Warnings -->
     <v-alert
@@ -185,6 +206,84 @@
       </v-col>
     </v-row>
 
+    <!-- Usage by User -->
+    <v-card class="mb-4">
+      <v-card-title>
+        <v-icon start>mdi-account-group</v-icon>
+        {{ t('admin.llmUsage.tables.byUser') }}
+      </v-card-title>
+      <v-card-subtitle class="pb-2">
+        {{ t('admin.llmUsage.tables.byUserHint') }}
+      </v-card-subtitle>
+      <v-data-table
+        :headers="userHeaders"
+        :items="store.analytics?.by_user || []"
+        :items-per-page="10"
+        density="compact"
+      >
+        <template #item.user_name="{ item }">
+          <div class="d-flex align-center">
+            <v-avatar size="28" color="primary" class="mr-2">
+              <span class="text-caption">{{ getUserInitials(item) }}</span>
+            </v-avatar>
+            <div>
+              <div class="font-weight-medium">
+                {{ item.user_name || t('admin.llmUsage.systemUser') }}
+              </div>
+              <div class="text-caption text-medium-emphasis">
+                {{ item.user_email || '-' }}
+              </div>
+            </div>
+          </div>
+        </template>
+        <template #item.total_tokens="{ item }">
+          <div>
+            <div>{{ formatTokens(item.total_tokens) }}</div>
+            <div class="text-caption text-medium-emphasis">
+              ↑{{ formatTokens(item.prompt_tokens) }} / ↓{{ formatTokens(item.completion_tokens) }}
+            </div>
+          </div>
+        </template>
+        <template #item.cost_cents="{ item }">
+          <span class="font-weight-medium">{{ formatCost(item.cost_cents) }}</span>
+        </template>
+        <template #item.models_used="{ item }">
+          <div class="d-flex flex-wrap ga-1">
+            <v-chip
+              v-for="model in item.models_used.slice(0, 3)"
+              :key="model"
+              size="x-small"
+              label
+            >
+              {{ model }}
+            </v-chip>
+            <v-chip v-if="item.models_used.length > 3" size="x-small" variant="text">
+              +{{ item.models_used.length - 3 }}
+            </v-chip>
+          </div>
+        </template>
+        <template #item.has_credentials="{ item }">
+          <v-tooltip :text="item.has_credentials ? t('admin.llmUsage.hasCredentials') : t('admin.llmUsage.noCredentials')">
+            <template #activator="{ props: tooltipProps }">
+              <v-icon
+                v-bind="tooltipProps"
+                :color="item.has_credentials ? 'success' : 'warning'"
+                size="small"
+              >
+                {{ item.has_credentials ? 'mdi-key-check' : 'mdi-key-remove' }}
+              </v-icon>
+            </template>
+          </v-tooltip>
+        </template>
+        <template #no-data>
+          <div class="text-center py-8">
+            <v-icon size="48" color="grey-lighten-1" class="mb-3">mdi-account-group</v-icon>
+            <p class="text-body-2 text-medium-emphasis">{{ t('admin.llmUsage.noData') }}</p>
+          </div>
+        </template>
+      </v-data-table>
+    </v-card>
+
     <!-- Tables Row -->
     <v-row class="mb-4">
       <v-col cols="12" md="6">
@@ -211,6 +310,12 @@
             <template #item.avg_duration_ms="{ item }">
               {{ item.avg_duration_ms?.toFixed(0) || '-' }} ms
             </template>
+            <template #no-data>
+              <div class="text-center py-8">
+                <v-icon size="48" color="grey-lighten-1" class="mb-3">mdi-format-list-bulleted-type</v-icon>
+                <p class="text-body-2 text-medium-emphasis">{{ t('admin.llmUsage.noData') }}</p>
+              </div>
+            </template>
           </v-data-table>
         </v-card>
       </v-col>
@@ -234,6 +339,12 @@
             </template>
             <template #item.cost_cents="{ item }">
               {{ formatCost(item.cost_cents) }}
+            </template>
+            <template #no-data>
+              <div class="text-center py-8">
+                <v-icon size="48" color="grey-lighten-1" class="mb-3">mdi-folder-multiple</v-icon>
+                <p class="text-body-2 text-medium-emphasis">{{ t('admin.llmUsage.noData') }}</p>
+              </div>
             </template>
           </v-data-table>
         </v-card>
@@ -261,10 +372,60 @@
         <template #item.cost_cents="{ item }">
           {{ formatCost(item.cost_cents) }}
         </template>
+        <template #no-data>
+          <div class="text-center py-8">
+            <v-icon size="48" color="grey-lighten-1" class="mb-3">mdi-podium</v-icon>
+            <p class="text-body-2 text-medium-emphasis">{{ t('admin.llmUsage.noData') }}</p>
+          </div>
+        </template>
       </v-data-table>
     </v-card>
 
-    <!-- Budget Configuration Tab -->
+    <!-- Budget Configuration Section -->
+    <!-- Info Panel -->
+    <v-alert
+      v-if="!budgetInfoHidden"
+      type="info"
+      variant="tonal"
+      density="compact"
+      class="mb-4"
+      closable
+      @click:close="hideBudgetInfo"
+    >
+      <template #prepend>
+        <v-icon>mdi-information-outline</v-icon>
+      </template>
+      <div>
+        <strong>{{ t('admin.llmUsage.budget.info.title') }}</strong>
+        <div class="text-caption mt-1">{{ t('admin.llmUsage.budget.info.overview') }}</div>
+        <div class="text-caption mt-2">
+          <strong>{{ t('admin.llmUsage.budget.info.typesTitle') }}</strong>
+          <ul class="ml-4 mt-1">
+            <li><strong>GLOBAL:</strong> {{ t('admin.llmUsage.budget.info.typeGlobal') }}</li>
+            <li><strong>USER:</strong> {{ t('admin.llmUsage.budget.info.typeUser') }}</li>
+            <li><strong>CATEGORY:</strong> {{ t('admin.llmUsage.budget.info.typeCategory') }}</li>
+            <li><strong>TASK_TYPE:</strong> {{ t('admin.llmUsage.budget.info.typeTaskType') }}</li>
+            <li><strong>MODEL:</strong> {{ t('admin.llmUsage.budget.info.typeModel') }}</li>
+          </ul>
+        </div>
+        <div class="text-caption mt-2">
+          <strong>{{ t('admin.llmUsage.budget.info.blockingTitle') }}</strong>
+          {{ t('admin.llmUsage.budget.info.blockingDescription') }}
+        </div>
+      </div>
+    </v-alert>
+    <v-btn
+      v-else
+      variant="text"
+      size="x-small"
+      color="info"
+      class="mb-2"
+      prepend-icon="mdi-information-outline"
+      @click="showBudgetInfo"
+    >
+      {{ t('admin.llmUsage.budget.info.show') }}
+    </v-btn>
+
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon start>mdi-wallet</v-icon>
@@ -294,6 +455,15 @@
             {{ item.is_active ? 'mdi-check-circle' : 'mdi-circle-outline' }}
           </v-icon>
         </template>
+        <template #item.blocks_on_limit="{ item }">
+          <v-tooltip :text="item.blocks_on_limit ? t('admin.llmUsage.budget.blocksOnLimitTooltip') : t('admin.llmUsage.budget.monitorOnlyTooltip')">
+            <template #activator="{ props: tooltipProps }">
+              <v-icon v-bind="tooltipProps" :color="item.blocks_on_limit ? 'error' : 'grey'">
+                {{ item.blocks_on_limit ? 'mdi-shield-lock' : 'mdi-shield-outline' }}
+              </v-icon>
+            </template>
+          </v-tooltip>
+        </template>
         <template #item.status="{ item }">
           <BudgetStatusChip :budget-id="item.id" :status="getBudgetStatusById(item.id)" />
         </template>
@@ -314,11 +484,25 @@
             />
           </div>
         </template>
+        <template #no-data>
+          <div class="text-center py-8">
+            <v-icon size="48" color="grey-lighten-1" class="mb-3">mdi-wallet-outline</v-icon>
+            <h3 class="text-h6 mb-2">{{ t('admin.llmUsage.budget.noBudgets') }}</h3>
+            <p class="text-body-2 text-medium-emphasis mb-4">{{ t('admin.llmUsage.budget.noBudgetsHint') }}</p>
+            <v-btn variant="tonal" color="primary" @click="openBudgetDialog()">
+              <v-icon start>mdi-plus</v-icon>
+              {{ t('admin.llmUsage.budget.add') }}
+            </v-btn>
+          </div>
+        </template>
       </v-data-table>
     </v-card>
 
+    <!-- Limit Requests Panel -->
+    <LimitRequestsPanel class="mt-4" />
+
     <!-- Budget Dialog -->
-    <v-dialog v-model="budgetDialogOpen" max-width="600">
+    <v-dialog v-model="budgetDialogOpen" :max-width="DIALOG_SIZES.MD">
       <v-card>
         <v-card-title class="d-flex align-center pa-4 bg-primary">
           <v-icon class="mr-3">{{ editingBudget ? 'mdi-pencil' : 'mdi-plus' }}</v-icon>
@@ -394,11 +578,21 @@
                   rows="2"
                 />
               </v-col>
-              <v-col cols="12">
+              <v-col cols="12" md="6">
                 <v-switch
                   v-model="budgetForm.is_active"
                   :label="t('admin.llmUsage.budget.form.active')"
                   color="success"
+                  hide-details
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-switch
+                  v-model="budgetForm.blocks_on_limit"
+                  :label="t('admin.llmUsage.budget.form.blocksOnLimit')"
+                  :hint="t('admin.llmUsage.budget.form.blocksOnLimitHint')"
+                  color="error"
+                  persistent-hint
                 />
               </v-col>
             </v-row>
@@ -419,7 +613,7 @@
     </v-dialog>
 
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="deleteDialogOpen" max-width="450">
+    <v-dialog v-model="deleteDialogOpen" :max-width="DIALOG_SIZES.XS">
       <v-card>
         <v-card-title class="d-flex align-center pa-4 bg-error">
           <v-icon class="mr-3">mdi-delete</v-icon>
@@ -443,17 +637,33 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-  </v-container>
+
+    <!-- Snackbar for operation feedback -->
+    <v-snackbar
+      v-model="snackbar.show"
+      :color="snackbar.color"
+      :timeout="3000"
+    >
+      {{ snackbar.message }}
+      <template #actions>
+        <v-btn variant="text" @click="snackbar.show = false">
+          {{ t('common.close') }}
+        </v-btn>
+      </template>
+    </v-snackbar>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useLLMUsageStore } from '@/stores/llmUsage'
 import PageHeader from '@/components/common/PageHeader.vue'
 import UsageTrendChart from '@/components/admin/llm-usage/UsageTrendChart.vue'
 import ModelDistributionChart from '@/components/admin/llm-usage/ModelDistributionChart.vue'
 import BudgetStatusChip from '@/components/admin/llm-usage/BudgetStatusChip.vue'
+import LimitRequestsPanel from '@/components/admin/LimitRequestsPanel.vue'
 import {
   PERIOD_OPTIONS,
   PROVIDER_LABELS,
@@ -464,10 +674,13 @@ import {
   type LLMTaskType,
   type BudgetType,
   type BudgetStatus,
+  type LLMUsageByUser,
 } from '@/types/llm-usage'
 import { useLogger } from '@/composables/useLogger'
+import { useDateFormatter } from '@/composables'
 
 const logger = useLogger('LLMUsageView')
+const { formatNumber } = useDateFormatter()
 const { t } = useI18n()
 const store = useLLMUsageStore()
 
@@ -487,16 +700,44 @@ const selectedBudget = ref<LLMBudgetConfig | null>(null)
 const savingBudget = ref(false)
 const budgetFormRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
+// Budget info panel visibility
+const BUDGET_INFO_STORAGE_KEY = 'llm-budget-info-hidden'
+const budgetInfoHidden = ref(localStorage.getItem(BUDGET_INFO_STORAGE_KEY) === 'true')
+
+function hideBudgetInfo() {
+  budgetInfoHidden.value = true
+  localStorage.setItem(BUDGET_INFO_STORAGE_KEY, 'true')
+}
+
+function showBudgetInfo() {
+  budgetInfoHidden.value = false
+  localStorage.removeItem(BUDGET_INFO_STORAGE_KEY)
+}
+
 const budgetForm = reactive({
   name: '',
-  budget_type: 'global' as BudgetType,
+  budget_type: 'GLOBAL' as BudgetType,
   monthly_limit_cents: 10000,
   warning_threshold_percent: 80,
   critical_threshold_percent: 95,
   alert_emails: [] as string[],
   description: '',
   is_active: true,
+  blocks_on_limit: false,
 })
+
+// Snackbar state
+const snackbar = reactive({
+  show: false,
+  message: '',
+  color: 'success' as 'success' | 'error' | 'info',
+})
+
+function showSnackbar(message: string, color: 'success' | 'error' | 'info' = 'success') {
+  snackbar.message = message
+  snackbar.color = color
+  snackbar.show = true
+}
 
 // Options for selects
 const periodOptions = PERIOD_OPTIONS.map((p) => ({
@@ -517,6 +758,15 @@ const budgetTypeOptions = computed(() =>
 )
 
 // Table headers
+const userHeaders = computed(() => [
+  { title: t('admin.llmUsage.tables.headers.user'), key: 'user_name' },
+  { title: t('admin.llmUsage.tables.headers.requests'), key: 'request_count', align: 'end' as const },
+  { title: t('admin.llmUsage.tables.headers.tokens'), key: 'total_tokens', align: 'end' as const },
+  { title: t('admin.llmUsage.tables.headers.cost'), key: 'cost_cents', align: 'end' as const },
+  { title: t('admin.llmUsage.tables.headers.models'), key: 'models_used' },
+  { title: 'API', key: 'has_credentials', align: 'center' as const },
+])
+
 const taskTypeHeaders = computed(() => [
   { title: t('admin.llmUsage.tables.headers.taskType'), key: 'task_type' },
   { title: t('admin.llmUsage.tables.headers.requests'), key: 'request_count', align: 'end' as const },
@@ -546,6 +796,7 @@ const budgetHeaders = computed(() => [
   { title: t('admin.llmUsage.budget.headers.limit'), key: 'monthly_limit_cents', align: 'end' as const },
   { title: t('admin.llmUsage.budget.headers.status'), key: 'status', align: 'center' as const },
   { title: t('admin.llmUsage.budget.headers.active'), key: 'is_active', align: 'center' as const },
+  { title: t('admin.llmUsage.budget.headers.blocking'), key: 'blocks_on_limit', align: 'center' as const },
   { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' as const },
 ])
 
@@ -554,10 +805,7 @@ const required = (v: unknown) => !!v || t('validation.required')
 const positiveNumber = (v: number) => v > 0 || t('validation.positiveNumber')
 const percentRange = (v: number) => (v >= 0 && v <= 100) || t('validation.percentRange')
 
-// Formatting helpers
-function formatNumber(n: number): string {
-  return n.toLocaleString('de-DE')
-}
+// Formatting helpers (formatNumber from useDateFormatter composable)
 
 function formatTokens(tokens: number): string {
   if (tokens >= 1000000) {
@@ -583,16 +831,27 @@ function getBudgetTypeLabel(budgetType: BudgetType): string {
 
 function getBudgetTypeColor(budgetType: BudgetType): string {
   const colors: Record<BudgetType, string> = {
-    global: 'primary',
-    category: 'info',
-    task_type: 'success',
-    model: 'warning',
+    GLOBAL: 'primary',
+    CATEGORY: 'info',
+    TASK_TYPE: 'success',
+    MODEL: 'warning',
+    USER: 'secondary',
   }
   return colors[budgetType] || 'grey'
 }
 
 function getBudgetStatusById(budgetId: string): BudgetStatus | undefined {
   return store.budgetStatus?.budgets.find((b) => b.budget_id === budgetId)
+}
+
+function getUserInitials(item: LLMUsageByUser): string {
+  if (item.user_name) {
+    const parts = item.user_name.split(' ')
+    return parts.length >= 2
+      ? (parts[0][0] + parts[1][0]).toUpperCase()
+      : item.user_name.substring(0, 2).toUpperCase()
+  }
+  return item.user_id ? 'U' : 'S'
 }
 
 // Actions
@@ -638,17 +897,19 @@ function openBudgetDialog(budget?: LLMBudgetConfig) {
       alert_emails: budget.alert_emails,
       description: budget.description || '',
       is_active: budget.is_active,
+      blocks_on_limit: budget.blocks_on_limit ?? false,
     })
   } else {
     Object.assign(budgetForm, {
       name: '',
-      budget_type: 'global',
+      budget_type: 'GLOBAL',
       monthly_limit_cents: 10000,
       warning_threshold_percent: 80,
       critical_threshold_percent: 95,
       alert_emails: [],
       description: '',
       is_active: true,
+      blocks_on_limit: false,
     })
   }
   budgetDialogOpen.value = true
@@ -662,13 +923,16 @@ async function saveBudget() {
   try {
     if (editingBudget.value) {
       await store.saveBudget(editingBudget.value.id, budgetForm)
+      showSnackbar(t('admin.llmUsage.budget.updateSuccess'))
     } else {
       await store.addBudget(budgetForm)
+      showSnackbar(t('admin.llmUsage.budget.createSuccess'))
     }
     budgetDialogOpen.value = false
     await store.loadBudgetStatus()
   } catch (error) {
     logger.error('Failed to save budget:', error)
+    showSnackbar(t('admin.llmUsage.budget.saveError'), 'error')
   } finally {
     savingBudget.value = false
   }
@@ -686,8 +950,11 @@ async function deleteBudget() {
   try {
     await store.removeBudget(selectedBudget.value.id)
     deleteDialogOpen.value = false
+    showSnackbar(t('admin.llmUsage.budget.deleteSuccess'))
+    await store.loadBudgetStatus()
   } catch (error) {
     logger.error('Failed to delete budget:', error)
+    showSnackbar(t('admin.llmUsage.budget.deleteError'), 'error')
   } finally {
     savingBudget.value = false
   }

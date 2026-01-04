@@ -51,6 +51,7 @@ import type { CategoryResponse } from '@/types/category'
 import { parseCsv } from '@/utils/csvParser'
 import { withApiErrorHandling, withLoadingState } from '@/utils/apiErrorHandler'
 import { useLogger } from '@/composables/useLogger'
+import { emitCrawlerEvent } from '@/composables/useCrawlerEvents'
 import { SOURCES_PAGINATION, ENTITY_SEARCH, BULK_IMPORT } from '@/config/sources'
 import type { EntityBrief } from '@/stores/entity'
 
@@ -251,7 +252,11 @@ export const useSourcesStore = defineStore('sources', () => {
 
   async function startCrawl(source: DataSourceResponse): Promise<void> {
     await withApiErrorHandling(
-      () => adminApi.startCrawl({ source_ids: [source.id] }),
+      async () => {
+        await adminApi.startCrawl({ source_ids: [source.id] })
+        // Notify CrawlerView to refresh immediately
+        emitCrawlerEvent('crawl-started', { sourceIds: [source.id.toString()] })
+      },
       { errorRef: error, fallbackMessage: 'Failed to start crawl' }
     )
   }

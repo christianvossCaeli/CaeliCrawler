@@ -293,6 +293,7 @@ import { useEntityStore, type Entity, type EntityType } from '@/stores/entity'
 import { useAuthStore } from '@/stores/auth'
 import { entityApi, attachmentApi, facetApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { extractErrorMessage } from '@/utils/errorMessage'
 import { useFeatureFlags } from '@/composables/useFeatureFlags'
 import { useEntityExport } from '@/composables/useEntityExport'
 import { useEntityNotes } from '@/composables/useEntityNotes'
@@ -300,6 +301,8 @@ import { useEntityRelations, type Relation } from '@/composables/useEntityRelati
 import { useEntityDataSources, type DataSource } from '@/composables/useEntityDataSources'
 import { useEntityEnrichment } from '@/composables/useEntityEnrichment'
 import { useEntityFacets, type FacetGroup } from '@/composables/useEntityFacets'
+import { usePageContextProvider } from '@/composables/usePageContext'
+import type { PageContextData, FacetSummary } from '@/composables/assistant/types'
 import type {
   FacetValue,
   EntityDocument,
@@ -376,6 +379,69 @@ const relationHandlers = useEntityRelations(entity.value)
 const dataSourceHandlers = useEntityDataSources(computed(() => entity.value?.id))
 const enrichmentHandlers = useEntityEnrichment()
 const facetHandlers = useEntityFacets(entity.value, entityType.value, refreshFacetsSummary)
+
+// Page Context Provider for AI Assistant awareness
+const { updateContext } = usePageContextProvider(
+  '/entities/',
+  (): PageContextData => ({
+    // Entity identification
+    entity_id: entity.value?.id || undefined,
+    entity_type: typeSlug.value || undefined,
+    entity_name: entity.value?.name || undefined,
+
+    // Current view state
+    active_tab: activeTab.value as PageContextData['active_tab'],
+
+    // Facets summary
+    facets: facetsSummary.value?.facets_by_type?.map((group): FacetSummary => ({
+      facet_type_slug: group.facet_type_slug,
+      facet_type_name: group.facet_type_name,
+      value_count: group.value_count || 0,
+      sample_values: group.sample_values?.slice(0, 3).map(v => String(v.value ?? '')) || []
+    })) || [],
+    facet_count: facetsSummary.value?.total_facet_values || 0,
+
+    // Relations count
+    relation_count: relationHandlers.relations.value?.length || 0,
+
+    // PySis status
+    pysis_status: entityType.value?.supports_pysis
+      ? (enrichmentHandlers.enrichmentTaskStatus.value?.status === 'completed' ? 'ready' : 'none')
+      : undefined,
+
+    // Available features for this view
+    available_features: [
+      'view_facets',
+      'edit_facets',
+      'view_relations',
+      'add_relations',
+      'view_documents',
+      ...(entityType.value?.supports_pysis ? ['pysis_analysis', 'enrich_facets'] : []),
+      'start_crawl'
+    ],
+
+    // Available actions based on context
+    available_actions: [
+      'summarize',
+      'edit_entity',
+      ...(activeTab.value === 'facets' ? ['add_facet', 'edit_facet'] : []),
+      ...(activeTab.value === 'connections' ? ['add_relation'] : []),
+      ...(entityType.value?.supports_pysis ? ['enrich_facets'] : [])
+    ]
+  })
+)
+
+// Update context when relevant data changes
+watch([entity, activeTab, facetsSummary], () => {
+  if (entity.value) {
+    updateContext({
+      entity_id: entity.value.id,
+      entity_name: entity.value.name,
+      active_tab: activeTab.value as PageContextData['active_tab'],
+      facet_count: facetsSummary.value?.total_facet_values || 0
+    })
+  }
+}, { deep: true })
 
 // Destructure composable returns
 const { exporting, exportFormat, exportOptions, exportData: performExport } = exportHandlers
@@ -785,8 +851,7 @@ async function saveEntity() {
     showSuccess(t('entityDetail.messages.entityUpdated'))
     editDialog.value = false
   } catch (e: unknown) {
-    const error = e as { response?: { data?: { detail?: string } } }
-    showError(error.response?.data?.detail || t('entityDetail.messages.entitySaveError'))
+    showError(extractErrorMessage(e))
   } finally {
     savingEntity.value = false
   }

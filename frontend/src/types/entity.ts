@@ -348,12 +348,13 @@ export interface FacetSchemaGenerationResponse {
 // =============================================================================
 
 export type FacetSourceType =
-  | 'MANUAL'
-  | 'AI_EXTRACTED'
-  | 'AI_ANALYZED'
-  | 'IMPORTED'
-  | 'API_SYNC'
   | 'DOCUMENT'
+  | 'MANUAL'
+  | 'PYSIS'
+  | 'SMART_QUERY'
+  | 'AI_ASSISTANT'
+  | 'IMPORT'
+  | 'ATTACHMENT'
 
 export interface FacetValue {
   id: string

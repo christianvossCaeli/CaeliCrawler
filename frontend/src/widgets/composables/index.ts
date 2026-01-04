@@ -17,7 +17,5 @@ export {
   type UseStatsWidgetOptions,
 } from './useStatsWidget'
 
-export {
-  useFormatTime,
-  type FormatTimeOptions,
-} from './useFormatTime'
+// useFormatTime is deprecated - use useDateFormatter from '@/composables/useDateFormatter' directly
+export { useDateFormatter } from '@/composables/useDateFormatter'

@@ -2,6 +2,11 @@
 import { api } from './client'
 export { api }
 
+// Category API - dedicated module for category operations
+import * as categoryExports from './categories'
+export const categoryApi = categoryExports.categoryApi
+export type { CategoryAiSetupRequest, AssignSourcesByTagsRequest, AssignSourcesByTagsResponse } from './categories'
+
 // Entity API
 import * as entityExports from './entities'
 export const entityApi = {
@@ -126,15 +131,15 @@ export const relationApi = {
 // Sources & Data API
 import * as sourcesExports from './sources'
 export const adminApi = {
-  // Categories
-  getCategories: sourcesExports.getCategories,
-  getCategory: sourcesExports.getCategory,
-  createCategory: sourcesExports.createCategory,
-  updateCategory: sourcesExports.updateCategory,
-  deleteCategory: sourcesExports.deleteCategory,
-  getCategoryStats: sourcesExports.getCategoryStats,
-  previewCategoryAiSetup: sourcesExports.previewCategoryAiSetup,
-  assignSourcesByTags: sourcesExports.assignSourcesByTags,
+  // Categories (now from categories.ts - keeping here for backward compatibility)
+  getCategories: categoryExports.getCategories,
+  getCategory: categoryExports.getCategory,
+  createCategory: categoryExports.createCategory,
+  updateCategory: categoryExports.updateCategory,
+  deleteCategory: categoryExports.deleteCategory,
+  getCategoryStats: categoryExports.getCategoryStats,
+  previewCategoryAiSetup: categoryExports.previewCategoryAiSetup,
+  assignSourcesByTags: categoryExports.assignSourcesByTags,
   // Sources
   getSources: sourcesExports.getSources,
   getSource: sourcesExports.getSource,
@@ -172,6 +177,7 @@ export const adminApi = {
   startCrawl: adminExports.startCrawl,
   cancelJob: adminExports.cancelJob,
   retryJob: adminExports.retryJob,
+  deleteJob: adminExports.deleteJob,
   getCrawlerStats: adminExports.getCrawlerStats,
   getCrawlerStatus: adminExports.getCrawlerStatus,
   reanalyzeDocuments: adminExports.reanalyzeDocuments,
@@ -212,6 +218,7 @@ export const dataApi = {
   analyzeMorePages: sourcesExports.analyzeMorePages,
   // Verification
   verifyExtraction: sourcesExports.verifyExtraction,
+  bulkVerifyExtractions: sourcesExports.bulkVerifyExtractions,
   // Municipalities
   getMunicipalities: sourcesExports.getMunicipalities,
   getMunicipalityReport: sourcesExports.getMunicipalityReport,

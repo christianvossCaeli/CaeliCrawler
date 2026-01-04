@@ -48,7 +48,7 @@
     <WidgetConfigurator v-model="showConfigurator" />
 
     <!-- Start Crawler Dialog -->
-    <v-dialog v-if="canEdit" v-model="showStartCrawlerDialog" max-width="650" role="dialog" aria-modal="true">
+    <v-dialog v-if="canEdit" v-model="showStartCrawlerDialog" :max-width="DIALOG_SIZES.ML" role="dialog" aria-modal="true">
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon class="mr-2" aria-hidden="true">mdi-spider-web</v-icon>
@@ -59,7 +59,7 @@
           <v-alert :type="filteredSourceCount > 100 ? 'warning' : 'info'" class="mb-4">
             <div class="d-flex align-center justify-space-between">
               <span>
-                <strong>{{ filteredSourceCount.toLocaleString() }}</strong> {{ $t('dashboard.startCrawlerDialog.sourcesWillBeCrawled') }}
+                <strong>{{ formatNumber(filteredSourceCount) }}</strong> {{ $t('dashboard.startCrawlerDialog.sourcesWillBeCrawled') }}
               </span>
               <v-btn
                 v-if="hasAnyFilter"
@@ -172,7 +172,7 @@
         </v-card-text>
         <v-card-actions>
           <v-chip size="small" variant="tonal">
-            {{ filteredSourceCount.toLocaleString() }} {{ $t('dashboard.startCrawlerDialog.sources') }}
+            {{ formatNumber(filteredSourceCount) }} {{ $t('dashboard.startCrawlerDialog.sources') }}
           </v-chip>
           <v-spacer></v-spacer>
           <v-btn variant="tonal" @click="showStartCrawlerDialog = false">{{ $t('dashboard.startCrawlerDialog.cancel') }}</v-btn>
@@ -203,13 +203,36 @@ import WidgetConfigurator from '@/components/dashboard/WidgetConfigurator.vue'
 import CrawlPresetQuickActions from '@/components/crawler/CrawlPresetQuickActions.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useLogger } from '@/composables/useLogger'
+import { useDateFormatter } from '@/composables'
+import { emitCrawlerEvent } from '@/composables/useCrawlerEvents'
+import { DIALOG_SIZES } from '@/config/ui'
+import { usePageContextProvider, PAGE_FEATURES, PAGE_ACTIONS } from '@/composables/usePageContext'
+import type { PageContextData } from '@/composables/assistant/types'
 
 const logger = useLogger('DashboardView')
 
 const { t } = useI18n()
 const dashboardStore = useDashboardStore()
 const auth = useAuthStore()
+const { formatNumber } = useDateFormatter()
 const canEdit = computed(() => auth.isEditor)
+
+// Page Context Provider for KI-Assistant awareness
+usePageContextProvider(
+  '/',
+  (): PageContextData => ({
+    current_route: '/',
+    view_mode: 'dashboard',
+    widgets: dashboardStore.widgets.map(w => ({
+      id: w.id,
+      type: w.type,
+      title: w.type,
+      position: w.position
+    })),
+    available_features: [...PAGE_FEATURES.summary],
+    available_actions: [...PAGE_ACTIONS.base, ...PAGE_ACTIONS.summary]
+  })
+)
 
 // UI State
 const showConfigurator = ref(false)
@@ -311,6 +334,8 @@ const startFilteredCrawlers = async () => {
     await adminApi.startCrawl(params)
     showStartCrawlerDialog.value = false
     resetCrawlerFilters()
+    // Notify CrawlerView to refresh immediately
+    emitCrawlerEvent('crawl-started')
 
     // Refresh stats
     await dashboardStore.loadStats()

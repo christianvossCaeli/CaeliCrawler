@@ -2,7 +2,8 @@
  * Entity Store
  *
  * Core store for entity types and entities.
- * For facets, use useFacetStore from './facet'
+ * For facet values, use useFacetStore from './facet'
+ * For facet types, use useFacetTypesStore from './facetTypes'
  * For relations, use useRelationStore from './relation'
  * For analysis, use useAnalysisStore from './analysis'
  */
@@ -16,6 +17,7 @@ import { getErrorMessage } from './types/entity'
 
 // Import sub-stores for backwards compatibility
 import { useFacetStore } from './facet'
+import { useFacetTypesStore } from './facetTypes'
 import { useRelationStore } from './relation'
 import { useAnalysisStore } from './analysis'
 
@@ -26,6 +28,7 @@ import { useAnalysisStore } from './analysis'
 export const useEntityStore = defineStore('entity', () => {
   // Get sub-stores
   const facetStore = useFacetStore()
+  const facetTypesStore = useFacetTypesStore()
   const relationStore = useRelationStore()
   const analysisStore = useAnalysisStore()
 
@@ -79,10 +82,10 @@ export const useEntityStore = defineStore('entity', () => {
     entityTypes.value.filter(et => et.is_active)
   )
 
-  // Proxy computed from facetStore for backwards compatibility
-  const activeFacetTypes = computed(() => facetStore.activeFacetTypes)
-  const timeBasedFacetTypes = computed(() => facetStore.timeBasedFacetTypes)
-  const aiEnabledFacetTypes = computed(() => facetStore.aiEnabledFacetTypes)
+  // Proxy computed from facetTypesStore for backwards compatibility
+  const activeFacetTypes = computed(() => facetTypesStore.activeFacetTypes)
+  const timeBasedFacetTypes = computed(() => facetTypesStore.timeBasedFacetTypes)
+  const aiEnabledFacetTypes = computed(() => facetTypesStore.aiEnabledFacetTypes)
 
   // ========================================
   // Entity Type Actions
@@ -242,6 +245,7 @@ export const useEntityStore = defineStore('entity', () => {
   function clearError() {
     error.value = null
     facetStore.clearError()
+    facetTypesStore.clearError()
     relationStore.clearError()
     analysisStore.clearError()
   }
@@ -254,6 +258,7 @@ export const useEntityStore = defineStore('entity', () => {
     error.value = null
     // Reset sub-stores
     facetStore.resetState()
+    facetTypesStore.resetState()
     relationStore.resetState()
     analysisStore.resetState()
   }
@@ -304,29 +309,37 @@ export const useEntityStore = defineStore('entity', () => {
     // =========================================================================
     // BACKWARDS COMPATIBILITY PROXIES
     // These proxy to the new sub-stores for existing code that uses entityStore
-    // Consider migrating to the dedicated stores: useFacetStore, useRelationStore, useAnalysisStore
+    // Consider migrating to the dedicated stores:
+    //   - useFacetTypesStore for facet types
+    //   - useFacetStore for facet values
+    //   - useRelationStore for relations
+    //   - useAnalysisStore for analysis
     // =========================================================================
 
-    // Facet State (from facetStore)
-    facetTypes: computed(() => facetStore.facetTypes),
-    facetTypesLoading: computed(() => facetStore.facetTypesLoading),
+    // Facet Types State (from facetTypesStore)
+    facetTypes: computed(() => facetTypesStore.facetTypes),
+    facetTypesLoading: computed(() => facetTypesStore.facetTypesLoading),
+
+    // Facet Values State (from facetStore)
     facetValues: computed(() => facetStore.facetValues),
     facetValuesLoading: computed(() => facetStore.facetValuesLoading),
     facetValuesTotal: computed(() => facetStore.facetValuesTotal),
 
-    // Facet Computed (from facetStore)
+    // Facet Types Computed (from facetTypesStore)
     activeFacetTypes,
     timeBasedFacetTypes,
     aiEnabledFacetTypes,
 
-    // Facet Actions (proxy to facetStore)
-    fetchFacetTypes: facetStore.fetchFacetTypes,
-    fetchFacetType: facetStore.fetchFacetType,
-    fetchFacetTypeBySlug: facetStore.fetchFacetTypeBySlug,
-    createFacetType: facetStore.createFacetType,
-    updateFacetType: facetStore.updateFacetType,
-    deleteFacetType: facetStore.deleteFacetType,
-    generateFacetTypeSchema: facetStore.generateFacetTypeSchema,
+    // Facet Type Actions (proxy to facetTypesStore)
+    fetchFacetTypes: facetTypesStore.fetchFacetTypes,
+    fetchFacetType: facetTypesStore.fetchFacetType,
+    fetchFacetTypeBySlug: facetTypesStore.fetchFacetTypeBySlug,
+    createFacetType: facetTypesStore.createFacetType,
+    updateFacetType: facetTypesStore.updateFacetType,
+    deleteFacetType: facetTypesStore.deleteFacetType,
+    generateFacetTypeSchema: facetTypesStore.generateFacetTypeSchema,
+
+    // Facet Value Actions (proxy to facetStore)
     fetchFacetValues: facetStore.fetchFacetValues,
     fetchFacetValue: facetStore.fetchFacetValue,
     createFacetValue: facetStore.createFacetValue,

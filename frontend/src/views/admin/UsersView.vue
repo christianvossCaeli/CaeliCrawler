@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid>
+  <div>
     <!-- Header -->
     <PageHeader
       :title="t('admin.users.title')"
@@ -99,11 +99,26 @@
             <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :title="t('common.delete')" :aria-label="t('common.delete')" :disabled="item.id === currentUser?.id" @click="confirmDelete(item)"></v-btn>
           </div>
         </template>
+
+        <!-- Empty State -->
+        <template #no-data>
+          <div class="text-center py-8">
+            <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-account-group</v-icon>
+            <h3 class="text-h6 mb-2">{{ t('admin.users.emptyState.title', 'Keine Benutzer') }}</h3>
+            <p class="text-body-2 text-medium-emphasis mb-4">
+              {{ t('admin.users.emptyState.description', 'Es wurden noch keine Benutzer angelegt.') }}
+            </p>
+            <v-btn color="primary" variant="tonal" @click="openCreateDialog">
+              <v-icon start>mdi-plus</v-icon>
+              {{ t('admin.users.actions.create') }}
+            </v-btn>
+          </div>
+        </template>
       </v-data-table-server>
     </v-card>
 
     <!-- Create/Edit Dialog -->
-    <v-dialog v-model="dialogOpen" max-width="550">
+    <v-dialog v-model="dialogOpen" :max-width="DIALOG_SIZES.SM">
       <v-card>
         <v-card-title class="d-flex align-center pa-4 bg-primary">
           <v-avatar :color="editingUser ? 'surface' : 'primary-darken-1'" size="40" class="mr-3">
@@ -190,7 +205,7 @@
     </v-dialog>
 
     <!-- Password Reset Dialog -->
-    <v-dialog v-model="passwordDialogOpen" max-width="450">
+    <v-dialog v-model="passwordDialogOpen" :max-width="DIALOG_SIZES.SM">
       <v-card>
         <v-card-title class="d-flex align-center pa-4 bg-warning">
           <v-avatar color="warning-darken-1" size="40" class="mr-3">
@@ -242,7 +257,7 @@
     </v-dialog>
 
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="deleteDialogOpen" max-width="450">
+    <v-dialog v-model="deleteDialogOpen" :max-width="DIALOG_SIZES.XS">
       <v-card>
         <v-card-title class="d-flex align-center pa-4 bg-error">
           <v-avatar color="error-darken-1" size="40" class="mr-3">
@@ -268,7 +283,7 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-  </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -280,8 +295,9 @@ import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
 import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useLogger } from '@/composables/useLogger'
-import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { getErrorMessage } from '@/utils/errorMessage'
 import { formatDate as formatViewDate } from '@/utils/viewHelpers'
+import { DIALOG_SIZES } from '@/config/ui'
 
 const logger = useLogger('UsersView')
 

@@ -20,7 +20,7 @@
           @click="navigateTo()"
           @keydown="handleKeydown($event)"
         >
-          {{ store.stats.entities.total.toLocaleString() }}
+          {{ formatNumber(store.stats.entities.total) }}
         </div>
         <div class="text-caption text-medium-emphasis mt-1">
           {{ $t('dashboard.widgets.statsEntities.total') }}
@@ -39,7 +39,7 @@
             @keydown="handleKeydown($event, true)"
           >
             <div class="text-h6 font-weight-medium text-success">
-              {{ store.stats.entities.active.toLocaleString() }}
+              {{ formatNumber(store.stats.entities.active) }}
             </div>
             <div class="text-caption text-medium-emphasis">
               {{ $t('common.active') }}
@@ -55,7 +55,7 @@
             @keydown="handleKeydown($event, false)"
           >
             <div class="text-h6 font-weight-medium text-medium-emphasis">
-              {{ store.stats.entities.inactive.toLocaleString() }}
+              {{ formatNumber(store.stats.entities.inactive) }}
             </div>
             <div class="text-caption text-medium-emphasis">
               {{ $t('common.inactive') }}
@@ -79,6 +79,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDashboardStore } from '@/stores/dashboard'
+import { useDateFormatter } from '@/composables'
 import { handleKeyboardClick } from '../composables'
 import BaseWidget from '../BaseWidget.vue'
 import type { WidgetDefinition, WidgetConfig } from '../types'
@@ -91,6 +92,7 @@ const props = defineProps<{
 
 const router = useRouter()
 const store = useDashboardStore()
+const { formatNumber } = useDateFormatter()
 const loading = ref(true)
 const error = ref<string | null>(null)
 

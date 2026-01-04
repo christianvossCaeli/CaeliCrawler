@@ -32,14 +32,17 @@ export const chat = (data: {
   attachment_ids?: string[]
 }) => api.post('/v1/assistant/chat', data)
 
-export const chatStream = (data: {
-  message: string
-  context: AssistantContext
-  conversation_history?: ConversationMessage[]
-  mode?: 'read' | 'write'
-  language?: 'de' | 'en'
-  attachment_ids?: string[]
-}) => {
+export const chatStream = (
+  data: {
+    message: string
+    context: AssistantContext
+    conversation_history?: ConversationMessage[]
+    mode?: 'read' | 'write'
+    language?: 'de' | 'en'
+    attachment_ids?: string[]
+  },
+  signal?: AbortSignal
+) => {
   // Return a fetch request for SSE
   const baseUrl = api.defaults.baseURL || '/api'
   // Get auth token from axios defaults or localStorage
@@ -54,6 +57,7 @@ export const chatStream = (data: {
     method: 'POST',
     headers,
     body: JSON.stringify(data),
+    signal, // Support request cancellation
   })
 }
 
@@ -136,7 +140,7 @@ export const createReminder = (data: {
   title?: string
   entity_id?: string
   entity_type?: string
-  repeat?: 'none' | 'daily' | 'weekly' | 'monthly'
+  repeat?: 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY'
 }) => api.post('/v1/assistant/reminders', data)
 
 export const deleteReminder = (reminderId: string) =>

@@ -42,17 +42,33 @@ export async function getMyLimitRequests(): Promise<LimitIncreaseRequest[]> {
   return data
 }
 
+/**
+ * Update own limit directly (admin only).
+ * Non-admin users will receive a 403 error.
+ */
+export async function updateOwnLimit(newLimitCents: number): Promise<UserBudgetStatus> {
+  const { data } = await api.put<UserBudgetStatus>('/v1/me/llm/limit', {
+    new_limit_cents: newLimitCents,
+  })
+  return data
+}
+
 // === Admin Endpoints ===
 
 /**
  * List all limit increase requests (admin only).
  */
 export async function getLimitRequests(params?: {
-  status?: LimitRequestStatus
+  status?: LimitRequestStatus | ''  // v-select may clear to empty string
   limit?: number
 }): Promise<LimitRequestListResponse> {
+  // Filter out empty strings and undefined values to prevent 422 validation errors
+  const cleanParams = params ? Object.fromEntries(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null)
+  ) : undefined
+
   const { data } = await api.get<LimitRequestListResponse>('/admin/llm-budget/limit-requests', {
-    params,
+    params: Object.keys(cleanParams || {}).length > 0 ? cleanParams : undefined,
   })
   return data
 }

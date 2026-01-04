@@ -270,6 +270,7 @@
                     :hint="t('exportView.webhookUrlHint')"
                     persistent-hint
                     :error="!!webhookUrlError"
+                    :aria-invalid="!!webhookUrlError"
                     :error-messages="webhookUrlError"
                   />
                   <div class="d-flex align-center gap-2">
@@ -354,8 +355,10 @@ import { useSnackbar } from '@/composables/useSnackbar'
 import ExportProgressPanel from '@/components/export/ExportProgressPanel.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { useLogger } from '@/composables/useLogger'
-import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { getErrorMessage } from '@/utils/errorMessage'
 import { useAuthStore } from '@/stores/auth'
+import { usePageContextProvider, PAGE_ACTIONS } from '@/composables/usePageContext'
+import type { PageContextData } from '@/composables/assistant/types'
 
 const logger = useLogger('ExportView')
 
@@ -420,6 +423,22 @@ const asyncExportOptions = ref({
   country: null as string | null,
   include_facets: true,
 })
+
+// Page Context Provider for KI-Assistant awareness
+usePageContextProvider(
+  '/export',
+  (): PageContextData => ({
+    current_route: '/export',
+    view_mode: 'export',
+    filters: {
+      category_id: exportOptions.value.category_id || undefined,
+      min_confidence: exportOptions.value.min_confidence || undefined,
+      human_verified_only: exportOptions.value.human_verified_only || undefined
+    },
+    available_features: ['quick_export', 'async_export', 'webhook_test', 'changes_feed'],
+    available_actions: [...PAGE_ACTIONS.base, 'export_json', 'export_csv', 'start_async_export', 'test_webhook']
+  })
+)
 
 const minConfidencePercent = computed({
   get: () => Math.round(exportOptions.value.min_confidence * 100),

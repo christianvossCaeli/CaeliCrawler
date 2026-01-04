@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid>
+  <div>
     <!-- Header -->
     <PageHeader
       :title="t('summaries.title')"
@@ -207,7 +207,7 @@
     />
 
     <!-- Delete Confirmation -->
-    <v-dialog v-model="showDeleteDialog" max-width="400">
+    <v-dialog v-model="showDeleteDialog" :max-width="DIALOG_SIZES.XS">
       <v-card>
         <v-card-title>{{ t('summaries.deleteConfirm') }}</v-card-title>
         <v-card-text>
@@ -229,7 +229,7 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-  </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -245,6 +245,9 @@ import SummaryCreateDialog from '@/components/summaries/SummaryCreateDialog.vue'
 import SummaryEditDialog from '@/components/summaries/SummaryEditDialog.vue'
 import SummaryShareDialog from '@/components/summaries/SummaryShareDialog.vue'
 import { useLogger } from '@/composables/useLogger'
+import { DIALOG_SIZES } from '@/config/ui'
+import { usePageContextProvider, PAGE_FEATURES, PAGE_ACTIONS } from '@/composables/usePageContext'
+import type { PageContextData } from '@/composables/assistant/types'
 
 const logger = useLogger('CustomSummariesView')
 
@@ -292,11 +295,26 @@ const skeletonCount = computed(() => {
   return 6
 })
 
+// Page Context Provider for KI-Assistant awareness
+usePageContextProvider(
+  '/summaries',
+  (): PageContextData => ({
+    current_route: '/summaries',
+    view_mode: 'list',
+    total_count: total.value,
+    filters: {
+      search_query: searchQuery.value || undefined
+    },
+    available_features: [...PAGE_FEATURES.summary],
+    available_actions: [...PAGE_ACTIONS.base, ...PAGE_ACTIONS.summary, 'create', 'edit', 'delete', 'execute', 'share']
+  })
+)
+
 const statusOptions = [
-  { title: t('summaries.statusDraft'), value: 'draft' },
-  { title: t('summaries.statusActive'), value: 'active' },
-  { title: t('summaries.statusPaused'), value: 'paused' },
-  { title: t('summaries.statusArchived'), value: 'archived' },
+  { title: t('summaries.statusDraft'), value: 'DRAFT' },
+  { title: t('summaries.statusActive'), value: 'ACTIVE' },
+  { title: t('summaries.statusPaused'), value: 'PAUSED' },
+  { title: t('summaries.statusArchived'), value: 'ARCHIVED' },
 ]
 
 const sortOptions = [

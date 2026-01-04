@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid>
+  <div>
     <PageHeader
       :title="t('notifications.title')"
       :subtitle="t('notifications.subtitle')"
@@ -45,7 +45,7 @@
         </v-window>
       </v-col>
     </v-row>
-  </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">

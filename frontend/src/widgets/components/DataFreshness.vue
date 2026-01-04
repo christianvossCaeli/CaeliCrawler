@@ -94,6 +94,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
+import { useDateFormatter } from '@/composables'
 import { handleKeyboardClick } from '../composables'
 import BaseWidget from '../BaseWidget.vue'
 import WidgetEmptyState from './WidgetEmptyState.vue'
@@ -109,6 +110,7 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const router = useRouter()
+const { formatDateShort } = useDateFormatter()
 const loading = ref(true)
 const error = ref<string | null>(null)
 const sources = ref<SourceFreshness[]>([])
@@ -198,7 +200,7 @@ const formatLastCrawl = (lastCrawl: string | null): string => {
   if (hours < 1) return t('common.justNow')
   if (hours < 24) return t('common.hoursAgo', { n: hours })
   if (days < 7) return t('common.daysAgo', { n: days })
-  return date.toLocaleDateString()
+  return formatDateShort(date)
 }
 
 const navigateToSource = (source: SourceFreshness) => {

@@ -42,7 +42,7 @@
             @keydown="handleKeydown($event, 'COMPLETED')"
           >
             <div class="text-h6 font-weight-medium text-success">
-              {{ store.stats.crawler.completed_jobs.toLocaleString() }}
+              {{ formatNumber(store.stats.crawler.completed_jobs) }}
             </div>
             <div class="text-caption text-medium-emphasis">
               {{ $t('common.completed') }}
@@ -58,7 +58,7 @@
             @keydown="handleKeydown($event, 'FAILED')"
           >
             <div class="text-h6 font-weight-medium text-error">
-              {{ store.stats.crawler.failed_jobs.toLocaleString() }}
+              {{ formatNumber(store.stats.crawler.failed_jobs) }}
             </div>
             <div class="text-caption text-medium-emphasis">
               {{ $t('common.failed') }}
@@ -82,6 +82,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDashboardStore } from '@/stores/dashboard'
+import { useDateFormatter } from '@/composables'
 import { handleKeyboardClick } from '../composables'
 import BaseWidget from '../BaseWidget.vue'
 import type { WidgetDefinition, WidgetConfig } from '../types'
@@ -94,6 +95,7 @@ const props = defineProps<{
 
 const router = useRouter()
 const store = useDashboardStore()
+const { formatNumber } = useDateFormatter()
 const loading = ref(true)
 const error = ref<string | null>(null)
 

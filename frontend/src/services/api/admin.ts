@@ -20,6 +20,7 @@ import type {
   DashboardPreferences,
   PySisTemplateListParams,
   PySisApplyTemplateRequest,
+  JobLog,
 } from '@/types/admin'
 
 // Crawler
@@ -28,12 +29,13 @@ export const getCrawlerJob = (id: string) => api.get(`/admin/crawler/jobs/${id}`
 export const startCrawl = (data: CrawlStartRequest) => api.post('/admin/crawler/start', data)
 export const cancelJob = (id: string) => api.post(`/admin/crawler/jobs/${id}/cancel`)
 export const retryJob = (id: string) => api.post(`/admin/crawler/jobs/${id}/retry`)
+export const deleteJob = (id: string) => api.delete(`/admin/crawler/jobs/${id}`)
 export const getCrawlerStats = () => api.get('/admin/crawler/stats')
 export const getCrawlerStatus = () => api.get('/admin/crawler/status')
 export const reanalyzeDocuments = (params?: { category_id?: string; reanalyze_all?: boolean; limit?: number }) =>
   api.post('/admin/crawler/reanalyze', null, { params })
 export const getRunningJobs = () => api.get('/admin/crawler/running')
-export const getJobLog = (id: string, limit?: number) => api.get(`/admin/crawler/jobs/${id}/log`, { params: { limit } })
+export const getJobLog = (id: string, limit?: number) => api.get<JobLog>(`/admin/crawler/jobs/${id}/log`, { params: { limit } })
 
 // AI Tasks
 export const getAiTasks = (params?: AiTaskListParams) => api.get('/admin/crawler/ai-tasks', { params })
@@ -204,7 +206,7 @@ export const updateCrawlPreset = (presetId: string, data: {
   schedule_cron?: string
   schedule_enabled?: boolean
   is_favorite?: boolean
-  status?: 'active' | 'archived'
+  status?: 'ACTIVE' | 'ARCHIVED'
 }) => api.put(`/admin/crawl-presets/${presetId}`, data)
 export const deleteCrawlPreset = (presetId: string) =>
   api.delete(`/admin/crawl-presets/${presetId}`)
@@ -381,7 +383,7 @@ export const getDashboardChartData = (chartType: string) =>
 // LLM Usage Analytics
 export const getLLMAnalytics = (params?: {
   period?: '24h' | '7d' | '30d' | '90d'
-  provider?: 'azure_openai' | 'anthropic'
+  provider?: 'AZURE_OPENAI' | 'OPENAI' | 'ANTHROPIC'
   model?: string
   task_type?: string
   category_id?: string
@@ -411,7 +413,7 @@ export const getLLMBudget = (budgetId: string) => api.get(`/admin/llm-budget/${b
 
 export const createLLMBudget = (data: {
   name: string
-  budget_type: 'global' | 'category' | 'task_type' | 'model'
+  budget_type: 'GLOBAL' | 'CATEGORY' | 'TASK_TYPE' | 'MODEL' | 'USER'
   reference_id?: string
   reference_value?: string
   monthly_limit_cents: number
@@ -438,3 +440,277 @@ export const updateLLMBudget = (
 export const deleteLLMBudget = (budgetId: string) => api.delete(`/admin/llm-budget/${budgetId}`)
 
 export const triggerLLMBudgetCheck = () => api.post('/admin/llm-budget/check-alerts')
+
+// API Credentials
+export interface CredentialStatus {
+  type: string
+  name: string
+  description: string
+  is_configured: boolean
+  is_active: boolean
+  last_used_at: string | null
+  last_error: string | null
+  fields: string[]
+}
+
+export interface AllCredentialsStatus {
+  serpapi: CredentialStatus
+  serper: CredentialStatus
+  azure_openai: CredentialStatus
+  openai: CredentialStatus
+  anthropic: CredentialStatus
+}
+
+export interface CredentialTestResult {
+  success: boolean
+  message: string
+  error?: string
+}
+
+export const getApiCredentialsStatus = () =>
+  api.get<AllCredentialsStatus>('/admin/api-credentials/status')
+
+export const saveSerpApiCredentials = (data: { api_key: string }) =>
+  api.put('/admin/api-credentials/serpapi', data)
+
+export const saveSerperCredentials = (data: { api_key: string }) =>
+  api.put('/admin/api-credentials/serper', data)
+
+export const saveAzureOpenAiCredentials = (data: {
+  endpoint: string
+  api_key: string
+  api_version?: string
+  deployment_name: string
+  embeddings_deployment?: string
+}) => api.put('/admin/api-credentials/azure-openai', data)
+
+export const saveOpenAiCredentials = (data: {
+  api_key: string
+  organization?: string
+  model?: string
+  embeddings_model?: string
+}) => api.put('/admin/api-credentials/openai', data)
+
+export const saveAnthropicCredentials = (data: {
+  endpoint: string
+  api_key: string
+  model?: string
+}) => api.put('/admin/api-credentials/anthropic', data)
+
+export const deleteApiCredential = (credentialType: string) =>
+  api.delete(`/admin/api-credentials/${credentialType}`)
+
+export const testApiCredential = (credentialType: string) =>
+  api.post<CredentialTestResult>(`/admin/api-credentials/test/${credentialType}`)
+
+// =============================================================================
+// LLM Configuration (Purpose-based)
+// =============================================================================
+
+export interface ProviderInfo {
+  value: string
+  name: string
+  description: string
+  fields: string[]
+}
+
+export interface PurposeInfo {
+  value: string
+  name: string
+  description: string
+  icon: string
+  valid_providers: ProviderInfo[]
+}
+
+export interface AllPurposesResponse {
+  purposes: PurposeInfo[]
+}
+
+export interface PurposeConfigStatus {
+  purpose: string
+  purpose_name: string
+  purpose_description: string
+  purpose_icon: string
+  is_configured: boolean
+  provider: string | null
+  provider_name: string | null
+  is_active: boolean
+  last_used_at: string | null
+  last_error: string | null
+}
+
+export interface AllConfigStatusResponse {
+  configs: PurposeConfigStatus[]
+}
+
+export interface SaveConfigRequest {
+  provider: string
+  credentials: Record<string, string>
+}
+
+export interface LLMConfigTestResult {
+  success: boolean
+  message: string
+  error?: string
+}
+
+// Get all available purposes with their valid providers
+export const getLLMPurposes = () =>
+  api.get<AllPurposesResponse>('/admin/llm-config/purposes')
+
+// Get configuration status for all purposes
+export const getLLMConfigStatus = () =>
+  api.get<AllConfigStatusResponse>('/admin/llm-config/status')
+
+// Get configuration for a specific purpose
+export const getLLMPurposeConfig = (purpose: string) =>
+  api.get<PurposeConfigStatus>(`/admin/llm-config/${purpose}`)
+
+// Save configuration for a purpose
+export const saveLLMPurposeConfig = (purpose: string, data: SaveConfigRequest) =>
+  api.put<{ message: string }>(`/admin/llm-config/${purpose}`, data)
+
+// Delete configuration for a purpose
+export const deleteLLMPurposeConfig = (purpose: string) =>
+  api.delete<{ message: string }>(`/admin/llm-config/${purpose}`)
+
+// Test configuration for a purpose
+export const testLLMPurposeConfig = (purpose: string) =>
+  api.post<LLMConfigTestResult>(`/admin/llm-config/test/${purpose}`)
+
+// LLM Purpose enum (matches backend)
+export type LLMPurpose =
+  | 'web_search'
+  | 'document_analysis'
+  | 'embeddings'
+  | 'assistant'
+  | 'plan_mode'
+  | 'api_discovery'
+
+// Active configuration info for UI badges
+export interface ActiveConfigInfo {
+  purpose: LLMPurpose
+  purpose_name: string
+  is_configured: boolean
+  provider: string | null
+  provider_name: string | null
+  model: string | null
+  pricing_input_per_1m: number | null
+  pricing_output_per_1m: number | null
+}
+
+// Get active configuration for a purpose (for UI badges)
+export const getActiveConfig = (purpose: string) =>
+  api.get<ActiveConfigInfo>(`/admin/llm-config/active/${purpose}`)
+
+// =============================================================================
+// Model Pricing API
+// =============================================================================
+
+export interface PricingEntry {
+  id: string
+  provider: 'AZURE_OPENAI' | 'OPENAI' | 'ANTHROPIC'
+  model_name: string
+  display_name: string | null
+  input_price_per_1m: number
+  output_price_per_1m: number
+  cached_input_price_per_1m: number | null
+  source: 'MANUAL' | 'AZURE_API' | 'OFFICIAL_DOCS'
+  source_url: string | null
+  is_active: boolean
+  is_deprecated: boolean
+  is_stale: boolean
+  days_since_verified: number
+  last_verified_at: string | null
+  notes: string | null
+}
+
+export interface PricingListResponse {
+  entries: PricingEntry[]
+  total: number
+  stale_count: number
+  official_urls: Record<string, string>
+}
+
+export interface CreatePricingRequest {
+  provider: string
+  model_name: string
+  display_name?: string
+  input_price_per_1m: number
+  output_price_per_1m: number
+  cached_input_price_per_1m?: number
+  source_url?: string
+  notes?: string
+}
+
+export interface UpdatePricingRequest {
+  input_price_per_1m: number
+  output_price_per_1m: number
+  cached_input_price_per_1m?: number
+  display_name?: string
+  notes?: string
+}
+
+export interface SyncResultResponse {
+  success: boolean
+  updated: number
+  added: number
+  errors: string[]
+}
+
+export interface SeedResultResponse {
+  success: boolean
+  count: number
+  message: string
+}
+
+// Get all pricing entries
+export const getModelPricing = (params?: { provider?: string; include_deprecated?: boolean }) =>
+  api.get<PricingListResponse>('/admin/model-pricing', { params })
+
+// Create a new pricing entry
+export const createModelPricing = (data: CreatePricingRequest) =>
+  api.post<PricingEntry>('/admin/model-pricing', data)
+
+// Update a pricing entry
+export const updateModelPricing = (pricingId: string, data: UpdatePricingRequest) =>
+  api.put<PricingEntry>(`/admin/model-pricing/${pricingId}`, data)
+
+// Delete (deprecate) a pricing entry
+export const deleteModelPricing = (pricingId: string) =>
+  api.delete<{ message: string }>(`/admin/model-pricing/${pricingId}`)
+
+// Sync prices from providers
+export const syncAzurePrices = () =>
+  api.post<SyncResultResponse>('/admin/model-pricing/sync-azure')
+
+export const syncOpenAiPrices = () =>
+  api.post<SyncResultResponse>('/admin/model-pricing/sync-openai')
+
+export const syncAnthropicPrices = () =>
+  api.post<SyncResultResponse>('/admin/model-pricing/sync-anthropic')
+
+export interface SyncAllResultResponse {
+  success: boolean
+  azure_openai: SyncResultResponse
+  openai: SyncResultResponse
+  anthropic: SyncResultResponse
+  total_updated: number
+  total_added: number
+  total_errors: number
+}
+
+export const syncAllPrices = () =>
+  api.post<SyncAllResultResponse>('/admin/model-pricing/sync-all')
+
+// Sync prices from LiteLLM community database
+export const syncLiteLLMPrices = () =>
+  api.post<SyncResultResponse>('/admin/model-pricing/sync-litellm')
+
+// Seed default pricing data
+export const seedModelPricing = () =>
+  api.post<SeedResultResponse>('/admin/model-pricing/seed')
+
+// Verify a pricing entry (mark as checked)
+export const verifyModelPricing = (pricingId: string) =>
+  api.post<{ message: string }>(`/admin/model-pricing/${pricingId}/verify`)

@@ -19,6 +19,7 @@
                 <v-text-field
                   v-model="password"
                   :label="t('summaries.password')"
+                  :aria-invalid="!!passwordError"
                   :error-messages="passwordError"
                   type="password"
                   autofocus
@@ -148,6 +149,7 @@ import { ref, computed, onMounted, type Component } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
+import { extractErrorMessage } from '@/utils/errorMessage'
 
 // Import visualization components
 import TableVisualization from '@/components/smartquery/visualizations/TableVisualization.vue'
@@ -160,6 +162,9 @@ import ComparisonVisualization from '@/components/smartquery/visualizations/Comp
 import MapVisualization from '@/components/smartquery/visualizations/MapVisualization.vue'
 import { useFileDownload } from '@/composables/useFileDownload'
 import { useLogger } from '@/composables/useLogger'
+import { useDateFormatter } from '@/composables'
+
+const { formatDateTime: formatDateTimeComposable } = useDateFormatter()
 
 const logger = useLogger('SharedSummaryView')
 
@@ -232,14 +237,7 @@ function getWidgetStyle(widget: SharedSummaryData['widgets'][0]): Record<string,
 }
 
 function formatDateTime(dateStr: string): string {
-  // Use browser locale for consistent date formatting (no hardcoded locale)
-  return new Date(dateStr).toLocaleString(undefined, {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatDateTimeComposable(dateStr)
 }
 
 async function loadSharedSummary(pwd?: string) {
@@ -272,7 +270,7 @@ async function loadSharedSummary(pwd?: string) {
     } else if (err.response?.status === 410) {
       error.value = t('summaries.shareExpired')
     } else {
-      error.value = err.response?.data?.detail || t('summaries.shareLoadError')
+      error.value = extractErrorMessage(err)
     }
   } finally {
     isLoading.value = false

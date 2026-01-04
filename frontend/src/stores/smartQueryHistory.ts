@@ -8,6 +8,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { smartQueryHistoryApi } from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
+import { addToSet, removeFromSet, clearSet } from '@/utils/immutableSet'
 
 const logger = useLogger('SmartQueryHistoryStore')
 
@@ -110,9 +111,9 @@ export const useSmartQueryHistoryStore = defineStore('smartQueryHistory', () => 
       }
 
       if (newState) {
-        favoriteIds.value.add(operationId)
+        favoriteIds.value = addToSet(favoriteIds.value, operationId)
       } else {
-        favoriteIds.value.delete(operationId)
+        favoriteIds.value = removeFromSet(favoriteIds.value, operationId)
       }
 
       return newState
@@ -158,7 +159,7 @@ export const useSmartQueryHistoryStore = defineStore('smartQueryHistory', () => 
       if (index > -1) {
         history.value.splice(index, 1)
       }
-      favoriteIds.value.delete(operationId)
+      favoriteIds.value = removeFromSet(favoriteIds.value, operationId)
       total.value = Math.max(0, total.value - 1)
 
       return true
@@ -179,7 +180,7 @@ export const useSmartQueryHistoryStore = defineStore('smartQueryHistory', () => 
       // Update local state
       if (includeFavorites) {
         history.value = []
-        favoriteIds.value.clear()
+        favoriteIds.value = clearSet()
         total.value = 0
       } else {
         history.value = history.value.filter((op) => op.is_favorite)
@@ -216,7 +217,7 @@ export const useSmartQueryHistoryStore = defineStore('smartQueryHistory', () => 
    */
   function clearStore(): void {
     history.value = []
-    favoriteIds.value.clear()
+    favoriteIds.value = clearSet()
     total.value = 0
     page.value = 1
     error.value = null

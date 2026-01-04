@@ -13,15 +13,17 @@ import { ref, computed } from 'vue'
 import { customSummariesApi } from '@/services/api'
 import { useFileDownload } from '@/composables/useFileDownload'
 import { useLogger } from '@/composables/useLogger'
+import { getApiErrorMessage } from '@/utils/errorMessage'
+import { addToSet, removeFromSet, clearSet } from '@/utils/immutableSet'
 
 const logger = useLogger('CustomSummariesStore')
 
 // --- Types ---
 
-export type SummaryStatus = 'draft' | 'active' | 'paused' | 'archived'
-export type SummaryTriggerType = 'manual' | 'cron' | 'crawl_category' | 'crawl_preset'
+export type SummaryStatus = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED'
+export type SummaryTriggerType = 'MANUAL' | 'CRON' | 'CRAWL_CATEGORY' | 'CRAWL_PRESET'
 export type SummaryWidgetType = 'table' | 'bar_chart' | 'line_chart' | 'pie_chart' | 'stat_card' | 'text' | 'comparison' | 'timeline' | 'map'
-export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
+export type ExecutionStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED'
 export type CheckUpdatesStatus = 'pending' | 'crawling' | 'updating' | 'completed' | 'failed'
 
 export interface CheckUpdatesProgress {
@@ -211,32 +213,8 @@ export interface SchedulePreset {
   description: string
 }
 
-// --- Type Guards ---
-
-interface ApiError {
-  response?: {
-    status?: number
-    data?: {
-      detail?: string
-    }
-  }
-  message?: string
-}
-
-function isApiError(error: unknown): error is ApiError {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    ('response' in error || 'message' in error)
-  )
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (isApiError(error)) {
-    return error.response?.data?.detail || error.message || fallback
-  }
-  return fallback
-}
+// Use centralized error utilities from @/utils/errorMessage
+const getErrorMessage = getApiErrorMessage
 
 // --- Store ---
 
@@ -274,7 +252,7 @@ export const useCustomSummariesStore = defineStore('customSummaries', () => {
   // Computed
   const favoriteCount = computed(() => favoriteIds.value.size)
   const favorites = computed(() => summaries.value.filter(s => s.is_favorite))
-  const activeSummaries = computed(() => summaries.value.filter(s => s.status === 'active'))
+  const activeSummaries = computed(() => summaries.value.filter(s => s.status === 'ACTIVE'))
   const scheduledSummaries = computed(() => summaries.value.filter(s => s.schedule_enabled))
 
   /**
@@ -471,7 +449,7 @@ export const useCustomSummariesStore = defineStore('customSummaries', () => {
       total.value++
 
       if (newSummary.is_favorite) {
-        favoriteIds.value.add(newSummary.id)
+        favoriteIds.value = addToSet(favoriteIds.value, newSummary.id)
       }
 
       return newSummary
@@ -509,11 +487,11 @@ export const useCustomSummariesStore = defineStore('customSummaries', () => {
       }
     }
 
-    // Update favorites set
+    // Update favorites set (immutable for reactivity)
     if (summary.is_favorite) {
-      favoriteIds.value.add(summary.id)
+      favoriteIds.value = addToSet(favoriteIds.value, summary.id)
     } else {
-      favoriteIds.value.delete(summary.id)
+      favoriteIds.value = removeFromSet(favoriteIds.value, summary.id)
     }
   }
 
@@ -547,7 +525,7 @@ export const useCustomSummariesStore = defineStore('customSummaries', () => {
       if (index > -1) {
         summaries.value.splice(index, 1)
       }
-      favoriteIds.value.delete(summaryId)
+      favoriteIds.value = removeFromSet(favoriteIds.value, summaryId)
       total.value = Math.max(0, total.value - 1)
 
       if (currentSummary.value?.id === summaryId) {
@@ -579,8 +557,8 @@ export const useCustomSummariesStore = defineStore('customSummaries', () => {
       return null
     }
 
-    // Track this specific summary as executing
-    executingIds.value.add(summaryId)
+    // Track this specific summary as executing (immutable for reactivity)
+    executingIds.value = addToSet(executingIds.value, summaryId)
     error.value = null
 
     try {
@@ -608,8 +586,8 @@ export const useCustomSummariesStore = defineStore('customSummaries', () => {
       error.value = 'Failed to execute summary'
       return null
     } finally {
-      // Remove from executing set
-      executingIds.value.delete(summaryId)
+      // Remove from executing set (immutable for reactivity)
+      executingIds.value = removeFromSet(executingIds.value, summaryId)
     }
   }
 
@@ -710,11 +688,11 @@ export const useCustomSummariesStore = defineStore('customSummaries', () => {
       if (existing?.id === summaryId) {
         syncSummaryState({ ...existing, is_favorite: newState })
       } else {
-        // Fallback: just update favorites set
+        // Fallback: just update favorites set (immutable for reactivity)
         if (newState) {
-          favoriteIds.value.add(summaryId)
+          favoriteIds.value = addToSet(favoriteIds.value, summaryId)
         } else {
-          favoriteIds.value.delete(summaryId)
+          favoriteIds.value = removeFromSet(favoriteIds.value, summaryId)
         }
       }
 
@@ -922,8 +900,8 @@ export const useCustomSummariesStore = defineStore('customSummaries', () => {
 
     summaries.value = []
     currentSummary.value = null
-    favoriteIds.value.clear()
-    executingIds.value.clear()
+    favoriteIds.value = clearSet()
+    executingIds.value = clearSet()
     total.value = 0
     page.value = 1
     error.value = null

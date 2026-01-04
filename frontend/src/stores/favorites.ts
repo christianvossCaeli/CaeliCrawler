@@ -8,6 +8,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { favoritesApi } from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
+import { addToSet, removeFromSet, clearSet } from '@/utils/immutableSet'
 
 const logger = useLogger('FavoritesStore')
 
@@ -110,9 +111,9 @@ export const useFavoritesStore = defineStore('favorites', () => {
       const response = await favoritesApi.add(entityId)
       const favorite = response.data
 
-      // Add to local state
+      // Add to local state (immutable update for reactivity)
       favorites.value.unshift(favorite)
-      favoriteIds.value.add(entityId)
+      favoriteIds.value = addToSet(favoriteIds.value, entityId)
       total.value++
 
       return favorite
@@ -135,7 +136,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
       if (index > -1) {
         favorites.value.splice(index, 1)
       }
-      favoriteIds.value.delete(entityId)
+      favoriteIds.value = removeFromSet(favoriteIds.value, entityId)
       total.value = Math.max(0, total.value - 1)
 
       return true
@@ -166,9 +167,9 @@ export const useFavoritesStore = defineStore('favorites', () => {
     try {
       const response = await favoritesApi.check(entityId)
       if (response.data.is_favorited) {
-        favoriteIds.value.add(entityId)
+        favoriteIds.value = addToSet(favoriteIds.value, entityId)
       } else {
-        favoriteIds.value.delete(entityId)
+        favoriteIds.value = removeFromSet(favoriteIds.value, entityId)
       }
       return response.data.is_favorited
     } catch (e) {
@@ -182,7 +183,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
    */
   function clearFavorites(): void {
     favorites.value = []
-    favoriteIds.value.clear()
+    favoriteIds.value = clearSet()
     total.value = 0
     page.value = 1
   }

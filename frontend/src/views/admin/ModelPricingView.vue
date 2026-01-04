@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid>
+  <div>
     <!-- Header -->
     <PageHeader
       :title="t('admin.modelPricing.title')"
@@ -148,7 +148,7 @@
     />
 
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="deleteDialogOpen" max-width="400">
+    <v-dialog v-model="deleteDialogOpen" :max-width="DIALOG_SIZES.XS">
       <v-card>
         <v-card-title>{{ t('admin.modelPricing.dialog.deleteTitle') }}</v-card-title>
         <v-card-text>
@@ -170,7 +170,7 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-  </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -203,6 +203,7 @@ import {
   getProviderIcon,
   getProviderLabel,
 } from '@/utils/llmProviders'
+import { DIALOG_SIZES } from '@/config/ui'
 
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
@@ -247,7 +248,8 @@ const form = ref<PricingFormData>({
 const filteredEntries = computed(() => {
   let result = entries.value
   if (filterProvider.value) {
-    result = result.filter(e => e.provider === filterProvider.value)
+    const filterValue = filterProvider.value.toUpperCase()
+    result = result.filter(e => e.provider.toUpperCase() === filterValue)
   }
   if (!includeDeprecated.value) {
     result = result.filter(e => !e.is_deprecated)
@@ -256,13 +258,13 @@ const filteredEntries = computed(() => {
 })
 
 const azureCount = computed(() =>
-  entries.value.filter(e => e.provider === 'azure_openai' && !e.is_deprecated).length
+  entries.value.filter(e => e.provider.toUpperCase() === 'AZURE_OPENAI' && !e.is_deprecated).length
 )
 const openaiCount = computed(() =>
-  entries.value.filter(e => e.provider === 'openai' && !e.is_deprecated).length
+  entries.value.filter(e => e.provider.toUpperCase() === 'OPENAI' && !e.is_deprecated).length
 )
 const anthropicCount = computed(() =>
-  entries.value.filter(e => e.provider === 'anthropic' && !e.is_deprecated).length
+  entries.value.filter(e => e.provider.toUpperCase() === 'ANTHROPIC' && !e.is_deprecated).length
 )
 
 // API functions

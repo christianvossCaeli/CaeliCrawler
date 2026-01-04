@@ -1,10 +1,12 @@
 <template>
   <div>
-    <!-- Skeleton Loader for initial load -->
-    <CategoriesSkeleton v-if="loading && initialLoad" />
+    <!-- Skeleton/Content Transition -->
+    <transition name="fade" mode="out-in">
+      <!-- Skeleton Loader for initial load -->
+      <CategoriesSkeleton v-if="loading && initialLoad" key="skeleton" />
 
-    <!-- Main Content -->
-    <template v-else>
+      <!-- Main Content -->
+      <div v-else key="content">
     <PageHeader
       :title="$t('categories.title')"
       :subtitle="$t('categories.subtitle')"
@@ -142,7 +144,8 @@
       @created="handleSummaryCreated"
     />
 
-    </template>
+      </div>
+    </transition>
 
     <!-- Snackbar for feedback -->
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000">
@@ -165,8 +168,15 @@ import {
   type Category,
   type DataSourcesTabState,
 } from '@/composables/useCategoriesView'
+import {
+  type CategoryAiPreviewData,
+  type AdaptedCategoryAiPreviewData,
+  adaptCategoryAiPreviewData,
+} from '@/types/category'
 import { useLogger } from '@/composables/useLogger'
-import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { getErrorMessage } from '@/utils/errorMessage'
+import { usePageContextProvider, PAGE_FEATURES, PAGE_ACTIONS } from '@/composables/usePageContext'
+import type { PageContextData } from '@/composables/assistant/types'
 import PageHeader from '@/components/common/PageHeader.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import CategoriesToolbar from '@/components/categories/CategoriesToolbar.vue'
@@ -258,61 +268,44 @@ const editMode = ref(false)
 const reanalyzeAll = ref(false)
 const selectedCategoryForSources = ref<Category | null>(null)
 
+// Page Context Provider for AI Assistant awareness
+usePageContextProvider(
+  '/categories',
+  (): PageContextData => ({
+    // Category context
+    category_id: selectedCategory.value?.id || undefined,
+    category_name: selectedCategory.value?.name || undefined,
+    category_entity_count: selectedCategory.value?.document_count || 0,
+    crawl_status: selectedCategoryForCrawler.value ? 'running' : 'idle',
+
+    // List context
+    total_count: totalCategories.value,
+    filters: categoryFilters.value ? {
+      search_query: categoryFilters.value.search || undefined
+    } : undefined,
+
+    // Features and actions
+    available_features: [...PAGE_FEATURES.category],
+    available_actions: [
+      ...PAGE_ACTIONS.base,
+      ...PAGE_ACTIONS.category
+    ]
+  })
+)
+
 // Summary states
 const summaryInitialPrompt = ref('')
 const summaryTriggerCategory = ref<Category | null>(null)
 
-// AI Preview data interface - must match CategoryAiPreviewDialog expectations
-interface AiPreviewData {
-  suggested_extraction_prompt?: string
-  suggested_facet_types?: Array<{ selected?: boolean; name?: string; slug?: string; description?: string; icon?: string; color?: string; is_new?: boolean }>
-  suggested_entity_type?: { name?: string; description?: string; is_new?: boolean; id?: string }
-  suggested_search_terms?: string[]
-  suggested_url_include_patterns?: string[]
-  suggested_url_exclude_patterns?: string[]
-  existing_entity_types?: Array<{ id?: string; name?: string; slug?: string; description?: string }>
-}
-
-// AI Preview states
+// AI Preview states - using types from @/types/category
 const aiPreviewLoading = ref(false)
-const aiPreviewData = ref<AiPreviewData | null>(null)
+const aiPreviewData = ref<CategoryAiPreviewData | null>(null)
 const savingWithAi = ref(false)
 
-// Adapted preview data for CategoryAiPreviewDialog (with required fields)
-interface AdaptedAiPreviewData {
-  suggested_extraction_prompt?: string
-  suggested_facet_types: Array<{ selected?: boolean; name: string; slug: string; description?: string; icon?: string; color?: string; is_new?: boolean }>
-  suggested_entity_type: { name: string; description?: string; is_new?: boolean; id?: string }
-  suggested_search_terms?: string[]
-  suggested_url_include_patterns?: string[]
-  suggested_url_exclude_patterns?: string[]
-  existing_entity_types: Array<{ id: string; name: string; slug?: string; description?: string }>
-}
-const adaptedAiPreviewData = computed<AdaptedAiPreviewData | null>(() => {
-  const data = aiPreviewData.value
-  if (!data) return null
-  // Ensure required fields have defaults
-  return {
-    ...data,
-    suggested_entity_type: {
-      name: data.suggested_entity_type?.name || 'Unbekannt',
-      description: data.suggested_entity_type?.description,
-      is_new: data.suggested_entity_type?.is_new,
-      id: data.suggested_entity_type?.id,
-    },
-    suggested_facet_types: (data.suggested_facet_types || []).map(ft => ({
-      ...ft,
-      name: ft.name || '',
-      slug: ft.slug || '',
-    })),
-    existing_entity_types: (data.existing_entity_types || []).map(et => ({
-      id: et.id || '',
-      name: et.name || '',
-      slug: et.slug,
-      description: et.description,
-    })),
-  }
-})
+// Adapted preview data using imported helper function
+const adaptedAiPreviewData = computed<AdaptedCategoryAiPreviewData | null>(() =>
+  adaptCategoryAiPreviewData(aiPreviewData.value)
+)
 const selectedEntityTypeOption = ref<string>('new')
 const selectedFacetTypes = ref<boolean[]>([])
 const editableExtractionPrompt = ref('')
@@ -331,6 +324,9 @@ const formData = ref<CategoryFormData>({
   schedule_enabled: false,
   ai_extraction_prompt: '',
   is_active: true,
+  extraction_handler: 'default',
+  is_public: false,
+  target_entity_type_id: null,
 })
 
 // Methods
@@ -353,6 +349,9 @@ const openCreateDialog = () => {
     schedule_enabled: false,
     ai_extraction_prompt: '',
     is_active: true,
+    extraction_handler: 'default',
+    is_public: false,
+    target_entity_type_id: null,
   }
   dialog.value = true
 }
@@ -377,6 +376,9 @@ const openEditDialog = async (category: Category) => {
     schedule_enabled: category.schedule_enabled ?? false,
     ai_extraction_prompt: category.ai_extraction_prompt || '',
     is_active: category.is_active,
+    extraction_handler: category.extraction_handler || 'default',
+    is_public: category.is_public ?? false,
+    target_entity_type_id: category.target_entity_type_id || null,
   }
   resetDataSourcesTab()
   dialog.value = true
@@ -422,8 +424,9 @@ const showAiPreview = async () => {
 
     aiPreviewData.value = response.data
     editableExtractionPrompt.value = response.data.suggested_extraction_prompt || ''
-    selectedFacetTypes.value = response.data.suggested_facet_types.map((ft: { selected?: boolean }) => ft.selected !== false)
-    selectedEntityTypeOption.value = response.data.suggested_entity_type.is_new ? 'new' : (response.data.suggested_entity_type.id || 'new')
+    selectedFacetTypes.value = (response.data.suggested_facet_types || []).map((ft: { selected?: boolean }) => ft.selected !== false)
+    const entityType = response.data.suggested_entity_type
+    selectedEntityTypeOption.value = entityType?.is_new ? 'new' : (entityType?.id || 'new')
   } catch (error) {
     logger.error('Failed to get AI preview:', error)
     aiPreviewDialog.value = false

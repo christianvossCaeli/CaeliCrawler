@@ -109,6 +109,13 @@ export interface JobLogEntry {
   data?: Record<string, unknown>
 }
 
+export interface JobLog {
+  job_id: string
+  entries: JobLogEntry[]
+  total: number
+  has_more: boolean
+}
+
 // =============================================================================
 // AI Tasks Types
 // =============================================================================
@@ -116,13 +123,12 @@ export interface JobLogEntry {
 export type AiTaskStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
 
 export type AiTaskType =
-  | 'ANALYZE'
-  | 'EXTRACT'
-  | 'CATEGORIZE'
-  | 'SUMMARIZE'
-  | 'ENRICH'
-  | 'LINK'
-  | 'CUSTOM'
+  | 'DOCUMENT_ANALYSIS'
+  | 'PYSIS_EXTRACTION'
+  | 'PYSIS_TO_FACETS'
+  | 'BATCH_ANALYSIS'
+  | 'ENTITY_DATA_ANALYSIS'
+  | 'ATTACHMENT_ANALYSIS'
 
 export interface AiTask {
   id: string
@@ -240,14 +246,26 @@ export type LocationUpdate = Partial<LocationCreate>
 // Notification Types
 // =============================================================================
 
-export type NotificationChannel = 'EMAIL' | 'PUSH' | 'WEBHOOK' | 'IN_APP'
+export type NotificationChannel = 'EMAIL' | 'WEBHOOK' | 'IN_APP' | 'MS_TEAMS'
 export type NotificationEventType =
+  | 'NEW_DOCUMENT'
+  | 'DOCUMENT_CHANGED'
+  | 'DOCUMENT_REMOVED'
+  | 'CRAWL_STARTED'
   | 'CRAWL_COMPLETED'
   | 'CRAWL_FAILED'
-  | 'DOCUMENT_ANALYZED'
-  | 'ENTITY_UPDATED'
-  | 'THRESHOLD_REACHED'
-  | 'SYSTEM_ALERT'
+  | 'AI_ANALYSIS_COMPLETED'
+  | 'HIGH_CONFIDENCE_RESULT'
+  | 'SOURCE_STATUS_CHANGED'
+  | 'SOURCE_ERROR'
+  | 'SUMMARY_UPDATED'
+  | 'SUMMARY_RELEVANT_CHANGES'
+  | 'LLM_BUDGET_WARNING'
+  | 'LLM_BUDGET_CRITICAL'
+  | 'LLM_BUDGET_BLOCKED'
+  | 'LLM_LIMIT_REQUEST_SUBMITTED'
+  | 'LLM_LIMIT_REQUEST_APPROVED'
+  | 'LLM_LIMIT_REQUEST_DENIED'
 
 export interface NotificationRule {
   id: string

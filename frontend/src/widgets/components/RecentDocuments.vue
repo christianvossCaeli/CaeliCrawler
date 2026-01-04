@@ -73,6 +73,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { dataApi } from '@/services/api'
+import { useStatusColors } from '@/composables/useStatusColors'
 import { handleKeyboardClick } from '../composables'
 import BaseWidget from '../BaseWidget.vue'
 import WidgetEmptyState from './WidgetEmptyState.vue'
@@ -87,6 +88,7 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const router = useRouter()
+const { getStatusColor } = useStatusColors()
 const loading = ref(true)
 const error = ref<string | null>(null)
 const documents = ref<RecentDocument[]>([])
@@ -131,15 +133,6 @@ const getFileIcon = (fileType?: string): string => {
   return iconMap[fileType?.toLowerCase() || ''] || 'mdi-file-document'
 }
 
-const getStatusColor = (status: string): string => {
-  const colorMap: Record<string, string> = {
-    PROCESSED: 'success',
-    PROCESSING: 'info',
-    PENDING: 'grey',
-    FAILED: 'error',
-  }
-  return colorMap[status] || 'grey'
-}
 
 const formatTime = (timestamp: string): string => {
   const date = new Date(timestamp)

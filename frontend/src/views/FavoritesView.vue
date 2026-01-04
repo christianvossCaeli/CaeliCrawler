@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid>
+  <div>
     <!-- Header -->
     <PageHeader
       :title="t('favorites.title')"
@@ -62,22 +62,36 @@
     </v-card>
 
     <!-- Favorites List -->
-    <v-card>
-      <v-card-title class="d-flex align-center">
-        <span>{{ t('favorites.myFavorites') }}</span>
-        <v-spacer></v-spacer>
-        <v-chip size="small" color="amber-darken-2" variant="tonal">
-          {{ total }} {{ t('favorites.entries') }}
-        </v-chip>
-      </v-card-title>
+    <transition name="fade" mode="out-in">
+      <!-- Loading Skeleton -->
+      <FavoritesSkeleton
+        v-if="loading && !favorites.length"
+        key="skeleton"
+        :row-count="5"
+      />
 
-      <!-- Loading State -->
-      <div v-if="loading" class="d-flex justify-center py-8">
-        <v-progress-circular indeterminate size="48" color="primary"></v-progress-circular>
-      </div>
+      <!-- Content Card -->
+      <v-card v-else key="content">
+        <v-card-title class="d-flex align-center">
+          <span>{{ t('favorites.myFavorites') }}</span>
+          <v-spacer></v-spacer>
+          <v-chip size="small" color="amber-darken-2" variant="tonal">
+            {{ total }} {{ t('favorites.entries') }}
+          </v-chip>
+        </v-card-title>
 
-      <!-- Empty State -->
-      <v-card-text v-else-if="favorites.length === 0" class="text-center py-12">
+        <!-- Loading Overlay for subsequent loads -->
+        <div v-if="loading && favorites.length > 0" class="d-flex justify-center py-4" role="status">
+          <v-progress-circular
+            indeterminate
+            size="32"
+            color="primary"
+            :aria-label="t('common.loading')"
+          />
+        </div>
+
+        <!-- Empty State -->
+        <v-card-text v-else-if="favorites.length === 0" class="text-center py-12">
         <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-star-outline</v-icon>
         <div class="text-h6 text-medium-emphasis mb-2">{{ t('favorites.noFavorites') }}</div>
         <div class="text-body-2 text-medium-emphasis mb-4">{{ t('favorites.noFavoritesHint') }}</div>
@@ -133,7 +147,7 @@
 
         <template #item.created_at="{ item }">
           <span class="text-caption">
-            {{ formatDate(item.created_at) }}
+            {{ formatDateTime(item.created_at) }}
           </span>
         </template>
 
@@ -145,6 +159,7 @@
               variant="tonal"
               color="primary"
               :title="t('common.details')"
+              :aria-label="t('common.details') + ': ' + item.entity.name"
               @click.stop="navigateToEntity(item)"
             ></v-btn>
             <v-btn
@@ -153,14 +168,16 @@
               variant="tonal"
               color="warning"
               :title="t('favorites.removeFromFavorites')"
+              :aria-label="t('favorites.removeFromFavorites') + ': ' + item.entity.name"
               :loading="removingId === item.id"
               @click.stop="removeFavorite(item)"
             ></v-btn>
           </div>
         </template>
       </v-data-table-server>
-    </v-card>
-  </v-container>
+      </v-card>
+    </transition>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -171,8 +188,12 @@ import { useFavoritesStore, type Favorite } from '@/stores/favorites'
 import { useEntityStore } from '@/stores/entity'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useDebounce, DEBOUNCE_DELAYS } from '@/composables/useDebounce'
+import { useDateFormatter } from '@/composables'
 import PageHeader from '@/components/common/PageHeader.vue'
+import FavoritesSkeleton from '@/components/common/FavoritesSkeleton.vue'
 import { useLogger } from '@/composables/useLogger'
+import { usePageContextProvider, PAGE_ACTIONS } from '@/composables/usePageContext'
+import type { PageContextData } from '@/composables/assistant/types'
 
 const logger = useLogger('FavoritesView')
 
@@ -181,6 +202,7 @@ const router = useRouter()
 const favoritesStore = useFavoritesStore()
 const entityStore = useEntityStore()
 const { showSuccess, showError } = useSnackbar()
+const { formatDateTime } = useDateFormatter()
 
 // State
 const loading = ref(false)
@@ -210,6 +232,22 @@ const headers = computed(() => [
   { title: t('favorites.addedAt'), key: 'created_at', sortable: true },
   { title: t('common.actions'), key: 'actions', sortable: false, align: 'end' as const },
 ])
+
+// Page Context Provider for KI-Assistant awareness
+usePageContextProvider(
+  '/favorites',
+  (): PageContextData => ({
+    current_route: '/favorites',
+    view_mode: 'list',
+    total_count: total.value,
+    filters: {
+      search_query: searchQuery.value || undefined,
+      entity_type_filter: entityTypeFilter.value || undefined
+    },
+    available_features: ['filter_by_type', 'search', 'remove_favorite'],
+    available_actions: [...PAGE_ACTIONS.base, 'filter', 'search', 'view_entity', 'remove_favorite']
+  })
+)
 
 // Methods
 async function loadFavorites(page = currentPage.value) {
@@ -295,16 +333,7 @@ async function removeFavorite(favorite: Favorite) {
   }
 }
 
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+// formatDate now from useDateFormatter composable (using formatDateTime)
 
 // Debounce search - uses composable with automatic cleanup
 const { debouncedFn: debouncedSearch } = useDebounce(
@@ -328,5 +357,16 @@ onMounted(async () => {
 }
 .cursor-pointer :deep(tbody tr:hover) {
   background-color: rgba(var(--v-theme-primary), 0.1);
+}
+
+/* Fade transition for skeleton → content */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

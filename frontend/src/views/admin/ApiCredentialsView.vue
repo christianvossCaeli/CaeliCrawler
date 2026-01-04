@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid>
+  <div>
     <!-- Header -->
     <PageHeader
       :title="t('admin.llmConfig.title')"
@@ -44,7 +44,7 @@
     </template>
 
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="deleteDialogOpen" max-width="400">
+    <v-dialog v-model="deleteDialogOpen" :max-width="DIALOG_SIZES.XS">
       <v-card>
         <v-card-title>{{ t('admin.llmConfig.dialog.deleteTitle') }}</v-card-title>
         <v-card-text>{{ t('admin.llmConfig.dialog.deleteConfirm') }}</v-card-text>
@@ -59,7 +59,7 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-  </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -77,6 +77,7 @@ import {
   type PurposeInfo,
   type PurposeConfigStatus,
 } from '@/services/api/admin'
+import { DIALOG_SIZES } from '@/config/ui'
 
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()

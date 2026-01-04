@@ -5,11 +5,11 @@
  */
 
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, readonly } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
-import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { getErrorMessage } from '@/utils/errorMessage'
 
 const logger = useLogger('AuthStore')
 
@@ -265,23 +265,48 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Initialize on store creation
-  if (token.value && !initialized.value) {
-    fetchCurrentUser()
-  } else {
-    initialized.value = true
+  // Track initialization promise to prevent race conditions
+  let initPromise: Promise<boolean> | null = null
+
+  /**
+   * Initialize the store - fetches current user if token exists
+   * Returns a promise that resolves when initialization is complete
+   */
+  async function initialize(): Promise<boolean> {
+    // If already initialized, return immediately
+    if (initialized.value) {
+      return !!user.value
+    }
+
+    // If initialization is in progress, return the existing promise
+    if (initPromise) {
+      return initPromise
+    }
+
+    // Start initialization
+    if (token.value) {
+      initPromise = fetchCurrentUser()
+      return initPromise
+    } else {
+      initialized.value = true
+      return false
+    }
   }
 
+  // Start initialization immediately (non-blocking)
+  // Consumers should await initialize() if they need to wait for auth state
+  initialize()
+
   return {
-    // State
-    user,
-    token,
-    refreshToken,
-    tokenExpiry,
-    isLoading,
-    error,
-    initialized,
-    isRefreshing,
+    // State (readonly for security - prevents accidental modification)
+    user: readonly(user),
+    token: readonly(token),
+    refreshToken: readonly(refreshToken),
+    tokenExpiry: readonly(tokenExpiry),
+    isLoading: readonly(isLoading),
+    error: readonly(error),
+    initialized: readonly(initialized),
+    isRefreshing: readonly(isRefreshing),
 
     // Computed
     isAuthenticated,
@@ -297,6 +322,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     clearLocalAuth,
     fetchCurrentUser,
+    initialize,
     changePassword,
     hasRole,
     updateLanguage,

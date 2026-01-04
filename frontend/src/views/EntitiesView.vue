@@ -15,7 +15,7 @@
         <div class="text-body-2 text-medium-emphasis">
           {{
             totalEntities > 0
-              ? `${totalEntities.toLocaleString()} ${currentEntityType?.name_plural || t('entities.entries')}`
+              ? `${formatNumber(totalEntities)} ${currentEntityType?.name_plural || t('entities.entries')}`
               : t('common.pleaseWait')
           }}
         </div>
@@ -137,6 +137,7 @@
       <!-- Table View -->
       <EntitiesTable
         v-if="viewMode === 'table'"
+        v-model:selected-entities="selectedEntities"
         :entities="store.entities"
         :total-entities="totalEntities"
         :loading="store.entitiesLoading"
@@ -146,6 +147,7 @@
         :flags="flags"
         :sort-by="sortBy"
         :can-edit="canEdit"
+        :show-select="showBulkSelect"
         @update:items-per-page="itemsPerPage = $event"
         @update:current-page="loadEntities"
         @update:sort-by="handleSortChange"
@@ -213,7 +215,7 @@
     />
 
     <!-- Template Selection Dialog -->
-    <v-dialog v-model="templateDialog" max-width="500">
+    <v-dialog v-model="templateDialog" :max-width="DIALOG_SIZES.SM">
       <v-card>
         <v-card-title>{{ t('entities.selectAnalysisTemplate') }}</v-card-title>
         <v-card-text>
@@ -244,7 +246,7 @@
     </v-dialog>
 
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="deleteDialog" max-width="450">
+    <v-dialog v-model="deleteDialog" :max-width="DIALOG_SIZES.XS">
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon color="error" class="mr-2">mdi-alert</v-icon>
@@ -289,6 +291,7 @@
 import { onMounted, watch, defineAsyncComponent, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useEntitiesView } from '@/composables/useEntitiesView'
 import { useAuthStore } from '@/stores/auth'
 
@@ -305,11 +308,15 @@ import EntitiesTable from '@/components/entities/EntitiesTable.vue'
 import EntitiesGridView from '@/components/entities/EntitiesGridView.vue'
 import EntityFormDialog from '@/components/entities/EntityFormDialog.vue'
 import ExtendedFilterDialog from '@/components/entities/ExtendedFilterDialog.vue'
+import { usePageContextProvider } from '@/composables/usePageContext'
+import { useDateFormatter } from '@/composables'
+import type { PageContextData, FilterState } from '@/composables/assistant/types'
 
 const { t } = useI18n()
 const router = useRouter()
 const auth = useAuthStore()
 const canEdit = computed(() => auth.isEditor)
+const { formatNumber } = useDateFormatter()
 
 // Use the composable for all state and logic
 const {
@@ -381,7 +388,72 @@ const {
   isLightColor,
   sortBy,
   handleSortChange,
+  showBulkSelect,
+  selectedEntities,
 } = useEntitiesView()
+
+// Page Context Provider for AI Assistant awareness
+const { updateContext } = usePageContextProvider(
+  '/entities',
+  (): PageContextData => ({
+    // Entity type context
+    entity_type: typeSlug.value || currentEntityType.value?.slug || undefined,
+
+    // Filter state
+    filters: {
+      entity_type: typeSlug.value || undefined,
+      facet_filters: Object.fromEntries(
+        filters.value.facet_type_slugs.map(slug => [slug, []])
+      ),
+      search_query: searchQuery.value || undefined,
+      location_filter: extendedFilters.value?.country || extendedFilters.value?.admin_level_1 || undefined
+    } as FilterState,
+
+    // Sorting
+    sort_field: sortBy.value?.[0]?.key || undefined,
+    sort_order: sortBy.value?.[0]?.order as 'asc' | 'desc' || undefined,
+
+    // Counts
+    total_count: totalEntities.value,
+    selected_count: selectedEntities.value.length,
+    selected_ids: selectedEntities.value.map(e => e.id),
+
+    // Available features for this view
+    available_features: [
+      'filter',
+      'sort',
+      'bulk_select',
+      'bulk_edit',
+      'export',
+      'create',
+      'extended_filters',
+      ...(hasGeoData.value ? ['map_view'] : [])
+    ],
+
+    // Available actions based on context
+    available_actions: [
+      'filter',
+      'create',
+      'bulk_edit',
+      'export'
+    ]
+  })
+)
+
+// Update context when relevant data changes
+watch([typeSlug, searchQuery, filters, totalEntities], () => {
+  updateContext({
+    entity_type: typeSlug.value || currentEntityType.value?.slug || undefined,
+    total_count: totalEntities.value,
+    filters: {
+      entity_type: typeSlug.value || undefined,
+      facet_filters: Object.fromEntries(
+        filters.value.facet_type_slugs.map(slug => [slug, []])
+      ),
+      search_query: searchQuery.value || undefined
+    } as FilterState
+  })
+}, { deep: true })
 
 // Extended filter dialog management
 function openExtendedFilterDialog() {

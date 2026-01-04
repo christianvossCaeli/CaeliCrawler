@@ -308,8 +308,8 @@ export interface WizardRespondResponse {
 // Reminder Types
 // =============================================================================
 
-export type ReminderRepeat = 'none' | 'daily' | 'weekly' | 'monthly'
-export type ReminderStatus = 'PENDING' | 'DUE' | 'DISMISSED' | 'SNOOZED'
+export type ReminderRepeat = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY'
+export type ReminderStatus = 'PENDING' | 'SENT' | 'DISMISSED' | 'CANCELLED'
 
 export interface Reminder {
   id: string

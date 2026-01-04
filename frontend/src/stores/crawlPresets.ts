@@ -10,6 +10,8 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { crawlPresetsApi } from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
+import { emitCrawlerEvent } from '@/composables/useCrawlerEvents'
+import { addToSet, removeFromSet, clearSet } from '@/utils/immutableSet'
 
 const logger = useLogger('CrawlPresetsStore')
 
@@ -65,7 +67,7 @@ export interface CrawlPreset {
   last_used_at: string | null
   last_scheduled_run_at: string | null
   is_favorite: boolean
-  status: 'active' | 'archived'
+  status: 'ACTIVE' | 'ARCHIVED'
   created_at: string
   updated_at: string
 }
@@ -85,7 +87,7 @@ export interface CrawlPresetUpdate {
   schedule_cron?: string
   schedule_enabled?: boolean
   is_favorite?: boolean
-  status?: 'active' | 'archived'
+  status?: 'ACTIVE' | 'ARCHIVED'
 }
 
 export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
@@ -101,7 +103,7 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
   // Computed
   const favoriteCount = computed(() => favoriteIds.value.size)
   const favorites = computed(() => presets.value.filter((p) => p.is_favorite))
-  const activePresets = computed(() => presets.value.filter((p) => p.status === 'active'))
+  const activePresets = computed(() => presets.value.filter((p) => p.status === 'ACTIVE'))
   const scheduledPresets = computed(() => presets.value.filter((p) => p.schedule_enabled))
 
   /**
@@ -171,7 +173,7 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
       total.value++
 
       if (newPreset.is_favorite) {
-        favoriteIds.value.add(newPreset.id)
+        favoriteIds.value = addToSet(favoriteIds.value, newPreset.id)
       }
 
       return newPreset
@@ -196,11 +198,11 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
         presets.value[index] = updatedPreset
       }
 
-      // Update favorite set
+      // Update favorite set (immutable for reactivity)
       if (updatedPreset.is_favorite) {
-        favoriteIds.value.add(presetId)
+        favoriteIds.value = addToSet(favoriteIds.value, presetId)
       } else {
-        favoriteIds.value.delete(presetId)
+        favoriteIds.value = removeFromSet(favoriteIds.value, presetId)
       }
 
       return updatedPreset
@@ -223,7 +225,7 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
       if (index > -1) {
         presets.value.splice(index, 1)
       }
-      favoriteIds.value.delete(presetId)
+      favoriteIds.value = removeFromSet(favoriteIds.value, presetId)
       total.value = Math.max(0, total.value - 1)
 
       return true
@@ -251,6 +253,11 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
       if (preset) {
         preset.usage_count++
         preset.last_used_at = new Date().toISOString()
+      }
+
+      // Notify CrawlerView to refresh immediately if jobs were created
+      if (response.data.jobs_created > 0) {
+        emitCrawlerEvent('crawl-started')
       }
 
       return {
@@ -281,9 +288,9 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
       }
 
       if (newState) {
-        favoriteIds.value.add(presetId)
+        favoriteIds.value = addToSet(favoriteIds.value, presetId)
       } else {
-        favoriteIds.value.delete(presetId)
+        favoriteIds.value = removeFromSet(favoriteIds.value, presetId)
       }
 
       return newState
@@ -351,7 +358,7 @@ export const useCrawlPresetsStore = defineStore('crawlPresets', () => {
    */
   function clearStore(): void {
     presets.value = []
-    favoriteIds.value.clear()
+    favoriteIds.value = clearSet()
     total.value = 0
     page.value = 1
     error.value = null
