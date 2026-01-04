@@ -91,38 +91,7 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"
 
-    # Azure OpenAI - Main Settings
-    azure_openai_endpoint: str = ""
-    azure_openai_api_key: str = ""
-    azure_openai_api_version: str = "2025-04-01-preview"
-
-    # Azure OpenAI - Model Deployments for different purposes
-    azure_openai_deployment_name: str = "gpt-4.1-mini"  # Default chat deployment
-    azure_openai_embeddings_deployment: str = "text-embedding-3-large"  # Embeddings
-
-    # Task-specific deployments (can override default)
-    azure_openai_deployment_chat: str = ""  # Chat/Summarization (default: deployment_name)
-    azure_openai_deployment_extraction: str = ""  # Information extraction from text
-    azure_openai_deployment_pdf: str = ""  # PDF document analysis
-    azure_openai_deployment_web: str = ""  # Website content extraction
-    azure_openai_deployment_classification: str = ""  # Document classification
-    azure_openai_deployment_vision: str = ""  # Vision-capable model for image analysis (e.g. gpt-4o)
-
-    def get_deployment_for_task(self, task: str) -> str:
-        """Get the appropriate deployment for a task type."""
-        task_map = {
-            "chat": self.azure_openai_deployment_chat,
-            "extraction": self.azure_openai_deployment_extraction,
-            "pdf": self.azure_openai_deployment_pdf,
-            "web": self.azure_openai_deployment_web,
-            "classification": self.azure_openai_deployment_classification,
-            "embeddings": self.azure_openai_embeddings_deployment,
-            "vision": self.azure_openai_deployment_vision,
-        }
-        # Return task-specific deployment or fall back to default
-        return task_map.get(task) or self.azure_openai_deployment_name
-
-    # Azure Document Intelligence
+    # Azure Document Intelligence (system-level, not per-user)
     azure_document_intelligence_endpoint: str = ""
     azure_document_intelligence_key: str = ""
 
@@ -162,17 +131,9 @@ class Settings(BaseSettings):
     external_api_max_retries: int = 3
 
     # AI Source Discovery Settings
-    serpapi_api_key: str = ""  # SerpAPI Key (PRIMARY - user has more quota)
-    serper_api_key: str = ""  # Serper.dev Key (FALLBACK when SerpAPI rate-limited)
     ai_discovery_max_search_results: int = 20
     ai_discovery_max_extraction_pages: int = 10
     ai_discovery_timeout: int = 60
-
-    # Claude/Anthropic API for AI Source Discovery (better API knowledge)
-    anthropic_api_endpoint: str = ""  # Azure-hosted Anthropic endpoint
-    anthropic_api_key: str = ""  # API key for Anthropic
-    anthropic_model: str = "claude-opus-4-5"  # Model to use
-    ai_discovery_use_claude: bool = True  # Use Claude for API discovery (recommended)
 
     # API Settings
     api_v1_prefix: str = "/api/v1"

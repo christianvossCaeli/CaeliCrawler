@@ -130,6 +130,15 @@ class Category(Base):
         comment="If true, automatic crawls are enabled based on schedule_cron",
     )
 
+    # User whose API credentials are used for scheduled crawls
+    schedule_owner_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="User whose API credentials are used for automatic scheduled crawls",
+    )
+
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
@@ -200,6 +209,10 @@ class Category(Base):
     owner: Mapped[Optional["User"]] = relationship(
         "User",
         foreign_keys=[owner_id],
+    )
+    schedule_owner: Mapped[Optional["User"]] = relationship(
+        "User",
+        foreign_keys=[schedule_owner_id],
     )
 
     # Target EntityType relationship (legacy 1:1 for backwards compatibility)

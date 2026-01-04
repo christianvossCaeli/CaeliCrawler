@@ -38,19 +38,19 @@ if TYPE_CHECKING:
 class SummaryStatus(str, enum.Enum):
     """Status of a custom summary."""
 
-    DRAFT = "draft"  # Still being configured
-    ACTIVE = "active"  # Active and scheduled
-    PAUSED = "paused"  # Temporarily paused
-    ARCHIVED = "archived"  # Archived (soft delete)
+    DRAFT = "DRAFT"  # Still being configured
+    ACTIVE = "ACTIVE"  # Active and scheduled
+    PAUSED = "PAUSED"  # Temporarily paused
+    ARCHIVED = "ARCHIVED"  # Archived (soft delete)
 
 
 class SummaryTriggerType(str, enum.Enum):
     """Trigger type for summary updates."""
 
-    MANUAL = "manual"  # Only manual execution
-    CRON = "cron"  # Cron-based schedule
-    CRAWL_CATEGORY = "crawl_category"  # Triggered after category crawl completes
-    CRAWL_PRESET = "crawl_preset"  # Triggered after preset crawl completes
+    MANUAL = "MANUAL"  # Only manual execution
+    CRON = "CRON"  # Cron-based schedule
+    CRAWL_CATEGORY = "CRAWL_CATEGORY"  # Triggered after category crawl completes
+    CRAWL_PRESET = "CRAWL_PRESET"  # Triggered after preset crawl completes
 
 
 class CustomSummary(Base):

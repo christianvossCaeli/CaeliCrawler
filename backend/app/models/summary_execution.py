@@ -33,11 +33,11 @@ if TYPE_CHECKING:
 class ExecutionStatus(str, enum.Enum):
     """Status of a summary execution."""
 
-    PENDING = "pending"  # Queued for execution
-    RUNNING = "running"  # Currently executing
-    COMPLETED = "completed"  # Successfully completed
-    FAILED = "failed"  # Execution failed
-    SKIPPED = "skipped"  # Skipped due to no relevant changes
+    PENDING = "PENDING"  # Queued for execution
+    RUNNING = "RUNNING"  # Currently executing
+    COMPLETED = "COMPLETED"  # Successfully completed
+    FAILED = "FAILED"  # Execution failed
+    SKIPPED = "SKIPPED"  # Skipped due to no relevant changes
 
 
 class SummaryExecution(Base):

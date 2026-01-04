@@ -39,7 +39,7 @@ class SummaryWidgetType(str, enum.Enum):
     COMPARISON = "comparison"
     TIMELINE = "timeline"
     MAP = "map"
-    CALENDAR = "calendar"  # For event/date-based visualizations
+    CALENDAR = "calendar"
 
 
 class SummaryWidget(Base):
@@ -67,9 +67,13 @@ class SummaryWidget(Base):
         index=True,
     )
 
-    # Widget type
+    # Widget type - use values_callable to store lowercase values in DB
     widget_type: Mapped[SummaryWidgetType] = mapped_column(
-        Enum(SummaryWidgetType, name="summary_widget_type_enum"),
+        Enum(
+            SummaryWidgetType,
+            name="summary_widget_type_enum",
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
     )
 

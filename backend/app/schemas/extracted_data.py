@@ -101,6 +101,21 @@ class ExtractedDataVerify(BaseModel):
     corrections: dict[str, Any] | None = Field(None, description="Optional corrections")
 
 
+class ExtractedDataBulkVerify(BaseModel):
+    """Schema for bulk verifying extracted data."""
+
+    ids: list[UUID] = Field(..., description="List of extraction IDs to verify", min_length=1, max_length=100)
+
+
+class ExtractedDataBulkVerifyResponse(BaseModel):
+    """Response for bulk verify operation."""
+
+    verified_ids: list[UUID] = Field(default_factory=list, description="Successfully verified IDs")
+    failed_ids: list[UUID] = Field(default_factory=list, description="Failed verification IDs")
+    verified_count: int = Field(..., description="Number of successfully verified extractions")
+    failed_count: int = Field(..., description="Number of failed verifications")
+
+
 class ExtractedDataSearchParams(BaseModel):
     """Parameters for searching extracted data."""
 

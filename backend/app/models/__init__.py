@@ -45,8 +45,10 @@ from app.models.facet_value import FacetValue, FacetValueSourceType
 from app.models.facet_value_history import FacetValueHistory
 from app.models.llm_budget import (
     BudgetType,
+    LimitIncreaseRequestStatus,
     LLMBudgetAlert,
     LLMBudgetConfig,
+    LLMBudgetLimitRequest,
 )
 
 # LLM Usage Tracking
@@ -55,6 +57,13 @@ from app.models.llm_usage import (
     LLMTaskType,
     LLMUsageMonthlyAggregate,
     LLMUsageRecord,
+)
+
+# Model Pricing
+from app.models.model_pricing import (
+    ModelPricing,
+    PricingProvider,
+    PricingSource,
 )
 from app.models.location import Location  # Legacy - will be replaced by Entity
 from app.models.mixins import TimestampMixin, VersionedMixin
@@ -87,6 +96,16 @@ from app.models.summary_widget import SummaryWidget, SummaryWidgetType
 
 # Authentication & Authorization
 from app.models.user import User, UserRole
+from app.models.user_api_credentials import (
+    ApiCredentialType,
+    EMBEDDINGS_REQUIRED_FIELDS,
+    LLMPurpose,
+    PROVIDER_FIELDS,
+    PROVIDER_OPTIONAL_FIELDS,
+    PURPOSE_VALID_PROVIDERS,
+    UserApiCredentials,
+    UserLLMConfig,
+)
 
 # Dashboard
 from app.models.user_dashboard import UserDashboardPreference
@@ -147,6 +166,15 @@ __all__ = [
     # Authentication & Authorization
     "User",
     "UserRole",
+    "UserApiCredentials",
+    "UserLLMConfig",
+    "ApiCredentialType",
+    "EMBEDDINGS_REQUIRED_FIELDS",
+    "LLMProvider",
+    "LLMPurpose",
+    "PROVIDER_FIELDS",
+    "PROVIDER_OPTIONAL_FIELDS",
+    "PURPOSE_VALID_PROVIDERS",
     "UserEmailAddress",
     "UserSession",
     "DeviceType",
@@ -206,5 +234,11 @@ __all__ = [
     "LLMTaskType",
     "LLMBudgetConfig",
     "LLMBudgetAlert",
+    "LLMBudgetLimitRequest",
     "BudgetType",
+    "LimitIncreaseRequestStatus",
+    # Model Pricing
+    "ModelPricing",
+    "PricingProvider",
+    "PricingSource",
 ]

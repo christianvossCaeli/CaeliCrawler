@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from app.models.category import Category
     from app.models.data_source import DataSource
     from app.models.document import Document
+    from app.models.user import User
 
 
 class JobStatus(str, enum.Enum):
@@ -51,6 +52,15 @@ class CrawlJob(Base):
         UUID(as_uuid=True),
         ForeignKey("categories.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
+    )
+
+    # User who initiated this crawl (for API key resolution)
+    # Nullable for backward compatibility with existing jobs
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
 
@@ -113,6 +123,7 @@ class CrawlJob(Base):
         back_populates="crawl_jobs",
     )
     category: Mapped["Category"] = relationship("Category")
+    user: Mapped["User | None"] = relationship("User")
     documents: Mapped[list["Document"]] = relationship(
         "Document",
         back_populates="crawl_job",

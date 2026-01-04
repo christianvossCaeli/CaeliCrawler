@@ -11,8 +11,8 @@ from pydantic import BaseModel, Field
 class PresetStatus(str, Enum):
     """Status of a crawl preset."""
 
-    ACTIVE = "active"
-    ARCHIVED = "archived"
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
 
 
 class CrawlPresetFilters(BaseModel):

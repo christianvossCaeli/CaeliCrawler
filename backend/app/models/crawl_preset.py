@@ -29,8 +29,8 @@ from app.database import Base
 class PresetStatus(str, enum.Enum):
     """Status of a crawl preset."""
 
-    ACTIVE = "active"
-    ARCHIVED = "archived"
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
 
 
 class CrawlPreset(Base):

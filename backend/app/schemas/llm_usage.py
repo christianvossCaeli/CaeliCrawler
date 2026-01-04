@@ -74,6 +74,24 @@ class LLMUsageTopConsumer(BaseModel):
     cost_cents: int = Field(description="Estimated cost in USD cents")
 
 
+class LLMUsageByUser(BaseModel):
+    """Usage breakdown by user (API credential owner)."""
+
+    user_id: UUID | None = Field(description="User ID (null for system/legacy usage)")
+    user_email: str | None = Field(description="User email")
+    user_name: str | None = Field(description="User full name")
+    request_count: int = Field(description="Number of requests")
+    total_tokens: int = Field(description="Total tokens consumed")
+    prompt_tokens: int = Field(description="Total input tokens")
+    completion_tokens: int = Field(description="Total output tokens")
+    cost_cents: int = Field(description="Estimated cost in USD cents")
+    models_used: list[str] = Field(default_factory=list, description="List of models used")
+    has_credentials: bool = Field(
+        default=False,
+        description="Whether user has API credentials configured"
+    )
+
+
 class LLMUsageAnalyticsResponse(BaseModel):
     """Complete analytics response."""
 
@@ -84,6 +102,9 @@ class LLMUsageAnalyticsResponse(BaseModel):
     by_task: list[LLMUsageByTask] = Field(description="Breakdown by task type")
     by_category: list[LLMUsageByCategory] = Field(
         default_factory=list, description="Breakdown by category"
+    )
+    by_user: list[LLMUsageByUser] = Field(
+        default_factory=list, description="Breakdown by user"
     )
     daily_trend: list[LLMUsageTrend] = Field(description="Daily usage trend")
     top_consumers: list[LLMUsageTopConsumer] = Field(

@@ -11,16 +11,16 @@ from pydantic import BaseModel, Field
 class OperationType(str, Enum):
     """Type of Smart Query operation."""
 
-    START_CRAWL = "start_crawl"
-    CREATE_CATEGORY_SETUP = "create_category_setup"
-    CREATE_ENTITY = "create_entity"
-    CREATE_ENTITY_TYPE = "create_entity_type"
-    CREATE_FACET = "create_facet"
-    CREATE_RELATION = "create_relation"
-    FETCH_AND_CREATE_FROM_API = "fetch_and_create_from_api"
-    DISCOVER_SOURCES = "discover_sources"
-    COMBINED = "combined"
-    OTHER = "other"
+    START_CRAWL = "START_CRAWL"
+    CREATE_CATEGORY_SETUP = "CREATE_CATEGORY_SETUP"
+    CREATE_ENTITY = "CREATE_ENTITY"
+    CREATE_ENTITY_TYPE = "CREATE_ENTITY_TYPE"
+    CREATE_FACET = "CREATE_FACET"
+    CREATE_RELATION = "CREATE_RELATION"
+    FETCH_AND_CREATE_FROM_API = "FETCH_AND_CREATE_FROM_API"
+    DISCOVER_SOURCES = "DISCOVER_SOURCES"
+    COMBINED = "COMBINED"
+    OTHER = "OTHER"
 
 
 class SmartQueryOperationCreate(BaseModel):

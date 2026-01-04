@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from app.models.notification_rule import NotificationRule
     from app.models.reminder import Reminder
     from app.models.smart_query_operation import SmartQueryOperation
+    from app.models.user_api_credentials import UserApiCredentials, UserLLMConfig
     from app.models.user_dashboard import UserDashboardPreference
     from app.models.user_email import UserEmailAddress
     from app.models.user_favorite import UserFavorite
@@ -193,6 +194,16 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
         order_by="desc(CustomSummary.updated_at)",
+    )
+    api_credentials: Mapped[list["UserApiCredentials"]] = relationship(
+        "UserApiCredentials",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    llm_configs: Mapped[list["UserLLMConfig"]] = relationship(
+        "UserLLMConfig",
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

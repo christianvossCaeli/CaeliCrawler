@@ -331,3 +331,35 @@ async def get_current_session_id(
         except ValueError:
             return None
     return None
+
+
+async def require_llm_budget(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> User:
+    """
+    Dependency that checks if user has available LLM budget.
+
+    Blocks the request with HTTP 429 if the user has exceeded their
+    monthly LLM budget limit.
+
+    Returns:
+        User object if budget is available
+
+    Raises:
+        HTTPException: 429 if user's LLM budget is exhausted
+    """
+    # Import here to avoid circular imports
+    from services.llm_budget_service import LLMBudgetService
+
+    service = LLMBudgetService(session)
+    can_use, reason = await service.check_user_can_use_llm(current_user.id)
+
+    if not can_use:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=reason,
+            headers={"X-Error-Code": "LLM_BUDGET_EXCEEDED"},
+        )
+
+    return current_user

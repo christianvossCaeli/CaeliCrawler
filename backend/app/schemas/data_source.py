@@ -2,9 +2,10 @@
 
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.data_source import SourceStatus, SourceType
 
@@ -149,6 +150,32 @@ class DataSourceBase(BaseModel):
         default_factory=list,
         description="Tags for filtering/categorization (e.g., ['nrw', 'kommunal', 'windkraft'])",
     )
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_base_url(cls, v: str) -> str:
+        """Validate that base_url is a valid HTTP(S) URL."""
+        if not v:
+            raise ValueError("base_url cannot be empty")
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("base_url must start with http:// or https://")
+        try:
+            parsed = urlparse(v)
+            if not parsed.netloc:
+                raise ValueError("base_url must have a valid hostname")
+        except Exception as e:
+            raise ValueError(f"Invalid URL format: {e}") from e
+        return v
+
+    @field_validator("api_endpoint")
+    @classmethod
+    def validate_api_endpoint(cls, v: str | None) -> str | None:
+        """Validate that api_endpoint is a valid HTTP(S) URL if provided."""
+        if v is None:
+            return v
+        if v and not v.startswith(("http://", "https://", "/")):
+            raise ValueError("api_endpoint must start with http://, https://, or /")
+        return v
 
 
 class CategoryLink(BaseModel):

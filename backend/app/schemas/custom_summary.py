@@ -12,19 +12,19 @@ from pydantic import BaseModel, Field, model_validator
 class SummaryStatus(str, Enum):
     """Status of a custom summary."""
 
-    DRAFT = "draft"
-    ACTIVE = "active"
-    PAUSED = "paused"
-    ARCHIVED = "archived"
+    DRAFT = "DRAFT"
+    ACTIVE = "ACTIVE"
+    PAUSED = "PAUSED"
+    ARCHIVED = "ARCHIVED"
 
 
 class SummaryTriggerType(str, Enum):
     """Trigger type for summary updates."""
 
-    MANUAL = "manual"
-    CRON = "cron"
-    CRAWL_CATEGORY = "crawl_category"
-    CRAWL_PRESET = "crawl_preset"
+    MANUAL = "MANUAL"
+    CRON = "CRON"
+    CRAWL_CATEGORY = "CRAWL_CATEGORY"
+    CRAWL_PRESET = "CRAWL_PRESET"
 
 
 class SummaryWidgetType(str, Enum):
@@ -45,11 +45,11 @@ class SummaryWidgetType(str, Enum):
 class ExecutionStatus(str, Enum):
     """Status of a summary execution."""
 
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    SKIPPED = "skipped"
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    SKIPPED = "SKIPPED"
 
 
 # --- AI Interpreted Config Schemas ---

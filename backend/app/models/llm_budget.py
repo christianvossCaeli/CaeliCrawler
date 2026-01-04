@@ -19,10 +19,19 @@ from app.database import Base
 class BudgetType(str, Enum):
     """Budget scope types."""
 
-    GLOBAL = "global"
-    CATEGORY = "category"
-    TASK_TYPE = "task_type"
-    MODEL = "model"
+    GLOBAL = "GLOBAL"
+    CATEGORY = "CATEGORY"
+    TASK_TYPE = "TASK_TYPE"
+    MODEL = "MODEL"
+    USER = "USER"  # Per-user budget with hard blocking
+
+
+class LimitIncreaseRequestStatus(str, Enum):
+    """Status of limit increase requests."""
+
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    DENIED = "DENIED"
 
 
 class LLMBudgetConfig(Base):
@@ -98,6 +107,13 @@ class LLMBudgetConfig(Base):
     is_active: Mapped[bool] = mapped_column(
         default=True,
         nullable=False,
+    )
+
+    # Blocking behavior
+    blocks_on_limit: Mapped[bool] = mapped_column(
+        default=False,
+        nullable=False,
+        comment="If true, reaching 100% usage blocks LLM access for affected scope",
     )
 
     # Tracking last alert sent to avoid spam
@@ -208,4 +224,94 @@ class LLMBudgetAlert(Base):
         return (
             f"<LLMBudgetAlert(budget_id={self.budget_id}, "
             f"type={self.alert_type}, usage={self.usage_percent:.1f}%)>"
+        )
+
+
+class LLMBudgetLimitRequest(Base):
+    """
+    User requests for budget limit increases.
+
+    When a user's budget is exhausted or nearing the limit,
+    they can request an increase which must be approved by an admin.
+    """
+
+    __tablename__ = "llm_budget_limit_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    # Requesting user
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Related budget
+    budget_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("llm_budget_configs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    # Request details
+    requested_limit_cents: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        comment="Requested new monthly limit in USD cents",
+    )
+    current_limit_cents: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        comment="Limit at time of request in USD cents",
+    )
+    reason: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="User's reason for requesting increase",
+    )
+
+    # Status
+    status: Mapped[LimitIncreaseRequestStatus] = mapped_column(
+        SQLEnum(
+            LimitIncreaseRequestStatus,
+            name="limit_increase_request_status",
+            create_constraint=True,
+        ),
+        default=LimitIncreaseRequestStatus.PENDING,
+        nullable=False,
+        index=True,
+    )
+
+    # Admin response
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    admin_notes: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Admin notes on approval/denial",
+    )
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<LLMBudgetLimitRequest(id={self.id}, user_id={self.user_id}, "
+            f"status={self.status}, requested=${self.requested_limit_cents / 100:.2f})>"
         )

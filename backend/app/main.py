@@ -15,6 +15,7 @@ from app import __version__
 from app.api import auth
 from app.api.admin import (
     ai_discovery,
+    api_credentials,
     api_facet_sync,
     api_import,
     audit,
@@ -25,9 +26,12 @@ from app.api.admin import (
     external_apis,
     facet_types,
     llm_budget,
+    llm_config,
     llm_usage,
     locations,
+    model_pricing,
     notifications,
+    notifications_sse,
     pysis,
     sharepoint,
     sources,
@@ -49,6 +53,7 @@ from app.api.v1 import (
     relations,
     smart_query_history,
 )
+from app.api.v1 import llm_usage as user_llm_usage
 from app.api.v1 import summaries as public_summaries
 from app.api.v1.analysis_api import router as analysis_router
 from app.api.v1.data_api import router as data_router
@@ -406,6 +411,11 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         tags=["Admin - Notifications"],
     )
     app.include_router(
+        notifications_sse.router,
+        prefix=f"{settings.admin_api_prefix}/notifications",
+        tags=["Admin - Notifications SSE"],
+    )
+    app.include_router(
         external_apis.router,
         prefix=f"{settings.admin_api_prefix}/external-apis",
         tags=["Admin - External APIs"],
@@ -454,6 +464,21 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         facet_types.router,
         prefix=settings.admin_api_prefix,
         tags=["Admin - FacetTypes"],
+    )
+    app.include_router(
+        api_credentials.router,
+        prefix=f"{settings.admin_api_prefix}/api-credentials",
+        tags=["Admin - API Credentials"],
+    )
+    app.include_router(
+        llm_config.router,
+        prefix=f"{settings.admin_api_prefix}/llm-config",
+        tags=["Admin - LLM Configuration"],
+    )
+    app.include_router(
+        model_pricing.router,
+        prefix=f"{settings.admin_api_prefix}/model-pricing",
+        tags=["Admin - Model Pricing"],
     )
 
     # Public API v1 (Legacy)
@@ -533,6 +558,11 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         attachments.router,
         prefix=settings.api_v1_prefix,
         tags=["API v1 - Entity Attachments"],
+    )
+    app.include_router(
+        user_llm_usage.router,
+        prefix=settings.api_v1_prefix,
+        tags=["API v1 - User LLM Usage"],
     )
 
     # Public Summaries API (no authentication required for shared access)

@@ -18,9 +18,9 @@ if TYPE_CHECKING:
 class DevicePlatform(str, enum.Enum):
     """Supported device platforms for push notifications."""
 
-    IOS = "ios"
-    ANDROID = "android"
-    WEB = "web"
+    IOS = "IOS"
+    ANDROID = "ANDROID"
+    WEB = "WEB"
 
 
 class DeviceToken(Base):

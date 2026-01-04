@@ -20,12 +20,9 @@ legacy similarity module.
 # =============================================================================
 
 # =============================================================================
-# Legacy imports - Functions not yet migrated to separate modules
-# Import from the original file in parent directory
+# Similarity functions - Entity/Type search, deduplication, hierarchy
 # =============================================================================
-# Note: These will be migrated to separate modules in future iterations
-# For now, import from the legacy file to maintain backwards compatibility
-from ..similarity_legacy import (
+from ..similarity_functions import (
     _hierarchy_mapping_cache,  # noqa: F401
     # Internal
     _normalize_type_name,

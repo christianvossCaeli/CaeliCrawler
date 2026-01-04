@@ -1,7 +1,7 @@
 """LLM Usage tracking models for analytics.
 
 This module provides models for tracking LLM API usage across all providers
-(Azure OpenAI, Anthropic Claude) with detailed metrics for cost analysis,
+(Azure OpenAI, OpenAI, Anthropic Claude) with detailed metrics for cost analysis,
 performance monitoring, and usage patterns.
 """
 
@@ -30,25 +30,26 @@ from app.database import Base
 class LLMProvider(str, Enum):
     """LLM Provider types."""
 
-    AZURE_OPENAI = "azure_openai"
-    ANTHROPIC = "anthropic"
+    AZURE_OPENAI = "AZURE_OPENAI"
+    OPENAI = "OPENAI"
+    ANTHROPIC = "ANTHROPIC"
 
 
 class LLMTaskType(str, Enum):
     """Task types for LLM calls."""
 
-    SUMMARIZE = "summarize"
-    EXTRACT = "extract"
-    CLASSIFY = "classify"
-    EMBEDDING = "embedding"
-    VISION = "vision"
-    CHAT = "chat"
-    PLAN_MODE = "plan_mode"
-    DISCOVERY = "discovery"
-    ENTITY_ANALYSIS = "entity_analysis"
-    ATTACHMENT_ANALYSIS = "attachment_analysis"
-    RELEVANCE_CHECK = "relevance_check"
-    CUSTOM = "custom"
+    SUMMARIZE = "SUMMARIZE"
+    EXTRACT = "EXTRACT"
+    CLASSIFY = "CLASSIFY"
+    EMBEDDING = "EMBEDDING"
+    VISION = "VISION"
+    CHAT = "CHAT"
+    PLAN_MODE = "PLAN_MODE"
+    DISCOVERY = "DISCOVERY"
+    ENTITY_ANALYSIS = "ENTITY_ANALYSIS"
+    ATTACHMENT_ANALYSIS = "ATTACHMENT_ANALYSIS"
+    RELEVANCE_CHECK = "RELEVANCE_CHECK"
+    CUSTOM = "CUSTOM"
 
 
 class LLMUsageRecord(Base):

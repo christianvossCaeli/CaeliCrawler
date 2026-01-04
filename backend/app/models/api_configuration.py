@@ -43,37 +43,37 @@ if TYPE_CHECKING:
 class AuthType(str, enum.Enum):
     """Authentication types supported by external APIs."""
 
-    NONE = "none"
-    BASIC = "basic"
-    BEARER = "bearer"
-    API_KEY = "api_key"
-    OAUTH2 = "oauth2"
+    NONE = "NONE"
+    BASIC = "BASIC"
+    BEARER = "BEARER"
+    API_KEY = "API_KEY"
+    OAUTH2 = "OAUTH2"
 
 
 class ImportMode(str, enum.Enum):
     """Defines what the API sync imports/updates."""
 
-    ENTITIES = "entities"  # Create/update entities from API data
-    FACETS = "facets"  # Update facet values on existing entities
-    BOTH = "both"  # Create entities AND update facets
+    ENTITIES = "ENTITIES"  # Create/update entities from API data
+    FACETS = "FACETS"  # Update facet values on existing entities
+    BOTH = "BOTH"  # Create entities AND update facets
 
 
 class APIType(str, enum.Enum):
     """Type of API protocol/format."""
 
-    REST = "rest"
-    GRAPHQL = "graphql"
-    SPARQL = "sparql"
-    OPARL = "oparl"
+    REST = "REST"
+    GRAPHQL = "GRAPHQL"
+    SPARQL = "SPARQL"
+    OPARL = "OPARL"
 
 
 class SyncStatus(str, enum.Enum):
     """Status of the last sync operation."""
 
-    SUCCESS = "success"
-    PARTIAL = "partial"
-    FAILED = "failed"
-    RUNNING = "running"
+    SUCCESS = "SUCCESS"
+    PARTIAL = "PARTIAL"
+    FAILED = "FAILED"
+    RUNNING = "RUNNING"
 
 
 class APIConfiguration(Base):

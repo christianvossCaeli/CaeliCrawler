@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,35 +29,35 @@ class LLMPurpose(str, enum.Enum):
     """
 
     # Web Search - for AI-powered source discovery
-    WEB_SEARCH = "web_search"
+    WEB_SEARCH = "WEB_SEARCH"
 
     # Document Analysis - summarization, extraction, classification, vision
-    DOCUMENT_ANALYSIS = "document_analysis"
+    DOCUMENT_ANALYSIS = "DOCUMENT_ANALYSIS"
 
     # Embeddings - semantic search, similarity matching
-    EMBEDDINGS = "embeddings"
+    EMBEDDINGS = "EMBEDDINGS"
 
     # Assistant - interactive chat assistant
-    ASSISTANT = "assistant"
+    ASSISTANT = "ASSISTANT"
 
     # Plan Mode - Smart Query complex reasoning
-    PLAN_MODE = "plan_mode"
+    PLAN_MODE = "PLAN_MODE"
 
     # API Discovery - finding OParl endpoints
-    API_DISCOVERY = "api_discovery"
+    API_DISCOVERY = "API_DISCOVERY"
 
 
 class LLMProvider(str, enum.Enum):
     """Available LLM/API providers."""
 
     # Web Search Providers
-    SERPAPI = "serpapi"
-    SERPER = "serper"
+    SERPAPI = "SERPAPI"
+    SERPER = "SERPER"
 
     # LLM Providers
-    AZURE_OPENAI = "azure_openai"
-    OPENAI = "openai"
-    ANTHROPIC = "anthropic"
+    AZURE_OPENAI = "AZURE_OPENAI"
+    OPENAI = "OPENAI"
+    ANTHROPIC = "ANTHROPIC"
 
 
 # Which providers are valid for which purposes

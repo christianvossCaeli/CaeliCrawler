@@ -31,8 +31,101 @@ class ViewMode(str, Enum):
     LIST = "list"
     DETAIL = "detail"
     EDIT = "edit"
+    SUMMARY = "summary"
     UNKNOWN = "unknown"
 
+
+
+class FacetSummary(BaseModel):
+    """Summary of a facet for context awareness."""
+
+    facet_type_slug: str
+    facet_type_name: str
+    value_count: int
+    sample_values: list[str] = Field(default_factory=list)
+
+
+class WidgetSummary(BaseModel):
+    """Summary of a widget for context awareness."""
+
+    id: str
+    type: str
+    title: str
+    position: dict[str, int] = Field(default_factory=dict)
+
+
+class CrawlJobSummary(BaseModel):
+    """Summary of a crawl job for context awareness."""
+
+    job_id: str
+    category_name: str
+    status: str
+    progress: float = 0.0
+
+
+class FilterState(BaseModel):
+    """Filter state for list views."""
+
+    entity_type: str | None = None
+    facet_filters: dict[str, list[str]] = Field(default_factory=dict)
+    search_query: str | None = None
+    date_range: dict[str, str] | None = None
+    location_filter: str | None = None
+
+
+class PageContextData(BaseModel):
+    """
+    Page-specific context data for context-aware assistant interactions.
+    This enables the assistant to understand what the user is currently viewing
+    and perform context-specific actions.
+    """
+
+    # Entity-Detail Context
+    entity_id: str | None = Field(None, description="Current entity ID")
+    entity_type: str | None = Field(None, description="Current entity type slug")
+    entity_name: str | None = Field(None, description="Current entity name")
+    active_tab: str | None = Field(None, description="Active tab in entity detail view")
+    facets: list[FacetSummary] = Field(default_factory=list, description="Entity facets summary")
+    facet_count: int | None = Field(None, description="Total number of facets")
+    relation_count: int | None = Field(None, description="Total number of relations")
+    pysis_status: str | None = Field(None, description="PySis analysis status")
+    available_facet_types: list[str] = Field(default_factory=list, description="Available facet types")
+
+    # Summary/Dashboard Context
+    summary_id: str | None = Field(None, description="Current summary ID")
+    summary_name: str | None = Field(None, description="Current summary name")
+    widgets: list[WidgetSummary] = Field(default_factory=list, description="Summary widgets")
+
+    # Category Context
+    category_id: str | None = Field(None, description="Current category ID")
+    category_name: str | None = Field(None, description="Current category name")
+    category_entity_count: int | None = Field(None, description="Number of entities in category")
+    crawl_status: str | None = Field(None, description="Current crawl status")
+
+    # Source Context
+    source_id: str | None = Field(None, description="Current source ID")
+    source_type: str | None = Field(None, description="Source type")
+    source_status: str | None = Field(None, description="Source status")
+
+    # Smart Query Context
+    current_query: str | None = Field(None, description="Current smart query")
+    query_mode: str | None = Field(None, description="Smart query mode")
+    query_result_count: int | None = Field(None, description="Number of query results")
+
+    # Crawler Context
+    active_jobs: list[CrawlJobSummary] = Field(default_factory=list, description="Active crawl jobs")
+
+    # List-Views Context
+    filters: FilterState | None = Field(None, description="Current filter state")
+    sort_field: str | None = Field(None, description="Sort field")
+    sort_order: str | None = Field(None, description="Sort order (asc/desc)")
+    selected_ids: list[str] = Field(default_factory=list, description="Selected item IDs")
+    selected_count: int | None = Field(None, description="Number of selected items")
+    total_count: int | None = Field(None, description="Total number of items")
+
+    # Generic Context
+    available_features: list[str] = Field(default_factory=list, description="Available features")
+    available_actions: list[str] = Field(default_factory=list, description="Available actions")
 
 class AssistantContext(BaseModel):
     """Context information about the current app state."""
@@ -43,6 +136,7 @@ class AssistantContext(BaseModel):
     current_entity_name: str | None = Field(None, description="Name of the current entity")
     view_mode: ViewMode = Field(default=ViewMode.UNKNOWN, description="Current view mode")
     available_actions: list[str] = Field(default_factory=list, description="Actions available on current page")
+    page_data: PageContextData | None = Field(None, description="Page-specific context data")
 
 
 class ConversationMessage(BaseModel):
@@ -387,14 +481,45 @@ class BatchActionChatResponse(BaseModel):
 
 
 class ContextActionType(str, Enum):
-    """Types of context-aware actions on current entity."""
+    """Types of context-aware actions on current entity or page."""
 
+    # Entity-Level Actions
     ANALYZE_PYSIS = "analyze_pysis"
     ENRICH_FACETS = "enrich_facets"
     SHOW_PYSIS_STATUS = "show_pysis_status"
     START_CRAWL = "start_crawl"
     UPDATE_ENTITY = "update_entity"
     CREATE_FACET = "create_facet"
+    UPDATE_ENTITY_FIELD = "update_entity_field"
+    ADD_FACET_VALUE = "add_facet_value"
+    UPDATE_FACET_VALUE = "update_facet_value"
+    ADD_RELATION = "add_relation"
+    REMOVE_RELATION = "remove_relation"
+    START_ENTITY_CRAWL = "start_entity_crawl"
+
+    # Summary/Widget Actions
+    UPDATE_WIDGET = "update_widget"
+    ADD_WIDGET = "add_widget"
+    REMOVE_WIDGET = "remove_widget"
+    CONFIGURE_WIDGET = "configure_widget"
+    REORDER_WIDGETS = "reorder_widgets"
+
+    # Category Actions
+    UPDATE_CATEGORY_CONFIG = "update_category_config"
+    START_CATEGORY_CRAWL = "start_category_crawl"
+
+    # Source Actions
+    UPDATE_SOURCE_CONFIG = "update_source_config"
+    TEST_SOURCE_CONNECTION = "test_source_connection"
+
+    # Export Actions
+    CONFIGURE_EXPORT = "configure_export"
+    START_EXPORT = "start_export"
+
+    # Crawler Actions
+    PAUSE_CRAWL = "pause_crawl"
+    RESUME_CRAWL = "resume_crawl"
+    CANCEL_CRAWL = "cancel_crawl"
 
 
 class ContextActionResponse(BaseModel):
@@ -497,10 +622,10 @@ class WizardResponse(BaseModel):
 class ReminderRepeatType(str, Enum):
     """Repeat types for reminders."""
 
-    NONE = "none"
-    DAILY = "daily"
-    WEEKLY = "weekly"
-    MONTHLY = "monthly"
+    NONE = "NONE"
+    DAILY = "DAILY"
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
 
 
 class ReminderCreate(BaseModel):

@@ -179,66 +179,6 @@ def build_text_representation(value: Any) -> str:
     return ""
 
 
-def clean_municipality_name(name: str, country: str = "DE") -> str:
-    """
-    Clean municipality names with minimal, generic rules.
-
-    DEPRECATED: This function is no longer used for entity deduplication.
-    We now use embedding-based similarity matching which handles variations
-    like "Aberdeen City Council" vs "Aberdeen" automatically without
-    entity-type-specific rules.
-
-    Only removes clearly redundant suffixes like parenthetical abbreviations
-    and trailing country/state names.
-
-    Args:
-        name: The municipality name
-        country: ISO 3166-1 alpha-2 country code
-
-    Returns:
-        Cleaned name with minimal normalization
-
-    Examples:
-        >>> clean_municipality_name("Regionalverband Ruhr (RVR)", "DE")
-        'Regionalverband Ruhr'
-        >>> clean_municipality_name("Aberdeen City Council", "GB")
-        'Aberdeen'
-    """
-    original = name
-
-    # Universal: Remove parenthetical suffixes like "(RVR)", "(NRW)"
-    name = re.sub(r'\s*\([^)]*\)$', '', name)
-
-    if country in GERMAN_SPEAKING_COUNTRIES:
-        # Remove trailing country/state names after comma
-        name = re.sub(r',\s*(?:Deutschland|Germany)$', '', name, flags=re.IGNORECASE)
-
-    elif country == "GB":
-        # Remove common UK institutional suffixes
-        uk_suffix_patterns = [
-            r'\s+City\s+Council$',
-            r'\s+Borough\s+Council$',
-            r'\s+District\s+Council$',
-            r'\s+County\s+Council$',
-            r'\s+Council$',
-        ]
-        for pattern in uk_suffix_patterns:
-            name = re.sub(pattern, '', name, flags=re.IGNORECASE)
-
-        # Remove UK prefixes
-        uk_prefix_patterns = [
-            r'^City\s+of\s+',
-            r'^Borough\s+of\s+',
-            r'^County\s+of\s+',
-            r'^Royal\s+Borough\s+of\s+',
-        ]
-        for pattern in uk_prefix_patterns:
-            name = re.sub(pattern, '', name, flags=re.IGNORECASE)
-
-    name = name.strip()
-    return name if name else original
-
-
 # =============================================================================
 # Core Name Extraction for Duplicate Detection
 # =============================================================================

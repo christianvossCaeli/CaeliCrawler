@@ -33,17 +33,17 @@ from app.database import Base
 class PricingProvider(str, Enum):
     """Providers for which we track pricing."""
 
-    AZURE_OPENAI = "azure_openai"
-    OPENAI = "openai"
-    ANTHROPIC = "anthropic"
+    AZURE_OPENAI = "AZURE_OPENAI"
+    OPENAI = "OPENAI"
+    ANTHROPIC = "ANTHROPIC"
 
 
 class PricingSource(str, Enum):
     """How the pricing data was obtained."""
 
-    MANUAL = "manual"  # Manually entered by admin
-    AZURE_API = "azure_api"  # Fetched from Azure Retail Prices API
-    OFFICIAL_DOCS = "official_docs"  # Copied from official documentation
+    MANUAL = "MANUAL"  # Manually entered by admin
+    AZURE_API = "AZURE_API"  # Fetched from Azure Retail Prices API
+    OFFICIAL_DOCS = "OFFICIAL_DOCS"  # Copied from official documentation
 
 
 # Official pricing page URLs for reference

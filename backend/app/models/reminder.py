@@ -19,19 +19,19 @@ if TYPE_CHECKING:
 class ReminderRepeat(str, enum.Enum):
     """Repeat intervals for reminders."""
 
-    NONE = "none"
-    DAILY = "daily"
-    WEEKLY = "weekly"
-    MONTHLY = "monthly"
+    NONE = "NONE"
+    DAILY = "DAILY"
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
 
 
 class ReminderStatus(str, enum.Enum):
     """Status of a reminder."""
 
-    PENDING = "pending"
-    SENT = "sent"
-    DISMISSED = "dismissed"
-    CANCELLED = "cancelled"
+    PENDING = "PENDING"
+    SENT = "SENT"
+    DISMISSED = "DISMISSED"
+    CANCELLED = "CANCELLED"
 
 
 class Reminder(Base):
