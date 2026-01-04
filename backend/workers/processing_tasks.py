@@ -56,7 +56,7 @@ def process_document(self, document_id: str):
                 text, title = await _extract_text_and_title(document)
                 # Clean text: remove null bytes which cause PostgreSQL errors
                 if text:
-                    text = text.replace('\x00', '')
+                    text = text.replace("\x00", "")
                 document.raw_text = text
 
                 # Set title if not already set and we extracted one
@@ -103,6 +103,7 @@ def process_document(self, document_id: str):
                 # Only trigger if we have relevant pages (not needs_review)
                 if document.page_analysis_status in ("ready", "has_more", "pending"):
                     from workers.ai_tasks import analyze_document
+
                     analyze_document.delay(document_id)
                 else:
                     logger.info(
@@ -186,14 +187,14 @@ def _is_valid_title(text: str) -> bool:
     if not text or len(text) < 5:
         return False
     # Count alphanumeric characters (including German umlauts)
-    alnum_count = sum(1 for c in text if c.isalnum() or c in 'äöüÄÖÜß')
+    alnum_count = sum(1 for c in text if c.isalnum() or c in "äöüÄÖÜß")
     # Require at least 50% alphanumeric content
     return alnum_count / len(text) >= 0.5
 
 
 # Pre-compiled regex patterns for title extraction (compiled once at module load)
-_FILENAME_SEPARATOR_PATTERN = re.compile(r'[_-]+')
-_UUID_HEX_PATTERN = re.compile(r'\b[a-f0-9]{8,}\b', re.IGNORECASE)
+_FILENAME_SEPARATOR_PATTERN = re.compile(r"[_-]+")
+_UUID_HEX_PATTERN = re.compile(r"\b[a-f0-9]{8,}\b", re.IGNORECASE)
 
 
 def _title_from_filename(file_path: str) -> str | None:
@@ -210,11 +211,11 @@ def _title_from_filename(file_path: str) -> str | None:
     """
     filename = Path(file_path).stem  # filename without extension
     # Replace underscores and hyphens with spaces
-    title = _FILENAME_SEPARATOR_PATTERN.sub(' ', filename)
+    title = _FILENAME_SEPARATOR_PATTERN.sub(" ", filename)
     # Remove UUIDs and long hex strings
-    title = _UUID_HEX_PATTERN.sub('', title)
+    title = _UUID_HEX_PATTERN.sub("", title)
     # Remove extra spaces and trim
-    title = ' '.join(title.split())
+    title = " ".join(title.split())
 
     if _is_valid_title(title):
         return title[:200]  # Truncate to reasonable length
@@ -374,9 +375,7 @@ def process_pending_documents():
         async with get_celery_session_context() as session:
             # Get pending documents (limit batch size)
             result = await session.execute(
-                select(Document)
-                .where(Document.processing_status == ProcessingStatus.PENDING)
-                .limit(50)
+                select(Document).where(Document.processing_status == ProcessingStatus.PENDING).limit(50)
             )
             documents = result.scalars().all()
 

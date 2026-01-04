@@ -10,7 +10,7 @@ Pricing is stored per 1M tokens to match industry standard.
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 
 from sqlalchemy import (
@@ -180,12 +180,11 @@ class ModelPricing(Base):
     @property
     def days_since_verified(self) -> int:
         """Number of days since last verification."""
-        from datetime import timezone
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if self.last_verified_at.tzinfo is None:
             # Assume UTC if no timezone
-            verified = self.last_verified_at.replace(tzinfo=timezone.utc)
+            verified = self.last_verified_at.replace(tzinfo=UTC)
         else:
             verified = self.last_verified_at
         return (now - verified).days

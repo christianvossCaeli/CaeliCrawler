@@ -52,11 +52,7 @@ class CommandResult:
 
     @classmethod
     def success_result(
-        cls,
-        message: str,
-        operation: str = "",
-        created_items: list[dict] | None = None,
-        **extra
+        cls, message: str, operation: str = "", created_items: list[dict] | None = None, **extra
     ) -> "CommandResult":
         """Create a success result."""
         return cls(

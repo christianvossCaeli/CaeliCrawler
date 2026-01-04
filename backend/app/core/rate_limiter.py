@@ -173,9 +173,7 @@ class RateLimiter:
             self._fallback_storage[key] = []
 
         # Remove old entries
-        self._fallback_storage[key] = [
-            ts for ts in self._fallback_storage[key] if ts > window_start
-        ]
+        self._fallback_storage[key] = [ts for ts in self._fallback_storage[key] if ts > window_start]
 
         current_count = len(self._fallback_storage[key])
         remaining = max(0, max_requests - current_count - 1)

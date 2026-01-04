@@ -222,7 +222,8 @@ class WizardService:
 
         # Find and remove expired wizards
         expired_wizards = [
-            wizard_id for wizard_id, data in cls._active_wizards.items()
+            wizard_id
+            for wizard_id, data in cls._active_wizards.items()
             if data.get("created_at", datetime.min).timestamp() < expiry_threshold
         ]
 
@@ -246,11 +247,7 @@ class WizardService:
             for w in WIZARD_DEFINITIONS.values()
         ]
 
-    async def start_wizard(
-        self,
-        wizard_type: str,
-        context: dict[str, Any] | None = None
-    ) -> WizardResponse:
+    async def start_wizard(self, wizard_type: str, context: dict[str, Any] | None = None) -> WizardResponse:
         """Start a new wizard session.
 
         Args:
@@ -302,9 +299,7 @@ class WizardService:
         )
 
     async def process_wizard_response(
-        self,
-        wizard_id: str,
-        response: Any
+        self, wizard_id: str, response: Any
     ) -> tuple[WizardResponse, dict[str, Any] | None]:
         """Process a user response for an active wizard.
 
@@ -444,11 +439,7 @@ class WizardService:
         """
         return self._active_wizards.get(wizard_id)
 
-    async def _prepare_steps(
-        self,
-        steps: list[WizardStep],
-        context: dict[str, Any] | None
-    ) -> list[WizardStep]:
+    async def _prepare_steps(self, steps: list[WizardStep], context: dict[str, Any] | None) -> list[WizardStep]:
         """Prepare wizard steps with dynamic options.
 
         Args:
@@ -486,11 +477,7 @@ class WizardService:
 
         return prepared
 
-    def _validate_response(
-        self,
-        step: WizardStep,
-        response: Any
-    ) -> str | None:
+    def _validate_response(self, step: WizardStep, response: Any) -> str | None:
         """Validate a user response against step requirements.
 
         Args:
@@ -538,10 +525,7 @@ class WizardService:
 
         return None
 
-    async def _execute_wizard(
-        self,
-        wizard_data: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def _execute_wizard(self, wizard_data: dict[str, Any]) -> dict[str, Any]:
         """Execute the completed wizard and perform the action.
 
         Args:
@@ -587,9 +571,7 @@ class WizardService:
         description = answers.get("description")
 
         # Get entity type
-        result = await self.db.execute(
-            select(EntityType).where(EntityType.slug == entity_type_slug)
-        )
+        result = await self.db.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
         entity_type = result.scalar_one_or_none()
 
         if not entity_type:
@@ -635,9 +617,7 @@ class WizardService:
         description = answers.get("description")
 
         # Get entity
-        result = await self.db.execute(
-            select(Entity).where(Entity.id == entity_id)
-        )
+        result = await self.db.execute(select(Entity).where(Entity.id == entity_id))
         entity = result.scalar_one_or_none()
 
         if not entity:
@@ -647,9 +627,7 @@ class WizardService:
             }
 
         # Get or create pain_point facet type
-        result = await self.db.execute(
-            select(FacetType).where(FacetType.slug == "pain_point")
-        )
+        result = await self.db.execute(select(FacetType).where(FacetType.slug == "pain_point"))
         facet_type = result.scalar_one_or_none()
 
         if not facet_type:
@@ -677,6 +655,7 @@ class WizardService:
 
         # Generate embedding for semantic similarity search
         from app.utils.similarity import generate_embedding
+
         embedding = await generate_embedding(text_repr)
         if embedding:
             facet_value.text_embedding = embedding

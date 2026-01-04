@@ -67,13 +67,14 @@ def register_tasks(celery_app):
             target_facet_types: List of facet type slugs to generate
             task_id: AITask ID for progress tracking
         """
-        run_async(_analyze_entity_data_for_facets_async(
-            entity_id,
-            source_types,
-            target_facet_types,
-            task_id,
-        ))
-
+        run_async(
+            _analyze_entity_data_for_facets_async(
+                entity_id,
+                source_types,
+                target_facet_types,
+                task_id,
+            )
+        )
 
     async def _analyze_entity_data_for_facets_async(
         entity_id: str,
@@ -120,9 +121,7 @@ def register_tasks(celery_app):
 
                 # 3. Load facet types
                 ft_result = await session.execute(
-                    select(FacetType)
-                    .where(FacetType.slug.in_(target_facet_types))
-                    .where(FacetType.is_active.is_(True))
+                    select(FacetType).where(FacetType.slug.in_(target_facet_types)).where(FacetType.is_active.is_(True))
                 )
                 facet_types = ft_result.scalars().all()
                 facet_type_map = {ft.slug: ft for ft in facet_types}
@@ -137,9 +136,7 @@ def register_tasks(celery_app):
                 ai_task.progress_current = 0
                 await session.commit()
 
-                collected_data = await collect_entity_data(
-                    session, UUID(entity_id), source_types
-                )
+                collected_data = await collect_entity_data(session, UUID(entity_id), source_types)
 
                 ai_task.progress_current = len(source_types)
                 ai_task.current_item = "Lade bestehende Facets..."
@@ -147,9 +144,7 @@ def register_tasks(celery_app):
 
                 # 5. Get existing facets for deduplication
                 existing_facets = await get_existing_facets(session, UUID(entity_id))
-                existing_hashes = {
-                    compute_value_hash(f["value"]) for f in existing_facets
-                }
+                existing_hashes = {compute_value_hash(f["value"]) for f in existing_facets}
 
                 ai_task.progress_current = len(source_types) + 1
                 ai_task.current_item = "Analysiere mit KI..."
@@ -181,12 +176,7 @@ def register_tasks(celery_app):
                             continue
 
                         # Get text representation
-                        text_repr = (
-                            item.get("description")
-                            or item.get("text")
-                            or item.get("name")
-                            or str(item)
-                        )
+                        text_repr = item.get("description") or item.get("text") or item.get("name") or str(item)
 
                         if not text_repr or len(str(text_repr)) < 5:
                             continue
@@ -216,26 +206,30 @@ def register_tasks(celery_app):
                                     changes.append(key)
 
                             if changes:
-                                updates.append({
-                                    "facet_value_id": matching_existing["id"],
-                                    "facet_type": ft_slug,
-                                    "facet_type_name": ft.name,
-                                    "current_value": current_val,
-                                    "proposed_value": item,
-                                    "changes": changes,
-                                    "text": str(text_repr)[:500],
-                                    "confidence": item.get("confidence", 0.7),
-                                })
+                                updates.append(
+                                    {
+                                        "facet_value_id": matching_existing["id"],
+                                        "facet_type": ft_slug,
+                                        "facet_type_name": ft.name,
+                                        "current_value": current_val,
+                                        "proposed_value": item,
+                                        "changes": changes,
+                                        "text": str(text_repr)[:500],
+                                        "confidence": item.get("confidence", 0.7),
+                                    }
+                                )
                         elif item_hash not in existing_hashes:
                             # This is a new facet
-                            new_facets.append({
-                                "facet_type": ft_slug,
-                                "facet_type_name": ft.name,
-                                "value": item,
-                                "text": str(text_repr)[:500],
-                                "confidence": item.get("confidence", 0.7),
-                                "ai_model": settings.azure_openai_deployment_name,
-                            })
+                            new_facets.append(
+                                {
+                                    "facet_type": ft_slug,
+                                    "facet_type_name": ft.name,
+                                    "value": item,
+                                    "text": str(text_repr)[:500],
+                                    "confidence": item.get("confidence", 0.7),
+                                    "ai_model": settings.azure_openai_deployment_name,
+                                }
+                            )
 
                 # 8. Store preview in result_data
                 ai_task.result_data = {
@@ -267,7 +261,6 @@ def register_tasks(celery_app):
             except Exception as e:
                 logger.exception("Entity data analysis failed", entity_id=entity_id)
                 await fail_task(f"Analyse fehlgeschlagen: {str(e)}")
-
 
     async def _run_entity_data_ai_analysis(
         collected_data: dict[str, Any],
@@ -303,9 +296,7 @@ def register_tasks(celery_app):
                 direction = "→" if rel["direction"] == "outgoing" else "←"
                 rel_name = rel.get("relation_name", rel.get("relation_type", "verknüpft"))
                 target = rel.get("related_entity", {})
-                context_parts.append(
-                    f"{direction} {rel_name}: {target.get('name', 'Unbekannt')}"
-                )
+                context_parts.append(f"{direction} {rel_name}: {target.get('name', 'Unbekannt')}")
                 if rel.get("attributes"):
                     context_parts.append(f"   Attribute: {json.dumps(rel['attributes'], ensure_ascii=False)}")
                 # Include related entity's facets
@@ -360,7 +351,9 @@ def register_tasks(celery_app):
         if existing_facets:
             existing_context = "\n\nBEREITS VORHANDENE FACETS (nicht duplizieren, aber erweitern wenn neue Infos):\n"
             for ef in existing_facets[:30]:
-                existing_context += f"- {ef.get('facet_type_name', ef.get('facet_type', ''))}: {ef.get('text', '')[:100]}\n"
+                existing_context += (
+                    f"- {ef.get('facet_type_name', ef.get('facet_type', ''))}: {ef.get('text', '')[:100]}\n"
+                )
 
         system_prompt = f"""Du bist ein Experte für die Extraktion strukturierter Informationen aus Projektdaten.
 
@@ -442,7 +435,6 @@ def register_tasks(celery_app):
             logger.exception("AI analysis failed")
             raise RuntimeError(f"KI-Service nicht erreichbar: {str(e)}") from None
 
-
     def _texts_similar(text1: str, text2: str, threshold: float = 0.7) -> bool:
         """Check if two texts are similar using simple word overlap."""
         if not text1 or not text2:
@@ -461,11 +453,9 @@ def register_tasks(celery_app):
 
         return (intersection / union) >= threshold if union > 0 else False
 
-
     # =============================================================================
     # Entity Attachment Analysis
     # =============================================================================
-
 
     @celery_app.task(
         bind=True,
@@ -497,7 +487,6 @@ def register_tasks(celery_app):
             extract_facets: Whether to extract facet suggestions
         """
         run_async(_analyze_attachment_async(attachment_id, task_id, extract_facets))
-
 
     async def _analyze_attachment_async(
         attachment_id: str,
@@ -651,6 +640,7 @@ def register_tasks(celery_app):
 
                 # Emit notification event
                 from workers.notification_tasks import emit_event
+
                 emit_event.delay(
                     "AI_ANALYSIS_COMPLETED",
                     {
@@ -658,7 +648,7 @@ def register_tasks(celery_app):
                         "entity_id": attachment_id,
                         "title": f"Attachment analysiert: {attachment.filename}",
                         "entity_name": entity.name,
-                    }
+                    },
                 )
 
             except SoftTimeLimitExceeded:
@@ -668,7 +658,6 @@ def register_tasks(celery_app):
             except Exception as e:
                 logger.exception("Attachment analysis failed", attachment_id=attachment_id)
                 await fail_task(f"Analyse fehlgeschlagen: {str(e)}")
-
 
     # Return task references
     return (

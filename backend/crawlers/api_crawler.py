@@ -67,26 +67,24 @@ class APICrawler(BaseCrawler):
             # Store documents in database
             # Use celery session context since this runs inside Celery workers
             async with get_celery_session_context() as session:
-                new_count, updated_count = await self._store_documents(
-                    session, source, job, documents
-                )
+                new_count, updated_count = await self._store_documents(session, source, job, documents)
                 result.documents_new = new_count
                 result.documents_updated = updated_count
                 result.documents_processed = new_count + updated_count
 
         except Exception as e:
             self.logger.exception("API crawl failed", error=str(e))
-            result.errors.append({
-                "type": type(e).__name__,
-                "message": str(e),
-                "timestamp": datetime.now(UTC).isoformat(),
-            })
+            result.errors.append(
+                {
+                    "type": type(e).__name__,
+                    "message": str(e),
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
 
         return result
 
-    async def _crawl_govdata(
-        self, source: "DataSource", config: dict
-    ) -> list[APIDocument]:
+    async def _crawl_govdata(self, source: "DataSource", config: dict) -> list[APIDocument]:
         """Crawl GovData.de."""
         from crawlers.api_clients.govdata_client import GovDataClient
 
@@ -121,9 +119,7 @@ class APICrawler(BaseCrawler):
         )
         return documents
 
-    async def _crawl_dip_bundestag(
-        self, source: "DataSource", config: dict
-    ) -> list[APIDocument]:
+    async def _crawl_dip_bundestag(self, source: "DataSource", config: dict) -> list[APIDocument]:
         """Crawl DIP Bundestag."""
         from crawlers.api_clients.dip_bundestag_client import DIPBundestagClient
 
@@ -170,9 +166,7 @@ class APICrawler(BaseCrawler):
         )
         return documents
 
-    async def _crawl_fragdenstaat(
-        self, source: "DataSource", config: dict
-    ) -> list[APIDocument]:
+    async def _crawl_fragdenstaat(self, source: "DataSource", config: dict) -> list[APIDocument]:
         """Crawl FragDenStaat."""
         from crawlers.api_clients.fragdenstaat_client import FragDenStaatClient
 
@@ -250,7 +244,9 @@ class APICrawler(BaseCrawler):
             # Determine document type from file URL or mime type
             doc_type = api_doc.document_type or "API"
             if has_file:
-                if api_doc.mime_type == "application/pdf" or (api_doc.file_url and api_doc.file_url.lower().endswith(".pdf")):
+                if api_doc.mime_type == "application/pdf" or (
+                    api_doc.file_url and api_doc.file_url.lower().endswith(".pdf")
+                ):
                     doc_type = "PDF"
                 elif api_doc.file_url and api_doc.file_url.lower().endswith((".csv", ".json", ".xml")):
                     doc_type = api_doc.file_url.split(".")[-1].upper()

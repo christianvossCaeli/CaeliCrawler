@@ -81,8 +81,9 @@ def register_tasks(celery_app):
         """
         run_async(_extract_pysis_fields_async(process_id, field_ids, self.request.id))
 
-
-    async def _extract_pysis_fields_async(process_id: str, field_ids: list[str] | None, celery_task_id: str | None = None):
+    async def _extract_pysis_fields_async(
+        process_id: str, field_ids: list[str] | None, celery_task_id: str | None = None
+    ):
         """Async implementation of PySis field extraction."""
         from sqlalchemy import select
 
@@ -99,8 +100,7 @@ def register_tasks(celery_app):
 
             # Get fields to extract
             query = select(PySisProcessField).where(
-                PySisProcessField.process_id == process.id,
-                PySisProcessField.ai_extraction_enabled.is_(True)
+                PySisProcessField.process_id == process.id, PySisProcessField.ai_extraction_enabled.is_(True)
             )
             if field_ids:
                 query = query.where(PySisProcessField.id.in_([UUID(f) for f in field_ids]))
@@ -139,9 +139,7 @@ def register_tasks(celery_app):
             # Get all extracted data for this location
             ext_result = await session.execute(
                 select(ExtractedData)
-                .where(
-                    ExtractedData.extracted_content["municipality"].astext.ilike(f"%{process.entity_name}%")
-                )
+                .where(ExtractedData.extracted_content["municipality"].astext.ilike(f"%{process.entity_name}%"))
                 .where(ExtractedData.confidence_score >= 0.5)
                 .order_by(ExtractedData.created_at.desc())
                 .limit(30)
@@ -152,9 +150,7 @@ def register_tasks(celery_app):
                 # Try broader search using source_location
                 ext_result = await session.execute(
                     select(ExtractedData)
-                    .where(
-                        ExtractedData.extracted_content["source_location"].astext.ilike(f"%{process.entity_name}%")
-                    )
+                    .where(ExtractedData.extracted_content["source_location"].astext.ilike(f"%{process.entity_name}%"))
                     .where(ExtractedData.confidence_score >= 0.5)
                     .order_by(ExtractedData.created_at.desc())
                     .limit(30)
@@ -225,11 +221,7 @@ def register_tasks(celery_app):
                     await session.commit()
 
                 try:
-                    value, confidence = await _extract_single_pysis_field(
-                        field,
-                        context_text,
-                        process.entity_name
-                    )
+                    value, confidence = await _extract_single_pysis_field(field, context_text, process.entity_name)
 
                     if value:
                         # Store AI value as suggestion - don't auto-apply
@@ -269,11 +261,8 @@ def register_tasks(celery_app):
             await session.commit()
             logger.info("PySis field extraction completed", process_id=process_id, fields_extracted=fields_extracted)
 
-
     async def _extract_single_pysis_field(
-        field: "PySisProcessField",
-        context: str,
-        location_name: str
+        field: "PySisProcessField", context: str, location_name: str
     ) -> tuple[str, float]:
         """
         Extract a single PySis field value using AI.
@@ -319,7 +308,10 @@ def register_tasks(celery_app):
                 model=settings.azure_openai_deployment_name,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Analysiere die folgenden Dokumente der Gemeinde {location_name}:\n\n{context}"},
+                    {
+                        "role": "user",
+                        "content": f"Analysiere die folgenden Dokumente der Gemeinde {location_name}:\n\n{context}",
+                    },
                 ],
                 temperature=0.2,
                 max_tokens=2000,
@@ -373,7 +365,6 @@ def register_tasks(celery_app):
             )
             raise RuntimeError(f"KI-Service nicht erreichbar: {str(e)}") from None
 
-
     @celery_app.task(name="workers.ai_tasks.convert_extractions_to_facets")
     def convert_extractions_to_facets(
         min_confidence: float = 0.5,
@@ -393,7 +384,6 @@ def register_tasks(celery_app):
         """
         run_async(_convert_extractions_async(min_confidence, batch_size, entity_type_slug))
 
-
     async def _convert_extractions_async(
         min_confidence: float,
         batch_size: int,
@@ -409,8 +399,7 @@ def register_tasks(celery_app):
         async with get_celery_session_context() as session:
             # Count total extractions to process
             count_result = await session.execute(
-                select(func.count(ExtractedData.id))
-                .where(ExtractedData.confidence_score >= min_confidence)
+                select(func.count(ExtractedData.id)).where(ExtractedData.confidence_score >= min_confidence)
             )
             total_count = count_result.scalar()
 
@@ -447,6 +436,7 @@ def register_tasks(celery_app):
                         source = None
                         if extraction.document_id:
                             from app.models import Document
+
                             doc = await session.get(Document, extraction.document_id)
                             if doc and doc.source_id:
                                 source = await session.get(DataSource, doc.source_id)
@@ -455,8 +445,7 @@ def register_tasks(celery_app):
                         # Note: source.location_name was removed - municipality must come from AI extraction
                         content = extraction.final_content
                         municipality_name = (
-                            content.get("municipality")
-                            or content.get("source_location")
+                            content.get("municipality") or content.get("source_location")
                             # source.location_name no longer available
                         )
 
@@ -499,7 +488,6 @@ def register_tasks(celery_app):
                 total_facets=total_facets,
             )
 
-
     @celery_app.task(
         bind=True,
         name="workers.ai_tasks.analyze_pysis_fields_for_facets",
@@ -528,14 +516,15 @@ def register_tasks(celery_app):
             min_confidence: Minimum field confidence
             existing_task_id: Existing AITask ID (to avoid duplicate creation)
         """
-        run_async(_analyze_pysis_for_facets_async(
-            process_id,
-            include_empty,
-            min_confidence,
-            self.request.id,
-            existing_task_id,
-        ))
-
+        run_async(
+            _analyze_pysis_for_facets_async(
+                process_id,
+                include_empty,
+                min_confidence,
+                self.request.id,
+                existing_task_id,
+            )
+        )
 
     async def _analyze_pysis_for_facets_async(
         process_id: str,
@@ -601,7 +590,9 @@ def register_tasks(celery_app):
                 ai_task = await session.get(AITask, UUID(existing_task_id))
                 if ai_task:
                     ai_task.status = AITaskStatus.RUNNING
-                    ai_task.description = f"Extrahiere {len(facet_types)} Facet-Typen aus {len(process.fields)} PySis-Feldern"
+                    ai_task.description = (
+                        f"Extrahiere {len(facet_types)} Facet-Typen aus {len(process.fields)} PySis-Feldern"
+                    )
                     ai_task.progress_total = len(facet_types)
                     ai_task.celery_task_id = celery_task_id
                     await session.commit()
@@ -638,13 +629,15 @@ def register_tasks(celery_app):
                 if field.confidence_score and field.confidence_score < min_confidence:
                     continue
 
-                field_data.append({
-                    "name": field.internal_name,
-                    "pysis_name": field.pysis_field_name,
-                    "value": value,
-                    "source": field.value_source.value if field.value_source else "UNKNOWN",
-                    "confidence": field.confidence_score,
-                })
+                field_data.append(
+                    {
+                        "name": field.internal_name,
+                        "pysis_name": field.pysis_field_name,
+                        "value": value,
+                        "source": field.value_source.value if field.value_source else "UNKNOWN",
+                        "confidence": field.confidence_score,
+                    }
+                )
 
             if not field_data:
                 ai_task.status = AITaskStatus.COMPLETED
@@ -700,7 +693,6 @@ def register_tasks(celery_app):
                 entity_name=entity.name,
                 facet_counts=facet_counts,
             )
-
 
     async def _extract_facets_from_pysis_fields_dynamic(
         fields: list[dict[str, Any]],
@@ -768,10 +760,7 @@ def register_tasks(celery_app):
                     if schema_fields:
                         schema_desc = "\n   Felder:\n" + "\n".join(schema_fields)
 
-            facet_descriptions.append(
-                f"{idx}. {ft.name.upper()} (slug: {ft.slug})\n"
-                f"   {instruction}{schema_desc}"
-            )
+            facet_descriptions.append(f"{idx}. {ft.name.upper()} (slug: {ft.slug})\n   {instruction}{schema_desc}")
 
             # Build response schema hint
             if ft.value_type == "text":
@@ -870,7 +859,6 @@ def register_tasks(celery_app):
             )
             raise RuntimeError(f"KI-Service nicht erreichbar: {str(e)}") from None
 
-
     def _build_pysis_source_metadata(
         item_source_fields: list[str],
         pysis_fields_dict: dict[str, Any],
@@ -891,16 +879,11 @@ def register_tasks(celery_app):
         metadata = {"pysis_field_names": item_source_fields}
 
         # Include actual values from those fields (use walrus operator to avoid double .get())
-        source_field_values = {
-            field: value
-            for field in item_source_fields
-            if (value := pysis_fields_dict.get(field))
-        }
+        source_field_values = {field: value for field in item_source_fields if (value := pysis_fields_dict.get(field))}
         if source_field_values:
             metadata["pysis_fields"] = source_field_values
 
         return metadata
-
 
     async def _create_facets_from_pysis_extraction_dynamic(
         session: "AsyncSession",
@@ -949,8 +932,7 @@ def register_tasks(celery_app):
             pysis_fields_dict = {
                 key: value
                 for f in field_data
-                if (key := (f.get("pysis_name") or f.get("name")))
-                and (value := f.get("value"))
+                if (key := (f.get("pysis_name") or f.get("name"))) and (value := f.get("value"))
             }
 
         for idx, ft in enumerate(facet_types):
@@ -1023,10 +1005,7 @@ def register_tasks(celery_app):
                     dedup_text = text_repr
                     if ft.deduplication_fields:
                         # Use walrus operator to avoid double .get() calls
-                        dedup_parts = [
-                            str(val) for f in ft.deduplication_fields
-                            if (val := item.get(f))
-                        ]
+                        dedup_parts = [str(val) for f in ft.deduplication_fields if (val := item.get(f))]
                         if dedup_parts:
                             dedup_text = " ".join(dedup_parts)
 
@@ -1047,13 +1026,9 @@ def register_tasks(celery_app):
 
                     # Build metadata with specific source fields for this item
                     # Filter out source_fields from item since we store it separately as pysis_field_names
-                    value_with_metadata = {
-                        k: v for k, v in item.items() if k != "source_fields"
-                    }
+                    value_with_metadata = {k: v for k, v in item.items() if k != "source_fields"}
                     value_with_metadata.update(pysis_base_metadata)
-                    value_with_metadata.update(
-                        _build_pysis_source_metadata(item_source_fields, pysis_fields_dict)
-                    )
+                    value_with_metadata.update(_build_pysis_source_metadata(item_source_fields, pysis_fields_dict))
 
                     await create_facet_value(
                         session,
@@ -1061,10 +1036,7 @@ def register_tasks(celery_app):
                         facet_type_id=ft.id,
                         value=value_with_metadata,
                         text_representation=text_repr[:PYSIS_TEXT_REPR_MAX_LENGTH],
-                        confidence_score=min(
-                            PYSIS_MAX_CONFIDENCE,
-                            base_confidence + PYSIS_CONFIDENCE_BOOST
-                        ),
+                        confidence_score=min(PYSIS_MAX_CONFIDENCE, base_confidence + PYSIS_CONFIDENCE_BOOST),
                         source_type=FacetValueSourceType.PYSIS,
                         facet_type=ft,  # Pass FacetType for entity reference resolution
                     )
@@ -1079,7 +1051,6 @@ def register_tasks(celery_app):
                     await session.commit()
 
         return counts
-
 
     @celery_app.task(
         bind=True,
@@ -1109,14 +1080,15 @@ def register_tasks(celery_app):
             overwrite_existing: Replace existing field values
             existing_task_id: Existing AITask ID (to avoid duplicate creation)
         """
-        run_async(_enrich_facet_values_from_pysis_async(
-            entity_id,
-            facet_type_id,
-            overwrite_existing,
-            self.request.id,
-            existing_task_id,
-        ))
-
+        run_async(
+            _enrich_facet_values_from_pysis_async(
+                entity_id,
+                facet_type_id,
+                overwrite_existing,
+                self.request.id,
+                existing_task_id,
+            )
+        )
 
     async def _enrich_facet_values_from_pysis_async(
         entity_id: str,
@@ -1169,12 +1141,14 @@ def register_tasks(celery_app):
                 for field in process.fields:
                     value = field.current_value or field.pysis_value or field.ai_extracted_value
                     if value:
-                        pysis_fields.append({
-                            "name": field.internal_name,
-                            "pysis_name": field.pysis_field_name,
-                            "value": value,
-                            "confidence": field.confidence_score,
-                        })
+                        pysis_fields.append(
+                            {
+                                "name": field.internal_name,
+                                "pysis_name": field.pysis_field_name,
+                                "value": value,
+                                "confidence": field.confidence_score,
+                            }
+                        )
 
             if not pysis_fields:
                 logger.info("No PySis field values found", entity_id=entity_id)
@@ -1232,6 +1206,7 @@ def register_tasks(celery_app):
 
             # 5. Initialize Azure OpenAI client
             from services.ai_client import AzureOpenAIClientFactory
+
             try:
                 client = AzureOpenAIClientFactory.create_client()
             except ValueError as e:
@@ -1285,11 +1260,7 @@ def register_tasks(celery_app):
                         await session.commit()
 
                 except Exception as e:
-                    logger.error(
-                        "Failed to enrich FacetValue",
-                        facet_value_id=str(fv.id),
-                        error=str(e)
-                    )
+                    logger.error("Failed to enrich FacetValue", facet_value_id=str(fv.id), error=str(e))
 
             # 7. Complete task
             ai_task = await session.get(AITask, task_id)
@@ -1304,7 +1275,6 @@ def register_tasks(celery_app):
                 enriched=enriched_count,
                 total=len(facet_values),
             )
-
 
     async def _enrich_single_facet_value(
         client: "AsyncAzureOpenAI",
@@ -1341,25 +1311,26 @@ def register_tasks(celery_app):
             if field_name in ["id", "created_at", "updated_at"]:
                 continue
 
-            missing_fields.append({
-                "name": field_name,
-                "type": field_def.get("type", "string"),
-                "description": field_def.get("description", ""),
-            })
+            missing_fields.append(
+                {
+                    "name": field_name,
+                    "type": field_def.get("type", "string"),
+                    "description": field_def.get("description", ""),
+                }
+            )
 
         if not missing_fields:
             return None
 
         # Build prompt
-        pysis_text = "\n".join([
-            f"- {f['name']}: {f['value']}"
-            for f in pysis_fields[:30]  # Limit context
-        ])
+        pysis_text = "\n".join(
+            [
+                f"- {f['name']}: {f['value']}"
+                for f in pysis_fields[:30]  # Limit context
+            ]
+        )
 
-        missing_fields_text = "\n".join([
-            f"- {f['name']} ({f['type']}): {f['description']}"
-            for f in missing_fields
-        ])
+        missing_fields_text = "\n".join([f"- {f['name']} ({f['type']}): {f['description']}" for f in missing_fields])
 
         prompt = f"""Analysiere die PySis-Daten für "{entity_name}" und extrahiere fehlende Informationen.
 
@@ -1382,7 +1353,10 @@ def register_tasks(celery_app):
             response = await client.chat.completions.create(
                 model=settings.azure_openai_deployment_name,
                 messages=[
-                    {"role": "system", "content": "Du extrahierst strukturierte Daten aus Textfeldern. Antworte nur mit JSON."},
+                    {
+                        "role": "system",
+                        "content": "Du extrahierst strukturierte Daten aus Textfeldern. Antworte nur mit JSON.",
+                    },
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.1,
@@ -1429,8 +1403,6 @@ def register_tasks(celery_app):
                 is_error=True,
             )
             return None
-
-
 
     # Return task references
     return (

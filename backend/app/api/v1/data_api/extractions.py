@@ -59,17 +59,19 @@ def apply_extraction_filters(
     if created_to:
         query = query.where(func.date(ExtractedData.created_at) <= created_to)
     if search:
-        safe_search = search.replace('%', '\\%').replace('_', '\\_')
+        safe_search = search.replace("%", "\\%").replace("_", "\\_")
         search_pattern = f"%{safe_search}%"
         search_query = func.plainto_tsquery("german", search)
-        query = query.where(or_(
-            Document.title.ilike(search_pattern, escape='\\'),
-            Document.original_url.ilike(search_pattern, escape='\\'),
-            ExtractedData.search_vector.op("@@")(search_query),
-            ExtractedData.extracted_content.cast(String).ilike(search_pattern, escape='\\'),
-            ExtractedData.human_corrections.cast(String).ilike(search_pattern, escape='\\'),
-            ExtractedData.entity_references.cast(String).ilike(search_pattern, escape='\\'),
-        ))
+        query = query.where(
+            or_(
+                Document.title.ilike(search_pattern, escape="\\"),
+                Document.original_url.ilike(search_pattern, escape="\\"),
+                ExtractedData.search_vector.op("@@")(search_query),
+                ExtractedData.extracted_content.cast(String).ilike(search_pattern, escape="\\"),
+                ExtractedData.human_corrections.cast(String).ilike(search_pattern, escape="\\"),
+                ExtractedData.entity_references.cast(String).ilike(search_pattern, escape="\\"),
+            )
+        )
 
     return query
 
@@ -112,10 +114,7 @@ async def list_extracted_data(
 
     # Dynamic sorting
     # entity_count uses JSONB array length for sorting
-    entity_count_expr = func.coalesce(
-        func.jsonb_array_length(ExtractedData.entity_references),
-        0
-    )
+    entity_count_expr = func.coalesce(func.jsonb_array_length(ExtractedData.entity_references), 0)
     sortable_fields = {
         "created_at": ExtractedData.created_at,
         "confidence_score": ExtractedData.confidence_score,
@@ -211,31 +210,29 @@ async def get_extraction_stats(
     )
     base_subquery = base_query.subquery()
 
-    total = (await session.execute(
-        select(func.count()).select_from(base_subquery)
-    )).scalar()
+    total = (await session.execute(select(func.count()).select_from(base_subquery))).scalar()
 
-    verified = (await session.execute(
-        select(func.count())
-        .select_from(base_subquery)
-        .where(base_subquery.c.human_verified.is_(True))
-    )).scalar()
+    verified = (
+        await session.execute(
+            select(func.count()).select_from(base_subquery).where(base_subquery.c.human_verified.is_(True))
+        )
+    ).scalar()
 
-    avg_confidence = (await session.execute(
-        select(func.avg(base_subquery.c.confidence_score)).select_from(base_subquery)
-    )).scalar()
+    avg_confidence = (
+        await session.execute(select(func.avg(base_subquery.c.confidence_score)).select_from(base_subquery))
+    ).scalar()
 
-    high_confidence = (await session.execute(
-        select(func.count())
-        .select_from(base_subquery)
-        .where(base_subquery.c.confidence_score >= 0.8)
-    )).scalar()
+    high_confidence = (
+        await session.execute(
+            select(func.count()).select_from(base_subquery).where(base_subquery.c.confidence_score >= 0.8)
+        )
+    ).scalar()
 
-    low_confidence = (await session.execute(
-        select(func.count())
-        .select_from(base_subquery)
-        .where(base_subquery.c.confidence_score < 0.5)
-    )).scalar()
+    low_confidence = (
+        await session.execute(
+            select(func.count()).select_from(base_subquery).where(base_subquery.c.confidence_score < 0.5)
+        )
+    ).scalar()
 
     # By type
     type_result = await session.execute(
@@ -271,11 +268,11 @@ async def get_unverified_count(
     session: AsyncSession = Depends(get_session),
 ):
     """Get only the count of unverified extractions (optimized for badge display)."""
-    count = (await session.execute(
-        select(func.count())
-        .select_from(ExtractedData)
-        .where(ExtractedData.human_verified.is_(False))
-    )).scalar() or 0
+    count = (
+        await session.execute(
+            select(func.count()).select_from(ExtractedData).where(ExtractedData.human_verified.is_(False))
+        )
+    ).scalar() or 0
 
     return {"unverified": count}
 
@@ -377,13 +374,17 @@ async def get_extractions_by_entity(
     # Either via primary_entity_id or in entity_references array
     entity_id_str = str(entity_id)
 
-    query = select(ExtractedData).where(
-        or_(
-            ExtractedData.primary_entity_id == entity_id,
-            # JSONB containment: check if entity_id is in any entity_references entry
-            ExtractedData.entity_references.op('@>')([{"entity_id": entity_id_str}]),
+    query = (
+        select(ExtractedData)
+        .where(
+            or_(
+                ExtractedData.primary_entity_id == entity_id,
+                # JSONB containment: check if entity_id is in any entity_references entry
+                ExtractedData.entity_references.op("@>")([{"entity_id": entity_id_str}]),
+            )
         )
-    ).order_by(ExtractedData.created_at.desc())
+        .order_by(ExtractedData.created_at.desc())
+    )
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
@@ -451,12 +452,14 @@ async def get_global_display_config(
     """
     # Query distinct entity types from entity_references JSONB
     # Uses PostgreSQL JSONB array element extraction
-    entity_types_query = select(
-        func.jsonb_array_elements(ExtractedData.entity_references).op('->>')('entity_type').label('entity_type')
-    ).where(
-        ExtractedData.entity_references.isnot(None),
-        func.jsonb_array_length(ExtractedData.entity_references) > 0
-    ).distinct().limit(10)
+    entity_types_query = (
+        select(func.jsonb_array_elements(ExtractedData.entity_references).op("->>")("entity_type").label("entity_type"))
+        .where(
+            ExtractedData.entity_references.isnot(None), func.jsonb_array_length(ExtractedData.entity_references) > 0
+        )
+        .distinct()
+        .limit(10)
+    )
 
     result = await session.execute(entity_types_query)
     entity_types = [row.entity_type for row in result if row.entity_type]
@@ -475,20 +478,24 @@ async def get_global_display_config(
 
     for entity_type in entity_types:
         label = label_map.get(entity_type, entity_type.replace("-", " ").title())
-        columns.append(DisplayColumn(
-            key=f"entity_references.{entity_type}",
-            label=label,
-            type="entity_link",
-            width="150px",
-        ))
+        columns.append(
+            DisplayColumn(
+                key=f"entity_references.{entity_type}",
+                label=label,
+                type="entity_link",
+                width="150px",
+            )
+        )
         entity_ref_cols.append(entity_type)
 
-    columns.extend([
-        DisplayColumn(key="confidence_score", label="Konfidenz", type="confidence", width="110px"),
-        DisplayColumn(key="relevance_score", label="Relevanz", type="confidence", width="110px"),
-        DisplayColumn(key="human_verified", label="Geprüft", type="boolean", width="80px"),
-        DisplayColumn(key="created_at", label="Erfasst", type="date", width="100px"),
-    ])
+    columns.extend(
+        [
+            DisplayColumn(key="confidence_score", label="Konfidenz", type="confidence", width="110px"),
+            DisplayColumn(key="relevance_score", label="Relevanz", type="confidence", width="110px"),
+            DisplayColumn(key="human_verified", label="Geprüft", type="boolean", width="80px"),
+            DisplayColumn(key="created_at", label="Erfasst", type="date", width="100px"),
+        ]
+    )
 
     return DisplayFieldsConfig(
         columns=columns,
@@ -513,10 +520,7 @@ async def get_category_display_config(
 
     # If category has custom display_fields config, use it
     if category.display_fields and category.display_fields.get("columns"):
-        columns = [
-            DisplayColumn(**col)
-            for col in category.display_fields.get("columns", [])
-        ]
+        columns = [DisplayColumn(**col) for col in category.display_fields.get("columns", [])]
         entity_ref_cols = category.display_fields.get("entity_reference_columns", [])
         return DisplayFieldsConfig(
             columns=columns,
@@ -540,21 +544,25 @@ async def get_category_display_config(
                 "organization": "Organisation",
             }
             label = label_map.get(entity_type, entity_type.replace("-", " ").title())
-            columns.append(DisplayColumn(
-                key=f"entity_references.{entity_type}",
-                label=label,
-                type="entity_link",
-                width="150px",
-            ))
+            columns.append(
+                DisplayColumn(
+                    key=f"entity_references.{entity_type}",
+                    label=label,
+                    type="entity_link",
+                    width="150px",
+                )
+            )
             entity_ref_cols.append(entity_type)
 
     # Add standard columns
-    columns.extend([
-        DisplayColumn(key="confidence_score", label="Konfidenz", type="confidence", width="110px"),
-        DisplayColumn(key="relevance_score", label="Relevanz", type="confidence", width="110px"),
-        DisplayColumn(key="human_verified", label="Geprüft", type="boolean", width="80px"),
-        DisplayColumn(key="created_at", label="Erfasst", type="date", width="100px"),
-    ])
+    columns.extend(
+        [
+            DisplayColumn(key="confidence_score", label="Konfidenz", type="confidence", width="110px"),
+            DisplayColumn(key="relevance_score", label="Relevanz", type="confidence", width="110px"),
+            DisplayColumn(key="human_verified", label="Geprüft", type="boolean", width="80px"),
+            DisplayColumn(key="created_at", label="Erfasst", type="date", width="100px"),
+        ]
+    )
 
     return DisplayFieldsConfig(
         columns=columns,

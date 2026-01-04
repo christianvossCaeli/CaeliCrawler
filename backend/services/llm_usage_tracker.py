@@ -397,13 +397,9 @@ class LLMUsageTracker:
             from app.monitoring.metrics import ai_tokens_used
 
             if ctx.prompt_tokens > 0:
-                ai_tokens_used.labels(model=ctx.model, token_type="prompt").inc(
-                    ctx.prompt_tokens
-                )
+                ai_tokens_used.labels(model=ctx.model, token_type="prompt").inc(ctx.prompt_tokens)
             if ctx.completion_tokens > 0:
-                ai_tokens_used.labels(model=ctx.model, token_type="completion").inc(
-                    ctx.completion_tokens
-                )
+                ai_tokens_used.labels(model=ctx.model, token_type="completion").inc(ctx.completion_tokens)
         except ImportError:
             pass  # Metrics not available
 

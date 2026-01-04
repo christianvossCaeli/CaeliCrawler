@@ -75,8 +75,7 @@ async def list_api_configurations(
 
     # Apply pagination and ordering
     query = (
-        base_query
-        .options(selectinload(APIConfiguration.data_source))
+        base_query.options(selectinload(APIConfiguration.data_source))
         .order_by(APIConfiguration.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
@@ -114,20 +113,16 @@ async def create_api_configuration(
 
     # Verify data source exists
     from app.models import DataSource
+
     data_source = await session.get(DataSource, data.data_source_id)
     if not data_source:
         raise HTTPException(status_code=404, detail="DataSource not found")
 
     # Check if data source already has an API config
-    existing_query = select(APIConfiguration).where(
-        APIConfiguration.data_source_id == data.data_source_id
-    )
+    existing_query = select(APIConfiguration).where(APIConfiguration.data_source_id == data.data_source_id)
     existing_result = await session.execute(existing_query)
     if existing_result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=400,
-            detail="DataSource already has an API configuration"
-        )
+        raise HTTPException(status_code=400, detail="DataSource already has an API configuration")
 
     config = APIConfiguration(
         id=uuid.uuid4(),
@@ -198,21 +193,9 @@ async def get_api_configuration(
     # Get sync record statistics
     stats_query = select(
         func.count(SyncRecord.id).label("total"),
-        func.sum(
-            func.cast(
-                SyncRecord.sync_status == RecordStatus.ACTIVE.value, Integer
-            )
-        ).label("active"),
-        func.sum(
-            func.cast(
-                SyncRecord.sync_status == RecordStatus.MISSING.value, Integer
-            )
-        ).label("missing"),
-        func.sum(
-            func.cast(
-                SyncRecord.sync_status == RecordStatus.ARCHIVED.value, Integer
-            )
-        ).label("archived"),
+        func.sum(func.cast(SyncRecord.sync_status == RecordStatus.ACTIVE.value, Integer)).label("active"),
+        func.sum(func.cast(SyncRecord.sync_status == RecordStatus.MISSING.value, Integer)).label("missing"),
+        func.sum(func.cast(SyncRecord.sync_status == RecordStatus.ARCHIVED.value, Integer)).label("archived"),
     ).where(SyncRecord.api_configuration_id == config_id)
 
     stats_result = await session.execute(stats_query)
@@ -222,14 +205,13 @@ async def get_api_configuration(
     from app.models import Entity
 
     entity_count_result = await session.execute(
-        select(func.count(Entity.id)).where(
-            Entity.api_configuration_id == config_id
-        )
+        select(func.count(Entity.id)).where(Entity.api_configuration_id == config_id)
     )
     total_entities = entity_count_result.scalar() or 0
 
     # Get data source info
     from app.models import DataSource
+
     data_source = await session.get(DataSource, config.data_source_id)
 
     response = APIConfigurationDetail.model_validate(config)
@@ -316,6 +298,7 @@ async def delete_api_configuration(
 
     # Get data source name for audit
     from app.models import DataSource
+
     data_source = await session.get(DataSource, config.data_source_id)
     name = f"API Config for {data_source.name}" if data_source else str(config_id)
 
@@ -366,9 +349,11 @@ async def trigger_sync(
     # Determine which sync task to use based on import_mode
     if config.import_mode in [ImportMode.ENTITIES.value, ImportMode.BOTH.value]:
         from workers.external_api_tasks import sync_external_api
+
         task = sync_external_api.delay(str(config_id))
     else:
         from workers.api_facet_sync_tasks import sync_api_config_to_facets
+
         task = sync_api_config_to_facets.delay(str(config_id))
 
     async with AuditContext(session, current_user, http_request) as audit:
@@ -426,26 +411,10 @@ async def get_sync_stats(
     # Count sync records by status
     stats_query = select(
         func.count(SyncRecord.id).label("total"),
-        func.sum(
-            func.cast(
-                SyncRecord.sync_status == RecordStatus.ACTIVE.value, Integer
-            )
-        ).label("active"),
-        func.sum(
-            func.cast(
-                SyncRecord.sync_status == RecordStatus.MISSING.value, Integer
-            )
-        ).label("missing"),
-        func.sum(
-            func.cast(
-                SyncRecord.sync_status == RecordStatus.ARCHIVED.value, Integer
-            )
-        ).label("archived"),
-        func.sum(
-            func.cast(
-                func.array_length(SyncRecord.linked_entity_ids, 1) > 0, Integer
-            )
-        ).label("linked"),
+        func.sum(func.cast(SyncRecord.sync_status == RecordStatus.ACTIVE.value, Integer)).label("active"),
+        func.sum(func.cast(SyncRecord.sync_status == RecordStatus.MISSING.value, Integer)).label("missing"),
+        func.sum(func.cast(SyncRecord.sync_status == RecordStatus.ARCHIVED.value, Integer)).label("archived"),
+        func.sum(func.cast(func.array_length(SyncRecord.linked_entity_ids, 1) > 0, Integer)).label("linked"),
     ).where(SyncRecord.api_configuration_id == config_id)
 
     stats_result = await session.execute(stats_query)
@@ -455,9 +424,7 @@ async def get_sync_stats(
     from app.models import Entity
 
     entity_count_result = await session.execute(
-        select(func.count(Entity.id)).where(
-            Entity.api_configuration_id == config_id
-        )
+        select(func.count(Entity.id)).where(Entity.api_configuration_id == config_id)
     )
     total_entities = entity_count_result.scalar() or 0
 
@@ -496,9 +463,7 @@ async def list_sync_records(
         raise HTTPException(status_code=404, detail="Configuration not found")
 
     # Build query
-    query = select(SyncRecord).where(
-        SyncRecord.api_configuration_id == config_id
-    )
+    query = select(SyncRecord).where(SyncRecord.api_configuration_id == config_id)
 
     if status:
         query = query.where(SyncRecord.sync_status == status)
@@ -616,6 +581,7 @@ async def list_import_modes(
 
 class SaveFromDiscoveryRequest(BaseModel):
     """Request to save a discovered API as a configuration."""
+
     name: str
     description: str | None = None
     api_type: str = "rest"
@@ -646,13 +612,10 @@ async def save_api_from_discovery(
     from app.models.data_source import DataSource, SourceType
 
     # Check for duplicate name
-    existing = await session.execute(
-        select(DataSource).where(DataSource.name == request.name)
-    )
+    existing = await session.execute(select(DataSource).where(DataSource.name == request.name))
     if existing.scalar_one_or_none():
         raise HTTPException(
-            status_code=400,
-            detail=f"Eine Datenquelle mit dem Namen '{request.name}' existiert bereits"
+            status_code=400, detail=f"Eine Datenquelle mit dem Namen '{request.name}' existiert bereits"
         )
 
     # Create DataSource

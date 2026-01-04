@@ -8,19 +8,27 @@ from pydantic import BaseModel, Field, field_validator
 
 class SearchStrategy(BaseModel):
     """Von KI generierte Suchstrategie."""
+
     search_queries: list[str] = Field(..., description="3-5 Suchbegriffe")
     expected_data_type: str = Field(..., description="Art der Daten (sports_teams, municipalities, companies)")
     preferred_sources: list[str] = Field(default_factory=list, description="Priorisierte Quelltypen")
-    entity_schema: dict[str, Any] = Field(default_factory=dict, description="Erwartete Felder pro Entität (kann verschachtelt sein)")
+    entity_schema: dict[str, Any] = Field(
+        default_factory=dict, description="Erwartete Felder pro Entität (kann verschachtelt sein)"
+    )
     base_tags: list[str] = Field(default_factory=list, description="Basis-Tags für alle Quellen")
     # Intelligente Quellenbegrenzung durch KI
-    expected_entity_count: int = Field(default=50, description="Erwartete Anzahl der Entitäten (z.B. 18 für Bundesliga-Vereine)")
-    recommended_max_sources: int = Field(default=50, description="Empfohlene maximale Quellenanzahl (ca. 1.5x expected_entity_count)")
+    expected_entity_count: int = Field(
+        default=50, description="Erwartete Anzahl der Entitäten (z.B. 18 für Bundesliga-Vereine)"
+    )
+    recommended_max_sources: int = Field(
+        default=50, description="Empfohlene maximale Quellenanzahl (ca. 1.5x expected_entity_count)"
+    )
     reasoning: str = Field(default="", description="Begründung für die Quellenanzahl")
 
 
 class SearchResult(BaseModel):
     """Einzelnes Web-Suchergebnis."""
+
     url: str
     title: str
     snippet: str = ""
@@ -30,6 +38,7 @@ class SearchResult(BaseModel):
 
 class ExtractedSource(BaseModel):
     """Aus Webseite extrahierte Datenquelle."""
+
     name: str
     base_url: str
     source_type: str = "WEBSITE"
@@ -40,6 +49,7 @@ class ExtractedSource(BaseModel):
 
 class SourceWithTags(BaseModel):
     """Datenquelle mit generierten Tags."""
+
     name: str = Field(..., max_length=500)
     base_url: str = Field(..., max_length=2048)
     source_type: str = "WEBSITE"
@@ -59,6 +69,7 @@ class SourceWithTags(BaseModel):
 
 class DiscoveryStats(BaseModel):
     """Statistiken über den Discovery-Prozess."""
+
     pages_searched: int = 0
     sources_extracted: int = 0
     sources_validated: int = 0
@@ -67,6 +78,7 @@ class DiscoveryStats(BaseModel):
 
 class DiscoveryResult(BaseModel):
     """Gesamtergebnis der KI-Discovery."""
+
     sources: list[SourceWithTags] = Field(default_factory=list)
     search_strategy: SearchStrategy | None = None
     stats: DiscoveryStats = Field(default_factory=DiscoveryStats)
@@ -75,6 +87,7 @@ class DiscoveryResult(BaseModel):
 
 class DiscoveryRequest(BaseModel):
     """Request für KI-Discovery Endpoint."""
+
     prompt: str = Field(..., min_length=3, max_length=1000, description="Natürlicher Prompt")
     max_results: int = Field(default=50, ge=1, le=200)
     search_depth: str = Field(default="standard", pattern="^(quick|standard|deep)$")
@@ -83,6 +96,7 @@ class DiscoveryRequest(BaseModel):
 
 class DiscoveryImportRequest(BaseModel):
     """Request zum Importieren der gefundenen Sources."""
+
     sources: list[SourceWithTags] = Field(..., min_length=1, max_length=100)
     category_ids: list[UUID] = Field(default_factory=list, max_length=20)
     override_tags: dict[str, list[str]] = Field(default_factory=dict)
@@ -91,6 +105,7 @@ class DiscoveryImportRequest(BaseModel):
 
 class CategorySuggestion(BaseModel):
     """Kategorie-Vorschlag von der KI."""
+
     category_id: UUID | None = None  # None = neue Kategorie
     category_name: str
     category_slug: str
@@ -104,8 +119,10 @@ class CategorySuggestion(BaseModel):
 # KI-First API Discovery Models
 # ============================================================
 
+
 class APISuggestion(BaseModel):
     """Von KI generierter API-Vorschlag."""
+
     api_name: str = Field(..., description="Name der API")
     base_url: str = Field(..., description="Basis-URL der API")
     endpoint: str = Field(..., description="Konkreter Endpoint-Pfad")
@@ -126,6 +143,7 @@ class APISuggestion(BaseModel):
 
 class APIValidationResult(BaseModel):
     """Ergebnis der API-Validierung."""
+
     suggestion: APISuggestion
     is_valid: bool = False
     status_code: int | None = None
@@ -139,6 +157,7 @@ class APIValidationResult(BaseModel):
 
 class ValidatedAPISource(BaseModel):
     """Eine validierte API-Quelle mit extrahierten Daten."""
+
     api_suggestion: APISuggestion
     validation: APIValidationResult
     extracted_items: list[dict[str, Any]] = Field(default_factory=list)
@@ -147,6 +166,7 @@ class ValidatedAPISource(BaseModel):
 
 class DiscoveryResultV2(BaseModel):
     """Erweitertes Discovery-Ergebnis mit KI-First Ansatz."""
+
     # Validierte API-Quellen (Priorität)
     api_sources: list[ValidatedAPISource] = Field(default_factory=list)
     # Fallback: Web-basierte Quellen (wie bisher)

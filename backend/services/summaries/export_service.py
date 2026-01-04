@@ -45,17 +45,17 @@ def sanitize_filename(filename: str, max_length: int = 100) -> str:
 
     # Remove other potentially dangerous characters
     # Keep only alphanumeric, spaces, hyphens, underscores
-    filename = re.sub(r'[^\w\s\-]', '', filename)
+    filename = re.sub(r"[^\w\s\-]", "", filename)
 
     # Replace multiple spaces/underscores with single
-    filename = re.sub(r'[\s_]+', '_', filename)
+    filename = re.sub(r"[\s_]+", "_", filename)
 
     # Strip leading/trailing underscores
-    filename = filename.strip('_')
+    filename = filename.strip("_")
 
     # Truncate to max length
     if len(filename) > max_length:
-        filename = filename[:max_length].rstrip('_')
+        filename = filename[:max_length].rstrip("_")
 
     return filename or "export"
 
@@ -346,7 +346,8 @@ PDF_TEMPLATE = """
 
 
 # Excluded keys from data table display (internal/technical fields)
-EXCLUDED_DATA_KEYS = {'entity_id', 'coords_from_parent'}
+EXCLUDED_DATA_KEYS = {"entity_id", "coords_from_parent"}
+
 
 def _format_key_label(key: str) -> str:
     """
@@ -361,7 +362,7 @@ def _format_key_label(key: str) -> str:
     if not key:
         return key
     # Replace underscores and hyphens with spaces
-    label = key.replace('_', ' ').replace('-', ' ')
+    label = key.replace("_", " ").replace("-", " ")
     # Title case
     return label.title()
 
@@ -369,21 +370,21 @@ def _format_key_label(key: str) -> str:
 def _format_value(value: Any) -> str:
     """Format a value for display in PDF."""
     if value is None:
-        return '-'
+        return "-"
     if isinstance(value, bool):
-        return 'Ja' if value else 'Nein'
+        return "Ja" if value else "Nein"
     if isinstance(value, float):
         # Format floats with 2 decimal places, remove trailing zeros
         if value == int(value):
             return str(int(value))
-        return f'{value:.2f}'.rstrip('0').rstrip('.')
+        return f"{value:.2f}".rstrip("0").rstrip(".")
     if isinstance(value, dict):
         # Handle facet values
-        if 'value' in value:
-            return _format_value(value['value'])
+        if "value" in value:
+            return _format_value(value["value"])
         return str(value)
     if isinstance(value, list):
-        return ', '.join(str(v) for v in value[:5])
+        return ", ".join(str(v) for v in value[:5])
     return str(value)
 
 
@@ -395,14 +396,14 @@ def _get_all_keys(data: list[dict]) -> list[str]:
     keys = set()
     for row in data[:50]:  # Sample first 50 rows for performance
         for key in row:
-            if key not in EXCLUDED_DATA_KEYS and key != 'facets':
+            if key not in EXCLUDED_DATA_KEYS and key != "facets":
                 keys.add(key)
 
     # Sort with name first, then alphabetically
     sorted_keys = []
-    if 'name' in keys:
-        sorted_keys.append('name')
-        keys.remove('name')
+    if "name" in keys:
+        sorted_keys.append("name")
+        keys.remove("name")
     sorted_keys.extend(sorted(keys))
     return sorted_keys
 
@@ -414,7 +415,7 @@ def _get_facet_keys(data: list[dict]) -> list[str]:
 
     facet_keys = set()
     for row in data[:50]:
-        facets = row.get('facets', {})
+        facets = row.get("facets", {})
         if facets:
             facet_keys.update(facets.keys())
     return sorted(facet_keys)
@@ -451,27 +452,29 @@ def render_data_table(
         column_labels = [_format_key_label(k) for k in keys] + [_format_key_label(fk) for fk in facet_keys]
 
     # Build header
-    html = ['<table><thead><tr>']
+    html = ["<table><thead><tr>"]
     for label in column_labels:
-        html.append(f'<th>{label}</th>')
-    html.append('</tr></thead><tbody>')
+        html.append(f"<th>{label}</th>")
+    html.append("</tr></thead><tbody>")
 
     # Build rows
     display_data = data[:max_rows]
     for row in display_data:
-        html.append('<tr>')
+        html.append("<tr>")
         for key in column_keys:
             value = _get_nested_value(row, key)
-            html.append(f'<td>{_format_value(value)}</td>')
-        html.append('</tr>')
+            html.append(f"<td>{_format_value(value)}</td>")
+        html.append("</tr>")
 
-    html.append('</tbody></table>')
+    html.append("</tbody></table>")
 
     # Add truncation note if needed
     if total > max_rows:
-        html.append(f'<div class="truncated-note">... und {total - max_rows} weitere Eintraege (Export auf {max_rows} begrenzt)</div>')
+        html.append(
+            f'<div class="truncated-note">... und {total - max_rows} weitere Eintraege (Export auf {max_rows} begrenzt)</div>'
+        )
 
-    return ''.join(html)
+    return "".join(html)
 
 
 def _get_nested_value(data: dict, key: str) -> Any:
@@ -508,8 +511,8 @@ def render_map_image(data: list[dict], total: int, pregenerated_image: str | Non
     # Count valid coordinates
     point_count = 0
     for row in data:
-        lat = row.get('latitude')
-        lng = row.get('longitude')
+        lat = row.get("latitude")
+        lng = row.get("longitude")
         if lat is not None and lng is not None:
             try:
                 float(lat)
@@ -525,7 +528,9 @@ def render_map_image(data: list[dict], total: int, pregenerated_image: str | Non
     html_parts = []
 
     # Centered container with fixed width matching map
-    html_parts.append('<div style="page-break-inside: avoid; display: flex; flex-direction: column; align-items: center;">')
+    html_parts.append(
+        '<div style="page-break-inside: avoid; display: flex; flex-direction: column; align-items: center;">'
+    )
 
     if pregenerated_image:
         # Map image - exactly 700px wide, centered
@@ -542,8 +547,8 @@ def render_map_image(data: list[dict], total: int, pregenerated_image: str | Non
         # Left: Feature count (like website overlay)
         html_parts.append(
             f'<div style="background: white; padding: 6px 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); font-size: 9pt;">'
-            f'<strong>{point_count}</strong> Standorte auf der Karte'
-            f'</div>'
+            f"<strong>{point_count}</strong> Standorte auf der Karte"
+            f"</div>"
         )
 
         # Right: Cluster legend (matching website exactly)
@@ -554,30 +559,30 @@ def render_map_image(data: list[dict], total: int, pregenerated_image: str | Non
             # Small cluster (green)
             '<span style="display: inline-flex; align-items: center; gap: 4px;">'
             '<span style="width: 12px; height: 12px; background: #2E7D32; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 1px #2E7D32;"></span>'
-            '&lt; 10</span>'
+            "&lt; 10</span>"
             # Medium cluster (teal/Caeli)
             '<span style="display: inline-flex; align-items: center; gap: 4px;">'
             '<span style="width: 12px; height: 12px; background: #113634; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 1px #113634;"></span>'
-            '10-50</span>'
+            "10-50</span>"
             # Large cluster (indigo)
             '<span style="display: inline-flex; align-items: center; gap: 4px;">'
             '<span style="width: 12px; height: 12px; background: #5c6bc0; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 1px #5c6bc0;"></span>'
-            '&gt; 50</span>'
-            '</div>'
-            '</div>'
+            "&gt; 50</span>"
+            "</div>"
+            "</div>"
         )
 
-        html_parts.append('</div>')  # End flex container
+        html_parts.append("</div>")  # End flex container
     else:
         html_parts.append(
             '<div style="width: 700px; padding: 40px 20px; background: #f5f5f5; border-radius: 8px; text-align: center;">'
             f'<p style="color: #666; margin: 0;">Kartenansicht nicht verfuegbar - {point_count} Standorte</p>'
-            '</div>'
+            "</div>"
         )
 
-    html_parts.append('</div>')  # End centered container
+    html_parts.append("</div>")  # End centered container
 
-    return ''.join(html_parts)
+    return "".join(html_parts)
 
 
 async def _generate_map_screenshot_async(points: list[dict], status_config: dict, default_color: str) -> str:
@@ -593,8 +598,8 @@ async def _generate_map_screenshot_async(points: list[dict], status_config: dict
     from playwright.async_api import async_playwright
 
     # Calculate bounds with padding
-    lats = [p['lat'] for p in points]
-    lngs = [p['lng'] for p in points]
+    lats = [p["lat"] for p in points]
+    lngs = [p["lng"] for p in points]
     min_lat, max_lat = min(lats), max(lats)
     min_lng, max_lng = min(lngs), max(lngs)
 
@@ -607,17 +612,19 @@ async def _generate_map_screenshot_async(points: list[dict], status_config: dict
     max_lng += lng_padding
 
     # Prepare markers JSON - use Caeli green for all markers (like website)
-    caeli_green = '#2E7D32'
+    caeli_green = "#2E7D32"
     markers_data = []
     for p in points[:500]:  # Limit markers
-        markers_data.append({
-            'lat': p['lat'],
-            'lng': p['lng'],
-            'name': p['name'][:50] if p['name'] else '',
-        })
+        markers_data.append(
+            {
+                "lat": p["lat"],
+                "lng": p["lng"],
+                "name": p["name"][:50] if p["name"] else "",
+            }
+        )
 
     # Create HTML with Leaflet map using CartoDB Positron tiles (like website)
-    html_content = f'''<!DOCTYPE html>
+    html_content = f"""<!DOCTYPE html>
 <html>
 <head>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -663,28 +670,28 @@ async def _generate_map_screenshot_async(points: list[dict], status_config: dict
         }}, 2500);
     </script>
 </body>
-</html>'''
+</html>"""
 
     # Write HTML to temp file and take screenshot
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
         f.write(html_content)
         html_path = f.name
 
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page(viewport={'width': 700, 'height': 400})
-            await page.goto(f'file://{html_path}')
+            page = await browser.new_page(viewport={"width": 700, "height": 400})
+            await page.goto(f"file://{html_path}")
 
             # Wait for map tiles to load
-            await page.wait_for_function('window.mapReady === true', timeout=15000)
+            await page.wait_for_function("window.mapReady === true", timeout=15000)
             await page.wait_for_timeout(1000)  # Extra time for tiles
 
             # Take screenshot
-            screenshot_bytes = await page.screenshot(type='png')
+            screenshot_bytes = await page.screenshot(type="png")
             await browser.close()
 
-        return base64.b64encode(screenshot_bytes).decode('utf-8')
+        return base64.b64encode(screenshot_bytes).decode("utf-8")
     finally:
         os.unlink(html_path)
 
@@ -699,38 +706,38 @@ def render_map_table(data: list[dict], total: int) -> str:
     facet_keys = _get_facet_keys(data)
 
     # Ensure coordinate columns are present
-    if 'latitude' not in keys:
-        keys.append('latitude')
-    if 'longitude' not in keys:
-        keys.append('longitude')
+    if "latitude" not in keys:
+        keys.append("latitude")
+    if "longitude" not in keys:
+        keys.append("longitude")
 
     # Build header
-    html = ['<table><thead><tr>']
+    html = ["<table><thead><tr>"]
     for key in keys:
         label = _format_key_label(key)
-        html.append(f'<th>{label}</th>')
+        html.append(f"<th>{label}</th>")
     for fk in facet_keys:
-        html.append(f'<th>{_format_key_label(fk)}</th>')
-    html.append('</tr></thead><tbody>')
+        html.append(f"<th>{_format_key_label(fk)}</th>")
+    html.append("</tr></thead><tbody>")
 
     # Build rows - show all for map data
     for row in data:
-        html.append('<tr>')
+        html.append("<tr>")
         for key in keys:
             value = row.get(key)
-            html.append(f'<td>{_format_value(value)}</td>')
+            html.append(f"<td>{_format_value(value)}</td>")
         for fk in facet_keys:
-            facets = row.get('facets', {})
+            facets = row.get("facets", {})
             facet_val = facets.get(fk, {})
-            html.append(f'<td>{_format_value(facet_val)}</td>')
-        html.append('</tr>')
+            html.append(f"<td>{_format_value(facet_val)}</td>")
+        html.append("</tr>")
 
-    html.append('</tbody></table>')
+    html.append("</tbody></table>")
 
     if total > len(data):
         html.append(f'<div class="truncated-note">Hinweis: {total} Gesamteintraege, {len(data)} exportiert</div>')
 
-    return ''.join(html)
+    return "".join(html)
 
 
 def render_comparison_table(
@@ -754,31 +761,31 @@ def render_comparison_table(
     else:
         # Auto-detect: Get all attribute keys and facet keys
         attr_keys = _get_all_keys(data)
-        if 'name' in attr_keys:
-            attr_keys.remove('name')
+        if "name" in attr_keys:
+            attr_keys.remove("name")
         facet_keys = _get_facet_keys(data)
 
         row_configs = [{"key": k, "label": _format_key_label(k)} for k in attr_keys]
         row_configs += [{"key": f"facets.{fk}.value", "label": _format_key_label(fk)} for fk in facet_keys]
 
     # Build header with entity names
-    html = ['<table><thead><tr><th>Merkmal</th>']
+    html = ["<table><thead><tr><th>Merkmal</th>"]
     for item in data[:10]:
-        html.append(f'<th>{item.get("name", "?")}</th>')
-    html.append('</tr></thead><tbody>')
+        html.append(f"<th>{item.get('name', '?')}</th>")
+    html.append("</tr></thead><tbody>")
 
     # Build rows for each configured attribute
     for row_config in row_configs:
         key = row_config.get("key", "")
         label = row_config.get("label") or _format_key_label(key)
-        html.append(f'<tr><td><strong>{label}</strong></td>')
+        html.append(f"<tr><td><strong>{label}</strong></td>")
         for item in data[:10]:
             value = _get_nested_value(item, key)
-            html.append(f'<td>{_format_value(value)}</td>')
-        html.append('</tr>')
+            html.append(f"<td>{_format_value(value)}</td>")
+        html.append("</tr>")
 
-    html.append('</tbody></table>')
-    return ''.join(html)
+    html.append("</tbody></table>")
+    return "".join(html)
 
 
 class SummaryExportService:
@@ -794,10 +801,10 @@ class SummaryExportService:
         self.session = session
         self.jinja_env = Environment(loader=BaseLoader())  # noqa: S701
         # Register helper functions as globals
-        self.jinja_env.globals['render_data_table'] = render_data_table
-        self.jinja_env.globals['render_map_table'] = render_map_table
-        self.jinja_env.globals['render_map_image'] = render_map_image
-        self.jinja_env.globals['render_comparison_table'] = render_comparison_table
+        self.jinja_env.globals["render_data_table"] = render_data_table
+        self.jinja_env.globals["render_map_table"] = render_map_table
+        self.jinja_env.globals["render_map_image"] = render_map_image
+        self.jinja_env.globals["render_comparison_table"] = render_comparison_table
 
     async def export_to_pdf(
         self,
@@ -830,15 +837,12 @@ class SummaryExportService:
         except ImportError:
             logger.error("WeasyPrint not installed")
             raise ImportError(
-                "WeasyPrint is required for PDF export. "
-                "Install it with: pip install weasyprint"
+                "WeasyPrint is required for PDF export. Install it with: pip install weasyprint"
             ) from None
 
         # Load summary with widgets
         result = await self.session.execute(
-            select(CustomSummary)
-            .options(selectinload(CustomSummary.widgets))
-            .where(CustomSummary.id == summary_id)
+            select(CustomSummary).options(selectinload(CustomSummary.widgets)).where(CustomSummary.id == summary_id)
         )
         summary = result.scalar_one_or_none()
 
@@ -850,10 +854,7 @@ class SummaryExportService:
         cached_data = execution.cached_data if execution else {}
 
         # Sort widgets by position
-        widgets = sorted(
-            summary.widgets,
-            key=lambda w: (w.position_y or 0, w.position_x or 0)
-        )
+        widgets = sorted(summary.widgets, key=lambda w: (w.position_y or 0, w.position_x or 0))
 
         # Pre-generate map images asynchronously
         map_images = await self._generate_map_images(widgets, cached_data)
@@ -866,7 +867,9 @@ class SummaryExportService:
             cached_data=cached_data,
             map_images=map_images,
             export_date=datetime.now().strftime("%d.%m.%Y %H:%M"),
-            last_executed=execution.completed_at.strftime("%d.%m.%Y %H:%M") if execution and execution.completed_at else None,
+            last_executed=execution.completed_at.strftime("%d.%m.%Y %H:%M")
+            if execution and execution.completed_at
+            else None,
         )
 
         # Generate PDF
@@ -914,16 +917,11 @@ class SummaryExportService:
             from openpyxl.utils import get_column_letter
         except ImportError:
             logger.error("openpyxl not installed")
-            raise ImportError(
-                "openpyxl is required for Excel export. "
-                "Install it with: pip install openpyxl"
-            ) from None
+            raise ImportError("openpyxl is required for Excel export. Install it with: pip install openpyxl") from None
 
         # Load summary with widgets
         result = await self.session.execute(
-            select(CustomSummary)
-            .options(selectinload(CustomSummary.widgets))
-            .where(CustomSummary.id == summary_id)
+            select(CustomSummary).options(selectinload(CustomSummary.widgets)).where(CustomSummary.id == summary_id)
         )
         summary = result.scalar_one_or_none()
 
@@ -942,17 +940,11 @@ class SummaryExportService:
         header_fill = PatternFill(start_color="113534", end_color="113534", fill_type="solid")
         header_alignment = Alignment(horizontal="center", vertical="center")
         thin_border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin'),
-            bottom=Side(style='thin')
+            left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin")
         )
 
         # Sort widgets by position
-        widgets = sorted(
-            summary.widgets,
-            key=lambda w: (w.position_y or 0, w.position_x or 0)
-        )
+        widgets = sorted(summary.widgets, key=lambda w: (w.position_y or 0, w.position_x or 0))
 
         # Create overview sheet
         overview_sheet = wb.active
@@ -963,7 +955,10 @@ class SummaryExportService:
             ["Zusammenfassung", summary.name],
             ["Beschreibung", summary.description or "-"],
             ["Exportiert am", datetime.now().strftime("%d.%m.%Y %H:%M")],
-            ["Letzte Aktualisierung", execution.completed_at.strftime("%d.%m.%Y %H:%M") if execution and execution.completed_at else "-"],
+            [
+                "Letzte Aktualisierung",
+                execution.completed_at.strftime("%d.%m.%Y %H:%M") if execution and execution.completed_at else "-",
+            ],
             ["Anzahl Widgets", len(widgets)],
             ["Status", summary.status.value],
         ]
@@ -995,16 +990,18 @@ class SummaryExportService:
             row = widget_start_row + 2 + idx
             overview_sheet.cell(row=row, column=1, value=idx + 1).border = thin_border
             overview_sheet.cell(row=row, column=2, value=widget.title).border = thin_border
-            overview_sheet.cell(row=row, column=3, value=widget.widget_type.replace("_", " ").title()).border = thin_border
+            overview_sheet.cell(
+                row=row, column=3, value=widget.widget_type.replace("_", " ").title()
+            ).border = thin_border
             overview_sheet.cell(row=row, column=4, value=total).border = thin_border
             status_text = "Fehler" if has_error else ("OK" if total > 0 else "Keine Daten")
             overview_sheet.cell(row=row, column=5, value=status_text).border = thin_border
 
-        overview_sheet.column_dimensions['A'].width = 25
-        overview_sheet.column_dimensions['B'].width = 50
-        overview_sheet.column_dimensions['C'].width = 20
-        overview_sheet.column_dimensions['D'].width = 15
-        overview_sheet.column_dimensions['E'].width = 15
+        overview_sheet.column_dimensions["A"].width = 25
+        overview_sheet.column_dimensions["B"].width = 50
+        overview_sheet.column_dimensions["C"].width = 20
+        overview_sheet.column_dimensions["D"].width = 15
+        overview_sheet.column_dimensions["E"].width = 15
 
         # Create sheet for each widget
         for idx, widget in enumerate(widgets):
@@ -1077,7 +1074,9 @@ class SummaryExportService:
             # Add note if data was truncated
             if total > len(data):
                 note_row = start_row + len(data) + 2
-                ws.cell(row=note_row, column=1, value=f"Hinweis: {total - len(data)} weitere Eintraege nicht exportiert").font = Font(italic=True, color="999999")
+                ws.cell(
+                    row=note_row, column=1, value=f"Hinweis: {total - len(data)} weitere Eintraege nicht exportiert"
+                ).font = Font(italic=True, color="999999")
 
         # Save to bytes
         output = io.BytesIO()
@@ -1125,9 +1124,9 @@ class SummaryExportService:
     def _sanitize_sheet_name(self, name: str) -> str:
         """Sanitize sheet name for Excel (max 31 chars, no special chars)."""
         # Remove invalid characters
-        invalid_chars = ['\\', '/', '*', '?', ':', '[', ']']
+        invalid_chars = ["\\", "/", "*", "?", ":", "[", "]"]
         for char in invalid_chars:
-            name = name.replace(char, '')
+            name = name.replace(char, "")
 
         # Truncate to 31 characters
         if len(name) > 31:
@@ -1192,18 +1191,22 @@ class SummaryExportService:
         # Get attribute keys
         all_keys = _get_all_keys(data)
         for key in all_keys:
-            columns.append({
-                "key": key,
-                "label": _format_key_label(key),
-            })
+            columns.append(
+                {
+                    "key": key,
+                    "label": _format_key_label(key),
+                }
+            )
 
         # Get facet keys
         facet_keys = _get_facet_keys(data)
         for fk in facet_keys:
-            columns.append({
-                "key": f"facets.{fk}.value",
-                "label": _format_key_label(fk),
-            })
+            columns.append(
+                {
+                    "key": f"facets.{fk}.value",
+                    "label": _format_key_label(fk),
+                }
+            )
 
         return columns
 
@@ -1250,20 +1253,20 @@ class SummaryExportService:
 
         # Status colors
         status_config = {
-            'active': '#22c55e',
-            'operational': '#22c55e',
-            'operating': '#22c55e',
-            'planned': '#3b82f6',
-            'approved': '#a855f7',
-            'construction': '#f97316',
-            'under construction': '#f97316',
-            'decommissioned': '#6b7280',
-            'inactive': '#6b7280',
+            "active": "#22c55e",
+            "operational": "#22c55e",
+            "operating": "#22c55e",
+            "planned": "#3b82f6",
+            "approved": "#a855f7",
+            "construction": "#f97316",
+            "under construction": "#f97316",
+            "decommissioned": "#6b7280",
+            "inactive": "#6b7280",
         }
-        default_color = '#ef4444'
+        default_color = "#ef4444"
 
         for widget in widgets:
-            if widget.widget_type != 'map':
+            if widget.widget_type != "map":
                 continue
 
             widget_key = f"widget_{widget.id}"
@@ -1276,17 +1279,19 @@ class SummaryExportService:
             # Extract coordinates
             points = []
             for row in data:
-                lat = row.get('latitude')
-                lng = row.get('longitude')
+                lat = row.get("latitude")
+                lng = row.get("longitude")
                 if lat is not None and lng is not None:
                     try:
-                        status = str(row.get('status', '')).lower().strip()
-                        points.append({
-                            'lat': float(lat),
-                            'lng': float(lng),
-                            'name': row.get('name', ''),
-                            'status': status,
-                        })
+                        status = str(row.get("status", "")).lower().strip()
+                        points.append(
+                            {
+                                "lat": float(lat),
+                                "lng": float(lng),
+                                "name": row.get("name", ""),
+                                "status": status,
+                            }
+                        )
                     except (ValueError, TypeError):
                         continue
 
@@ -1295,9 +1300,7 @@ class SummaryExportService:
 
             # Generate screenshot asynchronously
             try:
-                image_data = await _generate_map_screenshot_async(
-                    points, status_config, default_color
-                )
+                image_data = await _generate_map_screenshot_async(points, status_config, default_color)
                 map_images[widget_key] = image_data
                 logger.info(
                     "map_screenshot_generated",

@@ -197,8 +197,7 @@ class LLMUsageRecord(Base):
 
     def __repr__(self) -> str:
         return (
-            f"<LLMUsageRecord(id={self.id}, provider={self.provider}, "
-            f"model={self.model}, tokens={self.total_tokens})>"
+            f"<LLMUsageRecord(id={self.id}, provider={self.provider}, model={self.model}, tokens={self.total_tokens})>"
         )
 
 

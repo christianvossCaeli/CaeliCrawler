@@ -72,9 +72,7 @@ class EmailChannel(NotificationChannelBase):
 
         return has_addresses or has_recipients or include_primary
 
-    def _create_message(
-        self, notification: Notification, recipients: list[str]
-    ) -> MIMEMultipart:
+    def _create_message(self, notification: Notification, recipients: list[str]) -> MIMEMultipart:
         """Create MIME message for email.
 
         Args:
@@ -115,10 +113,12 @@ class EmailChannel(NotificationChannelBase):
         if notification.related_entity_type and notification.related_entity_id:
             lines.append(f"Bezug: {notification.related_entity_type} ({notification.related_entity_id})")
 
-        lines.extend([
-            "",
-            "Diese Nachricht wurde automatisch von CaeliCrawler gesendet.",
-        ])
+        lines.extend(
+            [
+                "",
+                "Diese Nachricht wurde automatisch von CaeliCrawler gesendet.",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -185,9 +185,9 @@ class EmailChannel(NotificationChannelBase):
     </div>
     <div class="content">
         <span class="event-badge">{notification.event_type.value}</span>
-        <p>{notification.body.replace(chr(10), '<br>')}</p>
+        <p>{notification.body.replace(chr(10), "<br>")}</p>
         <div class="meta">
-            <strong>Zeitpunkt:</strong> {notification.created_at.strftime('%d.%m.%Y %H:%M')} Uhr
+            <strong>Zeitpunkt:</strong> {notification.created_at.strftime("%d.%m.%Y %H:%M")} Uhr
         </div>
     </div>
     <div class="footer">

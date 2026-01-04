@@ -54,7 +54,7 @@ class Settings(BaseSettings):
             if self.secret_key in INSECURE_SECRET_KEYS:
                 raise ValueError(
                     "SECURITY ERROR: SECRET_KEY must be changed in production! "
-                    "Generate a secure key with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                    'Generate a secure key with: python -c "import secrets; print(secrets.token_urlsafe(32))"'
                 )
 
             # Ensure auto-generated dev keys are not used in production
@@ -66,25 +66,17 @@ class Settings(BaseSettings):
 
             # Ensure secret key has minimum length (256 bits = 32 bytes)
             if len(self.secret_key) < 32:
-                raise ValueError(
-                    "SECURITY ERROR: SECRET_KEY must be at least 32 characters in production"
-                )
+                raise ValueError("SECURITY ERROR: SECRET_KEY must be at least 32 characters in production")
 
             # Ensure debug is disabled in production
             if self.debug:
-                raise ValueError(
-                    "SECURITY ERROR: DEBUG must be False in production"
-                )
+                raise ValueError("SECURITY ERROR: DEBUG must be False in production")
 
         return self
 
     # Database
-    database_url: str = Field(
-        default="postgresql+asyncpg://postgres:password@localhost:5432/caelichrawler"
-    )
-    database_sync_url: str = Field(
-        default="postgresql://postgres:password@localhost:5432/caelichrawler"
-    )
+    database_url: str = Field(default="postgresql+asyncpg://postgres:password@localhost:5432/caelichrawler")
+    database_sync_url: str = Field(default="postgresql://postgres:password@localhost:5432/caelichrawler")
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
@@ -115,9 +107,7 @@ class Settings(BaseSettings):
     pysis_scope: str = "api://7e32391f-a384-44b1-9850-d565b4a59ed0/.default"
 
     # Caeli Auction API Integration
-    caeli_auction_marketplace_api_url: str = (
-        "https://auction.caeli-wind.de/api/auction-platform/v4/public-marketplace"
-    )
+    caeli_auction_marketplace_api_url: str = "https://auction.caeli-wind.de/api/auction-platform/v4/public-marketplace"
     caeli_auction_marketplace_api_auth: str = ""  # Base64-encoded Basic Auth credentials
 
     # SharePoint Online Integration (Microsoft Graph API)
@@ -175,6 +165,7 @@ class Settings(BaseSettings):
     def parse_cors_origins(cls, v):
         if isinstance(v, str):
             import json
+
             try:
                 return json.loads(v)
             except json.JSONDecodeError:

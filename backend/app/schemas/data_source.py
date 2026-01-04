@@ -63,74 +63,41 @@ class CrawlConfig(BaseModel):
 
     # Entity API settings (for REST_API and SPARQL_API source types)
     # These APIs are used to keep Entities up-to-date
-    entity_api_type: str | None = Field(
-        None,
-        description="Entity API type: rest or sparql"
-    )
-    entity_api_endpoint: str | None = Field(
-        None,
-        description="API endpoint path (appended to base_url)"
-    )
-    entity_api_method: str = Field(
-        default="GET",
-        description="HTTP method for REST API"
-    )
-    entity_api_query: str | None = Field(
-        None,
-        description="SPARQL query string (for SPARQL_API)"
-    )
+    entity_api_type: str | None = Field(None, description="Entity API type: rest or sparql")
+    entity_api_endpoint: str | None = Field(None, description="API endpoint path (appended to base_url)")
+    entity_api_method: str = Field(default="GET", description="HTTP method for REST API")
+    entity_api_query: str | None = Field(None, description="SPARQL query string (for SPARQL_API)")
     entity_api_template: str | None = Field(
-        None,
-        description="Predefined API template name (e.g., 'caeli_auction_windparks')"
+        None, description="Predefined API template name (e.g., 'caeli_auction_windparks')"
     )
     entity_field_mapping: dict[str, str] = Field(
         default_factory=dict,
-        description="Mapping from API fields to Entity fields (e.g., {'auctionId': 'external_id'})"
+        description="Mapping from API fields to Entity fields (e.g., {'auctionId': 'external_id'})",
     )
-    entity_type_slug: str | None = Field(
-        None,
-        description="Target EntityType slug for updates"
-    )
+    entity_type_slug: str | None = Field(None, description="Target EntityType slug for updates")
     entity_update_strategy: str = Field(
         default="merge",
-        description="Update strategy: merge (update existing), replace (overwrite), upsert (create or update)"
+        description="Update strategy: merge (update existing), replace (overwrite), upsert (create or update)",
     )
     entity_id_field: str | None = Field(
-        None,
-        description="API field used to identify existing entities (default: external_id from field_mapping)"
+        None, description="API field used to identify existing entities (default: external_id from field_mapping)"
     )
 
     # SharePoint settings (for SHAREPOINT source type)
     site_url: str | None = Field(
-        None,
-        description="SharePoint site URL (e.g., 'contoso.sharepoint.com:/sites/Documents')"
+        None, description="SharePoint site URL (e.g., 'contoso.sharepoint.com:/sites/Documents')"
     )
-    drive_name: str | None = Field(
-        None,
-        description="Name of the document library (default: first available)"
-    )
-    folder_path: str | None = Field(
-        None,
-        description="Path within the drive to crawl (default: root)"
-    )
+    drive_name: str | None = Field(None, description="Name of the document library (default: first available)")
+    folder_path: str | None = Field(None, description="Path within the drive to crawl (default: root)")
     file_extensions: list[str] = Field(
         default_factory=lambda: [".pdf", ".docx", ".doc", ".xlsx", ".pptx"],
-        description="File extensions to include (e.g., ['.pdf', '.docx'])"
+        description="File extensions to include (e.g., ['.pdf', '.docx'])",
     )
-    recursive: bool = Field(
-        default=True,
-        description="Whether to include files from subfolders"
-    )
+    recursive: bool = Field(default=True, description="Whether to include files from subfolders")
     exclude_patterns: list[str] = Field(
-        default_factory=lambda: ["~$*", "*.tmp", ".DS_Store"],
-        description="File patterns to exclude (glob syntax)"
+        default_factory=lambda: ["~$*", "*.tmp", ".DS_Store"], description="File patterns to exclude (glob syntax)"
     )
-    max_files: int = Field(
-        default=1000,
-        ge=1,
-        le=10000,
-        description="Maximum number of files to crawl"
-    )
+    max_files: int = Field(default=1000, ge=1, le=10000, description="Maximum number of files to crawl")
 
     model_config = {"extra": "allow"}  # Allow additional fields
 
@@ -180,6 +147,7 @@ class DataSourceBase(BaseModel):
 
 class CategoryLink(BaseModel):
     """Schema for category link in data source."""
+
     id: UUID
     name: str
     slug: str

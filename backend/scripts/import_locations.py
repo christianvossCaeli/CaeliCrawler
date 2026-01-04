@@ -57,7 +57,6 @@ LOCATIONS_DATA = [
     ("05570004", "Ahlen", "Nordrhein-Westfalen", "Warendorf", 53000),
     ("05570008", "Beckum", "Nordrhein-Westfalen", "Warendorf", 37200),
     ("05570044", "Warendorf", "Nordrhein-Westfalen", "Warendorf", 38300),
-
     # Bayern
     ("09162000", "München", "Bayern", "München", 1487708),
     ("09261000", "Nürnberg", "Bayern", "Nürnberg", 523026),
@@ -67,7 +66,6 @@ LOCATIONS_DATA = [
     ("09362000", "Fürth", "Bayern", "Fürth", 131367),
     ("09564000", "Erlangen", "Bayern", "Erlangen", 116062),
     ("09663000", "Ingolstadt", "Bayern", "Ingolstadt", 138716),
-
     # Baden-Württemberg
     ("08111000", "Stuttgart", "Baden-Württemberg", "Stuttgart", 632865),
     ("08212000", "Karlsruhe", "Baden-Württemberg", "Karlsruhe", 313092),
@@ -81,7 +79,6 @@ LOCATIONS_DATA = [
     ("08116000", "Esslingen am Neckar", "Baden-Württemberg", "Esslingen", 93542),
     ("08231000", "Pforzheim", "Baden-Württemberg", "Pforzheim", 125957),
     ("08121000", "Heilbronn", "Baden-Württemberg", "Heilbronn", 126592),
-
     # Hessen
     ("06411000", "Darmstadt", "Hessen", "Darmstadt", 159878),
     ("06412000", "Frankfurt am Main", "Hessen", "Frankfurt am Main", 759224),
@@ -91,7 +88,6 @@ LOCATIONS_DATA = [
     ("06531014", "Gießen", "Hessen", "Gießen", 92124),
     ("06534014", "Marburg", "Hessen", "Marburg-Biedenkopf", 77129),
     ("06631009", "Fulda", "Hessen", "Fulda", 69004),
-
     # Niedersachsen
     ("03241001", "Hannover", "Niedersachsen", "Region Hannover", 545082),
     ("03101000", "Braunschweig", "Niedersachsen", "Braunschweig", 249406),
@@ -105,7 +101,6 @@ LOCATIONS_DATA = [
     ("03254021", "Hildesheim", "Niedersachsen", "Hildesheim", 101055),
     ("03151012", "Lüneburg", "Niedersachsen", "Lüneburg", 77527),
     ("03351021", "Celle", "Niedersachsen", "Celle", 69748),
-
     # Schleswig-Holstein
     ("01001000", "Flensburg", "Schleswig-Holstein", "Flensburg", 91113),
     ("01002000", "Kiel", "Schleswig-Holstein", "Kiel", 246794),
@@ -115,7 +110,6 @@ LOCATIONS_DATA = [
     ("01051063", "Heide", "Schleswig-Holstein", "Dithmarschen", 23064),
     ("01061072", "Bad Oldesloe", "Schleswig-Holstein", "Stormarn", 25078),
     ("01062064", "Rendsburg", "Schleswig-Holstein", "Rendsburg-Eckernförde", 28541),
-
     # Rheinland-Pfalz
     ("07111000", "Koblenz", "Rheinland-Pfalz", "Koblenz", 114052),
     ("07211000", "Trier", "Rheinland-Pfalz", "Trier", 111528),
@@ -123,32 +117,27 @@ LOCATIONS_DATA = [
     ("07314000", "Mainz", "Rheinland-Pfalz", "Mainz", 220552),
     ("07313000", "Kaiserslautern", "Rheinland-Pfalz", "Kaiserslautern", 100030),
     ("07317000", "Worms", "Rheinland-Pfalz", "Worms", 84048),
-
     # Sachsen
     ("14612000", "Dresden", "Sachsen", "Dresden", 561922),
     ("14713000", "Leipzig", "Sachsen", "Leipzig", 605407),
     ("14511000", "Chemnitz", "Sachsen", "Chemnitz", 249922),
     ("14522380", "Zwickau", "Sachsen", "Zwickau", 88260),
     ("14729370", "Plauen", "Sachsen", "Vogtlandkreis", 63571),
-
     # Sachsen-Anhalt
     ("15003000", "Magdeburg", "Sachsen-Anhalt", "Magdeburg", 239364),
     ("15002000", "Halle (Saale)", "Sachsen-Anhalt", "Halle (Saale)", 239257),
     ("15001000", "Dessau-Roßlau", "Sachsen-Anhalt", "Dessau-Roßlau", 80103),
-
     # Thüringen
     ("16051000", "Erfurt", "Thüringen", "Erfurt", 214969),
     ("16053000", "Jena", "Thüringen", "Jena", 111088),
     ("16052000", "Gera", "Thüringen", "Gera", 93125),
     ("16054000", "Weimar", "Thüringen", "Weimar", 65228),
     ("16055000", "Eisenach", "Thüringen", "Wartburgkreis", 42250),
-
     # Brandenburg
     ("12054000", "Potsdam", "Brandenburg", "Potsdam", 182112),
     ("12051000", "Brandenburg an der Havel", "Brandenburg", "Brandenburg an der Havel", 72698),
     ("12052000", "Cottbus", "Brandenburg", "Cottbus", 99984),
     ("12053000", "Frankfurt (Oder)", "Brandenburg", "Frankfurt (Oder)", 58537),
-
     # Mecklenburg-Vorpommern
     ("13003000", "Rostock", "Mecklenburg-Vorpommern", "Rostock", 209191),
     ("13004000", "Schwerin", "Mecklenburg-Vorpommern", "Schwerin", 95653),
@@ -156,20 +145,16 @@ LOCATIONS_DATA = [
     ("13071079", "Greifswald", "Mecklenburg-Vorpommern", "Vorpommern-Greifswald", 59382),
     ("13074132", "Wismar", "Mecklenburg-Vorpommern", "Nordwestmecklenburg", 44246),
     ("13071109", "Neubrandenburg", "Mecklenburg-Vorpommern", "Mecklenburgische Seenplatte", 64086),
-
     # Saarland
     ("10041100", "Saarbrücken", "Saarland", "Regionalverband Saarbrücken", 181959),
     ("10043115", "Neunkirchen", "Saarland", "Neunkirchen", 47054),
     ("10042111", "Völklingen", "Saarland", "Regionalverband Saarbrücken", 39424),
     ("10044117", "Homburg", "Saarland", "Saarpfalz-Kreis", 42252),
-
     # Bremen
     ("04011000", "Bremen", "Bremen", "Bremen", 569352),
     ("04012000", "Bremerhaven", "Bremen", "Bremerhaven", 113366),
-
     # Hamburg
     ("02000000", "Hamburg", "Hamburg", "Hamburg", 1892122),
-
     # Berlin
     ("11000000", "Berlin", "Berlin", "Berlin", 3677472),
 ]
@@ -231,7 +216,6 @@ async def import_locations():
                 datetime.now(UTC),
             )
             imported += 1
-
 
     finally:
         await conn.close()

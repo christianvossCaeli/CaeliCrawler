@@ -169,9 +169,7 @@ class DocumentPageFilter:
             self.logger.error("html_extraction_failed", path=str(file_path), error=str(e))
             raise
 
-    def extract_pages(
-        self, file_path: Path, content_type: str
-    ) -> list[PageData]:
+    def extract_pages(self, file_path: Path, content_type: str) -> list[PageData]:
         """
         Extract pages/sections from a document.
 
@@ -347,10 +345,7 @@ class DocumentPageFilter:
             List of PageData for pages to analyze next
         """
         # Filter to relevant pages not yet analyzed
-        remaining = [
-            p for p in all_pages
-            if p.is_relevant and p.page_number not in analyzed_pages
-        ]
+        remaining = [p for p in all_pages if p.is_relevant and p.page_number not in analyzed_pages]
 
         # Sort by score
         remaining.sort(key=lambda p: p.score, reverse=True)

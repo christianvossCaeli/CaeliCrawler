@@ -86,10 +86,7 @@ class RelevanceChecker:
         self.logger = structlog.get_logger(service="relevance_checker")
 
         # Pre-compile patterns for efficient matching
-        self._patterns = [
-            re.compile(r"\b" + re.escape(kw.lower()) + r"\b", re.IGNORECASE)
-            for kw in self.keywords
-        ]
+        self._patterns = [re.compile(r"\b" + re.escape(kw.lower()) + r"\b", re.IGNORECASE) for kw in self.keywords]
 
     @classmethod
     def from_category(cls, category) -> "RelevanceChecker":

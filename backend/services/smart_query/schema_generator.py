@@ -83,7 +83,6 @@ Verknüpfe die Teilnehmer als Relations (attends) mit ihren Personen-Entities.
 Gib das Ergebnis als strukturiertes JSON zurück mit:
 - events: [{{event_name, event_date, event_location, event_type, attendees: [{{name, position, organization, role}}]}}]
 - is_future_event: boolean (basierend auf event_date)""",
-
         "pain_points": f"""Extrahiere aus diesem Dokument alle Pain Points, Probleme und Herausforderungen.
 
 ## Zu extrahieren:
@@ -103,7 +102,6 @@ Gib das Ergebnis als strukturiertes JSON zurück mit:
 ## Output:
 Erstelle für jedes Problem eine Entity vom Typ "{target_entity_type_name}".
 Bewerte jeden Pain Point nach Schweregrad.""",
-
         "contacts": f"""Extrahiere aus diesem Dokument alle relevanten Kontaktpersonen und Entscheider.
 
 ## Zu extrahieren:
@@ -122,7 +120,6 @@ Bewerte jeden Pain Point nach Schweregrad.""",
 
 ## Output:
 Erstelle für jede Person eine Entity vom Typ "{target_entity_type_name}".""",
-
         "general": f"""Analysiere dieses Dokument im Hinblick auf:
 {user_intent}
 
@@ -181,7 +178,8 @@ def generate_url_patterns(search_focus: str, user_intent: str) -> tuple[list[str
 
     # Focus-specific additional excludes
     focus_excludes = {
-        "event_attendance": common_exclude + [
+        "event_attendance": common_exclude
+        + [
             r"/archiv/\d{4}/\d{2}/",  # Alte Monatsarchive
             r"/stellenangebot",
             r"/karriere",

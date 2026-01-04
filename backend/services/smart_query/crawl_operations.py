@@ -73,9 +73,7 @@ async def find_matching_data_sources(
     # Strategy 1: Find by explicit category
     if category_slug or category_id:
         if category_slug:
-            cat_result = await session.execute(
-                select(Category).where(Category.slug == category_slug)
-            )
+            cat_result = await session.execute(select(Category).where(Category.slug == category_slug))
             category = cat_result.scalar_one_or_none()
             if category:
                 category_id = category.id
@@ -105,9 +103,7 @@ async def find_matching_data_sources(
         tag_conditions = []
         for tag in expanded_tags:
             # Check if tag is in the JSONB array
-            tag_conditions.append(
-                DataSource.tags.contains([tag])
-            )
+            tag_conditions.append(DataSource.tags.contains([tag]))
 
         if tag_conditions:
             query = select(DataSource).where(or_(*tag_conditions))
@@ -205,10 +201,7 @@ async def find_sources_for_crawl(
     source_types = crawl_data.get("source_type", [])
 
     # Build base query - exclude ERROR sources by default unless explicitly filtered
-    if status_filter:
-        query = select(DataSource)
-    else:
-        query = select(DataSource).where(DataSource.status != SourceStatus.ERROR)
+    query = select(DataSource) if status_filter else select(DataSource).where(DataSource.status != SourceStatus.ERROR)
     conditions = []
 
     # Strategy 1: Explicit source IDs (highest priority, returns immediately)
@@ -220,9 +213,7 @@ async def find_sources_for_crawl(
     # Strategy 2: Category filter (by slug or UUID)
     resolved_category_id = None
     if category_slug:
-        cat_result = await session.execute(
-            select(Category).where(Category.slug == category_slug)
-        )
+        cat_result = await session.execute(select(Category).where(Category.slug == category_slug))
         category = cat_result.scalar_one_or_none()
         if category:
             resolved_category_id = category.id
@@ -232,10 +223,8 @@ async def find_sources_for_crawl(
 
     if resolved_category_id:
         # Need to join with category table
-        query = (
-            query
-            .join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id)
-            .where(DataSourceCategory.category_id == resolved_category_id)
+        query = query.join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id).where(
+            DataSourceCategory.category_id == resolved_category_id
         )
 
     # Strategy 3: Status filter
@@ -291,6 +280,7 @@ async def find_sources_for_crawl(
 
         if source_types:
             from app.models.data_source import SourceType
+
             valid_types = []
             for st in source_types:
                 try:
@@ -311,9 +301,7 @@ async def find_sources_for_crawl(
         parent_name = entity_filters.get("parent_name")
         if parent_name:
             # Find parent entity first
-            parent_query = select(Entity.id).where(
-                Entity.name.ilike(f"%{parent_name}%")
-            )
+            parent_query = select(Entity.id).where(Entity.name.ilike(f"%{parent_name}%"))
             parent_result = await session.execute(parent_query)
             parent_ids = [row[0] for row in parent_result.fetchall()]
             if parent_ids:
@@ -416,8 +404,7 @@ async def start_crawl_jobs(
     for source in sources:
         # Get all categories for this source
         cat_result = await session.execute(
-            select(DataSourceCategory.category_id)
-            .where(DataSourceCategory.data_source_id == source.id)
+            select(DataSourceCategory.category_id).where(DataSourceCategory.data_source_id == source.id)
         )
         category_ids = [row[0] for row in cat_result.fetchall()]
 
@@ -483,8 +470,7 @@ async def execute_crawl_command(
             # Get all categories for this source
             if include_all_categories:
                 cat_result = await session.execute(
-                    select(DataSourceCategory.category_id)
-                    .where(DataSourceCategory.data_source_id == source.id)
+                    select(DataSourceCategory.category_id).where(DataSourceCategory.data_source_id == source.id)
                 )
                 category_ids = [row[0] for row in cat_result.fetchall()]
 
@@ -512,11 +498,13 @@ async def execute_crawl_command(
                         error=str(e),
                     )
 
-            result["sources"].append({
-                "id": str(source.id),
-                "name": source.name,
-                "category_count": len(category_ids),
-            })
+            result["sources"].append(
+                {
+                    "id": str(source.id),
+                    "name": source.name,
+                    "category_count": len(category_ids),
+                }
+            )
 
         result["success"] = True
         result["job_count"] = job_count

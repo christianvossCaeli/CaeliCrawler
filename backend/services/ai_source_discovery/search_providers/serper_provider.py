@@ -1,6 +1,5 @@
 """Serper.dev search provider - Google Search API."""
 
-
 import httpx
 import structlog
 
@@ -82,13 +81,15 @@ class SerperSearchProvider(BaseSearchProvider):
                         url = item.get("link", "")
                         if url and url not in seen_urls:
                             seen_urls.add(url)
-                            results.append(SearchResult(
-                                url=url,
-                                title=item.get("title", ""),
-                                snippet=item.get("snippet", ""),
-                                source_type=self._detect_source_type(url),
-                                confidence=self._calculate_confidence(item, query),
-                            ))
+                            results.append(
+                                SearchResult(
+                                    url=url,
+                                    title=item.get("title", ""),
+                                    snippet=item.get("snippet", ""),
+                                    source_type=self._detect_source_type(url),
+                                    confidence=self._calculate_confidence(item, query),
+                                )
+                            )
 
                     logger.debug(
                         "Serper search completed",

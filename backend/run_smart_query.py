@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Run Smart Query import."""
+
 import asyncio
 
 from app.database import get_session
@@ -7,7 +8,6 @@ from services.smart_query.write_executor import execute_write_command
 
 
 async def run():
-
     async for session in get_session():
         # Step 1: Create territorial-entity type
         op = {
@@ -17,8 +17,8 @@ async def run():
                 "name_plural": "Gebietskörperschaften",
                 "slug": "territorial-entity",
                 "supports_hierarchy": True,
-                "is_public": True
-            }
+                "is_public": True,
+            },
         }
         result = await execute_write_command(session, op)
         await session.commit()
@@ -32,8 +32,8 @@ async def run():
                 "create_entity_type": False,
                 "hierarchy_level": 1,
                 "create_data_sources": True,
-                "category_slugs": ["ratsinformationen-nrw", "kommunale-news", "standortdaten"]
-            }
+                "category_slugs": ["ratsinformationen-nrw", "kommunale-news", "standortdaten"],
+            },
         }
         result = await execute_write_command(session, op)
         if not result.get("success"):
@@ -50,8 +50,8 @@ async def run():
                 "hierarchy_level": 2,
                 "parent_field": "bundeslandLabel",
                 "create_data_sources": True,
-                "category_slugs": ["ratsinformationen-nrw", "kommunale-news", "standortdaten"]
-            }
+                "category_slugs": ["ratsinformationen-nrw", "kommunale-news", "standortdaten"],
+            },
         }
         result = await execute_write_command(session, op)
         if not result.get("success"):
@@ -66,8 +66,8 @@ async def run():
                 "name_plural": "Windparks",
                 "slug": "windpark",
                 "supports_hierarchy": False,
-                "is_public": True
-            }
+                "is_public": True,
+            },
         }
         result = await execute_write_command(session, op)
         await session.commit()
@@ -81,8 +81,8 @@ async def run():
                 "create_entity_type": False,
                 "create_data_sources": True,
                 "match_to_gemeinde": True,
-                "category_slugs": ["standortdaten", "kommunale-news"]
-            }
+                "category_slugs": ["standortdaten", "kommunale-news"],
+            },
         }
         result = await execute_write_command(session, op)
         if not result.get("success"):

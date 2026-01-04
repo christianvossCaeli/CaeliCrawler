@@ -440,10 +440,4 @@ class APIConfiguration(Base):
         return min(1.0, matches / len(self.keywords) * 1.5)
 
     def __repr__(self) -> str:
-        return (
-            f"<APIConfiguration("
-            f"id={self.id}, "
-            f"import_mode='{self.import_mode}', "
-            f"api_type='{self.api_type}'"
-            f")>"
-        )
+        return f"<APIConfiguration(id={self.id}, import_mode='{self.import_mode}', api_type='{self.api_type}')>"

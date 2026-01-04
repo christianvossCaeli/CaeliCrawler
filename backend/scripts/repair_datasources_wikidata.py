@@ -38,16 +38,11 @@ async def fetch_wikidata_websites() -> dict[str, tuple[str, str]]:
     """Fetch AGS -> (website, name) mapping from Wikidata."""
     logger.info("Fetching official websites from Wikidata...")
 
-    headers = {
-        "Accept": "application/sparql-results+json",
-        "User-Agent": "CaeliCrawler/1.0 (Data Repair Script)"
-    }
+    headers = {"Accept": "application/sparql-results+json", "User-Agent": "CaeliCrawler/1.0 (Data Repair Script)"}
 
     async with httpx.AsyncClient(timeout=120.0) as client:
         response = await client.get(
-            WIKIDATA_SPARQL,
-            params={"query": WIKIDATA_QUERY, "format": "json"},
-            headers=headers
+            WIKIDATA_SPARQL, params={"query": WIKIDATA_QUERY, "format": "json"}, headers=headers
         )
         response.raise_for_status()
         data = response.json()
@@ -85,19 +80,13 @@ async def repair_datasources():
         session: AsyncSession
 
         # Get all repaired DataSources
-        result = await session.execute(
-            select(DataSource).where(
-                DataSource.extra_data["repair_reason"].isnot(None)
-            )
-        )
+        result = await session.execute(select(DataSource).where(DataSource.extra_data["repair_reason"].isnot(None)))
 
         repaired_sources = result.scalars().all()
         logger.info(f"Found {len(repaired_sources)} repaired DataSources to process")
 
         # Get all existing base_urls to avoid unique constraint violations
-        existing_urls_result = await session.execute(
-            select(DataSource.base_url)
-        )
+        existing_urls_result = await session.execute(select(DataSource.base_url))
         existing_urls = {row[0] for row in existing_urls_result.fetchall()}
         logger.info(f"Found {len(existing_urls)} existing base_urls")
 
@@ -168,10 +157,7 @@ async def repair_datasources():
 
         # Summary
         logger.info(
-            "Repair completed",
-            updated_to_official=updated_count,
-            kept_wikipedia=kept_wikipedia,
-            errors=len(errors)
+            "Repair completed", updated_to_official=updated_count, kept_wikipedia=kept_wikipedia, errors=len(errors)
         )
 
         if errors:
@@ -181,7 +167,7 @@ async def repair_datasources():
             "updated_to_official": updated_count,
             "kept_wikipedia": kept_wikipedia,
             "shared_website": shared_website_count,
-            "errors": errors
+            "errors": errors,
         }
 
 

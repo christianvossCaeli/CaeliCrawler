@@ -29,7 +29,9 @@ router = APIRouter()
 async def list_jobs(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
-    status: str | None = Query(default=None, description="Single status or comma-separated list (e.g. 'COMPLETED,FAILED')"),
+    status: str | None = Query(
+        default=None, description="Single status or comma-separated list (e.g. 'COMPLETED,FAILED')"
+    ),
     category_id: UUID | None = Query(default=None),
     source_id: UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
@@ -140,12 +142,14 @@ async def get_job_log(
     # Convert to JobLogEntry format
     entries = []
     for entry in raw_entries:
-        entries.append(JobLogEntry(
-            timestamp=datetime.fromisoformat(entry.get("timestamp", datetime.now().isoformat())),
-            level=entry.get("level", "INFO"),
-            message=entry.get("message", entry.get("url", "")),
-            details=entry.get("details"),
-        ))
+        entries.append(
+            JobLogEntry(
+                timestamp=datetime.fromisoformat(entry.get("timestamp", datetime.now().isoformat())),
+                level=entry.get("level", "INFO"),
+                message=entry.get("message", entry.get("url", "")),
+                details=entry.get("details"),
+            )
+        )
 
     return JobLogResponse(
         job_id=job_id,
@@ -163,9 +167,7 @@ async def get_running_jobs(
     """Get all currently running crawl jobs with live progress."""
     from app.services.crawler_progress import crawler_progress
 
-    result = await session.execute(
-        select(CrawlJob).where(CrawlJob.status == JobStatus.RUNNING)
-    )
+    result = await session.execute(select(CrawlJob).where(CrawlJob.status == JobStatus.RUNNING))
     running_jobs = result.scalars().all()
 
     # Batch fetch sources and categories to avoid N+1 queries
@@ -186,19 +188,21 @@ async def get_running_jobs(
         if live_stats.get("total_pages"):
             progress_percent = (live_stats.get("pages_crawled", 0) / live_stats["total_pages"]) * 100
 
-        jobs.append(RunningJobInfo(
-            id=job.id,
-            source_id=job.source_id,
-            source_name=source.name if source else None,
-            category_id=job.category_id,
-            category_name=category.name if category else None,
-            status=job.status.value,
-            started_at=job.started_at,
-            pages_crawled=live_stats.get("pages_crawled", job.pages_crawled),
-            documents_found=live_stats.get("documents_found", job.documents_found),
-            progress_percent=progress_percent,
-            celery_task_id=job.celery_task_id,
-        ))
+        jobs.append(
+            RunningJobInfo(
+                id=job.id,
+                source_id=job.source_id,
+                source_name=source.name if source else None,
+                category_id=job.category_id,
+                category_name=category.name if category else None,
+                status=job.status.value,
+                started_at=job.started_at,
+                pages_crawled=live_stats.get("pages_crawled", job.pages_crawled),
+                documents_found=live_stats.get("documents_found", job.documents_found),
+                progress_percent=progress_percent,
+                celery_task_id=job.celery_task_id,
+            )
+        )
 
     return RunningJobsResponse(
         jobs=jobs,

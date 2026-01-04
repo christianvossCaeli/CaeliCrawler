@@ -45,12 +45,12 @@ from app.schemas.data_source import (  # noqa: E402
 
 # IP ranges that should NOT be crawled (internal networks, cloud metadata, etc.)
 BLOCKED_CRAWLER_IP_RANGES = [
-    ipaddress.ip_network("127.0.0.0/8"),      # Localhost
-    ipaddress.ip_network("10.0.0.0/8"),       # Private Class A
-    ipaddress.ip_network("172.16.0.0/12"),    # Private Class B
-    ipaddress.ip_network("192.168.0.0/16"),   # Private Class C
-    ipaddress.ip_network("169.254.0.0/16"),   # Link-local (cloud metadata)
-    ipaddress.ip_network("0.0.0.0/8"),        # Current network
+    ipaddress.ip_network("127.0.0.0/8"),  # Localhost
+    ipaddress.ip_network("10.0.0.0/8"),  # Private Class A
+    ipaddress.ip_network("172.16.0.0/12"),  # Private Class B
+    ipaddress.ip_network("192.168.0.0/16"),  # Private Class C
+    ipaddress.ip_network("169.254.0.0/16"),  # Link-local (cloud metadata)
+    ipaddress.ip_network("0.0.0.0/8"),  # Current network
 ]
 
 # Hostnames that should never be crawled
@@ -129,12 +129,14 @@ async def get_categories_for_source(
     )
     links = []
     for dsc, cat in result.all():
-        links.append(CategoryLink(
-            id=cat.id,
-            name=cat.name,
-            slug=cat.slug,
-            is_primary=dsc.is_primary,
-        ))
+        links.append(
+            CategoryLink(
+                id=cat.id,
+                name=cat.name,
+                slug=cat.slug,
+                is_primary=dsc.is_primary,
+            )
+        )
     return links
 
 
@@ -160,12 +162,14 @@ async def get_categories_for_sources_bulk(
 
     categories_by_source: dict[UUID, list[CategoryLink]] = defaultdict(list)
     for dsc, cat in result.all():
-        categories_by_source[dsc.data_source_id].append(CategoryLink(
-            id=cat.id,
-            name=cat.name,
-            slug=cat.slug,
-            is_primary=dsc.is_primary,
-        ))
+        categories_by_source[dsc.data_source_id].append(
+            CategoryLink(
+                id=cat.id,
+                name=cat.name,
+                slug=cat.slug,
+                is_primary=dsc.is_primary,
+            )
+        )
 
     return categories_by_source
 
@@ -183,9 +187,7 @@ async def verify_categories_exist(
     if not category_ids:
         return []
 
-    result = await session.execute(
-        select(Category).where(Category.id.in_(category_ids))
-    )
+    result = await session.execute(select(Category).where(Category.id.in_(category_ids)))
     categories = result.scalars().all()
 
     # Check if all requested categories were found
@@ -207,11 +209,7 @@ async def sync_source_categories(
     from sqlalchemy import delete
 
     # Bulk delete existing links (single query instead of N+1)
-    await session.execute(
-        delete(DataSourceCategory).where(
-            DataSourceCategory.data_source_id == source.id
-        )
-    )
+    await session.execute(delete(DataSourceCategory).where(DataSourceCategory.data_source_id == source.id))
 
     # Create new links (N:M via junction table only)
     for i, cat_id in enumerate(category_ids):
@@ -270,7 +268,7 @@ def build_source_response(
 
 TAG_MAX_LENGTH = 50
 TAG_MAX_COUNT = 20
-TAG_PATTERN = re.compile(r'^[a-zA-Z0-9äöüÄÖÜß\-_\s]+$')
+TAG_PATTERN = re.compile(r"^[a-zA-Z0-9äöüÄÖÜß\-_\s]+$")
 
 
 def validate_tags(tags: list[str] | None) -> list[str]:
@@ -308,7 +306,9 @@ async def list_sources(
     source_type: SourceType | None = Query(default=None),
     search: str | None = Query(default=None, max_length=200),
     tags: list[str] | None = Query(default=None, description="Filter by tags (OR logic)"),
-    sort_by: str | None = Query(default=None, description="Sort by field (name, status, source_type, last_crawl, document_count)"),
+    sort_by: str | None = Query(
+        default=None, description="Sort by field (name, status, source_type, last_crawl, document_count)"
+    ),
     sort_order: str | None = Query(default="asc", description="Sort order (asc, desc)"),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_editor),
@@ -318,9 +318,8 @@ async def list_sources(
 
     # Filter by category via N:M junction table
     if category_id:
-        source_ids_in_cat = (
-            select(DataSourceCategory.data_source_id)
-            .where(DataSourceCategory.category_id == category_id)
+        source_ids_in_cat = select(DataSourceCategory.data_source_id).where(
+            DataSourceCategory.category_id == category_id
         )
         query = query.where(DataSource.id.in_(source_ids_in_cat))
 
@@ -330,10 +329,10 @@ async def list_sources(
         query = query.where(DataSource.source_type == source_type)
     if search:
         # Escape LIKE special characters to prevent SQL injection
-        escaped_search = search.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        escaped_search = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         query = query.where(
-            DataSource.name.ilike(f"%{escaped_search}%", escape='\\') |
-            DataSource.base_url.ilike(f"%{escaped_search}%", escape='\\')
+            DataSource.name.ilike(f"%{escaped_search}%", escape="\\")
+            | DataSource.base_url.ilike(f"%{escaped_search}%", escape="\\")
         )
     # Filter by tags (OR logic - source must have at least one of the tags)
     if tags:
@@ -358,10 +357,7 @@ async def list_sources(
     # Note: document_count sorting requires a subquery
     if sort_by == "document_count":
         doc_count_subq = (
-            select(
-                Document.source_id,
-                func.count(Document.id).label("doc_count")
-            )
+            select(Document.source_id, func.count(Document.id).label("doc_count"))
             .group_by(Document.source_id)
             .subquery()
         )
@@ -380,10 +376,7 @@ async def list_sources(
     else:
         # Default sorting: last_crawl DESC (NULL last), then by name
         # This shows recently crawled sources first, with uncrawled sources at the end
-        query = query.order_by(
-            DataSource.last_crawl.desc().nulls_last(),
-            DataSource.name
-        )
+        query = query.order_by(DataSource.last_crawl.desc().nulls_last(), DataSource.name)
 
     # Paginate
     query = query.offset((page - 1) * per_page).limit(per_page)
@@ -477,9 +470,7 @@ async def create_source(
     primary_category_id = category_ids[0]
 
     # Check for duplicate URL (globally now, not per-category)
-    existing = await session.execute(
-        select(DataSource).where(DataSource.base_url == data.base_url)
-    )
+    existing = await session.execute(select(DataSource).where(DataSource.base_url == data.base_url))
     if existing.scalar():
         raise ConflictError(
             "Data source already exists",
@@ -531,6 +522,7 @@ async def create_source(
 
 class SourceBriefResponse(BaseModel):
     """Brief response for source listing (used in tag-based search)."""
+
     id: UUID
     name: str
     base_url: str
@@ -580,9 +572,8 @@ async def get_sources_by_tags(
 
     # Exclude sources already in the specified category
     if exclude_category_id:
-        sources_in_category = (
-            select(DataSourceCategory.data_source_id)
-            .where(DataSourceCategory.category_id == exclude_category_id)
+        sources_in_category = select(DataSourceCategory.data_source_id).where(
+            DataSourceCategory.category_id == exclude_category_id
         )
         query = query.where(~DataSource.id.in_(sources_in_category))
 
@@ -619,9 +610,7 @@ async def get_source(
     if not source:
         raise NotFoundError("Data Source", str(source_id))
 
-    doc_count = (await session.execute(
-        select(func.count()).where(Document.source_id == source.id)
-    )).scalar()
+    doc_count = (await session.execute(select(func.count()).where(Document.source_id == source.id))).scalar()
 
     # Load categories via N:M
     categories = await get_categories_for_source(session, source.id)
@@ -738,9 +727,7 @@ async def delete_source(
         raise NotFoundError("Data Source", str(source_id))
 
     # Get document count for audit
-    doc_count = (await session.execute(
-        select(func.count()).where(Document.source_id == source.id)
-    )).scalar()
+    doc_count = (await session.execute(select(func.count()).where(Document.source_id == source.id))).scalar()
 
     # Load categories for audit
     categories = await get_categories_for_source(session, source.id)
@@ -806,9 +793,7 @@ async def bulk_import_sources(
     existing_urls: set[str] = set()
     if data.skip_duplicates:
         import_urls = [item.base_url for item in data.sources]
-        existing_result = await session.execute(
-            select(DataSource.base_url).where(DataSource.base_url.in_(import_urls))
-        )
+        existing_result = await session.execute(select(DataSource.base_url).where(DataSource.base_url.in_(import_urls)))
         existing_urls = {row[0] for row in existing_result.all()}
 
     imported = 0
@@ -821,10 +806,12 @@ async def bulk_import_sources(
             # SSRF Protection: Validate URL before importing
             is_safe, error_msg = validate_crawler_url(item.base_url)
             if not is_safe:
-                errors.append({
-                    "url": item.base_url,
-                    "error": f"SSRF Protection: {error_msg}",
-                })
+                errors.append(
+                    {
+                        "url": item.base_url,
+                        "error": f"SSRF Protection: {error_msg}",
+                    }
+                )
                 continue
 
             # Check for duplicate by URL (using pre-loaded set)
@@ -837,10 +824,12 @@ async def bulk_import_sources(
                 validated_item_tags = validate_tags(item.tags)
                 combined_tags = list(set(data.default_tags + validated_item_tags))
             except ValueError as e:
-                errors.append({
-                    "url": item.base_url,
-                    "error": f"Invalid tags: {e}",
-                })
+                errors.append(
+                    {
+                        "url": item.base_url,
+                        "error": f"Invalid tags: {e}",
+                    }
+                )
                 continue
 
             source = DataSource(
@@ -867,10 +856,12 @@ async def bulk_import_sources(
                 imported_names.append(source.name)
 
         except Exception as e:
-            errors.append({
-                "url": item.base_url,
-                "error": str(e),
-            })
+            errors.append(
+                {
+                    "url": item.base_url,
+                    "error": str(e),
+                }
+            )
 
     # Audit log for bulk operation
     if imported > 0:
@@ -936,12 +927,7 @@ async def get_source_counts(
     """
     # Query 1: Counts by category (via N:M junction table)
     category_counts_query = (
-        select(
-            Category.id,
-            Category.name,
-            Category.slug,
-            func.count(DataSourceCategory.data_source_id).label("count")
-        )
+        select(Category.id, Category.name, Category.slug, func.count(DataSourceCategory.data_source_id).label("count"))
         .join(DataSourceCategory, Category.id == DataSourceCategory.category_id)
         .group_by(Category.id, Category.name, Category.slug)
         .order_by(func.count(DataSourceCategory.data_source_id).desc())
@@ -965,10 +951,7 @@ async def get_source_counts(
     )
     type_result = await session.execute(type_counts_query)
     type_rows = type_result.all()
-    types = [
-        TypeCount(type=row.source_type.value if row.source_type else None, count=row.count)
-        for row in type_rows
-    ]
+    types = [TypeCount(type=row.source_type.value if row.source_type else None, count=row.count) for row in type_rows]
     # Derive total from type counts (sum of all types = total sources)
     total = sum(row.count for row in type_rows)
 
@@ -980,8 +963,7 @@ async def get_source_counts(
     )
     status_result = await session.execute(status_counts_query)
     statuses = [
-        StatusCount(status=row.status.value if row.status else None, count=row.count)
-        for row in status_result.all()
+        StatusCount(status=row.status.value if row.status else None, count=row.count) for row in status_result.all()
     ]
 
     return SourceCountsResponse(
@@ -1016,10 +998,7 @@ async def get_available_tags(
         .order_by(func.count().desc())
     )
 
-    tags = [
-        TagCount(tag=row.tag, count=row.count)
-        for row in result.all()
-    ]
+    tags = [TagCount(tag=row.tag, count=row.count) for row in result.all()]
 
     return TagsResponse(tags=tags)
 
@@ -1040,24 +1019,15 @@ async def get_source_status_stats(
             .group_by(DataSource.status)
         )
     else:
-        count_query = (
-            select(DataSource.status, func.count().label("count"))
-            .group_by(DataSource.status)
-        )
+        count_query = select(DataSource.status, func.count().label("count")).group_by(DataSource.status)
 
     # Single query: get counts by status and sum for total
     status_result = await session.execute(count_query)
     rows = status_result.fetchall()
 
-    raw_counts = {
-        row[0].value if row[0] else "UNKNOWN": row[1]
-        for row in rows
-    }
+    raw_counts = {row[0].value if row[0] else "UNKNOWN": row[1] for row in rows}
     total = sum(raw_counts.values())
-    by_status = {
-        status.value: raw_counts.get(status.value, 0)
-        for status in SourceStatus
-    }
+    by_status = {status.value: raw_counts.get(status.value, 0) for status in SourceStatus}
 
     return SourceStatusStatsResponse(
         total=total,

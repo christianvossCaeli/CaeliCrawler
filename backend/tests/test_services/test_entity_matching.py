@@ -26,27 +26,21 @@ class TestCompositeEntityDetection:
 
     def test_region_gemeinde_pattern(self):
         """Test detection of 'Region X, Gemeinde Y' pattern."""
-        result = detect_composite_entity_name(
-            "Region Oberfranken-West, Gemeinde Litzendorf"
-        )
+        result = detect_composite_entity_name("Region Oberfranken-West, Gemeinde Litzendorf")
         assert result.is_composite is True
         assert result.pattern_type == "region_gemeinde"
         assert "Litzendorf" in result.extracted_names
 
     def test_region_stadt_pattern(self):
         """Test detection of 'Region X, Stadt Y' pattern."""
-        result = detect_composite_entity_name(
-            "Region Oberfranken-Ost, Stadt Creußen, Landkreis Bayreuth"
-        )
+        result = detect_composite_entity_name("Region Oberfranken-Ost, Stadt Creußen, Landkreis Bayreuth")
         assert result.is_composite is True
         assert result.pattern_type == "region_gemeinde"
         assert "Creußen" in result.extracted_names
 
     def test_region_markt_pattern(self):
         """Test detection of 'Region X, Markt Y' pattern."""
-        result = detect_composite_entity_name(
-            "Region Oberfranken-Ost, Markt Schnabelwaid, Landkreis Bayreuth"
-        )
+        result = detect_composite_entity_name("Region Oberfranken-Ost, Markt Schnabelwaid, Landkreis Bayreuth")
         assert result.is_composite is True
         assert result.pattern_type == "region_gemeinde"
         assert "Schnabelwaid" in result.extracted_names
@@ -81,9 +75,7 @@ class TestCompositeEntityDetection:
 
     def test_staedte_und_pattern(self):
         """Test detection of 'Städte X und Y' pattern."""
-        result = detect_composite_entity_name(
-            "Städte München und Augsburg"
-        )
+        result = detect_composite_entity_name("Städte München und Augsburg")
         assert result.is_composite is True
         assert result.pattern_type == "gemeinden_und"
         assert "München" in result.extracted_names
@@ -91,9 +83,7 @@ class TestCompositeEntityDetection:
 
     def test_gemeinde_singular_und_pattern(self):
         """Test detection of 'Gemeinde X und Y' (singular) pattern."""
-        result = detect_composite_entity_name(
-            "Gemeinde Haag und Creußen"
-        )
+        result = detect_composite_entity_name("Gemeinde Haag und Creußen")
         assert result.is_composite is True
         assert result.pattern_type == "gemeinden_und"
         assert "Haag" in result.extracted_names
@@ -101,9 +91,7 @@ class TestCompositeEntityDetection:
 
     def test_cleans_trailing_landkreis(self):
         """Test that trailing Landkreis info is cleaned from extracted names."""
-        result = detect_composite_entity_name(
-            "Gemeinden Litzendorf und Buttenheim, Landkreis Bamberg"
-        )
+        result = detect_composite_entity_name("Gemeinden Litzendorf und Buttenheim, Landkreis Bamberg")
         assert result.is_composite is True
         # Should not include "Landkreis Bamberg" in the second name
         assert "Buttenheim" in result.extracted_names
@@ -111,9 +99,7 @@ class TestCompositeEntityDetection:
 
     def test_speziell_pattern(self):
         """Test detection of 'speziell Gemeinde X' pattern."""
-        result = detect_composite_entity_name(
-            "Region Bayern, speziell Gemeinde Rosenheim"
-        )
+        result = detect_composite_entity_name("Region Bayern, speziell Gemeinde Rosenheim")
         assert result.is_composite is True
         assert result.pattern_type == "insbesondere"
         assert "Rosenheim" in result.extracted_names
@@ -148,18 +134,18 @@ class TestCompositeEntityResolution:
         mock_existing_entity.id = existing_entity_id
         mock_existing_entity.name = "Litzendorf"
 
-        with patch.object(service, '_get_entity_type', new_callable=AsyncMock) as mock_get_type:
+        with patch.object(service, "_get_entity_type", new_callable=AsyncMock) as mock_get_type:
             mock_get_type.return_value = mock_entity_type
 
-            with patch.object(service, '_find_by_normalized_name', new_callable=AsyncMock) as mock_find:
+            with patch.object(service, "_find_by_normalized_name", new_callable=AsyncMock) as mock_find:
                 # First call for exact match returns None
                 # Second call for composite resolution returns existing entity
                 mock_find.side_effect = [None, mock_existing_entity]
 
-                with patch.object(service, '_find_by_core_name', new_callable=AsyncMock) as mock_core:
+                with patch.object(service, "_find_by_core_name", new_callable=AsyncMock) as mock_core:
                     mock_core.return_value = None  # No core name match
 
-                    with patch.object(service, '_resolve_composite_entity', new_callable=AsyncMock) as mock_resolve:
+                    with patch.object(service, "_resolve_composite_entity", new_callable=AsyncMock) as mock_resolve:
                         mock_resolve.return_value = mock_existing_entity
 
                         result = await service.get_or_create_entity(
@@ -182,19 +168,19 @@ class TestCompositeEntityResolution:
         mock_entity_type.id = entity_type_id
         mock_entity_type.slug = "territorial_entity"
 
-        with patch.object(service, '_get_entity_type', new_callable=AsyncMock) as mock_get_type:
+        with patch.object(service, "_get_entity_type", new_callable=AsyncMock) as mock_get_type:
             mock_get_type.return_value = mock_entity_type
 
-            with patch.object(service, '_find_by_normalized_name', new_callable=AsyncMock) as mock_find:
+            with patch.object(service, "_find_by_normalized_name", new_callable=AsyncMock) as mock_find:
                 mock_find.return_value = None
 
-                with patch.object(service, '_find_by_core_name', new_callable=AsyncMock) as mock_core:
+                with patch.object(service, "_find_by_core_name", new_callable=AsyncMock) as mock_core:
                     mock_core.return_value = None  # No core name match
 
-                    with patch.object(service, '_resolve_composite_entity', new_callable=AsyncMock) as mock_resolve:
+                    with patch.object(service, "_resolve_composite_entity", new_callable=AsyncMock) as mock_resolve:
                         mock_resolve.return_value = None
 
-                        with patch.object(service, '_create_entity_safe', new_callable=AsyncMock) as mock_create:
+                        with patch.object(service, "_create_entity_safe", new_callable=AsyncMock) as mock_create:
                             mock_new_entity = MagicMock()
                             mock_new_entity.id = uuid4()
                             mock_new_entity.name = "Region X, Gemeinde New"
@@ -241,10 +227,10 @@ class TestEntityMatchingServiceBasic:
         mock_entity.name = "München"
         mock_entity.name_normalized = "muenchen"
 
-        with patch.object(service, '_get_entity_type', new_callable=AsyncMock) as mock_get_type:
+        with patch.object(service, "_get_entity_type", new_callable=AsyncMock) as mock_get_type:
             mock_get_type.return_value = mock_entity_type
 
-            with patch.object(service, '_find_by_normalized_name', new_callable=AsyncMock) as mock_find:
+            with patch.object(service, "_find_by_normalized_name", new_callable=AsyncMock) as mock_find:
                 mock_find.return_value = mock_entity
 
                 result = await service.get_or_create_entity(
@@ -260,7 +246,7 @@ class TestEntityMatchingServiceBasic:
         """Test that None is returned for invalid entity type."""
         service = EntityMatchingService(mock_session)
 
-        with patch.object(service, '_get_entity_type', new_callable=AsyncMock) as mock_get_type:
+        with patch.object(service, "_get_entity_type", new_callable=AsyncMock) as mock_get_type:
             mock_get_type.return_value = None
 
             result = await service.get_or_create_entity(
@@ -282,16 +268,16 @@ class TestEntityMatchingServiceBasic:
         mock_entity_type.id = entity_type_id
         mock_entity_type.slug = "territorial_entity"
 
-        with patch.object(service, '_get_entity_type', new_callable=AsyncMock) as mock_get_type:
+        with patch.object(service, "_get_entity_type", new_callable=AsyncMock) as mock_get_type:
             mock_get_type.return_value = mock_entity_type
 
-            with patch.object(service, '_find_by_normalized_name', new_callable=AsyncMock) as mock_find:
+            with patch.object(service, "_find_by_normalized_name", new_callable=AsyncMock) as mock_find:
                 mock_find.return_value = None
 
-                with patch.object(service, '_resolve_composite_entity', new_callable=AsyncMock) as mock_resolve:
+                with patch.object(service, "_resolve_composite_entity", new_callable=AsyncMock) as mock_resolve:
                     mock_resolve.return_value = None
 
-                    with patch.object(service, '_create_entity_safe', new_callable=AsyncMock) as mock_create:
+                    with patch.object(service, "_create_entity_safe", new_callable=AsyncMock) as mock_create:
                         mock_new_entity = MagicMock()
                         mock_new_entity.id = uuid4()
                         mock_new_entity.name = "New Entity"

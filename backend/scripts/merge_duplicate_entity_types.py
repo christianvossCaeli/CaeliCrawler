@@ -71,9 +71,7 @@ class EntityTypeMerger:
         duplicates = []
 
         # Get all active EntityTypes
-        result = await self.session.execute(
-            select(EntityType).where(EntityType.is_active.is_(True))
-        )
+        result = await self.session.execute(select(EntityType).where(EntityType.is_active.is_(True)))
         entity_types = result.scalars().all()
 
         # Check if territorial_entity base type exists
@@ -96,13 +94,17 @@ class EntityTypeMerger:
             hierarchy_mapping = await get_hierarchy_mapping_async(entity_type.name)
 
             if hierarchy_mapping and hierarchy_mapping.get("parent_type_slug") == "territorial_entity":
-                duplicates.append((
-                    entity_type,
-                    "territorial_entity",
-                    hierarchy_mapping["hierarchy_level"],
-                    hierarchy_mapping["level_name"],
-                ))
-                self.log(f"Found territorial duplicate: '{entity_type.name}' (Level {hierarchy_mapping['hierarchy_level']})")
+                duplicates.append(
+                    (
+                        entity_type,
+                        "territorial_entity",
+                        hierarchy_mapping["hierarchy_level"],
+                        hierarchy_mapping["level_name"],
+                    )
+                )
+                self.log(
+                    f"Found territorial duplicate: '{entity_type.name}' (Level {hierarchy_mapping['hierarchy_level']})"
+                )
 
         self.stats["entity_types_found"] = len(duplicates)
         return duplicates
@@ -120,7 +122,9 @@ class EntityTypeMerger:
     async def count_entities(self, entity_type_id: UUID) -> int:
         """Count entities for a given EntityType."""
         result = await self.session.execute(
-            select(func.count()).select_from(Entity).where(
+            select(func.count())
+            .select_from(Entity)
+            .where(
                 Entity.entity_type_id == entity_type_id,
                 Entity.is_active.is_(True),
             )
@@ -297,9 +301,7 @@ class EntityTypeMerger:
 
 
 async def main():
-    parser = argparse.ArgumentParser(
-        description="Merge duplicate EntityTypes into their canonical counterparts"
-    )
+    parser = argparse.ArgumentParser(description="Merge duplicate EntityTypes into their canonical counterparts")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -330,7 +332,6 @@ async def main():
     )
 
     args = parser.parse_args()
-
 
     if args.dry_run:
         pass

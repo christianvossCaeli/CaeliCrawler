@@ -32,10 +32,7 @@ class RelationTypeBase(BaseModel):
     target_entity_type_id: UUID = Field(..., description="Target entity type ID")
 
     # Cardinality with enum validation
-    cardinality: Cardinality = Field(
-        default=Cardinality.MANY_TO_MANY,
-        description="Cardinality: 1:1, 1:n, n:1, n:m"
-    )
+    cardinality: Cardinality = Field(default=Cardinality.MANY_TO_MANY, description="Cardinality: 1:1, 1:n, n:1, n:m")
 
     # Attribute schema
     attribute_schema: dict[str, Any] | None = Field(
@@ -55,9 +52,7 @@ class RelationTypeCreate(RelationTypeBase):
     """Schema for creating a new relation type."""
 
     slug: str | None = Field(
-        None,
-        max_length=SLUG_MAX_LENGTH,
-        description="URL-friendly slug (auto-generated if not provided)"
+        None, max_length=SLUG_MAX_LENGTH, description="URL-friendly slug (auto-generated if not provided)"
     )
 
     @field_validator("slug", mode="before")

@@ -88,24 +88,12 @@ class LLMUsageAnalyticsService:
         """Get summary statistics."""
         query = select(
             func.count(LLMUsageRecord.id).label("total_requests"),
-            func.coalesce(func.sum(LLMUsageRecord.total_tokens), 0).label(
-                "total_tokens"
-            ),
-            func.coalesce(func.sum(LLMUsageRecord.prompt_tokens), 0).label(
-                "total_prompt_tokens"
-            ),
-            func.coalesce(func.sum(LLMUsageRecord.completion_tokens), 0).label(
-                "total_completion_tokens"
-            ),
-            func.coalesce(func.sum(LLMUsageRecord.estimated_cost_cents), 0).label(
-                "total_cost_cents"
-            ),
-            func.coalesce(func.avg(LLMUsageRecord.duration_ms), 0).label(
-                "avg_duration_ms"
-            ),
-            func.sum(case((LLMUsageRecord.is_error, 1), else_=0)).label(
-                "error_count"
-            ),
+            func.coalesce(func.sum(LLMUsageRecord.total_tokens), 0).label("total_tokens"),
+            func.coalesce(func.sum(LLMUsageRecord.prompt_tokens), 0).label("total_prompt_tokens"),
+            func.coalesce(func.sum(LLMUsageRecord.completion_tokens), 0).label("total_completion_tokens"),
+            func.coalesce(func.sum(LLMUsageRecord.estimated_cost_cents), 0).label("total_cost_cents"),
+            func.coalesce(func.avg(LLMUsageRecord.duration_ms), 0).label("avg_duration_ms"),
+            func.sum(case((LLMUsageRecord.is_error, 1), else_=0)).label("error_count"),
         ).where(base_filter)
 
         result = await self.session.execute(query)
@@ -149,11 +137,7 @@ class LLMUsageAnalyticsService:
                 request_count=row.request_count,
                 total_tokens=row.total_tokens or 0,
                 cost_cents=row.cost_cents or 0,
-                avg_tokens_per_request=(
-                    row.total_tokens / row.request_count
-                    if row.request_count > 0
-                    else 0
-                ),
+                avg_tokens_per_request=(row.total_tokens / row.request_count if row.request_count > 0 else 0),
             )
             for row in result.all()
         ]
@@ -277,9 +261,7 @@ class LLMUsageAnalyticsService:
             for row in rows
         ]
 
-    async def _get_daily_trend(
-        self, start_date: datetime, end_date: datetime, base_filter
-    ) -> list[LLMUsageTrend]:
+    async def _get_daily_trend(self, start_date: datetime, end_date: datetime, base_filter) -> list[LLMUsageTrend]:
         """Get daily usage trend."""
         # Use a single expression variable to ensure GROUP BY matches SELECT
         day_trunc = func.date_trunc("day", LLMUsageRecord.created_at)
@@ -289,9 +271,7 @@ class LLMUsageAnalyticsService:
                 func.count(LLMUsageRecord.id).label("request_count"),
                 func.sum(LLMUsageRecord.total_tokens).label("total_tokens"),
                 func.sum(LLMUsageRecord.estimated_cost_cents).label("cost_cents"),
-                func.sum(case((LLMUsageRecord.is_error, 1), else_=0)).label(
-                    "error_count"
-                ),
+                func.sum(case((LLMUsageRecord.is_error, 1), else_=0)).label("error_count"),
             )
             .where(base_filter)
             .group_by(day_trunc)
@@ -310,9 +290,7 @@ class LLMUsageAnalyticsService:
             for row in result.all()
         ]
 
-    async def _get_top_consumers(
-        self, base_filter, limit: int = 10
-    ) -> list[LLMUsageTopConsumer]:
+    async def _get_top_consumers(self, base_filter, limit: int = 10) -> list[LLMUsageTopConsumer]:
         """Get top token-consuming tasks."""
         query = (
             select(
@@ -348,9 +326,9 @@ class LLMUsageAnalyticsService:
         days_in_month = 30  # Approximation
 
         # Get current month cost
-        query = select(
-            func.coalesce(func.sum(LLMUsageRecord.estimated_cost_cents), 0)
-        ).where(LLMUsageRecord.created_at >= month_start)
+        query = select(func.coalesce(func.sum(LLMUsageRecord.estimated_cost_cents), 0)).where(
+            LLMUsageRecord.created_at >= month_start
+        )
 
         result = await self.session.execute(query)
         current_cost = result.scalar() or 0
@@ -374,9 +352,7 @@ class LLMUsageAnalyticsService:
         budget_warning = False
         if global_budget:
             budget_limit = global_budget.monthly_limit_cents
-            usage_percent = (
-                current_cost / budget_limit * 100 if budget_limit > 0 else 0
-            )
+            usage_percent = current_cost / budget_limit * 100 if budget_limit > 0 else 0
             budget_warning = usage_percent >= global_budget.warning_threshold_percent
 
         return LLMCostProjection(
@@ -389,16 +365,13 @@ class LLMUsageAnalyticsService:
 
     async def get_document_usage(self, document_id: UUID) -> dict | None:
         """Get usage details for a specific document."""
-        query = (
-            select(
-                func.count(LLMUsageRecord.id).label("request_count"),
-                func.sum(LLMUsageRecord.total_tokens).label("total_tokens"),
-                func.sum(LLMUsageRecord.estimated_cost_cents).label("cost_cents"),
-                func.min(LLMUsageRecord.created_at).label("first_request"),
-                func.max(LLMUsageRecord.created_at).label("last_request"),
-            )
-            .where(LLMUsageRecord.document_id == document_id)
-        )
+        query = select(
+            func.count(LLMUsageRecord.id).label("request_count"),
+            func.sum(LLMUsageRecord.total_tokens).label("total_tokens"),
+            func.sum(LLMUsageRecord.estimated_cost_cents).label("cost_cents"),
+            func.min(LLMUsageRecord.created_at).label("first_request"),
+            func.max(LLMUsageRecord.created_at).label("last_request"),
+        ).where(LLMUsageRecord.document_id == document_id)
 
         result = await self.session.execute(query)
         row = result.one()

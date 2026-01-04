@@ -35,8 +35,10 @@ EXPORT_DIR = os.environ.get("EXPORT_DIR", "/tmp/exports")  # noqa: S108
 # Pydantic Models for Async Export
 # =============================================================================
 
+
 class AsyncExportRequest(BaseModel):
     """Request body for starting an async export."""
+
     entity_type: str = "territorial_entity"
     format: str = "json"  # json, csv, excel
     location_filter: str | None = None
@@ -49,6 +51,7 @@ class AsyncExportRequest(BaseModel):
 
 class ExportJobResponse(BaseModel):
     """Response for export job status."""
+
     id: str
     status: str
     export_format: str
@@ -70,19 +73,19 @@ class ExportJobResponse(BaseModel):
 
 # Blocked IP ranges for SSRF protection
 BLOCKED_IP_RANGES = [
-    ipaddress.ip_network("127.0.0.0/8"),      # Localhost
-    ipaddress.ip_network("10.0.0.0/8"),       # Private Class A
-    ipaddress.ip_network("172.16.0.0/12"),    # Private Class B
-    ipaddress.ip_network("192.168.0.0/16"),   # Private Class C
-    ipaddress.ip_network("169.254.0.0/16"),   # Link-local (AWS/Azure/GCP metadata)
-    ipaddress.ip_network("0.0.0.0/8"),        # Current network
-    ipaddress.ip_network("100.64.0.0/10"),    # Carrier-grade NAT
-    ipaddress.ip_network("192.0.0.0/24"),     # IETF Protocol Assignments
-    ipaddress.ip_network("192.0.2.0/24"),     # TEST-NET-1
+    ipaddress.ip_network("127.0.0.0/8"),  # Localhost
+    ipaddress.ip_network("10.0.0.0/8"),  # Private Class A
+    ipaddress.ip_network("172.16.0.0/12"),  # Private Class B
+    ipaddress.ip_network("192.168.0.0/16"),  # Private Class C
+    ipaddress.ip_network("169.254.0.0/16"),  # Link-local (AWS/Azure/GCP metadata)
+    ipaddress.ip_network("0.0.0.0/8"),  # Current network
+    ipaddress.ip_network("100.64.0.0/10"),  # Carrier-grade NAT
+    ipaddress.ip_network("192.0.0.0/24"),  # IETF Protocol Assignments
+    ipaddress.ip_network("192.0.2.0/24"),  # TEST-NET-1
     ipaddress.ip_network("198.51.100.0/24"),  # TEST-NET-2
-    ipaddress.ip_network("203.0.113.0/24"),   # TEST-NET-3
-    ipaddress.ip_network("224.0.0.0/4"),      # Multicast
-    ipaddress.ip_network("240.0.0.0/4"),      # Reserved
+    ipaddress.ip_network("203.0.113.0/24"),  # TEST-NET-3
+    ipaddress.ip_network("224.0.0.0/4"),  # Multicast
+    ipaddress.ip_network("240.0.0.0/4"),  # Reserved
 ]
 
 
@@ -131,8 +134,7 @@ def validate_webhook_url(url: str) -> tuple[bool, str]:
 
 
 async def _bulk_load_related_data(
-    session: AsyncSession,
-    extractions: list[ExtractedData]
+    session: AsyncSession, extractions: list[ExtractedData]
 ) -> tuple[dict[UUID, Document], dict[UUID, DataSource], dict[UUID, Category]]:
     """Bulk-load all related documents, sources, and categories for extractions.
 
@@ -148,23 +150,15 @@ async def _bulk_load_related_data(
 
     # Bulk-load documents with their sources (single query with join)
     docs_result = await session.execute(
-        select(Document)
-        .options(selectinload(Document.source))
-        .where(Document.id.in_(doc_ids))
+        select(Document).options(selectinload(Document.source)).where(Document.id.in_(doc_ids))
     )
     docs_by_id: dict[UUID, Document] = {doc.id: doc for doc in docs_result.scalars().all()}
 
     # Extract sources from loaded documents
-    sources_by_id: dict[UUID, DataSource] = {
-        doc.source.id: doc.source
-        for doc in docs_by_id.values()
-        if doc.source
-    }
+    sources_by_id: dict[UUID, DataSource] = {doc.source.id: doc.source for doc in docs_by_id.values() if doc.source}
 
     # Bulk-load categories
-    cats_result = await session.execute(
-        select(Category).where(Category.id.in_(cat_ids))
-    )
+    cats_result = await session.execute(select(Category).where(Category.id.in_(cat_ids)))
     cats_by_id: dict[UUID, Category] = {cat.id: cat for cat in cats_result.scalars().all()}
 
     return docs_by_id, sources_by_id, cats_by_id
@@ -195,9 +189,7 @@ async def export_json(
     extractions = result.scalars().all()
 
     # Bulk-load all related data in 2-3 queries instead of 3N queries
-    docs_by_id, sources_by_id, cats_by_id = await _bulk_load_related_data(
-        session, extractions
-    )
+    docs_by_id, sources_by_id, cats_by_id = await _bulk_load_related_data(session, extractions)
 
     export_data = []
     for ext in extractions:
@@ -205,26 +197,26 @@ async def export_json(
         source = sources_by_id.get(doc.source_id) if doc and doc.source_id else None
         category = cats_by_id.get(ext.category_id)
 
-        export_data.append({
-            "id": str(ext.id),
-            "document_id": str(ext.document_id),
-            "document_url": doc.original_url if doc else None,
-            "document_title": doc.title if doc else None,
-            "source_name": source.name if source else None,
-            "category_name": category.name if category else None,
-            "extraction_type": ext.extraction_type,
-            "extracted_content": ext.final_content,
-            "confidence_score": ext.confidence_score,
-            "human_verified": ext.human_verified,
-            "created_at": ext.created_at.isoformat(),
-        })
+        export_data.append(
+            {
+                "id": str(ext.id),
+                "document_id": str(ext.document_id),
+                "document_url": doc.original_url if doc else None,
+                "document_title": doc.title if doc else None,
+                "source_name": source.name if source else None,
+                "category_name": category.name if category else None,
+                "extraction_type": ext.extraction_type,
+                "extracted_content": ext.final_content,
+                "confidence_score": ext.confidence_score,
+                "human_verified": ext.human_verified,
+                "created_at": ext.created_at.isoformat(),
+            }
+        )
 
     return StreamingResponse(
         iter([json.dumps(export_data, indent=2, ensure_ascii=False)]),
         media_type="application/json",
-        headers={
-            "Content-Disposition": "attachment; filename=caelichrawler_export.json"
-        },
+        headers={"Content-Disposition": "attachment; filename=caelichrawler_export.json"},
     )
 
 
@@ -253,54 +245,54 @@ async def export_csv(
     extractions = result.scalars().all()
 
     # Bulk-load all related data in 2-3 queries instead of 3N queries
-    docs_by_id, sources_by_id, cats_by_id = await _bulk_load_related_data(
-        session, extractions
-    )
+    docs_by_id, sources_by_id, cats_by_id = await _bulk_load_related_data(session, extractions)
 
     # Create CSV in memory
     output = io.StringIO()
     writer = csv.writer(output)
 
     # Header
-    writer.writerow([
-        "id",
-        "document_url",
-        "document_title",
-        "source_name",
-        "category_name",
-        "extraction_type",
-        "confidence_score",
-        "human_verified",
-        "extracted_content",
-        "created_at",
-    ])
+    writer.writerow(
+        [
+            "id",
+            "document_url",
+            "document_title",
+            "source_name",
+            "category_name",
+            "extraction_type",
+            "confidence_score",
+            "human_verified",
+            "extracted_content",
+            "created_at",
+        ]
+    )
 
     for ext in extractions:
         doc = docs_by_id.get(ext.document_id)
         source = sources_by_id.get(doc.source_id) if doc and doc.source_id else None
         category = cats_by_id.get(ext.category_id)
 
-        writer.writerow([
-            str(ext.id),
-            doc.original_url if doc else "",
-            doc.title if doc else "",
-            source.name if source else "",
-            category.name if category else "",
-            ext.extraction_type,
-            ext.confidence_score or "",
-            ext.human_verified,
-            json.dumps(ext.final_content, ensure_ascii=False),
-            ext.created_at.isoformat(),
-        ])
+        writer.writerow(
+            [
+                str(ext.id),
+                doc.original_url if doc else "",
+                doc.title if doc else "",
+                source.name if source else "",
+                category.name if category else "",
+                ext.extraction_type,
+                ext.confidence_score or "",
+                ext.human_verified,
+                json.dumps(ext.final_content, ensure_ascii=False),
+                ext.created_at.isoformat(),
+            ]
+        )
 
     output.seek(0)
 
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={
-            "Content-Disposition": "attachment; filename=caelichrawler_export.csv"
-        },
+        headers={"Content-Disposition": "attachment; filename=caelichrawler_export.csv"},
     )
 
 
@@ -329,8 +321,7 @@ async def get_changes_feed(
     if category_id:
         # Filter via junction table (N:M relationship)
         query = (
-            query
-            .join(DataSource, ChangeLog.source_id == DataSource.id)
+            query.join(DataSource, ChangeLog.source_id == DataSource.id)
             .join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id)
             .where(DataSourceCategory.category_id == category_id)
         )
@@ -409,6 +400,7 @@ async def test_webhook(
 # Async Export Endpoints
 # =============================================================================
 
+
 @router.post("/async", response_model=ExportJobResponse)
 async def start_async_export(
     export_request: AsyncExportRequest,
@@ -479,11 +471,7 @@ async def start_async_export(
     )
 
     # Update job with task ID
-    await session.execute(
-        update(ExportJob)
-        .where(ExportJob.id == job_id)
-        .values(celery_task_id=task.id)
-    )
+    await session.execute(update(ExportJob).where(ExportJob.id == job_id).values(celery_task_id=task.id))
     await session.commit()
 
     await session.refresh(export_job)
@@ -502,9 +490,7 @@ async def get_export_job_status(
 
     Returns progress information while running, or download info when complete.
     """
-    result = await session.execute(
-        select(ExportJob).where(ExportJob.id == job_id)
-    )
+    result = await session.execute(select(ExportJob).where(ExportJob.id == job_id))
     export_job = result.scalar_one_or_none()
 
     if not export_job:
@@ -524,6 +510,7 @@ async def get_export_job_status(
     if export_job.status == "processing" and export_job.celery_task_id:
         try:
             from workers.celery_app import celery_app
+
             task_result = celery_app.AsyncResult(export_job.celery_task_id)
             if task_result.state == "PROGRESS":
                 meta = task_result.info or {}
@@ -546,9 +533,7 @@ async def download_export(
 
     Returns the exported file if the job is complete.
     """
-    result = await session.execute(
-        select(ExportJob).where(ExportJob.id == job_id)
-    )
+    result = await session.execute(select(ExportJob).where(ExportJob.id == job_id))
     export_job = result.scalar_one_or_none()
 
     if not export_job:
@@ -603,9 +588,7 @@ async def cancel_export_job(
     """
     Cancel a running export job.
     """
-    result = await session.execute(
-        select(ExportJob).where(ExportJob.id == job_id)
-    )
+    result = await session.execute(select(ExportJob).where(ExportJob.id == job_id))
     export_job = result.scalar_one_or_none()
 
     if not export_job:
@@ -631,6 +614,7 @@ async def cancel_export_job(
     if export_job.celery_task_id:
         try:
             from workers.celery_app import celery_app
+
             celery_app.control.revoke(export_job.celery_task_id, terminate=True)
         except Exception:  # noqa: S110
             pass

@@ -50,7 +50,7 @@ def sanitize_search_input(value: str | None, max_length: int = MAX_SEARCH_LENGTH
         value = value[:max_length]
 
     # Remove null bytes (can cause issues with C-based libraries)
-    value = value.replace('\x00', '')
+    value = value.replace("\x00", "")
 
     # Note: We do NOT escape % and _ for LIKE queries here because
     # SQLAlchemy properly parameterizes queries. If you need to allow
@@ -88,10 +88,10 @@ def sanitize_name(value: str | None, max_length: int = MAX_NAME_LENGTH) -> str |
         value = value[:max_length]
 
     # Remove control characters (except newlines and tabs in some cases)
-    value = ''.join(char for char in value if char == '\n' or char == '\t' or not (0 <= ord(char) < 32))
+    value = "".join(char for char in value if char == "\n" or char == "\t" or not (0 <= ord(char) < 32))
 
     # Remove null bytes
-    value = value.replace('\x00', '')
+    value = value.replace("\x00", "")
 
     return value
 
@@ -162,12 +162,14 @@ def sanitize_url(value: str | None, max_length: int = MAX_URL_LENGTH) -> str | N
 
     # Basic URL pattern check
     url_pattern = re.compile(
-        r'^https?://'  # http:// or https://
-        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain
-        r'localhost|'  # localhost
-        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # or IP
-        r'(?::\d+)?'  # optional port
-        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+        r"^https?://"  # http:// or https://
+        r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"  # domain
+        r"localhost|"  # localhost
+        r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"  # or IP
+        r"(?::\d+)?"  # optional port
+        r"(?:/?|[/?]\S+)$",
+        re.IGNORECASE,
+    )
 
     if not url_pattern.match(value):
         return None
@@ -205,15 +207,15 @@ def sanitize_path(value: str | None, max_length: int = 1000) -> str | None:
 
     # Remove path traversal sequences
     # Replace multiple consecutive .. with empty string
-    while '..' in value:
-        value = value.replace('..', '')
+    while ".." in value:
+        value = value.replace("..", "")
 
     # Remove leading slashes (prevent absolute paths)
-    value = value.lstrip('/')
-    value = value.lstrip('\\')
+    value = value.lstrip("/")
+    value = value.lstrip("\\")
 
     # Remove null bytes
-    value = value.replace('\x00', '')
+    value = value.replace("\x00", "")
 
     return value if value else None
 
@@ -246,7 +248,7 @@ def sanitize_json_key(value: str | None, max_length: int = 100) -> str | None:
         value = value[:max_length]
 
     # Only allow alphanumeric, underscore, hyphen
-    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_-]*$', value):
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_-]*$", value):
         return None
 
     return value
@@ -266,8 +268,7 @@ def validate_uuid_string(value: str | None) -> bool:
         return False
 
     uuid_pattern = re.compile(
-        r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
-        re.IGNORECASE
+        r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.IGNORECASE
     )
 
     return bool(uuid_pattern.match(value))

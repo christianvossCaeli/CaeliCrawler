@@ -122,9 +122,7 @@ def register_tasks(celery_app):
                     prompt = category.ai_extraction_prompt or _get_default_prompt(category)
 
                     # Determine which text to analyze (page-based or full)
-                    text_to_analyze, page_info = await _get_text_for_analysis(
-                        document, session
-                    )
+                    text_to_analyze, page_info = await _get_text_for_analysis(document, session)
 
                     # Enhance prompt with page context if using page-based analysis
                     if page_info and page_info.get("page_numbers"):
@@ -199,15 +197,15 @@ def register_tasks(celery_app):
                             handler = category.extraction_handler or "default"
                             if handler == "event":
                                 from services.event_extraction_service import convert_event_extraction_to_facets
+
                                 facet_counts = await convert_event_extraction_to_facets(
                                     session, extracted, source, category
                                 )
                             else:
                                 # Default handler for pain_points, positive_signals, etc.
                                 from services.entity_facet_service import convert_extraction_to_facets
-                                facet_counts = await convert_extraction_to_facets(
-                                    session, extracted, source
-                                )
+
+                                facet_counts = await convert_extraction_to_facets(session, extracted, source)
                             if sum(facet_counts.values()) > 0:
                                 logger.info(
                                     "Created facet values",
@@ -225,6 +223,7 @@ def register_tasks(celery_app):
 
                         # Emit notification events
                         from workers.notification_tasks import emit_event
+
                         confidence = result.get("confidence", 0)
 
                         emit_event.delay(
@@ -235,7 +234,7 @@ def register_tasks(celery_app):
                                 "title": document.title or "Unbekanntes Dokument",
                                 "confidence": confidence,
                                 "category_id": str(category.id),
-                            }
+                            },
                         )
 
                         # Emit high confidence event if applicable
@@ -249,7 +248,7 @@ def register_tasks(celery_app):
                                     "confidence": confidence,
                                     "category_id": str(category.id),
                                     "summary": result["content"].get("summary", "")[:500],
-                                }
+                                },
                             )
 
                     document.processing_status = ProcessingStatus.COMPLETED
@@ -414,14 +413,16 @@ async def _process_entity_references(
             # Resolve to existing entity
             entity_id = await _resolve_entity(session, entity_type, value)
 
-            entity_references.append({
-                "entity_type": entity_type,
-                "entity_name": value,
-                "entity_id": str(entity_id) if entity_id else None,
-                "role": role,
-                "confidence": 0.85,
-                "source_field": source_field,
-            })
+            entity_references.append(
+                {
+                    "entity_type": entity_type,
+                    "entity_name": value,
+                    "entity_id": str(entity_id) if entity_id else None,
+                    "role": role,
+                    "confidence": 0.85,
+                    "source_field": source_field,
+                }
+            )
 
             # Set primary_entity_id for first resolved entity
             if entity_id and not primary_entity_id:
@@ -484,14 +485,16 @@ async def _process_entity_references(
                 default_type=entity_type,  # Fallback to configured type
             )
 
-            entity_references.append({
-                "entity_type": actual_entity_type,
-                "entity_name": name,
-                "entity_id": str(entity_id) if entity_id else None,
-                "role": role,
-                "confidence": 0.7,
-                "source_field": field_name,
-            })
+            entity_references.append(
+                {
+                    "entity_type": actual_entity_type,
+                    "entity_name": name,
+                    "entity_id": str(entity_id) if entity_id else None,
+                    "role": role,
+                    "confidence": 0.7,
+                    "source_field": field_name,
+                }
+            )
 
     # 4. Process explicit entity_references from AI response (if AI was asked to return them)
     ai_entity_refs = content.get("entity_references", [])
@@ -513,13 +516,15 @@ async def _process_entity_references(
 
             role = ref.get("role", "secondary")
 
-            entity_references.append({
-                "entity_type": entity_type,
-                "entity_name": entity_name,
-                "entity_id": str(entity_id) if entity_id else None,
-                "role": role,
-                "confidence": ref.get("confidence", 0.7),
-            })
+            entity_references.append(
+                {
+                    "entity_type": entity_type,
+                    "entity_name": entity_name,
+                    "entity_id": str(entity_id) if entity_id else None,
+                    "role": role,
+                    "confidence": ref.get("confidence", 0.7),
+                }
+            )
 
             # Set primary if marked and we don't have one yet
             if entity_id and not primary_entity_id and role == "primary":
@@ -558,16 +563,12 @@ async def _process_entity_references(
             default_entity_id = UUID(str(config["default_entity_id"]))
             # Verify the entity exists
             from app.models import Entity
-            result = await session.execute(
-                select(Entity).where(Entity.id == default_entity_id)
-            )
+
+            result = await session.execute(select(Entity).where(Entity.id == default_entity_id))
             default_entity = result.scalar_one_or_none()
             if default_entity:
                 primary_entity_id = default_entity_id
-                logger.info(
-                    f"Using category default entity fallback: {default_entity.name} "
-                    f"(ID: {default_entity_id})"
-                )
+                logger.info(f"Using category default entity fallback: {default_entity.name} (ID: {default_entity_id})")
         except (ValueError, TypeError) as e:
             logger.warning(f"Invalid default_entity_id in category config: {e}")
 
@@ -579,9 +580,7 @@ async def _process_entity_references(
 # =============================================================================
 
 
-async def _get_text_for_analysis(
-    document, session
-) -> tuple[str, dict[str, Any] | None]:
+async def _get_text_for_analysis(document, session) -> tuple[str, dict[str, Any] | None]:
     """
     Get the text to analyze, using page-based filtering if available.
 
@@ -635,6 +634,7 @@ async def _get_text_for_analysis(
     try:
         # Get category for filter
         from app.models.category import Category
+
         category = await session.get(Category, document.category_id)
         page_filter = DocumentPageFilter.from_category(category)
 
@@ -644,9 +644,7 @@ async def _get_text_for_analysis(
         # Get only the relevant pages (not yet analyzed)
         analyzed = set(document.analyzed_pages or [])
         relevant_to_analyze = [
-            p for p in pages
-            if p.page_number in document.relevant_pages
-            and p.page_number not in analyzed
+            p for p in pages if p.page_number in document.relevant_pages and p.page_number not in analyzed
         ]
 
         if not relevant_to_analyze:
@@ -703,8 +701,8 @@ def _enhance_prompt_with_page_context(prompt: str, page_info: dict[str, Any]) ->
     page_context = f"""
 **WICHTIG - Seiten-basierte Analyse:**
 Du analysierst ausgewählte Seiten eines Dokuments mit {total_pages} Gesamtseiten.
-Analysierte Seiten: {', '.join(map(str, page_numbers))}
-{'Dies ist eine Teil-Analyse. Weitere relevante Seiten existieren.' if is_partial else ''}
+Analysierte Seiten: {", ".join(map(str, page_numbers))}
+{"Dies ist eine Teil-Analyse. Weitere relevante Seiten existieren." if is_partial else ""}
 
 **Anforderungen für deine Antwort:**
 1. Gib bei JEDER extrahierten Information die Seitenzahl an (z.B. "Seite 5")
@@ -743,11 +741,7 @@ async def _update_analyzed_pages_atomic(
 
     async with get_celery_session_context() as session:
         # Lock the row for update
-        stmt = (
-            select(Document)
-            .where(Document.id == document_id)
-            .with_for_update()
-        )
+        stmt = select(Document).where(Document.id == document_id).with_for_update()
         result = await session.execute(stmt)
         document = result.scalar_one_or_none()
 

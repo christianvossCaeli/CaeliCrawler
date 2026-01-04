@@ -47,6 +47,7 @@ def run_async[T](coro: Coroutine[Any, Any, T]) -> T:
     # Reset the database engine to ensure we get fresh connections
     # bound to the new event loop we're about to create
     from app.database import reset_celery_engine
+
     reset_celery_engine()
 
     # Create a fresh event loop for this execution

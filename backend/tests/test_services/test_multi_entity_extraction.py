@@ -24,7 +24,7 @@ class TestMultiEntityExtractionService:
         mock_category.ai_extraction_prompt = "Custom prompt"
 
         # Mock empty associations
-        with patch.object(session, 'execute', new_callable=AsyncMock) as mock_execute:
+        with patch.object(session, "execute", new_callable=AsyncMock) as mock_execute:
             mock_result = MagicMock()
             mock_result.scalars.return_value.all.return_value = []
             mock_execute.return_value = mock_result
@@ -72,9 +72,7 @@ class TestMultiEntityExtractionService:
         assoc1.entity_type = person_type
         assoc1.is_primary = False
         assoc1.extraction_config = {}
-        assoc1.relation_config = [
-            {"from_type": "person", "to_type": "event", "relation": "attends"}
-        ]
+        assoc1.relation_config = [{"from_type": "person", "to_type": "event", "relation": "attends"}]
 
         assoc2 = MagicMock()
         assoc2.entity_type = event_type
@@ -82,7 +80,7 @@ class TestMultiEntityExtractionService:
         assoc2.extraction_config = {}
         assoc2.relation_config = []
 
-        with patch.object(session, 'execute', new_callable=AsyncMock) as mock_execute:
+        with patch.object(session, "execute", new_callable=AsyncMock) as mock_execute:
             mock_result = MagicMock()
             mock_result.scalars.return_value.all.return_value = [assoc1, assoc2]
             mock_execute.return_value = mock_result
@@ -102,7 +100,6 @@ class TestMultiEntityExtractionService:
 
         mock_category = MagicMock()
         mock_category.id = uuid4()
-
 
         person_type_id = uuid4()
         event_type_id = uuid4()
@@ -139,7 +136,7 @@ class TestMultiEntityExtractionService:
         mock_assoc.extraction_config = {}
         mock_assoc.relation_config = []
 
-        with patch.object(session, 'execute', new_callable=AsyncMock) as mock_execute:
+        with patch.object(session, "execute", new_callable=AsyncMock) as mock_execute:
             mock_result = MagicMock()
             mock_result.scalars.return_value.all.return_value = [mock_assoc]
             mock_execute.return_value = mock_result
@@ -183,7 +180,7 @@ class TestMultiEntityRelationCreation:
         mock_relation_type.slug = "attends"
         mock_relation_type.name = "attends"
 
-        with patch.object(session, 'execute', new_callable=AsyncMock) as mock_execute:
+        with patch.object(session, "execute", new_callable=AsyncMock) as mock_execute:
             # Mock found (return existing relation type)
             mock_result = MagicMock()
             mock_result.scalar_one_or_none.return_value = mock_relation_type

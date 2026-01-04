@@ -327,11 +327,13 @@ class RSSCrawler(BaseCrawler):
 
         # Parse enclosures
         for enc in elem.findall("enclosure"):
-            item.enclosures.append({
-                "url": enc.get("url", ""),
-                "type": enc.get("type", ""),
-                "length": enc.get("length", ""),
-            })
+            item.enclosures.append(
+                {
+                    "url": enc.get("url", ""),
+                    "type": enc.get("type", ""),
+                    "length": enc.get("length", ""),
+                }
+            )
 
         # Compute hash
         item.content_hash = self._compute_item_hash(item)
@@ -412,11 +414,13 @@ class RSSCrawler(BaseCrawler):
         # Parse enclosures (links with rel="enclosure")
         for link_elem in elem.findall(f"{{{ns}}}link"):
             if link_elem.get("rel") == "enclosure":
-                item.enclosures.append({
-                    "url": link_elem.get("href", ""),
-                    "type": link_elem.get("type", ""),
-                    "length": link_elem.get("length", ""),
-                })
+                item.enclosures.append(
+                    {
+                        "url": link_elem.get("href", ""),
+                        "type": link_elem.get("type", ""),
+                        "length": link_elem.get("length", ""),
+                    }
+                )
 
         item.content_hash = self._compute_item_hash(item)
 
@@ -449,7 +453,8 @@ class RSSCrawler(BaseCrawler):
                     id=item_elem.get(f"{{{rdf_ns}}}about") or link or "",
                     title=title or "Untitled",
                     link=link or "",
-                    description=self._get_text(item_elem, f"{{{rss_ns}}}description") or self._get_text(item_elem, "description"),
+                    description=self._get_text(item_elem, f"{{{rss_ns}}}description")
+                    or self._get_text(item_elem, "description"),
                 )
                 item.source_title = feed.title
                 item.source_link = feed.link
@@ -572,7 +577,6 @@ GERMAN_GOVERNMENT_FEEDS = [
         "url": "https://www.bundesregierung.de/breg-de/service/rss/992800-992800",
         "category": "Bund",
     },
-
     # Ministerien
     {
         "name": "BMWi - Wirtschaft",
@@ -589,7 +593,6 @@ GERMAN_GOVERNMENT_FEEDS = [
         "url": "https://www.bmj.de/DE/Service/RSS/rss_node.html",
         "category": "Justiz",
     },
-
     # Bundestag
     {
         "name": "Bundestag - hib (heute im bundestag)",
@@ -601,14 +604,12 @@ GERMAN_GOVERNMENT_FEEDS = [
         "url": "https://www.bundestag.de/rss/pm",
         "category": "Parlament",
     },
-
     # Bundesrat
     {
         "name": "Bundesrat - Pressemitteilungen",
         "url": "https://www.bundesrat.de/DE/Service/RSS/rss_node.html",
         "category": "Parlament",
     },
-
     # Bundesanzeiger
     {
         "name": "Bundesanzeiger",

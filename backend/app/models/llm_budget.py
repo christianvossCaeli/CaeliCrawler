@@ -221,10 +221,7 @@ class LLMBudgetAlert(Base):
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<LLMBudgetAlert(budget_id={self.budget_id}, "
-            f"type={self.alert_type}, usage={self.usage_percent:.1f}%)>"
-        )
+        return f"<LLMBudgetAlert(budget_id={self.budget_id}, type={self.alert_type}, usage={self.usage_percent:.1f}%)>"
 
 
 class LLMBudgetLimitRequest(Base):

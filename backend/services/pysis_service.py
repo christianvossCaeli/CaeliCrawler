@@ -52,12 +52,7 @@ class PySisService:
     @property
     def is_configured(self) -> bool:
         """Check if all required credentials are configured."""
-        return bool(
-            self.client_id
-            and self.client_secret
-            and self.tenant_id
-            and self.api_base_url
-        )
+        return bool(self.client_id and self.client_secret and self.tenant_id and self.api_base_url)
 
     async def _get_access_token(self) -> str:
         """

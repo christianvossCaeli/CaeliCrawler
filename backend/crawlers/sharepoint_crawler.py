@@ -80,11 +80,13 @@ class SharePointCrawler(BaseCrawler):
         site_url = crawl_config.get("site_url", settings.sharepoint_default_site_url)
         if not site_url:
             self.logger.error("No SharePoint site URL configured")
-            result.errors.append({
-                "type": "ConfigurationError",
-                "message": "No SharePoint site URL configured",
-                "timestamp": datetime.now(UTC).isoformat(),
-            })
+            result.errors.append(
+                {
+                    "type": "ConfigurationError",
+                    "message": "No SharePoint site URL configured",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
             return result
 
         drive_name = crawl_config.get("drive_name")
@@ -96,10 +98,11 @@ class SharePointCrawler(BaseCrawler):
 
         # Parse explicit file paths (one per line)
         file_paths_text = crawl_config.get("file_paths_text", "")
-        explicit_file_paths = [
-            p.strip() for p in file_paths_text.split("\n")
-            if p.strip() and not p.strip().startswith("#")
-        ] if file_paths_text else []
+        explicit_file_paths = (
+            [p.strip() for p in file_paths_text.split("\n") if p.strip() and not p.strip().startswith("#")]
+            if file_paths_text
+            else []
+        )
 
         self.logger.info(
             "Starting SharePoint crawl",
@@ -154,11 +157,13 @@ class SharePointCrawler(BaseCrawler):
                         if file_obj:
                             files.append(file_obj)
                         else:
-                            result.errors.append({
-                                "type": "FileNotFound",
-                                "message": f"File not found: {file_path}",
-                                "timestamp": datetime.now(UTC).isoformat(),
-                            })
+                            result.errors.append(
+                                {
+                                    "type": "FileNotFound",
+                                    "message": f"File not found: {file_path}",
+                                    "timestamp": datetime.now(UTC).isoformat(),
+                                }
+                            )
 
                 # List files from folder (if folder_path is set or no explicit files)
                 if folder_path or not explicit_file_paths:
@@ -192,7 +197,7 @@ class SharePointCrawler(BaseCrawler):
                     semaphore = asyncio.Semaphore(self.MAX_CONCURRENT_DOWNLOADS)
 
                     for batch_start in range(0, len(files), self.BATCH_SIZE):
-                        batch = files[batch_start:batch_start + self.BATCH_SIZE]
+                        batch = files[batch_start : batch_start + self.BATCH_SIZE]
 
                         self.logger.debug(
                             "Processing batch",
@@ -224,12 +229,14 @@ class SharePointCrawler(BaseCrawler):
                                     file_name=file.name,
                                     error=str(file_result),
                                 )
-                                result.errors.append({
-                                    "type": type(file_result).__name__,
-                                    "message": str(file_result),
-                                    "file": file.name,
-                                    "timestamp": datetime.now(UTC).isoformat(),
-                                })
+                                result.errors.append(
+                                    {
+                                        "type": type(file_result).__name__,
+                                        "message": str(file_result),
+                                        "file": file.name,
+                                        "timestamp": datetime.now(UTC).isoformat(),
+                                    }
+                                )
                             else:
                                 is_new, success = file_result
                                 if success:
@@ -241,11 +248,13 @@ class SharePointCrawler(BaseCrawler):
 
         except Exception as e:
             self.logger.exception("SharePoint crawl failed", error=str(e))
-            result.errors.append({
-                "type": type(e).__name__,
-                "message": str(e),
-                "timestamp": datetime.now(UTC).isoformat(),
-            })
+            result.errors.append(
+                {
+                    "type": type(e).__name__,
+                    "message": str(e),
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
 
         self.logger.info(
             "SharePoint crawl completed",
@@ -305,11 +314,9 @@ class SharePointCrawler(BaseCrawler):
             return files
 
         return [
-            file for file in files
-            if not any(
-                fnmatch.fnmatch(file.name.lower(), pattern.lower())
-                for pattern in exclude_patterns
-            )
+            file
+            for file in files
+            if not any(fnmatch.fnmatch(file.name.lower(), pattern.lower()) for pattern in exclude_patterns)
         ]
 
     async def _process_file(
@@ -441,7 +448,7 @@ class SharePointCrawler(BaseCrawler):
         # Generate unique filename
         file_hash = hashlib.sha256(content).hexdigest()[:12]
         ext = os.path.splitext(file_name)[1]
-        safe_name = re.sub(r'[^\w\-.]', '_', file_name)
+        safe_name = re.sub(r"[^\w\-.]", "_", file_name)
         unique_name = f"{file_hash}_{safe_name}"
 
         # Ensure path doesn't exceed filesystem limits

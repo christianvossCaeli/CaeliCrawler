@@ -301,7 +301,9 @@ async def log_session_revoke(
         entity_name=user_session.device_name,
         changes={
             "reason": reason,
-            "device_type": user_session.device_type.value if hasattr(user_session.device_type, 'value') else str(user_session.device_type),
+            "device_type": user_session.device_type.value
+            if hasattr(user_session.device_type, "value")
+            else str(user_session.device_type),
             "session_ip": user_session.ip_address,
         },
         user=user,
@@ -345,7 +347,7 @@ async def log_crawler_start(
         entity_type="DataSource",
         entity_id=source.id,
         entity_name=source.name,
-        changes={"url": source.url if hasattr(source, 'url') else None},
+        changes={"url": source.url if hasattr(source, "url") else None},
         user=user,
         ip_address=ip_address,
         user_agent=user_agent,

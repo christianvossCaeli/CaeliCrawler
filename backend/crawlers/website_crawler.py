@@ -1,6 +1,7 @@
 """Website crawler using Scrapy and Playwright."""
 
 import asyncio
+import contextlib
 import hashlib
 import re
 from datetime import UTC, datetime
@@ -49,11 +50,7 @@ async def get_shared_http_client() -> httpx.AsyncClient:
         current_loop_id = None
 
     # Check if we need to recreate the client (loop changed or client closed)
-    needs_recreation = (
-        _http_client is None
-        or _http_client.is_closed
-        or _http_client_loop_id != current_loop_id
-    )
+    needs_recreation = _http_client is None or _http_client.is_closed or _http_client_loop_id != current_loop_id
 
     if needs_recreation:
         # If client exists but is on a different (likely closed) loop,
@@ -62,10 +59,8 @@ async def get_shared_http_client() -> httpx.AsyncClient:
         if _http_client is not None:
             if not _http_client.is_closed and _http_client_loop_id == current_loop_id:
                 # Same loop, can safely close
-                try:
+                with contextlib.suppress(Exception):
                     await _http_client.aclose()
-                except Exception:  # noqa: S110
-                    pass
             # Clear reference regardless - old client on dead loop can't be reused
             _http_client = None
 
@@ -131,9 +126,7 @@ class WebsiteCrawler(BaseCrawler):
         retry=retry_if_exception_type((httpx.ConnectError, httpx.TimeoutException)),
         reraise=True,
     )
-    async def _fetch_with_retry(
-        self, client: httpx.AsyncClient, url: str
-    ) -> httpx.Response:
+    async def _fetch_with_retry(self, client: httpx.AsyncClient, url: str) -> httpx.Response:
         """Fetch URL with automatic retry on transient errors.
 
         Retries up to 3 times with exponential backoff (1s, 2s, 4s) on:
@@ -275,14 +268,16 @@ class WebsiteCrawler(BaseCrawler):
 
         if relevance.score >= self.html_min_relevance_score:
             # Store for later document creation
-            self.html_documents.append({
-                "url": url,
-                "title": title,
-                "html_content": html_content,
-                "text_content": text,
-                "relevance_score": relevance.score,
-                "matched_keywords": relevance.matched_keywords,
-            })
+            self.html_documents.append(
+                {
+                    "url": url,
+                    "title": title,
+                    "html_content": html_content,
+                    "text_content": text,
+                    "relevance_score": relevance.score,
+                    "matched_keywords": relevance.matched_keywords,
+                }
+            )
 
             self.logger.info(
                 "Captured relevant HTML page",
@@ -354,8 +349,10 @@ class WebsiteCrawler(BaseCrawler):
                 )
 
             # Save found documents
+            from urllib.parse import unquote, urlparse
+
             from sqlalchemy import select
-            from urllib.parse import urlparse, unquote
+
             async with get_session_context() as session:
                 for doc_url in self.document_urls:
                     # Determine document type from URL
@@ -435,7 +432,7 @@ class WebsiteCrawler(BaseCrawler):
                         file_path=str(html_file),
                         file_hash=file_hash,
                         file_size=len(html_doc["html_content"]),
-                        raw_text=html_doc["text_content"].replace('\x00', ''),  # Pre-extracted text
+                        raw_text=html_doc["text_content"].replace("\x00", ""),  # Pre-extracted text
                         processing_status=ProcessingStatus.COMPLETED,  # Skip download, go to analysis
                         downloaded_at=datetime.now(UTC),
                         processed_at=datetime.now(UTC),
@@ -446,6 +443,7 @@ class WebsiteCrawler(BaseCrawler):
 
                     # Queue for AI analysis (relevance already checked during crawl)
                     from workers.ai_tasks import analyze_document as analyze_doc_task
+
                     analyze_doc_task.delay(str(doc.id), skip_relevance_check=True)
 
                     self.logger.info(
@@ -470,10 +468,12 @@ class WebsiteCrawler(BaseCrawler):
 
         except Exception as e:
             self.logger.exception("Website crawl failed", error=str(e))
-            result.errors.append({
-                "error": str(e),
-                "type": type(e).__name__,
-            })
+            result.errors.append(
+                {
+                    "error": str(e),
+                    "type": type(e).__name__,
+                }
+            )
 
         return result
 
@@ -588,9 +588,7 @@ class WebsiteCrawler(BaseCrawler):
             from playwright.async_api import async_playwright
         except ImportError:
             self.logger.error("Playwright not installed, falling back to httpx")
-            await self._crawl_with_httpx(
-                start_url, max_depth, max_pages, download_extensions, result, job, category
-            )
+            await self._crawl_with_httpx(start_url, max_depth, max_pages, download_extensions, result, job, category)
             return
 
         queue = [(start_url, 0)]
@@ -599,9 +597,7 @@ class WebsiteCrawler(BaseCrawler):
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
-            await page.set_extra_http_headers({
-                "User-Agent": settings.crawler_user_agent
-            })
+            await page.set_extra_http_headers({"User-Agent": settings.crawler_user_agent})
 
             while queue and len(self.visited_urls) < max_pages:
                 url, depth = queue.pop(0)
@@ -639,10 +635,7 @@ class WebsiteCrawler(BaseCrawler):
                         await self._check_and_capture_html(url, html_content, soup, category)
 
                     # Get all links
-                    links = await page.eval_on_selector_all(
-                        "a[href]",
-                        "elements => elements.map(el => el.href)"
-                    )
+                    links = await page.eval_on_selector_all("a[href]", "elements => elements.map(el => el.href)")
 
                     for link_url in links:
                         if not link_url:

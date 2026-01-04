@@ -29,9 +29,7 @@ class HistoryDataPointCreate(BaseModel):
         description="How this value was created",
     )
     source_url: str | None = Field(None, description="Original URL where found")
-    confidence_score: float = Field(
-        default=1.0, ge=0.0, le=1.0, description="Confidence score"
-    )
+    confidence_score: float = Field(default=1.0, ge=0.0, le=1.0, description="Confidence score")
 
 
 class HistoryDataPointUpdate(BaseModel):
@@ -46,12 +44,8 @@ class HistoryDataPointUpdate(BaseModel):
 class HistoryBulkImport(BaseModel):
     """Schema for bulk importing history data points."""
 
-    data_points: list[HistoryDataPointCreate] = Field(
-        ..., description="List of data points to import"
-    )
-    skip_duplicates: bool = Field(
-        default=True, description="Skip existing data points"
-    )
+    data_points: list[HistoryDataPointCreate] = Field(..., description="List of data points to import")
+    skip_duplicates: bool = Field(default=True, description="Skip existing data points")
 
 
 # =============================================================================
@@ -124,12 +118,8 @@ class HistoryStatistics(BaseModel):
         default="stable",
         description="Trend direction: up, down, stable",
     )
-    change_percent: float | None = Field(
-        None, description="Percentage change from oldest to latest"
-    )
-    change_absolute: float | None = Field(
-        None, description="Absolute change from oldest to latest"
-    )
+    change_percent: float | None = Field(None, description="Percentage change from oldest to latest")
+    change_absolute: float | None = Field(None, description="Absolute change from oldest to latest")
 
 
 class EntityHistoryResponse(BaseModel):
@@ -147,15 +137,9 @@ class EntityHistoryResponse(BaseModel):
     precision: int = Field(default=2, description="Decimal precision")
 
     # Data
-    tracks: list[HistoryTrackResponse] = Field(
-        default_factory=list, description="Data grouped by track"
-    )
-    date_range: DateRange = Field(
-        default_factory=DateRange, description="Actual data range"
-    )
-    statistics: HistoryStatistics = Field(
-        default_factory=HistoryStatistics, description="Calculated statistics"
-    )
+    tracks: list[HistoryTrackResponse] = Field(default_factory=list, description="Data grouped by track")
+    date_range: DateRange = Field(default_factory=DateRange, description="Actual data range")
+    statistics: HistoryStatistics = Field(default_factory=HistoryStatistics, description="Calculated statistics")
 
     # Pagination info for large datasets
     total_points: int = Field(default=0, description="Total points across all tracks")
@@ -208,7 +192,5 @@ class HistoryQueryParams(BaseModel):
     from_date: datetime | None = Field(None, description="Start date filter")
     to_date: datetime | None = Field(None, description="End date filter")
     tracks: list[str] | None = Field(None, description="Filter by track keys")
-    interval: str | None = Field(
-        None, description="Aggregation interval: day, week, month, quarter, year"
-    )
+    interval: str | None = Field(None, description="Aggregation interval: day, week, month, quarter, year")
     limit: int = Field(default=1000, ge=1, le=10000, description="Max points to return")

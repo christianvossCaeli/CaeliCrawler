@@ -24,9 +24,7 @@ async def validate_entity_type_slugs(
 
     from app.models import EntityType
 
-    result = await session.execute(
-        select(EntityType.slug).where(EntityType.slug.in_(slugs))
-    )
+    result = await session.execute(select(EntityType.slug).where(EntityType.slug.in_(slugs)))
     valid_slugs = {row[0] for row in result.all()}
     invalid_slugs = set(slugs) - valid_slugs
 
@@ -51,9 +49,7 @@ async def validate_facet_type_slugs(
 
     from app.models import FacetType
 
-    result = await session.execute(
-        select(FacetType.slug).where(FacetType.slug.in_(slugs))
-    )
+    result = await session.execute(select(FacetType.slug).where(FacetType.slug.in_(slugs)))
     valid_slugs = {row[0] for row in result.all()}
     invalid_slugs = set(slugs) - valid_slugs
 
@@ -73,11 +69,7 @@ async def validate_facet_config_slugs(
     Returns:
         Tuple of (valid_slugs, invalid_slugs)
     """
-    slugs = [
-        fc.get("facet_type_slug")
-        for fc in facet_config
-        if fc.get("facet_type_slug")
-    ]
+    slugs = [fc.get("facet_type_slug") for fc in facet_config if fc.get("facet_type_slug")]
     return await validate_facet_type_slugs(session, slugs)
 
 

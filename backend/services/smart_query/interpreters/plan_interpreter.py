@@ -374,10 +374,12 @@ async def interpret_plan_query(
                 {"role": "system", "content": system_prompt},
             ]
             for msg in messages:
-                openai_messages.append({
-                    "role": msg["role"],
-                    "content": msg["content"],
-                })
+                openai_messages.append(
+                    {
+                        "role": msg["role"],
+                        "content": msg["content"],
+                    }
+                )
 
             start_time = time.time()
             response = client.chat.completions.create(
@@ -413,7 +415,7 @@ async def interpret_plan_query(
 
             # Extract the prompt (between > markers or after "Fertiger Prompt:")
             # Try to find prompt in blockquote format
-            prompt_match = re.search(r'>\s*(.+?)(?:\n\n|\n\*\*)', response_text, re.DOTALL)
+            prompt_match = re.search(r">\s*(.+?)(?:\n\n|\n\*\*)", response_text, re.DOTALL)
             if prompt_match:
                 generated_prompt = prompt_match.group(1).strip()
 

@@ -100,9 +100,7 @@ async def bulk_process_documents(
     from workers.processing_tasks import process_document as process_doc_task
 
     document_ids = list(dict.fromkeys(payload.document_ids))
-    result = await session.execute(
-        select(Document).where(Document.id.in_(document_ids))
-    )
+    result = await session.execute(select(Document).where(Document.id.in_(document_ids)))
     documents = result.scalars().all()
     docs_by_id = {doc.id: doc for doc in documents}
     missing = max(0, len(document_ids) - len(docs_by_id))
@@ -117,9 +115,7 @@ async def bulk_process_documents(
 
     # Dispatch tasks in parallel using Celery group
     if documents:
-        task_group = group(
-            process_doc_task.s(str(doc.id)) for doc in documents
-        )
+        task_group = group(process_doc_task.s(str(doc.id)) for doc in documents)
         task_group.apply_async()
 
     return BulkDocumentActionResponse(
@@ -142,9 +138,7 @@ async def bulk_analyze_documents(
     from workers.ai_tasks import analyze_document as analyze_doc_task
 
     document_ids = list(dict.fromkeys(payload.document_ids))
-    result = await session.execute(
-        select(Document).where(Document.id.in_(document_ids))
-    )
+    result = await session.execute(select(Document).where(Document.id.in_(document_ids)))
     documents = result.scalars().all()
     docs_by_id = {doc.id: doc for doc in documents}
     missing = max(0, len(document_ids) - len(docs_by_id))
@@ -166,10 +160,7 @@ async def bulk_analyze_documents(
     # Dispatch tasks in parallel using Celery group
     if eligible:
         skip_check = payload.skip_relevance_check
-        task_group = group(
-            analyze_doc_task.s(str(doc.id), skip_relevance_check=skip_check)
-            for doc in eligible
-        )
+        task_group = group(analyze_doc_task.s(str(doc.id), skip_relevance_check=skip_check) for doc in eligible)
         task_group.apply_async()
 
     return BulkDocumentActionResponse(
@@ -190,9 +181,9 @@ async def process_all_pending(
     from workers.processing_tasks import process_pending_documents
 
     # Count pending documents for audit
-    pending_count = (await session.execute(
-        select(func.count()).where(Document.processing_status == ProcessingStatus.PENDING)
-    )).scalar() or 0
+    pending_count = (
+        await session.execute(select(func.count()).where(Document.processing_status == ProcessingStatus.PENDING))
+    ).scalar() or 0
 
     process_pending_documents.delay()
 
@@ -251,8 +242,7 @@ async def stop_all_processing(
         await session.commit()
 
     return MessageResponse(
-        message=f"Processing stopped. {reset_count} documents reset to pending.",
-        data={"reset_count": reset_count}
+        message=f"Processing stopped. {reset_count} documents reset to pending.", data={"reset_count": reset_count}
     )
 
 
@@ -297,6 +287,5 @@ async def reanalyze_filtered_documents(
         await session.commit()
 
     return MessageResponse(
-        message=f"Queued {len(doc_ids)} filtered documents for re-analysis",
-        data={"queued_count": len(doc_ids)}
+        message=f"Queued {len(doc_ids)} filtered documents for re-analysis", data={"queued_count": len(doc_ids)}
     )

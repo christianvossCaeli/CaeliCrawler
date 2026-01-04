@@ -37,8 +37,10 @@ router = APIRouter()
 # Response Models
 # =============================================================================
 
+
 class DiscoveryResponse(BaseModel):
     """Response from AI discovery endpoint."""
+
     sources: list[SourceWithTags]
     search_strategy: dict | None = None
     stats: dict
@@ -47,6 +49,7 @@ class DiscoveryResponse(BaseModel):
 
 class ImportResult(BaseModel):
     """Result of importing discovered sources."""
+
     imported: int
     skipped: int
     errors: list[dict]
@@ -54,6 +57,7 @@ class ImportResult(BaseModel):
 
 class DiscoveryImportRequest(BaseModel):
     """Request to import discovered sources."""
+
     sources: list[SourceWithTags] = Field(..., min_length=1, max_length=100)
     category_ids: list[UUID] = Field(default_factory=list, max_length=20)
     skip_duplicates: bool = Field(default=True)
@@ -61,17 +65,16 @@ class DiscoveryImportRequest(BaseModel):
 
 class DiscoveryRequestV2(BaseModel):
     """Request for KI-First discovery (V2)."""
+
     prompt: str = Field(..., min_length=3, max_length=1000)
     max_results: int = Field(default=50, ge=1, le=200)
     search_depth: str = Field(default="standard", pattern="^(quick|standard|deep)$")
-    skip_api_discovery: bool = Field(
-        default=False,
-        description="Skip API discovery and go straight to SERP"
-    )
+    skip_api_discovery: bool = Field(default=False, description="Skip API discovery and go straight to SERP")
 
 
 class APISuggestionResponse(BaseModel):
     """API suggestion in response."""
+
     api_name: str
     base_url: str
     endpoint: str
@@ -84,6 +87,7 @@ class APISuggestionResponse(BaseModel):
 
 class APIValidationResponse(BaseModel):
     """API validation result in response."""
+
     api_name: str
     is_valid: bool
     status_code: int | None = None
@@ -94,6 +98,7 @@ class APIValidationResponse(BaseModel):
 
 class ValidatedAPISourceResponse(BaseModel):
     """Validated API source with extracted data."""
+
     api_name: str
     api_url: str
     api_type: str
@@ -105,6 +110,7 @@ class ValidatedAPISourceResponse(BaseModel):
 
 class DiscoveryResponseV2(BaseModel):
     """Response from KI-First discovery (V2)."""
+
     # API sources (primary)
     api_sources: list[ValidatedAPISourceResponse]
     # Web sources (fallback)
@@ -121,6 +127,7 @@ class DiscoveryResponseV2(BaseModel):
 
 class APIDataImportRequest(BaseModel):
     """Request to import data from a validated API."""
+
     api_name: str
     api_url: str
     field_mapping: dict
@@ -133,6 +140,7 @@ class APIDataImportRequest(BaseModel):
 # =============================================================================
 # Endpoints
 # =============================================================================
+
 
 @router.post("/discover", response_model=DiscoveryResponse)
 async def discover_sources(
@@ -232,17 +240,17 @@ async def import_discovered_sources(
                     reason=error_msg,
                     ip_address=http_request.client.host if http_request.client else None,
                 )
-                errors.append({
-                    "name": source.name,
-                    "error": f"SSRF Protection: {error_msg}",
-                })
+                errors.append(
+                    {
+                        "name": source.name,
+                        "error": f"SSRF Protection: {error_msg}",
+                    }
+                )
                 continue
 
             # Check for duplicate
             if request.skip_duplicates:
-                existing = await session.execute(
-                    select(DataSource).where(DataSource.base_url == source.base_url)
-                )
+                existing = await session.execute(select(DataSource).where(DataSource.base_url == source.base_url))
                 if existing.scalar():
                     skipped += 1
                     continue
@@ -276,10 +284,12 @@ async def import_discovered_sources(
             imported += 1
 
         except Exception as e:
-            errors.append({
-                "name": source.name,
-                "error": str(e),
-            })
+            errors.append(
+                {
+                    "name": source.name,
+                    "error": str(e),
+                }
+            )
 
     # Audit log for AI discovery import
     if imported > 0:
@@ -348,6 +358,7 @@ async def get_discovery_examples(
 # V2 Endpoints (KI-First)
 # =============================================================================
 
+
 @router.post("/discover-v2", response_model=DiscoveryResponseV2)
 async def discover_sources_v2(
     request: DiscoveryRequestV2,
@@ -404,15 +415,17 @@ async def discover_sources_v2(
     # Convert to response models
     api_sources_response = []
     for source in result.api_sources:
-        api_sources_response.append(ValidatedAPISourceResponse(
-            api_name=source.api_suggestion.api_name,
-            api_url=source.api_suggestion.full_url,
-            api_type=source.api_suggestion.api_type,
-            item_count=len(source.extracted_items),
-            sample_items=source.extracted_items[:5],
-            tags=source.tags,
-            field_mapping=source.validation.field_mapping,
-        ))
+        api_sources_response.append(
+            ValidatedAPISourceResponse(
+                api_name=source.api_suggestion.api_name,
+                api_url=source.api_suggestion.full_url,
+                api_type=source.api_suggestion.api_type,
+                item_count=len(source.extracted_items),
+                sample_items=source.extracted_items[:5],
+                tags=source.tags,
+                field_mapping=source.validation.field_mapping,
+            )
+        )
 
     api_suggestions_response = [
         APISuggestionResponse(
@@ -511,10 +524,12 @@ async def import_api_data(
                 base_url = item.get("website") or item.get("url") or item.get("homepage")
 
             if not name:
-                errors.append({
-                    "name": str(item)[:100],
-                    "error": "Kein Name gefunden",
-                })
+                errors.append(
+                    {
+                        "name": str(item)[:100],
+                        "error": "Kein Name gefunden",
+                    }
+                )
                 continue
 
             # Use API URL as base_url if no item URL
@@ -530,17 +545,17 @@ async def import_api_data(
                     reason=error_msg,
                     ip_address=http_request.client.host if http_request.client else None,
                 )
-                errors.append({
-                    "name": name,
-                    "error": f"SSRF Protection: {error_msg}",
-                })
+                errors.append(
+                    {
+                        "name": name,
+                        "error": f"SSRF Protection: {error_msg}",
+                    }
+                )
                 continue
 
             # Check for duplicate
             if request.skip_duplicates and base_url:
-                existing = await session.execute(
-                    select(DataSource).where(DataSource.base_url == base_url)
-                )
+                existing = await session.execute(select(DataSource).where(DataSource.base_url == base_url))
                 if existing.scalar():
                     skipped += 1
                     continue
@@ -572,10 +587,12 @@ async def import_api_data(
             imported += 1
 
         except Exception as e:
-            errors.append({
-                "name": str(item.get("name", item))[:100],
-                "error": str(e),
-            })
+            errors.append(
+                {
+                    "name": str(item.get("name", item))[:100],
+                    "error": str(e),
+                }
+            )
 
     await session.commit()
 

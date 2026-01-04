@@ -25,20 +25,14 @@ class WidgetConfig(BaseModel):
     enabled: bool = Field(default=True, description="Whether widget is shown")
     position: WidgetPosition = Field(default_factory=WidgetPosition)
     config: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Widget-specific configuration (refresh interval, etc.)"
+        default_factory=dict, description="Widget-specific configuration (refresh interval, etc.)"
     )
 
 
 class DashboardPreferencesUpdate(BaseModel):
     """Request body for updating dashboard preferences."""
 
-    widgets: list[WidgetConfig] = Field(
-        ...,
-        min_length=0,
-        max_length=20,
-        description="List of widget configurations"
-    )
+    widgets: list[WidgetConfig] = Field(..., min_length=0, max_length=20, description="List of widget configurations")
 
 
 class DashboardPreferencesResponse(BaseModel):
@@ -55,10 +49,7 @@ class EntityStats(BaseModel):
     """Entity statistics for dashboard."""
 
     total: int = Field(description="Total number of entities")
-    by_type: dict[str, int] = Field(
-        default_factory=dict,
-        description="Entity count by type"
-    )
+    by_type: dict[str, int] = Field(default_factory=dict, description="Entity count by type")
     active: int = Field(description="Number of active entities")
     inactive: int = Field(description="Number of inactive entities")
 
@@ -68,28 +59,16 @@ class FacetStats(BaseModel):
 
     total: int = Field(description="Total number of facet values")
     verified: int = Field(description="Number of verified facet values")
-    verification_rate: float = Field(
-        ge=0, le=100,
-        description="Percentage of verified facet values"
-    )
-    by_type: dict[str, int] = Field(
-        default_factory=dict,
-        description="Facet count by type"
-    )
+    verification_rate: float = Field(ge=0, le=100, description="Percentage of verified facet values")
+    by_type: dict[str, int] = Field(default_factory=dict, description="Facet count by type")
 
 
 class DocumentStats(BaseModel):
     """Document processing statistics for dashboard."""
 
     total: int = Field(description="Total number of documents")
-    by_status: dict[str, int] = Field(
-        default_factory=dict,
-        description="Document count by processing status"
-    )
-    processing_rate: float = Field(
-        ge=0, le=100,
-        description="Percentage of successfully processed documents"
-    )
+    by_status: dict[str, int] = Field(default_factory=dict, description="Document count by processing status")
+    processing_rate: float = Field(ge=0, le=100, description="Percentage of successfully processed documents")
 
 
 class CrawlerStats(BaseModel):
@@ -100,10 +79,7 @@ class CrawlerStats(BaseModel):
     completed_jobs: int = Field(description="Completed jobs")
     failed_jobs: int = Field(description="Failed jobs")
     total_documents: int = Field(description="Total crawled documents")
-    avg_duration_seconds: float | None = Field(
-        None,
-        description="Average job duration in seconds"
-    )
+    avg_duration_seconds: float | None = Field(None, description="Average job duration in seconds")
 
 
 class AITaskStats(BaseModel):

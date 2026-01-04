@@ -73,9 +73,7 @@ class FacetHistoryService:
         # Validate facet type
         facet_type = await self._get_facet_type(facet_type_id)
         if facet_type.value_type != "history":
-            raise ValueError(
-                f"FacetType '{facet_type.slug}' is not a HISTORY type"
-            )
+            raise ValueError(f"FacetType '{facet_type.slug}' is not a HISTORY type")
 
         # Validate entity exists
         entity = await self._get_entity(entity_id)
@@ -189,9 +187,7 @@ class FacetHistoryService:
             errors=len(errors),
         )
 
-        return HistoryBulkImportResponse(
-            created=created, skipped=skipped, errors=errors
-        )
+        return HistoryBulkImportResponse(created=created, skipped=skipped, errors=errors)
 
     async def get_history(
         self,
@@ -264,9 +260,7 @@ class FacetHistoryService:
                     label=config.label,
                     color=config.color,
                     style=config.style,
-                    data_points=[
-                        HistoryDataPointResponse.model_validate(p) for p in points
-                    ],
+                    data_points=[HistoryDataPointResponse.model_validate(p) for p in points],
                     point_count=len(points),
                 )
             )
@@ -416,9 +410,7 @@ class FacetHistoryService:
         verified_by: str | None = None,
     ) -> FacetValueHistory | None:
         """Update a history data point."""
-        result = await self.session.execute(
-            select(FacetValueHistory).where(FacetValueHistory.id == data_point_id)
-        )
+        result = await self.session.execute(select(FacetValueHistory).where(FacetValueHistory.id == data_point_id))
         data_point = result.scalar_one_or_none()
 
         if not data_point:
@@ -441,9 +433,7 @@ class FacetHistoryService:
 
     async def delete_data_point(self, data_point_id: UUID) -> bool:
         """Delete a single data point."""
-        result = await self.session.execute(
-            delete(FacetValueHistory).where(FacetValueHistory.id == data_point_id)
-        )
+        result = await self.session.execute(delete(FacetValueHistory).where(FacetValueHistory.id == data_point_id))
         return result.rowcount > 0
 
     async def delete_data_points(
@@ -467,9 +457,7 @@ class FacetHistoryService:
         if track_key:
             conditions.append(FacetValueHistory.track_key == track_key)
 
-        result = await self.session.execute(
-            delete(FacetValueHistory).where(and_(*conditions))
-        )
+        result = await self.session.execute(delete(FacetValueHistory).where(and_(*conditions)))
         return result.rowcount
 
     # =========================================================================
@@ -478,24 +466,18 @@ class FacetHistoryService:
 
     async def _get_entity(self, entity_id: UUID) -> Entity | None:
         """Get entity by ID."""
-        result = await self.session.execute(
-            select(Entity).where(Entity.id == entity_id)
-        )
+        result = await self.session.execute(select(Entity).where(Entity.id == entity_id))
         return result.scalar_one_or_none()
 
     async def _get_facet_type(self, facet_type_id: UUID) -> FacetType:
         """Get facet type by ID, raise if not found."""
-        result = await self.session.execute(
-            select(FacetType).where(FacetType.id == facet_type_id)
-        )
+        result = await self.session.execute(select(FacetType).where(FacetType.id == facet_type_id))
         facet_type = result.scalar_one_or_none()
         if not facet_type:
             raise ValueError(f"FacetType {facet_type_id} not found")
         return facet_type
 
-    def _parse_track_configs(
-        self, facet_type: FacetType
-    ) -> dict[str, HistoryTrackConfig]:
+    def _parse_track_configs(self, facet_type: FacetType) -> dict[str, HistoryTrackConfig]:
         """Parse track configurations from facet type schema."""
         schema = facet_type.value_schema or {}
         props = schema.get("properties", {})
@@ -512,15 +494,11 @@ class FacetHistoryService:
 
         # Always include default if not configured
         if "default" not in configs:
-            configs["default"] = HistoryTrackConfig(
-                key="default", label="Default", color="#1976D2"
-            )
+            configs["default"] = HistoryTrackConfig(key="default", label="Default", color="#1976D2")
 
         return configs
 
-    def _calculate_statistics(
-        self, data_points: list[FacetValueHistory]
-    ) -> HistoryStatistics:
+    def _calculate_statistics(self, data_points: list[FacetValueHistory]) -> HistoryStatistics:
         """Calculate statistics from data points."""
         if not data_points:
             return HistoryStatistics()
@@ -562,9 +540,7 @@ class FacetHistoryService:
             change_absolute=round(change_absolute, 2),
         )
 
-    def _calculate_interval_end(
-        self, interval_start: datetime, interval: str
-    ) -> datetime:
+    def _calculate_interval_end(self, interval_start: datetime, interval: str) -> datetime:
         """Calculate interval end based on interval type."""
         from dateutil.relativedelta import relativedelta
 

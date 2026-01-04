@@ -101,15 +101,17 @@ class AuditContext:
             entity_name: Optional display name (auto-detected if not provided)
         """
         name = entity_name or self._get_entity_name(entity)
-        self.entries.append({
-            "action": AuditAction.CREATE,
-            "entity_type": entity.__class__.__name__,
-            "entity_id": entity.id,
-            "entity_name": name,
-            "changes": {"created": True},
-            "user": self.user,
-            **self._context,
-        })
+        self.entries.append(
+            {
+                "action": AuditAction.CREATE,
+                "entity_type": entity.__class__.__name__,
+                "entity_id": entity.id,
+                "entity_name": name,
+                "changes": {"created": True},
+                "user": self.user,
+                **self._context,
+            }
+        )
 
     def track_update(
         self,
@@ -133,15 +135,17 @@ class AuditContext:
         if not changes:
             return  # No actual changes to track
 
-        self.entries.append({
-            "action": AuditAction.UPDATE,
-            "entity_type": entity.__class__.__name__,
-            "entity_id": entity.id,
-            "entity_name": self._get_entity_name(entity),
-            "changes": changes,
-            "user": self.user,
-            **self._context,
-        })
+        self.entries.append(
+            {
+                "action": AuditAction.UPDATE,
+                "entity_type": entity.__class__.__name__,
+                "entity_id": entity.id,
+                "entity_name": self._get_entity_name(entity),
+                "changes": changes,
+                "user": self.user,
+                **self._context,
+            }
+        )
 
     def track_delete(
         self,
@@ -156,15 +160,17 @@ class AuditContext:
             entity_name: Optional display name
         """
         name = entity_name or self._get_entity_name(entity)
-        self.entries.append({
-            "action": AuditAction.DELETE,
-            "entity_type": entity.__class__.__name__,
-            "entity_id": entity.id,
-            "entity_name": name,
-            "changes": {"deleted": True},
-            "user": self.user,
-            **self._context,
-        })
+        self.entries.append(
+            {
+                "action": AuditAction.DELETE,
+                "entity_type": entity.__class__.__name__,
+                "entity_id": entity.id,
+                "entity_name": name,
+                "changes": {"deleted": True},
+                "user": self.user,
+                **self._context,
+            }
+        )
 
     def track_action(
         self,
@@ -184,15 +190,17 @@ class AuditContext:
             entity_name: Entity name (optional)
             changes: Additional change data (optional)
         """
-        self.entries.append({
-            "action": action,
-            "entity_type": entity_type,
-            "entity_id": entity_id,
-            "entity_name": entity_name,
-            "changes": changes or {},
-            "user": self.user,
-            **self._context,
-        })
+        self.entries.append(
+            {
+                "action": action,
+                "entity_type": entity_type,
+                "entity_id": entity_id,
+                "entity_name": entity_name,
+                "changes": changes or {},
+                "user": self.user,
+                **self._context,
+            }
+        )
 
     def _get_entity_name(self, entity: Any) -> str | None:
         """Get a human-readable name for an entity."""

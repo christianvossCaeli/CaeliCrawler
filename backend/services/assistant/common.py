@@ -42,11 +42,7 @@ def get_openai_client() -> AzureOpenAI | None:
         return None
 
 
-async def validate_entity_context(
-    db: AsyncSession,
-    entity_id: str,
-    with_facets: bool = False
-) -> Entity | None:
+async def validate_entity_context(db: AsyncSession, entity_id: str, with_facets: bool = False) -> Entity | None:
     """Validate entity ID and load entity with optional relationships.
 
     Args:
@@ -77,7 +73,7 @@ def build_suggestions_list(
     has_data: bool,
     entity_type: str | None = None,
     facet_types: list[Any] | None = None,
-    translator: Any | None = None
+    translator: Any | None = None,
 ) -> list[SuggestedAction]:
     """Build contextual suggested actions based on results.
 
@@ -95,36 +91,30 @@ def build_suggestions_list(
 
     if has_data and total > 0:
         label = translator.t("show_details") if translator else "Details anzeigen"
-        suggestions.append(SuggestedAction(
-            label=label,
-            action="query",
-            value="Zeig mir mehr Details" if not translator or translator.language == "de" else "Show more details"
-        ))
+        suggestions.append(
+            SuggestedAction(
+                label=label,
+                action="query",
+                value="Zeig mir mehr Details" if not translator or translator.language == "de" else "Show more details",
+            )
+        )
 
     if facet_types:
         for ft in facet_types[:2]:
-            name_plural = getattr(ft, 'name_plural', None) or getattr(ft, 'name', 'Facets')
-            suggestions.append(SuggestedAction(
-                label=name_plural,
-                action="query",
-                value=f"Zeige {name_plural}" if entity_type else name_plural
-            ))
+            name_plural = getattr(ft, "name_plural", None) or getattr(ft, "name", "Facets")
+            suggestions.append(
+                SuggestedAction(
+                    label=name_plural, action="query", value=f"Zeige {name_plural}" if entity_type else name_plural
+                )
+            )
 
     label = translator.t("new_search") if translator else "Neue Suche"
-    suggestions.append(SuggestedAction(
-        label=label,
-        action="query",
-        value="/search "
-    ))
+    suggestions.append(SuggestedAction(label=label, action="query", value="/search "))
 
     return suggestions
 
 
-def format_count_message(
-    total: int,
-    entity_type: str | None = None,
-    translator: Any | None = None
-) -> str:
+def format_count_message(total: int, entity_type: str | None = None, translator: Any | None = None) -> str:
     """Format a count message for query results.
 
     Args:
@@ -146,10 +136,7 @@ def format_count_message(
     return f"{total} {entity_label} gefunden."
 
 
-async def get_entity_with_context(
-    db: AsyncSession,
-    entity_id: str
-) -> dict[str, Any] | None:
+async def get_entity_with_context(db: AsyncSession, entity_id: str) -> dict[str, Any] | None:
     """Get entity with full context data for AI processing.
 
     Loads entity with:
@@ -179,15 +166,17 @@ async def get_entity_with_context(
             "country": entity.country,
             "admin_level_1": entity.admin_level_1,
             "admin_level_2": entity.admin_level_2,
-        }
+        },
     }
 
 
 class EntityNotFoundException(Exception):
     """Raised when entity is not found or invalid."""
+
     pass
 
 
 class AIServiceNotAvailableException(Exception):
     """Raised when Azure OpenAI is not configured."""
+
     pass

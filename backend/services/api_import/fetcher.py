@@ -80,6 +80,7 @@ async def fetch_all_from_api(
 # Wikidata SPARQL
 # =============================================================================
 
+
 async def _fetch_wikidata_preview(
     api_url: str,
     params: dict[str, Any],
@@ -94,7 +95,8 @@ async def _fetch_wikidata_preview(
     preview_query = sparql_query.strip()
     # Remove existing LIMIT if present and add our own
     import re
-    preview_query = re.sub(r'\s+LIMIT\s+\d+\s*$', '', preview_query, flags=re.IGNORECASE)
+
+    preview_query = re.sub(r"\s+LIMIT\s+\d+\s*$", "", preview_query, flags=re.IGNORECASE)
     preview_query = f"{preview_query} LIMIT {sample_size}"
 
     async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
@@ -125,7 +127,7 @@ async def _fetch_wikidata_preview(
 
     # Estimate total (run count query)
     count_query = sparql_query.strip()
-    count_query = re.sub(r'\s+LIMIT\s+\d+\s*$', '', count_query, flags=re.IGNORECASE)
+    count_query = re.sub(r"\s+LIMIT\s+\d+\s*$", "", count_query, flags=re.IGNORECASE)
     count_query = f"SELECT (COUNT(*) as ?count) WHERE {{ {count_query.replace('SELECT', '').split('WHERE')[0]} }}"
 
     total = len(items)  # Default to sample size if count fails
@@ -166,7 +168,8 @@ async def _fetch_all_wikidata(
 
     # Update LIMIT in query
     import re
-    full_query = re.sub(r'\s+LIMIT\s+\d+\s*$', '', sparql_query.strip(), flags=re.IGNORECASE)
+
+    full_query = re.sub(r"\s+LIMIT\s+\d+\s*$", "", sparql_query.strip(), flags=re.IGNORECASE)
     full_query = f"{full_query} LIMIT {max_items}"
 
     async with httpx.AsyncClient(timeout=60.0) as client:
@@ -202,6 +205,7 @@ async def _fetch_all_wikidata(
 # =============================================================================
 # OParl API
 # =============================================================================
+
 
 async def _fetch_oparl_preview(
     api_url: str,
@@ -284,6 +288,7 @@ async def _fetch_all_oparl(
 # =============================================================================
 # Custom REST API
 # =============================================================================
+
 
 async def _fetch_custom_preview(
     api_url: str,

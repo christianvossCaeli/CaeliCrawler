@@ -206,6 +206,7 @@ def execute_summary_task(self, summary_id: str, triggered_by: str = "manual", tr
                 # Always emit SUMMARY_UPDATED event for successful completions
                 if execution.status == ExecutionStatus.COMPLETED:
                     from workers.notification_tasks import emit_event
+
                     emit_event.delay(
                         "SUMMARY_UPDATED",
                         {
@@ -215,7 +216,7 @@ def execute_summary_task(self, summary_id: str, triggered_by: str = "manual", tr
                             "execution_id": str(execution.id),
                             "has_changes": execution.has_changes,
                             "triggered_by": triggered_by,
-                        }
+                        },
                     )
 
                 # Check if we should notify the user
@@ -232,6 +233,7 @@ def execute_summary_task(self, summary_id: str, triggered_by: str = "manual", tr
                     if should_notify_user(result, notification_threshold=0.5):
                         # Emit notification
                         from workers.notification_tasks import emit_event
+
                         emit_event.delay(
                             "SUMMARY_RELEVANT_CHANGES",
                             {
@@ -241,7 +243,7 @@ def execute_summary_task(self, summary_id: str, triggered_by: str = "manual", tr
                                 "execution_id": str(execution.id),
                                 "relevance_score": execution.relevance_score,
                                 "relevance_reason": execution.relevance_reason,
-                            }
+                            },
                         )
                         logger.info(
                             "summary_notification_triggered",
@@ -311,8 +313,7 @@ def on_crawl_completed(self, crawl_job_id: str, category_id: str):
         async with get_celery_session_context() as session:
             # Find summaries triggered by this category
             result = await session.execute(
-                select(CustomSummary)
-                .where(
+                select(CustomSummary).where(
                     CustomSummary.trigger_type == SummaryTriggerType.CRAWL_CATEGORY,
                     CustomSummary.trigger_category_id == UUID(category_id),
                     CustomSummary.status == SummaryStatus.ACTIVE,
@@ -389,8 +390,7 @@ def on_preset_completed(self, preset_id: str):
         async with get_celery_session_context() as session:
             # Find summaries triggered by this preset
             result = await session.execute(
-                select(CustomSummary)
-                .where(
+                select(CustomSummary).where(
                     CustomSummary.trigger_type == SummaryTriggerType.CRAWL_PRESET,
                     CustomSummary.trigger_preset_id == UUID(preset_id),
                     CustomSummary.status == SummaryStatus.ACTIVE,
@@ -461,10 +461,7 @@ def cleanup_old_executions(self, max_age_days: int = 30):
 
             # Get executions to keep (most recent 10 per summary)
             # This is a subquery to find the IDs to KEEP
-            (
-                select(SummaryExecution.id)
-                .where(SummaryExecution.created_at >= cutoff_date)
-            )
+            (select(SummaryExecution.id).where(SummaryExecution.created_at >= cutoff_date))
 
             # For older executions, keep only the most recent 5 per summary
             # This is complex in SQL, so we'll do it in two steps
@@ -480,6 +477,7 @@ def cleanup_old_executions(self, max_age_days: int = 30):
 
             # Group by summary and keep newest 5
             from collections import defaultdict
+
             by_summary = defaultdict(list)
             for exec_id, summary_id, _created_at in old_executions:
                 by_summary[summary_id].append(exec_id)
@@ -491,9 +489,7 @@ def cleanup_old_executions(self, max_age_days: int = 30):
                     delete_ids.extend(exec_ids[5:])
 
             if delete_ids:
-                await session.execute(
-                    delete(SummaryExecution).where(SummaryExecution.id.in_(delete_ids))
-                )
+                await session.execute(delete(SummaryExecution).where(SummaryExecution.id.in_(delete_ids)))
                 await session.commit()
 
             logger.info(
@@ -518,6 +514,7 @@ def cleanup_old_executions(self, max_age_days: int = 30):
 def _get_redis_client():
     """Get Redis client for progress tracking."""
     from workers.celery_app import celery_app
+
     return celery_app.backend.client
 
 
@@ -532,6 +529,7 @@ def _update_check_progress(
 ):
     """Update progress in Redis for a check-updates task."""
     import json
+
     redis = _get_redis_client()
     key = f"{CHECK_UPDATES_PROGRESS_PREFIX}{task_id}"
     data = {
@@ -549,6 +547,7 @@ def _update_check_progress(
 def get_check_progress(task_id: str) -> dict[str, Any] | None:
     """Get progress for a check-updates task from Redis."""
     import json
+
     redis = _get_redis_client()
     key = f"{CHECK_UPDATES_PROGRESS_PREFIX}{task_id}"
     data = redis.get(key)
@@ -677,6 +676,7 @@ def check_summary_updates(
                 for i, api_id in enumerate(external_api_ids):
                     # Use selectinload to eagerly load data_source relationship
                     from sqlalchemy.orm import selectinload
+
                     api_result = await session.execute(
                         select(APIConfiguration)
                         .options(selectinload(APIConfiguration.data_source))
@@ -701,12 +701,14 @@ def check_summary_updates(
                     try:
                         async with ExternalAPISyncService(session) as sync_service:
                             result = await sync_service.sync_source(api_config)
-                            api_sync_results.append({
-                                "api_id": api_id,
-                                "success": True,
-                                "created": result.entities_created,
-                                "updated": result.entities_updated,
-                            })
+                            api_sync_results.append(
+                                {
+                                    "api_id": api_id,
+                                    "success": True,
+                                    "created": result.entities_created,
+                                    "updated": result.entities_updated,
+                                }
+                            )
                             logger.info(
                                 "external_api_synced",
                                 api_id=api_id,
@@ -720,11 +722,13 @@ def check_summary_updates(
                             api_id=api_id,
                             error=str(e),
                         )
-                        api_sync_results.append({
-                            "api_id": api_id,
-                            "success": False,
-                            "error": str(e),
-                        })
+                        api_sync_results.append(
+                            {
+                                "api_id": api_id,
+                                "success": False,
+                                "error": str(e),
+                            }
+                        )
 
             total_jobs = len(job_ids) + len(api_sync_results)
             if total_jobs == 0 and not external_api_ids:

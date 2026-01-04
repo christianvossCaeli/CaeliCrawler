@@ -24,8 +24,10 @@ router = APIRouter(tags=["PySis Facets"])
 
 # Request/Response Schemas
 
+
 class AnalyzeForFacetsRequest(BaseModel):
     """Request für PySis-Facet-Analyse."""
+
     entity_id: UUID = Field(..., description="Entity-ID")
     process_id: UUID | None = Field(None, description="Spezifischer PySis-Prozess (optional)")
     include_empty: bool = Field(False, description="Auch leere Felder analysieren")
@@ -34,6 +36,7 @@ class AnalyzeForFacetsRequest(BaseModel):
 
 class EnrichFacetsRequest(BaseModel):
     """Request für Facet-Anreicherung."""
+
     entity_id: UUID = Field(..., description="Entity-ID")
     facet_type_id: UUID | None = Field(None, description="Nur diesen FacetType anreichern")
     overwrite: bool = Field(False, description="Bestehende Werte überschreiben")
@@ -41,6 +44,7 @@ class EnrichFacetsRequest(BaseModel):
 
 class OperationResponse(BaseModel):
     """Antwort für gestartete Operationen."""
+
     success: bool
     task_id: str
     message: str
@@ -48,6 +52,7 @@ class OperationResponse(BaseModel):
 
 class PreviewResponse(BaseModel):
     """Vorschau einer Operation."""
+
     can_execute: bool
     message: str
     operation: str
@@ -63,6 +68,7 @@ class PreviewResponse(BaseModel):
 
 class StatusResponse(BaseModel):
     """PySis-Status einer Entity."""
+
     has_pysis: bool
     entity_name: str
     message: str | None = None
@@ -73,6 +79,7 @@ class StatusResponse(BaseModel):
 
 
 # Endpoints
+
 
 @router.post("/analyze", response_model=OperationResponse)
 async def analyze_pysis_for_facets(

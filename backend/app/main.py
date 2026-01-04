@@ -76,11 +76,11 @@ def sanitize_sensitive_data(
     """Sanitize sensitive data from log entries to prevent token leakage."""
     # Patterns to sanitize
     patterns = [
-        (r'Bearer\s+[A-Za-z0-9\-_\.]+', 'Bearer ***'),
-        (r'token=[A-Za-z0-9\-_\.]+', 'token=***'),
-        (r'api[_-]?key[=:]\s*[A-Za-z0-9\-_\.]+', 'api_key=***'),
-        (r'password[=:]\s*[^\s&]+', 'password=***'),
-        (r'secret[=:]\s*[A-Za-z0-9\-_\.]+', 'secret=***'),
+        (r"Bearer\s+[A-Za-z0-9\-_\.]+", "Bearer ***"),
+        (r"token=[A-Za-z0-9\-_\.]+", "token=***"),
+        (r"api[_-]?key[=:]\s*[A-Za-z0-9\-_\.]+", "api_key=***"),
+        (r"password[=:]\s*[^\s&]+", "password=***"),
+        (r"secret[=:]\s*[A-Za-z0-9\-_\.]+", "secret=***"),
     ]
 
     def sanitize_value(value: str) -> str:
@@ -305,6 +305,7 @@ Diese API verwendet JWT (JSON Web Tokens) für die Authentifizierung.
         Logs the full error but returns a generic message to the client.
         """
         import structlog
+
         logger = structlog.get_logger(__name__)
         logger.error(
             "Unhandled exception",

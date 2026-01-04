@@ -68,16 +68,12 @@ async def execute_smart_query(
         if end_str and isinstance(end_str, str) and len(end_str) == 10:
             try:  # noqa: SIM105
                 # End of day for end date
-                date_end = datetime.strptime(end_str, "%Y-%m-%d").replace(
-                    hour=23, minute=59, second=59, tzinfo=UTC
-                )
+                date_end = datetime.strptime(end_str, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=UTC)
             except ValueError:
                 pass
 
     # Get entity type
-    entity_type_result = await session.execute(
-        select(EntityType).where(EntityType.slug == primary_type)
-    )
+    entity_type_result = await session.execute(select(EntityType).where(EntityType.slug == primary_type))
     entity_type = entity_type_result.scalar_one_or_none()
     if not entity_type:
         return results
@@ -85,9 +81,7 @@ async def execute_smart_query(
     # Get facet types - bulk load instead of N+1 queries
     facet_type_map = {}
     if facet_types:
-        ft_result = await session.execute(
-            select(FacetType).where(FacetType.slug.in_(facet_types))
-        )
+        ft_result = await session.execute(select(FacetType).where(FacetType.slug.in_(facet_types)))
         for ft in ft_result.scalars().all():
             facet_type_map[ft.slug] = ft
 
@@ -123,9 +117,7 @@ async def execute_smart_query(
     if position_keywords and primary_type == "person":
         position_conditions = []
         for keyword in position_keywords:
-            position_conditions.append(
-                Entity.core_attributes["position"].astext.ilike(f"%{keyword}%")
-            )
+            position_conditions.append(Entity.core_attributes["position"].astext.ilike(f"%{keyword}%"))
         if position_conditions:
             base_conditions.append(or_(*position_conditions))
 
@@ -148,9 +140,7 @@ async def execute_smart_query(
     if negative_facet_types:
         # Load negative facet types - bulk load instead of N+1 queries
         neg_facet_type_map = {}
-        neg_ft_result = await session.execute(
-            select(FacetType).where(FacetType.slug.in_(negative_facet_types))
-        )
+        neg_ft_result = await session.execute(select(FacetType).where(FacetType.slug.in_(negative_facet_types)))
         for ft in neg_ft_result.scalars().all():
             neg_facet_type_map[ft.slug] = ft
 
@@ -330,9 +320,7 @@ async def execute_smart_query(
     now = datetime.now(UTC)
 
     # Get relation types for enrichment
-    works_for_result = await session.execute(
-        select(RelationType).where(RelationType.slug == "works_for")
-    )
+    works_for_result = await session.execute(select(RelationType).where(RelationType.slug == "works_for"))
     works_for_type = works_for_result.scalar_one_or_none()
 
     # ==========================================================================
@@ -342,9 +330,7 @@ async def execute_smart_query(
     facet_type_ids = [ft.id for ft in facet_type_map.values()]
 
     # Bulk load all FacetValues for all entities and facet types
-    facet_values_by_entity_and_type: dict[UUID, dict[UUID, list[FacetValue]]] = defaultdict(
-        lambda: defaultdict(list)
-    )
+    facet_values_by_entity_and_type: dict[UUID, dict[UUID, list[FacetValue]]] = defaultdict(lambda: defaultdict(list))
     if facet_type_ids:
         fv_bulk_query = select(FacetValue).where(
             FacetValue.entity_id.in_(entity_ids),
@@ -355,33 +341,19 @@ async def execute_smart_query(
         if date_start and date_end:
             # Full date range: start <= event_date <= end
             fv_bulk_query = fv_bulk_query.where(
-                and_(
-                    FacetValue.event_date >= date_start,
-                    FacetValue.event_date <= date_end
-                )
+                and_(FacetValue.event_date >= date_start, FacetValue.event_date <= date_end)
             )
         elif date_start:
             # Only start date: event_date >= start
-            fv_bulk_query = fv_bulk_query.where(
-                FacetValue.event_date >= date_start
-            )
+            fv_bulk_query = fv_bulk_query.where(FacetValue.event_date >= date_start)
         elif date_end:
             # Only end date: event_date <= end
-            fv_bulk_query = fv_bulk_query.where(
-                FacetValue.event_date <= date_end
-            )
+            fv_bulk_query = fv_bulk_query.where(FacetValue.event_date <= date_end)
         # Fallback to time_filter if no date_range specified
         elif time_filter == "future_only":
-            fv_bulk_query = fv_bulk_query.where(
-                or_(
-                    FacetValue.event_date >= now,
-                    FacetValue.event_date.is_(None)
-                )
-            )
+            fv_bulk_query = fv_bulk_query.where(or_(FacetValue.event_date >= now, FacetValue.event_date.is_(None)))
         elif time_filter == "past_only":
-            fv_bulk_query = fv_bulk_query.where(
-                FacetValue.event_date < now
-            )
+            fv_bulk_query = fv_bulk_query.where(FacetValue.event_date < now)
         fv_bulk_result = await session.execute(fv_bulk_query)
         for fv in fv_bulk_result.scalars().all():
             facet_values_by_entity_and_type[fv.entity_id][fv.facet_type_id].append(fv)
@@ -403,9 +375,7 @@ async def execute_smart_query(
     # Bulk load all target entities (municipalities)
     target_entities_by_id: dict[UUID, Entity] = {}
     if target_entity_ids:
-        target_result = await session.execute(
-            select(Entity).where(Entity.id.in_(target_entity_ids))
-        )
+        target_result = await session.execute(select(Entity).where(Entity.id.in_(target_entity_ids)))
         for target in target_result.scalars().all():
             target_entities_by_id[target.id] = target
 
@@ -468,14 +438,16 @@ async def execute_smart_query(
                                 "name": muni.name,
                             }
 
-                    events_map[event_key]["attendees"].append({
-                        "person_id": str(entity.id),
-                        "person_name": entity.name,
-                        "position": entity.core_attributes.get("position"),
-                        "municipality": municipality_info,
-                        "role": fv.value.get("role"),
-                        "topic": fv.value.get("topic"),
-                    })
+                    events_map[event_key]["attendees"].append(
+                        {
+                            "person_id": str(entity.id),
+                            "person_name": entity.name,
+                            "position": entity.core_attributes.get("position"),
+                            "municipality": municipality_info,
+                            "role": fv.value.get("role"),
+                            "topic": fv.value.get("topic"),
+                        }
+                    )
 
         # Get relations from pre-loaded data
         if works_for_type and primary_type == "person":
@@ -490,9 +462,7 @@ async def execute_smart_query(
                     }
 
         # Only include if has relevant facets
-        has_relevant_facets = any(
-            len(fvs) > 0 for fvs in entity_data["facets"].values()
-        )
+        has_relevant_facets = any(len(fvs) > 0 for fvs in entity_data["facets"].values())
         if has_relevant_facets or not facet_types:
             items.append(entity_data)
 
@@ -574,10 +544,7 @@ async def _execute_aggregate_query(
         # Simple entity count, optionally grouped
         if group_by == "admin_level_1":
             query = (
-                select(
-                    Entity.admin_level_1.label("group_key"),
-                    sql_func(Entity.id).label("value")
-                )
+                select(Entity.admin_level_1.label("group_key"), sql_func(Entity.id).label("value"))
                 .where(*base_conditions)
                 .group_by(Entity.admin_level_1)
                 .order_by(sql_func(Entity.id).desc())
@@ -592,20 +559,16 @@ async def _execute_aggregate_query(
             result = await session.execute(query)
             rows = result.fetchall()
 
-            items = [
-                {"group": row.group_key or "Unbekannt", "value": row.value}
-                for row in rows
-            ]
+            items = [{"group": row.group_key or "Unbekannt", "value": row.value} for row in rows]
             results["items"] = items
             results["total"] = len(items)
-            results["message"] = f"{agg_function} von {entity_type.name_plural or entity_type.name} gruppiert nach Bundesland"
+            results["message"] = (
+                f"{agg_function} von {entity_type.name_plural or entity_type.name} gruppiert nach Bundesland"
+            )
 
         elif group_by == "country":
             query = (
-                select(
-                    Entity.country.label("group_key"),
-                    sql_func(Entity.id).label("value")
-                )
+                select(Entity.country.label("group_key"), sql_func(Entity.id).label("value"))
                 .where(*base_conditions)
                 .group_by(Entity.country)
                 .order_by(sql_func(Entity.id).desc())
@@ -632,10 +595,7 @@ async def _execute_aggregate_query(
         elif group_by == "entity_type":
             # Need to join with EntityType
             query = (
-                select(
-                    EntityType.name.label("group_key"),
-                    sql_func(Entity.id).label("value")
-                )
+                select(EntityType.name.label("group_key"), sql_func(Entity.id).label("value"))
                 .join(EntityType, Entity.entity_type_id == EntityType.id)
                 .where(Entity.is_active.is_(True))
                 .group_by(EntityType.name)
@@ -645,10 +605,7 @@ async def _execute_aggregate_query(
             result = await session.execute(query)
             rows = result.fetchall()
 
-            items = [
-                {"group": row.group_key or "Unbekannt", "value": row.value}
-                for row in rows
-            ]
+            items = [{"group": row.group_key or "Unbekannt", "value": row.value} for row in rows]
             results["items"] = items
             results["total"] = len(items)
             results["message"] = f"{agg_function} von Entities gruppiert nach Entity-Typ"
@@ -677,9 +634,7 @@ async def _execute_aggregate_query(
             return results
 
         # Get the facet type
-        ft_result = await session.execute(
-            select(FacetType).where(FacetType.slug == agg_facet_type)
-        )
+        ft_result = await session.execute(select(FacetType).where(FacetType.slug == agg_facet_type))
         facet_type = ft_result.scalar_one_or_none()
         if not facet_type:
             results["message"] = f"Facet-Typ '{agg_facet_type}' nicht gefunden"
@@ -687,14 +642,11 @@ async def _execute_aggregate_query(
 
         # Build subquery for facet counts per entity
         facet_count_subquery = (
-            select(
-                FacetValue.entity_id,
-                func.count(FacetValue.id).label("facet_count")
-            )
+            select(FacetValue.entity_id, func.count(FacetValue.id).label("facet_count"))
             .where(
                 FacetValue.facet_type_id == facet_type.id,
                 FacetValue.is_active.is_(True),
-                FacetValue.entity_id.in_(entity_subquery)
+                FacetValue.entity_id.in_(entity_subquery),
             )
             .group_by(FacetValue.entity_id)
             .subquery()
@@ -704,8 +656,7 @@ async def _execute_aggregate_query(
             # Group by region with facet counts
             query = (
                 select(
-                    Entity.admin_level_1.label("group_key"),
-                    sql_func(facet_count_subquery.c.facet_count).label("value")
+                    Entity.admin_level_1.label("group_key"), sql_func(facet_count_subquery.c.facet_count).label("value")
                 )
                 .join(facet_count_subquery, Entity.id == facet_count_subquery.c.entity_id)
                 .where(*base_conditions)
@@ -717,20 +668,18 @@ async def _execute_aggregate_query(
             rows = result.fetchall()
 
             items = [
-                {"group": row.group_key or "Unbekannt", "value": float(row.value) if row.value else 0}
-                for row in rows
+                {"group": row.group_key or "Unbekannt", "value": float(row.value) if row.value else 0} for row in rows
             ]
             results["items"] = items
             results["total"] = len(items)
-            results["message"] = f"{agg_function} von {facet_type.name} pro {entity_type.name} gruppiert nach Bundesland"
+            results["message"] = (
+                f"{agg_function} von {facet_type.name} pro {entity_type.name} gruppiert nach Bundesland"
+            )
 
         elif group_by == "entity_type":
             # Group by entity type with facet counts
             query = (
-                select(
-                    EntityType.name.label("group_key"),
-                    sql_func(facet_count_subquery.c.facet_count).label("value")
-                )
+                select(EntityType.name.label("group_key"), sql_func(facet_count_subquery.c.facet_count).label("value"))
                 .join(facet_count_subquery, Entity.id == facet_count_subquery.c.entity_id)
                 .join(EntityType, Entity.entity_type_id == EntityType.id)
                 .where(Entity.is_active.is_(True))
@@ -742,8 +691,7 @@ async def _execute_aggregate_query(
             rows = result.fetchall()
 
             items = [
-                {"group": row.group_key or "Unbekannt", "value": float(row.value) if row.value else 0}
-                for row in rows
+                {"group": row.group_key or "Unbekannt", "value": float(row.value) if row.value else 0} for row in rows
             ]
             results["items"] = items
             results["total"] = len(items)
@@ -753,13 +701,10 @@ async def _execute_aggregate_query(
             # No grouping - aggregate over all entities
             if agg_function == "COUNT":
                 # Count total facets
-                count_query = (
-                    select(func.count(FacetValue.id))
-                    .where(
-                        FacetValue.facet_type_id == facet_type.id,
-                        FacetValue.is_active.is_(True),
-                        FacetValue.entity_id.in_(entity_subquery)
-                    )
+                count_query = select(func.count(FacetValue.id)).where(
+                    FacetValue.facet_type_id == facet_type.id,
+                    FacetValue.is_active.is_(True),
+                    FacetValue.entity_id.in_(entity_subquery),
                 )
                 result = await session.execute(count_query)
                 total = result.scalar() or 0
@@ -768,9 +713,7 @@ async def _execute_aggregate_query(
                 results["message"] = f"Insgesamt {total} {facet_type.name}"
             else:
                 # AVG, SUM, MIN, MAX over facet counts
-                agg_query = (
-                    select(sql_func(facet_count_subquery.c.facet_count))
-                )
+                agg_query = select(sql_func(facet_count_subquery.c.facet_count))
                 result = await session.execute(agg_query)
                 value = result.scalar()
 
@@ -788,6 +731,8 @@ async def _execute_aggregate_query(
 
                 results["items"] = [{"value": formatted_value}]
                 results["total"] = 1
-                results["message"] = f"{function_labels.get(agg_function, agg_function)}: {formatted_value} {facet_type.name} pro {entity_type.name}"
+                results["message"] = (
+                    f"{function_labels.get(agg_function, agg_function)}: {formatted_value} {facet_type.name} pro {entity_type.name}"
+                )
 
     return results

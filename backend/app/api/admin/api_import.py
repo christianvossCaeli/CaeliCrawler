@@ -29,8 +29,10 @@ from app.models.audit_log import AuditAction
 # Schemas
 # =============================================================================
 
+
 class ApiTemplate(BaseModel):
     """Template for a specific API type."""
+
     id: str
     name: str
     description: str
@@ -42,6 +44,7 @@ class ApiTemplate(BaseModel):
 
 class ApiImportPreviewRequest(BaseModel):
     """Request to preview an API import."""
+
     api_type: str = Field(..., description="API type: wikidata, oparl, govdata, custom")
     api_url: str = Field(..., description="API endpoint URL")
     params: dict[str, Any] = Field(default_factory=dict, description="API-specific parameters")
@@ -50,6 +53,7 @@ class ApiImportPreviewRequest(BaseModel):
 
 class ApiImportPreviewItem(BaseModel):
     """Single item in the import preview."""
+
     name: str
     base_url: str
     source_type: str = "WEBSITE"
@@ -60,6 +64,7 @@ class ApiImportPreviewItem(BaseModel):
 
 class ApiImportPreviewResponse(BaseModel):
     """Response with preview of items to be imported."""
+
     items: list[ApiImportPreviewItem]
     total_available: int
     field_mapping: dict[str, str] = Field(default_factory=dict)
@@ -68,6 +73,7 @@ class ApiImportPreviewResponse(BaseModel):
 
 class ApiImportExecuteRequest(BaseModel):
     """Request to execute an API import."""
+
     api_type: str = Field(..., description="API type: wikidata, oparl, govdata, custom")
     api_url: str = Field(..., max_length=2048, description="API endpoint URL")
     params: dict[str, Any] = Field(default_factory=dict)
@@ -80,6 +86,7 @@ class ApiImportExecuteRequest(BaseModel):
 
 class ApiImportExecuteResponse(BaseModel):
     """Result of API import execution."""
+
     imported: int
     skipped: int
     errors: list[dict[str, str]]
@@ -295,6 +302,7 @@ async def execute_api_import(
             if not name:
                 # Use domain as name if no name available
                 from urllib.parse import urlparse
+
                 name = urlparse(base_url).netloc
 
             # SSRF Protection
@@ -305,9 +313,7 @@ async def execute_api_import(
 
             # Check for duplicate
             if data.skip_duplicates:
-                existing = await session.execute(
-                    select(DataSource).where(DataSource.base_url == base_url)
-                )
+                existing = await session.execute(select(DataSource).where(DataSource.base_url == base_url))
                 if existing.scalar():
                     skipped += 1
                     continue
@@ -346,10 +352,12 @@ async def execute_api_import(
             imported += 1
 
         except Exception as e:
-            errors.append({
-                "name": item.get("name", "Unknown"),
-                "error": str(e),
-            })
+            errors.append(
+                {
+                    "name": item.get("name", "Unknown"),
+                    "error": str(e),
+                }
+            )
 
     # Audit log for API import
     category_names = [c.name for c in categories]

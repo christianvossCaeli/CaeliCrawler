@@ -155,11 +155,11 @@ async def list_categories(
 
     if search:
         # Escape SQL wildcards to prevent injection
-        safe_search = search.replace('%', '\\%').replace('_', '\\_')
+        safe_search = search.replace("%", "\\%").replace("_", "\\_")
         query = query.where(
-            Category.name.ilike(f"%{safe_search}%", escape='\\') |
-            Category.description.ilike(f"%{safe_search}%", escape='\\') |
-            Category.purpose.ilike(f"%{safe_search}%", escape='\\')
+            Category.name.ilike(f"%{safe_search}%", escape="\\")
+            | Category.description.ilike(f"%{safe_search}%", escape="\\")
+            | Category.purpose.ilike(f"%{safe_search}%", escape="\\")
         )
 
     if has_documents is not None:
@@ -206,10 +206,7 @@ async def list_categories(
     if category_ids:
         # Get source counts in a single query
         source_counts_result = await session.execute(
-            select(
-                DataSourceCategory.category_id,
-                func.count(DataSourceCategory.id).label("count")
-            )
+            select(DataSourceCategory.category_id, func.count(DataSourceCategory.id).label("count"))
             .where(DataSourceCategory.category_id.in_(category_ids))
             .group_by(DataSourceCategory.category_id)
         )
@@ -217,10 +214,7 @@ async def list_categories(
 
         # Get document counts in a single query
         doc_counts_result = await session.execute(
-            select(
-                Document.category_id,
-                func.count(Document.id).label("count")
-            )
+            select(Document.category_id, func.count(Document.id).label("count"))
             .where(Document.category_id.in_(category_ids))
             .group_by(Document.category_id)
         )
@@ -301,11 +295,7 @@ async def create_category(
     slug = data.slug or generate_slug(data.name)
 
     # Check for duplicate name or slug
-    existing = await session.execute(
-        select(Category).where(
-            (Category.name == data.name) | (Category.slug == slug)
-        )
-    )
+    existing = await session.execute(select(Category).where((Category.name == data.name) | (Category.slug == slug)))
     if existing.scalar():
         raise ConflictError(
             "Category already exists",
@@ -337,6 +327,7 @@ async def create_category(
 
         # Generate embedding for semantic similarity search
         from app.utils.similarity import generate_embedding
+
         embedding = await generate_embedding(category.name)
         if embedding:
             category.name_embedding = embedding
@@ -402,13 +393,11 @@ async def get_category(
         raise NotFoundError("Category", str(category_id))
 
     # Get counts via junction table (N:M relationship)
-    source_count = (await session.execute(
-        select(func.count()).where(DataSourceCategory.category_id == category.id)
-    )).scalar()
+    source_count = (
+        await session.execute(select(func.count()).where(DataSourceCategory.category_id == category.id))
+    ).scalar()
 
-    doc_count = (await session.execute(
-        select(func.count()).where(Document.category_id == category.id)
-    )).scalar()
+    doc_count = (await session.execute(select(func.count()).where(Document.category_id == category.id))).scalar()
 
     response = CategoryResponse.model_validate(category)
     response.source_count = source_count
@@ -507,6 +496,7 @@ async def update_category(
         # If name changes, regenerate embedding
         if "name" in update_data:
             from app.utils.similarity import generate_embedding
+
             embedding = await generate_embedding(update_data["name"])
             if embedding:
                 update_data["name_embedding"] = embedding
@@ -575,12 +565,10 @@ async def delete_category(
         raise NotFoundError("Category", str(category_id))
 
     # Get counts for audit before deletion
-    source_count = (await session.execute(
-        select(func.count()).where(DataSourceCategory.category_id == category.id)
-    )).scalar()
-    doc_count = (await session.execute(
-        select(func.count()).where(Document.category_id == category.id)
-    )).scalar()
+    source_count = (
+        await session.execute(select(func.count()).where(DataSourceCategory.category_id == category.id))
+    ).scalar()
+    doc_count = (await session.execute(select(func.count()).where(Document.category_id == category.id))).scalar()
 
     category_name = category.name
 
@@ -649,33 +637,33 @@ async def get_category_stats(
         raise NotFoundError("Category", str(category_id))
 
     # Count sources via junction table (N:M relationship)
-    source_count = (await session.execute(
-        select(func.count()).where(DataSourceCategory.category_id == category_id)
-    )).scalar()
+    source_count = (
+        await session.execute(select(func.count()).where(DataSourceCategory.category_id == category_id))
+    ).scalar()
 
-    doc_count = (await session.execute(
-        select(func.count()).where(Document.category_id == category_id)
-    )).scalar()
+    doc_count = (await session.execute(select(func.count()).where(Document.category_id == category_id))).scalar()
 
-    extracted_count = (await session.execute(
-        select(func.count()).where(ExtractedData.category_id == category_id)
-    )).scalar()
+    extracted_count = (
+        await session.execute(select(func.count()).where(ExtractedData.category_id == category_id))
+    ).scalar()
 
     # Get last crawl
-    last_job = (await session.execute(
-        select(CrawlJob)
-        .where(CrawlJob.category_id == category_id)
-        .where(CrawlJob.status == JobStatus.COMPLETED)
-        .order_by(CrawlJob.completed_at.desc())
-        .limit(1)
-    )).scalar()
+    last_job = (
+        await session.execute(
+            select(CrawlJob)
+            .where(CrawlJob.category_id == category_id)
+            .where(CrawlJob.status == JobStatus.COMPLETED)
+            .order_by(CrawlJob.completed_at.desc())
+            .limit(1)
+        )
+    ).scalar()
 
     # Count active jobs
-    active_jobs = (await session.execute(
-        select(func.count())
-        .where(CrawlJob.category_id == category_id)
-        .where(CrawlJob.status == JobStatus.RUNNING)
-    )).scalar()
+    active_jobs = (
+        await session.execute(
+            select(func.count()).where(CrawlJob.category_id == category_id).where(CrawlJob.status == JobStatus.RUNNING)
+        )
+    ).scalar()
 
     return CategoryStats(
         id=category.id,
@@ -741,6 +729,7 @@ async def preview_ai_setup(
         ai_generate_entity_type_config,
     )
     from services.smart_query.utils import generate_slug as sq_generate_slug
+
     logger = structlog.get_logger()
 
     try:
@@ -761,9 +750,7 @@ async def preview_ai_setup(
 
         # Check if similar EntityType already exists
         existing_et = await session.execute(
-            select(EntityType).where(
-                or_(EntityType.name == et_name, EntityType.slug == et_slug)
-            )
+            select(EntityType).where(or_(EntityType.name == et_name, EntityType.slug == et_slug))
         )
         et_exists = existing_et.scalar()
 
@@ -796,10 +783,7 @@ async def preview_ai_setup(
 
         # Get existing EntityTypes for alternative selection
         existing_entity_types_result = await session.execute(
-            select(EntityType)
-            .where(EntityType.is_active.is_(True))
-            .order_by(EntityType.name)
-            .limit(20)
+            select(EntityType).where(EntityType.is_active.is_(True)).order_by(EntityType.name).limit(20)
         )
         existing_entity_types = [
             EntityTypeSuggestion(
@@ -818,10 +802,7 @@ async def preview_ai_setup(
 
         # Get existing FacetTypes that might be reusable
         existing_facet_types_result = await session.execute(
-            select(FacetType)
-            .where(FacetType.is_active.is_(True))
-            .order_by(FacetType.name)
-            .limit(30)
+            select(FacetType).where(FacetType.is_active.is_(True)).order_by(FacetType.name).limit(30)
         )
         existing_facet_types = [
             FacetTypeSuggestion(
@@ -907,9 +888,7 @@ async def preview_ai_setup(
 
         # Check which suggested FacetTypes already exist and mark them
         for i, ft in enumerate(suggested_facet_types):
-            existing_ft = await session.execute(
-                select(FacetType).where(FacetType.slug == ft.slug)
-            )
+            existing_ft = await session.execute(select(FacetType).where(FacetType.slug == ft.slug))
             existing = existing_ft.scalar()
             if existing:
                 suggested_facet_types[i] = FacetTypeSuggestion(
@@ -960,13 +939,19 @@ async def preview_ai_setup(
 
 class AssignSourcesByTagsRequest(BaseModel):
     """Request to assign sources by tags."""
+
     tags: list[str] = Field(..., min_length=1, description="Tags to filter sources by")
     match_mode: str = Field(default="all", pattern="^(all|any)$", description="Match mode: 'all' (AND) or 'any' (OR)")
-    mode: str = Field(default="add", pattern="^(add|replace)$", description="Assignment mode: 'add' (keep existing) or 'replace' (remove existing)")
+    mode: str = Field(
+        default="add",
+        pattern="^(add|replace)$",
+        description="Assignment mode: 'add' (keep existing) or 'replace' (remove existing)",
+    )
 
 
 class AssignSourcesByTagsResponse(BaseModel):
     """Response for source assignment operation."""
+
     assigned: int
     already_assigned: int
     removed: int = 0
@@ -1042,8 +1027,7 @@ async def assign_sources_by_tags(
 
     # Get existing assignments
     existing_result = await session.execute(
-        select(DataSourceCategory.data_source_id)
-        .where(DataSourceCategory.category_id == category_id)
+        select(DataSourceCategory.data_source_id).where(DataSourceCategory.category_id == category_id)
     )
     existing_source_ids = {row[0] for row in existing_result.fetchall()}
 
@@ -1052,10 +1036,7 @@ async def assign_sources_by_tags(
     source_category_counts: dict = {}
     if matching_source_ids:
         counts_result = await session.execute(
-            select(
-                DataSourceCategory.data_source_id,
-                func.count(DataSourceCategory.id).label("count")
-            )
+            select(DataSourceCategory.data_source_id, func.count(DataSourceCategory.id).label("count"))
             .where(DataSourceCategory.data_source_id.in_(matching_source_ids))
             .group_by(DataSourceCategory.data_source_id)
         )
@@ -1070,8 +1051,7 @@ async def assign_sources_by_tags(
         # Handle replace mode - remove existing assignments first
         if assign_request.mode == "replace":
             delete_result = await session.execute(
-                select(DataSourceCategory)
-                .where(DataSourceCategory.category_id == category_id)
+                select(DataSourceCategory).where(DataSourceCategory.category_id == category_id)
             )
             existing_links = delete_result.scalars().all()
             for link in existing_links:
@@ -1120,10 +1100,9 @@ async def assign_sources_by_tags(
         await session.commit()
 
     # Get total count in category
-    total_in_category = (await session.execute(
-        select(func.count())
-        .where(DataSourceCategory.category_id == category_id)
-    )).scalar()
+    total_in_category = (
+        await session.execute(select(func.count()).where(DataSourceCategory.category_id == category_id))
+    ).scalar()
 
     return AssignSourcesByTagsResponse(
         assigned=assigned,

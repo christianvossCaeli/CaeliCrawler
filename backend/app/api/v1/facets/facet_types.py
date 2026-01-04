@@ -57,16 +57,13 @@ async def list_facet_types(
         query = query.where(FacetType.is_time_based.is_(is_time_based))
     if applicable_entity_type_slugs:
         # Filter FacetTypes that apply to any of the given entity type slugs
-        query = query.where(
-            FacetType.applicable_entity_type_slugs.overlap(applicable_entity_type_slugs)
-        )
+        query = query.where(FacetType.applicable_entity_type_slugs.overlap(applicable_entity_type_slugs))
     if search:
         # Escape SQL wildcards to prevent injection
         escaped_search = search.replace("%", r"\%").replace("_", r"\_")
         search_pattern = f"%{escaped_search}%"
         query = query.where(
-            FacetType.name.ilike(search_pattern, escape='\\') |
-            FacetType.slug.ilike(search_pattern, escape='\\')
+            FacetType.name.ilike(search_pattern, escape="\\") | FacetType.slug.ilike(search_pattern, escape="\\")
         )
 
     # Count total
@@ -127,11 +124,11 @@ async def get_facet_types_for_category(
     """
     # 1. Load Category with EntityType associations (including the EntityType itself)
     from app.models import CategoryEntityType
+
     category_query = (
         select(Category)
         .options(
-            selectinload(Category.entity_type_associations)
-            .selectinload(CategoryEntityType.entity_type),
+            selectinload(Category.entity_type_associations).selectinload(CategoryEntityType.entity_type),
             selectinload(Category.target_entity_type),
         )
         .where(Category.id == category_id)
@@ -156,10 +153,7 @@ async def get_facet_types_for_category(
         return []
 
     # 3. Load FacetTypes that apply to these EntityTypes
-    query = (
-        select(FacetType)
-        .where(FacetType.applicable_entity_type_slugs.overlap(entity_type_slugs))
-    )
+    query = select(FacetType).where(FacetType.applicable_entity_type_slugs.overlap(entity_type_slugs))
 
     if is_active is not None:
         query = query.where(FacetType.is_active.is_(is_active))
@@ -248,9 +242,9 @@ async def get_facet_type(
     if not facet_type:
         raise NotFoundError("FacetType", str(facet_type_id))
 
-    value_count = (await session.execute(
-        select(func.count()).where(FacetValue.facet_type_id == facet_type.id)
-    )).scalar()
+    value_count = (
+        await session.execute(select(func.count()).where(FacetValue.facet_type_id == facet_type.id))
+    ).scalar()
 
     response = FacetTypeResponse.model_validate(facet_type)
     response.value_count = value_count
@@ -270,24 +264,22 @@ async def get_facet_type_by_slug(
     cached = facet_type_cache.get(cache_key)
     if cached:
         # Still need to get fresh value_count
-        value_count = (await session.execute(
-            select(func.count()).where(FacetValue.facet_type_id == cached["id"])
-        )).scalar()
+        value_count = (
+            await session.execute(select(func.count()).where(FacetValue.facet_type_id == cached["id"]))
+        ).scalar()
         response = FacetTypeResponse(**cached)
         response.value_count = value_count
         return response
 
     # Fetch from database
-    result = await session.execute(
-        select(FacetType).where(FacetType.slug == slug)
-    )
+    result = await session.execute(select(FacetType).where(FacetType.slug == slug))
     facet_type = result.scalar()
     if not facet_type:
         raise NotFoundError("FacetType", slug)
 
-    value_count = (await session.execute(
-        select(func.count()).where(FacetValue.facet_type_id == facet_type.id)
-    )).scalar()
+    value_count = (
+        await session.execute(select(func.count()).where(FacetValue.facet_type_id == facet_type.id))
+    ).scalar()
 
     response = FacetTypeResponse.model_validate(facet_type)
     response.value_count = value_count
@@ -320,7 +312,9 @@ async def generate_facet_type_schema(
 
     entity_context = ""
     if data.applicable_entity_types:
-        entity_context = f"\nDieser Facet-Typ wird für folgende Entity-Typen verwendet: {', '.join(data.applicable_entity_types)}"
+        entity_context = (
+            f"\nDieser Facet-Typ wird für folgende Entity-Typen verwendet: {', '.join(data.applicable_entity_types)}"
+        )
 
     system_prompt = """Du bist ein Experte für Datenmodellierung und JSON Schema Design.
 Deine Aufgabe ist es, ein passendes Schema und Konfiguration für einen neuen Facet-Typ zu erstellen.
@@ -342,8 +336,8 @@ Antworte im JSON-Format."""
     user_prompt = f"""Erstelle ein Schema und Konfiguration für folgenden Facet-Typ:
 
 Name: {data.name}
-Plural: {data.name_plural or data.name + 's'}
-Beschreibung: {data.description or 'Keine Beschreibung angegeben'}{entity_context}
+Plural: {data.name_plural or data.name + "s"}
+Beschreibung: {data.description or "Keine Beschreibung angegeben"}{entity_context}
 
 Generiere ein JSON mit folgender Struktur:
 {{
@@ -365,7 +359,7 @@ Generiere ein JSON mit folgender Struktur:
         )
 
         # Parse the AI response
-        generated = result.extracted_data if hasattr(result, 'extracted_data') else {}
+        generated = result.extracted_data if hasattr(result, "extracted_data") else {}
 
         return FacetTypeSchemaGenerateResponse(
             value_type=generated.get("value_type", "structured"),
@@ -380,6 +374,7 @@ Generiere ein JSON mit folgender Struktur:
     except Exception as e:
         # Return sensible defaults on error
         import structlog
+
         logger = structlog.get_logger()
         logger.error("Schema generation failed", error=str(e))
 
@@ -441,6 +436,7 @@ async def update_facet_type(
         # If name changes, regenerate embedding
         if "name" in update_data:
             from app.utils.similarity import generate_embedding
+
             embedding = await generate_embedding(update_data["name"])
             if embedding:
                 update_data["name_embedding"] = embedding
@@ -487,9 +483,9 @@ async def delete_facet_type(
         )
 
     # Check for existing values
-    value_count = (await session.execute(
-        select(func.count()).where(FacetValue.facet_type_id == facet_type.id)
-    )).scalar()
+    value_count = (
+        await session.execute(select(func.count()).where(FacetValue.facet_type_id == facet_type.id))
+    ).scalar()
 
     if value_count > 0:
         raise ConflictError(
@@ -505,10 +501,7 @@ async def delete_facet_type(
     for template in analysis_templates.scalars():
         if template.facet_config:
             original_config = template.facet_config
-            cleaned_config = [
-                fc for fc in original_config
-                if fc.get("facet_type_slug") != slug
-            ]
+            cleaned_config = [fc for fc in original_config if fc.get("facet_type_slug") != slug]
             if len(cleaned_config) != len(original_config):
                 template.facet_config = cleaned_config
 

@@ -43,11 +43,7 @@ logger = structlog.get_logger()
 
 
 async def handle_query(
-    db: AsyncSession,
-    message: str,
-    context: AssistantContext,
-    intent_data: dict[str, Any],
-    translator: Translator
+    db: AsyncSession, message: str, context: AssistantContext, intent_data: dict[str, Any], translator: Translator
 ) -> tuple[QueryResponse, list[SuggestedAction]]:
     """Handle a database query intent using SmartQueryService.
 
@@ -72,7 +68,7 @@ async def handle_query(
         if result.get("error"):
             return QueryResponse(
                 message=result.get("message", translator.t("query_error", error="KI-Interpretation fehlgeschlagen")),
-                data=QueryResultData()
+                data=QueryResultData(),
             ), []
 
         # Handle COUNT queries
@@ -83,18 +79,8 @@ async def handle_query(
 
             return QueryResponse(
                 message=msg,
-                data=QueryResultData(
-                    items=[],
-                    total=result.get("total", 0),
-                    query_interpretation=interpretation
-                )
-            ), [
-                SuggestedAction(
-                    label=translator.t("show_list"),
-                    action="query",
-                    value=f"Liste alle {entity_type}"
-                )
-            ]
+                data=QueryResultData(items=[], total=result.get("total", 0), query_interpretation=interpretation),
+            ), [SuggestedAction(label=translator.t("show_list"), action="query", value=f"Liste alle {entity_type}")]
 
         items = result.get("items", [])
         total = result.get("total", len(items))
@@ -109,11 +95,11 @@ async def handle_query(
 
                 for correction in corrections:
                     suggestion_parts.append(correction["message"])
-                    suggested_actions.append(SuggestedAction(
-                        label=correction["suggestion"],
-                        action="query",
-                        value=correction["corrected_query"]
-                    ))
+                    suggested_actions.append(
+                        SuggestedAction(
+                            label=correction["suggestion"], action="query", value=correction["corrected_query"]
+                        )
+                    )
 
                 msg = translator.t("no_results") + "\n\n**Meinten Sie vielleicht:**\n"
                 msg += "\n".join(f"- {s}" for s in suggestion_parts)
@@ -124,8 +110,8 @@ async def handle_query(
                         items=[],
                         total=0,
                         query_interpretation=result.get("query_interpretation"),
-                        suggestions=corrections
-                    )
+                        suggestions=corrections,
+                    ),
                 ), suggested_actions
 
             msg = translator.t("no_results")
@@ -142,28 +128,20 @@ async def handle_query(
                 items=items[:20],  # Limit for chat display
                 total=total,
                 grouping=result.get("grouping"),
-                query_interpretation=result.get("query_interpretation")
+                query_interpretation=result.get("query_interpretation"),
             ),
-            follow_up_suggestions=[
-                translator.t("show_more_details"),
-                translator.t("filter_by_criteria")
-            ] if total > 0 else []
+            follow_up_suggestions=[translator.t("show_more_details"), translator.t("filter_by_criteria")]
+            if total > 0
+            else [],
         ), suggested
 
     except Exception as e:
         logger.error("query_error", error=str(e))
-        return QueryResponse(
-            message=translator.t("query_error", error=str(e)),
-            data=QueryResultData()
-        ), []
+        return QueryResponse(message=translator.t("query_error", error=str(e)), data=QueryResultData()), []
 
 
 async def handle_context_query(
-    db: AsyncSession,
-    message: str,
-    context: AssistantContext,
-    intent_data: dict[str, Any],
-    translator: Translator
+    db: AsyncSession, message: str, context: AssistantContext, intent_data: dict[str, Any], translator: Translator
 ) -> tuple[QueryResponse, list[SuggestedAction]]:
     """Handle a query about the current entity using AI.
 
@@ -179,8 +157,7 @@ async def handle_context_query(
     """
     if not context.current_entity_id:
         return QueryResponse(
-            message="Du befindest dich aktuell nicht auf einer Entity-Detailseite.",
-            data=QueryResultData()
+            message="Du befindest dich aktuell nicht auf einer Entity-Detailseite.", data=QueryResultData()
         ), []
 
     try:
@@ -189,49 +166,36 @@ async def handle_context_query(
 
         # Build entity context with all data
         entity_data = await build_entity_context(
-            db, entity_id,
-            include_facets=True,
-            include_pysis=True,
-            include_relations=True
+            db, entity_id, include_facets=True, include_pysis=True, include_relations=True
         )
 
         # Use AI to generate intelligent response
-        ai_response = await generate_context_response_with_ai(
-            user_question=message,
-            entity_data=entity_data
-        )
+        ai_response = await generate_context_response_with_ai(user_question=message, entity_data=entity_data)
 
         # Build items for response
-        items = [{
-            "entity_id": str(entity_id),
-            "entity_name": entity_data["name"],
-            "entity_type": entity_data["type_slug"],
-            "core_attributes": entity_data.get("core_attributes", {}),
-            "facets": entity_data.get("facets", {}),
-            "pysis_fields": entity_data.get("pysis_fields", {}),
-            "location": entity_data.get("location", {})
-        }]
+        items = [
+            {
+                "entity_id": str(entity_id),
+                "entity_name": entity_data["name"],
+                "entity_type": entity_data["type_slug"],
+                "core_attributes": entity_data.get("core_attributes", {}),
+                "facets": entity_data.get("facets", {}),
+                "pysis_fields": entity_data.get("pysis_fields", {}),
+                "location": entity_data.get("location", {}),
+            }
+        ]
 
         # Build dynamic suggestions
         suggested = build_context_query_suggestions(entity_data, translator)
 
-        return QueryResponse(
-            message=ai_response,
-            data=QueryResultData(items=items, total=1)
-        ), suggested
+        return QueryResponse(message=ai_response, data=QueryResultData(items=items, total=1)), suggested
 
     except Exception as e:
         logger.error("context_query_error", error=str(e))
-        return QueryResponse(
-            message=f"Fehler: {str(e)}",
-            data=QueryResultData()
-        ), []
+        return QueryResponse(message=f"Fehler: {str(e)}", data=QueryResultData()), []
 
 
-async def generate_context_response_with_ai(
-    user_question: str,
-    entity_data: dict[str, Any]
-) -> str:
+async def generate_context_response_with_ai(user_question: str, entity_data: dict[str, Any]) -> str:
     """Use AI to generate an intelligent response about the entity.
 
     Args:
@@ -281,11 +245,14 @@ async def generate_context_response_with_ai(
     response = client.chat.completions.create(
         model=settings.azure_openai_deployment_name,
         messages=[
-            {"role": "system", "content": "Du bist ein hilfreicher Assistent für ein CRM/Entity-Management-System im Bereich Windenergie."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "Du bist ein hilfreicher Assistent für ein CRM/Entity-Management-System im Bereich Windenergie.",
+            },
+            {"role": "user", "content": prompt},
         ],
         temperature=0.3,
-        max_tokens=1000
+        max_tokens=1000,
     )
 
     if response.usage:
@@ -304,10 +271,7 @@ async def generate_context_response_with_ai(
     return response.choices[0].message.content
 
 
-async def suggest_corrections(
-    message: str,
-    query_interpretation: dict[str, Any] | None = None
-) -> list[dict[str, Any]]:
+async def suggest_corrections(message: str, query_interpretation: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """Generate intelligent suggestions when a query returns no results.
 
     Uses fuzzy matching for geographic terms, entity names, and facet types.
@@ -322,12 +286,12 @@ async def suggest_corrections(
     suggestions = []
 
     # Extract words from message
-    words = re.findall(r'\b\w+\b', message.lower())
+    words = re.findall(r"\b\w+\b", message.lower())
 
     # 1. Check for geographic typos
     for word in words:
         # Skip very short words and common stop words
-        if len(word) < 3 or word in {'in', 'an', 'am', 'im', 'von', 'aus', 'bei', 'mit', 'und', 'oder'}:
+        if len(word) < 3 or word in {"in", "an", "am", "im", "von", "aus", "bei", "mit", "und", "oder"}:
             continue
 
         geo_suggestions = find_all_geo_suggestions(word, threshold=2, max_suggestions=1)
@@ -336,13 +300,15 @@ async def suggest_corrections(
             # Only suggest if it's a reasonable match (not exact)
             if distance > 0:
                 corrected_query = message.replace(word, canonical)
-                suggestions.append({
-                    "type": "geographic",
-                    "original": word,
-                    "suggestion": canonical,
-                    "corrected_query": corrected_query,
-                    "message": f"Meinten Sie '{canonical}'?",
-                })
+                suggestions.append(
+                    {
+                        "type": "geographic",
+                        "original": word,
+                        "suggestion": canonical,
+                        "corrected_query": corrected_query,
+                        "message": f"Meinten Sie '{canonical}'?",
+                    }
+                )
 
     # 2. Check for entity type suggestions
     entity_type_aliases = {
@@ -356,13 +322,15 @@ async def suggest_corrections(
         for _entity_type, aliases in entity_type_aliases.items():
             for alias in aliases:
                 if levenshtein_distance(word, alias) <= 2 and word != alias:
-                    suggestions.append({
-                        "type": "entity_type",
-                        "original": word,
-                        "suggestion": alias,
-                        "corrected_query": message.replace(word, alias),
-                        "message": f"Meinten Sie '{alias}'?",
-                    })
+                    suggestions.append(
+                        {
+                            "type": "entity_type",
+                            "original": word,
+                            "suggestion": alias,
+                            "corrected_query": message.replace(word, alias),
+                            "message": f"Meinten Sie '{alias}'?",
+                        }
+                    )
                     break
 
     # 3. Check for facet type suggestions
@@ -378,13 +346,15 @@ async def suggest_corrections(
         for _facet_type, aliases in facet_aliases.items():
             for alias in aliases:
                 if levenshtein_distance(word, alias.replace(" ", "")) <= 2 and word != alias:
-                    suggestions.append({
-                        "type": "facet_type",
-                        "original": word,
-                        "suggestion": alias,
-                        "corrected_query": message.replace(word, alias),
-                        "message": f"Meinten Sie '{alias}'?",
-                    })
+                    suggestions.append(
+                        {
+                            "type": "facet_type",
+                            "original": word,
+                            "suggestion": alias,
+                            "corrected_query": message.replace(word, alias),
+                            "message": f"Meinten Sie '{alias}'?",
+                        }
+                    )
                     break
 
     # Remove duplicates and limit
@@ -399,11 +369,7 @@ async def suggest_corrections(
     return unique_suggestions[:3]  # Limit to 3 suggestions
 
 
-def format_query_result_message(
-    items: list[dict[str, Any]],
-    total: int,
-    translator: Translator
-) -> str:
+def format_query_result_message(items: list[dict[str, Any]], total: int, translator: Translator) -> str:
     """Format query results into a human-readable message.
 
     Args:
@@ -463,25 +429,20 @@ def build_query_suggestions(total: int, translator: Translator) -> list[Suggeste
     suggestions = []
 
     if total > 0:
-        suggestions.append(SuggestedAction(
-            label=translator.t("show_details"),
-            action="query",
-            value="Show more details" if translator.language == "en" else "Zeig mir mehr Details"
-        ))
+        suggestions.append(
+            SuggestedAction(
+                label=translator.t("show_details"),
+                action="query",
+                value="Show more details" if translator.language == "en" else "Zeig mir mehr Details",
+            )
+        )
 
-    suggestions.append(SuggestedAction(
-        label=translator.t("new_search"),
-        action="query",
-        value="/search "
-    ))
+    suggestions.append(SuggestedAction(label=translator.t("new_search"), action="query", value="/search "))
 
     return suggestions
 
 
-def build_context_query_suggestions(
-    entity_data: dict[str, Any],
-    translator: Translator
-) -> list[SuggestedAction]:
+def build_context_query_suggestions(entity_data: dict[str, Any], translator: Translator) -> list[SuggestedAction]:
     """Build suggested actions based on entity context data.
 
     Args:
@@ -496,27 +457,21 @@ def build_context_query_suggestions(
     # PySIS suggestions
     pysis_data = entity_data.get("pysis_fields", {})
     if pysis_data:
-        suggested.append(SuggestedAction(
-            label="PySis Details",
-            action="query",
-            value="Zeige mir alle PySis-Daten im Detail"
-        ))
+        suggested.append(
+            SuggestedAction(label="PySis Details", action="query", value="Zeige mir alle PySis-Daten im Detail")
+        )
 
     # Facet suggestions
     facet_data = entity_data.get("facets", {})
     if facet_data:
         for ft_name in list(facet_data.keys())[:2]:
-            suggested.append(SuggestedAction(
-                label=ft_name,
-                action="query",
-                value=f"Erzähl mir mehr über die {ft_name}"
-            ))
+            suggested.append(
+                SuggestedAction(label=ft_name, action="query", value=f"Erzähl mir mehr über die {ft_name}")
+            )
 
     # Always add summary option
-    suggested.append(SuggestedAction(
-        label="Zusammenfassung",
-        action="query",
-        value="Gib mir eine kurze Zusammenfassung"
-    ))
+    suggested.append(
+        SuggestedAction(label="Zusammenfassung", action="query", value="Gib mir eine kurze Zusammenfassung")
+    )
 
     return suggested

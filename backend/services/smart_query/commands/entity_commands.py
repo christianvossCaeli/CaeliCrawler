@@ -37,19 +37,19 @@ class CreateEntityCommand(BaseCommand):
         entity_type = self.data.get("entity_type", "territorial_entity")
         entity_data = self.data.get("entity_data", {})
 
-        entity, message = await create_entity_from_command(
-            self.session, entity_type, entity_data
-        )
+        entity, message = await create_entity_from_command(self.session, entity_type, entity_data)
 
         if entity:
             return CommandResult.success_result(
                 message=message,
-                created_items=[{
-                    "type": "entity",
-                    "id": str(entity.id),
-                    "name": entity.name,
-                    "entity_type": entity_type,
-                }],
+                created_items=[
+                    {
+                        "type": "entity",
+                        "id": str(entity.id),
+                        "name": entity.name,
+                        "entity_type": entity_type,
+                    }
+                ],
             )
         else:
             return CommandResult.failure(message=message)
@@ -95,10 +95,7 @@ class UpdateEntityCommand(BaseCommand):
         if "name" in updates:
             entity.name = updates["name"]
         if "core_attributes" in updates:
-            entity.core_attributes = {
-                **(entity.core_attributes or {}),
-                **updates["core_attributes"]
-            }
+            entity.core_attributes = {**(entity.core_attributes or {}), **updates["core_attributes"]}
         if "external_id" in updates:
             entity.external_id = updates["external_id"]
 
@@ -106,11 +103,13 @@ class UpdateEntityCommand(BaseCommand):
 
         return CommandResult.success_result(
             message=f"Entity '{entity.name}' aktualisiert",
-            updated_items=[{
-                "type": "entity",
-                "id": str(entity.id),
-                "name": entity.name,
-            }],
+            updated_items=[
+                {
+                    "type": "entity",
+                    "id": str(entity.id),
+                    "name": entity.name,
+                }
+            ],
             entity_id=str(entity.id),
         )
 
@@ -146,14 +145,10 @@ class DeleteEntityCommand(BaseCommand):
             return CommandResult.failure(message="Entity nicht gefunden")
 
         if not entity:
-            return CommandResult.failure(
-                message=f"Entity nicht gefunden: {entity_name or entity_id}"
-            )
+            return CommandResult.failure(message=f"Entity nicht gefunden: {entity_name or entity_id}")
 
         if not entity.is_active:
-            return CommandResult.failure(
-                message=f"Entity '{entity.name}' ist bereits inaktiv/gelöscht"
-            )
+            return CommandResult.failure(message=f"Entity '{entity.name}' ist bereits inaktiv/gelöscht")
 
         # Soft-delete
         entity.is_active = False
@@ -173,11 +168,13 @@ class DeleteEntityCommand(BaseCommand):
 
         return CommandResult.success_result(
             message=f"Entity '{entity.name}' wurde gelöscht (kann wiederhergestellt werden)",
-            deleted_items=[{
-                "type": "entity",
-                "id": str(entity.id),
-                "name": entity.name,
-            }],
+            deleted_items=[
+                {
+                    "type": "entity",
+                    "id": str(entity.id),
+                    "name": entity.name,
+                }
+            ],
         )
 
 
@@ -206,21 +203,21 @@ class CreateEntityTypeCommand(BaseCommand):
             entity_type_data["owner_id"] = self.current_user_id
             entity_type_data.setdefault("is_public", True)  # Always visible in frontend
 
-        entity_type, message = await create_entity_type_from_command(
-            self.session, entity_type_data
-        )
+        entity_type, message = await create_entity_type_from_command(self.session, entity_type_data)
 
         if entity_type:
             return CommandResult.success_result(
                 message=message,
-                created_items=[{
-                    "type": "entity_type",
-                    "id": str(entity_type.id),
-                    "name": entity_type.name,
-                    "slug": entity_type.slug,
-                    "icon": entity_type.icon,
-                    "color": entity_type.color,
-                }],
+                created_items=[
+                    {
+                        "type": "entity_type",
+                        "id": str(entity_type.id),
+                        "name": entity_type.name,
+                        "slug": entity_type.slug,
+                        "icon": entity_type.icon,
+                        "color": entity_type.color,
+                    }
+                ],
             )
         else:
             return CommandResult.failure(message=message)

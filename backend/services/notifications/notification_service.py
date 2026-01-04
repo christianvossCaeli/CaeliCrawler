@@ -66,9 +66,7 @@ class NotificationService:
         Returns:
             List of created notification IDs
         """
-        return await self.dispatcher.dispatch_event(
-            self.session, event_type, payload
-        )
+        return await self.dispatcher.dispatch_event(self.session, event_type, payload)
 
     async def send_notification(self, notification_id: str) -> bool:
         """Send a single notification.
@@ -125,14 +123,10 @@ class NotificationService:
 
         await self.session.commit()
 
-        logger.info(
-            f"Notification {notification_id} send {'succeeded' if success else 'failed'}"
-        )
+        logger.info(f"Notification {notification_id} send {'succeeded' if success else 'failed'}")
         return success
 
-    async def _build_channel_config(
-        self, notification: Notification
-    ) -> dict[str, Any]:
+    async def _build_channel_config(self, notification: Notification) -> dict[str, Any]:
         """Build channel-specific configuration for notification.
 
         Args:
@@ -149,9 +143,7 @@ class NotificationService:
 
         # Handle email-specific configuration
         if notification.channel == NotificationChannel.EMAIL:
-            config["recipients"] = await self._resolve_email_recipients(
-                notification, config
-            )
+            config["recipients"] = await self._resolve_email_recipients(notification, config)
 
         return config
 
@@ -279,18 +271,18 @@ class NotificationService:
                 Notification.user_id == user_id,
                 Notification.channel == NotificationChannel.IN_APP,
                 Notification.read_at.is_(None),
-                Notification.status.in_([
-                    NotificationStatus.SENT,
-                    NotificationStatus.PENDING,
-                    NotificationStatus.QUEUED,
-                ]),
+                Notification.status.in_(
+                    [
+                        NotificationStatus.SENT,
+                        NotificationStatus.PENDING,
+                        NotificationStatus.QUEUED,
+                    ]
+                ),
             )
         )
         return result.scalar() or 0
 
-    async def get_pending_notifications(
-        self, limit: int = 100
-    ) -> list[Notification]:
+    async def get_pending_notifications(self, limit: int = 100) -> list[Notification]:
         """Get pending notifications for sending.
 
         Args:
@@ -318,9 +310,7 @@ class NotificationService:
         """
         from datetime import timedelta
 
-        cutoff = datetime.now(UTC) - timedelta(
-            seconds=settings.notification_retry_delay
-        )
+        cutoff = datetime.now(UTC) - timedelta(seconds=settings.notification_retry_delay)
 
         result = await self.session.execute(
             select(Notification)
@@ -352,11 +342,13 @@ class NotificationService:
 
         result = await self.session.execute(
             delete(Notification).where(
-                Notification.status.in_([
-                    NotificationStatus.SENT,
-                    NotificationStatus.FAILED,
-                    NotificationStatus.READ,
-                ]),
+                Notification.status.in_(
+                    [
+                        NotificationStatus.SENT,
+                        NotificationStatus.FAILED,
+                        NotificationStatus.READ,
+                    ]
+                ),
                 Notification.created_at < cutoff,
             )
         )

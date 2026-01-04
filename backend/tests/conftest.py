@@ -3,17 +3,27 @@
 import asyncio
 import os
 from collections.abc import AsyncGenerator, Generator
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 
+# Determine if we're running in CI mode (no external server)
+CI_MODE = os.environ.get("CI", "false").lower() == "true"
+
 # For integration tests, we test against the running API
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 
 # Test credentials - these should match a user in your test database
-TEST_USER_EMAIL = os.environ.get("TEST_USER_EMAIL", "christian.voss@caeli-wind.de")
-TEST_USER_PASSWORD = os.environ.get("TEST_USER_PASSWORD", "123456789")
+TEST_USER_EMAIL = os.environ.get("TEST_USER_EMAIL", "test@example.com")
+TEST_USER_PASSWORD = os.environ.get("TEST_USER_PASSWORD", "testpassword123")
+
+
+def pytest_configure(config):
+    """Configure pytest with custom markers."""
+    config.addinivalue_line("markers", "integration: mark test as integration test (requires running server)")
+    config.addinivalue_line("markers", "e2e: mark test as end-to-end test (requires full stack)")
 
 
 @pytest.fixture(scope="session")
@@ -25,8 +35,14 @@ def event_loop() -> Generator:
 
 
 @pytest_asyncio.fixture(scope="function")
-async def client() -> AsyncGenerator[AsyncClient, None]:
-    """Create test client for integration tests against running API."""
+async def client() -> AsyncGenerator[AsyncClient]:
+    """Create test client for integration tests against running API.
+
+    In CI mode, skips tests that require a running server.
+    """
+    if CI_MODE:
+        pytest.skip("Skipping integration test in CI mode (no running server)")
+
     async with AsyncClient(base_url=API_BASE_URL, timeout=30.0) as ac:
         yield ac
 
@@ -34,10 +50,7 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
 @pytest_asyncio.fixture(scope="function")
 async def auth_token(client: AsyncClient) -> str:
     """Get authentication token by logging in."""
-    response = await client.post(
-        "/api/auth/login",
-        json={"email": TEST_USER_EMAIL, "password": TEST_USER_PASSWORD}
-    )
+    response = await client.post("/api/auth/login", json={"email": TEST_USER_EMAIL, "password": TEST_USER_PASSWORD})
     if response.status_code != 200:
         pytest.skip(f"Could not authenticate test user: {response.status_code} - {response.text}")
     return response.json()["access_token"]
@@ -50,8 +63,14 @@ async def auth_headers(auth_token: str) -> dict[str, str]:
 
 
 @pytest_asyncio.fixture(scope="function")
-async def admin_client(auth_headers: dict[str, str]) -> AsyncGenerator[AsyncClient, None]:
-    """Create authenticated test client for admin API calls."""
+async def admin_client(auth_headers: dict[str, str]) -> AsyncGenerator[AsyncClient]:
+    """Create authenticated test client for admin API calls.
+
+    In CI mode, skips tests that require a running server.
+    """
+    if CI_MODE:
+        pytest.skip("Skipping integration test in CI mode (no running server)")
+
     async with AsyncClient(base_url=API_BASE_URL, timeout=30.0, headers=auth_headers) as ac:
         yield ac
 
@@ -85,13 +104,13 @@ def sample_entity_data():
 @pytest_asyncio.fixture
 async def session():
     """Create a mock async database session for unit tests."""
-    from unittest.mock import AsyncMock, MagicMock
-
     mock_session = MagicMock()
     mock_session.execute = AsyncMock()
     mock_session.commit = AsyncMock()
     mock_session.flush = AsyncMock()
     mock_session.add = MagicMock()
     mock_session.refresh = AsyncMock()
+    mock_session.rollback = AsyncMock()
+    mock_session.close = AsyncMock()
 
     yield mock_session

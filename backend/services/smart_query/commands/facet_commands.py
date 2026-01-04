@@ -40,11 +40,13 @@ class CreateFacetCommand(BaseCommand):
         if facet:
             return CommandResult.success_result(
                 message=message,
-                created_items=[{
-                    "type": "facet_value",
-                    "id": str(facet.id),
-                    "facet_type": facet_data.get("facet_type"),
-                }],
+                created_items=[
+                    {
+                        "type": "facet_value",
+                        "id": str(facet.id),
+                        "facet_type": facet_data.get("facet_type"),
+                    }
+                ],
             )
         else:
             return CommandResult.failure(message=message)
@@ -78,21 +80,21 @@ class CreateFacetTypeCommand(BaseCommand):
 
         # Check if name or slug already exists (exact match)
         existing = await self.session.execute(
-            select(FacetType).where(
-                or_(FacetType.slug == slug, FacetType.name == name)
-            )
+            select(FacetType).where(or_(FacetType.slug == slug, FacetType.name == name))
         )
         exact_match = existing.scalar_one_or_none()
         if exact_match:
             return CommandResult.success_result(
                 message=f"Facet-Typ '{exact_match.name}' existiert bereits",
-                created_items=[{
-                    "type": "facet_type",
-                    "id": str(exact_match.id),
-                    "name": exact_match.name,
-                    "slug": exact_match.slug,
-                    "existing": True,
-                }],
+                created_items=[
+                    {
+                        "type": "facet_type",
+                        "id": str(exact_match.id),
+                        "name": exact_match.name,
+                        "slug": exact_match.slug,
+                        "existing": True,
+                    }
+                ],
                 facet_type_id=str(exact_match.id),
                 facet_type_name=exact_match.name,
                 facet_type_slug=exact_match.slug,
@@ -111,14 +113,16 @@ class CreateFacetTypeCommand(BaseCommand):
             )
             return CommandResult.success_result(
                 message=f"Ähnlicher Facet-Typ '{best_match.name}' gefunden ({reason})",
-                created_items=[{
-                    "type": "facet_type",
-                    "id": str(best_match.id),
-                    "name": best_match.name,
-                    "slug": best_match.slug,
-                    "existing": True,
-                    "similarity_reason": reason,
-                }],
+                created_items=[
+                    {
+                        "type": "facet_type",
+                        "id": str(best_match.id),
+                        "name": best_match.name,
+                        "slug": best_match.slug,
+                        "existing": True,
+                        "similarity_reason": reason,
+                    }
+                ],
                 facet_type_id=str(best_match.id),
                 facet_type_name=best_match.name,
                 facet_type_slug=best_match.slug,
@@ -167,12 +171,14 @@ class CreateFacetTypeCommand(BaseCommand):
 
         return CommandResult.success_result(
             message=f"Facet-Typ '{name}' erstellt",
-            created_items=[{
-                "type": "facet_type",
-                "id": str(facet_type.id),
-                "name": facet_type.name,
-                "slug": facet_type.slug,
-            }],
+            created_items=[
+                {
+                    "type": "facet_type",
+                    "id": str(facet_type.id),
+                    "name": facet_type.name,
+                    "slug": facet_type.slug,
+                }
+            ],
             facet_type_id=str(facet_type.id),
             facet_type_name=facet_type.name,
             facet_type_slug=facet_type.slug,
@@ -218,9 +224,7 @@ class DeleteFacetCommand(BaseCommand):
             entity = await find_entity_by_name(self.session, entity_name)
 
         if not entity:
-            return CommandResult.failure(
-                message=f"Entity nicht gefunden: {entity_name or entity_id}"
-            )
+            return CommandResult.failure(message=f"Entity nicht gefunden: {entity_name or entity_id}")
 
         deleted_items = []
 
@@ -229,28 +233,24 @@ class DeleteFacetCommand(BaseCommand):
             facet = await self.session.get(FacetValue, UUID(str(facet_id)))
             if facet and facet.entity_id == entity.id:
                 await self.session.delete(facet)
-                deleted_items.append({
-                    "type": "facet",
-                    "id": str(facet.id),
-                    "facet_type": facet_type_slug,
-                    "text": facet.text_representation,
-                })
-            else:
-                return CommandResult.failure(
-                    message="Facet nicht gefunden oder gehört nicht zur angegebenen Entity"
+                deleted_items.append(
+                    {
+                        "type": "facet",
+                        "id": str(facet.id),
+                        "facet_type": facet_type_slug,
+                        "text": facet.text_representation,
+                    }
                 )
+            else:
+                return CommandResult.failure(message="Facet nicht gefunden oder gehört nicht zur angegebenen Entity")
 
         # Case 2: Delete by facet type
         elif facet_type_slug:
             # Find FacetType
-            ft_result = await self.session.execute(
-                select(FacetType).where(FacetType.slug == facet_type_slug)
-            )
+            ft_result = await self.session.execute(select(FacetType).where(FacetType.slug == facet_type_slug))
             facet_type = ft_result.scalar_one_or_none()
             if not facet_type:
-                return CommandResult.failure(
-                    message=f"Facet-Typ '{facet_type_slug}' nicht gefunden"
-                )
+                return CommandResult.failure(message=f"Facet-Typ '{facet_type_slug}' nicht gefunden")
 
             # Build query for facets
             query = select(FacetValue).where(
@@ -263,29 +263,27 @@ class DeleteFacetCommand(BaseCommand):
 
             # Filter by description if provided
             if facet_description and not delete_all_of_type:
-                query = query.where(
-                    FacetValue.text_representation.ilike(f"%{facet_description}%")
-                )
+                query = query.where(FacetValue.text_representation.ilike(f"%{facet_description}%"))
 
             result = await self.session.execute(query)
             facets = result.scalars().all()
 
             if not facets:
-                return CommandResult.failure(
-                    message=f"Keine passenden Facets vom Typ '{facet_type_slug}' gefunden"
-                )
+                return CommandResult.failure(message=f"Keine passenden Facets vom Typ '{facet_type_slug}' gefunden")
 
             # Delete all matching or just first if not delete_all_of_type
             facets_to_delete = facets if delete_all_of_type else facets[:1]
 
             for facet in facets_to_delete:
                 await self.session.delete(facet)
-                deleted_items.append({
-                    "type": "facet",
-                    "id": str(facet.id),
-                    "facet_type": facet_type_slug,
-                    "text": facet.text_representation[:100] if facet.text_representation else None,
-                })
+                deleted_items.append(
+                    {
+                        "type": "facet",
+                        "id": str(facet.id),
+                        "facet_type": facet_type_slug,
+                        "text": facet.text_representation[:100] if facet.text_representation else None,
+                    }
+                )
 
         await self.session.flush()
 
@@ -325,15 +323,11 @@ class AssignFacetTypeCommand(BaseCommand):
         target_slugs = assign_data.get("target_entity_type_slugs", [])
 
         # Find FacetType
-        result = await self.session.execute(
-            select(FacetType).where(FacetType.slug == facet_type_slug)
-        )
+        result = await self.session.execute(select(FacetType).where(FacetType.slug == facet_type_slug))
         facet_type = result.scalar_one_or_none()
 
         if not facet_type:
-            return CommandResult.failure(
-                message=f"Facet-Typ '{facet_type_slug}' nicht gefunden"
-            )
+            return CommandResult.failure(message=f"Facet-Typ '{facet_type_slug}' nicht gefunden")
 
         # Update applicable_entity_type_slugs
         existing_slugs = facet_type.applicable_entity_type_slugs or []
@@ -390,20 +384,14 @@ class AddHistoryDataPointCommand(BaseCommand):
             entity = await find_entity_by_name(self.session, entity_name)
 
         if not entity:
-            return CommandResult.failure(
-                message=f"Entity nicht gefunden: {entity_name or entity_id}"
-            )
+            return CommandResult.failure(message=f"Entity nicht gefunden: {entity_name or entity_id}")
 
         # Find FacetType
-        result = await self.session.execute(
-            select(FacetType).where(FacetType.slug == facet_type_slug)
-        )
+        result = await self.session.execute(select(FacetType).where(FacetType.slug == facet_type_slug))
         facet_type = result.scalar_one_or_none()
 
         if not facet_type:
-            return CommandResult.failure(
-                message=f"Facet-Typ '{facet_type_slug}' nicht gefunden"
-            )
+            return CommandResult.failure(message=f"Facet-Typ '{facet_type_slug}' nicht gefunden")
 
         if facet_type.value_type.value != "history":
             return CommandResult.failure(
@@ -416,9 +404,7 @@ class AddHistoryDataPointCommand(BaseCommand):
                 try:
                     recorded_at = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
                 except ValueError:
-                    return CommandResult.failure(
-                        message=f"Ungültiges Datumsformat: {recorded_at}"
-                    )
+                    return CommandResult.failure(message=f"Ungültiges Datumsformat: {recorded_at}")
         else:
             recorded_at = datetime.utcnow()
 
@@ -450,12 +436,14 @@ class AddHistoryDataPointCommand(BaseCommand):
 
         return CommandResult.success_result(
             message=f"Datenpunkt für '{entity.name}' hinzugefügt: {value} am {recorded_at.strftime('%d.%m.%Y')}",
-            created_items=[{
-                "type": "history_data_point",
-                "id": str(data_point.id),
-                "entity_id": str(entity.id),
-                "facet_type": facet_type_slug,
-                "value": value,
-                "recorded_at": recorded_at.isoformat(),
-            }],
+            created_items=[
+                {
+                    "type": "history_data_point",
+                    "id": str(data_point.id),
+                    "entity_id": str(entity.id),
+                    "facet_type": facet_type_slug,
+                    "value": value,
+                    "recorded_at": recorded_at.isoformat(),
+                }
+            ],
         )

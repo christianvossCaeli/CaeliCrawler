@@ -101,8 +101,7 @@ class NotificationChannelRegistry:
         registry.register(InAppChannel())
 
         logger.info(
-            f"Created notification channel registry with channels: "
-            f"{[c.value for c in registry.get_available_types()]}"
+            f"Created notification channel registry with channels: {[c.value for c in registry.get_available_types()]}"
         )
 
         return registry

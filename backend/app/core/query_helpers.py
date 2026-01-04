@@ -16,6 +16,7 @@ R = TypeVar("R")  # Response type
 @dataclass
 class PaginationParams:
     """Standard pagination parameters."""
+
     page: int = 1
     per_page: int = 50
 
@@ -34,6 +35,7 @@ class PaginationParams:
 @dataclass
 class PaginatedResult[T: DeclarativeBase]:
     """Generic paginated result container."""
+
     items: list[T]
     total: int
     page: int
@@ -160,9 +162,7 @@ async def batch_fetch_by_ids[T: DeclarativeBase](
     # Get the ID column dynamically
     id_column = getattr(model, id_field)
 
-    result = await session.execute(
-        select(model).where(id_column.in_(id_set))
-    )
+    result = await session.execute(select(model).where(id_column.in_(id_set)))
     entities = result.scalars().all()
 
     return {getattr(entity, id_field): entity for entity in entities}

@@ -60,14 +60,17 @@ async def get_facets_referencing_entity(
     total = (await session.execute(count_query)).scalar()
 
     # Paginate with eager loading
-    query = query.options(
-        selectinload(FacetValue.entity),
-        selectinload(FacetValue.facet_type),
-        selectinload(FacetValue.category),
-        selectinload(FacetValue.source_document),
-    ).order_by(
-        FacetValue.created_at.desc()
-    ).offset((page - 1) * per_page).limit(per_page)
+    query = (
+        query.options(
+            selectinload(FacetValue.entity),
+            selectinload(FacetValue.facet_type),
+            selectinload(FacetValue.category),
+            selectinload(FacetValue.source_document),
+        )
+        .order_by(FacetValue.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    )
 
     result = await session.execute(query)
     values = result.scalars().all()
@@ -124,26 +127,28 @@ async def get_entity_facets_summary(
         applicable_facet_types_subq = select(FacetType.id).where(
             or_(
                 FacetType.applicable_entity_type_slugs == [],  # Empty = applies to all
-                FacetType.applicable_entity_type_slugs.any(entity_type_slug)  # Contains this type
+                FacetType.applicable_entity_type_slugs.any(entity_type_slug),  # Contains this type
             )
         )
     else:
         # If entity has no type, only show facets that apply to all
-        applicable_facet_types_subq = select(FacetType.id).where(
-            FacetType.applicable_entity_type_slugs == []
-        )
+        applicable_facet_types_subq = select(FacetType.id).where(FacetType.applicable_entity_type_slugs == [])
 
     # Base query for facet values - only include values from applicable facet types
     # Eager load target_entity and its entity_type for entity references (e.g., contacts -> person)
     # Also load source_document for document info display
-    query = select(FacetValue).options(
-        selectinload(FacetValue.target_entity).selectinload(Entity.entity_type),
-        selectinload(FacetValue.source_document),
-    ).where(
-        FacetValue.entity_id == entity_id,
-        FacetValue.is_active.is_(True),
-        FacetValue.confidence_score >= min_confidence,
-        FacetValue.facet_type_id.in_(applicable_facet_types_subq),
+    query = (
+        select(FacetValue)
+        .options(
+            selectinload(FacetValue.target_entity).selectinload(Entity.entity_type),
+            selectinload(FacetValue.source_document),
+        )
+        .where(
+            FacetValue.entity_id == entity_id,
+            FacetValue.is_active.is_(True),
+            FacetValue.confidence_score >= min_confidence,
+            FacetValue.facet_type_id.in_(applicable_facet_types_subq),
+        )
     )
 
     if category_id:
@@ -156,16 +161,11 @@ async def get_entity_facets_summary(
             or_(
                 FacetValue.event_date >= now,
                 FacetValue.valid_until >= now,
-                and_(FacetValue.event_date.is_(None), FacetValue.valid_until.is_(None))
+                and_(FacetValue.event_date.is_(None), FacetValue.valid_until.is_(None)),
             )
         )
     elif time_filter == "past_only":
-        query = query.where(
-            or_(
-                FacetValue.event_date < now,
-                FacetValue.valid_until < now
-            )
-        )
+        query = query.where(or_(FacetValue.event_date < now, FacetValue.valid_until < now))
 
     result = await session.execute(query)
     values = result.scalars().all()
@@ -179,18 +179,23 @@ async def get_entity_facets_summary(
 
     # Load ALL applicable facet types for this entity type (including those without values)
     if entity_type_slug:
-        applicable_types_query = select(FacetType).where(
-            FacetType.is_active.is_(True),
-            or_(
-                FacetType.applicable_entity_type_slugs == [],  # Empty = applies to all
-                FacetType.applicable_entity_type_slugs.any(entity_type_slug)  # Contains this type
+        applicable_types_query = (
+            select(FacetType)
+            .where(
+                FacetType.is_active.is_(True),
+                or_(
+                    FacetType.applicable_entity_type_slugs == [],  # Empty = applies to all
+                    FacetType.applicable_entity_type_slugs.any(entity_type_slug),  # Contains this type
+                ),
             )
-        ).order_by(FacetType.display_order, FacetType.name)
+            .order_by(FacetType.display_order, FacetType.name)
+        )
     else:
-        applicable_types_query = select(FacetType).where(
-            FacetType.is_active.is_(True),
-            FacetType.applicable_entity_type_slugs == []
-        ).order_by(FacetType.display_order, FacetType.name)
+        applicable_types_query = (
+            select(FacetType)
+            .where(FacetType.is_active.is_(True), FacetType.applicable_entity_type_slugs == [])
+            .order_by(FacetType.display_order, FacetType.name)
+        )
 
     applicable_types_result = await session.execute(applicable_types_query)
     applicable_facet_types = applicable_types_result.scalars().all()
@@ -213,8 +218,8 @@ async def get_entity_facets_summary(
                 key=lambda x: (
                     0 if x.human_verified else 1,  # Verified first
                     -(x.confidence_score or 0),  # Higher confidence first
-                    -(x.created_at.timestamp() if x.created_at else 0)  # Newer first
-                )
+                    -(x.created_at.timestamp() if x.created_at else 0),  # Newer first
+                ),
             )
             sample_values = [
                 {
@@ -234,7 +239,9 @@ async def get_entity_facets_summary(
                     "target_entity_id": str(v.target_entity_id) if v.target_entity_id else None,
                     "target_entity_name": v.target_entity.name if v.target_entity else None,
                     "target_entity_slug": v.target_entity.slug if v.target_entity else None,
-                    "target_entity_type_slug": v.target_entity.entity_type.slug if v.target_entity and v.target_entity.entity_type else None,
+                    "target_entity_type_slug": v.target_entity.entity_type.slug
+                    if v.target_entity and v.target_entity.entity_type
+                    else None,
                 }
                 for v in sorted_values[:5]  # Show up to 5 samples
             ]
@@ -244,21 +251,25 @@ async def get_entity_facets_summary(
             latest_value = None
             sample_values = []
 
-        facets_by_type.append(FacetValueAggregated(
-            facet_type_id=facet_type.id,
-            facet_type_slug=facet_type.slug,
-            facet_type_name=facet_type.name,
-            facet_type_icon=facet_type.icon,
-            facet_type_color=facet_type.color,
-            facet_type_value_type=facet_type.value_type.value if hasattr(facet_type.value_type, 'value') else facet_type.value_type,
-            value_schema=facet_type.value_schema,
-            display_order=facet_type.display_order or 0,
-            value_count=len(type_values),
-            verified_count=type_verified_count,
-            avg_confidence=round(avg_confidence, 2),
-            latest_value=latest_value,
-            sample_values=sample_values,
-        ))
+        facets_by_type.append(
+            FacetValueAggregated(
+                facet_type_id=facet_type.id,
+                facet_type_slug=facet_type.slug,
+                facet_type_name=facet_type.name,
+                facet_type_icon=facet_type.icon,
+                facet_type_color=facet_type.color,
+                facet_type_value_type=facet_type.value_type.value
+                if hasattr(facet_type.value_type, "value")
+                else facet_type.value_type,
+                value_schema=facet_type.value_schema,
+                display_order=facet_type.display_order or 0,
+                value_count=len(type_values),
+                verified_count=type_verified_count,
+                avg_confidence=round(avg_confidence, 2),
+                latest_value=latest_value,
+                sample_values=sample_values,
+            )
+        )
 
         total_values += len(type_values)
         verified_count += type_verified_count

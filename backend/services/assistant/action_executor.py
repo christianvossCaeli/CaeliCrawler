@@ -55,11 +55,7 @@ def _extract_action_value(change_data: Any, default: str = "") -> str:
     return default
 
 
-async def execute_action(
-    db: AsyncSession,
-    action: ActionDetails,
-    context: AssistantContext
-) -> dict[str, Any]:
+async def execute_action(db: AsyncSession, action: ActionDetails, context: AssistantContext) -> dict[str, Any]:
     """Execute a confirmed action.
 
     Supports various action types:
@@ -120,15 +116,10 @@ async def execute_action(
         return {"success": False, "message": f"Fehler: {str(e)}"}
 
 
-async def _execute_update_entity(
-    db: AsyncSession,
-    action: ActionDetails
-) -> dict[str, Any]:
+async def _execute_update_entity(db: AsyncSession, action: ActionDetails) -> dict[str, Any]:
     """Execute entity field update."""
     entity_id = UUID(action.target_id)
-    result = await db.execute(
-        select(Entity).where(Entity.id == entity_id)
-    )
+    result = await db.execute(select(Entity).where(Entity.id == entity_id))
     entity = result.scalar_one_or_none()
 
     if not entity:
@@ -146,22 +137,18 @@ async def _execute_update_entity(
         "message": f"'{entity.name}' wurde aktualisiert.",
         "affected_entity_id": str(entity.id),
         "affected_entity_name": entity.name,
-        "refresh_required": True
+        "refresh_required": True,
     }
 
 
 async def _execute_add_facet_value(
-    db: AsyncSession,
-    action: ActionDetails,
-    context: AssistantContext
+    db: AsyncSession, action: ActionDetails, context: AssistantContext
 ) -> dict[str, Any]:
     """Add a facet value to an entity."""
     from app.models import FacetType, FacetValue
 
     entity_id = UUID(action.target_id)
-    result = await db.execute(
-        select(Entity).where(Entity.id == entity_id)
-    )
+    result = await db.execute(select(Entity).where(Entity.id == entity_id))
     entity = result.scalar_one_or_none()
 
     if not entity:
@@ -175,20 +162,14 @@ async def _execute_add_facet_value(
         return {"success": False, "message": "Facet-Typ oder Wert fehlt"}
 
     # Find facet type
-    ft_result = await db.execute(
-        select(FacetType).where(FacetType.slug == facet_type_slug)
-    )
+    ft_result = await db.execute(select(FacetType).where(FacetType.slug == facet_type_slug))
     facet_type = ft_result.scalar_one_or_none()
 
     if not facet_type:
         return {"success": False, "message": f"Facet-Typ '{facet_type_slug}' nicht gefunden"}
 
     # Create facet value
-    new_facet = FacetValue(
-        entity_id=entity.id,
-        facet_type_id=facet_type.id,
-        value=facet_value
-    )
+    new_facet = FacetValue(entity_id=entity.id, facet_type_id=facet_type.id, value=facet_value)
     db.add(new_facet)
     await db.commit()
 
@@ -197,22 +178,18 @@ async def _execute_add_facet_value(
         "message": f"Facet '{facet_type.name}' mit Wert '{facet_value}' hinzugefügt.",
         "affected_entity_id": str(entity.id),
         "affected_entity_name": entity.name,
-        "refresh_required": True
+        "refresh_required": True,
     }
 
 
 async def _execute_update_facet_value(
-    db: AsyncSession,
-    action: ActionDetails,
-    context: AssistantContext
+    db: AsyncSession, action: ActionDetails, context: AssistantContext
 ) -> dict[str, Any]:
     """Update an existing facet value."""
     from app.models import FacetValue
 
     facet_value_id = action.target_id
-    result = await db.execute(
-        select(FacetValue).where(FacetValue.id == UUID(facet_value_id))
-    )
+    result = await db.execute(select(FacetValue).where(FacetValue.id == UUID(facet_value_id)))
     facet_value = result.scalar_one_or_none()
 
     if not facet_value:
@@ -236,15 +213,11 @@ async def _execute_update_facet_value(
         "success": True,
         "message": f"Facet-Wert von '{old_value}' zu '{new_value}' geändert.",
         "affected_entity_id": str(facet_value.entity_id),
-        "refresh_required": True
+        "refresh_required": True,
     }
 
 
-async def _execute_add_relation(
-    db: AsyncSession,
-    action: ActionDetails,
-    context: AssistantContext
-) -> dict[str, Any]:
+async def _execute_add_relation(db: AsyncSession, action: ActionDetails, context: AssistantContext) -> dict[str, Any]:
     """Add a relation between two entities."""
     from app.models import EntityRelation, RelationType
 
@@ -258,18 +231,14 @@ async def _execute_add_relation(
         return {"success": False, "message": "Relationstyp oder Ziel-Entity fehlt"}
 
     # Find relation type
-    rt_result = await db.execute(
-        select(RelationType).where(RelationType.slug == relation_type_slug)
-    )
+    rt_result = await db.execute(select(RelationType).where(RelationType.slug == relation_type_slug))
     relation_type = rt_result.scalar_one_or_none()
 
     if not relation_type:
         return {"success": False, "message": f"Relationstyp '{relation_type_slug}' nicht gefunden"}
 
     # Validate target entity exists
-    target_result = await db.execute(
-        select(Entity).where(Entity.id == UUID(target_entity_id))
-    )
+    target_result = await db.execute(select(Entity).where(Entity.id == UUID(target_entity_id)))
     target_entity = target_result.scalar_one_or_none()
 
     if not target_entity:
@@ -277,9 +246,7 @@ async def _execute_add_relation(
 
     # Create relation
     new_relation = EntityRelation(
-        source_entity_id=source_entity_id,
-        target_entity_id=UUID(target_entity_id),
-        relation_type_id=relation_type.id
+        source_entity_id=source_entity_id, target_entity_id=UUID(target_entity_id), relation_type_id=relation_type.id
     )
     db.add(new_relation)
     await db.commit()
@@ -288,22 +255,18 @@ async def _execute_add_relation(
         "success": True,
         "message": f"Relation '{relation_type.name}' zu '{target_entity.name}' hinzugefügt.",
         "affected_entity_id": str(source_entity_id),
-        "refresh_required": True
+        "refresh_required": True,
     }
 
 
 async def _execute_remove_relation(
-    db: AsyncSession,
-    action: ActionDetails,
-    context: AssistantContext
+    db: AsyncSession, action: ActionDetails, context: AssistantContext
 ) -> dict[str, Any]:
     """Remove a relation between entities."""
     from app.models import EntityRelation
 
     relation_id = action.target_id
-    result = await db.execute(
-        select(EntityRelation).where(EntityRelation.id == UUID(relation_id))
-    )
+    result = await db.execute(select(EntityRelation).where(EntityRelation.id == UUID(relation_id)))
     relation = result.scalar_one_or_none()
 
     if not relation:
@@ -317,22 +280,16 @@ async def _execute_remove_relation(
         "success": True,
         "message": "Relation wurde entfernt.",
         "affected_entity_id": str(source_entity_id),
-        "refresh_required": True
+        "refresh_required": True,
     }
 
 
-async def _execute_update_widget(
-    db: AsyncSession,
-    action: ActionDetails,
-    context: AssistantContext
-) -> dict[str, Any]:
+async def _execute_update_widget(db: AsyncSession, action: ActionDetails, context: AssistantContext) -> dict[str, Any]:
     """Update widget configuration in a summary."""
     from app.models import CustomSummaryWidget
 
     widget_id = action.target_id
-    result = await db.execute(
-        select(CustomSummaryWidget).where(CustomSummaryWidget.id == UUID(widget_id))
-    )
+    result = await db.execute(select(CustomSummaryWidget).where(CustomSummaryWidget.id == UUID(widget_id)))
     widget = result.scalar_one_or_none()
 
     if not widget:
@@ -363,15 +320,11 @@ async def _execute_update_widget(
         "success": True,
         "message": f"Widget '{widget.title}' wurde aktualisiert.",
         "affected_entity_id": str(widget.id),
-        "refresh_required": True
+        "refresh_required": True,
     }
 
 
-async def _execute_add_widget(
-    db: AsyncSession,
-    action: ActionDetails,
-    context: AssistantContext
-) -> dict[str, Any]:
+async def _execute_add_widget(db: AsyncSession, action: ActionDetails, context: AssistantContext) -> dict[str, Any]:
     """Add a new widget to a summary."""
     from app.models import CustomSummaryWidget
 
@@ -388,19 +341,14 @@ async def _execute_add_widget(
 
     # Calculate position (add at end)
     from sqlalchemy import func
+
     count_result = await db.execute(
-        select(func.count()).select_from(CustomSummaryWidget).where(
-            CustomSummaryWidget.summary_id == summary_id
-        )
+        select(func.count()).select_from(CustomSummaryWidget).where(CustomSummaryWidget.summary_id == summary_id)
     )
     widget_count = count_result.scalar() or 0
 
     new_widget = CustomSummaryWidget(
-        summary_id=summary_id,
-        title=widget_title,
-        widget_type=widget_type,
-        position=widget_count,
-        config={}
+        summary_id=summary_id, title=widget_title, widget_type=widget_type, position=widget_count, config={}
     )
     db.add(new_widget)
     await db.commit()
@@ -409,22 +357,16 @@ async def _execute_add_widget(
         "success": True,
         "message": f"Widget '{widget_title}' wurde hinzugefügt.",
         "affected_entity_id": str(new_widget.id),
-        "refresh_required": True
+        "refresh_required": True,
     }
 
 
-async def _execute_remove_widget(
-    db: AsyncSession,
-    action: ActionDetails,
-    context: AssistantContext
-) -> dict[str, Any]:
+async def _execute_remove_widget(db: AsyncSession, action: ActionDetails, context: AssistantContext) -> dict[str, Any]:
     """Remove a widget from a summary."""
     from app.models import CustomSummaryWidget
 
     widget_id = action.target_id
-    result = await db.execute(
-        select(CustomSummaryWidget).where(CustomSummaryWidget.id == UUID(widget_id))
-    )
+    result = await db.execute(select(CustomSummaryWidget).where(CustomSummaryWidget.id == UUID(widget_id)))
     widget = result.scalar_one_or_none()
 
     if not widget:
@@ -434,19 +376,11 @@ async def _execute_remove_widget(
     await db.delete(widget)
     await db.commit()
 
-    return {
-        "success": True,
-        "message": f"Widget '{widget_title}' wurde entfernt.",
-        "refresh_required": True
-    }
+    return {"success": True, "message": f"Widget '{widget_title}' wurde entfernt.", "refresh_required": True}
 
 
 async def execute_batch_action(
-    db: AsyncSession,
-    action_type: str,
-    target_filter: dict[str, Any],
-    action_data: dict[str, Any],
-    dry_run: bool = True
+    db: AsyncSession, action_type: str, target_filter: dict[str, Any], action_data: dict[str, Any], dry_run: bool = True
 ) -> dict[str, Any]:
     """Execute a batch action on multiple entities.
 
@@ -522,20 +456,11 @@ async def execute_batch_action(
     except Exception as e:
         await db.rollback()
         logger.error("batch_action_error", error=str(e))
-        return {
-            "success": False,
-            "affected_count": 0,
-            "preview": [],
-            "batch_id": None,
-            "message": f"Fehler: {str(e)}"
-        }
+        return {"success": False, "affected_count": 0, "preview": [], "batch_id": None, "message": f"Fehler: {str(e)}"}
 
 
 async def preview_inline_edit(
-    db: AsyncSession,
-    message: str,
-    context: AssistantContext,
-    intent_data: dict[str, Any]
+    db: AsyncSession, message: str, context: AssistantContext, intent_data: dict[str, Any]
 ) -> ActionPreviewResponse:
     """Handle inline edit requests - return preview for confirmation.
 
@@ -552,7 +477,7 @@ async def preview_inline_edit(
         return ActionPreviewResponse(
             message="Keine Entity ausgewählt. Navigiere zuerst zu einer Entity-Detailseite.",
             action=ActionDetails(type="none"),
-            requires_confirmation=False
+            requires_confirmation=False,
         )
 
     field = intent_data.get("field_to_edit", "name")
@@ -562,7 +487,7 @@ async def preview_inline_edit(
         return ActionPreviewResponse(
             message="Ich konnte den neuen Wert nicht erkennen. Bitte formuliere um, z.B. 'Ändere den Namen zu Neuer Name'",
             action=ActionDetails(type="none"),
-            requires_confirmation=False
+            requires_confirmation=False,
         )
 
     # Get current entity
@@ -571,9 +496,7 @@ async def preview_inline_edit(
 
         if not entity:
             return ActionPreviewResponse(
-                message="Entity nicht gefunden.",
-                action=ActionDetails(type="none"),
-                requires_confirmation=False
+                message="Entity nicht gefunden.", action=ActionDetails(type="none"), requires_confirmation=False
             )
 
         # Determine the field and current value
@@ -588,32 +511,20 @@ async def preview_inline_edit(
                 target_id=str(entity.id),
                 target_name=entity.name,
                 target_type=context.current_entity_type,
-                changes={
-                    field: ActionChange(
-                        field=field,
-                        from_value=current_value,
-                        to_value=new_value
-                    )
-                }
+                changes={field: ActionChange(field=field, from_value=current_value, to_value=new_value)},
             ),
-            requires_confirmation=True
+            requires_confirmation=True,
         )
 
     except Exception as e:
         logger.error("inline_edit_error", error=str(e))
         return ActionPreviewResponse(
-            message=f"Fehler: {str(e)}",
-            action=ActionDetails(type="none"),
-            requires_confirmation=False
+            message=f"Fehler: {str(e)}", action=ActionDetails(type="none"), requires_confirmation=False
         )
 
 
 async def handle_batch_action_intent(
-    db: AsyncSession,
-    message: str,
-    context: AssistantContext,
-    intent_data: dict[str, Any],
-    translator: Translator
+    db: AsyncSession, message: str, context: AssistantContext, intent_data: dict[str, Any], translator: Translator
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Handle a batch action intent from chat.
 
@@ -656,25 +567,20 @@ async def handle_batch_action_intent(
         return ErrorResponseData(
             message=translator.t(
                 "batch_missing_filter",
-                default="Bitte gib an, welche Entities bearbeitet werden sollen (z.B. 'alle Gemeinden in NRW')."
+                default="Bitte gib an, welche Entities bearbeitet werden sollen (z.B. 'alle Gemeinden in NRW').",
             ),
-            error_code="missing_filter"
+            error_code="missing_filter",
         ), []
 
     # Execute dry run to get preview
     try:
         result = await execute_batch_action(
-            action_type=action_type,
-            target_filter=target_filter,
-            action_data=action_data,
-            dry_run=True,
-            db=db
+            action_type=action_type, target_filter=target_filter, action_data=action_data, dry_run=True, db=db
         )
 
         if not result.get("success"):
             return ErrorResponseData(
-                message=result.get("message", "Fehler bei der Batch-Vorschau"),
-                error_code="batch_preview_error"
+                message=result.get("message", "Fehler bei der Batch-Vorschau"), error_code="batch_preview_error"
             ), []
 
         affected_count = result.get("affected_count", 0)
@@ -683,10 +589,9 @@ async def handle_batch_action_intent(
         if affected_count == 0:
             return ErrorResponseData(
                 message=translator.t(
-                    "batch_no_matches",
-                    default="Keine passenden Entities für die Batch-Operation gefunden."
+                    "batch_no_matches", default="Keine passenden Entities für die Batch-Operation gefunden."
                 ),
-                error_code="no_matches"
+                error_code="no_matches",
             ), []
 
         # Return batch preview response
@@ -694,29 +599,26 @@ async def handle_batch_action_intent(
             message=translator.t(
                 "batch_preview_message",
                 count=affected_count,
-                default=f"{affected_count} Entities würden bearbeitet werden."
+                default=f"{affected_count} Entities würden bearbeitet werden.",
             ),
             affected_count=affected_count,
             preview=[
                 BatchActionPreview(
                     entity_id=p.get("entity_id", ""),
                     entity_name=p.get("entity_name", ""),
-                    entity_type=p.get("entity_type", "")
+                    entity_type=p.get("entity_type", ""),
                 )
                 for p in preview
             ],
             action_type=action_type,
             action_data=action_data,
             target_filter=target_filter,
-            requires_confirmation=True
+            requires_confirmation=True,
         ), []
 
     except Exception as e:
         logger.error("batch_intent_error", error=str(e))
-        return ErrorResponseData(
-            message=f"Fehler bei der Batch-Verarbeitung: {str(e)}",
-            error_code="batch_error"
-        ), []
+        return ErrorResponseData(message=f"Fehler bei der Batch-Verarbeitung: {str(e)}", error_code="batch_error"), []
 
 
 def parse_batch_filter(filter_data: Any) -> dict[str, Any]:

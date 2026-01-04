@@ -261,15 +261,13 @@ class UserLLMConfig(Base):
     )
 
     # Relationships
-    user: Mapped["User"] = relationship(
+    user: Mapped[User] = relationship(
         "User",
         back_populates="llm_configs",
     )
 
     # Constraints: One configuration per user per purpose
-    __table_args__ = (
-        UniqueConstraint("user_id", "purpose", name="uq_user_llm_purpose"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "purpose", name="uq_user_llm_purpose"),)
 
     def __repr__(self) -> str:
         return f"<UserLLMConfig {self.purpose.value}={self.provider.value} for user {self.user_id}>"
@@ -356,14 +354,12 @@ class UserApiCredentials(Base):
         nullable=False,
     )
 
-    user: Mapped["User"] = relationship(
+    user: Mapped[User] = relationship(
         "User",
         back_populates="api_credentials",
     )
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "credential_type", name="uq_user_credential_type"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "credential_type", name="uq_user_credential_type"),)
 
     def __repr__(self) -> str:
         return f"<UserApiCredentials {self.credential_type.value} for user {self.user_id}>"

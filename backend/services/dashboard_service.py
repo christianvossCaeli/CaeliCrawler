@@ -106,14 +106,10 @@ class DashboardService:
 
     # ========== Preferences Management ==========
 
-    async def get_preferences(
-        self, user_id: UUID
-    ) -> DashboardPreferencesResponse:
+    async def get_preferences(self, user_id: UUID) -> DashboardPreferencesResponse:
         """Get dashboard preferences for a user, creating defaults if needed."""
         result = await self.db.execute(
-            select(UserDashboardPreference).where(
-                UserDashboardPreference.user_id == user_id
-            )
+            select(UserDashboardPreference).where(UserDashboardPreference.user_id == user_id)
         )
         pref = result.scalar_one_or_none()
 
@@ -121,9 +117,7 @@ class DashboardService:
             # Create default preferences
             pref = await self._create_default_preferences(user_id)
 
-        widgets = [
-            WidgetConfig(**w) for w in pref.widget_config.get("widgets", [])
-        ]
+        widgets = [WidgetConfig(**w) for w in pref.widget_config.get("widgets", [])]
 
         return DashboardPreferencesResponse(
             widgets=widgets,
@@ -135,9 +129,7 @@ class DashboardService:
     ) -> DashboardPreferencesResponse:
         """Update dashboard preferences for a user."""
         result = await self.db.execute(
-            select(UserDashboardPreference).where(
-                UserDashboardPreference.user_id == user_id
-            )
+            select(UserDashboardPreference).where(UserDashboardPreference.user_id == user_id)
         )
         pref = result.scalar_one_or_none()
 
@@ -163,9 +155,7 @@ class DashboardService:
             updated_at=pref.updated_at,
         )
 
-    async def _create_default_preferences(
-        self, user_id: UUID
-    ) -> UserDashboardPreference:
+    async def _create_default_preferences(self, user_id: UUID) -> UserDashboardPreference:
         """Create default preferences for a new user."""
         widget_config = {
             "widgets": [w.model_dump() for w in DEFAULT_WIDGETS],
@@ -207,15 +197,12 @@ class DashboardService:
         """
         try:
             # Get active entity type IDs first
-            active_et_result = await self.db.execute(
-                select(EntityType.id).where(EntityType.is_active.is_(True))
-            )
+            active_et_result = await self.db.execute(select(EntityType.id).where(EntityType.is_active.is_(True)))
             active_et_ids = [row[0] for row in active_et_result.fetchall()]
 
             # Total count (only from active entity types)
             result = await self.db.execute(
-                select(func.count(Entity.id))
-                .where(Entity.entity_type_id.in_(active_et_ids))
+                select(func.count(Entity.id)).where(Entity.entity_type_id.in_(active_et_ids))
             )
             total = result.scalar() or 0
 
@@ -254,11 +241,7 @@ class DashboardService:
             total = result.scalar() or 0
 
             # Verified count
-            result = await self.db.execute(
-                select(func.count(FacetValue.id)).where(
-                    FacetValue.human_verified.is_(True)
-                )
-            )
+            result = await self.db.execute(select(func.count(FacetValue.id)).where(FacetValue.human_verified.is_(True)))
             verified = result.scalar() or 0
 
             # By type
@@ -279,9 +262,7 @@ class DashboardService:
             )
         except Exception as e:
             logger.error("facet_stats_error", error=str(e))
-            return FacetStats(
-                total=0, verified=0, verification_rate=0.0, by_type={}
-            )
+            return FacetStats(total=0, verified=0, verification_rate=0.0, by_type={})
 
     async def _get_document_stats(self) -> DocumentStats:
         """Get document processing statistics."""
@@ -292,8 +273,7 @@ class DashboardService:
 
             # By status
             result = await self.db.execute(
-                select(Document.processing_status, func.count(Document.id))
-                .group_by(Document.processing_status)
+                select(Document.processing_status, func.count(Document.id)).group_by(Document.processing_status)
             )
             by_status = {row[0].value: row[1] for row in result.all()}
 
@@ -318,45 +298,26 @@ class DashboardService:
             total_jobs = result.scalar() or 0
 
             # Running jobs
-            result = await self.db.execute(
-                select(func.count(CrawlJob.id)).where(
-                    CrawlJob.status == JobStatus.RUNNING
-                )
-            )
+            result = await self.db.execute(select(func.count(CrawlJob.id)).where(CrawlJob.status == JobStatus.RUNNING))
             running = result.scalar() or 0
 
             # Completed jobs
             result = await self.db.execute(
-                select(func.count(CrawlJob.id)).where(
-                    CrawlJob.status == JobStatus.COMPLETED
-                )
+                select(func.count(CrawlJob.id)).where(CrawlJob.status == JobStatus.COMPLETED)
             )
             completed = result.scalar() or 0
 
             # Failed jobs
-            result = await self.db.execute(
-                select(func.count(CrawlJob.id)).where(
-                    CrawlJob.status == JobStatus.FAILED
-                )
-            )
+            result = await self.db.execute(select(func.count(CrawlJob.id)).where(CrawlJob.status == JobStatus.FAILED))
             failed = result.scalar() or 0
 
             # Total documents
-            result = await self.db.execute(
-                select(func.sum(CrawlJob.documents_found))
-            )
+            result = await self.db.execute(select(func.sum(CrawlJob.documents_found)))
             total_docs = result.scalar() or 0
 
             # Average duration (calculate in SQL since duration_seconds is a Python property)
             result = await self.db.execute(
-                select(
-                    func.avg(
-                        func.extract(
-                            'epoch',
-                            CrawlJob.completed_at - CrawlJob.started_at
-                        )
-                    )
-                ).where(
+                select(func.avg(func.extract("epoch", CrawlJob.completed_at - CrawlJob.started_at))).where(
                     CrawlJob.status == JobStatus.COMPLETED,
                     CrawlJob.completed_at.is_not(None),
                     CrawlJob.started_at.is_not(None),
@@ -391,34 +352,20 @@ class DashboardService:
             total = result.scalar() or 0
 
             # Running
-            result = await self.db.execute(
-                select(func.count(AITask.id)).where(
-                    AITask.status == AITaskStatus.RUNNING
-                )
-            )
+            result = await self.db.execute(select(func.count(AITask.id)).where(AITask.status == AITaskStatus.RUNNING))
             running = result.scalar() or 0
 
             # Completed
-            result = await self.db.execute(
-                select(func.count(AITask.id)).where(
-                    AITask.status == AITaskStatus.COMPLETED
-                )
-            )
+            result = await self.db.execute(select(func.count(AITask.id)).where(AITask.status == AITaskStatus.COMPLETED))
             completed = result.scalar() or 0
 
             # Failed
-            result = await self.db.execute(
-                select(func.count(AITask.id)).where(
-                    AITask.status == AITaskStatus.FAILED
-                )
-            )
+            result = await self.db.execute(select(func.count(AITask.id)).where(AITask.status == AITaskStatus.FAILED))
             failed = result.scalar() or 0
 
             # Average confidence
             result = await self.db.execute(
-                select(func.avg(AITask.avg_confidence)).where(
-                    AITask.status == AITaskStatus.COMPLETED
-                )
+                select(func.avg(AITask.avg_confidence)).where(AITask.status == AITaskStatus.COMPLETED)
             )
             avg_conf = result.scalar()
 
@@ -431,15 +378,11 @@ class DashboardService:
             )
         except Exception as e:
             logger.error("ai_task_stats_error", error=str(e))
-            return AITaskStats(
-                total=0, running=0, completed=0, failed=0, avg_confidence=None
-            )
+            return AITaskStats(total=0, running=0, completed=0, failed=0, avg_confidence=None)
 
     # ========== Activity Feed ==========
 
-    async def get_activity_feed(
-        self, limit: int = 20, offset: int = 0
-    ) -> ActivityFeedResponse:
+    async def get_activity_feed(self, limit: int = 20, offset: int = 0) -> ActivityFeedResponse:
         """Get recent activity from the audit log."""
         try:
             # Get total count
@@ -448,10 +391,7 @@ class DashboardService:
 
             # Get recent activities
             result = await self.db.execute(
-                select(AuditLog)
-                .order_by(desc(AuditLog.created_at))
-                .offset(offset)
-                .limit(limit)
+                select(AuditLog).order_by(desc(AuditLog.created_at)).offset(offset).limit(limit)
             )
             logs = result.scalars().all()
 
@@ -499,21 +439,15 @@ class DashboardService:
 
     # ========== Insights ==========
 
-    async def get_insights(
-        self, user: User, period_days: int = 7
-    ) -> InsightsResponse:
+    async def get_insights(self, user: User, period_days: int = 7) -> InsightsResponse:
         """Get personalized insights for a user."""
         items = []
         last_login = user.last_login
-        since = last_login or (
-            datetime.now(UTC) - timedelta(days=period_days)
-        )
+        since = last_login or (datetime.now(UTC) - timedelta(days=period_days))
 
         try:
             # New entities since last login
-            result = await self.db.execute(
-                select(func.count(Entity.id)).where(Entity.created_at >= since)
-            )
+            result = await self.db.execute(select(func.count(Entity.id)).where(Entity.created_at >= since))
             new_entities = result.scalar() or 0
 
             if new_entities > 0:
@@ -528,11 +462,7 @@ class DashboardService:
                 )
 
             # New facet values
-            result = await self.db.execute(
-                select(func.count(FacetValue.id)).where(
-                    FacetValue.created_at >= since
-                )
-            )
+            result = await self.db.execute(select(func.count(FacetValue.id)).where(FacetValue.created_at >= since))
             new_facets = result.scalar() or 0
 
             if new_facets > 0:
@@ -570,9 +500,7 @@ class DashboardService:
 
             # Unverified facets (action needed)
             result = await self.db.execute(
-                select(func.count(FacetValue.id)).where(
-                    FacetValue.human_verified.is_(False)
-                )
+                select(func.count(FacetValue.id)).where(FacetValue.human_verified.is_(False))
             )
             unverified = result.scalar() or 0
 
@@ -627,9 +555,16 @@ class DashboardService:
             rows = result.all()
 
             colors = [
-                "#1976D2", "#388E3C", "#FBC02D", "#D32F2F",
-                "#7B1FA2", "#0097A7", "#F57C00", "#455A64",
-                "#C2185B", "#512DA8"
+                "#1976D2",
+                "#388E3C",
+                "#FBC02D",
+                "#D32F2F",
+                "#7B1FA2",
+                "#0097A7",
+                "#F57C00",
+                "#455A64",
+                "#C2185B",
+                "#512DA8",
             ]
 
             data = [
@@ -669,10 +604,7 @@ class DashboardService:
             )
             rows = result.all()
 
-            data = [
-                ChartDataPoint(label=row[0], value=float(row[1]))
-                for row in rows
-            ]
+            data = [ChartDataPoint(label=row[0], value=float(row[1])) for row in rows]
 
             return ChartDataResponse(
                 chart_type="bar",

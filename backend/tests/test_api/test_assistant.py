@@ -7,6 +7,7 @@ from httpx import AsyncClient
 # Chat Tests
 # =============================================================================
 
+
 @pytest.mark.asyncio
 async def test_assistant_chat_basic(client: AsyncClient):
     """Test basic assistant chat."""
@@ -16,8 +17,8 @@ async def test_assistant_chat_basic(client: AsyncClient):
             "message": "Hallo",
             "context": {"current_route": "/", "view_mode": "dashboard"},
             "mode": "read",
-            "language": "de"
-        }
+            "language": "de",
+        },
     )
     assert response.status_code == 200
 
@@ -35,8 +36,8 @@ async def test_assistant_chat_query(client: AsyncClient):
             "message": "Wie viele Gemeinden gibt es?",
             "context": {"current_route": "/entities/municipality", "view_mode": "list"},
             "mode": "read",
-            "language": "de"
-        }
+            "language": "de",
+        },
     )
     assert response.status_code == 200
 
@@ -46,12 +47,7 @@ async def test_assistant_chat_help(client: AsyncClient):
     """Test assistant help command."""
     response = await client.post(
         "/api/v1/assistant/chat",
-        json={
-            "message": "/help",
-            "context": {"current_route": "/"},
-            "mode": "read",
-            "language": "de"
-        }
+        json={"message": "/help", "context": {"current_route": "/"}, "mode": "read", "language": "de"},
     )
     assert response.status_code == 200
 
@@ -61,12 +57,7 @@ async def test_assistant_chat_search(client: AsyncClient):
     """Test assistant search command."""
     response = await client.post(
         "/api/v1/assistant/chat",
-        json={
-            "message": "/search München",
-            "context": {"current_route": "/"},
-            "mode": "read",
-            "language": "de"
-        }
+        json={"message": "/search München", "context": {"current_route": "/"}, "mode": "read", "language": "de"},
     )
     assert response.status_code == 200
 
@@ -74,6 +65,7 @@ async def test_assistant_chat_search(client: AsyncClient):
 # =============================================================================
 # Commands Tests
 # =============================================================================
+
 
 @pytest.mark.asyncio
 async def test_assistant_get_commands(client: AsyncClient):
@@ -88,6 +80,7 @@ async def test_assistant_get_commands(client: AsyncClient):
 # =============================================================================
 # Reminders Tests
 # =============================================================================
+
 
 @pytest.mark.asyncio
 async def test_assistant_list_reminders(client: AsyncClient):
@@ -109,6 +102,7 @@ async def test_assistant_get_due_reminders(client: AsyncClient):
 # Insights Tests
 # =============================================================================
 
+
 @pytest.mark.asyncio
 async def test_assistant_get_insights(client: AsyncClient):
     """Test getting assistant insights."""
@@ -121,16 +115,13 @@ async def test_assistant_get_insights(client: AsyncClient):
 # Actions Tests
 # =============================================================================
 
+
 @pytest.mark.asyncio
 async def test_assistant_execute_action(client: AsyncClient):
     """Test executing an assistant action (requires auth)."""
     response = await client.post(
         "/api/v1/assistant/execute-action",
-        json={
-            "action": "search",
-            "parameters": {"query": "test"},
-            "context": {"current_route": "/"}
-        }
+        json={"action": "search", "parameters": {"query": "test"}, "context": {"current_route": "/"}},
     )
     # Accept various responses including 401 (auth required)
     assert response.status_code in [200, 400, 401, 422]
@@ -139,6 +130,7 @@ async def test_assistant_execute_action(client: AsyncClient):
 # =============================================================================
 # Entity Context Tests
 # =============================================================================
+
 
 @pytest.mark.asyncio
 async def test_assistant_with_entity_context(client: AsyncClient):
@@ -159,11 +151,11 @@ async def test_assistant_with_entity_context(client: AsyncClient):
                 "current_entity_id": entity["id"],
                 "current_entity_type": entity.get("entity_type_slug", "municipality"),
                 "current_entity_name": entity["name"],
-                "view_mode": "detail"
+                "view_mode": "detail",
             },
             "mode": "read",
-            "language": "de"
-        }
+            "language": "de",
+        },
     )
     assert response.status_code == 200
 
@@ -172,16 +164,12 @@ async def test_assistant_with_entity_context(client: AsyncClient):
 # Batch Action Tests
 # =============================================================================
 
+
 @pytest.mark.asyncio
 async def test_assistant_batch_action(client: AsyncClient):
     """Test batch action endpoint (requires auth)."""
     response = await client.post(
-        "/api/v1/assistant/batch-action",
-        json={
-            "action": "tag",
-            "entity_ids": [],
-            "parameters": {"tag": "test"}
-        }
+        "/api/v1/assistant/batch-action", json={"action": "tag", "entity_ids": [], "parameters": {"tag": "test"}}
     )
     # Accept various responses including 401 (auth required)
     assert response.status_code in [200, 400, 401, 422]
@@ -191,17 +179,13 @@ async def test_assistant_batch_action(client: AsyncClient):
 # Error Handling Tests
 # =============================================================================
 
+
 @pytest.mark.asyncio
 async def test_assistant_empty_message(client: AsyncClient):
     """Test assistant with empty message."""
     response = await client.post(
         "/api/v1/assistant/chat",
-        json={
-            "message": "",
-            "context": {"current_route": "/"},
-            "mode": "read",
-            "language": "de"
-        }
+        json={"message": "", "context": {"current_route": "/"}, "mode": "read", "language": "de"},
     )
     # Should handle gracefully
     assert response.status_code in [200, 400, 422]
@@ -210,13 +194,6 @@ async def test_assistant_empty_message(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_assistant_missing_context(client: AsyncClient):
     """Test assistant with missing context."""
-    response = await client.post(
-        "/api/v1/assistant/chat",
-        json={
-            "message": "test",
-            "mode": "read",
-            "language": "de"
-        }
-    )
+    response = await client.post("/api/v1/assistant/chat", json={"message": "test", "mode": "read", "language": "de"})
     # Should handle gracefully
     assert response.status_code in [200, 422]

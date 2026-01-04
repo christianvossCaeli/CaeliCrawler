@@ -58,6 +58,8 @@ from app.models.llm_usage import (
     LLMUsageMonthlyAggregate,
     LLMUsageRecord,
 )
+from app.models.location import Location  # Legacy - will be replaced by Entity
+from app.models.mixins import TimestampMixin, VersionedMixin
 
 # Model Pricing
 from app.models.model_pricing import (
@@ -65,8 +67,6 @@ from app.models.model_pricing import (
     PricingProvider,
     PricingSource,
 )
-from app.models.location import Location  # Legacy - will be replaced by Entity
-from app.models.mixins import TimestampMixin, VersionedMixin
 
 # Notifications
 from app.models.notification import (
@@ -97,12 +97,12 @@ from app.models.summary_widget import SummaryWidget, SummaryWidgetType
 # Authentication & Authorization
 from app.models.user import User, UserRole
 from app.models.user_api_credentials import (
-    ApiCredentialType,
     EMBEDDINGS_REQUIRED_FIELDS,
-    LLMPurpose,
     PROVIDER_FIELDS,
     PROVIDER_OPTIONAL_FIELDS,
     PURPOSE_VALID_PROVIDERS,
+    ApiCredentialType,
+    LLMPurpose,
     UserApiCredentials,
     UserLLMConfig,
 )

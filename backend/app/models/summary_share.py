@@ -125,9 +125,7 @@ class SummaryShare(Base):
     )
 
     # Indexes
-    __table_args__ = (
-        Index("ix_summary_shares_active_token", "is_active", "share_token"),
-    )
+    __table_args__ = (Index("ix_summary_shares_active_token", "is_active", "share_token"),)
 
     def is_expired(self) -> bool:
         """Check if this share link has expired."""

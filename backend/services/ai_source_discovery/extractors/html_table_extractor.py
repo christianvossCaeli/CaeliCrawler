@@ -1,6 +1,5 @@
 """HTML Table extractor for structured data in tables."""
 
-
 import structlog
 
 from ..models import ExtractedSource, SearchStrategy
@@ -114,14 +113,16 @@ class HTMLTableExtractor(BaseExtractor):
                         if value and len(value) < 200:  # Skip very long values
                             metadata[header] = value
 
-                sources.append(ExtractedSource(
-                    name=name,
-                    base_url=found_url,
-                    source_type="WEBSITE",
-                    metadata=metadata,
-                    extraction_method="html_table",
-                    confidence=0.7,
-                ))
+                sources.append(
+                    ExtractedSource(
+                        name=name,
+                        base_url=found_url,
+                        source_type="WEBSITE",
+                        metadata=metadata,
+                        extraction_method="html_table",
+                        confidence=0.7,
+                    )
+                )
 
         logger.debug(
             "HTML table extraction completed",

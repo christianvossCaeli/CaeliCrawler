@@ -82,7 +82,9 @@ async def list_audit_logs(
     user_id: UUID | None = None,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
-    sort_by: str | None = Query(default=None, description="Sort by field (action, entity_type, user_email, created_at)"),
+    sort_by: str | None = Query(
+        default=None, description="Sort by field (action, entity_type, user_email, created_at)"
+    ),
     sort_order: str | None = Query(default="desc", description="Sort order (asc, desc)"),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_admin),
@@ -248,13 +250,15 @@ async def get_audit_stats(
     month_ago = now - timedelta(days=30)
 
     # Query 1: All counts in one query using conditional aggregation (last 30 days)
-    counts = (await session.execute(
-        select(
-            func.count(AuditLog.id).label("total"),
-            func.count().filter(AuditLog.created_at >= today_start).label("today"),
-            func.count().filter(AuditLog.created_at >= week_start).label("week"),
-        ).where(AuditLog.created_at >= month_ago)
-    )).one()
+    counts = (
+        await session.execute(
+            select(
+                func.count(AuditLog.id).label("total"),
+                func.count().filter(AuditLog.created_at >= today_start).label("today"),
+                func.count().filter(AuditLog.created_at >= week_start).label("week"),
+            ).where(AuditLog.created_at >= month_ago)
+        )
+    ).one()
 
     # Query 2: Actions breakdown (last 30 days for performance)
     actions_result = await session.execute(
@@ -262,9 +266,7 @@ async def get_audit_stats(
         .where(AuditLog.created_at >= month_ago)
         .group_by(AuditLog.action)
     )
-    actions_breakdown = {
-        action.value: count for action, count in actions_result.all()
-    }
+    actions_breakdown = {action.value: count for action, count in actions_result.all()}
 
     # Query 3: Top users (last 30 days)
     top_users_result = await session.execute(
@@ -279,10 +281,7 @@ async def get_audit_stats(
         .order_by(desc("count"))
         .limit(10)
     )
-    top_users = [
-        {"email": email, "count": count}
-        for email, count in top_users_result.all()
-    ]
+    top_users = [{"email": email, "count": count} for email, count in top_users_result.all()]
 
     # Query 4: Top entity types (last 30 days)
     top_entities_result = await session.execute(
@@ -293,8 +292,7 @@ async def get_audit_stats(
         .limit(10)
     )
     top_entity_types = [
-        {"entity_type": entity_type, "count": count}
-        for entity_type, count in top_entities_result.all()
+        {"entity_type": entity_type, "count": count} for entity_type, count in top_entities_result.all()
     ]
 
     return AuditStatsResponse(
@@ -310,21 +308,11 @@ async def get_audit_stats(
 @router.delete("", response_model=AuditLogDeleteResponse)
 async def clear_audit_logs(
     before_date: datetime | None = Query(
-        default=None,
-        description="Delete logs before this date. If not provided, deletes ALL logs."
+        default=None, description="Delete logs before this date. If not provided, deletes ALL logs."
     ),
-    action: AuditAction | None = Query(
-        default=None,
-        description="Only delete logs with this action type"
-    ),
-    entity_type: str | None = Query(
-        default=None,
-        description="Only delete logs for this entity type"
-    ),
-    confirm: bool = Query(
-        default=False,
-        description="Must be true to confirm deletion"
-    ),
+    action: AuditAction | None = Query(default=None, description="Only delete logs with this action type"),
+    entity_type: str | None = Query(default=None, description="Only delete logs for this entity type"),
+    confirm: bool = Query(default=False, description="Must be true to confirm deletion"),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_admin),
 ):
@@ -347,10 +335,8 @@ async def clear_audit_logs(
 
     if not confirm:
         from app.core.exceptions import ValidationError
-        raise ValidationError(
-            "Deletion not confirmed",
-            detail="Set confirm=true to confirm deletion of audit logs"
-        )
+
+        raise ValidationError("Deletion not confirmed", detail="Set confirm=true to confirm deletion of audit logs")
 
     # Build delete query with filters
     from sqlalchemy import delete
@@ -370,10 +356,7 @@ async def clear_audit_logs(
     count = (await session.execute(count_query)).scalar() or 0
 
     if count == 0:
-        return AuditLogDeleteResponse(
-            deleted_count=0,
-            message="No audit logs matched the criteria"
-        )
+        return AuditLogDeleteResponse(deleted_count=0, message="No audit logs matched the criteria")
 
     # Delete matching records
     delete_query = delete(AuditLog)
@@ -412,6 +395,5 @@ async def clear_audit_logs(
     filter_str = " with filters: " + ", ".join(filter_parts) if filter_parts else ""
 
     return AuditLogDeleteResponse(
-        deleted_count=count,
-        message=f"Successfully deleted {count} audit log entries{filter_str}"
+        deleted_count=count, message=f"Successfully deleted {count} audit log entries{filter_str}"
     )

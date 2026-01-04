@@ -39,7 +39,7 @@ async def test_filter_sources_by_tags(admin_client: AsyncClient):
     first_tag = tags[0]["tag"]
     response = await admin_client.get(
         "/api/admin/sources",
-        params={"tags": first_tag}  # Single tag as string
+        params={"tags": first_tag},  # Single tag as string
     )
     assert response.status_code == 200
 
@@ -55,9 +55,7 @@ async def test_filter_sources_by_tags(admin_client: AsyncClient):
 async def test_get_sources_by_tags_all_mode(admin_client: AsyncClient):
     """Test getting sources by tags with AND logic (all tags must match)."""
     # Use repeated tags parameter for list in query string
-    response = await admin_client.get(
-        "/api/admin/sources/by-tags?tags=nonexistent-tag-xyz&match_mode=all"
-    )
+    response = await admin_client.get("/api/admin/sources/by-tags?tags=nonexistent-tag-xyz&match_mode=all")
     assert response.status_code == 200
 
     data = response.json()
@@ -147,8 +145,7 @@ async def test_update_source_tags(admin_client: AsyncClient):
     try:
         # Update with tags
         update_response = await admin_client.put(
-            f"/api/admin/sources/{source_id}",
-            json={"tags": ["new-tag", "updated-tag"]}
+            f"/api/admin/sources/{source_id}", json={"tags": ["new-tag", "updated-tag"]}
         )
         assert update_response.status_code == 200
 

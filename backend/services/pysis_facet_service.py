@@ -68,11 +68,7 @@ class PySisFacetService:
                 raise ValueError("PySis-Prozess gehört nicht zu dieser Entity")
         else:
             # Finde ersten Prozess der Entity
-            result = await self.db.execute(
-                select(PySisProcess)
-                .where(PySisProcess.entity_id == entity_id)
-                .limit(1)
-            )
+            result = await self.db.execute(select(PySisProcess).where(PySisProcess.entity_id == entity_id).limit(1))
             process = result.scalar_one_or_none()
             if not process:
                 raise ValueError(f"Keine PySis-Prozesse für Entity gefunden: {entity.name}")
@@ -136,11 +132,7 @@ class PySisFacetService:
             raise ValueError(f"Entity nicht gefunden: {entity_id}")
 
         # Prüfe ob PySis-Prozesse existieren
-        process_result = await self.db.execute(
-            select(PySisProcess)
-            .where(PySisProcess.entity_id == entity_id)
-            .limit(1)
-        )
+        process_result = await self.db.execute(select(PySisProcess).where(PySisProcess.entity_id == entity_id).limit(1))
         process = process_result.scalar_one_or_none()
         if not process:
             raise ValueError(f"Keine PySis-Prozesse für Entity gefunden: {entity.name}")
@@ -212,9 +204,7 @@ class PySisFacetService:
 
         # Lade PySis-Prozesse
         pysis_result = await self.db.execute(
-            select(PySisProcess)
-            .options(selectinload(PySisProcess.fields))
-            .where(PySisProcess.entity_id == entity_id)
+            select(PySisProcess).options(selectinload(PySisProcess.fields)).where(PySisProcess.entity_id == entity_id)
         )
         processes = pysis_result.scalars().all()
 
@@ -238,9 +228,7 @@ class PySisFacetService:
         if operation == "analyze":
             # Lade aktive FacetTypes
             ft_result = await self.db.execute(
-                select(FacetType)
-                .where(FacetType.is_active.is_(True))
-                .where(FacetType.ai_extraction_enabled.is_(True))
+                select(FacetType).where(FacetType.is_active.is_(True)).where(FacetType.ai_extraction_enabled.is_(True))
             )
             facet_types = ft_result.scalars().all()
 
@@ -267,9 +255,7 @@ class PySisFacetService:
 
             # Lade aktive FacetTypes für neue Erstellung
             ft_result = await self.db.execute(
-                select(FacetType)
-                .where(FacetType.is_active.is_(True))
-                .where(FacetType.ai_extraction_enabled.is_(True))
+                select(FacetType).where(FacetType.is_active.is_(True)).where(FacetType.ai_extraction_enabled.is_(True))
             )
             facet_types = ft_result.scalars().all()
 
@@ -298,10 +284,7 @@ class PySisFacetService:
                 .where(FacetValue.is_active.is_(True))
                 .group_by(FacetType.slug, FacetType.name)
             )
-            facet_counts = [
-                {"slug": row[0], "name": row[1], "count": row[2]}
-                for row in facet_by_type.all()
-            ]
+            facet_counts = [{"slug": row[0], "name": row[1], "count": row[2]} for row in facet_by_type.all()]
 
             return {
                 "can_execute": fields_with_values > 0,
@@ -338,9 +321,7 @@ class PySisFacetService:
 
         # Lade PySis-Prozesse mit Feldern
         pysis_result = await self.db.execute(
-            select(PySisProcess)
-            .options(selectinload(PySisProcess.fields))
-            .where(PySisProcess.entity_id == entity_id)
+            select(PySisProcess).options(selectinload(PySisProcess.fields)).where(PySisProcess.entity_id == entity_id)
         )
         processes = pysis_result.scalars().all()
 
@@ -371,25 +352,29 @@ class PySisFacetService:
                 if f.needs_push:
                     fields_summary["needs_push"] += 1
 
-                field_list.append({
-                    "name": f.internal_name,
-                    "pysis_name": f.pysis_field_name,
-                    "has_value": bool(value),
-                    "value_preview": str(value)[:100] if value else None,
-                    "source": f.value_source.value if f.value_source else None,
-                    "ai_enabled": f.ai_extraction_enabled,
-                    "confidence": f.confidence_score,
-                })
+                field_list.append(
+                    {
+                        "name": f.internal_name,
+                        "pysis_name": f.pysis_field_name,
+                        "has_value": bool(value),
+                        "value_preview": str(value)[:100] if value else None,
+                        "source": f.value_source.value if f.value_source else None,
+                        "ai_enabled": f.ai_extraction_enabled,
+                        "confidence": f.confidence_score,
+                    }
+                )
 
-            process_info.append({
-                "id": str(p.id),
-                "pysis_id": p.pysis_process_id,
-                "name": p.name or p.entity_name,
-                "status": p.sync_status.value if p.sync_status else "UNKNOWN",
-                "last_sync": p.last_synced_at.isoformat() if p.last_synced_at else None,
-                "fields_summary": fields_summary,
-                "fields": field_list[:20],  # Limit für Übersicht
-            })
+            process_info.append(
+                {
+                    "id": str(p.id),
+                    "pysis_id": p.pysis_process_id,
+                    "name": p.name or p.entity_name,
+                    "status": p.sync_status.value if p.sync_status else "UNKNOWN",
+                    "last_sync": p.last_synced_at.isoformat() if p.last_synced_at else None,
+                    "fields_summary": fields_summary,
+                    "fields": field_list[:20],  # Limit für Übersicht
+                }
+            )
 
         # Lade letzte AITasks
         task_result = await self.db.execute(
@@ -435,9 +420,7 @@ class PySisFacetService:
 
         # Schnelle Zählung
         pysis_count = await self.db.scalar(
-            select(func.count())
-            .select_from(PySisProcess)
-            .where(PySisProcess.entity_id == entity_id)
+            select(func.count()).select_from(PySisProcess).where(PySisProcess.entity_id == entity_id)
         )
 
         if pysis_count == 0:

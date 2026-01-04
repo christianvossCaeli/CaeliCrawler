@@ -85,8 +85,7 @@ class EntityDataFacetService:
             ).where(
                 and_(
                     EntityRelation.is_active.is_(True),
-                    (EntityRelation.source_entity_id == entity_id)
-                    | (EntityRelation.target_entity_id == entity_id),
+                    (EntityRelation.source_entity_id == entity_id) | (EntityRelation.target_entity_id == entity_id),
                 )
             )
         )
@@ -124,9 +123,7 @@ class EntityDataFacetService:
         )
         extractions_row = extractions_result.first()
         extractions_count = extractions_row.count if extractions_row else 0
-        extractions_last_updated = (
-            extractions_row.last_updated if extractions_row else None
-        )
+        extractions_last_updated = extractions_row.last_updated if extractions_row else None
 
         # Attachments with completed analysis
         attachments_result = await self.db.execute(
@@ -162,49 +159,31 @@ class EntityDataFacetService:
             "pysis": {
                 "available": pysis_count > 0,
                 "count": pysis_count,
-                "last_updated": (
-                    pysis_last_updated.isoformat() if pysis_last_updated else None
-                ),
+                "last_updated": (pysis_last_updated.isoformat() if pysis_last_updated else None),
                 "label": "PySIS-Daten",
             },
             "relations": {
                 "available": relations_count > 0,
                 "count": relations_count,
-                "last_updated": (
-                    relations_last_updated.isoformat()
-                    if relations_last_updated
-                    else None
-                ),
+                "last_updated": (relations_last_updated.isoformat() if relations_last_updated else None),
                 "label": "Verknüpfungen",
             },
             "documents": {
                 "available": documents_count > 0,
                 "count": documents_count,
-                "last_updated": (
-                    documents_last_updated.isoformat()
-                    if documents_last_updated
-                    else None
-                ),
+                "last_updated": (documents_last_updated.isoformat() if documents_last_updated else None),
                 "label": "Dokumente",
             },
             "extractions": {
                 "available": extractions_count > 0,
                 "count": extractions_count,
-                "last_updated": (
-                    extractions_last_updated.isoformat()
-                    if extractions_last_updated
-                    else None
-                ),
+                "last_updated": (extractions_last_updated.isoformat() if extractions_last_updated else None),
                 "label": "AI-Extraktionen",
             },
             "attachments": {
                 "available": attachments_count > 0,
                 "count": attachments_count,
-                "last_updated": (
-                    attachments_last_updated.isoformat()
-                    if attachments_last_updated
-                    else None
-                ),
+                "last_updated": (attachments_last_updated.isoformat() if attachments_last_updated else None),
                 "label": "Anhänge",
             },
             "existing_facets": facets_count or 0,
@@ -430,14 +409,10 @@ class EntityDataFacetService:
             "errors": errors if errors else None,
         }
 
-    async def _create_facet_from_preview(
-        self, facet_data: dict[str, Any], entity_id: UUID
-    ) -> FacetValue:
+    async def _create_facet_from_preview(self, facet_data: dict[str, Any], entity_id: UUID) -> FacetValue:
         """Create a new facet value from preview data."""
         # Get facet type
-        facet_type = await self.db.execute(
-            select(FacetType).where(FacetType.slug == facet_data.get("facet_type"))
-        )
+        facet_type = await self.db.execute(select(FacetType).where(FacetType.slug == facet_data.get("facet_type")))
         facet_type = facet_type.scalar_one_or_none()
         if not facet_type:
             raise ValueError(f"FacetType nicht gefunden: {facet_data.get('facet_type')}")
@@ -458,6 +433,7 @@ class EntityDataFacetService:
 
         # Generate embedding for semantic similarity search
         from app.utils.similarity import generate_embedding
+
         embedding = await generate_embedding(text_repr)
         if embedding:
             facet_value.text_embedding = embedding
@@ -520,27 +496,19 @@ async def collect_entity_data(
     }
 
     if "relations" in source_types:
-        collected_data["sources"]["relations"] = await _collect_relations(
-            db, entity_id
-        )
+        collected_data["sources"]["relations"] = await _collect_relations(db, entity_id)
 
     if "documents" in source_types:
-        collected_data["sources"]["documents"] = await _collect_documents(
-            db, entity_id
-        )
+        collected_data["sources"]["documents"] = await _collect_documents(db, entity_id)
 
     if "extractions" in source_types:
-        collected_data["sources"]["extractions"] = await _collect_extractions(
-            db, entity_id
-        )
+        collected_data["sources"]["extractions"] = await _collect_extractions(db, entity_id)
 
     if "pysis" in source_types:
         collected_data["sources"]["pysis"] = await _collect_pysis(db, entity_id)
 
     if "attachments" in source_types:
-        collected_data["sources"]["attachments"] = await _collect_attachments(
-            db, entity_id
-        )
+        collected_data["sources"]["attachments"] = await _collect_attachments(db, entity_id)
 
     return collected_data
 
@@ -583,53 +551,57 @@ async def _collect_relations(db: AsyncSession, entity_id: UUID) -> list[dict[str
 
     for rel in source_relations:
         target = rel.target_entity
-        relations_data.append({
-            "direction": "outgoing",
-            "relation_type": rel.relation_type.slug if rel.relation_type else None,
-            "relation_name": rel.relation_type.name if rel.relation_type else None,
-            "attributes": rel.attributes,
-            "related_entity": {
-                "id": str(target.id),
-                "name": target.name,
-                "facets": [
-                    {
-                        "type": fv.facet_type_id,
-                        "value": fv.value,
-                        "text": fv.text_representation,
-                    }
-                    for fv in (target.facet_values or [])
-                    if fv.is_active
-                ][:20],  # Limit for context size
-            },
-            "confidence": rel.confidence_score,
-            "valid_from": rel.valid_from.isoformat() if rel.valid_from else None,
-            "valid_until": rel.valid_until.isoformat() if rel.valid_until else None,
-        })
+        relations_data.append(
+            {
+                "direction": "outgoing",
+                "relation_type": rel.relation_type.slug if rel.relation_type else None,
+                "relation_name": rel.relation_type.name if rel.relation_type else None,
+                "attributes": rel.attributes,
+                "related_entity": {
+                    "id": str(target.id),
+                    "name": target.name,
+                    "facets": [
+                        {
+                            "type": fv.facet_type_id,
+                            "value": fv.value,
+                            "text": fv.text_representation,
+                        }
+                        for fv in (target.facet_values or [])
+                        if fv.is_active
+                    ][:20],  # Limit for context size
+                },
+                "confidence": rel.confidence_score,
+                "valid_from": rel.valid_from.isoformat() if rel.valid_from else None,
+                "valid_until": rel.valid_until.isoformat() if rel.valid_until else None,
+            }
+        )
 
     for rel in target_relations:
         source = rel.source_entity
-        relations_data.append({
-            "direction": "incoming",
-            "relation_type": rel.relation_type.slug if rel.relation_type else None,
-            "relation_name": rel.relation_type.name if rel.relation_type else None,
-            "attributes": rel.attributes,
-            "related_entity": {
-                "id": str(source.id),
-                "name": source.name,
-                "facets": [
-                    {
-                        "type": fv.facet_type_id,
-                        "value": fv.value,
-                        "text": fv.text_representation,
-                    }
-                    for fv in (source.facet_values or [])
-                    if fv.is_active
-                ][:20],
-            },
-            "confidence": rel.confidence_score,
-            "valid_from": rel.valid_from.isoformat() if rel.valid_from else None,
-            "valid_until": rel.valid_until.isoformat() if rel.valid_until else None,
-        })
+        relations_data.append(
+            {
+                "direction": "incoming",
+                "relation_type": rel.relation_type.slug if rel.relation_type else None,
+                "relation_name": rel.relation_type.name if rel.relation_type else None,
+                "attributes": rel.attributes,
+                "related_entity": {
+                    "id": str(source.id),
+                    "name": source.name,
+                    "facets": [
+                        {
+                            "type": fv.facet_type_id,
+                            "value": fv.value,
+                            "text": fv.text_representation,
+                        }
+                        for fv in (source.facet_values or [])
+                        if fv.is_active
+                    ][:20],
+                },
+                "confidence": rel.confidence_score,
+                "valid_from": rel.valid_from.isoformat() if rel.valid_from else None,
+                "valid_until": rel.valid_until.isoformat() if rel.valid_until else None,
+            }
+        )
 
     return relations_data
 
@@ -663,9 +635,7 @@ async def _collect_documents(db: AsyncSession, entity_id: UUID) -> list[dict[str
     ]
 
 
-async def _collect_extractions(
-    db: AsyncSession, entity_id: UUID
-) -> list[dict[str, Any]]:
+async def _collect_extractions(db: AsyncSession, entity_id: UUID) -> list[dict[str, Any]]:
     """Collect AI extractions from documents."""
     result = await db.execute(
         select(ExtractedData)
@@ -692,9 +662,7 @@ async def _collect_extractions(
 async def _collect_pysis(db: AsyncSession, entity_id: UUID) -> list[dict[str, Any]]:
     """Collect PySIS process fields."""
     result = await db.execute(
-        select(PySisProcess)
-        .options(selectinload(PySisProcess.fields))
-        .where(PySisProcess.entity_id == entity_id)
+        select(PySisProcess).options(selectinload(PySisProcess.fields)).where(PySisProcess.entity_id == entity_id)
     )
     processes = result.scalars().all()
 
@@ -704,21 +672,25 @@ async def _collect_pysis(db: AsyncSession, entity_id: UUID) -> list[dict[str, An
         for field in process.fields:
             value = field.current_value or field.pysis_value or field.ai_extracted_value
             if value:
-                fields_data.append({
-                    "name": field.internal_name,
-                    "pysis_name": field.pysis_field_name,
-                    "value": value,
-                    "source": field.value_source.value if field.value_source else None,
-                    "confidence": field.confidence_score,
-                })
+                fields_data.append(
+                    {
+                        "name": field.internal_name,
+                        "pysis_name": field.pysis_field_name,
+                        "value": value,
+                        "source": field.value_source.value if field.value_source else None,
+                        "confidence": field.confidence_score,
+                    }
+                )
 
         if fields_data:
-            pysis_data.append({
-                "process_id": str(process.id),
-                "name": process.name or process.entity_name,
-                "pysis_id": process.pysis_process_id,
-                "fields": fields_data,
-            })
+            pysis_data.append(
+                {
+                    "process_id": str(process.id),
+                    "name": process.name or process.entity_name,
+                    "pysis_id": process.pysis_process_id,
+                    "fields": fields_data,
+                }
+            )
 
     return pysis_data
 
@@ -769,9 +741,7 @@ async def _collect_attachments(db: AsyncSession, entity_id: UUID) -> list[dict[s
     return attachments_data
 
 
-async def get_existing_facets(
-    db: AsyncSession, entity_id: UUID
-) -> list[dict[str, Any]]:
+async def get_existing_facets(db: AsyncSession, entity_id: UUID) -> list[dict[str, Any]]:
     """Get existing facet values for duplicate checking."""
     result = await db.execute(
         select(FacetValue)

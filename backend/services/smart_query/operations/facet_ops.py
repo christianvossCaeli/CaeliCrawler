@@ -50,11 +50,7 @@ class CreateFacetTypeOperation(WriteOperation):
             slug = generate_slug(name)
 
         # Check if name or slug already exists (exact match)
-        existing = await session.execute(
-            select(FacetType).where(
-                or_(FacetType.slug == slug, FacetType.name == name)
-            )
-        )
+        existing = await session.execute(select(FacetType).where(or_(FacetType.slug == slug, FacetType.name == name)))
         exact_match = existing.scalar_one_or_none()
         if exact_match:
             return OperationResult(
@@ -101,6 +97,7 @@ class CreateFacetTypeOperation(WriteOperation):
         applicable_slugs = facet_type_data.get("applicable_entity_type_slugs") or []
         if applicable_slugs:
             from app.core.validators import validate_entity_type_slugs
+
             _, invalid_slugs = await validate_entity_type_slugs(session, applicable_slugs)
             if invalid_slugs:
                 return OperationResult(
@@ -136,6 +133,7 @@ class CreateFacetTypeOperation(WriteOperation):
 
         # Generate embedding for semantic similarity search
         from app.utils.similarity import generate_embedding
+
         embedding = await generate_embedding(name)
         if embedding:
             facet_type.name_embedding = embedding
@@ -179,9 +177,7 @@ class AssignFacetTypeOperation(WriteOperation):
         target_slugs = assign_data.get("target_entity_type_slugs", [])
 
         # Find FacetType
-        result = await session.execute(
-            select(FacetType).where(FacetType.slug == facet_type_slug)
-        )
+        result = await session.execute(select(FacetType).where(FacetType.slug == facet_type_slug))
         facet_type = result.scalar_one_or_none()
 
         if not facet_type:
@@ -243,12 +239,14 @@ class DeleteFacetOperation(WriteOperation):
             facet = await session.get(FacetValue, UUID(str(facet_id)))
             if facet and facet.entity_id == entity.id:
                 await session.delete(facet)
-                deleted_items.append({
-                    "type": "facet",
-                    "id": str(facet.id),
-                    "facet_type": facet_type_slug,
-                    "text": facet.text_representation,
-                })
+                deleted_items.append(
+                    {
+                        "type": "facet",
+                        "id": str(facet.id),
+                        "facet_type": facet_type_slug,
+                        "text": facet.text_representation,
+                    }
+                )
             else:
                 return OperationResult(
                     success=False,
@@ -258,9 +256,7 @@ class DeleteFacetOperation(WriteOperation):
         # Case 2: Delete by facet type
         elif facet_type_slug:
             # Find FacetType
-            ft_result = await session.execute(
-                select(FacetType).where(FacetType.slug == facet_type_slug)
-            )
+            ft_result = await session.execute(select(FacetType).where(FacetType.slug == facet_type_slug))
             facet_type = ft_result.scalar_one_or_none()
             if not facet_type:
                 return OperationResult(
@@ -279,9 +275,7 @@ class DeleteFacetOperation(WriteOperation):
 
             # Filter by description if provided
             if facet_description and not delete_all_of_type:
-                query = query.where(
-                    FacetValue.text_representation.ilike(f"%{facet_description}%")
-                )
+                query = query.where(FacetValue.text_representation.ilike(f"%{facet_description}%"))
 
             result = await session.execute(query)
             facets = result.scalars().all()
@@ -297,12 +291,14 @@ class DeleteFacetOperation(WriteOperation):
 
             for facet in facets_to_delete:
                 await session.delete(facet)
-                deleted_items.append({
-                    "type": "facet",
-                    "id": str(facet.id),
-                    "facet_type": facet_type_slug,
-                    "text": facet.text_representation[:100] if facet.text_representation else None,
-                })
+                deleted_items.append(
+                    {
+                        "type": "facet",
+                        "id": str(facet.id),
+                        "facet_type": facet_type_slug,
+                        "text": facet.text_representation[:100] if facet.text_representation else None,
+                    }
+                )
 
         else:
             return OperationResult(
@@ -372,9 +368,7 @@ class AddHistoryPointOperation(WriteOperation):
             )
 
         # Find FacetType
-        ft_result = await session.execute(
-            select(FacetType).where(FacetType.slug == facet_type_slug)
-        )
+        ft_result = await session.execute(select(FacetType).where(FacetType.slug == facet_type_slug))
         facet_type = ft_result.scalar_one_or_none()
 
         if not facet_type:

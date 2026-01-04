@@ -51,9 +51,7 @@ class ExternalAPISyncService:
     CLIENT_REGISTRY: dict[str, type[BaseExternalAPIClient]] = {}
 
     @classmethod
-    def register_client(
-        cls, api_type: str, client_class: type[BaseExternalAPIClient]
-    ) -> None:
+    def register_client(cls, api_type: str, client_class: type[BaseExternalAPIClient]) -> None:
         """Register an API client class for a specific api_type.
 
         Args:
@@ -132,9 +130,7 @@ class ExternalAPISyncService:
             # Get target entity type
             entity_type = await self._get_entity_type(config.entity_type_slug)
             if not entity_type:
-                raise ValueError(
-                    f"Entity type not found: {config.entity_type_slug}"
-                )
+                raise ValueError(f"Entity type not found: {config.entity_type_slug}")
 
             # Track which external IDs we've seen
             seen_ids: set[str] = set()
@@ -144,9 +140,7 @@ class ExternalAPISyncService:
                 seen_ids.add(record.external_id)
 
                 try:
-                    sync_result = await self._process_record(
-                        config, record, entity_type
-                    )
+                    sync_result = await self._process_record(config, record, entity_type)
 
                     if sync_result["created"]:
                         result.entities_created += 1
@@ -174,9 +168,7 @@ class ExternalAPISyncService:
                     )
 
             # Handle missing records
-            missing_count, archived_count = await self._handle_missing_records(
-                config, seen_ids
-            )
+            missing_count, archived_count = await self._handle_missing_records(config, seen_ids)
             result.records_missing = missing_count
             result.records_archived = archived_count
 
@@ -212,9 +204,7 @@ class ExternalAPISyncService:
 
         return result
 
-    async def _get_client(
-        self, config: APIConfiguration
-    ) -> BaseExternalAPIClient:
+    async def _get_client(self, config: APIConfiguration) -> BaseExternalAPIClient:
         """Get the appropriate API client for a config.
 
         Args:
@@ -290,14 +280,10 @@ class ExternalAPISyncService:
 
             if was_updated and sync_record.entity_id:
                 # Update the entity
-                await self._update_entity(
-                    sync_record.entity_id, record, config
-                )
+                await self._update_entity(sync_record.entity_id, record, config)
                 # Update facet values
                 if config.facet_mappings:
-                    await self._update_facet_values(
-                        sync_record.entity_id, record, config
-                    )
+                    await self._update_facet_values(sync_record.entity_id, record, config)
         else:
             # New record - create entity and sync record
             entity = await self._create_entity(record, entity_type, config)
@@ -336,9 +322,7 @@ class ExternalAPISyncService:
 
         return result
 
-    async def _get_sync_record(
-        self, config_id: UUID, external_id: str
-    ) -> SyncRecord | None:
+    async def _get_sync_record(self, config_id: UUID, external_id: str) -> SyncRecord | None:
         """Get existing sync record for an external ID.
 
         Args:
@@ -446,9 +430,7 @@ class ExternalAPISyncService:
             external_id=record.external_id,
         )
 
-    def _map_fields(
-        self, raw_data: dict[str, Any], mappings: dict[str, str]
-    ) -> dict[str, Any]:
+    def _map_fields(self, raw_data: dict[str, Any], mappings: dict[str, str]) -> dict[str, Any]:
         """Map API fields to entity core_attributes.
 
         The mapping format is: {"api_field": "attribute_path"}
@@ -476,9 +458,7 @@ class ExternalAPISyncService:
 
         return result
 
-    def _get_nested_value(
-        self, data: dict[str, Any], path: str
-    ) -> Any | None:
+    def _get_nested_value(self, data: dict[str, Any], path: str) -> Any | None:
         """Get a value from nested dictionary using dot notation.
 
         Args:
@@ -518,9 +498,7 @@ class ExternalAPISyncService:
         linked_ids = []
 
         try:
-            results = await self.linking_service.link_entity_to_locations(
-                entity_id, location_hints, link_types
-            )
+            results = await self.linking_service.link_entity_to_locations(entity_id, location_hints, link_types)
 
             for _type_slug, ids in results.items():
                 linked_ids.extend(ids)
@@ -534,9 +512,7 @@ class ExternalAPISyncService:
 
         return linked_ids
 
-    async def _handle_missing_records(
-        self, config: APIConfiguration, seen_ids: set[str]
-    ) -> tuple[int, int]:
+    async def _handle_missing_records(self, config: APIConfiguration, seen_ids: set[str]) -> tuple[int, int]:
         """Handle records that were not found in the current API response.
 
         This marks records as missing and archives them if they've been
@@ -557,9 +533,7 @@ class ExternalAPISyncService:
             select(SyncRecord).where(
                 SyncRecord.api_configuration_id == config.id,
                 SyncRecord.external_id.notin_(seen_ids),
-                SyncRecord.sync_status.in_(
-                    [RecordStatus.ACTIVE.value, RecordStatus.UPDATED.value]
-                ),
+                SyncRecord.sync_status.in_([RecordStatus.ACTIVE.value, RecordStatus.UPDATED.value]),
             )
         )
         missing_records = result.scalars().all()
@@ -738,9 +712,7 @@ class ExternalAPISyncService:
             if existing:
                 if existing.value != facet_value:
                     existing.value = facet_value
-                    existing.text_representation = self._get_text_representation(
-                        facet_value, facet_type
-                    )
+                    existing.text_representation = self._get_text_representation(facet_value, facet_type)
                     updated_count += 1
             else:
                 # Create new FacetValue
@@ -763,7 +735,9 @@ class ExternalAPISyncService:
         return updated_count
 
     def _get_text_representation(
-        self, value: dict[str, Any], facet_type: "FacetType"  # noqa: F821
+        self,
+        value: dict[str, Any],
+        facet_type: "FacetType",  # noqa: F821
     ) -> str:
         """Generate text representation for a facet value.
 
@@ -831,7 +805,9 @@ class ExternalAPISyncService:
         return self._entity_type_cache.get(cache_key)
 
     def _convert_value_for_facet(
-        self, value: Any, facet_type: "FacetType"  # noqa: F821
+        self,
+        value: Any,
+        facet_type: "FacetType",  # noqa: F821
     ) -> Any | None:
         """Convert a raw value to the appropriate type for a FacetType.
 

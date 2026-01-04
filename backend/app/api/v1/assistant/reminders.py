@@ -128,9 +128,7 @@ async def create_reminder(
     if entity_id:
         try:
             entity_uuid = UUID(entity_id)
-            result = await session.execute(
-                select(Entity).where(Entity.id == entity_uuid)
-            )
+            result = await session.execute(select(Entity).where(Entity.id == entity_uuid))
             entity = result.scalar_one_or_none()
             if entity:
                 entity_name = entity.name
@@ -295,13 +293,15 @@ async def get_due_reminders(
     from datetime import datetime
 
     result = await session.execute(
-        select(Reminder).where(
+        select(Reminder)
+        .where(
             and_(
                 Reminder.user_id == current_user.id,
                 Reminder.status == ReminderStatus.PENDING,
                 Reminder.remind_at <= datetime.now(UTC),
             )
-        ).order_by(Reminder.remind_at.asc())
+        )
+        .order_by(Reminder.remind_at.asc())
     )
     reminders = result.scalars().all()
 

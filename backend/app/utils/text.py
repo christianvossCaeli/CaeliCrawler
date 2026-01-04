@@ -260,9 +260,7 @@ def extract_core_entity_name(name: str, country: str = "DE") -> str:
         # Only strip if:
         # - The part before comma is substantial (>= 3 chars)
         # - The part after comma looks like a qualifier (starts with capital or is short)
-        if len(before_comma) >= 3 and (
-            after_comma[0].isupper() or len(after_comma) <= 20
-        ):
+        if len(before_comma) >= 3 and (after_comma[0].isupper() or len(after_comma) <= 20):
             result = before_comma
 
     # 3. If we stripped too much (result too short), restore original

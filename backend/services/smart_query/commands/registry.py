@@ -45,11 +45,13 @@ class CommandRegistry:
             class CreateEntityCommand(BaseCommand):
                 ...
         """
+
         def decorator(cls: type[BaseCommand]) -> type[BaseCommand]:
             cls.operation_name = operation_name
             self._commands[operation_name] = cls
             logger.debug("Registered command", operation=operation_name, cls=cls.__name__)
             return cls
+
         return decorator
 
     def register_command(self, operation_name: str, command_class: type[BaseCommand]) -> None:

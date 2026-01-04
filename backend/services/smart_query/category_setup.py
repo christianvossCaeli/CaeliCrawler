@@ -63,30 +63,67 @@ def classify_query_type(user_intent: str, search_terms: list) -> str:
 
     # Entity collection indicators
     entity_keywords = [
-        "alle ", "sämtliche", "jede ", "jeden ", "jedes ",
-        "gemeinde", "kommune", "stadt", "städte", "landkreis",
-        "unternehmen", "firmen", "vereine", "mitglieder",
-        "standorte", "filialen", "niederlassungen",
-        "windkraft", "anlagen", "projekte",
+        "alle ",
+        "sämtliche",
+        "jede ",
+        "jeden ",
+        "jedes ",
+        "gemeinde",
+        "kommune",
+        "stadt",
+        "städte",
+        "landkreis",
+        "unternehmen",
+        "firmen",
+        "vereine",
+        "mitglieder",
+        "standorte",
+        "filialen",
+        "niederlassungen",
+        "windkraft",
+        "anlagen",
+        "projekte",
     ]
 
     # Topic monitoring indicators
     topic_keywords = [
-        "neuerscheinung", "release", "news", "nachrichten",
-        "kurse", "preise", "ergebnisse", "spieltag",
-        "stellenangebot", "job", "karriere",
-        "wetter", "prognose", "vorhersage",
-        "aktuell", "live", "täglich", "wöchentlich", "monatlich",
+        "neuerscheinung",
+        "release",
+        "news",
+        "nachrichten",
+        "kurse",
+        "preise",
+        "ergebnisse",
+        "spieltag",
+        "stellenangebot",
+        "job",
+        "karriere",
+        "wetter",
+        "prognose",
+        "vorhersage",
+        "aktuell",
+        "live",
+        "täglich",
+        "wöchentlich",
+        "monatlich",
     ]
 
     entity_score = sum(1 for kw in entity_keywords if kw in intent_lower)
     topic_score = sum(1 for kw in topic_keywords if kw in intent_lower)
 
     # Check for geographic scope that suggests entity collection
-    geographic_scope = any(x in intent_lower for x in [
-        "in deutschland", "in nrw", "in bayern", "in hessen",
-        "bundesweit", "landesweit", "regional",
-    ])
+    geographic_scope = any(
+        x in intent_lower
+        for x in [
+            "in deutschland",
+            "in nrw",
+            "in bayern",
+            "in hessen",
+            "bundesweit",
+            "landesweit",
+            "regional",
+        ]
+    )
 
     if entity_score > topic_score or geographic_scope and entity_score > 0:
         return "entity_collection"
@@ -143,12 +180,14 @@ async def create_category_setup_with_ai(
     total_steps = 6
 
     def report_progress(step: int, message: str, success: bool = True):
-        result["steps"].append({
-            "step": step,
-            "total": total_steps,
-            "message": message,
-            "success": success,
-        })
+        result["steps"].append(
+            {
+                "step": step,
+                "total": total_steps,
+                "message": message,
+                "success": success,
+            }
+        )
         if progress_callback:
             progress_callback(step, 3, message)
         logger.info(f"Smart Query Progress [{step}/3]: {message}")
@@ -207,9 +246,7 @@ async def create_category_setup_with_ai(
         # 2. Check for exact duplicates (if not already found via hierarchy)
         if not entity_type:
             existing_et = await session.execute(
-                select(EntityType).where(
-                    or_(EntityType.name == name, EntityType.slug == slug)
-                )
+                select(EntityType).where(or_(EntityType.name == name, EntityType.slug == slug))
             )
             existing_type = existing_et.scalar()
             if existing_type:
@@ -260,6 +297,7 @@ async def create_category_setup_with_ai(
 
             # Generate embedding for semantic similarity search
             from app.utils.similarity import generate_embedding
+
             try:
                 embedding = await generate_embedding(name)
                 if embedding:
@@ -311,9 +349,7 @@ async def create_category_setup_with_ai(
 
         # Check for exact duplicate Category
         existing_cat_result = await session.execute(
-            select(Category).where(
-                or_(Category.name == name, Category.slug == slug)
-            )
+            select(Category).where(or_(Category.name == name, Category.slug == slug))
         )
         existing_category = existing_cat_result.scalar()
 
@@ -391,10 +427,7 @@ async def create_category_setup_with_ai(
 
         # Also check sources matching search terms
         if search_terms:
-            search_term_conditions = [
-                DataSource.name.ilike(f"%{term}%")
-                for term in search_terms[:5]
-            ]
+            search_term_conditions = [DataSource.name.ilike(f"%{term}%") for term in search_terms[:5]]
             if search_term_conditions:
                 term_sources_result = await session.execute(
                     select(DataSource).where(
@@ -458,8 +491,7 @@ async def create_category_setup_with_ai(
                     # Fallback to keyword-based classification
                     query_type = classify_query_type(user_intent, search_terms)
                     source_limit = (
-                        AI_DISCOVERY_ENTITY_LIMIT if query_type == "entity_collection"
-                        else AI_DISCOVERY_TOPIC_LIMIT
+                        AI_DISCOVERY_ENTITY_LIMIT if query_type == "entity_collection" else AI_DISCOVERY_TOPIC_LIMIT
                     )
                     logger.info(
                         "Fallback query classification",
@@ -491,9 +523,7 @@ async def create_category_setup_with_ai(
 
                     # Check if URL already exists in database
                     existing_source = await session.execute(
-                        select(DataSource).where(
-                            DataSource.base_url == source_data.base_url
-                        )
+                        select(DataSource).where(DataSource.base_url == source_data.base_url)
                     )
                     if existing_source.scalar():
                         # Source exists, will be linked below
@@ -501,6 +531,7 @@ async def create_category_setup_with_ai(
 
                     # Validate URL with HTTP check (follows redirects, checks for 404 etc.)
                     from app.core.url_validator import validate_url_http
+
                     is_valid, error_msg, final_url = await validate_url_http(
                         source_data.base_url,
                         follow_redirects=True,
@@ -513,9 +544,7 @@ async def create_category_setup_with_ai(
                             url=source_data.base_url,
                             error=error_msg,
                         )
-                        result["warnings"].append(
-                            f"URL übersprungen ({error_msg}): {source_data.base_url[:50]}"
-                        )
+                        result["warnings"].append(f"URL übersprungen ({error_msg}): {source_data.base_url[:50]}")
                         continue
 
                     # Use the final URL after redirects
@@ -524,9 +553,7 @@ async def create_category_setup_with_ai(
                     # Check again if the final URL already exists
                     if validated_url != source_data.base_url:
                         existing_final = await session.execute(
-                            select(DataSource).where(
-                                DataSource.base_url == validated_url
-                            )
+                            select(DataSource).where(DataSource.base_url == validated_url)
                         )
                         if existing_final.scalar():
                             logger.info(
@@ -538,6 +565,7 @@ async def create_category_setup_with_ai(
 
                     # Create new DataSource from discovered source
                     from app.models.data_source import SourceType
+
                     # Determine source type
                     src_type = SourceType.WEBSITE
                     if source_data.source_type:
@@ -562,12 +590,14 @@ async def create_category_setup_with_ai(
                         },
                     )
                     session.add(new_source)
-                    discovered_sources.append({
-                        "name": new_source.name,
-                        "url": new_source.base_url,
-                        "confidence": source_data.confidence,
-                        "tags": source_data.tags,
-                    })
+                    discovered_sources.append(
+                        {
+                            "name": new_source.name,
+                            "url": new_source.base_url,
+                            "confidence": source_data.confidence,
+                            "tags": source_data.tags,
+                        }
+                    )
                     discovered_count += 1
 
                 await session.flush()
@@ -663,23 +693,23 @@ async def create_category_setup_with_ai(
                     continue
 
                 # Check if FacetType already exists
-                existing_ft = await session.execute(
-                    select(FacetType).where(FacetType.slug == ft_slug)
-                )
+                existing_ft = await session.execute(select(FacetType).where(FacetType.slug == ft_slug))
                 existing = existing_ft.scalar_one_or_none()
 
                 if existing:
                     # FacetType exists - just add EntityType to applicable_entity_type_slugs
                     if entity_type.slug not in (existing.applicable_entity_type_slugs or []):
-                        existing.applicable_entity_type_slugs = (
-                            existing.applicable_entity_type_slugs or []
-                        ) + [entity_type.slug]
-                        facet_types_created.append({
-                            "id": str(existing.id),
-                            "name": existing.name,
-                            "slug": existing.slug,
-                            "is_new": False,
-                        })
+                        existing.applicable_entity_type_slugs = (existing.applicable_entity_type_slugs or []) + [
+                            entity_type.slug
+                        ]
+                        facet_types_created.append(
+                            {
+                                "id": str(existing.id),
+                                "name": existing.name,
+                                "slug": existing.slug,
+                                "is_new": False,
+                            }
+                        )
                         facet_types_count += 1
                         logger.info(
                             "Linked existing FacetType to EntityType",
@@ -690,9 +720,7 @@ async def create_category_setup_with_ai(
                     # Check for semantically similar FacetTypes before creating
                     from app.utils.similarity import find_similar_facet_types
 
-                    similar_types = await find_similar_facet_types(
-                        session, ft_name, threshold=0.7
-                    )
+                    similar_types = await find_similar_facet_types(session, ft_name, threshold=0.7)
 
                     if similar_types:
                         # Use existing similar FacetType instead of creating duplicate
@@ -701,14 +729,16 @@ async def create_category_setup_with_ai(
                             best_match.applicable_entity_type_slugs = (
                                 best_match.applicable_entity_type_slugs or []
                             ) + [entity_type.slug]
-                        facet_types_created.append({
-                            "id": str(best_match.id),
-                            "name": best_match.name,
-                            "slug": best_match.slug,
-                            "is_new": False,
-                            "matched_from": ft_name,
-                            "similarity_score": score,
-                        })
+                        facet_types_created.append(
+                            {
+                                "id": str(best_match.id),
+                                "name": best_match.name,
+                                "slug": best_match.slug,
+                                "is_new": False,
+                                "matched_from": ft_name,
+                                "similarity_score": score,
+                            }
+                        )
                         facet_types_count += 1
                         logger.info(
                             "Linked similar FacetType to EntityType (avoided duplicate)",
@@ -733,8 +763,7 @@ async def create_category_setup_with_ai(
                             is_time_based=ft_data.get("is_time_based", True),
                             ai_extraction_enabled=True,
                             ai_extraction_prompt=ft_data.get(
-                                "ai_extraction_prompt",
-                                f"Extrahiere {ft_name} aus dem Dokument."
+                                "ai_extraction_prompt", f"Extrahiere {ft_name} aus dem Dokument."
                             ),
                             is_active=True,
                             is_system=False,
@@ -743,16 +772,19 @@ async def create_category_setup_with_ai(
 
                         # Generate embedding for future similarity checks
                         from app.utils.similarity import generate_embedding
+
                         embedding = await generate_embedding(ft_name)
                         if embedding:
                             new_facet_type.name_embedding = embedding
 
-                        facet_types_created.append({
-                            "id": str(new_facet_type.id),
-                            "name": new_facet_type.name,
-                            "slug": new_facet_type.slug,
-                            "is_new": True,
-                        })
+                        facet_types_created.append(
+                            {
+                                "id": str(new_facet_type.id),
+                                "name": new_facet_type.name,
+                                "slug": new_facet_type.slug,
+                                "is_new": True,
+                            }
+                        )
                         facet_types_count += 1
                         logger.info(
                             "Created new FacetType",
@@ -816,9 +848,9 @@ async def create_category_setup_with_ai(
             # (not "Deutschland" or empty - those are too broad)
             if settings.feature_entity_hierarchy and geographic_context:
                 is_specific_region = (
-                    geographic_context != "Deutschland" and
-                    geographic_context != "Keine geografische Einschränkung" and
-                    len(geographic_context) > 2  # Not just a country code
+                    geographic_context != "Deutschland"
+                    and geographic_context != "Keine geografische Einschränkung"
+                    and len(geographic_context) > 2  # Not just a country code
                 )
 
                 if is_specific_region and not use_hierarchy:
@@ -829,14 +861,12 @@ async def create_category_setup_with_ai(
                     use_hierarchy = True
                     parent_name = geographic_context
 
-            if (settings.feature_entity_hierarchy and use_hierarchy and parent_name):
+            if settings.feature_entity_hierarchy and use_hierarchy and parent_name:
                 # Use AI-suggested parent_type or default to territorial_entity for geographic entities
                 parent_type_slug = hierarchy_config.get("parent_entity_type", "territorial_entity")
 
                 # Look up parent entity type
-                parent_et_result = await session.execute(
-                    select(EntityType).where(EntityType.slug == parent_type_slug)
-                )
+                parent_et_result = await session.execute(select(EntityType).where(EntityType.slug == parent_type_slug))
                 parent_entity_type = parent_et_result.scalar_one_or_none()
 
                 # Fallback to territorial_entity if parent type not found
@@ -935,12 +965,14 @@ async def create_category_setup_with_ai(
                 )
                 session.add(new_entity)
                 created_entities_map[entity_name] = new_entity
-                seed_entities_created.append({
-                    "id": str(new_entity.id),
-                    "name": new_entity.name,
-                    "external_id": new_entity.external_id,
-                    "relations": entity_data.get("relations", []),
-                })
+                seed_entities_created.append(
+                    {
+                        "id": str(new_entity.id),
+                        "name": new_entity.name,
+                        "external_id": new_entity.external_id,
+                        "relations": entity_data.get("relations", []),
+                    }
+                )
                 seed_entities_count += 1
 
             await session.flush()
@@ -1090,7 +1122,9 @@ async def create_category_setup_with_ai(
             completeness_note = "vollständig" if is_complete else f"({seed_entities_count} von ~{total_known})"
             relation_note = f", {seed_relations_count} Relations" if seed_relations_count > 0 else ""
             hierarchy_note = " (hierarchisch)" if hierarchy_parent_id else ""
-            result["steps"][-1]["result"] = f"{seed_entities_count} Seed-Entities erstellt {completeness_note}{relation_note}{hierarchy_note}"
+            result["steps"][-1]["result"] = (
+                f"{seed_entities_count} Seed-Entities erstellt {completeness_note}{relation_note}{hierarchy_note}"
+            )
 
             if seed_config.get("data_quality_note"):
                 result["warnings"].append(f"Seed-Entities: {seed_config['data_quality_note']}")
@@ -1180,9 +1214,7 @@ async def create_category_setup(
 
         # 3. Check for duplicate EntityType (exact match)
         existing_et = await session.execute(
-            select(EntityType).where(
-                or_(EntityType.name == name, EntityType.slug == slug)
-            )
+            select(EntityType).where(or_(EntityType.name == name, EntityType.slug == slug))
         )
         if existing_et.scalar():
             result["message"] = f"EntityType '{name}' existiert bereits"
@@ -1248,6 +1280,7 @@ async def create_category_setup(
 
         # Generate embedding for semantic similarity search
         from app.utils.similarity import generate_embedding
+
         try:
             embedding = await generate_embedding(name)
             if embedding:
@@ -1270,9 +1303,7 @@ async def create_category_setup(
 
         # 8. Check for duplicate Category (exact match)
         existing_cat_result = await session.execute(
-            select(Category).where(
-                or_(Category.name == name, Category.slug == slug)
-            )
+            select(Category).where(or_(Category.name == name, Category.slug == slug))
         )
         existing_category = existing_cat_result.scalar()
 
@@ -1358,7 +1389,9 @@ async def create_category_setup(
 
         # 11. Build result
         result["success"] = True
-        result["message"] = f"Setup erstellt: EntityType '{entity_type.name}', Category '{category.name}', {linked_count} DataSources verknüpft"
+        result["message"] = (
+            f"Setup erstellt: EntityType '{entity_type.name}', Category '{category.name}', {linked_count} DataSources verknüpft"
+        )
         result["entity_type_id"] = str(entity_type.id)
         result["entity_type_name"] = entity_type.name
         result["entity_type_slug"] = entity_type.slug
@@ -1371,8 +1404,7 @@ async def create_category_setup(
         if linked_count == 0:
             admin_level = geographic_filter.get("admin_level_1") or geographic_filter.get("admin_level_1_alias")
             result["warnings"].append(
-                f"Keine DataSources für Filter '{admin_level}' gefunden. "
-                "Bitte DataSources manuell hinzufügen."
+                f"Keine DataSources für Filter '{admin_level}' gefunden. Bitte DataSources manuell hinzufügen."
             )
 
         return result

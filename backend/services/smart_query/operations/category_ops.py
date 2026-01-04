@@ -58,9 +58,7 @@ class AssignFacetTypesOperation(WriteOperation):
         try:
             # Format 1: Single facet to multiple entity types
             if facet_type_slug and target_entity_type_slugs:
-                ft_result = await session.execute(
-                    select(FacetType).where(FacetType.slug == facet_type_slug)
-                )
+                ft_result = await session.execute(select(FacetType).where(FacetType.slug == facet_type_slug))
                 facet_type = ft_result.scalar_one_or_none()
 
                 if not facet_type:
@@ -71,9 +69,7 @@ class AssignFacetTypesOperation(WriteOperation):
 
                 # Verify entity types exist
                 for et_slug in target_entity_type_slugs:
-                    et_result = await session.execute(
-                        select(EntityType).where(EntityType.slug == et_slug)
-                    )
+                    et_result = await session.execute(select(EntityType).where(EntityType.slug == et_slug))
                     if et_result.scalar_one_or_none():
                         # Add to applicable_entity_type_slugs if not already there
                         current_slugs = list(facet_type.applicable_entity_type_slugs or [])
@@ -97,9 +93,7 @@ class AssignFacetTypesOperation(WriteOperation):
             # Format 2: Multiple facets to single entity type
             if entity_type_slug:
                 # Verify entity type exists
-                et_result = await session.execute(
-                    select(EntityType).where(EntityType.slug == entity_type_slug)
-                )
+                et_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
                 entity_type = et_result.scalar_one_or_none()
 
                 if not entity_type:
@@ -110,14 +104,10 @@ class AssignFacetTypesOperation(WriteOperation):
 
                 # Get facet types
                 if auto_detect or not facet_type_slugs:
-                    ft_result = await session.execute(
-                        select(FacetType).where(FacetType.is_active)
-                    )
+                    ft_result = await session.execute(select(FacetType).where(FacetType.is_active))
                     facet_types = list(ft_result.scalars().all())
                 else:
-                    ft_result = await session.execute(
-                        select(FacetType).where(FacetType.slug.in_(facet_type_slugs))
-                    )
+                    ft_result = await session.execute(select(FacetType).where(FacetType.slug.in_(facet_type_slugs)))
                     facet_types = list(ft_result.scalars().all())
 
                 for facet_type in facet_types:
@@ -175,14 +165,10 @@ class LinkCategoryEntityTypesOperation(WriteOperation):
         try:
             if auto_detect:
                 # Get all active categories
-                cat_result = await session.execute(
-                    select(Category).where(Category.is_active)
-                )
+                cat_result = await session.execute(select(Category).where(Category.is_active))
                 categories = list(cat_result.scalars().all())
             else:
-                cat_result = await session.execute(
-                    select(Category).where(Category.slug == category_slug)
-                )
+                cat_result = await session.execute(select(Category).where(Category.slug == category_slug))
                 categories = list(cat_result.scalars().all())
 
             if not categories:
@@ -192,9 +178,7 @@ class LinkCategoryEntityTypesOperation(WriteOperation):
                 )
 
             # Get entity types
-            et_result = await session.execute(
-                select(EntityType).where(EntityType.slug.in_(entity_type_slugs))
-            )
+            et_result = await session.execute(select(EntityType).where(EntityType.slug.in_(entity_type_slugs)))
             entity_types = list(et_result.scalars().all())
 
             if not entity_types:
@@ -210,7 +194,7 @@ class LinkCategoryEntityTypesOperation(WriteOperation):
                     existing = await session.execute(
                         select(CategoryEntityType).where(
                             CategoryEntityType.category_id == category.id,
-                            CategoryEntityType.entity_type_id == entity_type.id
+                            CategoryEntityType.entity_type_id == entity_type.id,
                         )
                     )
                     if not existing.scalar_one_or_none():
@@ -267,9 +251,7 @@ class LinkExistingCategoryOperation(WriteOperation):
             )
 
         try:
-            cat_result = await session.execute(
-                select(Category).where(Category.slug == category_slug)
-            )
+            cat_result = await session.execute(select(Category).where(Category.slug == category_slug))
             category = cat_result.scalar_one_or_none()
 
             if not category:
@@ -316,9 +298,7 @@ class CreateRelationTypeOperation(WriteOperation):
 
         try:
             # Find the existing relation type
-            rt_result = await session.execute(
-                select(RelationType).where(RelationType.slug == relation_type_slug)
-            )
+            rt_result = await session.execute(select(RelationType).where(RelationType.slug == relation_type_slug))
             relation_type = rt_result.scalar_one_or_none()
 
             if not relation_type:
@@ -328,14 +308,10 @@ class CreateRelationTypeOperation(WriteOperation):
                 )
 
             # Verify entity types exist
-            source_result = await session.execute(
-                select(EntityType).where(EntityType.slug == source_type_slug)
-            )
+            source_result = await session.execute(select(EntityType).where(EntityType.slug == source_type_slug))
             source_type = source_result.scalar_one_or_none()
 
-            target_result = await session.execute(
-                select(EntityType).where(EntityType.slug == target_type_slug)
-            )
+            target_result = await session.execute(select(EntityType).where(EntityType.slug == target_type_slug))
             target_type = target_result.scalar_one_or_none()
 
             if not source_type:

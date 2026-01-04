@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import require_admin
 from app.database import get_session
-from app.models.user import User
 from app.models.llm_budget import LimitIncreaseRequestStatus
+from app.models.user import User
 from app.schemas.llm_budget import (
     AdminLimitRequestAction,
     BudgetStatusListResponse,
@@ -173,9 +173,7 @@ async def trigger_budget_check(
     summary="List limit increase requests",
 )
 async def list_limit_requests(
-    status: LimitIncreaseRequestStatus | None = Query(
-        None, description="Filter by request status"
-    ),
+    status: LimitIncreaseRequestStatus | None = Query(None, description="Filter by request status"),
     limit: int = Query(50, ge=1, le=200),
     _: User = Depends(require_admin),
     db: AsyncSession = Depends(get_session),

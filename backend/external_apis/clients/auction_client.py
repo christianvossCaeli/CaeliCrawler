@@ -42,12 +42,11 @@ class CaeliAuctionClient(BaseExternalAPIClient):
             timeout: Request timeout in seconds.
         """
         # Get from settings/env if not provided
-        self._auth_token = auth_token or getattr(
-            settings, "caeli_auction_marketplace_api_auth", None
-        )
+        self._auth_token = auth_token or getattr(settings, "caeli_auction_marketplace_api_auth", None)
         self._base_url = base_url or getattr(
-            settings, "caeli_auction_marketplace_api_url",
-            "https://auction.caeli-wind.de/api/auction-platform/v4/public-marketplace"
+            settings,
+            "caeli_auction_marketplace_api_url",
+            "https://auction.caeli-wind.de/api/auction-platform/v4/public-marketplace",
         )
 
         super().__init__(
@@ -170,11 +169,7 @@ class CaeliAuctionClient(BaseExternalAPIClient):
         """
         # Extract ID - try multiple possible field names
         external_id = str(
-            item.get("id")
-            or item.get("auctionId")
-            or item.get("projectId")
-            or item.get("uuid")
-            or item.get("_id")
+            item.get("id") or item.get("auctionId") or item.get("projectId") or item.get("uuid") or item.get("_id")
         )
 
         # Extract name - prefer areaName for auction data
@@ -192,10 +187,7 @@ class CaeliAuctionClient(BaseExternalAPIClient):
 
         # Extract modification timestamp if available
         modified_at = self._parse_timestamp(
-            item.get("updatedAt")
-            or item.get("modifiedAt")
-            or item.get("lastModified")
-            or item.get("updated_at")
+            item.get("updatedAt") or item.get("modifiedAt") or item.get("lastModified") or item.get("updated_at")
         )
 
         return ExternalAPIRecord(

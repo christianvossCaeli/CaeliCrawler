@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Cleanup DB and run Smart Query."""
+
 import asyncio
 import logging
 
 # Suppress SQL logging
-logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
-logging.getLogger('sqlalchemy').setLevel(logging.WARNING)
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+logging.getLogger("sqlalchemy").setLevel(logging.WARNING)
 
 PROMPT = """Ich möchte Windenergie-Projekte und Potenziale für Windflächen in Deutschland analysieren. Dafür brauche ich:
 
@@ -18,8 +19,8 @@ Verknüpfe das Ganze mit den passenden bestehenden Analysethemen.
 
 Kannst du das einrichten?"""
 
-async def main():
 
+async def main():
     from sqlalchemy import text
 
     from app.database import engine, get_session
@@ -37,7 +38,6 @@ async def main():
         result = await conn.execute(text("SELECT count(*) FROM facet_types"))
         result.scalar()
 
-
     async for session in get_session():
         from services.smart_query import execute_write_command, interpret_write_command
 
@@ -46,13 +46,12 @@ async def main():
         if not command or command.get("operation", "none") == "none":
             return
 
-
         result = await execute_write_command(session, command)
         await session.commit()
 
-        if result.get('message'):
+        if result.get("message"):
             pass
-        if result.get('created_count'):
+        if result.get("created_count"):
             pass
         break
 

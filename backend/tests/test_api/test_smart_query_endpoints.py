@@ -13,10 +13,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 # Skip all tests in this module until fixtures are implemented
-pytestmark = [
-    pytest.mark.asyncio,
-    pytest.mark.skip(reason="Fixtures 'app' and 'test_user_token' not yet implemented")
-]
+pytestmark = [pytest.mark.asyncio, pytest.mark.skip(reason="Fixtures 'app' and 'test_user_token' not yet implemented")]
 
 
 class TestSmartQueryEndpoint:
@@ -30,9 +27,7 @@ class TestSmartQueryEndpoint:
         )
         assert response.status_code == 401
 
-    async def test_rejects_empty_question(
-        self, async_client: AsyncClient, auth_headers: dict
-    ):
+    async def test_rejects_empty_question(self, async_client: AsyncClient, auth_headers: dict):
         """Test that empty questions are rejected."""
         response = await async_client.post(
             "/api/v1/analysis/smart-query",
@@ -41,9 +36,7 @@ class TestSmartQueryEndpoint:
         )
         assert response.status_code == 422
 
-    async def test_rejects_too_short_question(
-        self, async_client: AsyncClient, auth_headers: dict
-    ):
+    async def test_rejects_too_short_question(self, async_client: AsyncClient, auth_headers: dict):
         """Test that too short questions are rejected."""
         response = await async_client.post(
             "/api/v1/analysis/smart-query",
@@ -122,9 +115,7 @@ class TestSmartWriteEndpoint:
         )
         assert response.status_code == 401
 
-    async def test_requires_editor_role(
-        self, async_client: AsyncClient, viewer_auth_headers: dict
-    ):
+    async def test_requires_editor_role(self, async_client: AsyncClient, viewer_auth_headers: dict):
         """Test that endpoint requires editor role."""
         response = await async_client.post(
             "/api/v1/analysis/smart-write",
@@ -179,9 +170,7 @@ class TestValidateEndpoint:
         )
         assert response.status_code == 401
 
-    async def test_validates_read_prompt(
-        self, async_client: AsyncClient, auth_headers: dict
-    ):
+    async def test_validates_read_prompt(self, async_client: AsyncClient, auth_headers: dict):
         """Test read prompt validation."""
         response = await async_client.post(
             "/api/v1/analysis/smart-query/validate",
@@ -194,9 +183,7 @@ class TestValidateEndpoint:
         assert "valid" in data
         assert "original_prompt" in data
 
-    async def test_validates_write_prompt(
-        self, async_client: AsyncClient, auth_headers: dict
-    ):
+    async def test_validates_write_prompt(self, async_client: AsyncClient, auth_headers: dict):
         """Test write prompt validation."""
         response = await async_client.post(
             "/api/v1/analysis/smart-query/validate",
@@ -221,9 +208,7 @@ class TestStreamEndpoint:
         )
         assert response.status_code == 401
 
-    async def test_rejects_empty_question(
-        self, async_client: AsyncClient, auth_headers: dict
-    ):
+    async def test_rejects_empty_question(self, async_client: AsyncClient, auth_headers: dict):
         """Test that empty questions are rejected."""
         response = await async_client.post(
             "/api/v1/analysis/smart-query/stream",
@@ -240,6 +225,7 @@ class TestStreamEndpoint:
         auth_headers: dict,
     ):
         """Test that endpoint returns SSE stream."""
+
         # Mock the async generator
         async def mock_generator():
             yield {"event": "start", "data": None}

@@ -475,24 +475,21 @@ async def extract_facet_suggestions(
             continue
 
         # Validate value has content
-        text_repr = (
-            value.get("text")
-            or value.get("description")
-            or value.get("name")
-            or str(value)
-        )
+        text_repr = value.get("text") or value.get("description") or value.get("name") or str(value)
 
         if not text_repr or len(str(text_repr)) < 3:
             continue
 
-        validated.append({
-            "facet_type_id": str(ft.id),
-            "facet_type_slug": slug,
-            "facet_type_name": ft.name,
-            "value": value,
-            "text_representation": str(text_repr)[:500],
-            "confidence": confidence,
-            "source_text": suggestion.get("source_text", ""),
-        })
+        validated.append(
+            {
+                "facet_type_id": str(ft.id),
+                "facet_type_slug": slug,
+                "facet_type_name": ft.name,
+                "value": value,
+                "text_representation": str(text_repr)[:500],
+                "confidence": confidence,
+                "source_text": suggestion.get("source_text", ""),
+            }
+        )
 
     return validated

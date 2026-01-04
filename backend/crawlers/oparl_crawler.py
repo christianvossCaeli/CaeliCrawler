@@ -76,16 +76,12 @@ class OparlCrawler(BaseCrawler):
                     # Get papers (Drucksachen) for each body
                     papers_url = body.get("paper")
                     if papers_url:
-                        await self._crawl_papers(
-                            client, papers_url, source, job, result, body_name
-                        )
+                        await self._crawl_papers(client, papers_url, source, job, result, body_name)
 
                     # Get meetings (Sitzungen)
                     meetings_url = body.get("meeting")
                     if meetings_url:
-                        await self._crawl_meetings(
-                            client, meetings_url, source, job, result, body_name
-                        )
+                        await self._crawl_meetings(client, meetings_url, source, job, result, body_name)
 
             result.stats = {
                 "endpoint": endpoint,
@@ -94,10 +90,12 @@ class OparlCrawler(BaseCrawler):
 
         except Exception as e:
             self.logger.exception("OParl crawl failed", error=str(e))
-            result.errors.append({
-                "error": str(e),
-                "type": type(e).__name__,
-            })
+            result.errors.append(
+                {
+                    "error": str(e),
+                    "type": type(e).__name__,
+                }
+            )
 
         finally:
             if self.client:
@@ -157,6 +155,7 @@ class OparlCrawler(BaseCrawler):
 
                     # Check if document already exists
                     from sqlalchemy import select
+
                     existing = await session.execute(
                         select(Document).where(
                             Document.source_id == source.id,
@@ -186,9 +185,7 @@ class OparlCrawler(BaseCrawler):
                     date_str = paper.get("date") or paper.get("modified")
                     if date_str:
                         with contextlib.suppress(ValueError):
-                            doc.document_date = datetime.fromisoformat(
-                                date_str.replace("Z", "+00:00")
-                            )
+                            doc.document_date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
 
                     session.add(doc)
                     result.documents_new += 1
@@ -272,9 +269,7 @@ class OparlCrawler(BaseCrawler):
 
                         if meeting_date:
                             with contextlib.suppress(ValueError):
-                                doc.document_date = datetime.fromisoformat(
-                                    meeting_date.replace("Z", "+00:00")
-                                )
+                                doc.document_date = datetime.fromisoformat(meeting_date.replace("Z", "+00:00"))
 
                         session.add(doc)
                         result.documents_new += 1

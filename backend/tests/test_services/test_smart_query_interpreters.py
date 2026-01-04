@@ -162,10 +162,7 @@ class TestSanitizeConversationMessages:
         """Test that message count is limited."""
         from services.smart_query.interpreters import sanitize_conversation_messages
 
-        messages = [
-            {"role": "user" if i % 2 == 0 else "assistant", "content": f"Message {i}"}
-            for i in range(30)
-        ]
+        messages = [{"role": "user" if i % 2 == 0 else "assistant", "content": f"Message {i}"} for i in range(30)]
 
         sanitized = sanitize_conversation_messages(messages, max_messages=20)
         assert len(sanitized) == 20
@@ -244,7 +241,7 @@ class TestValidateAndSanitizeQuery:
 
         # Create a realistic long query that won't be stripped by sanitization
         words = "Zeige mir alle Gemeinden in "
-        long_query = (words * ((MAX_QUERY_LENGTH // len(words)) + 2))[:MAX_QUERY_LENGTH + 100]
+        long_query = (words * ((MAX_QUERY_LENGTH // len(words)) + 2))[: MAX_QUERY_LENGTH + 100]
 
         # Should NOT raise - query gets truncated, not rejected
         result = validate_and_sanitize_query(long_query)

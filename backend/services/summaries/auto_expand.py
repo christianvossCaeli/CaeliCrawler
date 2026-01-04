@@ -81,9 +81,7 @@ async def analyze_for_expansion(
     current_widget_types = _get_current_widget_types(summary)
 
     # Analyze data for new facet types
-    new_facets = await _find_new_facet_types(
-        session, execution_data, current_facet_types, summary
-    )
+    new_facets = await _find_new_facet_types(session, execution_data, current_facet_types, summary)
 
     for facet_info in new_facets:
         suggestion = _create_facet_widget_suggestion(facet_info)
@@ -91,9 +89,7 @@ async def analyze_for_expansion(
             suggestions.append(suggestion)
 
     # Check for visualization type opportunities
-    viz_suggestions = _suggest_visualization_improvements(
-        execution_data, current_widget_types, summary
-    )
+    viz_suggestions = _suggest_visualization_improvements(execution_data, current_widget_types, summary)
     suggestions.extend(viz_suggestions)
 
     # Sort by confidence
@@ -171,18 +167,18 @@ async def _find_new_facet_types(
                 seen_facets.add(facet_slug)
 
                 # Get facet type info from database
-                result = await session.execute(
-                    select(FacetType).where(FacetType.slug == facet_slug)
-                )
+                result = await session.execute(select(FacetType).where(FacetType.slug == facet_slug))
                 facet_type = result.scalar_one_or_none()
 
                 if facet_type:
-                    new_facets.append({
-                        "slug": facet_slug,
-                        "name": facet_type.name,
-                        "data_type": facet_type.data_type,
-                        "sample_value": facet_value.get("value") if isinstance(facet_value, dict) else facet_value,
-                    })
+                    new_facets.append(
+                        {
+                            "slug": facet_slug,
+                            "name": facet_type.name,
+                            "data_type": facet_type.data_type,
+                            "sample_value": facet_value.get("value") if isinstance(facet_value, dict) else facet_value,
+                        }
+                    )
 
     return new_facets
 
@@ -280,36 +276,42 @@ def _suggest_visualization_improvements(
 
     # Suggest stat card if not present and we have numeric data
     if "stat_card" not in current_widget_types and has_numeric_data:
-        suggestions.append(WidgetSuggestion(
-            widget_type=SummaryWidgetType.STAT_CARD,
-            title="Gesamtanzahl",
-            subtitle=f"{total_records} Einträge",
-            query_config={"aggregate": "count"},
-            reason="Statistik-Karte für Übersicht hinzufügen",
-            confidence=0.75,
-        ))
+        suggestions.append(
+            WidgetSuggestion(
+                widget_type=SummaryWidgetType.STAT_CARD,
+                title="Gesamtanzahl",
+                subtitle=f"{total_records} Einträge",
+                query_config={"aggregate": "count"},
+                reason="Statistik-Karte für Übersicht hinzufügen",
+                confidence=0.75,
+            )
+        )
 
     # Suggest map if geo data present
     if "map" not in current_widget_types and has_geo_data:
-        suggestions.append(WidgetSuggestion(
-            widget_type=SummaryWidgetType.MAP,
-            title="Kartenübersicht",
-            subtitle="Geografische Verteilung",
-            query_config={},
-            reason="Geografische Daten gefunden",
-            confidence=0.85,
-        ))
+        suggestions.append(
+            WidgetSuggestion(
+                widget_type=SummaryWidgetType.MAP,
+                title="Kartenübersicht",
+                subtitle="Geografische Verteilung",
+                query_config={},
+                reason="Geografische Daten gefunden",
+                confidence=0.85,
+            )
+        )
 
     # Suggest timeline if date data present
     if "timeline" not in current_widget_types and "calendar" not in current_widget_types and has_date_data:
-        suggestions.append(WidgetSuggestion(
-            widget_type=SummaryWidgetType.CALENDAR,
-            title="Kalenderansicht",
-            subtitle="Zeitliche Verteilung",
-            query_config={},
-            reason="Datums-Daten gefunden",
-            confidence=0.7,
-        ))
+        suggestions.append(
+            WidgetSuggestion(
+                widget_type=SummaryWidgetType.CALENDAR,
+                title="Kalenderansicht",
+                subtitle="Zeitliche Verteilung",
+                query_config={},
+                reason="Datums-Daten gefunden",
+                confidence=0.7,
+            )
+        )
 
     return suggestions
 
@@ -352,9 +354,7 @@ async def apply_expansion(
     created_widgets: list[SummaryWidget] = []
 
     # Get summary
-    result = await session.execute(
-        select(CustomSummary).where(CustomSummary.id == summary_id)
-    )
+    result = await session.execute(select(CustomSummary).where(CustomSummary.id == summary_id))
     summary = result.scalar_one_or_none()
 
     if not summary:

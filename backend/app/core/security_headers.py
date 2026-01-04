@@ -27,9 +27,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.enable_hsts = enable_hsts
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         response = await call_next(request)
 
         # Prevent MIME type sniffing
@@ -45,16 +43,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
         # Permissions Policy (disable unnecessary browser features)
-        response.headers["Permissions-Policy"] = (
-            "geolocation=(), camera=(), microphone=(), payment=()"
-        )
+        response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=(), payment=()"
 
         # HSTS - Only enable in production with HTTPS
         if self.enable_hsts:
             # 1 year, include subdomains, preload ready
-            response.headers["Strict-Transport-Security"] = (
-                "max-age=31536000; includeSubDomains; preload"
-            )
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
 
         # Content Security Policy
         # Note: 'unsafe-inline' for styles is needed for Vuetify/Vue.js

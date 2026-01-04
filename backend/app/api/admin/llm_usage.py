@@ -162,32 +162,28 @@ async def export_usage_data(
         return StreamingResponse(
             io.BytesIO(content.encode()),
             media_type="application/json",
-            headers={
-                "Content-Disposition": f"attachment; filename=llm_usage_{period}.json"
-            },
+            headers={"Content-Disposition": f"attachment; filename=llm_usage_{period}.json"},
         )
     else:
         # CSV format - export daily trend
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(
-            ["date", "requests", "tokens", "cost_cents", "cost_usd", "errors"]
-        )
+        writer.writerow(["date", "requests", "tokens", "cost_cents", "cost_usd", "errors"])
         for trend in analytics.daily_trend:
-            writer.writerow([
-                trend.date.isoformat(),
-                trend.request_count,
-                trend.total_tokens,
-                trend.cost_cents,
-                f"{trend.cost_cents / 100:.2f}",
-                trend.error_count,
-            ])
+            writer.writerow(
+                [
+                    trend.date.isoformat(),
+                    trend.request_count,
+                    trend.total_tokens,
+                    trend.cost_cents,
+                    f"{trend.cost_cents / 100:.2f}",
+                    trend.error_count,
+                ]
+            )
 
         output.seek(0)
         return StreamingResponse(
             io.BytesIO(output.getvalue().encode()),
             media_type="text/csv",
-            headers={
-                "Content-Disposition": f"attachment; filename=llm_usage_{period}.csv"
-            },
+            headers={"Content-Disposition": f"attachment; filename=llm_usage_{period}.csv"},
         )

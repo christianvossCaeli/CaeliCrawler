@@ -252,7 +252,7 @@ class TestSerperSearchProvider:
         provider = SerperSearchProvider()
 
         # Without API key, should return empty list
-        with patch.dict('os.environ', {'SERPER_API_KEY': ''}):
+        with patch.dict("os.environ", {"SERPER_API_KEY": ""}):
             results = await provider.search(
                 queries=["Bundesliga Vereine"],
                 num_results=5,
@@ -364,9 +364,9 @@ class TestAISourceDiscoveryService:
             )
         ]
 
-        with patch.object(service, '_generate_search_strategy', return_value=mock_strategy):  # noqa: SIM117
-            with patch.object(service.primary_search_provider, 'search', return_value=mock_search_results):
-                with patch.object(service, '_extract_from_pages', return_value=mock_extracted):
+        with patch.object(service, "_generate_search_strategy", return_value=mock_strategy):  # noqa: SIM117
+            with patch.object(service.primary_search_provider, "search", return_value=mock_search_results):
+                with patch.object(service, "_extract_from_pages", return_value=mock_extracted):
                     result = await service.discover_sources(
                         prompt="Test organizations",
                         max_results=10,

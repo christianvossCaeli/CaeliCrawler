@@ -31,6 +31,7 @@ logger = structlog.get_logger()
 
 class EventExtractionError(Exception):
     """Raised when event extraction encounters a configuration error."""
+
     pass
 
 

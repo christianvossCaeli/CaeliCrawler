@@ -26,10 +26,11 @@ class CrawlPresetFilters(BaseModel):
 
     # Entity-based filters
     entity_type: list[str] | None = Field(None, description="Filter by entity type slugs (multi-select)")
-    admin_level_1: str | None = Field(None, description="Filter by admin level 1 (e.g., Bundesland) - deprecated, use tags")
+    admin_level_1: str | None = Field(
+        None, description="Filter by admin level 1 (e.g., Bundesland) - deprecated, use tags"
+    )
     entity_filters: dict[str, Any] | None = Field(
-        None,
-        description="Entity-specific filters including core_attributes operators"
+        None, description="Entity-specific filters including core_attributes operators"
     )
 
     # Standard source filters
@@ -53,7 +54,7 @@ class CrawlPresetCreate(BaseModel):
     schedule_cron: str | None = Field(
         None,
         max_length=100,
-        description="Cron expression for scheduled execution (5 or 6 fields, e.g., '0 6 * * 1' for Monday 6 AM)"
+        description="Cron expression for scheduled execution (5 or 6 fields, e.g., '0 6 * * 1' for Monday 6 AM)",
     )
     schedule_enabled: bool = Field(default=False, description="Whether scheduled execution is enabled")
 

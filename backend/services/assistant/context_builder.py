@@ -37,7 +37,7 @@ async def build_entity_context(
     include_facets: bool = True,
     include_pysis: bool = True,
     include_relations: bool = False,
-    facet_limit: int = 30
+    facet_limit: int = 30,
 ) -> dict[str, Any]:
     """Build comprehensive context data for an entity.
 
@@ -57,9 +57,7 @@ async def build_entity_context(
     """
     # Load entity
     entity_result = await db.execute(
-        select(Entity)
-        .options(selectinload(Entity.entity_type))
-        .where(Entity.id == entity_id)
+        select(Entity).options(selectinload(Entity.entity_type)).where(Entity.id == entity_id)
     )
     entity = entity_result.scalar_one_or_none()
 
@@ -78,7 +76,7 @@ async def build_entity_context(
             "country": entity.country,
             "admin_level_1": entity.admin_level_1,
             "admin_level_2": entity.admin_level_2,
-        }
+        },
     }
 
     # Include facets if requested
@@ -99,11 +97,7 @@ async def build_entity_context(
     return context
 
 
-async def build_facet_summary(
-    db: AsyncSession,
-    entity_id: UUID,
-    limit: int = 30
-) -> dict[str, list[str]]:
+async def build_facet_summary(db: AsyncSession, entity_id: UUID, limit: int = 30) -> dict[str, list[str]]:
     """Build a summary of facets grouped by type.
 
     Args:
@@ -139,11 +133,7 @@ async def build_facet_summary(
     return facet_data
 
 
-async def build_pysis_context(
-    db: AsyncSession,
-    entity_id: UUID,
-    max_field_length: int = 500
-) -> dict[str, str]:
+async def build_pysis_context(db: AsyncSession, entity_id: UUID, max_field_length: int = 500) -> dict[str, str]:
     """Extract PySIS field data for entity.
 
     Args:
@@ -155,11 +145,7 @@ async def build_pysis_context(
         Dict mapping field internal names to current values
     """
     # Fetch PySIS process
-    pysis_result = await db.execute(
-        select(PySisProcess)
-        .where(PySisProcess.entity_id == entity_id)
-        .limit(1)
-    )
+    pysis_result = await db.execute(select(PySisProcess).where(PySisProcess.entity_id == entity_id).limit(1))
     pysis_process = pysis_result.scalar_one_or_none()
 
     pysis_data = {}
@@ -173,10 +159,7 @@ async def build_pysis_context(
     return pysis_data
 
 
-async def count_entity_relations(
-    db: AsyncSession,
-    entity_id: UUID
-) -> int:
+async def count_entity_relations(db: AsyncSession, entity_id: UUID) -> int:
     """Count relations for an entity.
 
     Args:
@@ -187,21 +170,14 @@ async def count_entity_relations(
         Number of relations (both source and target)
     """
     count = await db.scalar(
-        select(func.count(EntityRelation.id))
-        .where(
-            or_(
-                EntityRelation.source_entity_id == entity_id,
-                EntityRelation.target_entity_id == entity_id
-            )
+        select(func.count(EntityRelation.id)).where(
+            or_(EntityRelation.source_entity_id == entity_id, EntityRelation.target_entity_id == entity_id)
         )
     )
     return count or 0
 
 
-async def get_facet_counts_by_type(
-    db: AsyncSession,
-    entity_id: UUID
-) -> dict[str, int]:
+async def get_facet_counts_by_type(db: AsyncSession, entity_id: UUID) -> dict[str, int]:
     """Get facet counts grouped by type.
 
     Args:
@@ -240,10 +216,7 @@ async def build_app_summary_context(db: AsyncSession) -> dict[str, Any]:
     }
 
 
-async def build_entity_summary_for_prompt(
-    db: AsyncSession,
-    entity_id: UUID
-) -> str:
+async def build_entity_summary_for_prompt(db: AsyncSession, entity_id: UUID) -> str:
     """Build a text summary of entity for use in AI prompts.
 
     Args:
@@ -253,12 +226,7 @@ async def build_entity_summary_for_prompt(
     Returns:
         Formatted text summary
     """
-    context = await build_entity_context(
-        db, entity_id,
-        include_facets=True,
-        include_pysis=True,
-        include_relations=True
-    )
+    context = await build_entity_context(db, entity_id, include_facets=True, include_pysis=True, include_relations=True)
 
     # Format as text
     lines = [

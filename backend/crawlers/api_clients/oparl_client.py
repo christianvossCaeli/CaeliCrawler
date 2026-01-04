@@ -539,28 +539,21 @@ KNOWN_OPARL_ENDPOINTS = [
     {"name": "Düsseldorf", "url": "https://ris-oparl.itk-rheinland.de/Oparl/bodies/0015", "state": "NRW"},
     {"name": "Münster", "url": "https://oparl.stadt-muenster.de/", "state": "NRW"},
     {"name": "Bonn", "url": "https://oparl.kdvz-frechen.de/rim4710/webservice/oparl/v1.1/system", "state": "NRW"},
-
     # Baden-Württemberg
     {"name": "Stuttgart", "url": "https://www.domino1.stuttgart.de/oparl/system", "state": "BW"},
     {"name": "Karlsruhe", "url": "https://web1.karlsruhe.de/oparl/", "state": "BW"},
-
     # Bayern
     {"name": "München", "url": "https://www.ris-muenchen.de/oparl/v1.1/system", "state": "BY"},
     {"name": "Nürnberg", "url": "https://online-service.nuernberg.de/oparl/system", "state": "BY"},
-
     # Hessen
     {"name": "Frankfurt", "url": "https://ris.frankfurt.de/oparl/v1.0/system", "state": "HE"},
-
     # Niedersachsen
     {"name": "Hannover", "url": "https://e-government.hannover-stadt.de/oparl/system", "state": "NI"},
-
     # Sachsen
     {"name": "Dresden", "url": "https://ratsinfo.dresden.de/oparl/system", "state": "SN"},
     {"name": "Leipzig", "url": "https://ratsinformation.leipzig.de/oparl/system", "state": "SN"},
-
     # Schleswig-Holstein
     {"name": "Kiel", "url": "https://ratsinfo.kiel.de/oparl/system", "state": "SH"},
-
     # More endpoints from OParl resources
     # See: https://github.com/OParl/resources/blob/main/endpoints.yml
 ]

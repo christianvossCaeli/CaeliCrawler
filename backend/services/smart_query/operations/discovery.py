@@ -133,9 +133,7 @@ class DiscoverSourcesOperation(WriteOperation):
                         for s in discovery_result.sources
                     ],
                     "search_strategy": (
-                        discovery_result.search_strategy.model_dump()
-                        if discovery_result.search_strategy
-                        else None
+                        discovery_result.search_strategy.model_dump() if discovery_result.search_strategy else None
                     ),
                     "stats": discovery_result.stats.model_dump(),
                     "warnings": discovery_result.warnings,

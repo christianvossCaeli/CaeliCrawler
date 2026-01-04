@@ -27,6 +27,7 @@ T = TypeVar("T")
 @dataclass
 class CacheEntry[T]:
     """A single cache entry with value and expiration time."""
+
     value: T
     expires_at: float
     created_at: float = field(default_factory=time.time)
@@ -207,10 +208,7 @@ class TTLCache[T]:
     def _evict_oldest(self) -> None:
         """Evict oldest entries when max size is reached."""
         # Sort by creation time and remove oldest 10%
-        sorted_entries = sorted(
-            self._cache.items(),
-            key=lambda x: x[1].created_at
-        )
+        sorted_entries = sorted(self._cache.items(), key=lambda x: x[1].created_at)
         evict_count = max(1, len(sorted_entries) // 10)
         for key, _ in sorted_entries[:evict_count]:
             del self._cache[key]
@@ -331,10 +329,13 @@ def cached_async(
         async def generate_search_strategy(prompt: str) -> dict:
             ...
     """
+
     def decorator(func: Callable):
         async def wrapper(*args, **kwargs):
             # Build cache key
-            cache_key = f"{key_prefix}:{make_cache_key(*args, **kwargs)}" if key_prefix else make_cache_key(*args, **kwargs)
+            cache_key = (
+                f"{key_prefix}:{make_cache_key(*args, **kwargs)}" if key_prefix else make_cache_key(*args, **kwargs)
+            )
 
             # Try to get from cache
             cached_result = cache.get(cache_key)
@@ -356,4 +357,5 @@ def cached_async(
             return result
 
         return wrapper
+
     return decorator

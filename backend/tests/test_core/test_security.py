@@ -126,10 +126,7 @@ class TestAccessToken:
         role = "VIEWER"
 
         # Create token that expires immediately
-        token = create_access_token(
-            user_id, role,
-            expires_delta=timedelta(seconds=-1)
-        )
+        token = create_access_token(user_id, role, expires_delta=timedelta(seconds=-1))
 
         payload = decode_access_token(token)
 
@@ -211,9 +208,7 @@ class TestRefreshToken:
         role = "EDITOR"
         session_id = uuid4()
 
-        raw_token, token_hash, expires_at = create_refresh_token_response(
-            user_id, role, session_id
-        )
+        raw_token, token_hash, expires_at = create_refresh_token_response(user_id, role, session_id)
 
         assert isinstance(raw_token, str)
         assert isinstance(token_hash, str)
@@ -259,10 +254,7 @@ class TestTokensForSession:
         assert payload["sub"] == str(user_id)
 
         # Refresh token hash matches
-        assert verify_refresh_token(
-            tokens["refresh_token"],
-            tokens["refresh_token_hash"]
-        )
+        assert verify_refresh_token(tokens["refresh_token"], tokens["refresh_token_hash"])
 
     def test_tokens_for_session_expiry_values(self):
         """Test that expiry values are correct."""

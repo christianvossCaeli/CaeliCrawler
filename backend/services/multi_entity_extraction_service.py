@@ -99,29 +99,31 @@ class MultiEntityExtractionService:
                 relation = rel.get("relation", "related_to")
                 prompt_parts.append(f"   - {from_type} --[{relation}]--> {to_type}")
 
-        prompt_parts.extend([
-            "",
-            "Antworte im JSON-Format mit folgendem Schema:",
-            "{",
-            '  "entities": {',
-            '    "<entity_type_slug>": [',
-            '      {',
-            '        "name": "...",',
-            '        "attributes": {...}',
-            '      }',
-            '    ]',
-            '  },',
-            '  "relations": [',
-            '    {',
-            '      "from_type": "...",',
-            '      "from_name": "...",',
-            '      "relation": "...",',
-            '      "to_type": "...",',
-            '      "to_name": "..."',
-            '    }',
-            '  ]',
-            "}",
-        ])
+        prompt_parts.extend(
+            [
+                "",
+                "Antworte im JSON-Format mit folgendem Schema:",
+                "{",
+                '  "entities": {',
+                '    "<entity_type_slug>": [',
+                "      {",
+                '        "name": "...",',
+                '        "attributes": {...}',
+                "      }",
+                "    ]",
+                "  },",
+                '  "relations": [',
+                "    {",
+                '      "from_type": "...",',
+                '      "from_name": "...",',
+                '      "relation": "...",',
+                '      "to_type": "...",',
+                '      "to_name": "..."',
+                "    }",
+                "  ]",
+                "}",
+            ]
+        )
 
         return "\n".join(prompt_parts)
 
@@ -157,10 +159,7 @@ class MultiEntityExtractionService:
             .where(CategoryEntityType.category_id == category.id)
             .options(selectinload(CategoryEntityType.entity_type))
         )
-        associations = {
-            assoc.entity_type.slug: assoc.entity_type
-            for assoc in assoc_result.scalars().all()
-        }
+        associations = {assoc.entity_type.slug: assoc.entity_type for assoc in assoc_result.scalars().all()}
 
         # Track created/found entities for relation creation
         entity_map: dict[tuple[str, str], Entity] = {}
@@ -177,11 +176,7 @@ class MultiEntityExtractionService:
             found_count = 0
 
             # Collect all names for batch lookup (N+1 Query Fix)
-            names = [
-                entity_data.get("name")
-                for entity_data in entity_list
-                if entity_data.get("name")
-            ]
+            names = [entity_data.get("name") for entity_data in entity_list if entity_data.get("name")]
 
             # Batch find existing entities
             existing_entities = await self._batch_find_entities(entity_type.id, names)
@@ -220,13 +215,8 @@ class MultiEntityExtractionService:
         relations_data = extracted_data.get("relations", [])
         if relations_data:
             # Step 1: Batch-load all required RelationTypes (1 query instead of N)
-            relation_slugs = {
-                rel_data.get("relation", "related_to")
-                for rel_data in relations_data
-            }
-            relation_type_cache = await self._batch_get_or_create_relation_types(
-                list(relation_slugs)
-            )
+            relation_slugs = {rel_data.get("relation", "related_to") for rel_data in relations_data}
+            relation_type_cache = await self._batch_get_or_create_relation_types(list(relation_slugs))
 
             # Step 2: Pre-calculate all potential relation keys for batch existence check
             potential_relations = []
@@ -242,16 +232,16 @@ class MultiEntityExtractionService:
                 relation_type = relation_type_cache.get(relation_slug)
 
                 if from_entity and to_entity and relation_type:
-                    potential_relations.append({
-                        "from_entity": from_entity,
-                        "to_entity": to_entity,
-                        "relation_type": relation_type,
-                    })
+                    potential_relations.append(
+                        {
+                            "from_entity": from_entity,
+                            "to_entity": to_entity,
+                            "relation_type": relation_type,
+                        }
+                    )
 
             # Step 3: Batch check existing relations (1 query instead of N)
-            existing_relations_set = await self._batch_find_existing_relations(
-                potential_relations
-            )
+            existing_relations_set = await self._batch_find_existing_relations(potential_relations)
 
             # Step 4: Create only non-existing relations
             for rel in potential_relations:
@@ -285,9 +275,7 @@ class MultiEntityExtractionService:
 
         return result
 
-    async def _find_entity(
-        self, entity_type_id: uuid.UUID, name: str
-    ) -> Entity | None:
+    async def _find_entity(self, entity_type_id: uuid.UUID, name: str) -> Entity | None:
         """Find an existing entity by type and normalized name.
 
         Uses normalized name for consistent matching.
@@ -364,9 +352,7 @@ class MultiEntityExtractionService:
 
     async def _find_or_create_relation_type(self, slug: str) -> RelationType:
         """Find or create a relation type by slug."""
-        result = await self.session.execute(
-            select(RelationType).where(RelationType.slug == slug)
-        )
+        result = await self.session.execute(select(RelationType).where(RelationType.slug == slug))
         relation_type = result.scalar_one_or_none()
 
         if not relation_type:
@@ -397,9 +383,7 @@ class MultiEntityExtractionService:
         )
         return result.scalar_one_or_none()
 
-    async def _batch_get_or_create_relation_types(
-        self, slugs: list[str]
-    ) -> dict[str, RelationType]:
+    async def _batch_get_or_create_relation_types(self, slugs: list[str]) -> dict[str, RelationType]:
         """
         Batch load or create relation types.
 
@@ -417,9 +401,7 @@ class MultiEntityExtractionService:
             return {}
 
         # Load all existing relation types in one query
-        result = await self.session.execute(
-            select(RelationType).where(RelationType.slug.in_(slugs))
-        )
+        result = await self.session.execute(select(RelationType).where(RelationType.slug.in_(slugs)))
         relation_types = {rt.slug: rt for rt in result.scalars().all()}
 
         # Create missing relation types
@@ -441,9 +423,7 @@ class MultiEntityExtractionService:
 
         return relation_types
 
-    async def _batch_find_existing_relations(
-        self, potential_relations: list[dict[str, Any]]
-    ) -> set:
+    async def _batch_find_existing_relations(self, potential_relations: list[dict[str, Any]]) -> set:
         """
         Batch check for existing relations.
 
@@ -459,10 +439,7 @@ class MultiEntityExtractionService:
             return set()
 
         # Build list of (source, target) tuples for query
-        source_target_pairs = [
-            (rel["from_entity"].id, rel["to_entity"].id)
-            for rel in potential_relations
-        ]
+        source_target_pairs = [(rel["from_entity"].id, rel["to_entity"].id) for rel in potential_relations]
 
         # Get unique source and target IDs
         source_ids = list({pair[0] for pair in source_target_pairs})
@@ -479,11 +456,13 @@ class MultiEntityExtractionService:
         # Build set of existing relation keys
         existing_set = set()
         for rel in result.scalars().all():
-            existing_set.add((
-                rel.source_entity_id,
-                rel.target_entity_id,
-                rel.relation_type_id,
-            ))
+            existing_set.add(
+                (
+                    rel.source_entity_id,
+                    rel.target_entity_id,
+                    rel.relation_type_id,
+                )
+            )
 
         return existing_set
 
@@ -499,9 +478,7 @@ Antworte im JSON-Format:
 }
 """
 
-    async def get_category_entity_types(
-        self, category_id: uuid.UUID
-    ) -> list[dict[str, Any]]:
+    async def get_category_entity_types(self, category_id: uuid.UUID) -> list[dict[str, Any]]:
         """
         Get all entity types for a category with their configuration.
 
@@ -516,15 +493,17 @@ Antworte im JSON-Format:
 
         entity_types = []
         for assoc in result.scalars().all():
-            entity_types.append({
-                "id": str(assoc.entity_type.id),
-                "slug": assoc.entity_type.slug,
-                "name": assoc.entity_type.name,
-                "is_primary": assoc.is_primary,
-                "extraction_order": assoc.extraction_order,
-                "extraction_config": assoc.extraction_config,
-                "relation_config": assoc.relation_config,
-            })
+            entity_types.append(
+                {
+                    "id": str(assoc.entity_type.id),
+                    "slug": assoc.entity_type.slug,
+                    "name": assoc.entity_type.name,
+                    "is_primary": assoc.is_primary,
+                    "extraction_order": assoc.extraction_order,
+                    "extraction_config": assoc.extraction_config,
+                    "relation_config": assoc.relation_config,
+                }
+            )
 
         return entity_types
 

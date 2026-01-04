@@ -115,43 +115,43 @@ async def get_facet_type_stats(
     """Get statistics about FacetTypes."""
 
     # Total count
-    total = (await session.execute(
-        select(func.count()).select_from(FacetType)
-    )).scalar()
+    total = (await session.execute(select(func.count()).select_from(FacetType))).scalar()
 
     # Active count
-    active = (await session.execute(
-        select(func.count()).select_from(FacetType).where(FacetType.is_active.is_(True))
-    )).scalar()
+    active = (
+        await session.execute(select(func.count()).select_from(FacetType).where(FacetType.is_active.is_(True)))
+    ).scalar()
 
     # Needs review count
-    needs_review = (await session.execute(
-        select(func.count()).select_from(FacetType).where(FacetType.needs_review.is_(True))
-    )).scalar()
+    needs_review = (
+        await session.execute(select(func.count()).select_from(FacetType).where(FacetType.needs_review.is_(True)))
+    ).scalar()
 
     # System count
-    system = (await session.execute(
-        select(func.count()).select_from(FacetType).where(FacetType.is_system.is_(True))
-    )).scalar()
+    system = (
+        await session.execute(select(func.count()).select_from(FacetType).where(FacetType.is_system.is_(True)))
+    ).scalar()
 
     # Auto-created (not system, not reviewed)
-    auto_created = (await session.execute(
-        select(func.count()).select_from(FacetType).where(
-            FacetType.is_system.is_(False),
+    auto_created = (
+        await session.execute(
+            select(func.count())
+            .select_from(FacetType)
+            .where(
+                FacetType.is_system.is_(False),
+            )
         )
-    )).scalar()
+    ).scalar()
 
     # With values
-    with_values_subq = (
-        select(FacetValue.facet_type_id)
-        .distinct()
-        .subquery()
-    )
-    with_values = (await session.execute(
-        select(func.count()).select_from(FacetType).where(
-            FacetType.id.in_(select(with_values_subq.c.facet_type_id))
+    with_values_subq = select(FacetValue.facet_type_id).distinct().subquery()
+    with_values = (
+        await session.execute(
+            select(func.count())
+            .select_from(FacetType)
+            .where(FacetType.id.in_(select(with_values_subq.c.facet_type_id)))
         )
-    )).scalar()
+    ).scalar()
 
     return FacetTypeStats(
         total=total or 0,
@@ -178,20 +178,13 @@ async def list_facet_types(
 
     # Base query with value count
     value_count_subq = (
-        select(
-            FacetValue.facet_type_id,
-            func.count(FacetValue.id).label("count")
-        )
+        select(FacetValue.facet_type_id, func.count(FacetValue.id).label("count"))
         .group_by(FacetValue.facet_type_id)
         .subquery()
     )
 
-    stmt = (
-        select(
-            FacetType,
-            func.coalesce(value_count_subq.c.count, 0).label("value_count")
-        )
-        .outerjoin(value_count_subq, FacetType.id == value_count_subq.c.facet_type_id)
+    stmt = select(FacetType, func.coalesce(value_count_subq.c.count, 0).label("value_count")).outerjoin(
+        value_count_subq, FacetType.id == value_count_subq.c.facet_type_id
     )
 
     # Apply filters
@@ -204,17 +197,13 @@ async def list_facet_types(
     if search:
         search_filter = f"%{search}%"
         stmt = stmt.where(
-            (FacetType.name.ilike(search_filter)) |
-            (FacetType.slug.ilike(search_filter)) |
-            (FacetType.description.ilike(search_filter))
+            (FacetType.name.ilike(search_filter))
+            | (FacetType.slug.ilike(search_filter))
+            | (FacetType.description.ilike(search_filter))
         )
 
     # Order by needs_review first, then by name
-    stmt = stmt.order_by(
-        FacetType.needs_review.desc(),
-        FacetType.display_order,
-        FacetType.name
-    )
+    stmt = stmt.order_by(FacetType.needs_review.desc(), FacetType.display_order, FacetType.name)
 
     stmt = stmt.offset(offset).limit(limit)
 
@@ -249,19 +238,13 @@ async def list_facet_types_needing_review(
     """List all FacetTypes that need admin review."""
 
     value_count_subq = (
-        select(
-            FacetValue.facet_type_id,
-            func.count(FacetValue.id).label("count")
-        )
+        select(FacetValue.facet_type_id, func.count(FacetValue.id).label("count"))
         .group_by(FacetValue.facet_type_id)
         .subquery()
     )
 
     stmt = (
-        select(
-            FacetType,
-            func.coalesce(value_count_subq.c.count, 0).label("value_count")
-        )
+        select(FacetType, func.coalesce(value_count_subq.c.count, 0).label("value_count"))
         .outerjoin(value_count_subq, FacetType.id == value_count_subq.c.facet_type_id)
         .where(FacetType.needs_review.is_(True))
         .order_by(FacetType.created_at.desc())
@@ -299,14 +282,10 @@ async def get_facet_type(
     """Get detailed information about a FacetType."""
 
     value_count_subq = (
-        select(func.count(FacetValue.id))
-        .where(FacetValue.facet_type_id == facet_type_id)
-        .scalar_subquery()
+        select(func.count(FacetValue.id)).where(FacetValue.facet_type_id == facet_type_id).scalar_subquery()
     )
 
-    stmt = select(FacetType, value_count_subq.label("value_count")).where(
-        FacetType.id == facet_type_id
-    )
+    stmt = select(FacetType, value_count_subq.label("value_count")).where(FacetType.id == facet_type_id)
 
     result = await session.execute(stmt)
     row = result.first()
@@ -368,9 +347,9 @@ async def update_facet_type(
     await session.refresh(ft)
 
     # Get value count
-    value_count = (await session.execute(
-        select(func.count(FacetValue.id)).where(FacetValue.facet_type_id == facet_type_id)
-    )).scalar() or 0
+    value_count = (
+        await session.execute(select(func.count(FacetValue.id)).where(FacetValue.facet_type_id == facet_type_id))
+    ).scalar() or 0
 
     return FacetTypeDetail(
         id=ft.id,
@@ -426,36 +405,24 @@ async def review_facet_type(
         ft.needs_review = False
 
         # Delete associated FacetValues
-        await session.execute(
-            FacetValue.__table__.delete().where(FacetValue.facet_type_id == facet_type_id)
-        )
+        await session.execute(FacetValue.__table__.delete().where(FacetValue.facet_type_id == facet_type_id))
         await session.commit()
 
     elif review.action == "merge":
         # Merge into another FacetType
         if not review.merge_into_slug:
-            raise HTTPException(
-                status_code=400,
-                detail="merge_into_slug is required for merge action"
-            )
+            raise HTTPException(status_code=400, detail="merge_into_slug is required for merge action")
 
         # Find target FacetType
-        target_result = await session.execute(
-            select(FacetType).where(FacetType.slug == review.merge_into_slug)
-        )
+        target_result = await session.execute(select(FacetType).where(FacetType.slug == review.merge_into_slug))
         target_ft = target_result.scalar_one_or_none()
 
         if not target_ft:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Target FacetType '{review.merge_into_slug}' not found"
-            )
+            raise HTTPException(status_code=404, detail=f"Target FacetType '{review.merge_into_slug}' not found")
 
         # Update all FacetValues to point to target
         await session.execute(
-            update(FacetValue)
-            .where(FacetValue.facet_type_id == facet_type_id)
-            .values(facet_type_id=target_ft.id)
+            update(FacetValue).where(FacetValue.facet_type_id == facet_type_id).values(facet_type_id=target_ft.id)
         )
 
         # Deactivate source FacetType
@@ -466,9 +433,9 @@ async def review_facet_type(
     await session.refresh(ft)
 
     # Get value count
-    value_count = (await session.execute(
-        select(func.count(FacetValue.id)).where(FacetValue.facet_type_id == facet_type_id)
-    )).scalar() or 0
+    value_count = (
+        await session.execute(select(func.count(FacetValue.id)).where(FacetValue.facet_type_id == facet_type_id))
+    ).scalar() or 0
 
     return FacetTypeDetail(
         id=ft.id,
@@ -510,17 +477,11 @@ async def bulk_review_facet_types(
 
     if request.action == "approve":
         await session.execute(
-            update(FacetType)
-            .where(FacetType.id.in_(request.facet_type_ids))
-            .values(needs_review=False)
+            update(FacetType).where(FacetType.id.in_(request.facet_type_ids)).values(needs_review=False)
         )
     elif request.action == "reject":
         # Delete values first
-        await session.execute(
-            FacetValue.__table__.delete().where(
-                FacetValue.facet_type_id.in_(request.facet_type_ids)
-            )
-        )
+        await session.execute(FacetValue.__table__.delete().where(FacetValue.facet_type_id.in_(request.facet_type_ids)))
         # Deactivate FacetTypes
         await session.execute(
             update(FacetType)

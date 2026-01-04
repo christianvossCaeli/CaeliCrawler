@@ -42,11 +42,11 @@ def apply_document_filters(
         query = query.where(Document.processing_status == processing_status)
     if search:
         # Escape SQL wildcards to prevent injection
-        safe_search = search.replace('%', '\\%').replace('_', '\\_')
+        safe_search = search.replace("%", "\\%").replace("_", "\\_")
         search_pattern = f"%{safe_search}%"
         query = query.where(
-            (Document.title.ilike(search_pattern, escape='\\')) |
-            (Document.original_url.ilike(search_pattern, escape='\\'))
+            (Document.title.ilike(search_pattern, escape="\\"))
+            | (Document.original_url.ilike(search_pattern, escape="\\"))
         )
     if discovered_from:
         # Parse date string to datetime for proper comparison
@@ -54,10 +54,7 @@ def apply_document_filters(
         query = query.where(Document.discovered_at >= from_date)
     if discovered_to:
         # Parse date string and set to end of day (23:59:59)
-        to_date = datetime.combine(
-            datetime.strptime(discovered_to, "%Y-%m-%d").date(),
-            time(23, 59, 59)
-        )
+        to_date = datetime.combine(datetime.strptime(discovered_to, "%Y-%m-%d").date(), time(23, 59, 59))
         query = query.where(Document.discovered_at <= to_date)
     return query
 
@@ -112,7 +109,10 @@ async def list_documents(
     search: str | None = Query(default=None, description="Search in title and URL"),
     discovered_from: str | None = Query(default=None, description="Filter by discovered date from (YYYY-MM-DD)"),
     discovered_to: str | None = Query(default=None, description="Filter by discovered date to (YYYY-MM-DD)"),
-    sort_by: str | None = Query(default=None, description="Sort by field (title, document_type, processing_status, source_name, discovered_at, file_size)"),
+    sort_by: str | None = Query(
+        default=None,
+        description="Sort by field (title, document_type, processing_status, source_name, discovered_at, file_size)",
+    ),
     sort_order: str | None = Query(default="desc", description="Sort order (asc, desc)"),
     session: AsyncSession = Depends(get_session),
 ):
@@ -237,18 +237,11 @@ async def get_document_stats(
     total = (await session.execute(select(func.count()).select_from(filtered_query))).scalar() or 0
 
     status_result = await session.execute(
-        select(filtered_query.c.processing_status, func.count())
-        .group_by(filtered_query.c.processing_status)
+        select(filtered_query.c.processing_status, func.count()).group_by(filtered_query.c.processing_status)
     )
-    raw_counts = {
-        row[0].value if row[0] else "UNKNOWN": row[1]
-        for row in status_result.fetchall()
-    }
+    raw_counts = {row[0].value if row[0] else "UNKNOWN": row[1] for row in status_result.fetchall()}
 
-    by_status = {
-        status.value: raw_counts.get(status.value, 0)
-        for status in ProcessingStatus
-    }
+    by_status = {status.value: raw_counts.get(status.value, 0) for status in ProcessingStatus}
 
     return DocumentProcessingStatsResponse(
         total=total,
@@ -270,9 +263,7 @@ async def get_document(
     category = await session.get(Category, document.category_id)
 
     # Get extractions
-    ext_result = await session.execute(
-        select(ExtractedData).where(ExtractedData.document_id == document_id)
-    )
+    ext_result = await session.execute(select(ExtractedData).where(ExtractedData.document_id == document_id))
     extractions = ext_result.scalars().all()
 
     # Build response manually to avoid async relationship access issues
@@ -324,9 +315,7 @@ async def search_documents(
 ):
     """Full-text search across documents."""
     # PostgreSQL full-text search
-    query = select(Document).where(
-        Document.search_vector.op("@@")(func.plainto_tsquery("german", q))
-    )
+    query = select(Document).where(Document.search_vector.op("@@")(func.plainto_tsquery("german", q)))
 
     if category_id:
         query = query.where(Document.category_id == category_id)
@@ -342,9 +331,7 @@ async def search_documents(
 
     # Batch load sources to avoid N+1 query
     source_ids = list({doc.source_id for doc in documents if doc.source_id})
-    sources_result = await session.execute(
-        select(DataSource).where(DataSource.id.in_(source_ids))
-    )
+    sources_result = await session.execute(select(DataSource).where(DataSource.id.in_(source_ids)))
     sources_map = {s.id: s for s in sources_result.scalars().all()}
 
     items = []
@@ -367,8 +354,7 @@ async def search_documents(
 async def analyze_additional_pages(
     document_id: UUID,
     page_numbers: list[int] | None = Query(
-        default=None,
-        description="Specific page numbers to analyze. If empty, analyzes remaining relevant pages."
+        default=None, description="Specific page numbers to analyze. If empty, analyzes remaining relevant pages."
     ),
     max_pages: int = Query(default=10, ge=1, le=50, description="Maximum pages to analyze"),
     session: AsyncSession = Depends(get_session),
@@ -413,6 +399,7 @@ async def analyze_additional_pages(
 
     # Trigger analysis task
     from workers.ai_tasks import analyze_document
+
     task = analyze_document.delay(str(document_id), skip_relevance_check=True)
 
     return {
@@ -458,6 +445,7 @@ async def trigger_full_analysis(
 
     # Trigger analysis task
     from workers.ai_tasks import analyze_document
+
     task = analyze_document.delay(str(document_id), skip_relevance_check=True)
 
     return {
@@ -497,8 +485,7 @@ async def get_page_analysis_status(
         "pages_remaining": max(0, relevant_count - analyzed_count),
         "page_analysis_note": document.page_analysis_note,
         "can_analyze_more": (
-            document.page_analysis_status in ("has_more", "partial") and
-            analyzed_count < relevant_count
+            document.page_analysis_status in ("has_more", "partial") and analyzed_count < relevant_count
         ),
         "needs_manual_review": document.page_analysis_status == "needs_review",
     }

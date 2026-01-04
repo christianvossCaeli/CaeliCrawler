@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 # === Field Definition (used in templates) ===
 
+
 class PySisFieldDefinition(BaseModel):
     """Definition of a single field within a template."""
 
@@ -18,6 +19,7 @@ class PySisFieldDefinition(BaseModel):
 
 
 # === Template Schemas ===
+
 
 class PySisFieldTemplateCreate(BaseModel):
     """Schema for creating a new field template."""
@@ -58,6 +60,7 @@ class PySisFieldTemplateListResponse(BaseModel):
 
 
 # === Process Schemas ===
+
 
 class PySisProcessCreate(BaseModel):
     """Schema for creating a new process link."""
@@ -109,6 +112,7 @@ class PySisProcessDetailResponse(PySisProcessResponse):
 
 
 # === Field Schemas ===
+
 
 class PySisFieldCreate(BaseModel):
     """Schema for creating a new field."""
@@ -163,6 +167,7 @@ class PySisFieldResponse(BaseModel):
 
 # === Sync Schemas ===
 
+
 class PySisSyncRequest(BaseModel):
     """Schema for sync request."""
 
@@ -190,6 +195,7 @@ class PySisPullResult(BaseModel):
 
 # === AI Generation Schemas ===
 
+
 class PySisGenerateRequest(BaseModel):
     """Schema for AI generation request."""
 
@@ -206,6 +212,7 @@ class PySisGenerateResult(BaseModel):
 
 # === Apply Template Schema ===
 
+
 class ApplyTemplateRequest(BaseModel):
     """Schema for applying a template to a process."""
 
@@ -214,6 +221,7 @@ class ApplyTemplateRequest(BaseModel):
 
 
 # === Test Connection Schema ===
+
 
 class PySisTestConnectionResult(BaseModel):
     """Schema for connection test result."""
@@ -227,6 +235,7 @@ class PySisTestConnectionResult(BaseModel):
 
 
 # === Field History Schemas ===
+
 
 class PySisFieldHistoryResponse(BaseModel):
     """Schema for field history entry."""
@@ -251,6 +260,7 @@ class PySisFieldHistoryListResponse(BaseModel):
 
 # === Accept/Reject AI Suggestion Schemas ===
 
+
 class AcceptAISuggestionRequest(BaseModel):
     """Schema for accepting an AI suggestion."""
 
@@ -267,6 +277,7 @@ class AcceptAISuggestionResult(BaseModel):
 
 
 # === Analyze for Facets Schemas ===
+
 
 class PySisAnalyzeForFacetsRequest(BaseModel):
     """Schema for facet analysis from PySis fields."""

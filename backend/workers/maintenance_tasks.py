@@ -7,7 +7,6 @@ This module provides background tasks for:
 - Entity and FacetType migration/reprocessing
 """
 
-
 from datetime import UTC
 
 import structlog
@@ -119,7 +118,7 @@ def force_cleanup_connections(max_idle_minutes: int = 2):
                       AND state IN ('idle', 'idle in transaction')
                       AND state_change < NOW() - make_interval(mins := :minutes)
                 """),
-                {"minutes": max_idle_minutes}
+                {"minutes": max_idle_minutes},
             )
             terminated = result.fetchall()
 
@@ -128,7 +127,7 @@ def force_cleanup_connections(max_idle_minutes: int = 2):
                     "force_cleanup_completed",
                     terminated=len(terminated),
                     max_idle_minutes=max_idle_minutes,
-                    connections=[{"pid": row[1], "state": row[2]} for row in terminated]
+                    connections=[{"pid": row[1], "state": row[2]} for row in terminated],
                 )
 
             return {"terminated": len(terminated)}
@@ -224,22 +223,22 @@ def aggregate_llm_usage():
             # Get aggregated data from records older than 90 days
             stmt = (
                 select(
-                    func.to_char(LLMUsageRecord.created_at, 'YYYY-MM').label('year_month'),
+                    func.to_char(LLMUsageRecord.created_at, "YYYY-MM").label("year_month"),
                     LLMUsageRecord.provider,
                     LLMUsageRecord.model,
                     LLMUsageRecord.task_type,
                     LLMUsageRecord.category_id,
-                    func.count().label('request_count'),
-                    func.sum(LLMUsageRecord.prompt_tokens).label('total_prompt_tokens'),
-                    func.sum(LLMUsageRecord.completion_tokens).label('total_completion_tokens'),
-                    func.sum(LLMUsageRecord.total_tokens).label('total_tokens'),
-                    func.sum(LLMUsageRecord.estimated_cost_cents).label('total_cost_cents'),
-                    func.sum(func.cast(LLMUsageRecord.is_error, 'int')).label('error_count'),
-                    func.avg(LLMUsageRecord.duration_ms).label('avg_duration_ms'),
+                    func.count().label("request_count"),
+                    func.sum(LLMUsageRecord.prompt_tokens).label("total_prompt_tokens"),
+                    func.sum(LLMUsageRecord.completion_tokens).label("total_completion_tokens"),
+                    func.sum(LLMUsageRecord.total_tokens).label("total_tokens"),
+                    func.sum(LLMUsageRecord.estimated_cost_cents).label("total_cost_cents"),
+                    func.sum(func.cast(LLMUsageRecord.is_error, "int")).label("error_count"),
+                    func.avg(LLMUsageRecord.duration_ms).label("avg_duration_ms"),
                 )
                 .where(LLMUsageRecord.created_at < cutoff_date)
                 .group_by(
-                    func.to_char(LLMUsageRecord.created_at, 'YYYY-MM'),
+                    func.to_char(LLMUsageRecord.created_at, "YYYY-MM"),
                     LLMUsageRecord.provider,
                     LLMUsageRecord.model,
                     LLMUsageRecord.task_type,
@@ -254,44 +253,39 @@ def aggregate_llm_usage():
             for row in aggregates:
                 # Insert or update aggregate record
                 values = {
-                    'year_month': row.year_month,
-                    'provider': row.provider,
-                    'model': row.model,
-                    'task_type': row.task_type,
-                    'category_id': row.category_id,
-                    'request_count': row.request_count,
-                    'total_prompt_tokens': row.total_prompt_tokens or 0,
-                    'total_completion_tokens': row.total_completion_tokens or 0,
-                    'total_tokens': row.total_tokens or 0,
-                    'total_cost_cents': row.total_cost_cents or 0,
-                    'error_count': row.error_count or 0,
-                    'avg_duration_ms': float(row.avg_duration_ms or 0),
+                    "year_month": row.year_month,
+                    "provider": row.provider,
+                    "model": row.model,
+                    "task_type": row.task_type,
+                    "category_id": row.category_id,
+                    "request_count": row.request_count,
+                    "total_prompt_tokens": row.total_prompt_tokens or 0,
+                    "total_completion_tokens": row.total_completion_tokens or 0,
+                    "total_tokens": row.total_tokens or 0,
+                    "total_cost_cents": row.total_cost_cents or 0,
+                    "error_count": row.error_count or 0,
+                    "avg_duration_ms": float(row.avg_duration_ms or 0),
                 }
 
-                stmt = insert(LLMUsageMonthlyAggregate).values(
-                    id=uuid4(),
-                    **values
-                )
+                stmt = insert(LLMUsageMonthlyAggregate).values(id=uuid4(), **values)
                 stmt = stmt.on_conflict_do_update(
-                    index_elements=['year_month', 'provider', 'model', 'task_type', 'category_id'],
+                    index_elements=["year_month", "provider", "model", "task_type", "category_id"],
                     set_={
-                        'request_count': stmt.excluded.request_count,
-                        'total_prompt_tokens': stmt.excluded.total_prompt_tokens,
-                        'total_completion_tokens': stmt.excluded.total_completion_tokens,
-                        'total_tokens': stmt.excluded.total_tokens,
-                        'total_cost_cents': stmt.excluded.total_cost_cents,
-                        'error_count': stmt.excluded.error_count,
-                        'avg_duration_ms': stmt.excluded.avg_duration_ms,
-                    }
+                        "request_count": stmt.excluded.request_count,
+                        "total_prompt_tokens": stmt.excluded.total_prompt_tokens,
+                        "total_completion_tokens": stmt.excluded.total_completion_tokens,
+                        "total_tokens": stmt.excluded.total_tokens,
+                        "total_cost_cents": stmt.excluded.total_cost_cents,
+                        "error_count": stmt.excluded.error_count,
+                        "avg_duration_ms": stmt.excluded.avg_duration_ms,
+                    },
                 )
                 await session.execute(stmt)
                 inserted_count += 1
 
             # Delete aggregated records
             if aggregates:
-                delete_stmt = delete(LLMUsageRecord).where(
-                    LLMUsageRecord.created_at < cutoff_date
-                )
+                delete_stmt = delete(LLMUsageRecord).where(LLMUsageRecord.created_at < cutoff_date)
                 result = await session.execute(delete_stmt)
                 deleted_count = result.rowcount
 
@@ -333,11 +327,14 @@ def check_llm_budgets():
                 logger.warning(
                     "llm_budget_alerts_sent",
                     alert_count=len(alerts),
-                    alerts=[{
-                        "budget_id": str(a.budget_id),
-                        "alert_type": a.alert_type,
-                        "usage_percent": a.usage_percent,
-                    } for a in alerts]
+                    alerts=[
+                        {
+                            "budget_id": str(a.budget_id),
+                            "alert_type": a.alert_type,
+                            "usage_percent": a.usage_percent,
+                        }
+                        for a in alerts
+                    ],
                 )
 
             return {"alerts_sent": len(alerts)}
@@ -428,14 +425,16 @@ def migrate_entity_references(self, batch_size: int = 100, dry_run: bool = False
 
                 entity_id = await _resolve_entity(session, entity_type, value)
 
-                entity_refs.append({
-                    "entity_type": entity_type,
-                    "entity_name": value,
-                    "entity_id": str(entity_id) if entity_id else None,
-                    "role": role,
-                    "confidence": 0.85,
-                    "source_field": source_field,
-                })
+                entity_refs.append(
+                    {
+                        "entity_type": entity_type,
+                        "entity_name": value,
+                        "entity_id": str(entity_id) if entity_id else None,
+                        "role": role,
+                        "confidence": 0.85,
+                        "source_field": source_field,
+                    }
+                )
 
                 if entity_id and not primary_entity_id:
                     primary_entity_id = entity_id
@@ -495,20 +494,20 @@ def migrate_entity_references(self, batch_size: int = 100, dry_run: bool = False
                     default_type=entity_type,  # Fallback to configured type
                 )
 
-                entity_refs.append({
-                    "entity_type": actual_entity_type,
-                    "entity_name": name,
-                    "entity_id": str(entity_id) if entity_id else None,
-                    "role": role,
-                    "confidence": 0.7,
-                    "source_field": field_name,
-                })
+                entity_refs.append(
+                    {
+                        "entity_type": actual_entity_type,
+                        "entity_name": name,
+                        "entity_id": str(entity_id) if entity_id else None,
+                        "role": role,
+                        "confidence": 0.7,
+                        "source_field": field_name,
+                    }
+                )
 
         return entity_refs, primary_entity_id
 
-    async def _create_facet_values_for_refs(
-        session, entity_refs, primary_entity_id, document_id, category_id
-    ):
+    async def _create_facet_values_for_refs(session, entity_refs, primary_entity_id, document_id, category_id):
         """Create FacetValues for non-primary entity references."""
         facets_created = 0
 
@@ -573,9 +572,10 @@ def migrate_entity_references(self, batch_size: int = 100, dry_run: bool = False
 
             if dry_run:
                 # Count records needing migration
-                needs_extraction_stmt = select(func.count()).select_from(ExtractedData).where(
-                    (ExtractedData.entity_references.is_(None)) |
-                    (ExtractedData.entity_references == [])
+                needs_extraction_stmt = (
+                    select(func.count())
+                    .select_from(ExtractedData)
+                    .where((ExtractedData.entity_references.is_(None)) | (ExtractedData.entity_references == []))
                 )
                 needs_extraction = (await session.execute(needs_extraction_stmt)).scalar()
 
@@ -622,8 +622,7 @@ def migrate_entity_references(self, batch_size: int = 100, dry_run: bool = False
 
                                 # Create FacetValues for newly extracted refs
                                 facets = await _create_facet_values_for_refs(
-                                    session, entity_refs, primary_id,
-                                    record.document_id, record.category_id
+                                    session, entity_refs, primary_id, record.document_id, record.category_id
                                 )
                                 stats["facets_created"] += facets
 
@@ -654,7 +653,7 @@ def migrate_entity_references(self, batch_size: int = 100, dry_run: bool = False
                                         session,
                                         entity_name,
                                         allowed_types=None,  # Search all types
-                                        auto_create=False,   # Don't create, just find
+                                        auto_create=False,  # Don't create, just find
                                         default_type=entity_type,
                                     )
                                     if entity_id:
@@ -700,8 +699,7 @@ def migrate_entity_references(self, batch_size: int = 100, dry_run: bool = False
                             primary_id = record.primary_entity_id
                             if primary_id:
                                 facets = await _create_facet_values_for_refs(
-                                    session, new_refs, primary_id,
-                                    record.document_id, record.category_id
+                                    session, new_refs, primary_id, record.document_id, record.category_id
                                 )
                                 stats["facets_created"] += facets
 
@@ -726,7 +724,7 @@ def migrate_entity_references(self, batch_size: int = 100, dry_run: bool = False
                         "current": offset,
                         "total": total_count,
                         "percent": min(100, int(offset / total_count * 100)) if total_count else 100,
-                    }
+                    },
                 )
 
                 logger.info(
@@ -900,7 +898,7 @@ def migrate_facet_value_entity_links(self, batch_size: int = 100, dry_run: bool 
                         "current": offset,
                         "total": total_count,
                         "percent": min(100, int(offset / total_count * 100)) if total_count else 100,
-                    }
+                    },
                 )
 
                 logger.info(
@@ -960,9 +958,7 @@ def reclassify_entities(self, batch_size: int = 100, dry_run: bool = True):
 
         async with get_celery_session_context() as session:
             # Get all entity types
-            type_result = await session.execute(
-                select(EntityType).where(EntityType.is_active.is_(True))
-            )
+            type_result = await session.execute(select(EntityType).where(EntityType.is_active.is_(True)))
             entity_types = {et.slug: et for et in type_result.scalars().all()}
 
             # Count total entities
@@ -1012,12 +1008,14 @@ def reclassify_entities(self, batch_size: int = 100, dry_run: bool = True):
                         # If classified differently, mark for reclassification
                         if classified_type != current_type:
                             stats["needs_reclassification"] += 1
-                            stats["reclassification_candidates"].append({
-                                "entity_id": str(entity.id),
-                                "entity_name": entity.name,
-                                "current_type": current_type,
-                                "suggested_type": classified_type,
-                            })
+                            stats["reclassification_candidates"].append(
+                                {
+                                    "entity_id": str(entity.id),
+                                    "entity_name": entity.name,
+                                    "current_type": current_type,
+                                    "suggested_type": classified_type,
+                                }
+                            )
 
                             if not dry_run:
                                 # Get the target entity type
@@ -1105,7 +1103,7 @@ def reclassify_entities(self, batch_size: int = 100, dry_run: bool = True):
                         "current": offset,
                         "total": total_count,
                         "percent": min(100, int(offset / total_count * 100)) if total_count else 100,
-                    }
+                    },
                 )
 
                 logger.info(
@@ -1120,7 +1118,9 @@ def reclassify_entities(self, batch_size: int = 100, dry_run: bool = True):
             stats["reclassification_candidates"] = stats["reclassification_candidates"][:50]
             stats["reclassification_candidates_truncated"] = True
 
-        logger.info("reclassify_entities_complete", **{k: v for k, v in stats.items() if k != "reclassification_candidates"})
+        logger.info(
+            "reclassify_entities_complete", **{k: v for k, v in stats.items() if k != "reclassification_candidates"}
+        )
         return stats
 
     return run_async(_reclassify())
@@ -1200,8 +1200,8 @@ def reprocess_extractions_for_facets(
             stmt = stmt.order_by(ExtractedData.created_at)
 
             # Count total
-            count_stmt = select(func.count()).select_from(ExtractedData).where(
-                ExtractedData.extracted_content.isnot(None)
+            count_stmt = (
+                select(func.count()).select_from(ExtractedData).where(ExtractedData.extracted_content.isnot(None))
             )
             if category_slug and category_id:
                 count_stmt = count_stmt.where(ExtractedData.category_id == category_id)
@@ -1228,13 +1228,15 @@ def reprocess_extractions_for_facets(
                 # after any session rollback
                 extraction_data = []
                 for extraction in extractions:
-                    extraction_data.append({
-                        "id": extraction.id,
-                        "document_id": extraction.document_id,
-                        "category_id": extraction.category_id,
-                        "extracted_content": extraction.extracted_content,
-                        "entity_references": getattr(extraction, "entity_references", []),
-                    })
+                    extraction_data.append(
+                        {
+                            "id": extraction.id,
+                            "document_id": extraction.document_id,
+                            "category_id": extraction.category_id,
+                            "extracted_content": extraction.extracted_content,
+                            "entity_references": getattr(extraction, "entity_references", []),
+                        }
+                    )
 
                 for data in extraction_data:
                     extraction_id = data["id"]
@@ -1267,6 +1269,7 @@ def reprocess_extractions_for_facets(
                         source = None
                         if document_id:
                             from app.models import Document
+
                             doc = await session.get(Document, document_id)
                             if doc and doc.source_id:
                                 source = await session.get(DataSource, doc.source_id)
@@ -1308,7 +1311,7 @@ def reprocess_extractions_for_facets(
                         "total": total_count,
                         "percent": min(100, int(offset / total_count * 100)) if total_count else 100,
                         "facets_created": stats["facets_created"],
-                    }
+                    },
                 )
 
                 logger.info(

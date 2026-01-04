@@ -53,9 +53,7 @@ class BatchOperation(WriteOperation):
         # Filter by entity type
         entity_type_slug = target_filter.get("entity_type")
         if entity_type_slug:
-            et_result = await session.execute(
-                select(EntityType).where(EntityType.slug == entity_type_slug)
-            )
+            et_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
             entity_type = et_result.scalar_one_or_none()
             if entity_type:
                 query = query.where(Entity.entity_type_id == entity_type.id)
@@ -68,16 +66,12 @@ class BatchOperation(WriteOperation):
         # Filter by location
         location_filter = target_filter.get("location_filter")
         if location_filter:
-            query = query.where(
-                Entity.core_attributes["admin_level_1"].astext == location_filter
-            )
+            query = query.where(Entity.core_attributes["admin_level_1"].astext == location_filter)
 
         # Additional filters
         additional = target_filter.get("additional_filters", {})
         for key, value in additional.items():
-            query = query.where(
-                Entity.core_attributes[key].astext == value
-            )
+            query = query.where(Entity.core_attributes[key].astext == value)
 
         # Execute query
         result = await session.execute(query.limit(1000))
@@ -114,9 +108,7 @@ class BatchOperation(WriteOperation):
             facet_type_slug = action_data.get("facet_type")
             facet_value = action_data.get("facet_value", {})
 
-            ft_result = await session.execute(
-                select(FacetType).where(FacetType.slug == facet_type_slug)
-            )
+            ft_result = await session.execute(select(FacetType).where(FacetType.slug == facet_type_slug))
             facet_type = ft_result.scalar_one_or_none()
             if not facet_type:
                 return OperationResult(
@@ -153,9 +145,7 @@ class BatchOperation(WriteOperation):
         elif action_type == "remove_facet":
             facet_type_slug = action_data.get("facet_type")
 
-            ft_result = await session.execute(
-                select(FacetType).where(FacetType.slug == facet_type_slug)
-            )
+            ft_result = await session.execute(select(FacetType).where(FacetType.slug == facet_type_slug))
             facet_type = ft_result.scalar_one_or_none()
             if not facet_type:
                 return OperationResult(
@@ -166,10 +156,7 @@ class BatchOperation(WriteOperation):
             for entity in entities:
                 fv_result = await session.execute(
                     select(FacetValue).where(
-                        and_(
-                            FacetValue.entity_id == entity.id,
-                            FacetValue.facet_type_id == facet_type.id
-                        )
+                        and_(FacetValue.entity_id == entity.id, FacetValue.facet_type_id == facet_type.id)
                     )
                 )
                 facet_values = fv_result.scalars().all()
@@ -223,9 +210,7 @@ class BatchDeleteOperation(WriteOperation):
         # Filter by entity type
         entity_type = None
         if entity_type_slug:
-            et_result = await session.execute(
-                select(EntityType).where(EntityType.slug == entity_type_slug)
-            )
+            et_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
             entity_type = et_result.scalar_one_or_none()
             if entity_type:
                 entity_query = entity_query.where(Entity.entity_type_id == entity_type.id)
@@ -238,6 +223,7 @@ class BatchDeleteOperation(WriteOperation):
         # Filter by location
         if location_filter:
             from ..geographic_utils import resolve_geographic_alias
+
             resolved_location = resolve_geographic_alias(location_filter)
             entity_query = entity_query.where(Entity.admin_level_1 == resolved_location)
 
@@ -246,9 +232,7 @@ class BatchDeleteOperation(WriteOperation):
             if key == "is_active" and value is False:
                 entity_query = entity_query.where(Entity.is_active.is_(False))
             else:
-                entity_query = entity_query.where(
-                    Entity.core_attributes[key].astext == str(value)
-                )
+                entity_query = entity_query.where(Entity.core_attributes[key].astext == str(value))
 
         # Execute entity query
         result = await session.execute(entity_query.limit(1000))
@@ -266,12 +250,14 @@ class BatchDeleteOperation(WriteOperation):
 
         if delete_type == "entities":
             for entity in entities[:20]:
-                preview.append({
-                    "type": "entity",
-                    "id": str(entity.id),
-                    "name": entity.name,
-                    "entity_type": entity_type_slug or "unknown",
-                })
+                preview.append(
+                    {
+                        "type": "entity",
+                        "id": str(entity.id),
+                        "name": entity.name,
+                        "entity_type": entity_type_slug or "unknown",
+                    }
+                )
             affected_count = len(entities)
 
             if dry_run:
@@ -296,9 +282,7 @@ class BatchDeleteOperation(WriteOperation):
                     message="facet_type erforderlich für Facet-Löschung",
                 )
 
-            ft_result = await session.execute(
-                select(FacetType).where(FacetType.slug == facet_type_slug)
-            )
+            ft_result = await session.execute(select(FacetType).where(FacetType.slug == facet_type_slug))
             facet_type = ft_result.scalar_one_or_none()
             if not facet_type:
                 return OperationResult(
@@ -326,13 +310,15 @@ class BatchDeleteOperation(WriteOperation):
             facets = facet_result.scalars().all()
 
             for facet in facets[:20]:
-                preview.append({
-                    "type": "facet",
-                    "id": str(facet.id),
-                    "entity_id": str(facet.entity_id),
-                    "facet_type": facet_type_slug,
-                    "text": facet.text_representation[:50] if facet.text_representation else None,
-                })
+                preview.append(
+                    {
+                        "type": "facet",
+                        "id": str(facet.id),
+                        "entity_id": str(facet.entity_id),
+                        "facet_type": facet_type_slug,
+                        "text": facet.text_representation[:50] if facet.text_representation else None,
+                    }
+                )
             affected_count = len(facets)
 
             if dry_run:

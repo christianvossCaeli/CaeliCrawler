@@ -186,9 +186,7 @@ async def call_ai_with_json_response(
 
         content = response.choices[0].message.content
         if not content:
-            raise RuntimeError(
-                f"{operation_name} Fehler: Keine Inhalte in der AI-Antwort"
-            )
+            raise RuntimeError(f"{operation_name} Fehler: Keine Inhalte in der AI-Antwort")
 
         return json.loads(content)
 
@@ -198,9 +196,7 @@ async def call_ai_with_json_response(
             error=str(e),
             operation=operation_name,
         )
-        raise RuntimeError(
-            f"KI-Service Fehler: AI-Antwort konnte nicht verarbeitet werden - {str(e)}"
-        ) from None
+        raise RuntimeError(f"KI-Service Fehler: AI-Antwort konnte nicht verarbeitet werden - {str(e)}") from None
     except RuntimeError:
         # Re-raise our own RuntimeErrors
         raise
@@ -264,9 +260,7 @@ def create_sync_client_for_user(azure_config: dict[str, Any]) -> AzureOpenAI:
     required_keys = ["endpoint", "api_key", "api_version"]
     missing_keys = [k for k in required_keys if not azure_config.get(k)]
     if missing_keys:
-        raise ValueError(
-            f"Azure OpenAI Konfiguration unvollständig. Fehlende Felder: {', '.join(missing_keys)}"
-        )
+        raise ValueError(f"Azure OpenAI Konfiguration unvollständig. Fehlende Felder: {', '.join(missing_keys)}")
 
     return AzureOpenAI(
         azure_endpoint=azure_config["endpoint"],
@@ -305,9 +299,7 @@ def create_async_client_for_user(azure_config: dict[str, Any]) -> AsyncAzureOpen
     required_keys = ["endpoint", "api_key", "api_version"]
     missing_keys = [k for k in required_keys if not azure_config.get(k)]
     if missing_keys:
-        raise ValueError(
-            f"Azure OpenAI Konfiguration unvollständig. Fehlende Felder: {', '.join(missing_keys)}"
-        )
+        raise ValueError(f"Azure OpenAI Konfiguration unvollständig. Fehlende Felder: {', '.join(missing_keys)}")
 
     return AsyncAzureOpenAI(
         azure_endpoint=azure_config["endpoint"],

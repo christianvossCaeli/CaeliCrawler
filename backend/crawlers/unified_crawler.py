@@ -335,12 +335,14 @@ class UnifiedCrawlerService:
         client = await self.get_govdata_client()
         orgs = []
         async for org in client.get_organizations():
-            orgs.append({
-                "id": org.id,
-                "name": org.name,
-                "title": org.title,
-                "package_count": org.package_count,
-            })
+            orgs.append(
+                {
+                    "id": org.id,
+                    "name": org.name,
+                    "title": org.title,
+                    "package_count": org.package_count,
+                }
+            )
             if len(orgs) >= limit:
                 break
         return orgs
@@ -355,13 +357,15 @@ class UnifiedCrawlerService:
         client = await self.get_oparl_client(system_url)
         bodies = []
         async for body in client.get_bodies():
-            bodies.append({
-                "id": body.id,
-                "name": body.name,
-                "short_name": body.short_name,
-                "ags": body.ags,
-                "website": body.website,
-            })
+            bodies.append(
+                {
+                    "id": body.id,
+                    "name": body.name,
+                    "short_name": body.short_name,
+                    "ags": body.ags,
+                    "website": body.website,
+                }
+            )
         return bodies
 
     # === Source-Specific Iteration ===
@@ -511,9 +515,11 @@ async def quick_search(
         ]
 
     async with UnifiedCrawlerService() as service:
-        result = await service.search(UnifiedSearchQuery(
-            query=query,
-            sources=source_types,
-            limit=limit,
-        ))
+        result = await service.search(
+            UnifiedSearchQuery(
+                query=query,
+                sources=source_types,
+                limit=limit,
+            )
+        )
         return result.documents

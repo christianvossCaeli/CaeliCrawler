@@ -77,6 +77,7 @@ MAX_CACHE_TTL_HOURS = 168  # Maximum: 1 week
 
 # --- Helper Functions ---
 
+
 def calculate_next_run(cron_expression: str, from_time: datetime = None) -> datetime:
     """Calculate the next run time from a cron expression.
 
@@ -165,6 +166,7 @@ def _execution_to_response(execution: SummaryExecution) -> SummaryExecutionRespo
 
 # --- Summary CRUD Endpoints ---
 
+
 @router.post("/from-prompt", response_model=SummaryFromPromptResponse)
 async def create_from_prompt(
     data: SummaryCreateFromPrompt,
@@ -205,6 +207,7 @@ async def create_from_prompt(
 
     # Check for duplicate name
     from app.utils.similarity import find_duplicate_custom_summary
+
     duplicate = await find_duplicate_custom_summary(
         session,
         user_id=current_user.id,
@@ -250,9 +253,7 @@ async def create_from_prompt(
     # Enforce maximum widget count to prevent resource exhaustion
     if len(ai_widgets) > MAX_WIDGETS_PER_SUMMARY:
         await session.rollback()
-        raise ValidationError(
-            f"Zu viele Widgets ({len(ai_widgets)}). Maximum: {MAX_WIDGETS_PER_SUMMARY}"
-        )
+        raise ValidationError(f"Zu viele Widgets ({len(ai_widgets)}). Maximum: {MAX_WIDGETS_PER_SUMMARY}")
 
     try:
         for i, widget_data in enumerate(ai_widgets):
@@ -317,6 +318,7 @@ async def create_summary(
 
     # Check for duplicate name
     from app.utils.similarity import find_duplicate_custom_summary
+
     duplicate = await find_duplicate_custom_summary(
         session,
         user_id=current_user.id,
@@ -382,8 +384,7 @@ async def list_summaries(
 
     # Apply pagination and ordering
     query = (
-        query
-        .order_by(CustomSummary.is_favorite.desc(), CustomSummary.updated_at.desc())
+        query.order_by(CustomSummary.is_favorite.desc(), CustomSummary.updated_at.desc())
         .offset((page - 1) * per_page)
         .limit(per_page)
     )
@@ -401,6 +402,7 @@ async def list_summaries(
 
 
 # --- Schedule Presets (must be before /{summary_id} routes) ---
+
 
 @router.get("/schedule-presets", response_model=list[dict])
 async def get_schedule_presets(
@@ -564,6 +566,7 @@ async def delete_summary(
 
 # --- Execution Endpoints ---
 
+
 @router.post("/{summary_id}/execute", response_model=SummaryExecuteResponse)
 async def execute_summary(
     summary_id: UUID,
@@ -591,7 +594,9 @@ async def execute_summary(
         status=execution.status.value,  # Pass string, Pydantic coerces to schema enum
         has_changes=execution.has_changes,
         cached_data=execution.cached_data if execution.status == ExecutionStatus.COMPLETED else None,
-        message="Ausführung abgeschlossen" if execution.status == ExecutionStatus.COMPLETED else "Keine relevanten Änderungen",
+        message="Ausführung abgeschlossen"
+        if execution.status == ExecutionStatus.COMPLETED
+        else "Keine relevanten Änderungen",
     )
 
 
@@ -615,9 +620,7 @@ async def check_summary_updates(
 
     # Load summary with widgets for source resolution
     result = await session.execute(
-        select(CustomSummary)
-        .options(selectinload(CustomSummary.widgets))
-        .where(CustomSummary.id == summary_id)
+        select(CustomSummary).options(selectinload(CustomSummary.widgets)).where(CustomSummary.id == summary_id)
     )
     summary = result.scalar_one_or_none()
 
@@ -626,11 +629,14 @@ async def check_summary_updates(
 
     # Resolve all relevant sources (DataSources + ExternalAPIs)
     from services.summaries.source_resolver import resolve_all_sources_for_summary
+
     resolved = await resolve_all_sources_for_summary(session, summary)
 
     if resolved.is_empty:
-        raise ValidationError("Keine Datenquellen für diese Zusammenfassung gefunden. "
-                            "Verknüpfen Sie eine Kategorie oder ein Preset, oder fügen Sie Widgets mit Entity-Typen hinzu.")
+        raise ValidationError(
+            "Keine Datenquellen für diese Zusammenfassung gefunden. "
+            "Verknüpfen Sie eine Kategorie oder ein Preset, oder fügen Sie Widgets mit Entity-Typen hinzu."
+        )
 
     # Get source names for progress display
     source_names = resolved.get_all_names()
@@ -742,6 +748,7 @@ async def list_executions(
 
 # --- Widget Endpoints ---
 
+
 @router.post("/{summary_id}/widgets", response_model=SummaryWidgetResponse)
 async def add_widget(
     summary_id: UUID,
@@ -759,8 +766,7 @@ async def add_widget(
 
     # Check widget count limit to prevent resource exhaustion
     count_result = await session.execute(
-        select(func.count(SummaryWidget.id))
-        .where(SummaryWidget.summary_id == summary_id)
+        select(func.count(SummaryWidget.id)).where(SummaryWidget.summary_id == summary_id)
     )
     widget_count = count_result.scalar() or 0
 
@@ -772,8 +778,7 @@ async def add_widget(
 
     # Get max display_order
     result = await session.execute(
-        select(func.max(SummaryWidget.display_order))
-        .where(SummaryWidget.summary_id == summary_id)
+        select(func.max(SummaryWidget.display_order)).where(SummaryWidget.summary_id == summary_id)
     )
     max_order = result.scalar() or 0
 
@@ -856,6 +861,7 @@ async def delete_widget(
 
 # --- Share Endpoints ---
 
+
 @router.post("/{summary_id}/share", response_model=SummaryShareResponse)
 async def create_share_link(
     summary_id: UUID,
@@ -875,10 +881,7 @@ async def create_share_link(
     share = SummaryShare(
         summary_id=summary_id,
         password_hash=bcrypt.hash(data.password) if data.password else None,
-        expires_at=(
-            datetime.now(UTC) + timedelta(days=data.expires_days)
-            if data.expires_days else None
-        ),
+        expires_at=(datetime.now(UTC) + timedelta(days=data.expires_days) if data.expires_days else None),
         allow_export=data.allow_export,
     )
     session.add(share)
@@ -914,9 +917,7 @@ async def list_shares(
         raise NotFoundError("Zusammenfassung", str(summary_id))
 
     result = await session.execute(
-        select(SummaryShare)
-        .where(SummaryShare.summary_id == summary_id)
-        .order_by(SummaryShare.created_at.desc())
+        select(SummaryShare).where(SummaryShare.summary_id == summary_id).order_by(SummaryShare.created_at.desc())
     )
     shares = result.scalars().all()
 
@@ -964,6 +965,7 @@ async def deactivate_share(
 
 # --- Favorite Toggle ---
 
+
 @router.post("/{summary_id}/toggle-favorite", response_model=SummaryFavoriteToggleResponse)
 async def toggle_favorite(
     summary_id: UUID,
@@ -989,6 +991,7 @@ async def toggle_favorite(
 
 
 # --- Export Endpoints ---
+
 
 @router.get("/{summary_id}/export/{format}")
 async def export_summary(
@@ -1025,9 +1028,7 @@ async def export_summary(
             return StreamingResponse(
                 io.BytesIO(pdf_bytes),
                 media_type="application/pdf",
-                headers={
-                    "Content-Disposition": f"attachment; filename=\"{safe_filename}.pdf\""
-                }
+                headers={"Content-Disposition": f'attachment; filename="{safe_filename}.pdf"'},
             )
         except ImportError as e:
             raise ValidationError(str(e)) from None
@@ -1037,9 +1038,7 @@ async def export_summary(
         return StreamingResponse(
             io.BytesIO(excel_bytes),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={
-                "Content-Disposition": f"attachment; filename=\"{safe_filename}.xlsx\""
-            }
+            headers={"Content-Disposition": f'attachment; filename="{safe_filename}.xlsx"'},
         )
 
     else:
@@ -1048,8 +1047,10 @@ async def export_summary(
 
 # --- Smart Query Integration ---
 
+
 class SmartQueryToSummaryRequest(BaseModel):
     """Request to create summary from smart query result."""
+
     query_text: str = Field(..., min_length=3, description="Original Smart Query text")
     query_result: dict[str, Any] = Field(..., description="Smart Query result with data and visualization")
     name: str | None = Field(None, max_length=255, description="Custom name (auto-generated if not provided)")
@@ -1058,18 +1059,21 @@ class SmartQueryToSummaryRequest(BaseModel):
 
 class AddToSummaryRequest(BaseModel):
     """Request to add smart query result to existing summary."""
+
     query_text: str = Field(..., min_length=3, description="Smart Query text")
     query_result: dict[str, Any] = Field(..., description="Smart Query result")
 
 
 class DuplicateCheckRequest(BaseModel):
     """Request to check for duplicate summaries."""
+
     prompt: str = Field(..., min_length=3, description="Prompt to check")
     entity_types: list[str] | None = Field(None, description="Entity types in the query")
 
 
 class DuplicateCandidateResponse(BaseModel):
     """Response for duplicate candidate."""
+
     summary_id: str
     name: str
     description: str | None
@@ -1173,16 +1177,15 @@ async def check_duplicates(
         limit=5,
     )
 
-    return [
-        DuplicateCandidateResponse(**c.to_dict())
-        for c in candidates
-    ]
+    return [DuplicateCandidateResponse(**c.to_dict()) for c in candidates]
 
 
 # --- Category/Analysis Theme Integration ---
 
+
 class CreateFromCategoryRequest(BaseModel):
     """Request to create summary from a category/analysis theme."""
+
     category_id: UUID = Field(..., description="Category/Analysis Theme ID")
     name: str | None = Field(None, max_length=255, description="Custom name")
     description: str | None = Field(None, description="Optional description")
@@ -1380,14 +1383,16 @@ async def apply_expansion_suggestions(
     for idx in data.suggestion_indices:
         if 0 <= idx < len(all_suggestions):
             sugg_dict = all_suggestions[idx]
-            selected.append(WidgetSuggestion(
-                widget_type=SummaryWidgetType(sugg_dict["widget_type"]),
-                title=sugg_dict["title"],
-                subtitle=sugg_dict.get("subtitle"),
-                query_config=sugg_dict.get("query_config", {}),
-                reason=sugg_dict.get("reason", ""),
-                confidence=sugg_dict.get("confidence", 0.5),
-            ))
+            selected.append(
+                WidgetSuggestion(
+                    widget_type=SummaryWidgetType(sugg_dict["widget_type"]),
+                    title=sugg_dict["title"],
+                    subtitle=sugg_dict.get("subtitle"),
+                    query_config=sugg_dict.get("query_config", {}),
+                    reason=sugg_dict.get("reason", ""),
+                    confidence=sugg_dict.get("confidence", 0.5),
+                )
+            )
 
     if not selected:
         raise ValidationError("Keine gültigen Vorschläge ausgewählt")

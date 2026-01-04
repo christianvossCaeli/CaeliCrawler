@@ -35,7 +35,6 @@ class ViewMode(str, Enum):
     UNKNOWN = "unknown"
 
 
-
 class FacetSummary(BaseModel):
     """Summary of a facet for context awareness."""
 
@@ -127,6 +126,7 @@ class PageContextData(BaseModel):
     available_features: list[str] = Field(default_factory=list, description="Available features")
     available_actions: list[str] = Field(default_factory=list, description="Available actions")
 
+
 class AssistantContext(BaseModel):
     """Context information about the current app state."""
 
@@ -170,9 +170,7 @@ class AssistantChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=10000, description="User's message")
     context: AssistantContext = Field(..., description="Current app context")
     conversation_history: list[ConversationMessage] = Field(
-        default_factory=list,
-        max_length=20,
-        description="Previous messages in the conversation"
+        default_factory=list, max_length=20, description="Previous messages in the conversation"
     )
     mode: Literal["read", "write"] = Field(default="read", description="Current chat mode")
     language: Literal["de", "en"] = Field(default="de", description="Language for responses")
@@ -180,6 +178,7 @@ class AssistantChatRequest(BaseModel):
 
 
 # Response Types
+
 
 class QuerySuggestion(BaseModel):
     """Suggestion for correcting a query."""
@@ -199,8 +198,7 @@ class QueryResultData(BaseModel):
     grouping: str | None = None
     query_interpretation: dict[str, Any] | None = None
     suggestions: list[dict[str, Any]] | None = Field(
-        default=None,
-        description="Correction suggestions when no results found"
+        default=None, description="Correction suggestions when no results found"
     )
 
 
@@ -333,6 +331,7 @@ class AssistantChatResponse(BaseModel):
 
 # Action Execution
 
+
 class ActionExecuteRequest(BaseModel):
     """Request to execute a confirmed action."""
 
@@ -352,6 +351,7 @@ class ActionExecuteResponse(BaseModel):
 
 # Slash Commands
 
+
 class SlashCommand(BaseModel):
     """A slash command definition."""
 
@@ -366,31 +366,28 @@ SLASH_COMMANDS = [
         command="help",
         description="Zeigt Hilfe und verfuegbare Befehle",
         usage="/help [thema]",
-        examples=["/help", "/help entities", "/help facets"]
+        examples=["/help", "/help entities", "/help facets"],
     ),
     SlashCommand(
         command="search",
         description="Sucht nach Entities",
         usage="/search <suchbegriff>",
-        examples=["/search Gummersbach", "/search Buergermeister"]
+        examples=["/search Gummersbach", "/search Buergermeister"],
     ),
     SlashCommand(
         command="create",
         description="Erstellt neue Datensaetze (oeffnet Write-Mode)",
         usage="/create <typ> <details>",
-        examples=["/create person Max Mueller", "/create pain_point Personalmangel"]
+        examples=["/create person Max Mueller", "/create pain_point Personalmangel"],
     ),
     SlashCommand(
-        command="summary",
-        description="Fasst die aktuelle Entity zusammen",
-        usage="/summary",
-        examples=["/summary"]
+        command="summary", description="Fasst die aktuelle Entity zusammen", usage="/summary", examples=["/summary"]
     ),
     SlashCommand(
         command="navigate",
         description="Navigiert zu einer Entity",
         usage="/navigate <entity-name>",
-        examples=["/navigate Gummersbach", "/navigate Max Mueller"]
+        examples=["/navigate Gummersbach", "/navigate Max Mueller"],
     ),
 ]
 
@@ -414,17 +411,10 @@ class BatchActionRequest(BaseModel):
 
     action_type: BatchActionType = Field(..., description="Type of batch action")
     target_filter: dict[str, Any] = Field(
-        ...,
-        description="Filter to select target entities (e.g. entity_type, location)"
+        ..., description="Filter to select target entities (e.g. entity_type, location)"
     )
-    action_data: dict[str, Any] = Field(
-        ...,
-        description="Data for the action (e.g. facet_type, value)"
-    )
-    dry_run: bool = Field(
-        default=True,
-        description="If true, only return preview without executing"
-    )
+    action_data: dict[str, Any] = Field(..., description="Data for the action (e.g. facet_type, value)")
+    dry_run: bool = Field(default=True, description="If true, only return preview without executing")
 
 
 class BatchActionPreview(BaseModel):
@@ -440,14 +430,8 @@ class BatchActionResponse(BaseModel):
 
     success: bool = True
     affected_count: int = Field(..., description="Number of entities affected")
-    preview: list[BatchActionPreview] = Field(
-        default_factory=list,
-        description="Preview of first 10 affected entities"
-    )
-    batch_id: str | None = Field(
-        None,
-        description="ID for tracking batch execution (empty for dry_run)"
-    )
+    preview: list[BatchActionPreview] = Field(default_factory=list, description="Preview of first 10 affected entities")
+    batch_id: str | None = Field(None, description="ID for tracking batch execution (empty for dry_run)")
     message: str = Field(default="", description="Status message")
 
 

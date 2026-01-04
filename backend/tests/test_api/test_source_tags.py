@@ -75,6 +75,7 @@ class TestSourceTagsAPI:
     async def test_create_source_with_tags(self, admin_client: AsyncClient):
         """Test creating a source with tags."""
         import random
+
         unique_suffix = random.randint(1000, 9999)  # noqa: S311
         response = await admin_client.post(
             "/api/admin/data-sources",
@@ -137,6 +138,7 @@ class TestSourceTagsAPI:
     async def test_empty_tags_array(self, admin_client: AsyncClient):
         """Test creating source with empty tags."""
         import random
+
         unique_suffix = random.randint(1000, 9999)  # noqa: S311
         response = await admin_client.post(
             "/api/admin/data-sources",
@@ -321,6 +323,7 @@ class TestTagValidation:
         """Test maximum tag length validation."""
         long_tag = "a" * 100
         import random
+
         unique_suffix = random.randint(1000, 9999)  # noqa: S311
 
         response = await admin_client.post(

@@ -31,6 +31,7 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class ResolvedSources:
     """Container for resolved sources from different types."""
+
     data_sources: list[DataSource]
     external_apis: list[APIConfiguration]
 
@@ -129,9 +130,9 @@ async def get_sources_for_preset(
 
     # Apply category filter if present
     if filters.get("category_id"):
-        query = query.join(
-            DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id
-        ).where(DataSourceCategory.category_id == UUID(filters["category_id"]))
+        query = query.join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id).where(
+            DataSourceCategory.category_id == UUID(filters["category_id"])
+        )
 
     # Apply additional filters
     if filters.get("source_type"):
@@ -164,9 +165,7 @@ async def get_categories_for_entity_type(
         List of Category objects
     """
     # First, find the entity type by slug
-    entity_type_result = await session.execute(
-        select(EntityType).where(EntityType.slug == entity_type_slug)
-    )
+    entity_type_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
     entity_type = entity_type_result.scalar_one_or_none()
 
     if not entity_type:
@@ -271,9 +270,7 @@ async def resolve_all_sources_for_summary(
 
     # 1. Directly linked category
     if summary.trigger_category_id:
-        category_sources = await get_sources_for_category(
-            session, summary.trigger_category_id
-        )
+        category_sources = await get_sources_for_category(session, summary.trigger_category_id)
         for source in category_sources:
             source_ids.add(source.id)
             source_objects[source.id] = source

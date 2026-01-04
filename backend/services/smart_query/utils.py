@@ -20,7 +20,7 @@ def clean_json_response(content: str) -> str:
     """Clean up markdown code blocks from AI response."""
     if "```" in content:
         # Extract content between ``` markers
-        match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content)
+        match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content)
         if match:  # noqa: SIM108
             content = match.group(1)
         else:

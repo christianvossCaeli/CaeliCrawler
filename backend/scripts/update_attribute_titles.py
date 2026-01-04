@@ -60,7 +60,11 @@ ATTRIBUTE_SCHEMAS = {
             # Location fields
             **LOCATION_FIELDS,
             # Type-specific attributes
-            "org_type": {"type": "string", "title": "Organisationstyp", "description": "Typ (Unternehmen, Verband, etc.)"},
+            "org_type": {
+                "type": "string",
+                "title": "Organisationstyp",
+                "description": "Typ (Unternehmen, Verband, etc.)",
+            },
             "website": {"type": "string", "title": "Website"},
             "email": {"type": "string", "title": "E-Mail", "format": "email"},
             "address": {"type": "string", "title": "Adresse"},
@@ -76,7 +80,11 @@ ATTRIBUTE_SCHEMAS = {
             "event_end_date": {"type": "string", "title": "Enddatum", "format": "date-time"},
             "location": {"type": "string", "title": "Ort"},
             "organizer": {"type": "string", "title": "Veranstalter"},
-            "event_type": {"type": "string", "title": "Veranstaltungstyp", "description": "Messe, Konferenz, Workshop, etc."},
+            "event_type": {
+                "type": "string",
+                "title": "Veranstaltungstyp",
+                "description": "Messe, Konferenz, Workshop, etc.",
+            },
             "website": {"type": "string", "title": "Website"},
             "description": {"type": "string", "title": "Beschreibung"},
         },
@@ -89,9 +97,7 @@ async def update_entity_type_schemas():
 
     async with get_session_context() as session:
         for slug, new_schema in ATTRIBUTE_SCHEMAS.items():
-            result = await session.execute(
-                select(EntityType).where(EntityType.slug == slug)
-            )
+            result = await session.execute(select(EntityType).where(EntityType.slug == slug))
             entity_type = result.scalar_one_or_none()
 
             if entity_type:

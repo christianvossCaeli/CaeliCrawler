@@ -112,10 +112,12 @@ class APIFacetSyncService:
 
             fetch_result = await self._fetch_api_data(config)
             if not fetch_result.success:
-                result.errors.append({
-                    "stage": "fetch",
-                    "error": fetch_result.error or "Unknown fetch error",
-                })
+                result.errors.append(
+                    {
+                        "stage": "fetch",
+                        "error": fetch_result.error or "Unknown fetch error",
+                    }
+                )
                 return result
 
             result.records_fetched = len(fetch_result.items)
@@ -189,11 +191,13 @@ class APIFacetSyncService:
                     result.facets_updated += sync_counts.get("updated", 0)
 
                 except Exception as e:
-                    result.errors.append({
-                        "stage": "process_record",
-                        "record": str(record.get(api_match_field, "unknown")),
-                        "error": str(e),
-                    })
+                    result.errors.append(
+                        {
+                            "stage": "process_record",
+                            "record": str(record.get(api_match_field, "unknown")),
+                            "error": str(e),
+                        }
+                    )
                     logger.warning(
                         "api_record_processing_failed",
                         error=str(e),
@@ -222,10 +226,12 @@ class APIFacetSyncService:
                 config_id=str(config.id),
                 error=str(e),
             )
-            result.errors.append({
-                "stage": "sync",
-                "error": str(e),
-            })
+            result.errors.append(
+                {
+                    "stage": "sync",
+                    "error": str(e),
+                }
+            )
             config.last_sync_status = SyncStatus.FAILED.value
 
         return result
@@ -281,9 +287,7 @@ class APIFacetSyncService:
             query = query.where(func.lower(Entity.name) == func.lower(str(match_value)))
         elif match_by == "name_contains":
             # Fuzzy matching - entity name contains the API value
-            query = query.where(
-                func.lower(Entity.name).contains(func.lower(str(match_value)))
-            )
+            query = query.where(func.lower(Entity.name).contains(func.lower(str(match_value))))
         else:
             logger.warning(f"Unknown match_by value: {match_by}")
             return None
@@ -302,9 +306,7 @@ class APIFacetSyncService:
         if not slugs:
             return {}
 
-        result = await self.session.execute(
-            select(FacetType).where(FacetType.slug.in_(slugs))
-        )
+        result = await self.session.execute(select(FacetType).where(FacetType.slug.in_(slugs)))
         facet_types = result.scalars().all()
 
         return {ft.slug: ft for ft in facet_types}
@@ -410,19 +412,23 @@ class APIFacetSyncService:
 
         if not config.is_active:
             result = APIFacetSyncResult()
-            result.errors.append({
-                "stage": "validate",
-                "error": "Configuration is not active",
-            })
+            result.errors.append(
+                {
+                    "stage": "validate",
+                    "error": "Configuration is not active",
+                }
+            )
             return result
 
         # Verify this config is meant for facet sync
         if config.import_mode not in [ImportMode.FACETS.value, ImportMode.BOTH.value]:
             result = APIFacetSyncResult()
-            result.errors.append({
-                "stage": "validate",
-                "error": f"Configuration import_mode is {config.import_mode}, expected 'facets' or 'both'",
-            })
+            result.errors.append(
+                {
+                    "stage": "validate",
+                    "error": f"Configuration import_mode is {config.import_mode}, expected 'facets' or 'both'",
+                }
+            )
             return result
 
         return await self.sync_config(config)

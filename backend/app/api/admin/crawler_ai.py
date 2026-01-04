@@ -66,19 +66,21 @@ async def list_ai_tasks(
                 source_name = process.name
                 category_name = process.entity_name
 
-        items.append(AITaskInfo(
-            id=task.id,
-            task_type=task.task_type.value,
-            status=task.status.value,
-            source_name=source_name,
-            category_name=category_name,
-            created_at=task.scheduled_at,
-            started_at=task.started_at,
-            completed_at=task.completed_at,
-            error_message=task.error_message,
-            progress_percent=task.progress_percent,
-            celery_task_id=task.celery_task_id,
-        ))
+        items.append(
+            AITaskInfo(
+                id=task.id,
+                task_type=task.task_type.value,
+                status=task.status.value,
+                source_name=source_name,
+                category_name=category_name,
+                created_at=task.scheduled_at,
+                started_at=task.started_at,
+                completed_at=task.completed_at,
+                error_message=task.error_message,
+                progress_percent=task.progress_percent,
+                celery_task_id=task.celery_task_id,
+            )
+        )
 
     return AITaskListResponse(
         items=items,
@@ -97,9 +99,7 @@ async def get_running_ai_tasks(
     """Get all currently running AI tasks."""
     from app.models.pysis import PySisProcess
 
-    result = await session.execute(
-        select(AITask).where(AITask.status == AITaskStatus.RUNNING)
-    )
+    result = await session.execute(select(AITask).where(AITask.status == AITaskStatus.RUNNING))
     running_tasks = result.scalars().all()
 
     # Batch fetch processes to avoid N+1 queries
@@ -116,19 +116,21 @@ async def get_running_ai_tasks(
                 source_name = process.name
                 category_name = process.entity_name
 
-        tasks.append(AITaskInfo(
-            id=task.id,
-            task_type=task.task_type.value,
-            status=task.status.value,
-            source_name=source_name,
-            category_name=category_name,
-            created_at=task.scheduled_at,
-            started_at=task.started_at,
-            completed_at=task.completed_at,
-            error_message=task.error_message,
-            progress_percent=task.progress_percent,
-            celery_task_id=task.celery_task_id,
-        ))
+        tasks.append(
+            AITaskInfo(
+                id=task.id,
+                task_type=task.task_type.value,
+                status=task.status.value,
+                source_name=source_name,
+                category_name=category_name,
+                created_at=task.scheduled_at,
+                started_at=task.started_at,
+                completed_at=task.completed_at,
+                error_message=task.error_message,
+                progress_percent=task.progress_percent,
+                celery_task_id=task.celery_task_id,
+            )
+        )
 
     return RunningAITasksResponse(
         tasks=tasks,
@@ -163,6 +165,7 @@ async def cancel_ai_task(
         # Revoke Celery task - import here to avoid issues when Celery isn't running
         if task.celery_task_id:
             from workers.celery_app import celery_app
+
             celery_app.control.revoke(task.celery_task_id, terminate=True)
 
         task.status = AITaskStatus.CANCELLED

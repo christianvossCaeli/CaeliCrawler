@@ -106,11 +106,13 @@ async def find_duplicate_summaries(
         )
 
         if score >= threshold:
-            candidates.append(DuplicateCandidate(
-                summary=summary,
-                similarity_score=score,
-                match_reasons=reasons,
-            ))
+            candidates.append(
+                DuplicateCandidate(
+                    summary=summary,
+                    similarity_score=score,
+                    match_reasons=reasons,
+                )
+            )
 
     # Sort by score descending
     candidates.sort(key=lambda c: c.similarity_score, reverse=True)
@@ -125,11 +127,37 @@ def _normalize_text(text: str) -> str:
 
     # Remove common filler words (German and English)
     filler_words = {
-        "zeige", "mir", "alle", "die", "den", "das", "bitte", "gib",
-        "show", "me", "all", "the", "please", "give",
-        "eine", "einen", "einer", "a", "an",
-        "mit", "und", "oder", "von", "zu", "für",
-        "with", "and", "or", "from", "to", "for",
+        "zeige",
+        "mir",
+        "alle",
+        "die",
+        "den",
+        "das",
+        "bitte",
+        "gib",
+        "show",
+        "me",
+        "all",
+        "the",
+        "please",
+        "give",
+        "eine",
+        "einen",
+        "einer",
+        "a",
+        "an",
+        "mit",
+        "und",
+        "oder",
+        "von",
+        "zu",
+        "für",
+        "with",
+        "and",
+        "or",
+        "from",
+        "to",
+        "for",
     }
 
     words = text.split()
@@ -144,25 +172,85 @@ def _extract_keywords(text: str) -> set:
     text = text.lower()
 
     # Remove punctuation
-    text = re.sub(r'[^\w\s]', ' ', text)
+    text = re.sub(r"[^\w\s]", " ", text)
 
     # Split and filter
     words = text.split()
 
     # Remove short words and common words
     stop_words = {
-        "der", "die", "das", "den", "dem", "des",
-        "ein", "eine", "einer", "einen", "einem", "eines",
-        "und", "oder", "aber", "wenn", "weil", "dass",
-        "the", "a", "an", "and", "or", "but", "if", "because", "that",
-        "ist", "sind", "war", "waren", "wird", "werden",
-        "is", "are", "was", "were", "will", "be",
-        "ich", "du", "er", "sie", "es", "wir", "ihr",
-        "i", "you", "he", "she", "it", "we", "they",
-        "mir", "mich", "dir", "dich",
-        "me", "my", "your",
-        "zeige", "show", "gib", "give", "bitte", "please",
-        "alle", "all", "jede", "jeder", "every", "each",
+        "der",
+        "die",
+        "das",
+        "den",
+        "dem",
+        "des",
+        "ein",
+        "eine",
+        "einer",
+        "einen",
+        "einem",
+        "eines",
+        "und",
+        "oder",
+        "aber",
+        "wenn",
+        "weil",
+        "dass",
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "if",
+        "because",
+        "that",
+        "ist",
+        "sind",
+        "war",
+        "waren",
+        "wird",
+        "werden",
+        "is",
+        "are",
+        "was",
+        "were",
+        "will",
+        "be",
+        "ich",
+        "du",
+        "er",
+        "sie",
+        "es",
+        "wir",
+        "ihr",
+        "i",
+        "you",
+        "he",
+        "she",
+        "it",
+        "we",
+        "they",
+        "mir",
+        "mich",
+        "dir",
+        "dich",
+        "me",
+        "my",
+        "your",
+        "zeige",
+        "show",
+        "gib",
+        "give",
+        "bitte",
+        "please",
+        "alle",
+        "all",
+        "jede",
+        "jeder",
+        "every",
+        "each",
     }
 
     keywords = {w for w in words if len(w) > 2 and w not in stop_words}

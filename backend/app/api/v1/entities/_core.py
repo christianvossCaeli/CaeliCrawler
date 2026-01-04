@@ -25,6 +25,7 @@ from app.utils.text import normalize_entity_name  # noqa: E402
 try:
     from app.models.api_configuration import APIConfiguration
     from external_apis.models.sync_record import SyncRecord
+
     EXTERNAL_API_AVAILABLE = True
 except ImportError:
     EXTERNAL_API_AVAILABLE = False
@@ -60,10 +61,14 @@ async def list_entities(
     country: Annotated[str | None, Query(description="Filter by country code (DE, GB, etc.)")] = None,
     admin_level_1: Annotated[str | None, Query(description="Filter by admin level 1 (Bundesland, Region)")] = None,
     admin_level_2: Annotated[str | None, Query(description="Filter by admin level 2 (Landkreis, District)")] = None,
-    core_attr_filters: Annotated[str | None, Query(description="JSON-encoded core_attributes filters, e.g. {\"locality_type\": \"Stadt\"}")] = None,
+    core_attr_filters: Annotated[
+        str | None, Query(description='JSON-encoded core_attributes filters, e.g. {"locality_type": "Stadt"}')
+    ] = None,
     api_configuration_id: Annotated[UUID | None, Query(description="Filter by API configuration ID")] = None,
     has_facets: Annotated[bool | None, Query(description="Filter by whether entity has facet values")] = None,
-    sort_by: Annotated[str | None, Query(description="Sort by field (name, hierarchy_path, facet_count, relation_count)")] = None,
+    sort_by: Annotated[
+        str | None, Query(description="Sort by field (name, hierarchy_path, facet_count, relation_count)")
+    ] = None,
     sort_order: Annotated[str | None, Query(description="Sort order (asc, desc)")] = "asc",
     session: AsyncSession = Depends(get_session),
 ) -> EntityListResponse:
@@ -92,24 +97,15 @@ async def list_entities(
     if country:
         # Filter by indexed country column (with fallback to core_attributes for backwards compat)
         query = query.where(
-            or_(
-                Entity.country == country.upper(),
-                Entity.core_attributes["country"].astext == country.upper()
-            )
+            or_(Entity.country == country.upper(), Entity.core_attributes["country"].astext == country.upper())
         )
     if admin_level_1:
         query = query.where(
-            or_(
-                Entity.admin_level_1 == admin_level_1,
-                Entity.core_attributes["admin_level_1"].astext == admin_level_1
-            )
+            or_(Entity.admin_level_1 == admin_level_1, Entity.core_attributes["admin_level_1"].astext == admin_level_1)
         )
     if admin_level_2:
         query = query.where(
-            or_(
-                Entity.admin_level_2 == admin_level_2,
-                Entity.core_attributes["admin_level_2"].astext == admin_level_2
-            )
+            or_(Entity.admin_level_2 == admin_level_2, Entity.core_attributes["admin_level_2"].astext == admin_level_2)
         )
 
     # Filter by API configuration
@@ -124,14 +120,9 @@ async def list_entities(
                 raise ValueError("core_attr_filters must be a JSON object")
             for key, value in attr_filters.items():
                 if value is not None and value != "":
-                    query = query.where(
-                        Entity.core_attributes[key].astext == str(value)
-                    )
+                    query = query.where(Entity.core_attributes[key].astext == str(value))
         except (json.JSONDecodeError, ValueError) as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid core_attr_filters parameter: {str(e)}"
-            ) from None
+            raise HTTPException(status_code=400, detail=f"Invalid core_attr_filters parameter: {str(e)}") from None
 
     if search:
         # Use parameterized query pattern to prevent SQL injection
@@ -140,19 +131,15 @@ async def list_entities(
         search_pattern = f"%{escaped_search}%"
         query = query.where(
             or_(
-                Entity.name.ilike(search_pattern, escape='\\'),
-                Entity.name_normalized.ilike(search_pattern, escape='\\'),
-                Entity.external_id.ilike(search_pattern, escape='\\')
+                Entity.name.ilike(search_pattern, escape="\\"),
+                Entity.name_normalized.ilike(search_pattern, escape="\\"),
+                Entity.external_id.ilike(search_pattern, escape="\\"),
             )
         )
 
     # Filter by has_facets
     if has_facets is not None:
-        entities_with_facets = (
-            select(FacetValue.entity_id)
-            .group_by(FacetValue.entity_id)
-            .subquery()
-        )
+        entities_with_facets = select(FacetValue.entity_id).group_by(FacetValue.entity_id).subquery()
         if has_facets:
             # Only entities that have at least one facet value
             query = query.where(Entity.id.in_(select(entities_with_facets.c.entity_id)))
@@ -180,10 +167,7 @@ async def list_entities(
     if sort_by == "facet_count":
         # Create subquery for facet counts
         facet_count_subq = (
-            select(
-                FacetValue.entity_id,
-                func.count(FacetValue.id).label("facet_count")
-            )
+            select(FacetValue.entity_id, func.count(FacetValue.id).label("facet_count"))
             .group_by(FacetValue.entity_id)
             .subquery()
         )
@@ -193,24 +177,20 @@ async def list_entities(
     elif sort_by == "relation_count":
         # Create subquery for relation counts (source + target)
         source_count_subq = (
-            select(
-                EntityRelation.source_entity_id.label("entity_id"),
-                func.count(EntityRelation.id).label("rel_count")
-            )
+            select(EntityRelation.source_entity_id.label("entity_id"), func.count(EntityRelation.id).label("rel_count"))
             .group_by(EntityRelation.source_entity_id)
             .subquery()
         )
         target_count_subq = (
-            select(
-                EntityRelation.target_entity_id.label("entity_id"),
-                func.count(EntityRelation.id).label("rel_count")
-            )
+            select(EntityRelation.target_entity_id.label("entity_id"), func.count(EntityRelation.id).label("rel_count"))
             .group_by(EntityRelation.target_entity_id)
             .subquery()
         )
         query = query.outerjoin(source_count_subq, Entity.id == source_count_subq.c.entity_id)
         query = query.outerjoin(target_count_subq, Entity.id == target_count_subq.c.entity_id)
-        total_rel_count = func.coalesce(source_count_subq.c.rel_count, 0) + func.coalesce(target_count_subq.c.rel_count, 0)
+        total_rel_count = func.coalesce(source_count_subq.c.rel_count, 0) + func.coalesce(
+            target_count_subq.c.rel_count, 0
+        )
         if sort_desc:
             query = query.order_by(total_rel_count.desc(), Entity.name)
         else:
@@ -250,9 +230,7 @@ async def list_entities(
     if entity_ids:
         # Batch load EntityTypes (1 query instead of N)
         if entity_type_ids:
-            entity_types_result = await session.execute(
-                select(EntityType).where(EntityType.id.in_(entity_type_ids))
-            )
+            entity_types_result = await session.execute(select(EntityType).where(EntityType.id.in_(entity_type_ids)))
             entity_types_map = {et.id: et for et in entity_types_result.scalars().all()}
 
         # Batch count facet values (1 query instead of N)
@@ -297,8 +275,7 @@ async def list_entities(
     parent_names_map: dict = {}
     if parent_ids:
         parent_result = await session.execute(
-            select(Entity.id, Entity.name, Entity.slug)
-            .where(Entity.id.in_(parent_ids))
+            select(Entity.id, Entity.name, Entity.slug).where(Entity.id.in_(parent_ids))
         )
         for parent_id, parent_name, parent_slug in parent_result.fetchall():
             parent_names_map[parent_id] = {"name": parent_name, "slug": parent_slug}
@@ -356,8 +333,8 @@ async def create_entity(
                 or_(
                     Entity.name_normalized == name_normalized,
                     Entity.slug == slug,
-                    (Entity.external_id == data.external_id) if data.external_id else False
-                )
+                    (Entity.external_id == data.external_id) if data.external_id else False,
+                ),
             )
         )
     )
@@ -404,6 +381,7 @@ async def create_entity(
 
         # Generate embedding for semantic similarity search
         from app.utils.similarity import generate_embedding
+
         embedding = await generate_embedding(entity.name)
         if embedding:
             entity.name_embedding = embedding
@@ -442,21 +420,16 @@ async def get_entity_hierarchy(
 ) -> EntityHierarchy:
     """Get hierarchical tree of entities."""
     # Get entity type
-    et_result = await session.execute(
-        select(EntityType).where(EntityType.slug == entity_type_slug)
-    )
+    et_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
     entity_type = et_result.scalar()
     if not entity_type:
         raise NotFoundError("EntityType", entity_type_slug)
 
     # Load ALL entities of this type in a single query to avoid N+1
     all_entities_result = await session.execute(
-        select(Entity).where(
-            and_(
-                Entity.entity_type_id == entity_type.id,
-                Entity.is_active.is_(True)
-            )
-        ).order_by(Entity.name)
+        select(Entity)
+        .where(and_(Entity.entity_type_id == entity_type.id, Entity.is_active.is_(True)))
+        .order_by(Entity.name)
     )
     all_entities = list(all_entities_result.scalars().all())
 
@@ -480,15 +453,17 @@ async def get_entity_hierarchy(
 
         for entity in children_entities:
             children = build_tree_from_cache(entity.id, depth + 1)
-            tree.append({
-                "id": str(entity.id),
-                "name": entity.name,
-                "slug": entity.slug,
-                "external_id": entity.external_id,
-                "hierarchy_level": entity.hierarchy_level,
-                "children": children,
-                "children_count": len(children),
-            })
+            tree.append(
+                {
+                    "id": str(entity.id),
+                    "name": entity.name,
+                    "slug": entity.slug,
+                    "external_id": entity.external_id,
+                    "hierarchy_level": entity.hierarchy_level,
+                    "children": children,
+                    "children_count": len(children),
+                }
+            )
 
         return tree
 
@@ -524,16 +499,13 @@ async def get_location_filter_options(
 ):
     """Get available filter options for location fields (country, admin_level_1, admin_level_2)."""
     # Get distinct countries
-    countries_query = select(Entity.country).where(
-        Entity.country.isnot(None)
-    ).distinct().order_by(Entity.country)
+    countries_query = select(Entity.country).where(Entity.country.isnot(None)).distinct().order_by(Entity.country)
     countries_result = await session.execute(countries_query)
     countries = [row[0] for row in countries_result.fetchall()]
 
     # Get distinct admin_level_1 values
     admin_level_1_query = select(Entity.admin_level_1).where(
-        Entity.admin_level_1.isnot(None),
-        Entity.admin_level_1 != ""
+        Entity.admin_level_1.isnot(None), Entity.admin_level_1 != ""
     )
     if country:
         admin_level_1_query = admin_level_1_query.where(Entity.country == country.upper())
@@ -543,8 +515,7 @@ async def get_location_filter_options(
 
     # Get distinct admin_level_2 values
     admin_level_2_query = select(Entity.admin_level_2).where(
-        Entity.admin_level_2.isnot(None),
-        Entity.admin_level_2 != ""
+        Entity.admin_level_2.isnot(None), Entity.admin_level_2 != ""
     )
     if country:
         admin_level_2_query = admin_level_2_query.where(Entity.country == country.upper())
@@ -572,9 +543,7 @@ async def get_attribute_filter_options(
     Returns the attribute schema properties and optionally distinct values for a specific attribute.
     """
     # Get entity type with schema
-    et_result = await session.execute(
-        select(EntityType).where(EntityType.slug == entity_type_slug)
-    )
+    et_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
     entity_type = et_result.scalar()
     if not entity_type:
         raise NotFoundError("EntityType", entity_type_slug)
@@ -589,13 +558,15 @@ async def get_attribute_filter_options(
         attr_type = prop.get("type", "string")
         # Only include filterable types (strings, enums)
         if attr_type in ["string", "integer", "number"]:
-            filterable_attributes.append(FilterableAttribute(
-                key=key,
-                title=prop.get("title", key),
-                description=prop.get("description"),
-                type=attr_type,
-                format=prop.get("format"),
-            ))
+            filterable_attributes.append(
+                FilterableAttribute(
+                    key=key,
+                    title=prop.get("title", key),
+                    description=prop.get("description"),
+                    type=attr_type,
+                    format=prop.get("format"),
+                )
+            )
 
     attribute_values = None
 
@@ -686,7 +657,7 @@ async def get_entities_geojson(
         # Escape special LIKE characters
         escaped_search = search.replace("%", r"\%").replace("_", r"\_")
         search_pattern = f"%{escaped_search}%"
-        query = query.where(Entity.name.ilike(search_pattern, escape='\\'))
+        query = query.where(Entity.name.ilike(search_pattern, escape="\\"))
 
     # Limit results
     query = query.limit(limit)
@@ -695,12 +666,16 @@ async def get_entities_geojson(
     rows = result.fetchall()
 
     # Count total without any geo data
-    count_without_query = select(func.count()).select_from(Entity).where(
-        and_(
-            or_(Entity.latitude.is_(None), Entity.longitude.is_(None)),
-            Entity.geometry.is_(None),
-        ),
-        Entity.is_active.is_(True),
+    count_without_query = (
+        select(func.count())
+        .select_from(Entity)
+        .where(
+            and_(
+                or_(Entity.latitude.is_(None), Entity.longitude.is_(None)),
+                Entity.geometry.is_(None),
+            ),
+            Entity.is_active.is_(True),
+        )
     )
     if entity_type_slug:
         subq = select(EntityType.id).where(EntityType.slug == entity_type_slug)
@@ -711,9 +686,7 @@ async def get_entities_geojson(
     entity_type_ids = list({row.entity_type_id for row in rows})
     entity_types_map = {}
     if entity_type_ids:
-        et_result = await session.execute(
-            select(EntityType).where(EntityType.id.in_(entity_type_ids))
-        )
+        et_result = await session.execute(select(EntityType).where(EntityType.id.in_(entity_type_ids)))
         entity_types_map = {et.id: et for et in et_result.scalars().all()}
 
     # Build GeoJSON features
@@ -736,24 +709,26 @@ async def get_entities_geojson(
         # Determine geometry type for frontend styling
         geometry_type = geometry.get("type", "Point") if isinstance(geometry, dict) else "Point"
 
-        features.append({
-            "type": "Feature",
-            "geometry": geometry,
-            "properties": {
-                "id": str(row.id),
-                "name": row.name,
-                "slug": row.slug,
-                "external_id": row.external_id,
-                "entity_type_slug": et.slug if et else None,
-                "entity_type_name": et.name if et else None,
-                "icon": et.icon if et else "mdi-map-marker",
-                "color": et.color if et else "#1976D2",
-                "country": row.country,
-                "admin_level_1": row.admin_level_1,
-                "admin_level_2": row.admin_level_2,
-                "geometry_type": geometry_type,
-            },
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": geometry,
+                "properties": {
+                    "id": str(row.id),
+                    "name": row.name,
+                    "slug": row.slug,
+                    "external_id": row.external_id,
+                    "entity_type_slug": et.slug if et else None,
+                    "entity_type_name": et.name if et else None,
+                    "icon": et.icon if et else "mdi-map-marker",
+                    "color": et.color if et else "#1976D2",
+                    "country": row.country,
+                    "admin_level_1": row.admin_level_1,
+                    "admin_level_2": row.admin_level_2,
+                    "geometry_type": geometry_type,
+                },
+            }
+        )
 
     return GeoJSONFeatureCollection(
         type="FeatureCollection",
@@ -782,24 +757,19 @@ async def _build_entity_response(
     from sqlalchemy.orm import selectinload
 
     # Count facet values
-    facet_count = (await session.execute(
-        select(func.count()).where(FacetValue.entity_id == entity.id)
-    )).scalar()
+    facet_count = (await session.execute(select(func.count()).where(FacetValue.entity_id == entity.id))).scalar()
 
     # Count relations
-    relation_count = (await session.execute(
-        select(func.count()).where(
-            or_(
-                EntityRelation.source_entity_id == entity.id,
-                EntityRelation.target_entity_id == entity.id
+    relation_count = (
+        await session.execute(
+            select(func.count()).where(
+                or_(EntityRelation.source_entity_id == entity.id, EntityRelation.target_entity_id == entity.id)
             )
         )
-    )).scalar()
+    ).scalar()
 
     # Count children
-    children_count = (await session.execute(
-        select(func.count()).where(Entity.parent_id == entity.id)
-    )).scalar()
+    children_count = (await session.execute(select(func.count()).where(Entity.parent_id == entity.id))).scalar()
 
     # Get parent info
     parent_name = None
@@ -814,6 +784,7 @@ async def _build_entity_response(
     external_source_name = None
     if entity.api_configuration_id:
         from app.models.api_configuration import APIConfiguration
+
         api_result = await session.execute(
             select(APIConfiguration)
             .options(selectinload(APIConfiguration.data_source))
@@ -858,21 +829,14 @@ async def get_entity_by_slug(
 ):
     """Get an entity by type slug and entity slug."""
     # First get entity type
-    et_result = await session.execute(
-        select(EntityType).where(EntityType.slug == entity_type_slug)
-    )
+    et_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
     entity_type = et_result.scalar()
     if not entity_type:
         raise NotFoundError("EntityType", entity_type_slug)
 
     # Then get entity
     result = await session.execute(
-        select(Entity).where(
-            and_(
-                Entity.entity_type_id == entity_type.id,
-                Entity.slug == entity_slug
-            )
-        )
+        select(Entity).where(and_(Entity.entity_type_id == entity_type.id, Entity.slug == entity_slug))
     )
     entity = result.scalar()
     if not entity:
@@ -896,10 +860,14 @@ async def get_entity_children(
         raise NotFoundError("Entity", str(entity_id))
 
     # Eagerly load created_by and owner to avoid lazy loading
-    query = select(Entity).options(
-        selectinload(Entity.created_by),
-        selectinload(Entity.owner),
-    ).where(Entity.parent_id == entity_id)
+    query = (
+        select(Entity)
+        .options(
+            selectinload(Entity.created_by),
+            selectinload(Entity.owner),
+        )
+        .where(Entity.parent_id == entity_id)
+    )
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
@@ -914,9 +882,7 @@ async def get_entity_children(
     entity_type_ids = list({c.entity_type_id for c in children})
     entity_types_map = {}
     if entity_type_ids:
-        entity_types_result = await session.execute(
-            select(EntityType).where(EntityType.id.in_(entity_type_ids))
-        )
+        entity_types_result = await session.execute(select(EntityType).where(EntityType.id.in_(entity_type_ids)))
         entity_types_map = {et.id: et for et in entity_types_result.scalars().all()}
 
     items = []
@@ -976,8 +942,7 @@ async def update_entity(
         while current is not None:
             if current.id == entity_id:
                 raise ConflictError(
-                    "Circular hierarchy detected",
-                    detail="Cannot set parent that would create a circular reference"
+                    "Circular hierarchy detected", detail="Cannot set parent that would create a circular reference"
                 )
             if current.parent_id:
                 current = await session.get(Entity, current.parent_id)
@@ -1000,6 +965,7 @@ async def update_entity(
 
         # Regenerate embedding for new name
         from app.utils.similarity import generate_embedding
+
         embedding = await generate_embedding(update_data["name"])
         if embedding:
             update_data["name_embedding"] = embedding
@@ -1051,9 +1017,7 @@ async def delete_entity(
     entity_name = entity.name
 
     # Check for children
-    children_count = (await session.execute(
-        select(func.count()).where(Entity.parent_id == entity.id)
-    )).scalar()
+    children_count = (await session.execute(select(func.count()).where(Entity.parent_id == entity.id))).scalar()
 
     if children_count > 0 and not force:
         raise ConflictError(
@@ -1062,9 +1026,7 @@ async def delete_entity(
         )
 
     # Check for facets
-    facet_count = (await session.execute(
-        select(func.count()).where(FacetValue.entity_id == entity.id)
-    )).scalar()
+    facet_count = (await session.execute(select(func.count()).where(FacetValue.entity_id == entity.id))).scalar()
 
     if facet_count > 0 and not force:
         raise ConflictError(
@@ -1092,16 +1054,14 @@ async def delete_entity(
 
         if all_entity_ids:
             # Batch delete all facet values for all entities in the hierarchy (1 query)
-            await session.execute(
-                delete(FacetValue).where(FacetValue.entity_id.in_(all_entity_ids))
-            )
+            await session.execute(delete(FacetValue).where(FacetValue.entity_id.in_(all_entity_ids)))
 
             # Batch delete all relations where any entity in hierarchy is source or target (1 query)
             await session.execute(
                 delete(EntityRelation).where(
                     or_(
                         EntityRelation.source_entity_id.in_(all_entity_ids),
-                        EntityRelation.target_entity_id.in_(all_entity_ids)
+                        EntityRelation.target_entity_id.in_(all_entity_ids),
                     )
                 )
             )
@@ -1122,13 +1082,11 @@ async def delete_entity(
                         SELECT id FROM entity_tree
                     )
                 """),
-                {"entity_id": str(entity_id)}
+                {"entity_id": str(entity_id)},
             )
 
             # Now delete all entities in the hierarchy (1 query)
-            await session.execute(
-                delete(Entity).where(Entity.id.in_(all_entity_ids))
-            )
+            await session.execute(delete(Entity).where(Entity.id.in_(all_entity_ids)))
 
             # Audit log for cascade delete
             async with AuditContext(session, current_user, request) as audit:
@@ -1204,10 +1162,7 @@ async def get_entity_documents(
     # Get distinct source_document_ids from all FacetValues for this entity
     source_doc_query = (
         select(FacetValue.source_document_id)
-        .where(
-            FacetValue.entity_id == entity_id,
-            FacetValue.source_document_id.isnot(None)
-        )
+        .where(FacetValue.entity_id == entity_id, FacetValue.source_document_id.isnot(None))
         .distinct()
     )
     result = await session.execute(source_doc_query)
@@ -1229,10 +1184,7 @@ async def get_entity_documents(
     # Count facet values per document
     facet_counts_query = (
         select(FacetValue.source_document_id, func.count(FacetValue.id))
-        .where(
-            FacetValue.entity_id == entity_id,
-            FacetValue.source_document_id.in_(document_ids)
-        )
+        .where(FacetValue.entity_id == entity_id, FacetValue.source_document_id.in_(document_ids))
         .group_by(FacetValue.source_document_id)
     )
     facet_counts_result = await session.execute(facet_counts_query)
@@ -1241,15 +1193,17 @@ async def get_entity_documents(
     # Build response
     document_list = []
     for doc in documents:
-        document_list.append({
-            "id": str(doc.id),
-            "title": doc.title,
-            "url": doc.source_url,
-            "source_type": doc.source_type,
-            "processing_status": doc.processing_status,
-            "created_at": doc.created_at.isoformat() if doc.created_at else None,
-            "facet_count": facet_counts_map.get(doc.id, 0),
-        })
+        document_list.append(
+            {
+                "id": str(doc.id),
+                "title": doc.title,
+                "url": doc.source_url,
+                "source_type": doc.source_type,
+                "processing_status": doc.processing_status,
+                "created_at": doc.created_at.isoformat() if doc.created_at else None,
+                "facet_count": facet_counts_map.get(doc.id, 0),
+            }
+        )
 
     return {
         "entity_id": str(entity_id),
@@ -1287,10 +1241,7 @@ async def get_entity_sources(
     entity_id_str = str(entity_id)
 
     # Query for legacy entity_id (single value)
-    legacy_query = (
-        select(DataSource.id)
-        .where(DataSource.extra_data["entity_id"].astext == entity_id_str)
-    )
+    legacy_query = select(DataSource.id).where(DataSource.extra_data["entity_id"].astext == entity_id_str)
     legacy_result = await session.execute(legacy_query)
     for row in legacy_result.fetchall():
         all_source_ids.add(row[0])
@@ -1298,10 +1249,7 @@ async def get_entity_sources(
 
     # Query for N:M entity_ids (array) - check if entity_id is in the array
     # Use JSONB contains operator
-    array_query = (
-        select(DataSource.id)
-        .where(DataSource.extra_data["entity_ids"].contains([entity_id_str]))
-    )
+    array_query = select(DataSource.id).where(DataSource.extra_data["entity_ids"].contains([entity_id_str]))
     array_result = await session.execute(array_query)
     for row in array_result.fetchall():
         all_source_ids.add(row[0])
@@ -1310,10 +1258,7 @@ async def get_entity_sources(
     # Path 2: Via FacetValues -> Documents -> DataSources
     source_doc_query = (
         select(FacetValue.source_document_id)
-        .where(
-            FacetValue.entity_id == entity_id,
-            FacetValue.source_document_id.isnot(None)
-        )
+        .where(FacetValue.entity_id == entity_id, FacetValue.source_document_id.isnot(None))
         .distinct()
     )
     result = await session.execute(source_doc_query)
@@ -1321,12 +1266,7 @@ async def get_entity_sources(
 
     if document_ids:
         docs_query = (
-            select(Document.source_id)
-            .where(
-                Document.id.in_(document_ids),
-                Document.source_id.isnot(None)
-            )
-            .distinct()
+            select(Document.source_id).where(Document.id.in_(document_ids), Document.source_id.isnot(None)).distinct()
         )
         docs_result = await session.execute(docs_query)
         for row in docs_result.fetchall():
@@ -1350,10 +1290,7 @@ async def get_entity_sources(
     if document_ids:
         doc_counts_query = (
             select(Document.source_id, func.count(Document.id))
-            .where(
-                Document.id.in_(document_ids),
-                Document.source_id.in_(all_source_ids)
-            )
+            .where(Document.id.in_(document_ids), Document.source_id.in_(all_source_ids))
             .group_by(Document.source_id)
         )
         doc_counts_result = await session.execute(doc_counts_query)
@@ -1365,18 +1302,20 @@ async def get_entity_sources(
         # Check if this is a direct link (from direct_link_source_ids set)
         is_direct_link = source.id in direct_link_source_ids
 
-        source_list.append({
-            "id": str(source.id),
-            "name": source.name,
-            "base_url": source.base_url,
-            "source_type": source.source_type,
-            "status": source.status,
-            "document_count": doc_counts_map.get(source.id, 0),
-            "is_direct_link": is_direct_link,  # Mark directly linked sources (N:M)
-            "last_crawl": source.last_crawl.isoformat() if source.last_crawl else None,
-            "extra_data": source.extra_data,
-            "crawl_config": source.crawl_config,
-        })
+        source_list.append(
+            {
+                "id": str(source.id),
+                "name": source.name,
+                "base_url": source.base_url,
+                "source_type": source.source_type,
+                "status": source.status,
+                "document_count": doc_counts_map.get(source.id, 0),
+                "is_direct_link": is_direct_link,  # Mark directly linked sources (N:M)
+                "last_crawl": source.last_crawl.isoformat() if source.last_crawl else None,
+                "extra_data": source.extra_data,
+                "crawl_config": source.crawl_config,
+            }
+        )
 
     # Sort: directly linked sources first, then by document count
     source_list.sort(key=lambda x: (not x.get("is_direct_link", False), -x["document_count"]))
@@ -1422,6 +1361,7 @@ async def get_entity_external_data(
 
     # Get the APIConfiguration with eager-loaded data_source to avoid async lazy-loading
     from sqlalchemy.orm import selectinload
+
     config_result = await session.execute(
         select(APIConfiguration)
         .options(selectinload(APIConfiguration.data_source))

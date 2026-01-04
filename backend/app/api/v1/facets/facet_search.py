@@ -55,7 +55,7 @@ async def search_facet_values(
                 "german",
                 FacetValue.text_representation,
                 search_query,
-                "StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20"
+                "StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20",
             ).label("headline"),
         )
         .where(FacetValue.search_vector.op("@@")(search_query))
@@ -104,22 +104,24 @@ async def search_facet_values(
         rank = row[1] if row[1] else 0.0
         headline = row[2]
 
-        items.append(FacetValueSearchResult(
-            id=fv.id,
-            entity_id=fv.entity_id,
-            entity_name=fv.entity.name if fv.entity else "Unknown",
-            facet_type_id=fv.facet_type_id,
-            facet_type_slug=fv.facet_type.slug if fv.facet_type else "",
-            facet_type_name=fv.facet_type.name if fv.facet_type else "",
-            value=fv.value,
-            text_representation=fv.text_representation,
-            headline=headline,
-            rank=round(rank, 4),
-            confidence_score=fv.confidence_score,
-            human_verified=fv.human_verified,
-            source_type=fv.source_type.value if fv.source_type else "DOCUMENT",
-            created_at=fv.created_at,
-        ))
+        items.append(
+            FacetValueSearchResult(
+                id=fv.id,
+                entity_id=fv.entity_id,
+                entity_name=fv.entity.name if fv.entity else "Unknown",
+                facet_type_id=fv.facet_type_id,
+                facet_type_slug=fv.facet_type.slug if fv.facet_type else "",
+                facet_type_name=fv.facet_type.name if fv.facet_type else "",
+                value=fv.value,
+                text_representation=fv.text_representation,
+                headline=headline,
+                rank=round(rank, 4),
+                confidence_score=fv.confidence_score,
+                human_verified=fv.human_verified,
+                source_type=fv.source_type.value if fv.source_type else "DOCUMENT",
+                created_at=fv.created_at,
+            )
+        )
 
     search_time_ms = (time.time() - start_time) * 1000
     pages = (total + per_page - 1) // per_page if total > 0 else 1

@@ -65,9 +65,7 @@ async def start_crawl(
     if crawl_request.source_ids:
         # Crawl specific sources - create jobs for ALL assigned categories
         # Batch fetch all requested sources to avoid N+1 query
-        sources_result = await session.execute(
-            select(DataSource).where(DataSource.id.in_(crawl_request.source_ids))
-        )
+        sources_result = await session.execute(select(DataSource).where(DataSource.id.in_(crawl_request.source_ids)))
         sources = {s.id: s for s in sources_result.scalars().all()}
 
         # Check if all requested sources exist
@@ -77,8 +75,9 @@ async def start_crawl(
 
         # Batch fetch all category associations
         cat_result = await session.execute(
-            select(DataSourceCategory.data_source_id, DataSourceCategory.category_id)
-            .where(DataSourceCategory.data_source_id.in_(crawl_request.source_ids))
+            select(DataSourceCategory.data_source_id, DataSourceCategory.category_id).where(
+                DataSourceCategory.data_source_id.in_(crawl_request.source_ids)
+            )
         )
         source_categories = {}
         for row in cat_result.fetchall():
@@ -141,10 +140,7 @@ async def start_crawl(
         # Search filter
         if crawl_request.search:
             search_term = f"%{crawl_request.search}%"
-            query = query.where(
-                DataSource.name.ilike(search_term) |
-                DataSource.base_url.ilike(search_term)
-            )
+            query = query.where(DataSource.name.ilike(search_term) | DataSource.base_url.ilike(search_term))
 
         # Apply limit
         if crawl_request.limit:
@@ -170,8 +166,9 @@ async def start_crawl(
             # Get N:M category assignments for all sources
             source_ids = [s.id for s in sources]
             cat_result = await session.execute(
-                select(DataSourceCategory.data_source_id, DataSourceCategory.category_id)
-                .where(DataSourceCategory.data_source_id.in_(source_ids))
+                select(DataSourceCategory.data_source_id, DataSourceCategory.category_id).where(
+                    DataSourceCategory.data_source_id.in_(source_ids)
+                )
             )
             source_categories = {}
             for row in cat_result.fetchall():
@@ -360,23 +357,24 @@ async def get_crawler_stats(
     from app.models import Document
 
     # Query 1: All job stats in one query using conditional aggregation
-    job_stats = (await session.execute(
-        select(
-            func.count(CrawlJob.id).label("total"),
-            func.count().filter(CrawlJob.status == JobStatus.RUNNING).label("running"),
-            func.count().filter(CrawlJob.status == JobStatus.COMPLETED).label("completed"),
-            func.count().filter(CrawlJob.status == JobStatus.FAILED).label("failed"),
-            func.sum(CrawlJob.pages_crawled).label("total_pages"),
-            func.avg(
-                func.extract('epoch', CrawlJob.completed_at) -
-                func.extract('epoch', CrawlJob.started_at)
-            ).filter(
-                CrawlJob.status == JobStatus.COMPLETED,
-                CrawlJob.started_at.isnot(None),
-                CrawlJob.completed_at.isnot(None),
-            ).label("avg_duration"),
+    job_stats = (
+        await session.execute(
+            select(
+                func.count(CrawlJob.id).label("total"),
+                func.count().filter(CrawlJob.status == JobStatus.RUNNING).label("running"),
+                func.count().filter(CrawlJob.status == JobStatus.COMPLETED).label("completed"),
+                func.count().filter(CrawlJob.status == JobStatus.FAILED).label("failed"),
+                func.sum(CrawlJob.pages_crawled).label("total_pages"),
+                func.avg(func.extract("epoch", CrawlJob.completed_at) - func.extract("epoch", CrawlJob.started_at))
+                .filter(
+                    CrawlJob.status == JobStatus.COMPLETED,
+                    CrawlJob.started_at.isnot(None),
+                    CrawlJob.completed_at.isnot(None),
+                )
+                .label("avg_duration"),
+            )
         )
-    )).one()
+    ).one()
 
     # Query 2: Total documents
     total_documents = (await session.execute(select(func.count(Document.id)))).scalar()
@@ -403,20 +401,20 @@ async def get_crawler_status(
     today = date.today()
 
     # Query 1: All counts in one query using conditional aggregation
-    job_counts = (await session.execute(
-        select(
-            func.count().filter(CrawlJob.status == JobStatus.RUNNING).label("running"),
-            func.count().filter(CrawlJob.status == JobStatus.PENDING).label("pending"),
-            func.count().filter(
-                CrawlJob.status == JobStatus.COMPLETED,
-                func.date(CrawlJob.completed_at) == today
-            ).label("completed_today"),
-            func.count().filter(
-                CrawlJob.status == JobStatus.FAILED,
-                func.date(CrawlJob.completed_at) == today
-            ).label("failed_today"),
+    job_counts = (
+        await session.execute(
+            select(
+                func.count().filter(CrawlJob.status == JobStatus.RUNNING).label("running"),
+                func.count().filter(CrawlJob.status == JobStatus.PENDING).label("pending"),
+                func.count()
+                .filter(CrawlJob.status == JobStatus.COMPLETED, func.date(CrawlJob.completed_at) == today)
+                .label("completed_today"),
+                func.count()
+                .filter(CrawlJob.status == JobStatus.FAILED, func.date(CrawlJob.completed_at) == today)
+                .label("failed_today"),
+            )
         )
-    )).one()
+    ).one()
 
     running_jobs = job_counts.running or 0
     pending_jobs = job_counts.pending or 0
@@ -424,12 +422,14 @@ async def get_crawler_status(
     failed_today = job_counts.failed_today or 0
 
     # Query 2: Last completed job (separate for ORDER BY + LIMIT)
-    last_completed = (await session.execute(
-        select(CrawlJob.completed_at)
-        .where(CrawlJob.status == JobStatus.COMPLETED)
-        .order_by(CrawlJob.completed_at.desc())
-        .limit(1)
-    )).scalar()
+    last_completed = (
+        await session.execute(
+            select(CrawlJob.completed_at)
+            .where(CrawlJob.status == JobStatus.COMPLETED)
+            .order_by(CrawlJob.completed_at.desc())
+            .limit(1)
+        )
+    ).scalar()
 
     # Get Celery worker status
     celery_connected = False
@@ -503,9 +503,7 @@ async def reanalyze_documents(
 
     # Delete existing extractions
     for doc_id in document_ids:
-        await session.execute(
-            delete(ExtractedData).where(ExtractedData.document_id == UUID(doc_id))
-        )
+        await session.execute(delete(ExtractedData).where(ExtractedData.document_id == UUID(doc_id)))
 
     # Queue for re-analysis
     for doc_id in document_ids:
@@ -532,6 +530,4 @@ async def reanalyze_documents(
         )
         await session.commit()
 
-    return MessageResponse(
-        message=f"Queued {len(document_ids)} documents for re-analysis"
-    )
+    return MessageResponse(message=f"Queued {len(document_ids)} documents for re-analysis")

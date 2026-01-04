@@ -39,10 +39,7 @@ async def get_suggestions(
     """
     # Load active facet types for dynamic suggestions
     facet_result = await session.execute(
-        select(FacetType)
-        .where(FacetType.is_active.is_(True))
-        .order_by(FacetType.display_order)
-        .limit(5)
+        select(FacetType).where(FacetType.is_active.is_(True)).order_by(FacetType.display_order).limit(5)
     )
     facet_types = facet_result.scalars().all()
     primary_facet = facet_types[0] if facet_types else None
@@ -60,9 +57,7 @@ async def get_suggestions(
         suggestions.append({"label": "Relationen", "query": "Zeige alle Relationen"})
     elif entity_type:
         # On entity list page - load entity type name
-        type_result = await session.execute(
-            select(EntityTypeModel).where(EntityTypeModel.slug == entity_type)
-        )
+        type_result = await session.execute(select(EntityTypeModel).where(EntityTypeModel.slug == entity_type))
         et = type_result.scalar_one_or_none()
         type_name = et.name_plural if et else entity_type
 
@@ -71,10 +66,12 @@ async def get_suggestions(
         ]
         # Add dynamic facet filter suggestions
         if primary_facet:
-            suggestions.append({
-                "label": f"Mit {primary_facet.name_plural or primary_facet.name}",
-                "query": f"{type_name} mit {primary_facet.name_plural or primary_facet.name}"
-            })
+            suggestions.append(
+                {
+                    "label": f"Mit {primary_facet.name_plural or primary_facet.name}",
+                    "query": f"{type_name} mit {primary_facet.name_plural or primary_facet.name}",
+                }
+            )
         suggestions.append({"label": "Suchen", "query": "/search "})
     elif "dashboard" in route or route == "/":
         # On dashboard
@@ -83,10 +80,12 @@ async def get_suggestions(
         ]
         # Add dynamic facet suggestions
         for ft in facet_types[:2]:
-            suggestions.append({
-                "label": f"Aktuelle {ft.name_plural or ft.name}",
-                "query": f"Zeige aktuelle {ft.name_plural or ft.name}"
-            })
+            suggestions.append(
+                {
+                    "label": f"Aktuelle {ft.name_plural or ft.name}",
+                    "query": f"Zeige aktuelle {ft.name_plural or ft.name}",
+                }
+            )
         suggestions.append({"label": "Hilfe", "query": "/help"})
     else:
         # Default
@@ -95,10 +94,12 @@ async def get_suggestions(
             {"label": "Suchen", "query": "/search "},
         ]
 
-    return {"suggestions": suggestions, "available_facet_types": [
-        {"slug": ft.slug, "name": ft.name, "name_plural": ft.name_plural, "icon": ft.icon}
-        for ft in facet_types
-    ]}
+    return {
+        "suggestions": suggestions,
+        "available_facet_types": [
+            {"slug": ft.slug, "name": ft.name, "name_plural": ft.name_plural, "icon": ft.icon} for ft in facet_types
+        ],
+    }
 
 
 @router.get("/insights")
@@ -132,7 +133,7 @@ async def get_insights(
         current_entity_type=entity_type,
         current_entity_name=None,
         view_mode=ViewMode(view_mode) if view_mode in [e.value for e in ViewMode] else ViewMode.UNKNOWN,
-        available_actions=[]
+        available_actions=[],
     )
 
     # Get user's last login for new data detection
@@ -149,7 +150,7 @@ async def get_insights(
         context=context,
         user_id=current_user.id if current_user else None,
         last_login=last_login,
-        language=valid_language
+        language=valid_language,
     )
 
     return {"insights": insights}

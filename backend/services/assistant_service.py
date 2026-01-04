@@ -115,7 +115,7 @@ class AssistantService:
         conversation_history: list[ConversationMessage],
         mode: str = "read",
         language: str = "de",
-        attachments: list[dict[str, Any]] | None = None
+        attachments: list[dict[str, Any]] | None = None,
     ) -> AssistantChatResponse:
         """Process a user message and return an appropriate response.
 
@@ -135,16 +135,11 @@ class AssistantService:
         self.tr = Translator(language)
 
         # === Security: Input validation and sanitization ===
-        is_valid, error_msg = validate_message_length(
-            message, SecurityConstants.MAX_MESSAGE_LENGTH
-        )
+        is_valid, error_msg = validate_message_length(message, SecurityConstants.MAX_MESSAGE_LENGTH)
         if not is_valid:
             return AssistantChatResponse(
                 message=error_msg,
-                response_data=ErrorResponseData(
-                    message=error_msg,
-                    error_code="message_too_long"
-                ),
+                response_data=ErrorResponseData(message=error_msg, error_code="message_too_long"),
                 suggested_actions=[],
             )
 
@@ -162,11 +157,11 @@ class AssistantService:
                 },
             )
             return AssistantChatResponse(
-                message=self.tr.t("security_blocked") if hasattr(self.tr, 't') else
-                    "Ihre Anfrage konnte aus Sicherheitsgründen nicht verarbeitet werden.",
+                message=self.tr.t("security_blocked")
+                if hasattr(self.tr, "t")
+                else "Ihre Anfrage konnte aus Sicherheitsgründen nicht verarbeitet werden.",
                 response_data=ErrorResponseData(
-                    message="Sicherheitsprüfung fehlgeschlagen",
-                    error_code="security_blocked"
+                    message="Sicherheitsprüfung fehlgeschlagen", error_code="security_blocked"
                 ),
                 suggested_actions=[],
             )
@@ -176,18 +171,13 @@ class AssistantService:
 
         # Handle image attachments with Vision API
         if attachments:
-            image_attachments = [
-                a for a in attachments
-                if a.get("content_type", "").startswith("image/")
-            ]
+            image_attachments = [a for a in attachments if a.get("content_type", "").startswith("image/")]
             if image_attachments:
-                result = await handle_image_analysis(
-                    message, context, image_attachments, language
-                )
+                result = await handle_image_analysis(message, context, image_attachments, language)
                 return AssistantChatResponse(
                     success=result.get("success", False),
                     response=result.get("response"),
-                    suggested_actions=result.get("suggested_actions", [])
+                    suggested_actions=result.get("suggested_actions", []),
                 )
 
         try:
@@ -200,31 +190,20 @@ class AssistantService:
             logger.info("intent_classified", intent=intent, data=intent_data)
 
             # Route to appropriate handler
-            response_data, suggested_actions = await self._route_intent(
-                intent, message, context, intent_data, mode
-            )
+            response_data, suggested_actions = await self._route_intent(intent, message, context, intent_data, mode)
 
-            return AssistantChatResponse(
-                success=True,
-                response=response_data,
-                suggested_actions=suggested_actions
-            )
+            return AssistantChatResponse(success=True, response=response_data, suggested_actions=suggested_actions)
 
         except Exception as e:
             logger.error("assistant_error", error=str(e))
             return AssistantChatResponse(
                 success=False,
                 response=ErrorResponseData(
-                    message=self.tr.t("error_occurred", error=str(e)),
-                    error_code="internal_error"
-                )
+                    message=self.tr.t("error_occurred", error=str(e)), error_code="internal_error"
+                ),
             )
 
-    async def _classify_intent(
-        self,
-        message: str,
-        context: AssistantContext
-    ) -> tuple[IntentType, dict[str, Any]]:
+    async def _classify_intent(self, message: str, context: AssistantContext) -> tuple[IntentType, dict[str, Any]]:
         """Classify the user's intent using LLM.
 
         Args:
@@ -243,15 +222,15 @@ class AssistantService:
             raise ValueError("KI-Service nicht verfügbar. Bitte Azure OpenAI konfigurieren.")
 
         # Build context-aware parameters from page_data if available
-        raw_page_data = getattr(context, 'page_data', None)
+        raw_page_data = getattr(context, "page_data", None)
         page_data: dict = raw_page_data if isinstance(raw_page_data, dict) else {}
 
         # Extract page context with safe defaults
-        selected_count = page_data.get('selected_count', 0)
-        selected_ids: list[str] = page_data.get('selected_ids', [])
-        active_filters = page_data.get('filters', {})
-        available_features: list[str] = page_data.get('available_features', [])
-        available_actions: list[str] = page_data.get('available_actions', [])
+        selected_count = page_data.get("selected_count", 0)
+        selected_ids: list[str] = page_data.get("selected_ids", [])
+        active_filters = page_data.get("filters", {})
+        available_features: list[str] = page_data.get("available_features", [])
+        available_actions: list[str] = page_data.get("available_actions", [])
 
         prompt = INTENT_CLASSIFICATION_PROMPT.format(
             current_route=context.current_route,
@@ -264,7 +243,7 @@ class AssistantService:
             available_features=", ".join(available_features) if available_features else "keine",
             available_actions=", ".join(available_actions) if available_actions else "keine",
             page_documentation=get_page_documentation(context.current_route),
-            message=message
+            message=message,
         )
 
         try:
@@ -273,11 +252,11 @@ class AssistantService:
                 model=settings.azure_openai_deployment_name,
                 messages=[
                     {"role": "system", "content": "Du bist ein Intent-Classifier. Antworte nur mit JSON."},
-                    {"role": "user", "content": prompt}
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=0.1,
                 max_tokens=500,
-                response_format={"type": "json_object"}
+                response_format={"type": "json_object"},
             )
 
             if response.usage:
@@ -305,12 +284,7 @@ class AssistantService:
             raise ValueError(f"KI-Klassifizierung fehlgeschlagen: {str(e)}") from None
 
     async def _route_intent(
-        self,
-        intent: IntentType,
-        message: str,
-        context: AssistantContext,
-        intent_data: dict[str, Any],
-        mode: str
+        self, intent: IntentType, message: str, context: AssistantContext, intent_data: dict[str, Any], mode: str
     ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
         """Route intent to appropriate handler.
 
@@ -332,10 +306,7 @@ class AssistantService:
 
         elif intent == IntentType.INLINE_EDIT:
             if mode == "read":
-                return ErrorResponseData(
-                    message=self.tr.t("write_mode_required"),
-                    error_code="write_mode_required"
-                ), []
+                return ErrorResponseData(message=self.tr.t("write_mode_required"), error_code="write_mode_required"), []
             return await preview_inline_edit(self.db, message, context, intent_data), []
 
         elif intent == IntentType.COMPLEX_WRITE:
@@ -352,10 +323,7 @@ class AssistantService:
 
         elif intent == IntentType.BATCH_ACTION:
             if mode == "read":
-                return ErrorResponseData(
-                    message=self.tr.t("write_mode_required"),
-                    error_code="write_mode_required"
-                ), []
+                return ErrorResponseData(message=self.tr.t("write_mode_required"), error_code="write_mode_required"), []
             return await handle_batch_action_intent(self.db, message, context, intent_data, self.tr)
 
         elif intent == IntentType.FACET_MANAGEMENT:
@@ -364,8 +332,7 @@ class AssistantService:
         elif intent == IntentType.CONTEXT_ACTION:
             if not context.current_entity_id:
                 return ErrorResponseData(
-                    message="Bitte navigiere zuerst zu einer Entity-Detailseite.",
-                    error_code="no_entity_context"
+                    message="Bitte navigiere zuerst zu einer Entity-Detailseite.", error_code="no_entity_context"
                 ), []
 
             # Check write mode for write actions
@@ -373,10 +340,7 @@ class AssistantService:
             write_actions = ["analyze_pysis", "enrich_facets", "start_crawl", "create_facet", "analyze_entity_data"]
 
             if context_action in write_actions and mode == "read":
-                return ErrorResponseData(
-                    message=self.tr.t("write_mode_required"),
-                    error_code="write_mode_required"
-                ), []
+                return ErrorResponseData(message=self.tr.t("write_mode_required"), error_code="write_mode_required"), []
 
             return await handle_context_action(self.db, message, context, intent_data)
 
@@ -384,16 +348,9 @@ class AssistantService:
             return await handle_discussion(message, context, intent_data)
 
         else:
-            return ErrorResponseData(
-                message=self.tr.t("unknown_intent"),
-                error_code="unknown_intent"
-            ), []
+            return ErrorResponseData(message=self.tr.t("unknown_intent"), error_code="unknown_intent"), []
 
-    async def _handle_slash_command(
-        self,
-        message: str,
-        context: AssistantContext
-    ) -> AssistantChatResponse:
+    async def _handle_slash_command(self, message: str, context: AssistantContext) -> AssistantChatResponse:
         """Handle slash commands.
 
         Args:
@@ -409,46 +366,30 @@ class AssistantService:
 
         if command == "help":
             return AssistantChatResponse(
-                success=True,
-                response=generate_help_response(context, {"help_topic": args}, self.tr)
+                success=True, response=generate_help_response(context, {"help_topic": args}, self.tr)
             )
 
         elif command == "search":
             if not args:
                 return AssistantChatResponse(
                     success=True,
-                    response=ErrorResponseData(
-                        message="Bitte gib einen Suchbegriff an: /search <suchbegriff>"
-                    )
+                    response=ErrorResponseData(message="Bitte gib einen Suchbegriff an: /search <suchbegriff>"),
                 )
-            response_data, suggested = await handle_query(
-                self.db, args, context, {"query_text": args}, self.tr
-            )
-            return AssistantChatResponse(
-                success=True,
-                response=response_data,
-                suggested_actions=suggested
-            )
+            response_data, suggested = await handle_query(self.db, args, context, {"query_text": args}, self.tr)
+            return AssistantChatResponse(success=True, response=response_data, suggested_actions=suggested)
 
         elif command == "create":
             from services.assistant.response_formatter import suggest_smart_query_redirect
-            return AssistantChatResponse(
-                success=True,
-                response=suggest_smart_query_redirect(args, {})
-            )
+
+            return AssistantChatResponse(success=True, response=suggest_smart_query_redirect(args, {}))
 
         elif command == "summary":
             response_data, suggested = await handle_summarize(self.db, context, self.tr)
-            return AssistantChatResponse(
-                success=True,
-                response=response_data,
-                suggested_actions=suggested
-            )
+            return AssistantChatResponse(success=True, response=response_data, suggested_actions=suggested)
 
         elif command == "navigate":
             return AssistantChatResponse(
-                success=True,
-                response=await handle_navigation(self.db, {"target_entity": args})
+                success=True, response=await handle_navigation(self.db, {"target_entity": args})
             )
 
         else:
@@ -456,15 +397,11 @@ class AssistantService:
                 success=True,
                 response=ErrorResponseData(
                     message=f"Unbekannter Befehl: /{command}. Nutze /help für verfügbare Befehle."
-                )
+                ),
             )
 
     async def _handle_facet_management(
-        self,
-        message: str,
-        context: AssistantContext,
-        intent_data: dict[str, Any],
-        mode: str
+        self, message: str, context: AssistantContext, intent_data: dict[str, Any], mode: str
     ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
         """Handle facet management requests.
 
@@ -483,21 +420,16 @@ class AssistantService:
         # Check mode for write operations
         facet_action = intent_data.get("facet_action", "list_facet_types")
         if mode == "read" and facet_action in ["create_facet_type", "assign_facet_type"]:
-            return ErrorResponseData(
-                message=self.tr.t("write_mode_required"),
-                error_code="write_mode_required"
-            ), []
+            return ErrorResponseData(message=self.tr.t("write_mode_required"), error_code="write_mode_required"), []
 
-        return await handle_facet_management_request(
-            self.db, message, context, intent_data, self.tr
-        )
+        return await handle_facet_management_request(self.db, message, context, intent_data, self.tr)
 
     # === Public API methods for backward compatibility ===
 
     async def execute_action(
         self,
         action: "ActionDetails",  # noqa: F821
-        context: AssistantContext
+        context: AssistantContext,
     ) -> dict[str, Any]:
         """Execute a confirmed action.
 
@@ -511,11 +443,7 @@ class AssistantService:
         return await execute_action(self.db, action, context)
 
     async def execute_batch_action(
-        self,
-        action_type: str,
-        target_filter: dict[str, Any],
-        action_data: dict[str, Any],
-        dry_run: bool = True
+        self, action_type: str, target_filter: dict[str, Any], action_data: dict[str, Any], dry_run: bool = True
     ) -> dict[str, Any]:
         """Execute a batch action on multiple entities.
 
@@ -528,9 +456,7 @@ class AssistantService:
         Returns:
             Dict with success, affected_count, preview, batch_id
         """
-        return await execute_batch_action(
-            self.db, action_type, target_filter, action_data, dry_run
-        )
+        return await execute_batch_action(self.db, action_type, target_filter, action_data, dry_run)
 
     async def process_message_stream(
         self,
@@ -539,7 +465,7 @@ class AssistantService:
         conversation_history: list[ConversationMessage],
         mode: str = "read",
         language: str = "de",
-        attachments: list[dict[str, Any]] | None = None
+        attachments: list[dict[str, Any]] | None = None,
     ):
         """Process a user message and yield streaming response chunks.
 
@@ -566,19 +492,11 @@ class AssistantService:
             yield {"type": "status", "message": self.tr.t("streaming_processing")}
 
             # Process message normally
-            response = await self.process_message(
-                message, context, conversation_history, mode, language, attachments
-            )
+            response = await self.process_message(message, context, conversation_history, mode, language, attachments)
 
             # Convert to streaming format
-            yield {
-                "type": "complete",
-                "data": response.model_dump()
-            }
+            yield {"type": "complete", "data": response.model_dump()}
 
         except Exception as e:
             logger.error("assistant_stream_error", error=str(e))
-            yield {
-                "type": "error",
-                "message": self.tr.t("error_occurred", error=str(e))
-            }
+            yield {"type": "error", "message": self.tr.t("error_occurred", error=str(e))}

@@ -55,10 +55,12 @@ def check_scheduled_api_syncs():
                     APIConfiguration.sync_enabled.is_(True),
                     APIConfiguration.is_active.is_(True),
                     APIConfiguration.next_run_at <= now,
-                    APIConfiguration.import_mode.in_([
-                        ImportMode.FACETS.value,
-                        ImportMode.BOTH.value,
-                    ]),
+                    APIConfiguration.import_mode.in_(
+                        [
+                            ImportMode.FACETS.value,
+                            ImportMode.BOTH.value,
+                        ]
+                    ),
                     APIConfiguration.facet_mappings != {},
                 )
                 .with_for_update(skip_locked=True)
@@ -74,6 +76,7 @@ def check_scheduled_api_syncs():
                 # For more complex scheduling, you could add a schedule_cron field
                 next_run = datetime.now(UTC)
                 from datetime import timedelta
+
                 next_run = next_run + timedelta(hours=config.sync_interval_hours)
                 config.next_run_at = next_run
                 trigger_configs.append(config)
@@ -198,6 +201,7 @@ def sync_api_config_to_facets(self, config_id: str):
 
                 # Update config status
                 from app.models.api_configuration import SyncStatus
+
                 config.last_sync_status = SyncStatus.FAILED.value
                 config.last_sync_stats = {"error": str(e)}
                 await session.commit()

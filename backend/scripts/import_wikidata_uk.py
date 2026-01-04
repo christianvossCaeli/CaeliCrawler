@@ -144,7 +144,7 @@ async def fetch_uk_councils_from_wikidata(
         response = await client.get(
             WIKIDATA_ENDPOINT,
             params={"query": query, "format": "json"},
-            headers={"User-Agent": "CaeliCrawler/1.0 (Wind Energy Sales Intelligence)"}
+            headers={"User-Agent": "CaeliCrawler/1.0 (Wind Energy Sales Intelligence)"},
         )
         response.raise_for_status()
         data = response.json()
@@ -219,26 +219,26 @@ def clean_council_name(name: str) -> str:
 
     # Remove common suffixes (order matters - longer patterns first)
     patterns_to_remove = [
-        r'\s+City\s+Council$',      # "Aberdeen City Council" -> "Aberdeen"
-        r'\s+Borough\s+Council$',   # "X Borough Council" -> "X"
-        r'\s+District\s+Council$',  # "X District Council" -> "X"
-        r'\s+County\s+Council$',    # "X County Council" -> "X"
-        r'\s+Council$',             # "Angus Council" -> "Angus"
+        r"\s+City\s+Council$",  # "Aberdeen City Council" -> "Aberdeen"
+        r"\s+Borough\s+Council$",  # "X Borough Council" -> "X"
+        r"\s+District\s+Council$",  # "X District Council" -> "X"
+        r"\s+County\s+Council$",  # "X County Council" -> "X"
+        r"\s+Council$",  # "Angus Council" -> "Angus"
     ]
 
     for pattern in patterns_to_remove:
-        name = re.sub(pattern, '', name, flags=re.IGNORECASE)
+        name = re.sub(pattern, "", name, flags=re.IGNORECASE)
 
     # Remove common prefixes
     prefix_patterns = [
-        r'^City\s+of\s+',           # "City of Edinburgh" -> "Edinburgh"
-        r'^Borough\s+of\s+',        # "Borough of X" -> "X"
-        r'^County\s+of\s+',         # "County of X" -> "X"
-        r'^Royal\s+Borough\s+of\s+', # "Royal Borough of X" -> "X"
+        r"^City\s+of\s+",  # "City of Edinburgh" -> "Edinburgh"
+        r"^Borough\s+of\s+",  # "Borough of X" -> "X"
+        r"^County\s+of\s+",  # "County of X" -> "X"
+        r"^Royal\s+Borough\s+of\s+",  # "Royal Borough of X" -> "X"
     ]
 
     for pattern in prefix_patterns:
-        name = re.sub(pattern, '', name, flags=re.IGNORECASE)
+        name = re.sub(pattern, "", name, flags=re.IGNORECASE)
 
     # Don't return empty string
     name = name.strip()
@@ -290,10 +290,7 @@ async def import_locations_from_councils(
                 # Check if location already exists (by GSS code or name)
                 if gss_code:
                     existing = await session.execute(
-                        select(Location).where(
-                            Location.country == "GB",
-                            Location.official_code == gss_code
-                        )
+                        select(Location).where(Location.country == "GB", Location.official_code == gss_code)
                     )
                     if existing.scalar_one_or_none():
                         seen_gss_codes.add(gss_code)
@@ -303,10 +300,7 @@ async def import_locations_from_councils(
 
                 # Always check by normalized name (even with GSS code)
                 existing = await session.execute(
-                    select(Location).where(
-                        Location.country == "GB",
-                        Location.name_normalized == name_norm
-                    )
+                    select(Location).where(Location.country == "GB", Location.name_normalized == name_norm)
                 )
                 if existing.scalar_one_or_none():
                     seen_names.add(name_norm)
@@ -385,11 +379,7 @@ async def import_councils_as_sources(
         for council in councils:
             try:
                 # Check if already exists
-                existing = await session.execute(
-                    select(DataSource).where(
-                        DataSource.base_url == council["website"]
-                    )
-                )
+                existing = await session.execute(select(DataSource).where(DataSource.base_url == council["website"]))
                 if existing.scalar_one_or_none():
                     stats["sources_skipped"] += 1
                     continue
@@ -399,10 +389,7 @@ async def import_councils_as_sources(
                 gss_code = council.get("gss_code")
                 if gss_code:
                     loc_result = await session.execute(
-                        select(Location).where(
-                            Location.country == "GB",
-                            Location.official_code == gss_code
-                        )
+                        select(Location).where(Location.country == "GB", Location.official_code == gss_code)
                     )
                     location = loc_result.scalar_one_or_none()
                     if location:
@@ -425,9 +412,16 @@ async def import_councils_as_sources(
                         "max_pages": 200,
                         "download_extensions": ["pdf", "doc", "docx"],
                         "filter_keywords": [
-                            "wind", "wind energy", "wind farm", "wind turbine",
-                            "renewable", "energy", "climate", "planning",
-                            "planning application", "development"
+                            "wind",
+                            "wind energy",
+                            "wind farm",
+                            "wind turbine",
+                            "renewable",
+                            "energy",
+                            "climate",
+                            "planning",
+                            "planning application",
+                            "development",
                         ],
                         "render_javascript": False,
                     },
@@ -435,7 +429,7 @@ async def import_councils_as_sources(
                         "wikidata_id": council["wikidata_id"],
                         "gss_code": council.get("gss_code"),
                         "population": council.get("population"),
-                    }
+                    },
                 )
                 session.add(source)
                 stats["sources_imported"] += 1
@@ -452,43 +446,17 @@ async def import_councils_as_sources(
 
 
 async def main():
-    parser = argparse.ArgumentParser(
-        description="Import UK local authorities from Wikidata"
-    )
+    parser = argparse.ArgumentParser(description="Import UK local authorities from Wikidata")
+    parser.add_argument("--country", "-c", help="Filter by country (england, scotland, wales, ni)", default=None)
+    parser.add_argument("--limit", "-l", type=int, help="Limit number of councils to import", default=None)
     parser.add_argument(
-        "--country", "-c",
-        help="Filter by country (england, scotland, wales, ni)",
-        default=None
+        "--dry-run", "-n", action="store_true", help="Don't actually import, just show what would be done"
     )
-    parser.add_argument(
-        "--limit", "-l",
-        type=int,
-        help="Limit number of councils to import",
-        default=None
-    )
-    parser.add_argument(
-        "--dry-run", "-n",
-        action="store_true",
-        help="Don't actually import, just show what would be done"
-    )
-    parser.add_argument(
-        "--category",
-        help="Category slug to use (default: kommunale-news)",
-        default="kommunale-news"
-    )
-    parser.add_argument(
-        "--locations-only",
-        action="store_true",
-        help="Only import locations, skip data sources"
-    )
-    parser.add_argument(
-        "--sources-only",
-        action="store_true",
-        help="Only import data sources, skip locations"
-    )
+    parser.add_argument("--category", help="Category slug to use (default: kommunale-news)", default="kommunale-news")
+    parser.add_argument("--locations-only", action="store_true", help="Only import locations, skip data sources")
+    parser.add_argument("--sources-only", action="store_true", help="Only import data sources, skip locations")
 
     args = parser.parse_args()
-
 
     # Fetch from Wikidata
     councils = await fetch_uk_councils_from_wikidata(
@@ -501,8 +469,8 @@ async def main():
 
     # Show sample
     for c in councils[:5]:
-        f" (Pop: {int(float(c['population'])):,})" if c.get('population') else ""
-        f" [{c['admin_level_1']}]" if c.get('admin_level_1') else ""
+        f" (Pop: {int(float(c['population'])):,})" if c.get("population") else ""
+        f" [{c['admin_level_1']}]" if c.get("admin_level_1") else ""
 
     # STEP 1: Import locations (unless --sources-only)
     location_stats = {"locations_created": 0, "locations_skipped": 0, "locations_errors": 0}
@@ -511,7 +479,7 @@ async def main():
             councils,
             dry_run=args.dry_run,
         )
-        if location_stats.get('locations_errors', 0) > 0:
+        if location_stats.get("locations_errors", 0) > 0:
             pass
 
     # STEP 2: Import data sources (unless --locations-only)
@@ -526,9 +494,7 @@ async def main():
             from app.models import Category
 
             async with async_session_factory() as session:
-                result = await session.execute(
-                    select(Category).where(Category.slug == args.category)
-                )
+                result = await session.execute(select(Category).where(Category.slug == args.category))
                 category = result.scalar_one_or_none()
 
                 if not category:
@@ -542,7 +508,7 @@ async def main():
                 category_id,
                 dry_run=args.dry_run,
             )
-            if source_stats.get('sources_errors', 0) > 0:
+            if source_stats.get("sources_errors", 0) > 0:
                 pass
 
     if not args.sources_only:

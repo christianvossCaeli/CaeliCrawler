@@ -149,7 +149,6 @@ PROMPT_INJECTION_PATTERNS = [
     "<|system|>",
     "<|user|>",
     "<|assistant|>",
-
     # Anthropic/Claude control tokens
     "\n\nHuman:",
     "\n\nAssistant:",
@@ -157,7 +156,6 @@ PROMPT_INJECTION_PATTERNS = [
     "[/INST]",
     "<<SYS>>",
     "<</SYS>>",
-
     # Common role injection attempts
     "system:",
     "System:",
@@ -169,7 +167,6 @@ PROMPT_INJECTION_PATTERNS = [
     "user:",
     "User:",
     "USER:",
-
     # Instruction override attempts (case variations handled separately)
     "ignore previous instructions",
     "ignore all previous",
@@ -180,7 +177,6 @@ PROMPT_INJECTION_PATTERNS = [
     "actual instructions:",
     "real instructions:",
     "true instructions:",
-
     # Role-play injection
     "you are now",
     "pretend you are",
@@ -189,7 +185,6 @@ PROMPT_INJECTION_PATTERNS = [
     "simulate being",
     "roleplay as",
     "behave like",
-
     # Delimiter injection
     "---BEGIN SYSTEM---",
     "---END SYSTEM---",
@@ -210,14 +205,11 @@ PROMPT_INJECTION_REGEX_PATTERNS = [
     re.compile(r"<\s*/\s*instruction\s*>", re.IGNORECASE),
     re.compile(r"<\s*prompt\s*>", re.IGNORECASE),
     re.compile(r"<\s*/\s*prompt\s*>", re.IGNORECASE),
-
     # Unicode escape sequences that could bypass filters
     re.compile(r"\\u[0-9a-fA-F]{4}"),  # \u0048 etc.
     re.compile(r"&#x?[0-9a-fA-F]+;"),  # HTML entities
-
     # Base64 encoded content (potential hidden instructions)
     re.compile(r"[A-Za-z0-9+/]{50,}={0,2}"),  # Long base64 strings
-
     # Excessive whitespace manipulation
     re.compile(r"\n{5,}"),  # More than 4 consecutive newlines
     re.compile(r" {10,}"),  # More than 9 consecutive spaces
@@ -269,7 +261,7 @@ def sanitize_user_input(content: str, max_length: int = MAX_QUERY_LENGTH) -> str
         # Find and remove case-insensitively while preserving surrounding text
         idx = content_lower.find(phrase)
         while idx != -1:
-            content = content[:idx] + content[idx + len(phrase):]
+            content = content[:idx] + content[idx + len(phrase) :]
             content_lower = content.lower()
             idx = content_lower.find(phrase)
 
@@ -305,7 +297,7 @@ def sanitize_conversation_messages(
 
     # Limit number of messages (keep first and last n-1)
     if len(messages) > max_messages:
-        messages = [messages[0]] + messages[-(max_messages - 1):]
+        messages = [messages[0]] + messages[-(max_messages - 1) :]
         logger.info("Conversation history truncated", kept=max_messages)
 
     sanitized = []
@@ -321,10 +313,12 @@ def sanitize_conversation_messages(
         sanitized_content = sanitize_user_input(content)
 
         if sanitized_content:  # Only keep non-empty messages
-            sanitized.append({
-                "role": role,
-                "content": sanitized_content,
-            })
+            sanitized.append(
+                {
+                    "role": role,
+                    "content": sanitized_content,
+                }
+            )
 
     return sanitized
 
@@ -332,6 +326,7 @@ def sanitize_conversation_messages(
 # =============================================================================
 # Query Validation
 # =============================================================================
+
 
 def validate_and_sanitize_query(question: str) -> str:
     """Validate and sanitize query input.
@@ -379,6 +374,7 @@ def _validate_query_input(question: str) -> None:
 # =============================================================================
 # Database Type Loading
 # =============================================================================
+
 
 async def load_facet_and_entity_types(session: AsyncSession) -> tuple[list[dict], list[dict]]:
     """Load facet types and entity types from the database with TTL caching."""
@@ -472,9 +468,7 @@ async def load_all_types_for_write(session: AsyncSession) -> tuple[list[dict], l
     ]
 
     # Load relation types
-    relation_result = await session.execute(
-        select(RelationType).where(RelationType.is_active.is_(True))
-    )
+    relation_result = await session.execute(select(RelationType).where(RelationType.is_active.is_(True)))
     relation_types = [
         {
             "slug": rt.slug,
@@ -485,9 +479,7 @@ async def load_all_types_for_write(session: AsyncSession) -> tuple[list[dict], l
     ]
 
     # Load categories
-    category_result = await session.execute(
-        select(Category).where(Category.is_active.is_(True))
-    )
+    category_result = await session.execute(select(Category).where(Category.is_active.is_(True)))
     categories = [
         {
             "slug": cat.slug,

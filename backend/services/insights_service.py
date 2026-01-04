@@ -29,7 +29,7 @@ class Insight:
         message: str,
         action: dict[str, Any] | None = None,
         priority: int = 0,
-        color: str = "primary"
+        color: str = "primary",
     ):
         self.type = insight_type
         self.icon = icon
@@ -60,7 +60,7 @@ class InsightsService:
         context: AssistantContext,
         user_id: UUID | None = None,
         last_login: datetime | None = None,
-        language: str = "de"
+        language: str = "de",
     ) -> list[dict[str, Any]]:
         """
         Get contextual insights for the current user.
@@ -84,19 +84,14 @@ class InsightsService:
         # 2. Context-based insights
         if context.current_entity_id:
             entity_insights = await self._get_entity_insights(
-                context.current_entity_id,
-                context.current_entity_type,
-                language
+                context.current_entity_id, context.current_entity_type, language
             )
             insights.extend(entity_insights)
         elif context.view_mode.value == "dashboard":
             dashboard_insights = await self._get_dashboard_insights(language)
             insights.extend(dashboard_insights)
         elif context.view_mode.value == "list" and context.current_entity_type:
-            list_insights = await self._get_list_insights(
-                context.current_entity_type,
-                language
-            )
+            list_insights = await self._get_list_insights(context.current_entity_type, language)
             insights.extend(list_insights)
 
         # 3. General data quality insights
@@ -107,20 +102,13 @@ class InsightsService:
         insights.sort(key=lambda x: x.priority, reverse=True)
         return [i.to_dict() for i in insights[:3]]
 
-    async def _get_new_data_insights(
-        self,
-        since: datetime,
-        language: str
-    ) -> list[Insight]:
+    async def _get_new_data_insights(self, since: datetime, language: str) -> list[Insight]:
         """Get insights about new data since a timestamp."""
         insights = []
 
         try:
             # Count new facet values (pain points specifically)
-            result = await self.db.execute(
-                select(func.count(FacetValue.id))
-                .where(FacetValue.created_at >= since)
-            )
+            result = await self.db.execute(select(func.count(FacetValue.id)).where(FacetValue.created_at >= since))
             new_facets = result.scalar() or 0
 
             if new_facets > 0:
@@ -129,20 +117,19 @@ class InsightsService:
                     if language == "de"
                     else f"{new_facets} new facet values since your last login"
                 )
-                insights.append(Insight(
-                    insight_type="new_data",
-                    icon="mdi-bell-ring",
-                    message=msg,
-                    action={"type": "query", "value": "Zeige neue Änderungen"},
-                    priority=8,
-                    color="info"
-                ))
+                insights.append(
+                    Insight(
+                        insight_type="new_data",
+                        icon="mdi-bell-ring",
+                        message=msg,
+                        action={"type": "query", "value": "Zeige neue Änderungen"},
+                        priority=8,
+                        color="info",
+                    )
+                )
 
             # Count new entities
-            result = await self.db.execute(
-                select(func.count(Entity.id))
-                .where(Entity.created_at >= since)
-            )
+            result = await self.db.execute(select(func.count(Entity.id)).where(Entity.created_at >= since))
             new_entities = result.scalar() or 0
 
             if new_entities > 0:
@@ -151,35 +138,30 @@ class InsightsService:
                     if language == "de"
                     else f"{new_entities} new entities added"
                 )
-                insights.append(Insight(
-                    insight_type="new_data",
-                    icon="mdi-plus-circle",
-                    message=msg,
-                    action={"type": "query", "value": "Zeige neue Entities"},
-                    priority=7,
-                    color="success"
-                ))
+                insights.append(
+                    Insight(
+                        insight_type="new_data",
+                        icon="mdi-plus-circle",
+                        message=msg,
+                        action={"type": "query", "value": "Zeige neue Entities"},
+                        priority=7,
+                        color="success",
+                    )
+                )
 
         except Exception as e:
             logger.error("new_data_insights_error", error=str(e))
 
         return insights
 
-    async def _get_entity_insights(
-        self,
-        entity_id: str,
-        entity_type: str | None,
-        language: str
-    ) -> list[Insight]:
+    async def _get_entity_insights(self, entity_id: str, entity_type: str | None, language: str) -> list[Insight]:
         """Get insights specific to the current entity."""
         insights = []
 
         try:
             # Get entity
             result = await self.db.execute(
-                select(Entity)
-                .options(selectinload(Entity.entity_type))
-                .where(Entity.id == entity_id)
+                select(Entity).options(selectinload(Entity.entity_type)).where(Entity.id == entity_id)
             )
             entity = result.scalar_one_or_none()
 
@@ -187,10 +169,7 @@ class InsightsService:
                 return insights
 
             # Count facets
-            result = await self.db.execute(
-                select(func.count(FacetValue.id))
-                .where(FacetValue.entity_id == entity.id)
-            )
+            result = await self.db.execute(select(func.count(FacetValue.id)).where(FacetValue.entity_id == entity.id))
             facet_count = result.scalar() or 0
 
             if facet_count == 0:
@@ -199,23 +178,21 @@ class InsightsService:
                     if language == "de"
                     else "This entity has no facets yet. Would you like to add some?"
                 )
-                insights.append(Insight(
-                    insight_type="action_needed",
-                    icon="mdi-alert-circle-outline",
-                    message=msg,
-                    action={"type": "navigate", "value": f"/entities/{entity_type}/{entity.slug}/edit"},
-                    priority=6,
-                    color="warning"
-                ))
+                insights.append(
+                    Insight(
+                        insight_type="action_needed",
+                        icon="mdi-alert-circle-outline",
+                        message=msg,
+                        action={"type": "navigate", "value": f"/entities/{entity_type}/{entity.slug}/edit"},
+                        priority=6,
+                        color="warning",
+                    )
+                )
 
             # Check for unverified facets
             result = await self.db.execute(
-                select(func.count(FacetValue.id))
-                .where(
-                    and_(
-                        FacetValue.entity_id == entity.id,
-                        FacetValue.human_verified.is_(False)
-                    )
+                select(func.count(FacetValue.id)).where(
+                    and_(FacetValue.entity_id == entity.id, FacetValue.human_verified.is_(False))
                 )
             )
             unverified = result.scalar() or 0
@@ -226,14 +203,16 @@ class InsightsService:
                     if language == "de"
                     else f"{unverified} facet values pending verification"
                 )
-                insights.append(Insight(
-                    insight_type="action_needed",
-                    icon="mdi-check-circle-outline",
-                    message=msg,
-                    action={"type": "query", "value": f"Zeige ungeprüfte Facets von {entity.name}"},
-                    priority=7,
-                    color="warning"
-                ))
+                insights.append(
+                    Insight(
+                        insight_type="action_needed",
+                        icon="mdi-check-circle-outline",
+                        message=msg,
+                        action={"type": "query", "value": f"Zeige ungeprüfte Facets von {entity.name}"},
+                        priority=7,
+                        color="warning",
+                    )
+                )
 
         except Exception as e:
             logger.error("entity_insights_error", error=str(e))
@@ -258,21 +237,20 @@ class InsightsService:
                 if language == "de"
                 else f"System contains {total_entities} entities with {total_facets} facet values"
             )
-            insights.append(Insight(
-                insight_type="info",
-                icon="mdi-database",
-                message=msg,
-                action={"type": "query", "value": "Zeige Übersicht"},
-                priority=3,
-                color="primary"
-            ))
+            insights.append(
+                Insight(
+                    insight_type="info",
+                    icon="mdi-database",
+                    message=msg,
+                    action={"type": "query", "value": "Zeige Übersicht"},
+                    priority=3,
+                    color="primary",
+                )
+            )
 
             # Recent activity (last 7 days)
             week_ago = datetime.now(UTC) - timedelta(days=7)
-            result = await self.db.execute(
-                select(func.count(FacetValue.id))
-                .where(FacetValue.created_at >= week_ago)
-            )
+            result = await self.db.execute(select(func.count(FacetValue.id)).where(FacetValue.created_at >= week_ago))
             recent_changes = result.scalar() or 0
 
             if recent_changes > 0:
@@ -281,59 +259,50 @@ class InsightsService:
                     if language == "de"
                     else f"{recent_changes} changes in the last 7 days"
                 )
-                insights.append(Insight(
-                    insight_type="activity",
-                    icon="mdi-chart-line",
-                    message=msg,
-                    action={"type": "query", "value": "Zeige letzte Aktivitäten"},
-                    priority=5,
-                    color="success"
-                ))
+                insights.append(
+                    Insight(
+                        insight_type="activity",
+                        icon="mdi-chart-line",
+                        message=msg,
+                        action={"type": "query", "value": "Zeige letzte Aktivitäten"},
+                        priority=5,
+                        color="success",
+                    )
+                )
 
         except Exception as e:
             logger.error("dashboard_insights_error", error=str(e))
 
         return insights
 
-    async def _get_list_insights(
-        self,
-        entity_type: str,
-        language: str
-    ) -> list[Insight]:
+    async def _get_list_insights(self, entity_type: str, language: str) -> list[Insight]:
         """Get insights for entity list views."""
         insights = []
 
         try:
             # Get entity type
-            result = await self.db.execute(
-                select(EntityType).where(EntityType.slug == entity_type)
-            )
+            result = await self.db.execute(select(EntityType).where(EntityType.slug == entity_type))
             etype = result.scalar_one_or_none()
 
             if not etype:
                 return insights
 
             # Count entities of this type
-            result = await self.db.execute(
-                select(func.count(Entity.id))
-                .where(Entity.entity_type_id == etype.id)
-            )
+            result = await self.db.execute(select(func.count(Entity.id)).where(Entity.entity_type_id == etype.id))
             count = result.scalar() or 0
 
             type_name = etype.name_plural or etype.name
-            msg = (
-                f"{count} {type_name} im System"
-                if language == "de"
-                else f"{count} {type_name} in the system"
+            msg = f"{count} {type_name} im System" if language == "de" else f"{count} {type_name} in the system"
+            insights.append(
+                Insight(
+                    insight_type="info",
+                    icon="mdi-format-list-bulleted",
+                    message=msg,
+                    action={"type": "query", "value": f"Zeige alle {type_name}"},
+                    priority=2,
+                    color="primary",
+                )
             )
-            insights.append(Insight(
-                insight_type="info",
-                icon="mdi-format-list-bulleted",
-                message=msg,
-                action={"type": "query", "value": f"Zeige alle {type_name}"},
-                priority=2,
-                color="primary"
-            ))
 
         except Exception as e:
             logger.error("list_insights_error", error=str(e))
@@ -346,14 +315,8 @@ class InsightsService:
 
         try:
             # Count entities without facets
-            subquery = (
-                select(FacetValue.entity_id)
-                .distinct()
-            )
-            result = await self.db.execute(
-                select(func.count(Entity.id))
-                .where(Entity.id.not_in(subquery))
-            )
+            subquery = select(FacetValue.entity_id).distinct()
+            result = await self.db.execute(select(func.count(Entity.id)).where(Entity.id.not_in(subquery)))
             empty_entities = result.scalar() or 0
 
             if empty_entities > 10:
@@ -362,14 +325,16 @@ class InsightsService:
                     if language == "de"
                     else f"{empty_entities} entities have no facets yet"
                 )
-                insights.append(Insight(
-                    insight_type="data_quality",
-                    icon="mdi-alert-outline",
-                    message=msg,
-                    action={"type": "query", "value": "Zeige Entities ohne Facets"},
-                    priority=4,
-                    color="warning"
-                ))
+                insights.append(
+                    Insight(
+                        insight_type="data_quality",
+                        icon="mdi-alert-outline",
+                        message=msg,
+                        action={"type": "query", "value": "Zeige Entities ohne Facets"},
+                        priority=4,
+                        color="warning",
+                    )
+                )
 
         except Exception as e:
             logger.error("data_quality_insights_error", error=str(e))

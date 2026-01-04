@@ -8,11 +8,12 @@ from httpx import AsyncClient, ReadTimeout
 # Custom marker for tests that require Celery workers
 requires_celery = pytest.mark.skipif(
     True,  # Set to False when Celery workers are running
-    reason="Requires Celery workers to be running"
+    reason="Requires Celery workers to be running",
 )
 
 
 # === Basic Endpoint Tests ===
+
 
 @pytest.mark.asyncio
 async def test_list_crawl_jobs(admin_client: AsyncClient):
@@ -105,6 +106,7 @@ async def test_get_running_ai_tasks(admin_client: AsyncClient):
 
 # === Error Handling Tests ===
 
+
 @pytest.mark.asyncio
 async def test_get_nonexistent_job(admin_client: AsyncClient):
     """Test getting a non-existent job returns 404."""
@@ -155,6 +157,7 @@ async def test_analyze_nonexistent_document(admin_client: AsyncClient):
 
 # === Validation Tests ===
 
+
 @pytest.mark.asyncio
 async def test_list_jobs_invalid_page(admin_client: AsyncClient):
     """Test that invalid page number is handled."""
@@ -180,7 +183,7 @@ async def test_start_crawl_invalid_request(admin_client: AsyncClient):
     try:
         response = await admin_client.post(
             "/api/admin/crawler/start",
-            json={}  # Empty request
+            json={},  # Empty request
         )
         # Should either succeed with empty filters or return validation error
         assert response.status_code in [200, 422]
@@ -189,6 +192,7 @@ async def test_start_crawl_invalid_request(admin_client: AsyncClient):
 
 
 # === Start Crawl Tests ===
+
 
 @pytest.mark.asyncio
 @requires_celery
@@ -200,7 +204,7 @@ async def test_start_crawl_with_source_filter(admin_client: AsyncClient):
     try:
         response = await admin_client.post(
             "/api/admin/crawler/start",
-            json={"source_ids": [str(uuid.uuid4())]}  # Non-existent source
+            json={"source_ids": [str(uuid.uuid4())]},  # Non-existent source
         )
         # May return 200 (0 jobs created) or 404 (no sources found)
         assert response.status_code in [200, 404]
@@ -219,10 +223,7 @@ async def test_start_crawl_with_type_filter(admin_client: AsyncClient):
     Note: This test requires Celery workers to be running.
     """
     try:
-        response = await admin_client.post(
-            "/api/admin/crawler/start",
-            json={"source_type": "WEBSITE"}
-        )
+        response = await admin_client.post("/api/admin/crawler/start", json={"source_type": "WEBSITE"})
         assert response.status_code == 200
     except ReadTimeout:
         pytest.skip("Celery workers not responding (timeout)")
@@ -236,16 +237,14 @@ async def test_start_crawl_with_status_filter(admin_client: AsyncClient):
     Note: This test requires Celery workers to be running.
     """
     try:
-        response = await admin_client.post(
-            "/api/admin/crawler/start",
-            json={"status": "ACTIVE"}
-        )
+        response = await admin_client.post("/api/admin/crawler/start", json={"status": "ACTIVE"})
         assert response.status_code == 200
     except ReadTimeout:
         pytest.skip("Celery workers not responding (timeout)")
 
 
 # === Reanalyze Tests ===
+
 
 @pytest.mark.asyncio
 @requires_celery
@@ -255,10 +254,7 @@ async def test_reanalyze_empty_filter(admin_client: AsyncClient):
     Note: This test requires Celery workers to be running.
     """
     try:
-        response = await admin_client.post(
-            "/api/admin/crawler/reanalyze",
-            json={}
-        )
+        response = await admin_client.post("/api/admin/crawler/reanalyze", json={})
         # Should return validation error or succeed with no documents
         assert response.status_code in [200, 400, 422]
     except ReadTimeout:
@@ -275,7 +271,7 @@ async def test_reanalyze_filtered(admin_client: AsyncClient):
     try:
         response = await admin_client.post(
             "/api/admin/crawler/documents/reanalyze-filtered",
-            json={"category_id": str(uuid.uuid4())}  # Non-existent category
+            json={"category_id": str(uuid.uuid4())},  # Non-existent category
         )
         assert response.status_code == 200
         data = response.json()
@@ -285,6 +281,7 @@ async def test_reanalyze_filtered(admin_client: AsyncClient):
 
 
 # === Process Pending Documents Tests ===
+
 
 @pytest.mark.asyncio
 @requires_celery

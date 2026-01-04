@@ -235,11 +235,13 @@ async def login(
     # Check and enforce session limit
     active_sessions_result = await session.execute(
         select(UserSession)
-        .where(and_(
-            UserSession.user_id == user.id,
-            UserSession.is_active.is_(True),
-            UserSession.expires_at > datetime.now(UTC)
-        ))
+        .where(
+            and_(
+                UserSession.user_id == user.id,
+                UserSession.is_active.is_(True),
+                UserSession.expires_at > datetime.now(UTC),
+            )
+        )
         .order_by(UserSession.last_used_at.asc())
     )
     active_sessions = list(active_sessions_result.scalars().all())
@@ -249,9 +251,12 @@ async def login(
         oldest_session = active_sessions.pop(0)
         oldest_session.revoke(reason="session_limit_exceeded")
         await log_session_revoke(
-            session, user, oldest_session,
+            session,
+            user,
+            oldest_session,
             reason="Session limit exceeded",
-            ip_address=client_ip, user_agent=user_agent_str
+            ip_address=client_ip,
+            user_agent=user_agent_str,
         )
 
     # Parse device info
@@ -505,10 +510,7 @@ async def refresh_tokens(
     token_hash = hash_refresh_token(data.refresh_token)
 
     # Find session by refresh token hash
-    result = await session.execute(
-        select(UserSession)
-        .where(UserSession.refresh_token_hash == token_hash)
-    )
+    result = await session.execute(select(UserSession).where(UserSession.refresh_token_hash == token_hash))
     user_session = result.scalar_one_or_none()
 
     if not user_session:
@@ -570,11 +572,13 @@ async def list_sessions(
     """
     result = await session.execute(
         select(UserSession)
-        .where(and_(
-            UserSession.user_id == current_user.id,
-            UserSession.is_active.is_(True),
-            UserSession.expires_at > datetime.now(UTC)
-        ))
+        .where(
+            and_(
+                UserSession.user_id == current_user.id,
+                UserSession.is_active.is_(True),
+                UserSession.expires_at > datetime.now(UTC),
+            )
+        )
         .order_by(UserSession.last_used_at.desc())
     )
     sessions_list = list(result.scalars().all())
@@ -634,9 +638,7 @@ async def revoke_session(
     client_ip = request.client.host if request.client else "unknown"
     user_agent = request.headers.get("user-agent")
     await log_session_revoke(
-        session, current_user, user_session,
-        reason="User revoked session",
-        ip_address=client_ip, user_agent=user_agent
+        session, current_user, user_session, reason="User revoked session", ip_address=client_ip, user_agent=user_agent
     )
 
     await session.commit()
@@ -661,11 +663,12 @@ async def revoke_all_sessions(
 
     # Find all active sessions
     result = await session.execute(
-        select(UserSession)
-        .where(and_(
-            UserSession.user_id == current_user.id,
-            UserSession.is_active.is_(True),
-        ))
+        select(UserSession).where(
+            and_(
+                UserSession.user_id == current_user.id,
+                UserSession.is_active.is_(True),
+            )
+        )
     )
     all_sessions = list(result.scalars().all())
 
@@ -676,10 +679,9 @@ async def revoke_all_sessions(
 
     # Log the bulk action
     from app.services.audit_service import log_bulk_session_revoke
+
     await log_bulk_session_revoke(
-        session, current_user,
-        count=revoked_count,
-        ip_address=client_ip, user_agent=user_agent
+        session, current_user, count=revoked_count, ip_address=client_ip, user_agent=user_agent
     )
 
     await session.commit()
@@ -782,6 +784,7 @@ Das CaeliCrawler-Team
         return True
     except Exception as e:
         import logging
+
         logging.getLogger(__name__).error(f"Failed to send verification email: {e}")
         return False
 
@@ -796,19 +799,14 @@ async def get_email_verification_status(
     Returns whether the user's email is verified and if a verification is pending.
     """
     verification_pending = (
-        current_user.email_verification_token is not None
-        and current_user.email_verification_sent_at is not None
+        current_user.email_verification_token is not None and current_user.email_verification_sent_at is not None
     )
 
     return EmailVerificationStatusResponse(
         email=current_user.email,
         email_verified=current_user.email_verified,
         verification_pending=verification_pending,
-        message=(
-            "E-Mail ist bestätigt"
-            if current_user.email_verified
-            else "E-Mail noch nicht bestätigt"
-        ),
+        message=("E-Mail ist bestätigt" if current_user.email_verified else "E-Mail noch nicht bestätigt"),
     )
 
 
@@ -862,9 +860,7 @@ async def request_email_verification(
 
     await session.commit()
 
-    return MessageResponse(
-        message=f"Bestätigungs-E-Mail wurde an {current_user.email} gesendet"
-    )
+    return MessageResponse(message=f"Bestätigungs-E-Mail wurde an {current_user.email} gesendet")
 
 
 @router.post("/email-verification/confirm", response_model=MessageResponse)
@@ -884,9 +880,7 @@ async def confirm_email_verification(
     await check_rate_limit(request, "email_verification")
 
     # Find user by token
-    result = await session.execute(
-        select(User).where(User.email_verification_token == data.token)
-    )
+    result = await session.execute(select(User).where(User.email_verification_token == data.token))
     user = result.scalar_one_or_none()
 
     if not user:

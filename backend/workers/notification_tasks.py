@@ -164,10 +164,12 @@ def process_digests():
                     # TODO: Create and send digest notification
                     # For now, just send individual notifications
                     pending_result = await session.execute(
-                        select(Notification).where(
+                        select(Notification)
+                        .where(
                             Notification.rule_id == rule.id,
                             Notification.status == NotificationStatus.PENDING,
-                        ).limit(100)
+                        )
+                        .limit(100)
                     )
                     for notification in pending_result.scalars():
                         send_notification.delay(str(notification.id))

@@ -130,7 +130,7 @@ async def _execute_single_sub_query(
         return {
             "id": query_id,
             "title": viz_config.title or description,
-            "visualization": viz_config.model_dump() if hasattr(viz_config, 'model_dump') else viz_config.dict(),
+            "visualization": viz_config.model_dump() if hasattr(viz_config, "model_dump") else viz_config.dict(),
             "data": items,
             "source_info": {
                 "type": "internal",
@@ -227,10 +227,7 @@ async def execute_compound_query(
         question=original_question[:100],
     )
 
-    tasks = [
-        _execute_single_sub_query(session, sq, viz_selector)
-        for sq in sub_queries
-    ]
+    tasks = [_execute_single_sub_query(session, sq, viz_selector) for sq in sub_queries]
 
     visualizations = await asyncio.gather(*tasks)
 
@@ -289,10 +286,7 @@ class SmartQueryService:
         return await smart_query(self.db, query, allow_write=False)
 
     async def smart_query(
-        self,
-        query: str,
-        allow_write: bool = False,
-        current_user_id: UUID | None = None
+        self, query: str, allow_write: bool = False, current_user_id: UUID | None = None
     ) -> dict[str, Any]:
         """
         Execute a natural language query with optional write support.
@@ -419,7 +413,7 @@ async def smart_query(
             user_query=question,
             facet_types=facet_types,
         )
-        results["visualization"] = viz_config.model_dump() if hasattr(viz_config, 'model_dump') else viz_config.dict()
+        results["visualization"] = viz_config.model_dump() if hasattr(viz_config, "model_dump") else viz_config.dict()
     except Exception as e:
         logger.warning("Visualization selection failed", error=str(e))
         # Default to table visualization

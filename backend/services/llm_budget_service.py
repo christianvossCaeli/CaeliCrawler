@@ -57,9 +57,7 @@ class LLMBudgetService:
 
     async def get_budget(self, budget_id: UUID) -> LLMBudgetConfigResponse | None:
         """Get a specific budget configuration."""
-        result = await self.session.execute(
-            select(LLMBudgetConfig).where(LLMBudgetConfig.id == budget_id)
-        )
+        result = await self.session.execute(select(LLMBudgetConfig).where(LLMBudgetConfig.id == budget_id))
         budget = result.scalar_one_or_none()
 
         if not budget:
@@ -95,13 +93,9 @@ class LLMBudgetService:
 
         return LLMBudgetConfigResponse.model_validate(budget)
 
-    async def update_budget(
-        self, budget_id: UUID, data: LLMBudgetConfigUpdate
-    ) -> LLMBudgetConfigResponse | None:
+    async def update_budget(self, budget_id: UUID, data: LLMBudgetConfigUpdate) -> LLMBudgetConfigResponse | None:
         """Update an existing budget configuration."""
-        result = await self.session.execute(
-            select(LLMBudgetConfig).where(LLMBudgetConfig.id == budget_id)
-        )
+        result = await self.session.execute(select(LLMBudgetConfig).where(LLMBudgetConfig.id == budget_id))
         budget = result.scalar_one_or_none()
 
         if not budget:
@@ -121,9 +115,7 @@ class LLMBudgetService:
 
     async def delete_budget(self, budget_id: UUID) -> bool:
         """Delete a budget configuration."""
-        result = await self.session.execute(
-            select(LLMBudgetConfig).where(LLMBudgetConfig.id == budget_id)
-        )
+        result = await self.session.execute(select(LLMBudgetConfig).where(LLMBudgetConfig.id == budget_id))
         budget = result.scalar_one_or_none()
 
         if not budget:
@@ -139,9 +131,7 @@ class LLMBudgetService:
     async def get_budget_status(self) -> BudgetStatusListResponse:
         """Get current status of all active budgets."""
         # Get all active budgets
-        result = await self.session.execute(
-            select(LLMBudgetConfig).where(LLMBudgetConfig.is_active)
-        )
+        result = await self.session.execute(select(LLMBudgetConfig).where(LLMBudgetConfig.is_active))
         budgets = result.scalars().all()
 
         # Get current month usage
@@ -157,32 +147,22 @@ class LLMBudgetService:
 
         for budget in budgets:
             # Build query based on budget type
-            usage_query = select(
-                func.coalesce(func.sum(LLMUsageRecord.estimated_cost_cents), 0)
-            ).where(LLMUsageRecord.created_at >= month_start)
+            usage_query = select(func.coalesce(func.sum(LLMUsageRecord.estimated_cost_cents), 0)).where(
+                LLMUsageRecord.created_at >= month_start
+            )
 
             if budget.budget_type == BudgetType.CATEGORY and budget.reference_id:
-                usage_query = usage_query.where(
-                    LLMUsageRecord.category_id == budget.reference_id
-                )
+                usage_query = usage_query.where(LLMUsageRecord.category_id == budget.reference_id)
             elif budget.budget_type == BudgetType.TASK_TYPE and budget.reference_value:
-                usage_query = usage_query.where(
-                    LLMUsageRecord.task_type == budget.reference_value
-                )
+                usage_query = usage_query.where(LLMUsageRecord.task_type == budget.reference_value)
             elif budget.budget_type == BudgetType.MODEL and budget.reference_value:
-                usage_query = usage_query.where(
-                    LLMUsageRecord.model == budget.reference_value
-                )
+                usage_query = usage_query.where(LLMUsageRecord.model == budget.reference_value)
             # GLOBAL type has no additional filter
 
             result = await self.session.execute(usage_query)
             current_usage = result.scalar() or 0
 
-            usage_percent = (
-                current_usage / budget.monthly_limit_cents * 100
-                if budget.monthly_limit_cents > 0
-                else 0
-            )
+            usage_percent = current_usage / budget.monthly_limit_cents * 100 if budget.monthly_limit_cents > 0 else 0
 
             is_warning = usage_percent >= budget.warning_threshold_percent
             is_critical = usage_percent >= budget.critical_threshold_percent
@@ -239,9 +219,7 @@ class LLMBudgetService:
 
             # Get the budget config for alert settings
             result = await self.session.execute(
-                select(LLMBudgetConfig).where(
-                    LLMBudgetConfig.id == budget_status.budget_id
-                )
+                select(LLMBudgetConfig).where(LLMBudgetConfig.id == budget_status.budget_id)
             )
             budget = result.scalar_one()
 
@@ -250,15 +228,11 @@ class LLMBudgetService:
 
             # Check if we already sent this type of alert recently (within 24 hours)
             if alert_type == "warning" and budget.last_warning_sent_at:
-                hours_since = (
-                    datetime.now(UTC) - budget.last_warning_sent_at
-                ).total_seconds() / 3600
+                hours_since = (datetime.now(UTC) - budget.last_warning_sent_at).total_seconds() / 3600
                 if hours_since < 24:
                     continue
             elif alert_type == "critical" and budget.last_critical_sent_at:
-                hours_since = (
-                    datetime.now(UTC) - budget.last_critical_sent_at
-                ).total_seconds() / 3600
+                hours_since = (datetime.now(UTC) - budget.last_critical_sent_at).total_seconds() / 3600
                 if hours_since < 24:
                     continue
 
@@ -267,9 +241,7 @@ class LLMBudgetService:
                 budget_id=budget.id,
                 alert_type=alert_type,
                 threshold_percent=(
-                    budget.critical_threshold_percent
-                    if alert_type == "critical"
-                    else budget.warning_threshold_percent
+                    budget.critical_threshold_percent if alert_type == "critical" else budget.warning_threshold_percent
                 ),
                 current_usage_cents=budget_status.current_usage_cents,
                 budget_limit_cents=budget_status.monthly_limit_cents,
@@ -308,13 +280,15 @@ class LLMBudgetService:
             else:
                 budget.last_critical_sent_at = datetime.now(UTC)
 
-            triggered_alerts.append({
-                "budget_id": str(budget.id),
-                "budget_name": budget.name,
-                "alert_type": alert_type,
-                "usage_percent": budget_status.usage_percent,
-                "email_sent": email_sent,
-            })
+            triggered_alerts.append(
+                {
+                    "budget_id": str(budget.id),
+                    "budget_name": budget.name,
+                    "alert_type": alert_type,
+                    "usage_percent": budget_status.usage_percent,
+                    "email_sent": email_sent,
+                }
+            )
 
             logger.warning(
                 "Budget alert triggered",
@@ -350,10 +324,7 @@ class LLMBudgetService:
             )
             return
 
-        subject = (
-            f"[{'KRITISCH' if alert_type == 'critical' else 'Warnung'}] "
-            f"LLM Budget-Alarm: {budget.name}"
-        )
+        subject = f"[{'KRITISCH' if alert_type == 'critical' else 'Warnung'}] LLM Budget-Alarm: {budget.name}"
 
         alert_color = "#dc3545" if alert_type == "critical" else "#ffc107"
         alert_label = "KRITISCH" if alert_type == "critical" else "Warnung"
@@ -510,8 +481,8 @@ Diese Nachricht wurde automatisch von CaeliCrawler gesendet.
                     username=settings.smtp_username or None,
                     password=settings.smtp_password or None,
                     use_tls=settings.smtp_use_tls,
-                    start_tls=settings.smtp_use_tls and not getattr(settings, 'smtp_use_ssl', False),
-                    timeout=getattr(settings, 'smtp_timeout', 30),
+                    start_tls=settings.smtp_use_tls and not getattr(settings, "smtp_use_ssl", False),
+                    timeout=getattr(settings, "smtp_timeout", 30),
                 )
 
                 logger.info(
@@ -530,15 +501,9 @@ Diese Nachricht wurde automatisch von CaeliCrawler gesendet.
                 )
                 raise
 
-    async def get_alert_history(
-        self, budget_id: UUID | None = None, limit: int = 50
-    ) -> list[dict]:
+    async def get_alert_history(self, budget_id: UUID | None = None, limit: int = 50) -> list[dict]:
         """Get alert history."""
-        query = (
-            select(LLMBudgetAlert)
-            .order_by(LLMBudgetAlert.created_at.desc())
-            .limit(limit)
-        )
+        query = select(LLMBudgetAlert).order_by(LLMBudgetAlert.created_at.desc()).limit(limit)
 
         if budget_id:
             query = query.where(LLMBudgetAlert.budget_id == budget_id)
@@ -574,9 +539,7 @@ Diese Nachricht wurde automatisch von CaeliCrawler gesendet.
         )
         return result.scalar_one_or_none()
 
-    async def get_user_budget_status(
-        self, user_id: UUID
-    ) -> UserBudgetStatusResponse | None:
+    async def get_user_budget_status(self, user_id: UUID) -> UserBudgetStatusResponse | None:
         """Get current budget status for a user."""
         budget = await self.get_user_budget(user_id)
         if not budget:
@@ -586,9 +549,7 @@ Diese Nachricht wurde automatisch von CaeliCrawler gesendet.
         now = datetime.now(UTC)
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-        usage_query = select(
-            func.coalesce(func.sum(LLMUsageRecord.estimated_cost_cents), 0)
-        ).where(
+        usage_query = select(func.coalesce(func.sum(LLMUsageRecord.estimated_cost_cents), 0)).where(
             LLMUsageRecord.created_at >= month_start,
             LLMUsageRecord.user_id == user_id,
         )
@@ -596,11 +557,7 @@ Diese Nachricht wurde automatisch von CaeliCrawler gesendet.
         result = await self.session.execute(usage_query)
         current_usage = result.scalar() or 0
 
-        usage_percent = (
-            current_usage / budget.monthly_limit_cents * 100
-            if budget.monthly_limit_cents > 0
-            else 0
-        )
+        usage_percent = current_usage / budget.monthly_limit_cents * 100 if budget.monthly_limit_cents > 0 else 0
 
         return UserBudgetStatusResponse(
             budget_id=budget.id,
@@ -646,9 +603,7 @@ Diese Nachricht wurde automatisch von CaeliCrawler gesendet.
 
         return True, None
 
-    async def update_user_budget_limit(
-        self, user_id: UUID, new_limit_cents: int
-    ) -> UserBudgetStatusResponse:
+    async def update_user_budget_limit(self, user_id: UUID, new_limit_cents: int) -> UserBudgetStatusResponse:
         """
         Update a user's budget limit directly.
 
@@ -668,8 +623,7 @@ Diese Nachricht wurde automatisch von CaeliCrawler gesendet.
 
         if not budget:
             raise ValueError(
-                "No budget configured for this user. "
-                "Please contact an administrator to set up a budget first."
+                "No budget configured for this user. Please contact an administrator to set up a budget first."
             )
 
         # Update the limit
@@ -690,9 +644,7 @@ Diese Nachricht wurde automatisch von CaeliCrawler gesendet.
             raise ValueError("No budget configured for this user")
 
         if data.requested_limit_cents <= budget.monthly_limit_cents:
-            raise ValueError(
-                "Requested limit must be greater than current limit"
-            )
+            raise ValueError("Requested limit must be greater than current limit")
 
         # Check for pending request
         existing = await self.session.execute(
@@ -725,9 +677,7 @@ Diese Nachricht wurde automatisch von CaeliCrawler gesendet.
 
         return LimitIncreaseRequestResponse.model_validate(request)
 
-    async def get_user_limit_requests(
-        self, user_id: UUID
-    ) -> list[LimitIncreaseRequestResponse]:
+    async def get_user_limit_requests(self, user_id: UUID) -> list[LimitIncreaseRequestResponse]:
         """Get all limit requests for a specific user."""
         result = await self.session.execute(
             select(LLMBudgetLimitRequest)
@@ -766,9 +716,7 @@ Diese Nachricht wurde automatisch von CaeliCrawler gesendet.
         pending_count = pending_count_result.scalar() or 0
 
         # Total count
-        total_result = await self.session.execute(
-            select(func.count(LLMBudgetLimitRequest.id))
-        )
+        total_result = await self.session.execute(select(func.count(LLMBudgetLimitRequest.id)))
         total = total_result.scalar() or 0
 
         requests = []
@@ -783,9 +731,7 @@ Diese Nachricht wurde automatisch von CaeliCrawler gesendet.
             pending_count=pending_count,
         )
 
-    async def get_limit_request(
-        self, request_id: UUID
-    ) -> LimitIncreaseRequestResponse | None:
+    async def get_limit_request(self, request_id: UUID) -> LimitIncreaseRequestResponse | None:
         """Get a specific limit request."""
         result = await self.session.execute(
             select(LLMBudgetLimitRequest, User.email)
@@ -809,11 +755,7 @@ Diese Nachricht wurde automatisch von CaeliCrawler gesendet.
         action: AdminLimitRequestAction | None = None,
     ) -> LimitIncreaseRequestResponse:
         """Approve a limit increase request."""
-        result = await self.session.execute(
-            select(LLMBudgetLimitRequest).where(
-                LLMBudgetLimitRequest.id == request_id
-            )
-        )
+        result = await self.session.execute(select(LLMBudgetLimitRequest).where(LLMBudgetLimitRequest.id == request_id))
         request = result.scalar_one_or_none()
 
         if not request:
@@ -857,11 +799,7 @@ Diese Nachricht wurde automatisch von CaeliCrawler gesendet.
         action: AdminLimitRequestAction | None = None,
     ) -> LimitIncreaseRequestResponse:
         """Deny a limit increase request."""
-        result = await self.session.execute(
-            select(LLMBudgetLimitRequest).where(
-                LLMBudgetLimitRequest.id == request_id
-            )
-        )
+        result = await self.session.execute(select(LLMBudgetLimitRequest).where(LLMBudgetLimitRequest.id == request_id))
         request = result.scalar_one_or_none()
 
         if not request:

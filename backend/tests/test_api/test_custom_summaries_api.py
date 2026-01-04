@@ -74,8 +74,16 @@ class TestCustomSummariesAdminApi:
         from app.schemas.custom_summary import SummaryWidgetCreate
 
         valid_types = [
-            "table", "bar_chart", "line_chart", "pie_chart",
-            "stat_card", "text", "comparison", "timeline", "map", "calendar"
+            "table",
+            "bar_chart",
+            "line_chart",
+            "pie_chart",
+            "stat_card",
+            "text",
+            "comparison",
+            "timeline",
+            "map",
+            "calendar",
         ]
 
         for widget_type in valid_types:
@@ -509,10 +517,7 @@ class TestInterpretedConfigValidation:
         from app.schemas.custom_summary import InterpretedConfig
 
         # 21 widgets should fail (max 20)
-        widgets = [
-            {"widget_type": "stat_card", "title": f"Widget {i}"}
-            for i in range(21)
-        ]
+        widgets = [{"widget_type": "stat_card", "title": f"Widget {i}"} for i in range(21)]
 
         with pytest.raises(ValidationError):
             InterpretedConfig(
@@ -572,8 +577,16 @@ class TestWidgetTypes:
         from app.models.summary_widget import SummaryWidgetType
 
         expected_types = {
-            "TABLE", "BAR_CHART", "LINE_CHART", "PIE_CHART",
-            "STAT_CARD", "TEXT", "COMPARISON", "MAP", "TIMELINE", "CALENDAR"
+            "TABLE",
+            "BAR_CHART",
+            "LINE_CHART",
+            "PIE_CHART",
+            "STAT_CARD",
+            "TEXT",
+            "COMPARISON",
+            "MAP",
+            "TIMELINE",
+            "CALENDAR",
         }
 
         actual_types = {wt.name for wt in SummaryWidgetType}

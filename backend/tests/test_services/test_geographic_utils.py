@@ -164,10 +164,7 @@ class TestTermExpansion:
         from services.smart_query.alias_utils import expand_terms_async
 
         # Abstract term "Entscheidungsträger" should expand to specific roles
-        expanded = await expand_terms_async(
-            context="business leadership",
-            raw_terms=["decision maker"]
-        )
+        expanded = await expand_terms_async(context="business leadership", raw_terms=["decision maker"])
 
         assert len(expanded) >= 1
         # Should return at least the original or expanded terms
@@ -178,9 +175,6 @@ class TestTermExpansion:
         from services.smart_query.alias_utils import expand_terms_async
 
         # A very specific term should remain as-is or be minimally expanded
-        expanded = await expand_terms_async(
-            context="job titles",
-            raw_terms=["CEO"]
-        )
+        expanded = await expand_terms_async(context="job titles", raw_terms=["CEO"])
 
         assert "CEO" in expanded or any("Chief" in t for t in expanded)

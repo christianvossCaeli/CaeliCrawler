@@ -32,10 +32,7 @@ class TestCallClaudeForPlanMode:
         from services.smart_query.query_interpreter import call_claude_for_plan_mode
 
         # Create conversation with 25 messages (more than MAX_CONVERSATION_MESSAGES = 20)
-        long_messages = [
-            {"role": "user" if i % 2 == 0 else "assistant", "content": f"Message {i}"}
-            for i in range(25)
-        ]
+        long_messages = [{"role": "user" if i % 2 == 0 else "assistant", "content": f"Message {i}"} for i in range(25)]
 
         with patch("services.smart_query.interpreters.plan_interpreter.settings") as mock_settings:
             mock_settings.anthropic_api_endpoint = "https://test.api/v1/messages"
@@ -45,9 +42,7 @@ class TestCallClaudeForPlanMode:
             with patch("httpx.AsyncClient") as mock_client_class:
                 mock_client = AsyncMock()
                 mock_response = MagicMock()
-                mock_response.json.return_value = {
-                    "content": [{"text": "Test response"}]
-                }
+                mock_response.json.return_value = {"content": [{"text": "Test response"}]}
                 mock_response.raise_for_status = MagicMock()
                 mock_client.post = AsyncMock(return_value=mock_response)
                 mock_client_class.return_value.__aenter__.return_value = mock_client
@@ -85,9 +80,7 @@ class TestCallClaudeForPlanMode:
             with patch("httpx.AsyncClient") as mock_client_class:
                 mock_client = AsyncMock()
                 mock_response = MagicMock()
-                mock_response.json.return_value = {
-                    "content": [{"text": "Test response"}]
-                }
+                mock_response.json.return_value = {"content": [{"text": "Test response"}]}
                 mock_response.raise_for_status = MagicMock()
                 mock_client.post = AsyncMock(return_value=mock_response)
                 mock_client_class.return_value.__aenter__.return_value = mock_client
@@ -145,11 +138,7 @@ class TestCallClaudeForPlanMode:
                 mock_response.status_code = 500
                 mock_response.text = "Internal Server Error"
                 mock_response.raise_for_status = MagicMock(
-                    side_effect=httpx.HTTPStatusError(
-                        "Server error",
-                        request=MagicMock(),
-                        response=mock_response
-                    )
+                    side_effect=httpx.HTTPStatusError("Server error", request=MagicMock(), response=mock_response)
                 )
                 mock_client.post = AsyncMock(return_value=mock_response)
                 mock_client_class.return_value.__aenter__.return_value = mock_client
@@ -205,10 +194,9 @@ class TestCallClaudeForPlanModeStream:
                 mock_response = AsyncMock()
                 mock_response.raise_for_status = MagicMock()
                 mock_response.aiter_lines = mock_aiter_lines
-                mock_client.stream = MagicMock(return_value=AsyncMock(
-                    __aenter__=AsyncMock(return_value=mock_response),
-                    __aexit__=AsyncMock()
-                ))
+                mock_client.stream = MagicMock(
+                    return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock())
+                )
                 mock_client_class.return_value.__aenter__.return_value = mock_client
 
                 events = []
@@ -245,16 +233,18 @@ class TestInterpretPlanQuery:
 
         with patch(  # noqa: SIM117
             "services.smart_query.interpreters.plan_interpreter.load_all_types_for_write",
-            new=AsyncMock(return_value=(
-                [{"slug": "person", "name": "Person"}],  # entity_types
-                [{"slug": "pain_point", "name": "Pain Point", "applicable_entity_type_slugs": []}],  # facet_types
-                [{"slug": "works_for", "name": "Works For"}],  # relation_types
-                [{"slug": "test", "name": "Test Category"}],  # categories
-            ))
+            new=AsyncMock(
+                return_value=(
+                    [{"slug": "person", "name": "Person"}],  # entity_types
+                    [{"slug": "pain_point", "name": "Pain Point", "applicable_entity_type_slugs": []}],  # facet_types
+                    [{"slug": "works_for", "name": "Works For"}],  # relation_types
+                    [{"slug": "test", "name": "Test Category"}],  # categories
+                )
+            ),
         ):
             with patch(
                 "services.smart_query.interpreters.plan_interpreter.call_claude_for_plan_mode",
-                new=AsyncMock(return_value="Here's how you can query entities...")
+                new=AsyncMock(return_value="Here's how you can query entities..."),
             ):
                 result = await interpret_plan_query(
                     question="How do I query entities?",
@@ -270,18 +260,23 @@ class TestInterpretPlanQuery:
         """Test that generated prompts are detected in the response."""
         from services.smart_query.query_interpreter import interpret_plan_query
 
-        with patch(
-            "services.smart_query.interpreters.plan_interpreter.load_all_types_for_write",
-            new=AsyncMock(return_value=([], [], [], []))
-        ), patch(
-            "services.smart_query.interpreters.plan_interpreter.call_claude_for_plan_mode",
-            new=AsyncMock(return_value="""
+        with (
+            patch(
+                "services.smart_query.interpreters.plan_interpreter.load_all_types_for_write",
+                new=AsyncMock(return_value=([], [], [], [])),
+            ),
+            patch(
+                "services.smart_query.interpreters.plan_interpreter.call_claude_for_plan_mode",
+                new=AsyncMock(
+                    return_value="""
 Hier ist dein **Fertiger Prompt:**
 
 > Zeige mir alle Gemeinden in NRW mit Pain Points
 
 **Modus:** Lese-Modus
-""")
+"""
+                ),
+            ),
         ):
             result = await interpret_plan_query(
                 question="Test question",
@@ -297,31 +292,30 @@ Hier ist dein **Fertiger Prompt:**
         """Test fallback to OpenAI when Claude is unavailable."""
         from services.smart_query.query_interpreter import interpret_plan_query
 
-        with patch(  # noqa: SIM117
-            "services.smart_query.interpreters.plan_interpreter.load_all_types_for_write",
-            new=AsyncMock(return_value=([], [], [], []))
-        ), patch(
-            "services.smart_query.interpreters.plan_interpreter.call_claude_for_plan_mode",
-            new=AsyncMock(return_value=None)  # Simulate Claude unavailable
+        with (
+            patch(
+                "services.smart_query.interpreters.plan_interpreter.load_all_types_for_write",
+                new=AsyncMock(return_value=([], [], [], [])),
+            ),
+            patch(
+                "services.smart_query.interpreters.plan_interpreter.call_claude_for_plan_mode",
+                new=AsyncMock(return_value=None),  # Simulate Claude unavailable
+            ),
+            patch("services.smart_query.interpreters.plan_interpreter.get_openai_client") as mock_openai,
         ):
-            with patch(
-                "services.smart_query.interpreters.plan_interpreter.get_openai_client"
-            ) as mock_openai:
-                mock_client = MagicMock()
-                mock_response = MagicMock()
-                mock_response.choices = [
-                    MagicMock(message=MagicMock(content="OpenAI fallback response"))
-                ]
-                mock_client.chat.completions.create.return_value = mock_response
-                mock_openai.return_value = mock_client
+            mock_client = MagicMock()
+            mock_response = MagicMock()
+            mock_response.choices = [MagicMock(message=MagicMock(content="OpenAI fallback response"))]
+            mock_client.chat.completions.create.return_value = mock_response
+            mock_openai.return_value = mock_client
 
-                result = await interpret_plan_query(
-                    question="Test question",
-                    session=session,
-                )
+            result = await interpret_plan_query(
+                question="Test question",
+                session=session,
+            )
 
-                assert result["success"] is True
-                assert result["message"] == "OpenAI fallback response"
+            assert result["success"] is True
+            assert result["message"] == "OpenAI fallback response"
 
 
 class TestInterpretPlanQueryStream:
@@ -351,8 +345,9 @@ class TestInterpretPlanQueryStream:
 
         with patch(
             "services.smart_query.interpreters.plan_interpreter.load_all_types_for_write",
-            new=AsyncMock(return_value=([], [], [], []))
+            new=AsyncMock(return_value=([], [], [], [])),
         ):
+
             async def mock_generator():
                 yield 'data: {"event": "start"}\n\n'
                 yield 'data: {"event": "chunk", "data": "Test"}\n\n'
@@ -360,7 +355,7 @@ class TestInterpretPlanQueryStream:
 
             with patch(
                 "services.smart_query.interpreters.plan_interpreter.call_claude_for_plan_mode_stream",
-                return_value=mock_generator()
+                return_value=mock_generator(),
             ):
                 events = []
                 async for event in interpret_plan_query_stream(
@@ -519,9 +514,7 @@ class TestTypesCache:
 
         cache = TypesCache(ttl_seconds=300)
         cache.set_facet_entity_types(([{"slug": "test"}], [{"slug": "entity"}]))
-        cache.set_all_types(
-            ([{"slug": "e"}], [{"slug": "f"}], [{"slug": "r"}], [{"slug": "c"}])
-        )
+        cache.set_all_types(([{"slug": "e"}], [{"slug": "f"}], [{"slug": "r"}], [{"slug": "c"}]))
 
         # Both should be cached
         assert cache.get_facet_entity_types() is not None

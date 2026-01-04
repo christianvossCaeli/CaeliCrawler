@@ -29,7 +29,7 @@ async def _generate_crawler_events(
     session: AsyncSession,
     include_logs: bool = False,
     job_id: UUID | None = None,
-) -> AsyncGenerator[str, None]:
+) -> AsyncGenerator[str]:
     """Generate SSE events for crawler status updates.
 
     Yields events in SSE format:
@@ -42,32 +42,32 @@ async def _generate_crawler_events(
     while True:
         try:
             # Get running/pending job counts
-            running_count = (await session.execute(
-                select(func.count()).where(CrawlJob.status == JobStatus.RUNNING)
-            )).scalar() or 0
+            running_count = (
+                await session.execute(select(func.count()).where(CrawlJob.status == JobStatus.RUNNING))
+            ).scalar() or 0
 
-            pending_count = (await session.execute(
-                select(func.count()).where(CrawlJob.status == JobStatus.PENDING)
-            )).scalar() or 0
+            pending_count = (
+                await session.execute(select(func.count()).where(CrawlJob.status == JobStatus.PENDING))
+            ).scalar() or 0
 
             # Get running jobs with live stats
-            result = await session.execute(
-                select(CrawlJob).where(CrawlJob.status == JobStatus.RUNNING)
-            )
+            result = await session.execute(select(CrawlJob).where(CrawlJob.status == JobStatus.RUNNING))
             running_jobs = result.scalars().all()
 
             jobs_data = []
             for job in running_jobs:
                 live_stats = await crawler_progress.get_stats(job.id)
-                jobs_data.append({
-                    "id": str(job.id),
-                    "source_id": str(job.source_id) if job.source_id else None,
-                    "category_id": str(job.category_id) if job.category_id else None,
-                    "status": job.status.value,
-                    "started_at": job.started_at.isoformat() if job.started_at else None,
-                    "pages_crawled": live_stats.get("pages_crawled", job.pages_crawled),
-                    "documents_found": live_stats.get("documents_found", job.documents_found),
-                })
+                jobs_data.append(
+                    {
+                        "id": str(job.id),
+                        "source_id": str(job.source_id) if job.source_id else None,
+                        "category_id": str(job.category_id) if job.category_id else None,
+                        "status": job.status.value,
+                        "started_at": job.started_at.isoformat() if job.started_at else None,
+                        "pages_crawled": live_stats.get("pages_crawled", job.pages_crawled),
+                        "documents_found": live_stats.get("documents_found", job.documents_found),
+                    }
+                )
 
             # Emit status event
             status_data = {
@@ -154,6 +154,7 @@ async def job_events(
 
     More focused than /events - only streams updates for one job.
     """
+
     async def generate():
         last_log_count = 0
 

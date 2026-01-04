@@ -4,7 +4,6 @@ Centralizes configuration values and lookup tables used across
 the smart query module for better maintainability.
 """
 
-
 # Tag aliases for common geographic regions and source types
 # Maps user-friendly terms to all accepted variations
 TAG_ALIASES: dict[str, list[str]] = {
@@ -26,12 +25,10 @@ TAG_ALIASES: dict[str, list[str]] = {
     "mecklenburg-vorpommern": ["mecklenburg-vorpommern", "mv"],
     "saarland": ["saarland", "sl"],
     "bremen": ["bremen", "hb"],
-
     # Countries
     "deutschland": ["deutschland", "de", "germany"],
     "oesterreich": ["oesterreich", "at", "austria"],
     "schweiz": ["schweiz", "ch", "switzerland"],
-
     # Source types
     "kommunal": ["kommunal", "gemeinde", "stadt", "kommune"],
     "landkreis": ["landkreis", "kreis"],

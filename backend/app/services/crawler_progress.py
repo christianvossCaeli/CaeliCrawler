@@ -98,7 +98,7 @@ class CrawlerProgress:
         await r.delete(
             self.LOG_KEY.format(job_id=str(job_id)),
             self.CURRENT_URL_KEY.format(job_id=str(job_id)),
-            self.STATS_KEY.format(job_id=str(job_id))
+            self.STATS_KEY.format(job_id=str(job_id)),
         )
 
     async def close(self):

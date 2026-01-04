@@ -44,12 +44,14 @@ class FetchAndCreateFromApiOperation(WriteOperation):
 
         created_items = []
         if result.get("success"):
-            created_items.append({
-                "type": "api_import",
-                "created_count": result.get("created_count", 0),
-                "existing_count": result.get("existing_count", 0),
-                "entity_type": result.get("entity_type"),
-            })
+            created_items.append(
+                {
+                    "type": "api_import",
+                    "created_count": result.get("created_count", 0),
+                    "existing_count": result.get("existing_count", 0),
+                    "entity_type": result.get("entity_type"),
+                }
+            )
 
         return OperationResult(
             success=result.get("success", False),

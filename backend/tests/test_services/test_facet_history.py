@@ -55,10 +55,8 @@ class TestFacetHistoryServiceBasic:
                 "unit": "EUR",
                 "unit_label": "Euro",
                 "precision": 2,
-                "tracks": {
-                    "default": {"label": "Actual", "color": "#1976D2"}
-                }
-            }
+                "tracks": {"default": {"label": "Actual", "color": "#1976D2"}},
+            },
         }
         return ft
 
@@ -202,9 +200,9 @@ class TestDateRangeFiltering:
 
         # Create test data points
         dates = [
-            now - timedelta(days=3),   # Should include
+            now - timedelta(days=3),  # Should include
             now - timedelta(days=10),  # Should exclude
-            now - timedelta(days=1),   # Should include
+            now - timedelta(days=1),  # Should include
         ]
 
         filtered = [d for d in dates if d >= from_date]
@@ -218,7 +216,7 @@ class TestDateRangeFiltering:
         dates = [
             now - timedelta(days=15),  # Should include
             now - timedelta(days=45),  # Should exclude
-            now - timedelta(days=5),   # Should include
+            now - timedelta(days=5),  # Should include
         ]
 
         filtered = [d for d in dates if d >= from_date]
@@ -285,10 +283,8 @@ class TestValueSchemaValidation:
                 "unit": "EUR",
                 "unit_label": "Euro",
                 "precision": 2,
-                "tracks": {
-                    "default": {"label": "Default", "color": "#1976D2"}
-                }
-            }
+                "tracks": {"default": {"label": "Default", "color": "#1976D2"}},
+            },
         }
 
         assert schema["type"] == "history"
@@ -303,7 +299,7 @@ class TestValueSchemaValidation:
                 "unit": "EUR",
                 "unit_label": "Euro",
                 "precision": 2,
-            }
+            },
         }
 
         unit = schema.get("properties", {}).get("unit", "")
@@ -318,7 +314,7 @@ class TestValueSchemaValidation:
             "type": "history",
             "properties": {
                 "precision": 2,
-            }
+            },
         }
 
         precision = schema.get("properties", {}).get("precision", 2)
@@ -333,7 +329,7 @@ class TestValueSchemaValidation:
                     "actual": {"label": "Actual", "color": "#1976D2", "style": "solid"},
                     "forecast": {"label": "Forecast", "color": "#9E9E9E", "style": "dashed"},
                 }
-            }
+            },
         }
 
         tracks = schema.get("properties", {}).get("tracks", {})
@@ -353,7 +349,7 @@ class TestBulkImport:
                 {"recorded_at": "2024-02-01T00:00:00", "value": 110},
                 {"recorded_at": "2024-03-01T00:00:00", "value": 120},
             ],
-            "skip_duplicates": True
+            "skip_duplicates": True,
         }
 
         assert len(bulk_data["data_points"]) == 3
@@ -366,7 +362,7 @@ class TestBulkImport:
                 {"recorded_at": "2024-01-01T00:00:00", "value": 100, "track_key": "actual"},
                 {"recorded_at": "2024-01-01T00:00:00", "value": 120, "track_key": "forecast"},
             ],
-            "skip_duplicates": False
+            "skip_duplicates": False,
         }
 
         assert len(bulk_data["data_points"]) == 2

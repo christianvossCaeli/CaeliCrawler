@@ -25,6 +25,7 @@ logger = structlog.get_logger()
 
 class SecurityRiskLevel(str, Enum):
     """Risk level classification for detected threats."""
+
     NONE = "none"
     LOW = "low"
     MEDIUM = "medium"
@@ -35,6 +36,7 @@ class SecurityRiskLevel(str, Enum):
 @dataclass
 class SanitizationResult:
     """Result of input sanitization."""
+
     sanitized_text: str
     original_length: int
     sanitized_length: int
@@ -49,8 +51,8 @@ class SecurityConstants:
     # Input length limits
     MAX_MESSAGE_LENGTH = 5000  # Max characters for chat messages
     MAX_PROMPT_LENGTH = 10000  # Max characters for custom prompts
-    MAX_QUERY_LENGTH = 2000   # Max characters for search queries
-    MAX_FIELD_LENGTH = 500    # Max characters for form fields
+    MAX_QUERY_LENGTH = 2000  # Max characters for search queries
+    MAX_FIELD_LENGTH = 500  # Max characters for form fields
 
     # Truncation limits for AI context
     MAX_CONTEXT_LENGTH = 100000  # Max chars for AI context
@@ -64,62 +66,50 @@ class SecurityConstants:
 # These patterns detect common prompt injection techniques
 INJECTION_PATTERNS: list[tuple[str, str, SecurityRiskLevel]] = [
     # Direct instruction override attempts
-    (r"(?i)\bignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|rules?)",
-     "instruction_override", SecurityRiskLevel.HIGH),
-    (r"(?i)\bdisregard\s+(all\s+)?(previous|above|prior)",
-     "instruction_override", SecurityRiskLevel.HIGH),
-    (r"(?i)\bforget\s+(everything|all|what)\s+(you|i)?\s*(know|told|said)",
-     "instruction_override", SecurityRiskLevel.HIGH),
-
+    (
+        r"(?i)\bignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|rules?)",
+        "instruction_override",
+        SecurityRiskLevel.HIGH,
+    ),
+    (r"(?i)\bdisregard\s+(all\s+)?(previous|above|prior)", "instruction_override", SecurityRiskLevel.HIGH),
+    (
+        r"(?i)\bforget\s+(everything|all|what)\s+(you|i)?\s*(know|told|said)",
+        "instruction_override",
+        SecurityRiskLevel.HIGH,
+    ),
     # Role manipulation attempts
-    (r"(?i)\byou\s+are\s+(now|actually)\s+a\s+",
-     "role_manipulation", SecurityRiskLevel.HIGH),
-    (r"(?i)\bact\s+as\s+(if\s+you\s+are|a)\s+",
-     "role_manipulation", SecurityRiskLevel.MEDIUM),
-    (r"(?i)\bpretend\s+(to\s+be|you're|you\s+are)\s+",
-     "role_manipulation", SecurityRiskLevel.MEDIUM),
-    (r"(?i)\bsystem\s*:\s*",
-     "system_prompt_injection", SecurityRiskLevel.CRITICAL),
-    (r"(?i)\bassistant\s*:\s*",
-     "assistant_injection", SecurityRiskLevel.HIGH),
-
+    (r"(?i)\byou\s+are\s+(now|actually)\s+a\s+", "role_manipulation", SecurityRiskLevel.HIGH),
+    (r"(?i)\bact\s+as\s+(if\s+you\s+are|a)\s+", "role_manipulation", SecurityRiskLevel.MEDIUM),
+    (r"(?i)\bpretend\s+(to\s+be|you're|you\s+are)\s+", "role_manipulation", SecurityRiskLevel.MEDIUM),
+    (r"(?i)\bsystem\s*:\s*", "system_prompt_injection", SecurityRiskLevel.CRITICAL),
+    (r"(?i)\bassistant\s*:\s*", "assistant_injection", SecurityRiskLevel.HIGH),
     # Data exfiltration attempts
-    (r"(?i)\brepeat\s+(back|your|the)\s+(system\s+)?(prompt|instructions?)",
-     "data_exfiltration", SecurityRiskLevel.HIGH),
-    (r"(?i)\btell\s+me\s+(your|the)\s+(system\s+)?(prompt|instructions?)",
-     "data_exfiltration", SecurityRiskLevel.HIGH),
-    (r"(?i)\bwhat\s+(is|are)\s+your\s+(system\s+)?(prompt|instructions?)",
-     "data_exfiltration", SecurityRiskLevel.MEDIUM),
-    (r"(?i)\bshow\s+(me\s+)?(your|the)\s+(hidden|secret|system)",
-     "data_exfiltration", SecurityRiskLevel.MEDIUM),
-
+    (
+        r"(?i)\brepeat\s+(back|your|the)\s+(system\s+)?(prompt|instructions?)",
+        "data_exfiltration",
+        SecurityRiskLevel.HIGH,
+    ),
+    (r"(?i)\btell\s+me\s+(your|the)\s+(system\s+)?(prompt|instructions?)", "data_exfiltration", SecurityRiskLevel.HIGH),
+    (
+        r"(?i)\bwhat\s+(is|are)\s+your\s+(system\s+)?(prompt|instructions?)",
+        "data_exfiltration",
+        SecurityRiskLevel.MEDIUM,
+    ),
+    (r"(?i)\bshow\s+(me\s+)?(your|the)\s+(hidden|secret|system)", "data_exfiltration", SecurityRiskLevel.MEDIUM),
     # Code injection attempts
-    (r"(?i)\bexecute\s+(this\s+)?(code|script|command)",
-     "code_injection", SecurityRiskLevel.CRITICAL),
-    (r"(?i)\brun\s+(this\s+)?(python|javascript|bash|sql|code)",
-     "code_injection", SecurityRiskLevel.CRITICAL),
-    (r"(?i)\b(import|require|exec|eval)\s*\(",
-     "code_injection", SecurityRiskLevel.HIGH),
-
+    (r"(?i)\bexecute\s+(this\s+)?(code|script|command)", "code_injection", SecurityRiskLevel.CRITICAL),
+    (r"(?i)\brun\s+(this\s+)?(python|javascript|bash|sql|code)", "code_injection", SecurityRiskLevel.CRITICAL),
+    (r"(?i)\b(import|require|exec|eval)\s*\(", "code_injection", SecurityRiskLevel.HIGH),
     # Jailbreak attempts
-    (r"(?i)\bjailbreak",
-     "jailbreak_attempt", SecurityRiskLevel.HIGH),
-    (r"(?i)\bdan\s+(mode|prompt)",
-     "jailbreak_attempt", SecurityRiskLevel.HIGH),
-    (r"(?i)\bdeveloper\s+mode\s+(enabled|on|activated)",
-     "jailbreak_attempt", SecurityRiskLevel.HIGH),
-
+    (r"(?i)\bjailbreak", "jailbreak_attempt", SecurityRiskLevel.HIGH),
+    (r"(?i)\bdan\s+(mode|prompt)", "jailbreak_attempt", SecurityRiskLevel.HIGH),
+    (r"(?i)\bdeveloper\s+mode\s+(enabled|on|activated)", "jailbreak_attempt", SecurityRiskLevel.HIGH),
     # Delimiter manipulation
-    (r"```\s*(system|prompt|instruction)",
-     "delimiter_manipulation", SecurityRiskLevel.MEDIUM),
-    (r"<\|.*?\|>",
-     "special_tokens", SecurityRiskLevel.MEDIUM),
-    (r"\[\[.*?(system|prompt|instruction).*?\]\]",
-     "bracket_injection", SecurityRiskLevel.MEDIUM),
-
+    (r"```\s*(system|prompt|instruction)", "delimiter_manipulation", SecurityRiskLevel.MEDIUM),
+    (r"<\|.*?\|>", "special_tokens", SecurityRiskLevel.MEDIUM),
+    (r"\[\[.*?(system|prompt|instruction).*?\]\]", "bracket_injection", SecurityRiskLevel.MEDIUM),
     # Unicode obfuscation (homoglyphs)
-    (r"[\u200b-\u200f\u2028-\u202f\ufeff]",
-     "unicode_obfuscation", SecurityRiskLevel.LOW),
+    (r"[\u200b-\u200f\u2028-\u202f\ufeff]", "unicode_obfuscation", SecurityRiskLevel.LOW),
 ]
 
 
@@ -303,8 +293,7 @@ def escape_for_html(text: str) -> str:
 
 
 def validate_message_length(
-    message: str,
-    max_length: int = SecurityConstants.MAX_MESSAGE_LENGTH
+    message: str, max_length: int = SecurityConstants.MAX_MESSAGE_LENGTH
 ) -> tuple[bool, str | None]:
     """Validate message length.
 
@@ -368,7 +357,7 @@ def create_safe_prompt_context(
             # JSON-encode complex types
             json_str = json.dumps(value, ensure_ascii=False, default=str)
             if len(json_str) > max_context_length // len(context_data):
-                json_str = json_str[:max_context_length // len(context_data)] + "..."
+                json_str = json_str[: max_context_length // len(context_data)] + "..."
             safe_context[key] = json_str
         else:
             str_value = str(value)

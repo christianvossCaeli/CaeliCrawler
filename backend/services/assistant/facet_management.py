@@ -38,11 +38,7 @@ logger = structlog.get_logger()
 
 
 async def handle_facet_management_request(
-    db: AsyncSession,
-    message: str,
-    context: AssistantContext,
-    intent_data: dict[str, Any],
-    translator: Translator
+    db: AsyncSession, message: str, context: AssistantContext, intent_data: dict[str, Any], translator: Translator
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Handle facet type management requests.
 
@@ -73,23 +69,19 @@ async def handle_facet_management_request(
             return await _list_facet_types(facet_types, translator)
 
         elif facet_action == "create_facet_type":
-            return await _preview_create_facet_type(
-                db, facet_name, facet_description, target_entity_types, facet_types
-            )
+            return await _preview_create_facet_type(db, facet_name, facet_description, target_entity_types, facet_types)
 
         elif facet_action == "assign_facet_type":
             return await _handle_assign_facet_type(db, target_entity_types)
 
         elif facet_action == "suggest_facet_types":
-            return await _suggest_facet_types_with_llm(
-                context.current_entity_type, facet_types, message
-            )
+            return await _suggest_facet_types_with_llm(context.current_entity_type, facet_types, message)
 
         else:
             return FacetManagementResponse(
                 message="Unbekannte Facet-Management Aktion.",
                 action=FacetManagementAction.LIST_FACET_TYPES,
-                requires_confirmation=False
+                requires_confirmation=False,
             ), []
 
     except Exception as e:
@@ -97,7 +89,7 @@ async def handle_facet_management_request(
         return FacetManagementResponse(
             message=f"Fehler bei der Facet-Verwaltung: {str(e)}",
             action=FacetManagementAction.LIST_FACET_TYPES,
-            requires_confirmation=False
+            requires_confirmation=False,
         ), []
 
 
@@ -110,17 +102,12 @@ async def _get_all_facet_types(db: AsyncSession) -> list[FacetType]:
     Returns:
         List of FacetType instances
     """
-    result = await db.execute(
-        select(FacetType)
-        .where(FacetType.is_active.is_(True))
-        .order_by(FacetType.display_order)
-    )
+    result = await db.execute(select(FacetType).where(FacetType.is_active.is_(True)).order_by(FacetType.display_order))
     return result.scalars().all()
 
 
 async def _list_facet_types(
-    facet_types: list[FacetType],
-    translator: Translator
+    facet_types: list[FacetType], translator: Translator
 ) -> tuple[FacetManagementResponse, list[SuggestedAction]]:
     """List all available facet types.
 
@@ -156,7 +143,7 @@ async def _list_facet_types(
         message=msg,
         action=FacetManagementAction.LIST_FACET_TYPES,
         existing_facet_types=facet_list,
-        requires_confirmation=False
+        requires_confirmation=False,
     ), [
         SuggestedAction(label="Neuen Facet-Typ erstellen", action="query", value="Erstelle einen neuen Facet-Typ"),
         SuggestedAction(label="Facet zuweisen", action="query", value="Weise einen Facet-Typ zu"),
@@ -168,7 +155,7 @@ async def _preview_create_facet_type(
     facet_name: str,
     facet_description: str,
     target_entity_types: list[str],
-    existing_facet_types: list[FacetType]
+    existing_facet_types: list[FacetType],
 ) -> tuple[FacetManagementResponse, list[SuggestedAction]]:
     """Preview facet type creation.
 
@@ -186,12 +173,12 @@ async def _preview_create_facet_type(
         return FacetManagementResponse(
             message="Bitte gib einen Namen für den neuen Facet-Typ an.",
             action=FacetManagementAction.CREATE_FACET_TYPE,
-            requires_confirmation=False
+            requires_confirmation=False,
         ), []
 
     # Generate slug from name
-    slug = re.sub(r'[^a-z0-9_]', '_', facet_name.lower())
-    slug = re.sub(r'_+', '_', slug).strip('_')
+    slug = re.sub(r"[^a-z0-9_]", "_", facet_name.lower())
+    slug = re.sub(r"_+", "_", slug).strip("_")
 
     # Check if slug already exists
     for ft in existing_facet_types:
@@ -199,7 +186,7 @@ async def _preview_create_facet_type(
             return FacetManagementResponse(
                 message=f"Ein Facet-Typ mit dem Slug '{slug}' existiert bereits. Bitte wähle einen anderen Namen.",
                 action=FacetManagementAction.CREATE_FACET_TYPE,
-                requires_confirmation=False
+                requires_confirmation=False,
             ), []
 
     preview = FacetTypePreview(
@@ -209,26 +196,25 @@ async def _preview_create_facet_type(
         description=facet_description or f"Automatisch erstellter Facet-Typ: {facet_name}",
         applicable_entity_type_slugs=target_entity_types,
         ai_extraction_enabled=True,
-        ai_extraction_prompt=f"Extrahiere Informationen zum Thema '{facet_name}' aus dem Dokument."
+        ai_extraction_prompt=f"Extrahiere Informationen zum Thema '{facet_name}' aus dem Dokument.",
     )
 
-    entity_types_text = ', '.join(target_entity_types) if target_entity_types else 'Alle'
+    entity_types_text = ", ".join(target_entity_types) if target_entity_types else "Alle"
 
     return FacetManagementResponse(
         message=f"Soll ich den Facet-Typ **{facet_name}** erstellen?\n\n"
-                f"- Slug: `{slug}`\n"
-                f"- Beschreibung: {preview.description}\n"
-                f"- Für Entity-Typen: {entity_types_text}",
+        f"- Slug: `{slug}`\n"
+        f"- Beschreibung: {preview.description}\n"
+        f"- Für Entity-Typen: {entity_types_text}",
         action=FacetManagementAction.CREATE_FACET_TYPE,
         facet_type_preview=preview,
         target_entity_types=target_entity_types,
-        requires_confirmation=True
+        requires_confirmation=True,
     ), []
 
 
 async def _handle_assign_facet_type(
-    db: AsyncSession,
-    target_entity_types: list[str]
+    db: AsyncSession, target_entity_types: list[str]
 ) -> tuple[FacetManagementResponse, list[SuggestedAction]]:
     """Handle facet type assignment to entity types.
 
@@ -241,9 +227,7 @@ async def _handle_assign_facet_type(
     """
     if not target_entity_types:
         # Get available entity types
-        et_result = await db.execute(
-            select(EntityType).where(EntityType.is_active.is_(True))
-        )
+        et_result = await db.execute(select(EntityType).where(EntityType.is_active.is_(True)))
         entity_types = et_result.scalars().all()
 
         msg = "Welchem Entity-Typ soll der Facet-Typ zugewiesen werden?\n\n"
@@ -251,23 +235,19 @@ async def _handle_assign_facet_type(
             msg += f"- `{et.slug}`: {et.name}\n"
 
         return FacetManagementResponse(
-            message=msg,
-            action=FacetManagementAction.ASSIGN_FACET_TYPE,
-            requires_confirmation=False
+            message=msg, action=FacetManagementAction.ASSIGN_FACET_TYPE, requires_confirmation=False
         ), []
 
     return FacetManagementResponse(
         message=f"Facet-Typ würde den Entity-Typen {', '.join(target_entity_types)} zugewiesen.",
         action=FacetManagementAction.ASSIGN_FACET_TYPE,
         target_entity_types=target_entity_types,
-        requires_confirmation=True
+        requires_confirmation=True,
     ), []
 
 
 async def _suggest_facet_types_with_llm(
-    current_entity_type: str,
-    existing_facet_types: list[FacetType],
-    user_message: str
+    current_entity_type: str, existing_facet_types: list[FacetType], user_message: str
 ) -> tuple[FacetManagementResponse, list[SuggestedAction]]:
     """Use LLM to suggest new facet types based on context.
 
@@ -290,8 +270,8 @@ async def _suggest_facet_types_with_llm(
 
     prompt = f"""Basierend auf dem Kontext, schlage neue Facet-Typen vor, die noch nicht existieren.
 
-Entity-Typ: {current_entity_type or 'Allgemein'}
-Existierende Facet-Typen: {', '.join(existing_slugs)}
+Entity-Typ: {current_entity_type or "Allgemein"}
+Existierende Facet-Typen: {", ".join(existing_slugs)}
 Benutzeranfrage: {user_message}
 
 Gib JSON zurück mit max. 3 Vorschlägen:
@@ -313,11 +293,11 @@ Regeln:
             model=settings.azure_openai_deployment_name,
             messages=[
                 {"role": "system", "content": "Du bist ein Datenmodellierungs-Experte. Antworte nur mit JSON."},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ],
             temperature=0.7,
             max_tokens=500,
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
         )
 
         if response.usage:
@@ -346,12 +326,10 @@ Regeln:
                 action=FacetManagementAction.SUGGEST_FACET_TYPES,
                 existing_facet_types=suggestions,
                 auto_suggested=True,
-                requires_confirmation=False
+                requires_confirmation=False,
             ), [
                 SuggestedAction(
-                    label=f"'{s['name']}' erstellen",
-                    action="query",
-                    value=f"Erstelle Facet-Typ {s['name']}"
+                    label=f"'{s['name']}' erstellen", action="query", value=f"Erstelle Facet-Typ {s['name']}"
                 )
                 for s in suggestions[:3]
             ]
@@ -359,7 +337,7 @@ Regeln:
         return FacetManagementResponse(
             message="Keine neuen Facet-Typen vorgeschlagen. Die existierenden Typen scheinen bereits gut abzudecken.",
             action=FacetManagementAction.SUGGEST_FACET_TYPES,
-            requires_confirmation=False
+            requires_confirmation=False,
         ), []
 
     except Exception as e:

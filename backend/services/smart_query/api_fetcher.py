@@ -9,8 +9,8 @@ from __future__ import annotations
 import asyncio
 import base64
 import os
-from dataclasses import dataclass, field
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
@@ -35,9 +35,11 @@ DEFAULT_PAGE_SIZE = 500  # Reduziert für stabilere Requests
 # Data classes (defined before classes that use them)
 # ============================================================================
 
+
 @dataclass
 class FetchResult:
     """Result of an API fetch operation."""
+
     success: bool
     items: list[dict[str, Any]] = field(default_factory=list)
     total_count: int = 0
@@ -48,6 +50,7 @@ class FetchResult:
 @dataclass
 class WikidataResult:
     """A single result from a Wikidata SPARQL query."""
+
     id: str
     label: str
     data: dict[str, Any] = field(default_factory=dict)
@@ -56,6 +59,7 @@ class WikidataResult:
 # ============================================================================
 # REST API Client for external REST APIs (like Caeli Auction)
 # ============================================================================
+
 
 class RESTAPIClient:
     """Client for fetching data from REST APIs with various auth methods."""
@@ -767,7 +771,7 @@ PREDEFINED_REST_TEMPLATES: dict[str, dict[str, Any]] = {
         "type": "rest",
         "base_url": os.environ.get(
             "CAELI_AUCTION_MARKETPLACE_API_URL",
-            "https://auction.caeli-wind.de/api/auction-platform/v4/public-marketplace"
+            "https://auction.caeli-wind.de/api/auction-platform/v4/public-marketplace",
         ),
         "endpoint": "",
         "auth_config": {

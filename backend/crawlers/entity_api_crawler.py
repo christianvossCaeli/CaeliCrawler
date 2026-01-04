@@ -43,6 +43,7 @@ class EntityAPICrawler(BaseCrawler):
         """Lazy-load the API fetcher to avoid circular imports."""
         if self._api_fetcher is None:
             from services.smart_query.api_fetcher import ExternalAPIFetcher
+
             self._api_fetcher = ExternalAPIFetcher()
         return self._api_fetcher
 
@@ -92,10 +93,12 @@ class EntityAPICrawler(BaseCrawler):
             fetch_result = await fetcher.fetch(api_config)
 
             if not fetch_result.success:
-                result.errors.append({
-                    "type": "api_fetch_error",
-                    "message": fetch_result.error,
-                })
+                result.errors.append(
+                    {
+                        "type": "api_fetch_error",
+                        "message": fetch_result.error,
+                    }
+                )
                 self.logger.error(
                     "API fetch failed",
                     source_id=str(source.id),
@@ -153,10 +156,12 @@ class EntityAPICrawler(BaseCrawler):
                 error=str(e),
                 exc_info=True,
             )
-            result.errors.append({
-                "type": "crawl_error",
-                "message": str(e),
-            })
+            result.errors.append(
+                {
+                    "type": "crawl_error",
+                    "message": str(e),
+                }
+            )
             return result
 
         finally:
@@ -224,11 +229,7 @@ class EntityAPICrawler(BaseCrawler):
                 await self._api_fetcher.close()
                 self._api_fetcher = None
 
-    def _build_api_config(
-        self,
-        source: "DataSource",
-        config: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _build_api_config(self, source: "DataSource", config: dict[str, Any]) -> dict[str, Any]:
         """Build API configuration from DataSource and crawl_config."""
         from app.models.data_source import SourceType
 
@@ -319,10 +320,12 @@ class EntityAPICrawler(BaseCrawler):
                 error=str(e),
                 exc_info=True,
             )
-            result["errors"].append({
-                "type": "sync_error",
-                "message": str(e),
-            })
+            result["errors"].append(
+                {
+                    "type": "sync_error",
+                    "message": str(e),
+                }
+            )
 
         return result
 

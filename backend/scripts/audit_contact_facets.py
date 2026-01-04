@@ -38,13 +38,14 @@ from sqlalchemy.orm import selectinload
 from app.database import get_session_context
 from app.models import FacetType, FacetValue
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class ContactAnalysis:
     """Analysis result for a single contact facet value."""
+
     facet_value_id: str
     entity_id: str
     entity_name: str
@@ -61,6 +62,7 @@ class ContactAnalysis:
 @dataclass
 class AuditSummary:
     """Summary of the audit results."""
+
     total_contacts: int
     persons: int
     organizations: int
@@ -75,46 +77,87 @@ class ContactAuditor:
 
     # Organization indicators (German and English)
     ORG_PATTERNS = [
-        r'\bgmbh\b', r'\bag\b', r'\be\.v\.?\b', r'\bverein\b', r'\bverband\b',
-        r'\bgesellschaft\b', r'\bbehörde\b', r'\bamt\b', r'\bministerium\b',
-        r'\bdirektion\b', r'\babteilung\b', r'\bregierung\b', r'\bverwaltung\b',
-        r'\bbundesland\b', r'\bkreis\b', r'\blandkreis\b', r'\bstadt\b',
-        r'\bgemeinde\b', r'\bkommune\b', r'\bregion\b', r'\bbezirk\b',
-        r'\buniversität\b', r'\bhochschule\b', r'\binstitut\b', r'\bstiftung\b',
-        r'\bzuständig', r'\bplanungsbehörde\b', r'\bregionalverband\b',
-        r'\bfachbereich\b', r'\breferat\b', r'\bdezernat\b', r'\bsekretariat\b',
+        r"\bgmbh\b",
+        r"\bag\b",
+        r"\be\.v\.?\b",
+        r"\bverein\b",
+        r"\bverband\b",
+        r"\bgesellschaft\b",
+        r"\bbehörde\b",
+        r"\bamt\b",
+        r"\bministerium\b",
+        r"\bdirektion\b",
+        r"\babteilung\b",
+        r"\bregierung\b",
+        r"\bverwaltung\b",
+        r"\bbundesland\b",
+        r"\bkreis\b",
+        r"\blandkreis\b",
+        r"\bstadt\b",
+        r"\bgemeinde\b",
+        r"\bkommune\b",
+        r"\bregion\b",
+        r"\bbezirk\b",
+        r"\buniversität\b",
+        r"\bhochschule\b",
+        r"\binstitut\b",
+        r"\bstiftung\b",
+        r"\bzuständig",
+        r"\bplanungsbehörde\b",
+        r"\bregionalverband\b",
+        r"\bfachbereich\b",
+        r"\breferat\b",
+        r"\bdezernat\b",
+        r"\bsekretariat\b",
         # Additional patterns found in audit
-        r'\bplanungsverband\b', r'\bplanungsverbände\b', r'\blandesamt\b',
-        r'\blandtag\b', r'\blandesregierung\b', r'\blandesplanungsbehörde\b',
-        r'\bverbandsversammlung\b', r'\bgenehmigungsdirektion\b',
-        r'\bregionaldirektion\b', r'\bplanungsausschuss\b',
-        r'\bbezirksregierung\b', r'\bregierungsbezirk\b',
+        r"\bplanungsverband\b",
+        r"\bplanungsverbände\b",
+        r"\blandesamt\b",
+        r"\blandtag\b",
+        r"\blandesregierung\b",
+        r"\blandesplanungsbehörde\b",
+        r"\bverbandsversammlung\b",
+        r"\bgenehmigungsdirektion\b",
+        r"\bregionaldirektion\b",
+        r"\bplanungsausschuss\b",
+        r"\bbezirksregierung\b",
+        r"\bregierungsbezirk\b",
     ]
 
     # Role-only patterns (titles/functions without names)
     ROLE_PATTERNS = [
-        r'^bürgermeister(in)?$', r'^oberbürgermeister(in)?$',
-        r'^landrat\b', r'^landrät', r'^amtsleiter', r'^dezernent',
-        r'^fachbereichsleiter', r'^abteilungsleiter', r'^sachbearbeiter',
-        r'^pressesprecher', r'^ansprechpartner', r'^kontakt$',
-        r'^zuständige\s+\w+behörde', r'^zuständiger?\s+\w+',
-        r'^regionsbeauftragter?\b', r'^träger\s+der\s+\w+',
+        r"^bürgermeister(in)?$",
+        r"^oberbürgermeister(in)?$",
+        r"^landrat\b",
+        r"^landrät",
+        r"^amtsleiter",
+        r"^dezernent",
+        r"^fachbereichsleiter",
+        r"^abteilungsleiter",
+        r"^sachbearbeiter",
+        r"^pressesprecher",
+        r"^ansprechpartner",
+        r"^kontakt$",
+        r"^zuständige\s+\w+behörde",
+        r"^zuständiger?\s+\w+",
+        r"^regionsbeauftragter?\b",
+        r"^träger\s+der\s+\w+",
     ]
 
     # Person name patterns (German first names are often capitalized, 2-4 words)
     PERSON_PATTERNS = [
         # Title + Name patterns (Dr., Prof., Dipl.-Geogr., Dr.-Ing.)
-        r'^(dr\.?\-?ing\.?|dr\.|prof\.|dipl\.?\-?\w*\.?)\s*[\w\-]+\s+[\w\-]+',
+        r"^(dr\.?\-?ing\.?|dr\.|prof\.|dipl\.?\-?\w*\.?)\s*[\w\-]+\s+[\w\-]+",
         # First Last patterns (with capitalized words, including hyphenated)
-        r'^[A-ZÄÖÜ][a-zäöüß]+\s+[A-ZÄÖÜ][a-zäöüß\-]+$',
+        r"^[A-ZÄÖÜ][a-zäöüß]+\s+[A-ZÄÖÜ][a-zäöüß\-]+$",
         # First Middle Last (including hyphenated names)
-        r'^[A-ZÄÖÜ][a-zäöüß]+\s+[A-ZÄÖÜ][a-zäöüß\-]+\s+[A-ZÄÖÜ][a-zäöüß\-]+$',
+        r"^[A-ZÄÖÜ][a-zäöüß]+\s+[A-ZÄÖÜ][a-zäöüß\-]+\s+[A-ZÄÖÜ][a-zäöüß\-]+$",
         # Names with nobility particles (von, van, de, etc.)
-        r'^[A-ZÄÖÜ][a-zäöüß]+\s+(von|van|de|zu|vom)\s+[A-ZÄÖÜ][a-zäöüß\-]+$',
+        r"^[A-ZÄÖÜ][a-zäöüß]+\s+(von|van|de|zu|vom)\s+[A-ZÄÖÜ][a-zäöüß\-]+$",
         # Hyphenated first names (Klaus-Dieter, Hans-Peter)
-        r'^[A-ZÄÖÜ][a-zäöüß]+\-[A-ZÄÖÜ][a-zäöüß]+\s+[A-ZÄÖÜ][a-zäöüß\-]+$',
+        r"^[A-ZÄÖÜ][a-zäöüß]+\-[A-ZÄÖÜ][a-zäöüß]+\s+[A-ZÄÖÜ][a-zäöüß\-]+$",
         # Hyphenated surnames only (First Geiß-Netthöfel)
-        r'^[A-ZÄÖÜ][a-zäöüß]+\s+[A-ZÄÖÜ][a-zäöüß]+\-[A-ZÄÖÜ][a-zäöüß]+$',
+        r"^[A-ZÄÖÜ][a-zäöüß]+\s+[A-ZÄÖÜ][a-zäöüß]+\-[A-ZÄÖÜ][a-zäöüß]+$",
     ]
 
     def __init__(self, session):
@@ -151,9 +194,7 @@ class ContactAuditor:
 
     async def _get_contact_facet_type(self) -> FacetType | None:
         """Get the contact facet type."""
-        result = await self.session.execute(
-            select(FacetType).where(FacetType.slug == 'contact')
-        )
+        result = await self.session.execute(select(FacetType).where(FacetType.slug == "contact"))
         return result.scalar_one_or_none()
 
     async def _get_contact_facet_values(self, facet_type_id: UUID) -> list[FacetValue]:
@@ -181,20 +222,20 @@ class ContactAuditor:
         """Extract contact name from facet value."""
         if not value:
             return None
-        return value.get('name', '') or ''
+        return value.get("name", "") or ""
 
     def _extract_role(self, value: dict) -> str | None:
         """Extract contact role from facet value."""
         if not value:
             return None
-        return value.get('role', '') or value.get('position', '')
+        return value.get("role", "") or value.get("position", "")
 
     def _normalize_name(self, name: str) -> str:
         """Normalize name for comparison."""
         # Lowercase, remove extra whitespace, remove special chars
         normalized = name.lower().strip()
-        normalized = re.sub(r'\s+', ' ', normalized)
-        normalized = re.sub(r'[^\w\s]', '', normalized)
+        normalized = re.sub(r"\s+", " ", normalized)
+        normalized = re.sub(r"[^\w\s]", "", normalized)
         return normalized
 
     def _analyze_contact(self, fv: FacetValue) -> ContactAnalysis:
@@ -207,7 +248,7 @@ class ContactAuditor:
         category, confidence, reasoning = self._categorize_contact(name, role)
 
         # Find potential duplicates
-        normalized_name = self._normalize_name(name) if name else ''
+        normalized_name = self._normalize_name(name) if name else ""
         duplicates = []
         if normalized_name and normalized_name in self.name_index:
             duplicates = [id for id in self.name_index[normalized_name] if id != str(fv.id)]
@@ -215,11 +256,11 @@ class ContactAuditor:
         return ContactAnalysis(
             facet_value_id=str(fv.id),
             entity_id=str(fv.entity_id),
-            entity_name=fv.entity.name if fv.entity else 'Unknown',
-            contact_name=name or '',
+            entity_name=fv.entity.name if fv.entity else "Unknown",
+            contact_name=name or "",
             contact_role=role,
-            contact_email=value.get('email'),
-            contact_phone=value.get('phone') or value.get('telefon'),
+            contact_email=value.get("email"),
+            contact_phone=value.get("phone") or value.get("telefon"),
             category=category,
             confidence=confidence,
             reasoning=reasoning,
@@ -234,42 +275,42 @@ class ContactAuditor:
         """
         if not name:
             if role:
-                return ('role_only', 0.9, f"No name, only role: {role}")
-            return ('unknown', 0.5, "No name or role provided")
+                return ("role_only", 0.9, f"No name, only role: {role}")
+            return ("unknown", 0.5, "No name or role provided")
 
         name_lower = name.lower()
 
         # Check for organization patterns
         for pattern in self.ORG_PATTERNS:
             if re.search(pattern, name_lower):
-                return ('organization', 0.9, f"Contains organization indicator: {pattern}")
+                return ("organization", 0.9, f"Contains organization indicator: {pattern}")
 
         # Check for role-only patterns
         for pattern in self.ROLE_PATTERNS:
             if re.match(pattern, name_lower):
-                return ('role_only', 0.85, f"Matches role pattern: {pattern}")
+                return ("role_only", 0.85, f"Matches role pattern: {pattern}")
 
         # Check for person name patterns
         for pattern in self.PERSON_PATTERNS:
             if re.match(pattern, name):
-                return ('person', 0.85, "Matches person name pattern")
+                return ("person", 0.85, "Matches person name pattern")
 
         # Heuristic: 2-3 capitalized words likely a person
         words = name.split()
         if 2 <= len(words) <= 3:
             capitalized = sum(1 for w in words if w[0].isupper() and w[1:].islower())
             if capitalized == len(words):
-                return ('person', 0.7, f"Name has {len(words)} capitalized words (likely person)")
+                return ("person", 0.7, f"Name has {len(words)} capitalized words (likely person)")
 
         # If role contains person-like name pattern, might still be person
-        if role and re.search(r'\b(herr|frau|dr\.|prof\.)\b', role.lower()):
-            return ('person', 0.6, "Role contains person title")
+        if role and re.search(r"\b(herr|frau|dr\.|prof\.)\b", role.lower()):
+            return ("person", 0.6, "Role contains person title")
 
         # Long names with multiple parts often organizations
         if len(words) > 4:
-            return ('organization', 0.6, f"Long name with {len(words)} words (likely organization)")
+            return ("organization", 0.6, f"Long name with {len(words)} words (likely organization)")
 
-        return ('unknown', 0.4, "Could not determine category")
+        return ("unknown", 0.4, "Could not determine category")
 
     def _generate_summary(self, results: list[ContactAnalysis]) -> AuditSummary:
         """Generate summary statistics from results."""
@@ -283,10 +324,10 @@ class ContactAuditor:
 
         return AuditSummary(
             total_contacts=len(results),
-            persons=categories['person'],
-            organizations=categories['organization'],
-            roles_only=categories['role_only'],
-            unknown=categories['unknown'],
+            persons=categories["person"],
+            organizations=categories["organization"],
+            roles_only=categories["role_only"],
+            unknown=categories["unknown"],
             potential_duplicates=duplicate_count,
             timestamp=datetime.now().isoformat(),
         )
@@ -295,10 +336,10 @@ class ContactAuditor:
 def export_to_json(results: list[ContactAnalysis], summary: AuditSummary, output_path: str):
     """Export results to JSON file."""
     data = {
-        'summary': asdict(summary),
-        'results': [asdict(r) for r in results],
+        "summary": asdict(summary),
+        "results": [asdict(r) for r in results],
     }
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     logger.info(f"JSON report saved to: {output_path}")
 
@@ -306,29 +347,40 @@ def export_to_json(results: list[ContactAnalysis], summary: AuditSummary, output
 def export_to_csv(results: list[ContactAnalysis], output_path: str):
     """Export results to CSV file."""
     fieldnames = [
-        'facet_value_id', 'entity_id', 'entity_name', 'contact_name',
-        'contact_role', 'contact_email', 'contact_phone', 'category',
-        'confidence', 'reasoning', 'duplicate_count'
+        "facet_value_id",
+        "entity_id",
+        "entity_name",
+        "contact_name",
+        "contact_role",
+        "contact_email",
+        "contact_phone",
+        "category",
+        "confidence",
+        "reasoning",
+        "duplicate_count",
     ]
 
-    with open(output_path, 'w', newline='', encoding='utf-8') as f:
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
 
         for r in results:
             row = asdict(r)
-            row['duplicate_count'] = len(row.pop('potential_duplicates', []))
+            row["duplicate_count"] = len(row.pop("potential_duplicates", []))
             writer.writerow(row)
 
     logger.info(f"CSV report saved to: {output_path}")
 
 
 async def main():
-    parser = argparse.ArgumentParser(description='Audit contact facet values for entity conversion')
-    parser.add_argument('--output', '-o', default='contact_audit_report.json',
-                       help='Output file path (default: contact_audit_report.json)')
-    parser.add_argument('--format', '-f', choices=['json', 'csv'], default='json',
-                       help='Output format (default: json)')
+    parser = argparse.ArgumentParser(description="Audit contact facet values for entity conversion")
+    parser.add_argument(
+        "--output",
+        "-o",
+        default="contact_audit_report.json",
+        help="Output file path (default: contact_audit_report.json)",
+    )
+    parser.add_argument("--format", "-f", choices=["json", "csv"], default="json", help="Output format (default: json)")
     args = parser.parse_args()
 
     async with get_session_context() as session:
@@ -338,7 +390,7 @@ async def main():
         # Print summary to console
 
         # Export results
-        if args.format == 'json':
+        if args.format == "json":
             export_to_json(results, summary, args.output)
         else:
             export_to_csv(results, args.output)
@@ -349,5 +401,5 @@ async def main():
                 pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())

@@ -124,7 +124,7 @@ class NotificationBroadcaster:
     async def subscribe(
         self,
         user_id: UUID,
-    ) -> AsyncGenerator[dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any]]:
         """
         Subscribe to notification events for a user.
 
@@ -157,7 +157,7 @@ class NotificationBroadcaster:
                         event = json.loads(message["data"])
                         yield event
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Yield heartbeat to keep connection alive
                     yield {"type": "heartbeat", "data": {}, "timestamp": datetime.now(UTC).isoformat()}
 

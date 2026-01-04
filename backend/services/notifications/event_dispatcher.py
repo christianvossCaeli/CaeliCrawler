@@ -62,9 +62,7 @@ class NotificationEventDispatcher:
                 continue
 
             # Create notification
-            notification = await self._create_notification(
-                session, rule, event_type, payload
-            )
+            notification = await self._create_notification(session, rule, event_type, payload)
             notification_ids.append(str(notification.id))
             created_notifications.append(notification)
 
@@ -84,10 +82,7 @@ class NotificationEventDispatcher:
             except Exception as e:
                 logger.warning(f"Failed to broadcast notification: {e}")
 
-        logger.info(
-            f"Dispatched event {event_type.value}: "
-            f"{len(notification_ids)} notifications created"
-        )
+        logger.info(f"Dispatched event {event_type.value}: {len(notification_ids)} notifications created")
 
         return notification_ids
 
@@ -133,9 +128,7 @@ class NotificationEventDispatcher:
         result = await session.execute(query)
         return list(result.scalars().all())
 
-    def _matches_conditions(
-        self, rule: NotificationRule, payload: dict[str, Any]
-    ) -> bool:
+    def _matches_conditions(self, rule: NotificationRule, payload: dict[str, Any]) -> bool:
         """Check if payload matches rule conditions.
 
         Args:
@@ -153,33 +146,25 @@ class NotificationEventDispatcher:
         # Category filter
         if "category_ids" in conditions:
             category_id = payload.get("category_id")
-            if category_id and str(category_id) not in [
-                str(c) for c in conditions["category_ids"]
-            ]:
+            if category_id and str(category_id) not in [str(c) for c in conditions["category_ids"]]:
                 return False
 
         # Source filter
         if "source_ids" in conditions:
             source_id = payload.get("source_id")
-            if source_id and str(source_id) not in [
-                str(s) for s in conditions["source_ids"]
-            ]:
+            if source_id and str(source_id) not in [str(s) for s in conditions["source_ids"]]:
                 return False
 
         # Entity filter
         if "entity_ids" in conditions:
             entity_id = payload.get("entity_id")
-            if entity_id and str(entity_id) not in [
-                str(e) for e in conditions["entity_ids"]
-            ]:
+            if entity_id and str(entity_id) not in [str(e) for e in conditions["entity_ids"]]:
                 return False
 
         # Summary filter (for summary events)
         if "summary_ids" in conditions:
             summary_id = payload.get("summary_id")
-            if summary_id and str(summary_id) not in [
-                str(s) for s in conditions["summary_ids"]
-            ]:
+            if summary_id and str(summary_id) not in [str(s) for s in conditions["summary_ids"]]:
                 return False
 
         # Minimum confidence filter
@@ -192,11 +177,13 @@ class NotificationEventDispatcher:
         if "keywords" in conditions:
             keywords = conditions["keywords"]
             if keywords:
-                text = " ".join([
-                    str(payload.get("title", "")),
-                    str(payload.get("text", "")),
-                    str(payload.get("summary", "")),
-                ]).lower()
+                text = " ".join(
+                    [
+                        str(payload.get("title", "")),
+                        str(payload.get("text", "")),
+                        str(payload.get("summary", "")),
+                    ]
+                ).lower()
 
                 if not any(kw.lower() in text for kw in keywords):
                     return False
@@ -271,9 +258,7 @@ class NotificationEventDispatcher:
         session.add(notification)
         return notification
 
-    def _generate_content(
-        self, event_type: NotificationEventType, payload: dict[str, Any]
-    ) -> tuple[str, str]:
+    def _generate_content(self, event_type: NotificationEventType, payload: dict[str, Any]) -> tuple[str, str]:
         """Generate notification title and body from event.
 
         Args:

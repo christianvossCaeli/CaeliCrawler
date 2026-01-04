@@ -40,7 +40,7 @@ async def create_facet_type_via_assistant(
     if not current_user.is_superuser and current_user.role not in allowed_roles:
         raise HTTPException(
             status_code=403,
-            detail="Keine Berechtigung zum Erstellen von Facet-Typen. Erforderliche Rolle: EDITOR oder ADMIN"
+            detail="Keine Berechtigung zum Erstellen von Facet-Typen. Erforderliche Rolle: EDITOR oder ADMIN",
         )
 
     name = data.get("name")
@@ -62,7 +62,7 @@ async def create_facet_type_via_assistant(
             "id": result.get("facet_type_id"),
             "name": result.get("facet_type_name"),
             "slug": result.get("facet_type_slug"),
-        }
+        },
     }
 
 
@@ -93,21 +93,18 @@ async def execute_action(
     if not current_user.is_superuser and current_user.role not in allowed_roles:
         raise HTTPException(
             status_code=403,
-            detail="Sie haben keine Berechtigung zum Bearbeiten. Erforderliche Rolle: EDITOR oder ADMIN"
+            detail="Sie haben keine Berechtigung zum Bearbeiten. Erforderliche Rolle: EDITOR oder ADMIN",
         )
 
     assistant = AssistantService(session)
-    result = await assistant.execute_action(
-        action=request.action,
-        context=request.context
-    )
+    result = await assistant.execute_action(action=request.action, context=request.context)
 
     return ActionExecuteResponse(
         success=result.get("success", False),
         message=result.get("message", ""),
         affected_entity_id=result.get("affected_entity_id"),
         affected_entity_name=result.get("affected_entity_name"),
-        refresh_required=result.get("refresh_required", True)
+        refresh_required=result.get("refresh_required", True),
     )
 
 
@@ -146,8 +143,7 @@ async def batch_action(
     allowed_roles = [UserRole.ADMIN, UserRole.EDITOR]
     if not current_user.is_superuser and current_user.role not in allowed_roles:
         raise HTTPException(
-            status_code=403,
-            detail="Keine Berechtigung für Batch-Operationen. Erforderliche Rolle: EDITOR oder ADMIN"
+            status_code=403, detail="Keine Berechtigung für Batch-Operationen. Erforderliche Rolle: EDITOR oder ADMIN"
         )
 
     assistant = AssistantService(session)
@@ -155,24 +151,27 @@ async def batch_action(
         action_type=request.action_type,
         target_filter=request.target_filter,
         action_data=request.action_data,
-        dry_run=request.dry_run
+        dry_run=request.dry_run,
     )
 
     # Store batch status if not dry run (TTLCache handles cleanup and size limits)
     if not request.dry_run and result.get("batch_id"):
-        assistant_batch_cache.set(result["batch_id"], {
-            "status": "running",
-            "processed": 0,
-            "total": result.get("affected_count", 0),
-            "errors": [],
-        })
+        assistant_batch_cache.set(
+            result["batch_id"],
+            {
+                "status": "running",
+                "processed": 0,
+                "total": result.get("affected_count", 0),
+                "errors": [],
+            },
+        )
 
     return BatchActionResponse(
         success=result.get("success", True),
         affected_count=result.get("affected_count", 0),
         preview=result.get("preview", []),
         batch_id=result.get("batch_id"),
-        message=result.get("message", "")
+        message=result.get("message", ""),
     )
 
 
@@ -188,10 +187,7 @@ async def get_batch_status(
     """
     status = assistant_batch_cache.get(batch_id)
     if status is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Batch-Operation nicht gefunden: {batch_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Batch-Operation nicht gefunden: {batch_id}")
 
     return BatchStatusResponse(
         batch_id=batch_id,
@@ -199,7 +195,7 @@ async def get_batch_status(
         processed=status.get("processed", 0),
         total=status.get("total", 0),
         errors=status.get("errors", []),
-        message=status.get("message", "")
+        message=status.get("message", ""),
     )
 
 
@@ -215,10 +211,7 @@ async def cancel_batch(
     """
     status = assistant_batch_cache.get(batch_id)
     if status is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Batch-Operation nicht gefunden: {batch_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Batch-Operation nicht gefunden: {batch_id}")
 
     # Update the status and re-store
     status["status"] = "cancelled"

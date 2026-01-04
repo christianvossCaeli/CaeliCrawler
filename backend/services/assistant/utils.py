@@ -1,6 +1,5 @@
 """Assistant Service - Utility Functions."""
 
-
 import structlog
 
 logger = structlog.get_logger()
@@ -16,12 +15,12 @@ def extract_json_from_response(response_text: str) -> str | None:
     import re
 
     # Try to find JSON in code blocks first
-    json_match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', response_text)
+    json_match = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", response_text)
     if json_match:
         return json_match.group(1)
 
     # Try to find raw JSON
-    json_match = re.search(r'(\{[\s\S]*\})', response_text)
+    json_match = re.search(r"(\{[\s\S]*\})", response_text)
     if json_match:
         return json_match.group(1)
 
@@ -53,10 +52,10 @@ def format_entity_summary(entity: dict) -> str:
     """Format entity data for prompt context."""
     parts = [f"Name: {entity.get('name', 'Unknown')}"]
 
-    if entity.get('description'):
+    if entity.get("description"):
         parts.append(f"Beschreibung: {entity['description']}")
 
-    if entity.get('entity_type'):
+    if entity.get("entity_type"):
         parts.append(f"Typ: {entity['entity_type']}")
 
     return "\n".join(parts)

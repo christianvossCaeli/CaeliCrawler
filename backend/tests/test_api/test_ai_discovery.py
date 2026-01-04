@@ -240,10 +240,7 @@ class TestAIDiscoveryPromptVariations:
         # Check that tags include German-related tags
         if data.get("search_strategy", {}).get("base_tags"):
             base_tags = data["search_strategy"]["base_tags"]
-            assert any(
-                tag in ["de", "deutsch", "bundesliga", "fußball"]
-                for tag in base_tags
-            )
+            assert any(tag in ["de", "deutsch", "bundesliga", "fußball"] for tag in base_tags)
 
     @pytest.mark.asyncio
     async def test_geographic_prompt(self, admin_client: AsyncClient):

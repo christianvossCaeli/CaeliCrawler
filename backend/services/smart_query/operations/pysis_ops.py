@@ -172,9 +172,7 @@ class PushToPySisOperation(WriteOperation):
                 EntityPySisProcess.is_active.is_(True),
             )
             if process_id:
-                process_query = process_query.where(
-                    EntityPySisProcess.pysis_process_id == process_id
-                )
+                process_query = process_query.where(EntityPySisProcess.pysis_process_id == process_id)
 
             process_result = await session.execute(process_query)
             processes = process_result.scalars().all()

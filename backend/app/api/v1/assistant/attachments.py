@@ -54,7 +54,7 @@ async def upload_attachment(
         raise HTTPException(
             status_code=400,
             detail=f"Nicht unterstützter Dateityp: {file.content_type}. "
-                   f"Erlaubt: Bilder (PNG, JPEG, GIF, WebP) und PDF."
+            f"Erlaubt: Bilder (PNG, JPEG, GIF, WebP) und PDF.",
         )
 
     # Read file content
@@ -62,21 +62,21 @@ async def upload_attachment(
 
     # Validate file size
     if len(content) > MAX_ATTACHMENT_SIZE:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Datei zu groß. Maximum: {MAX_ATTACHMENT_SIZE // (1024 * 1024)}MB"
-        )
+        raise HTTPException(status_code=400, detail=f"Datei zu groß. Maximum: {MAX_ATTACHMENT_SIZE // (1024 * 1024)}MB")
 
     # Generate unique ID
     attachment_id = str(uuid4())
 
     # Store attachment in cache (TTLCache handles cleanup and size limits automatically)
-    assistant_attachment_cache.set(attachment_id, {
-        "content": content,
-        "filename": file.filename or "unnamed",
-        "content_type": file.content_type,
-        "size": len(content),
-    })
+    assistant_attachment_cache.set(
+        attachment_id,
+        {
+            "content": content,
+            "filename": file.filename or "unnamed",
+            "content_type": file.content_type,
+            "size": len(content),
+        },
+    )
 
     return AttachmentUploadResponse(
         success=True,
@@ -85,7 +85,7 @@ async def upload_attachment(
             filename=file.filename or "unnamed",
             content_type=file.content_type,
             size=len(content),
-        )
+        ),
     )
 
 
@@ -179,7 +179,5 @@ async def save_temp_attachments_to_entity(
         "saved_count": len(saved_ids),
         "attachment_ids": saved_ids,
         "errors": errors if errors else None,
-        "message": f"{len(saved_ids)} Attachment(s) gespeichert" + (
-            f", {len(errors)} Fehler" if errors else ""
-        ),
+        "message": f"{len(saved_ids)} Attachment(s) gespeichert" + (f", {len(errors)} Fehler" if errors else ""),
     }

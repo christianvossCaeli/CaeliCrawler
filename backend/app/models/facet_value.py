@@ -35,6 +35,7 @@ class FacetValueSourceType(str, enum.Enum):
     IMPORT = "IMPORT"  # Imported from external data (CSV, API, etc.)
     ATTACHMENT = "ATTACHMENT"  # Extracted from user-uploaded attachment via AI
 
+
 if TYPE_CHECKING:
     from app.models.category import Category
     from app.models.document import Document

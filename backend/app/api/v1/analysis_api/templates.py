@@ -45,10 +45,10 @@ async def list_analysis_templates(
         query = query.where(AnalysisTemplate.is_active == is_active)
     if search:
         # Escape SQL wildcards to prevent injection
-        safe_search = search.replace('%', '\\%').replace('_', '\\_')
+        safe_search = search.replace("%", "\\%").replace("_", "\\_")
         query = query.where(
-            AnalysisTemplate.name.ilike(f"%{safe_search}%", escape='\\') |
-            AnalysisTemplate.slug.ilike(f"%{safe_search}%", escape='\\')
+            AnalysisTemplate.name.ilike(f"%{safe_search}%", escape="\\")
+            | AnalysisTemplate.slug.ilike(f"%{safe_search}%", escape="\\")
         )
 
     # Count total
@@ -56,7 +56,11 @@ async def list_analysis_templates(
     total = (await session.execute(count_query)).scalar()
 
     # Paginate
-    query = query.order_by(AnalysisTemplate.display_order, AnalysisTemplate.name).offset((page - 1) * per_page).limit(per_page)
+    query = (
+        query.order_by(AnalysisTemplate.display_order, AnalysisTemplate.name)
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    )
     result = await session.execute(query)
     templates = result.scalars().all()
 
@@ -89,7 +93,7 @@ async def create_analysis_template(
 
     # Validate facet_config slugs
     if data.facet_config:
-        facet_configs = [fc.model_dump() if hasattr(fc, 'model_dump') else fc for fc in data.facet_config]
+        facet_configs = [fc.model_dump() if hasattr(fc, "model_dump") else fc for fc in data.facet_config]
         _, invalid_slugs = await validate_facet_config_slugs(session, facet_configs)
         if invalid_slugs:
             raise ConflictError(
@@ -102,9 +106,7 @@ async def create_analysis_template(
 
     # Check for exact duplicate
     existing = await session.execute(
-        select(AnalysisTemplate).where(
-            (AnalysisTemplate.name == data.name) | (AnalysisTemplate.slug == slug)
-        )
+        select(AnalysisTemplate).where((AnalysisTemplate.name == data.name) | (AnalysisTemplate.slug == slug))
     )
     if existing.scalar():
         raise ConflictError(
@@ -114,7 +116,8 @@ async def create_analysis_template(
 
     # Check for duplicate by configuration (same entity type + category + facet config)
     from app.utils.similarity import find_duplicate_analysis_template
-    facet_configs = [fc.model_dump() if hasattr(fc, 'model_dump') else fc for fc in data.facet_config]
+
+    facet_configs = [fc.model_dump() if hasattr(fc, "model_dump") else fc for fc in data.facet_config]
     duplicate = await find_duplicate_analysis_template(
         session,
         name=data.name,
@@ -182,9 +185,7 @@ async def get_analysis_template_by_slug(
     session: AsyncSession = Depends(get_session),
 ):
     """Get a single analysis template by slug."""
-    result = await session.execute(
-        select(AnalysisTemplate).where(AnalysisTemplate.slug == slug)
-    )
+    result = await session.execute(select(AnalysisTemplate).where(AnalysisTemplate.slug == slug))
     template = result.scalar()
     if not template:
         raise NotFoundError("AnalysisTemplate", slug)
@@ -214,7 +215,7 @@ async def update_analysis_template(
 
     # Validate facet_config slugs if being updated
     if data.facet_config:
-        facet_configs = [fc.model_dump() if hasattr(fc, 'model_dump') else fc for fc in data.facet_config]
+        facet_configs = [fc.model_dump() if hasattr(fc, "model_dump") else fc for fc in data.facet_config]
         _, invalid_slugs = await validate_facet_config_slugs(session, facet_configs)
         if invalid_slugs:
             raise ConflictError(
@@ -227,11 +228,21 @@ async def update_analysis_template(
 
     # Handle nested configs
     if "facet_config" in update_data and update_data["facet_config"]:
-        update_data["facet_config"] = [fc.model_dump() if hasattr(fc, 'model_dump') else fc for fc in update_data["facet_config"]]
+        update_data["facet_config"] = [
+            fc.model_dump() if hasattr(fc, "model_dump") else fc for fc in update_data["facet_config"]
+        ]
     if "aggregation_config" in update_data and update_data["aggregation_config"]:
-        update_data["aggregation_config"] = update_data["aggregation_config"].model_dump() if hasattr(update_data["aggregation_config"], 'model_dump') else update_data["aggregation_config"]
+        update_data["aggregation_config"] = (
+            update_data["aggregation_config"].model_dump()
+            if hasattr(update_data["aggregation_config"], "model_dump")
+            else update_data["aggregation_config"]
+        )
     if "display_config" in update_data and update_data["display_config"]:
-        update_data["display_config"] = update_data["display_config"].model_dump() if hasattr(update_data["display_config"], 'model_dump') else update_data["display_config"]
+        update_data["display_config"] = (
+            update_data["display_config"].model_dump()
+            if hasattr(update_data["display_config"], "model_dump")
+            else update_data["display_config"]
+        )
 
     for field, value in update_data.items():
         setattr(template, field, value)

@@ -75,7 +75,7 @@ async_session_factory = async_sessionmaker(
 )
 
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_session() -> AsyncGenerator[AsyncSession]:
     """Dependency for getting async database sessions.
 
     Note: This dependency does NOT auto-commit. Endpoints that modify data
@@ -100,7 +100,7 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 @asynccontextmanager
-async def get_session_context() -> AsyncGenerator[AsyncSession, None]:
+async def get_session_context() -> AsyncGenerator[AsyncSession]:
     """Context manager for getting async database sessions.
 
     Ensures transactions are always properly closed, preventing
@@ -185,7 +185,7 @@ def get_celery_session_factory():
 
 
 @asynccontextmanager
-async def get_celery_session_context() -> AsyncGenerator[AsyncSession, None]:
+async def get_celery_session_context() -> AsyncGenerator[AsyncSession]:
     """Context manager for getting async database sessions in Celery workers.
 
     This uses a separate engine/session factory that is initialized lazily
@@ -223,6 +223,7 @@ def reset_celery_engine():
     global _celery_engine, _celery_session_factory
     if _celery_engine is not None:
         import asyncio
+
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
@@ -282,7 +283,7 @@ async def cleanup_idle_connections() -> dict:
                 logger.warning(
                     "terminated_idle_connections",
                     count=len(terminated),
-                    connections=[{"pid": row[1], "state": row[2], "idle_seconds": row[3]} for row in terminated]
+                    connections=[{"pid": row[1], "state": row[2], "idle_seconds": row[3]} for row in terminated],
                 )
 
             return {"terminated": len(terminated)}
@@ -308,7 +309,7 @@ async def get_connection_stats() -> dict:
                     GROUP BY state
                 """)
             )
-            stats = {row[0] or 'unknown': row[1] for row in result.fetchall()}
+            stats = {row[0] or "unknown": row[1] for row in result.fetchall()}
 
             # Also get total and max connections
             result2 = await session.execute(
@@ -319,8 +320,8 @@ async def get_connection_stats() -> dict:
                 """)
             )
             row = result2.fetchone()
-            stats['total_current'] = row[0]
-            stats['max_connections'] = row[1]
+            stats["total_current"] = row[0]
+            stats["max_connections"] = row[1]
 
             return stats
         except SQLAlchemyError as e:

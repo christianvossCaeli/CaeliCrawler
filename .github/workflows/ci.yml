@@ -175,13 +175,14 @@ jobs:
 
       - name: Run tests
         env:
+          CI: "true"
           DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test
           DATABASE_SYNC_URL: postgresql+psycopg://test:test@localhost:5432/test
           REDIS_URL: redis://localhost:6379/0
           CELERY_BROKER_URL: redis://localhost:6379/1
           CELERY_RESULT_BACKEND: redis://localhost:6379/2
         run: |
-          pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing
+          pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing -x
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -196,6 +197,9 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v4

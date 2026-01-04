@@ -38,8 +38,10 @@ router = APIRouter()
 
 # --- Response Schemas for Preview Endpoints ---
 
+
 class SourcePreviewItem(BaseModel):
     """Single source in preview response."""
+
     id: str
     name: str
     url: str
@@ -47,6 +49,7 @@ class SourcePreviewItem(BaseModel):
 
 class PresetPreviewResponse(BaseModel):
     """Response for preset preview endpoint."""
+
     preset_id: UUID
     sources_count: int
     sources_preview: list[SourcePreviewItem]
@@ -55,6 +58,7 @@ class PresetPreviewResponse(BaseModel):
 
 class FiltersPreviewResponse(BaseModel):
     """Response for filters preview endpoint."""
+
     sources_count: int
     sources_preview: list[SourcePreviewItem]
     has_more: bool
@@ -116,10 +120,11 @@ async def _create_preset_internal(
         ValidationError: If cron expression is invalid
     """
     # Use mode='json' to properly serialize UUIDs to strings for JSONB storage
-    filters_dict = filters.model_dump(mode='json', exclude_none=True)
-    
+    filters_dict = filters.model_dump(mode="json", exclude_none=True)
+
     # Check for duplicate by filter configuration
     from app.utils.similarity import find_duplicate_crawl_preset
+
     duplicate = await find_duplicate_crawl_preset(
         session,
         user_id=user_id,
@@ -161,10 +166,7 @@ def _build_preview_response(
     max_preview: int = 10,
 ) -> dict[str, Any]:
     """Build standardized preview response from sources list."""
-    preview_items = [
-        SourcePreviewItem(id=str(s.id), name=s.name, url=s.url)
-        for s in sources[:max_preview]
-    ]
+    preview_items = [SourcePreviewItem(id=str(s.id), name=s.name, url=s.url) for s in sources[:max_preview]]
 
     response = {
         "sources_count": len(sources),
@@ -207,7 +209,7 @@ async def list_presets(
     if search:
         # Sanitize search input to prevent SQL LIKE injection
         safe_search = sanitize_search_input(search)
-        query = query.where(CrawlPreset.name.ilike(f"%{safe_search}%", escape='\\'))
+        query = query.where(CrawlPreset.name.ilike(f"%{safe_search}%", escape="\\"))
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
@@ -215,8 +217,9 @@ async def list_presets(
 
     # Order by favorites first, then by last used/created
     query = (
-        query
-        .order_by(CrawlPreset.is_favorite.desc(), CrawlPreset.last_used_at.desc().nullsfirst(), CrawlPreset.created_at.desc())
+        query.order_by(
+            CrawlPreset.is_favorite.desc(), CrawlPreset.last_used_at.desc().nullsfirst(), CrawlPreset.created_at.desc()
+        )
         .offset((page - 1) * per_page)
         .limit(per_page)
     )
@@ -316,7 +319,7 @@ async def update_preset(
         preset.description = update_data.description
     if update_data.filters is not None:
         # Use mode='json' to properly serialize UUIDs to strings for JSONB storage
-        preset.filters = update_data.filters.model_dump(mode='json', exclude_none=True)
+        preset.filters = update_data.filters.model_dump(mode="json", exclude_none=True)
     if update_data.schedule_cron is not None:
         if update_data.schedule_cron and not validate_cron_expression(update_data.schedule_cron):
             raise ValidationError("Invalid cron expression")

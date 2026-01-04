@@ -79,9 +79,7 @@ async def wizard_respond(
 
     wizard_service = WizardService(session)
     try:
-        wizard_response, result = await wizard_service.process_wizard_response(
-            wizard_id, response.get("value")
-        )
+        wizard_response, result = await wizard_service.process_wizard_response(wizard_id, response.get("value"))
         return {
             "wizard_response": wizard_response.model_dump(),
             "result": result,

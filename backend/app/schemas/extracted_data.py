@@ -154,7 +154,7 @@ class ExtractionStats(BaseModel):
     by_type: dict[str, int]
     by_category: dict[str, int]
     high_confidence_count: int  # >= 0.8
-    low_confidence_count: int   # < 0.5
+    low_confidence_count: int  # < 0.5
 
 
 # =============================================================================
@@ -167,7 +167,9 @@ class DisplayColumn(BaseModel):
 
     key: str = Field(..., description="Data key to display (e.g., 'document', 'entity_references.territorial-entity')")
     label: str = Field(..., description="Column header label")
-    type: str = Field(default="text", description="Column type: 'text', 'document_link', 'entity_link', 'confidence', 'date'")
+    type: str = Field(
+        default="text", description="Column type: 'text', 'document_link', 'entity_link', 'confidence', 'date'"
+    )
     width: str | None = Field(None, description="Column width (e.g., '150px', '20%')")
     sortable: bool = Field(default=True, description="Whether column is sortable")
 

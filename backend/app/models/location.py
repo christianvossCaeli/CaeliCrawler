@@ -162,7 +162,10 @@ class Location(Base):
         # Country-specific replacements
         if country == "DE":
             replacements = {
-                "ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss",
+                "ä": "ae",
+                "ö": "oe",
+                "ü": "ue",
+                "ß": "ss",
             }
             for old, new in replacements.items():
                 result = result.replace(old, new)

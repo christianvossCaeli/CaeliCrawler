@@ -49,25 +49,20 @@ celery_app.conf.update(
     result_serializer="json",
     timezone=settings.schedule_timezone,
     enable_utc=True,
-
     # Task execution settings
     task_acks_late=True,
     task_reject_on_worker_lost=True,
     task_time_limit=3600,  # 1 hour hard limit
     task_soft_time_limit=3300,  # 55 minutes soft limit
-
     # Worker settings
     worker_prefetch_multiplier=1,
     worker_concurrency=4,
-
     # Result backend settings
     result_expires=86400,  # 24 hours
-
     # Dead Letter Queue (DLQ) configuration
     # Failed tasks after max_retries are sent to DLQ for later analysis
     # Note: task_reject_on_worker_lost is already set above
     task_acks_on_failure_or_timeout=False,
-
     # Task routing with DLQ support
     # Note: Requires RabbitMQ with dead letter exchange configured:
     # rabbitmqctl set_policy DLX ".*" '{"dead-letter-exchange":"dlx"}' --apply-to queues
@@ -82,7 +77,6 @@ celery_app.conf.update(
         "workers.summary_tasks.*": {"queue": "processing"},
         "workers.maintenance_tasks.*": {"queue": "default"},  # Lightweight, runs on default
     },
-
     # Queue declarations with dead letter exchange
     task_queues={
         "default": {
@@ -118,10 +112,8 @@ celery_app.conf.update(
             },
         },
     },
-
     # Default queue
     task_default_queue="default",
-
     # Beat schedule for periodic tasks
     # NOTE: Task frequencies are tuned to balance responsiveness with connection usage
     # Higher frequencies = more DB connections, lower frequencies = slower response
@@ -235,6 +227,7 @@ def configure_worker(**kwargs):
     # Reset the database engine for this worker process
     # This ensures each worker has its own connection pool
     from app.database import reset_celery_engine
+
     reset_celery_engine()
 
     logger.info("worker_process_initialized", pid=kwargs.get("pid"))
@@ -309,6 +302,7 @@ def handle_task_failure(sender=None, task_id=None, exception=None, traceback=Non
     # Emit notification for critical task failures
     try:
         from workers.notification_tasks import emit_event
+
         if sender and sender.name in (
             "workers.crawl_tasks.crawl_source",
             "workers.ai_tasks.analyze_document",
@@ -323,7 +317,7 @@ def handle_task_failure(sender=None, task_id=None, exception=None, traceback=Non
                     "entity_id": task_id,
                     "task_name": sender.name,
                     "error": str(exception) if exception else "Unknown error",
-                }
+                },
             )
     except Exception:  # noqa: S110
         # Don't fail if notification can't be sent

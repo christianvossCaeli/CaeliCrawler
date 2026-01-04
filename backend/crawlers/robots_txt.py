@@ -27,6 +27,7 @@ logger = structlog.get_logger()
 @dataclass
 class RobotsRule:
     """A single robots.txt rule (Allow or Disallow)."""
+
     path: str
     allow: bool  # True for Allow, False for Disallow
     pattern: re.Pattern | None = None
@@ -49,6 +50,7 @@ class RobotsRule:
 @dataclass
 class RobotsDirectives:
     """Parsed robots.txt directives for a user-agent."""
+
     rules: list[RobotsRule] = field(default_factory=list)
     crawl_delay: float | None = None
     sitemaps: list[str] = field(default_factory=list)
@@ -81,6 +83,7 @@ class RobotsDirectives:
 @dataclass
 class RobotsCache:
     """Cached robots.txt data for a domain."""
+
     directives: RobotsDirectives
     fetched_at: datetime
     expires_at: datetime

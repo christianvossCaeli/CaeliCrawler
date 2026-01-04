@@ -30,39 +30,43 @@ from app.models.summary_execution import ExecutionStatus
 logger = structlog.get_logger(__name__)
 
 # Whitelist of allowed filter keys to prevent injection attacks
-ALLOWED_FILTER_KEYS = frozenset({
-    "admin_level_1",
-    "country",
-    "tags",
-    "name",
-    "is_active",
-})
+ALLOWED_FILTER_KEYS = frozenset(
+    {
+        "admin_level_1",
+        "country",
+        "tags",
+        "name",
+        "is_active",
+    }
+)
 
 # Whitelist of allowed sort fields to prevent injection attacks
-ALLOWED_SORT_FIELDS = frozenset({
-    "name",
-    "created_at",
-    "updated_at",
-    "entity_name",
-    "entity_type",
-    "admin_level_1",
-    "country",
-    "latitude",
-    "longitude",
-    # Core attributes (windparks, etc.)
-    "status",
-    "area_ha",
-    "power_mw",
-    "wea_count",
-    "wind_speed_ms",
-    # Facet-based sorting (dot notation validated separately)
-    "facets.points",
-    "facets.goals",
-    "facets.population",
-    "facets.area",
-    "facets.founded",
-    "facets.value",
-})
+ALLOWED_SORT_FIELDS = frozenset(
+    {
+        "name",
+        "created_at",
+        "updated_at",
+        "entity_name",
+        "entity_type",
+        "admin_level_1",
+        "country",
+        "latitude",
+        "longitude",
+        # Core attributes (windparks, etc.)
+        "status",
+        "area_ha",
+        "power_mw",
+        "wea_count",
+        "wind_speed_ms",
+        # Facet-based sorting (dot notation validated separately)
+        "facets.points",
+        "facets.goals",
+        "facets.population",
+        "facets.area",
+        "facets.founded",
+        "facets.value",
+    }
+)
 
 # Maximum limits for query execution to prevent resource exhaustion
 MAX_QUERY_LIMIT = 1000  # Maximum entities per widget query
@@ -152,9 +156,7 @@ class SummaryExecutor:
         if not summary:
             # Could be locked by another execution or not found
             # Check if it exists at all
-            exists_result = await self.session.execute(
-                select(CustomSummary.id).where(CustomSummary.id == summary_id)
-            )
+            exists_result = await self.session.execute(select(CustomSummary.id).where(CustomSummary.id == summary_id))
             if exists_result.scalar_one_or_none():
                 logger.info(
                     "summary_execution_skipped_locked",
@@ -239,16 +241,11 @@ class SummaryExecutor:
 
             # Check for changes (only if there was a previous execution)
             # First execution has no "changes" because there's nothing to compare to
-            has_changes = (
-                summary.last_data_hash is not None
-                and summary.last_data_hash != data_hash
-            )
+            has_changes = summary.last_data_hash is not None and summary.last_data_hash != data_hash
 
             # Relevance check (if enabled and not forced)
             if summary.check_relevance and not force and has_changes:
-                relevance = await self._check_relevance(
-                    summary, cached_data, data_hash
-                )
+                relevance = await self._check_relevance(summary, cached_data, data_hash)
 
                 if not relevance["should_update"]:
                     execution.status = ExecutionStatus.SKIPPED
@@ -293,13 +290,9 @@ class SummaryExecutor:
             # Auto-expand: Detect and add new relevant widgets
             expansion_suggestions = []
             if summary.auto_expand and has_changes:
-                expansion_suggestions = await self._check_auto_expand(
-                    summary, cached_data
-                )
+                expansion_suggestions = await self._check_auto_expand(summary, cached_data)
                 if expansion_suggestions:
-                    execution.expansion_suggestions = [
-                        s.to_dict() for s in expansion_suggestions
-                    ]
+                    execution.expansion_suggestions = [s.to_dict() for s in expansion_suggestions]
 
             await self.session.commit()
 
@@ -457,9 +450,7 @@ class SummaryExecutor:
         parent_ids = [e.parent_id for e in entities if e.parent_id and e.latitude is None]
         parent_coords = {}
         if parent_ids:
-            parent_result = await self.session.execute(
-                select(Entity).where(Entity.id.in_(parent_ids))
-            )
+            parent_result = await self.session.execute(select(Entity).where(Entity.id.in_(parent_ids)))
             for parent in parent_result.scalars():
                 if parent.latitude is not None and parent.longitude is not None:
                     parent_coords[parent.id] = (float(parent.latitude), float(parent.longitude))
@@ -533,9 +524,7 @@ class SummaryExecutor:
 
     async def _get_entity_type(self, slug: str) -> EntityType | None:
         """Get entity type by slug."""
-        result = await self.session.execute(
-            select(EntityType).where(EntityType.slug == slug)
-        )
+        result = await self.session.execute(select(EntityType).where(EntityType.slug == slug))
         return result.scalar_one_or_none()
 
     async def _count_entities(
@@ -609,9 +598,7 @@ class SummaryExecutor:
             return {}
 
         # Get facet types
-        ft_result = await self.session.execute(
-            select(FacetType).where(FacetType.slug.in_(facet_type_slugs))
-        )
+        ft_result = await self.session.execute(select(FacetType).where(FacetType.slug.in_(facet_type_slugs)))
         facet_types = {ft.id: ft for ft in ft_result.scalars().all()}
 
         if not facet_types:
@@ -693,6 +680,7 @@ class SummaryExecutor:
         Returns:
             Truncated cached data
         """
+
         # Calculate current size
         def get_size(data: dict[str, Any]) -> int:
             return len(json.dumps(data, default=str).encode("utf-8"))
@@ -912,14 +900,10 @@ class SummaryExecutor:
         Returns:
             Latest SummaryExecution or None
         """
-        query = select(SummaryExecution).where(
-            SummaryExecution.summary_id == summary_id
-        )
+        query = select(SummaryExecution).where(SummaryExecution.summary_id == summary_id)
 
         if completed_only:
-            query = query.where(
-                SummaryExecution.status == ExecutionStatus.COMPLETED
-            )
+            query = query.where(SummaryExecution.status == ExecutionStatus.COMPLETED)
 
         query = query.order_by(SummaryExecution.created_at.desc()).limit(1)
 

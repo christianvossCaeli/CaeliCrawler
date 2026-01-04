@@ -86,10 +86,7 @@ class LLMUsageByUser(BaseModel):
     completion_tokens: int = Field(description="Total output tokens")
     cost_cents: int = Field(description="Estimated cost in USD cents")
     models_used: list[str] = Field(default_factory=list, description="List of models used")
-    has_credentials: bool = Field(
-        default=False,
-        description="Whether user has API credentials configured"
-    )
+    has_credentials: bool = Field(default=False, description="Whether user has API credentials configured")
 
 
 class LLMUsageAnalyticsResponse(BaseModel):
@@ -100,32 +97,20 @@ class LLMUsageAnalyticsResponse(BaseModel):
     summary: LLMUsageSummary = Field(description="Summary statistics")
     by_model: list[LLMUsageByModel] = Field(description="Breakdown by model")
     by_task: list[LLMUsageByTask] = Field(description="Breakdown by task type")
-    by_category: list[LLMUsageByCategory] = Field(
-        default_factory=list, description="Breakdown by category"
-    )
-    by_user: list[LLMUsageByUser] = Field(
-        default_factory=list, description="Breakdown by user"
-    )
+    by_category: list[LLMUsageByCategory] = Field(default_factory=list, description="Breakdown by category")
+    by_user: list[LLMUsageByUser] = Field(default_factory=list, description="Breakdown by user")
     daily_trend: list[LLMUsageTrend] = Field(description="Daily usage trend")
-    top_consumers: list[LLMUsageTopConsumer] = Field(
-        description="Top token-consuming tasks"
-    )
+    top_consumers: list[LLMUsageTopConsumer] = Field(description="Top token-consuming tasks")
 
 
 class LLMCostProjection(BaseModel):
     """Cost projection based on current usage."""
 
     current_month_cost_cents: int = Field(description="Current month cost so far")
-    projected_month_cost_cents: int = Field(
-        description="Projected cost by end of month"
-    )
+    projected_month_cost_cents: int = Field(description="Projected cost by end of month")
     daily_avg_cost_cents: int = Field(description="Average daily cost")
-    budget_warning: bool = Field(
-        default=False, description="Whether any budget warning is active"
-    )
-    budget_limit_cents: int | None = Field(
-        default=None, description="Global budget limit if set"
-    )
+    budget_warning: bool = Field(default=False, description="Whether any budget warning is active")
+    budget_limit_cents: int | None = Field(default=None, description="Global budget limit if set")
 
 
 # === Request/Query Models ===
@@ -139,16 +124,10 @@ class LLMUsageQueryParams(BaseModel):
         description="Time period: 24h, 7d, 30d, 90d",
         pattern="^(24h|7d|30d|90d)$",
     )
-    provider: LLMProvider | None = Field(
-        default=None, description="Filter by provider"
-    )
+    provider: LLMProvider | None = Field(default=None, description="Filter by provider")
     model: str | None = Field(default=None, description="Filter by model")
-    task_type: LLMTaskType | None = Field(
-        default=None, description="Filter by task type"
-    )
-    category_id: UUID | None = Field(
-        default=None, description="Filter by category"
-    )
+    task_type: LLMTaskType | None = Field(default=None, description="Filter by task type")
+    category_id: UUID | None = Field(default=None, description="Filter by category")
 
 
 class LLMUsageExportParams(BaseModel):
@@ -160,6 +139,4 @@ class LLMUsageExportParams(BaseModel):
         description="Export format: csv, json",
         pattern="^(csv|json)$",
     )
-    include_metadata: bool = Field(
-        default=False, description="Include additional metadata fields"
-    )
+    include_metadata: bool = Field(default=False, description="Include additional metadata fields")

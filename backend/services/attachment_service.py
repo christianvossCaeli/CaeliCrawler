@@ -63,9 +63,7 @@ class AttachmentService:
 
         # Validate file size
         if len(content) > self.max_size:
-            raise ValueError(
-                f"Datei zu gross. Maximum: {settings.attachment_max_size_mb}MB"
-            )
+            raise ValueError(f"Datei zu gross. Maximum: {settings.attachment_max_size_mb}MB")
 
         # Check entity exists
         entity = await self.db.get(Entity, entity_id)
@@ -177,18 +175,14 @@ class AttachmentService:
         """Read attachment file content."""
         full_path = self.storage_path / attachment.file_path
         if not full_path.exists():
-            raise FileNotFoundError(
-                f"Attachment file not found: {attachment.file_path}"
-            )
+            raise FileNotFoundError(f"Attachment file not found: {attachment.file_path}")
         return full_path.read_bytes()
 
     def get_file_path(self, attachment: EntityAttachment) -> Path:
         """Get full file path for an attachment."""
         return self.storage_path / attachment.file_path
 
-    def get_thumbnail_path_for_attachment(
-        self, attachment: EntityAttachment
-    ) -> Path | None:
+    def get_thumbnail_path_for_attachment(self, attachment: EntityAttachment) -> Path | None:
         """Get thumbnail path for an attachment if it's an image."""
         if not attachment.is_image:
             return None
@@ -202,9 +196,7 @@ class AttachmentService:
         # Fall back to original if no thumbnail
         return full_path if full_path.exists() else None
 
-    async def update_description(
-        self, attachment_id: UUID, description: str
-    ) -> EntityAttachment | None:
+    async def update_description(self, attachment_id: UUID, description: str) -> EntityAttachment | None:
         """Update attachment description."""
         attachment = await self.db.get(EntityAttachment, attachment_id)
         if not attachment:

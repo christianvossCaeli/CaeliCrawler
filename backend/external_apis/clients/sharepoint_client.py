@@ -206,11 +206,7 @@ class SharePointClient(BaseExternalAPIClient):
     @property
     def is_configured(self) -> bool:
         """Check if all required credentials are configured."""
-        return bool(
-            self._tenant_id
-            and self._client_id
-            and self._client_secret
-        )
+        return bool(self._tenant_id and self._client_id and self._client_secret)
 
     async def _get_access_token(self) -> str:
         """Get OAuth2 access token from Azure AD.
@@ -375,7 +371,7 @@ class SharePointClient(BaseExternalAPIClient):
                 elif response.status_code >= 500:
                     # Server error - retry with exponential backoff
                     if attempt < max_retries:
-                        wait_time = (2 ** attempt) + 0.5
+                        wait_time = (2**attempt) + 0.5
                         logger.warning(
                             "graph_api_server_error",
                             endpoint=endpoint,
@@ -397,7 +393,7 @@ class SharePointClient(BaseExternalAPIClient):
             except (httpx.TimeoutException, httpx.ConnectError) as e:
                 last_exception = e
                 if attempt < max_retries:
-                    wait_time = (2 ** attempt) + 0.5
+                    wait_time = (2**attempt) + 0.5
                     logger.warning(
                         "graph_api_connection_error",
                         endpoint=endpoint,
@@ -475,7 +471,7 @@ class SharePointClient(BaseExternalAPIClient):
                         continue
                     raise SharePointRateLimitError("Rate limit exceeded", retry_after=retry_after)
                 elif response.status_code >= 500 and attempt < max_retries:
-                    wait_time = (2 ** attempt) + 0.5
+                    wait_time = (2**attempt) + 0.5
                     logger.warning(
                         "graph_api_binary_server_error",
                         endpoint=endpoint,
@@ -491,7 +487,7 @@ class SharePointClient(BaseExternalAPIClient):
 
             except (httpx.TimeoutException, httpx.ConnectError) as e:
                 if attempt < max_retries:
-                    wait_time = (2 ** attempt) + 0.5
+                    wait_time = (2**attempt) + 0.5
                     logger.warning(
                         "graph_api_binary_connection_error",
                         endpoint=endpoint,
@@ -545,7 +541,7 @@ class SharePointClient(BaseExternalAPIClient):
                     raise SharePointRateLimitError("Rate limit exceeded", retry_after=retry_after)
                 elif response.status_code >= 500:
                     if attempt < max_retries:
-                        wait_time = (2 ** attempt) + 0.5
+                        wait_time = (2**attempt) + 0.5
                         logger.warning(
                             "graph_api_paginated_server_error",
                             url=url[:100],
@@ -561,7 +557,7 @@ class SharePointClient(BaseExternalAPIClient):
 
             except (httpx.TimeoutException, httpx.ConnectError) as e:
                 if attempt < max_retries:
-                    wait_time = (2 ** attempt) + 0.5
+                    wait_time = (2**attempt) + 0.5
                     logger.warning(
                         "graph_api_paginated_connection_error",
                         url=url[:100],
@@ -598,12 +594,14 @@ class SharePointClient(BaseExternalAPIClient):
 
         sites = []
         for item in data.get("value", []):
-            sites.append(SharePointSite(
-                id=item["id"],
-                name=item.get("name", ""),
-                display_name=item.get("displayName", item.get("name", "")),
-                web_url=item.get("webUrl", ""),
-            ))
+            sites.append(
+                SharePointSite(
+                    id=item["id"],
+                    name=item.get("name", ""),
+                    display_name=item.get("displayName", item.get("name", "")),
+                    web_url=item.get("webUrl", ""),
+                )
+            )
 
         logger.info("sharepoint_sites_found", count=len(sites))
         return sites
@@ -658,13 +656,15 @@ class SharePointClient(BaseExternalAPIClient):
 
         drives = []
         for item in data.get("value", []):
-            drives.append(SharePointDrive(
-                id=item["id"],
-                name=item.get("name", ""),
-                drive_type=item.get("driveType", ""),
-                web_url=item.get("webUrl", ""),
-                site_id=site_id,
-            ))
+            drives.append(
+                SharePointDrive(
+                    id=item["id"],
+                    name=item.get("name", ""),
+                    drive_type=item.get("driveType", ""),
+                    web_url=item.get("webUrl", ""),
+                    site_id=site_id,
+                )
+            )
 
         logger.debug("sharepoint_drives_found", count=len(drives))
         return drives
@@ -908,9 +908,7 @@ class SharePointClient(BaseExternalAPIClient):
             item_id=item_id,
         )
 
-        return await self._graph_request_binary(
-            f"/sites/{site_id}/drives/{drive_id}/items/{item_id}/content"
-        )
+        return await self._graph_request_binary(f"/sites/{site_id}/drives/{drive_id}/items/{item_id}/content")
 
     async def download_file_by_url(
         self,
@@ -952,7 +950,7 @@ class SharePointClient(BaseExternalAPIClient):
                     raise SharePointRateLimitError("Rate limit exceeded", retry_after=retry_after)
                 elif response.status_code >= 500:
                     if attempt < max_retries:
-                        wait_time = (2 ** attempt) + 0.5
+                        wait_time = (2**attempt) + 0.5
                         logger.warning(
                             "download_url_server_error",
                             status=response.status_code,
@@ -967,7 +965,7 @@ class SharePointClient(BaseExternalAPIClient):
 
             except (httpx.TimeoutException, httpx.ConnectError) as e:
                 if attempt < max_retries:
-                    wait_time = (2 ** attempt) + 0.5
+                    wait_time = (2**attempt) + 0.5
                     logger.warning(
                         "download_url_connection_error",
                         error=str(e),
@@ -1046,9 +1044,7 @@ class SharePointClient(BaseExternalAPIClient):
             return []
 
         try:
-            hostname, site_path = parse_sharepoint_site_url(
-                settings.sharepoint_default_site_url
-            )
+            hostname, site_path = parse_sharepoint_site_url(settings.sharepoint_default_site_url)
         except SharePointConfigError as e:
             logger.error("invalid_sharepoint_site_url", error=str(e))
             return []
@@ -1066,22 +1062,24 @@ class SharePointClient(BaseExternalAPIClient):
 
             records = []
             for file in files:
-                records.append(ExternalAPIRecord(
-                    external_id=file.id,
-                    name=file.name,
-                    raw_data={
-                        "id": file.id,
-                        "name": file.name,
-                        "size": file.size,
-                        "mime_type": file.mime_type,
-                        "web_url": file.web_url,
-                        "parent_path": file.parent_path,
-                        "site_id": file.site_id,
-                        "drive_id": file.drive_id,
-                    },
-                    location_hints=[],
-                    modified_at=file.modified_at,
-                ))
+                records.append(
+                    ExternalAPIRecord(
+                        external_id=file.id,
+                        name=file.name,
+                        raw_data={
+                            "id": file.id,
+                            "name": file.name,
+                            "size": file.size,
+                            "mime_type": file.mime_type,
+                            "web_url": file.web_url,
+                            "parent_path": file.parent_path,
+                            "site_id": file.site_id,
+                            "drive_id": file.drive_id,
+                        },
+                        location_hints=[],
+                        modified_at=file.modified_at,
+                    )
+                )
 
             return records
 

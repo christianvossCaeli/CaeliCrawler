@@ -209,9 +209,7 @@ async def get_credentials_status(
     Returns the status of each credential type including whether it's configured,
     active, when it was last used, and any error messages.
     """
-    result = await session.execute(
-        select(UserApiCredentials).where(UserApiCredentials.user_id == current_user.id)
-    )
+    result = await session.execute(select(UserApiCredentials).where(UserApiCredentials.user_id == current_user.id))
     credentials = {c.credential_type: c for c in result.scalars().all()}
 
     # Get user's language preference
@@ -223,9 +221,7 @@ async def get_credentials_status(
         azure_openai=make_credential_status(
             ApiCredentialType.AZURE_OPENAI, credentials.get(ApiCredentialType.AZURE_OPENAI), language
         ),
-        openai=make_credential_status(
-            ApiCredentialType.OPENAI, credentials.get(ApiCredentialType.OPENAI), language
-        ),
+        openai=make_credential_status(ApiCredentialType.OPENAI, credentials.get(ApiCredentialType.OPENAI), language),
         anthropic=make_credential_status(
             ApiCredentialType.ANTHROPIC, credentials.get(ApiCredentialType.ANTHROPIC), language
         ),
@@ -365,7 +361,7 @@ async def delete_credential(
     try:
         cred_type = ApiCredentialType(credential_type)
     except ValueError:
-        raise ValidationError(f"Unbekannter Credential-Typ: {credential_type}")
+        raise ValidationError(f"Unbekannter Credential-Typ: {credential_type}") from None
 
     result = await session.execute(
         select(UserApiCredentials).where(

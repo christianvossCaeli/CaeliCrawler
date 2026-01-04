@@ -113,12 +113,7 @@ class PySisProcess(Base):
     """
 
     __tablename__ = "pysis_processes"
-    __table_args__ = (
-        UniqueConstraint(
-            "entity_id", "pysis_process_id",
-            name="uq_entity_pysis_process"
-        ),
-    )
+    __table_args__ = (UniqueConstraint("entity_id", "pysis_process_id", name="uq_entity_pysis_process"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -228,12 +223,7 @@ class PySisProcessField(Base):
     """
 
     __tablename__ = "pysis_process_fields"
-    __table_args__ = (
-        UniqueConstraint(
-            "process_id", "pysis_field_name",
-            name="uq_process_pysis_field"
-        ),
-    )
+    __table_args__ = (UniqueConstraint("process_id", "pysis_field_name", name="uq_process_pysis_field"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

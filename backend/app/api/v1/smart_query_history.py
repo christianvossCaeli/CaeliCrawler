@@ -57,11 +57,11 @@ async def list_history(
     # Search in command text or display name
     if search:
         # Escape SQL wildcards to prevent injection
-        safe_search = search.replace('%', '\\%').replace('_', '\\_')
+        safe_search = search.replace("%", "\\%").replace("_", "\\_")
         query = query.where(
             or_(
-                SmartQueryOperation.command_text.ilike(f"%{safe_search}%", escape='\\'),
-                SmartQueryOperation.display_name.ilike(f"%{safe_search}%", escape='\\'),
+                SmartQueryOperation.command_text.ilike(f"%{safe_search}%", escape="\\"),
+                SmartQueryOperation.display_name.ilike(f"%{safe_search}%", escape="\\"),
             )
         )
 
@@ -70,11 +70,7 @@ async def list_history(
     total = (await session.execute(count_query)).scalar() or 0
 
     # Paginate and order by last_executed_at desc
-    query = (
-        query.order_by(SmartQueryOperation.last_executed_at.desc())
-        .offset((page - 1) * per_page)
-        .limit(per_page)
-    )
+    query = query.order_by(SmartQueryOperation.last_executed_at.desc()).offset((page - 1) * per_page).limit(per_page)
     result = await session.execute(query)
     operations = result.scalars().all()
 

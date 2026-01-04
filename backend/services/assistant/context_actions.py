@@ -29,10 +29,7 @@ logger = structlog.get_logger()
 
 
 async def handle_context_action(
-    db: AsyncSession,
-    message: str,
-    context: AssistantContext,
-    intent_data: dict[str, Any]
+    db: AsyncSession, message: str, context: AssistantContext, intent_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Handle context-aware action on current entity.
 
@@ -76,7 +73,7 @@ async def handle_context_action(
                 action=action,
                 entity_id=entity_id,
                 entity_name=entity_name,
-                success=False
+                success=False,
             ), []
 
         elif action == "create_facet":
@@ -126,27 +123,20 @@ async def handle_context_action(
             return await _handle_test_source_connection(db, context, action_data)
 
         else:
-            return ErrorResponseData(
-                message=f"Unbekannte Aktion: {action}",
-                error_code="unknown_action"
-            ), []
+            return ErrorResponseData(message=f"Unbekannte Aktion: {action}", error_code="unknown_action"), []
 
     except Exception as e:
         logger.error("context_action_error", action=action, error=str(e))
-        return ErrorResponseData(
-            message=f"Fehler bei der Ausführung: {str(e)}",
-            error_code="context_action_error"
-        ), []
+        return ErrorResponseData(message=f"Fehler bei der Ausführung: {str(e)}", error_code="context_action_error"), []
 
 
 # =============================================================================
 # PYSIS STATUS HANDLERS
 # =============================================================================
 
+
 async def _handle_show_pysis_status(
-    service: PySisFacetService,
-    entity_id: str,
-    entity_name: str
+    service: PySisFacetService, entity_id: str, entity_name: str
 ) -> tuple[ContextActionResponse, list[SuggestedAction]]:
     """Show PySis status for current entity."""
     status = await service.get_pysis_status(UUID(entity_id))
@@ -157,7 +147,7 @@ async def _handle_show_pysis_status(
             action="show_pysis_status",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=True
+            success=True,
         ), []
 
     processes = status.get("processes", [])
@@ -176,7 +166,7 @@ async def _handle_show_pysis_status(
         entity_id=entity_id,
         entity_name=entity_name,
         status=status,
-        success=True
+        success=True,
     ), [
         SuggestedAction(label="PySis analysieren", action="query", value="Analysiere PySis für Facets"),
         SuggestedAction(label="Facets anreichern", action="query", value="Reichere Facets mit PySis an"),
@@ -187,10 +177,9 @@ async def _handle_show_pysis_status(
 # ANALYZE PYSIS HANDLERS
 # =============================================================================
 
+
 async def _handle_analyze_pysis_preview(
-    service: PySisFacetService,
-    entity_id: str,
-    entity_name: str
+    service: PySisFacetService, entity_id: str, entity_name: str
 ) -> tuple[ContextActionResponse, list[SuggestedAction]]:
     """Preview PySis analysis for entity."""
     preview = await service.get_operation_preview(UUID(entity_id), "analyze")
@@ -203,7 +192,7 @@ async def _handle_analyze_pysis_preview(
             entity_name=entity_name,
             preview=preview,
             requires_confirmation=False,
-            success=False
+            success=False,
         ), []
 
     msg = f"**PySis-Analyse für {entity_name}**\n\n"
@@ -228,7 +217,7 @@ async def _handle_analyze_pysis_preview(
         entity_name=entity_name,
         preview=preview,
         requires_confirmation=True,
-        success=True
+        success=True,
     ), [
         SuggestedAction(label="✅ Ja, analysieren", action="query", value="Ja, starte die PySis-Analyse"),
         SuggestedAction(label="❌ Abbrechen", action="query", value="Abbrechen"),
@@ -236,9 +225,7 @@ async def _handle_analyze_pysis_preview(
 
 
 async def _handle_analyze_pysis_execute(
-    service: PySisFacetService,
-    entity_id: str,
-    entity_name: str
+    service: PySisFacetService, entity_id: str, entity_name: str
 ) -> tuple[ContextActionResponse, list[SuggestedAction]]:
     """Execute PySis analysis for entity."""
     preview = await service.get_operation_preview(UUID(entity_id), "analyze")
@@ -249,7 +236,7 @@ async def _handle_analyze_pysis_execute(
             action="analyze_pysis_execute",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), []
 
     task = await service.analyze_for_facets(UUID(entity_id))
@@ -266,7 +253,7 @@ async def _handle_analyze_pysis_execute(
         entity_name=entity_name,
         task_id=str(task.id),
         preview=preview,
-        success=True
+        success=True,
     ), [
         SuggestedAction(label="Status prüfen", action="query", value="Zeige PySis-Status"),
     ]
@@ -276,10 +263,9 @@ async def _handle_analyze_pysis_execute(
 # ENRICH FACETS HANDLERS
 # =============================================================================
 
+
 async def _handle_enrich_facets_preview(
-    service: PySisFacetService,
-    entity_id: str,
-    entity_name: str
+    service: PySisFacetService, entity_id: str, entity_name: str
 ) -> tuple[ContextActionResponse, list[SuggestedAction]]:
     """Preview facet enrichment for entity."""
     preview = await service.get_operation_preview(UUID(entity_id), "enrich")
@@ -292,7 +278,7 @@ async def _handle_enrich_facets_preview(
             entity_name=entity_name,
             preview=preview,
             requires_confirmation=False,
-            success=False
+            success=False,
         ), []
 
     msg = f"**Facet-Anreicherung für {entity_name}**\n\n"
@@ -316,19 +302,18 @@ async def _handle_enrich_facets_preview(
         entity_name=entity_name,
         preview=preview,
         requires_confirmation=True,
-        success=True
+        success=True,
     ), [
         SuggestedAction(label="✅ Ja, anreichern", action="query", value="Ja, starte die Facet-Anreicherung"),
-        SuggestedAction(label="🔄 Mit Überschreiben", action="query", value="Ja, anreichern und bestehende überschreiben"),
+        SuggestedAction(
+            label="🔄 Mit Überschreiben", action="query", value="Ja, anreichern und bestehende überschreiben"
+        ),
         SuggestedAction(label="❌ Abbrechen", action="query", value="Abbrechen"),
     ]
 
 
 async def _handle_enrich_facets_execute(
-    service: PySisFacetService,
-    entity_id: str,
-    entity_name: str,
-    action_data: dict[str, Any]
+    service: PySisFacetService, entity_id: str, entity_name: str, action_data: dict[str, Any]
 ) -> tuple[ContextActionResponse, list[SuggestedAction]]:
     """Execute facet enrichment for entity."""
     preview = await service.get_operation_preview(UUID(entity_id), "enrich")
@@ -339,7 +324,7 @@ async def _handle_enrich_facets_execute(
             action="enrich_facets_execute",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), []
 
     overwrite = action_data.get("overwrite", False) if isinstance(action_data, dict) else False
@@ -359,7 +344,7 @@ async def _handle_enrich_facets_execute(
         entity_name=entity_name,
         task_id=str(task.id),
         preview=preview,
-        success=True
+        success=True,
     ), [
         SuggestedAction(label="Status prüfen", action="query", value="Zeige PySis-Status"),
     ]
@@ -369,11 +354,9 @@ async def _handle_enrich_facets_execute(
 # CREATE FACET HANDLER
 # =============================================================================
 
+
 async def _handle_create_facet(
-    db: AsyncSession,
-    entity_id: str,
-    entity_name: str,
-    action_data: dict[str, Any]
+    db: AsyncSession, entity_id: str, entity_name: str, action_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Create a new facet value for entity."""
     facet_type_slug = action_data.get("facet_type") if isinstance(action_data, dict) else None
@@ -387,7 +370,7 @@ async def _handle_create_facet(
             action="create_facet",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), [
             SuggestedAction(label="Pain Point", action="query", value="Füge Pain Point hinzu: "),
             SuggestedAction(label="Positive Signal", action="query", value="Füge Positive Signal hinzu: "),
@@ -400,7 +383,7 @@ async def _handle_create_facet(
             action="create_facet",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), []
 
     # Find the facet type
@@ -415,7 +398,7 @@ async def _handle_create_facet(
             action="create_facet",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), []
 
     # Build the value based on facet type
@@ -427,6 +410,7 @@ async def _handle_create_facet(
 
     # Create the facet value
     from app.models.facet_value import FacetValueSourceType
+
     facet_value = FacetValue(
         entity_id=UUID(entity_id),
         facet_type_id=facet_type.id,
@@ -435,13 +419,14 @@ async def _handle_create_facet(
         source_type=FacetValueSourceType.AI_ASSISTANT,
         confidence_score=1.0,
         human_verified=True,
-        is_active=True
+        is_active=True,
     )
     db.add(facet_value)
     await db.flush()
 
     # Generate embedding for semantic similarity search
     from app.utils.similarity import generate_embedding
+
     embedding = await generate_embedding(description)
     if embedding:
         facet_value.text_embedding = embedding
@@ -462,7 +447,7 @@ async def _handle_create_facet(
         entity_id=entity_id,
         entity_name=entity_name,
         facet_value_id=str(facet_value.id),
-        success=True
+        success=True,
     ), [
         SuggestedAction(label="Weiteren hinzufügen", action="query", value=f"Füge weiteren {facet_type.name} hinzu"),
         SuggestedAction(label="Facets anzeigen", action="query", value="Zeige alle Facets"),
@@ -473,11 +458,9 @@ async def _handle_create_facet(
 # ANALYZE ENTITY DATA HANDLER
 # =============================================================================
 
+
 async def _handle_analyze_entity_data(
-    db: AsyncSession,
-    entity_id: str,
-    entity_name: str,
-    action_data: dict[str, Any]
+    db: AsyncSession, entity_id: str, entity_name: str, action_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Extract facets from entity data (PySIS, relations, documents, extractions)."""
     from services.entity_data_facet_service import EntityDataFacetService
@@ -506,15 +489,15 @@ async def _handle_analyze_entity_data(
         if not available_sources:
             return ContextActionResponse(
                 message=f"Keine Datenquellen für die Analyse von **{entity_name}** verfügbar.\n\n"
-                        f"Verfügbare Quellen prüfen:\n"
-                        f"- PySIS: {sources_info.get('pysis', {}).get('count', 0)} Felder\n"
-                        f"- Relationen: {sources_info.get('relations', {}).get('count', 0)} Verknüpfungen\n"
-                        f"- Dokumente: {sources_info.get('documents', {}).get('count', 0)} Dokumente\n"
-                        f"- Extraktionen: {sources_info.get('extractions', {}).get('count', 0)} Einträge",
+                f"Verfügbare Quellen prüfen:\n"
+                f"- PySIS: {sources_info.get('pysis', {}).get('count', 0)} Felder\n"
+                f"- Relationen: {sources_info.get('relations', {}).get('count', 0)} Verknüpfungen\n"
+                f"- Dokumente: {sources_info.get('documents', {}).get('count', 0)} Dokumente\n"
+                f"- Extraktionen: {sources_info.get('extractions', {}).get('count', 0)} Einträge",
                 action="analyze_entity_data",
                 entity_id=entity_id,
                 entity_name=entity_name,
-                success=False
+                success=False,
             ), []
 
         task = await service.start_analysis(
@@ -525,15 +508,15 @@ async def _handle_analyze_entity_data(
         sources_text = ", ".join(available_sources)
         return ContextActionResponse(
             message=f"**Facet-Analyse gestartet für {entity_name}**\n\n"
-                    f"Analysiere: {sources_text}\n\n"
-                    f"Die Analyse läuft im Hintergrund. "
-                    f"Öffne die Entity-Seite, um den Fortschritt zu sehen und die Ergebnisse zu prüfen.\n\n"
-                    f"Task-ID: `{task.id}`",
+            f"Analysiere: {sources_text}\n\n"
+            f"Die Analyse läuft im Hintergrund. "
+            f"Öffne die Entity-Seite, um den Fortschritt zu sehen und die Ergebnisse zu prüfen.\n\n"
+            f"Task-ID: `{task.id}`",
             action="analyze_entity_data",
             entity_id=entity_id,
             entity_name=entity_name,
             success=True,
-            task_id=str(task.id)
+            task_id=str(task.id),
         ), [
             SuggestedAction(label="Zur Entity", action="navigate", value=f"entity/{entity_id}"),
         ]
@@ -545,7 +528,7 @@ async def _handle_analyze_entity_data(
             action="analyze_entity_data",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), []
 
 
@@ -553,11 +536,9 @@ async def _handle_analyze_entity_data(
 # HISTORY HANDLERS
 # =============================================================================
 
+
 async def _handle_show_entity_history(
-    db: AsyncSession,
-    entity_id: str,
-    entity_name: str,
-    action_data: dict[str, Any]
+    db: AsyncSession, entity_id: str, entity_name: str, action_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Display history data for entity."""
     from services.facet_history_service import FacetHistoryService
@@ -568,9 +549,7 @@ async def _handle_show_entity_history(
         history_service = FacetHistoryService(db)
 
         if facet_type_slug:
-            ft_result = await db.execute(
-                select(FacetType).where(FacetType.slug == facet_type_slug)
-            )
+            ft_result = await db.execute(select(FacetType).where(FacetType.slug == facet_type_slug))
             facet_type = ft_result.scalar_one_or_none()
 
             if not facet_type or facet_type.value_type.value != "history":
@@ -579,7 +558,7 @@ async def _handle_show_entity_history(
                     action="show_entity_history",
                     entity_id=entity_id,
                     entity_name=entity_name,
-                    success=False
+                    success=False,
                 ), []
 
             history = await history_service.get_history(
@@ -593,9 +572,13 @@ async def _handle_show_entity_history(
                     action="show_entity_history",
                     entity_id=entity_id,
                     entity_name=entity_name,
-                    success=True
+                    success=True,
                 ), [
-                    SuggestedAction(label="Datenpunkt hinzufügen", action="query", value=f"Füge Datenpunkt für {facet_type.name} hinzu"),
+                    SuggestedAction(
+                        label="Datenpunkt hinzufügen",
+                        action="query",
+                        value=f"Füge Datenpunkt für {facet_type.name} hinzu",
+                    ),
                 ]
 
             msg = f"**{facet_type.name}-Verlauf für {entity_name}**\n\n"
@@ -613,16 +596,16 @@ async def _handle_show_entity_history(
                 entity_id=entity_id,
                 entity_name=entity_name,
                 success=True,
-                preview={"history": history.model_dump() if hasattr(history, "model_dump") else None}
+                preview={"history": history.model_dump() if hasattr(history, "model_dump") else None},
             ), [
-                SuggestedAction(label="Datenpunkt hinzufügen", action="query", value=f"Füge Datenpunkt für {facet_type.name} hinzu"),
+                SuggestedAction(
+                    label="Datenpunkt hinzufügen", action="query", value=f"Füge Datenpunkt für {facet_type.name} hinzu"
+                ),
                 SuggestedAction(label="Chart öffnen", action="navigate", value=f"entity/{entity_id}"),
             ]
         else:
             # List available history facet types
-            ft_result = await db.execute(
-                select(FacetType).where(FacetType.value_type == "history")
-            )
+            ft_result = await db.execute(select(FacetType).where(FacetType.value_type == "history"))
             history_types = ft_result.scalars().all()
 
             if not history_types:
@@ -631,9 +614,13 @@ async def _handle_show_entity_history(
                     action="show_entity_history",
                     entity_id=entity_id,
                     entity_name=entity_name,
-                    success=False
+                    success=False,
                 ), [
-                    SuggestedAction(label="History-Facet erstellen", action="query", value="Erstelle History-Facet-Typ für Haushaltsvolumen"),
+                    SuggestedAction(
+                        label="History-Facet erstellen",
+                        action="query",
+                        value="Erstelle History-Facet-Typ für Haushaltsvolumen",
+                    ),
                 ]
 
             msg = f"**Verfügbare History-Facets für {entity_name}:**\n\n"
@@ -641,12 +628,11 @@ async def _handle_show_entity_history(
                 msg += f"- **{ft.name}** (`{ft.slug}`)\n"
 
             return ContextActionResponse(
-                message=msg,
-                action="show_entity_history",
-                entity_id=entity_id,
-                entity_name=entity_name,
-                success=True
-            ), [SuggestedAction(label=ft.name, action="query", value=f"Zeige {ft.name}-Verlauf") for ft in history_types[:3]]
+                message=msg, action="show_entity_history", entity_id=entity_id, entity_name=entity_name, success=True
+            ), [
+                SuggestedAction(label=ft.name, action="query", value=f"Zeige {ft.name}-Verlauf")
+                for ft in history_types[:3]
+            ]
 
     except Exception as e:
         logger.error("show_entity_history_error", error=str(e))
@@ -655,15 +641,12 @@ async def _handle_show_entity_history(
             action="show_entity_history",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), []
 
 
 async def _handle_add_history_point(
-    db: AsyncSession,
-    entity_id: str,
-    entity_name: str,
-    action_data: dict[str, Any]
+    db: AsyncSession, entity_id: str, entity_name: str, action_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Add a data point to a history facet."""
     from services.facet_history_service import FacetHistoryService
@@ -680,7 +663,7 @@ async def _handle_add_history_point(
             action="add_history_point",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), []
 
     if value is None:
@@ -689,12 +672,10 @@ async def _handle_add_history_point(
             action="add_history_point",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), []
 
-    ft_result = await db.execute(
-        select(FacetType).where(FacetType.slug == facet_type_slug)
-    )
+    ft_result = await db.execute(select(FacetType).where(FacetType.slug == facet_type_slug))
     facet_type = ft_result.scalar_one_or_none()
 
     if not facet_type:
@@ -703,7 +684,7 @@ async def _handle_add_history_point(
             action="add_history_point",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), []
 
     if facet_type.value_type.value != "history":
@@ -712,7 +693,7 @@ async def _handle_add_history_point(
             action="add_history_point",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), []
 
     try:
@@ -757,10 +738,12 @@ async def _handle_add_history_point(
             entity_id=entity_id,
             entity_name=entity_name,
             success=True,
-            data_point_id=str(data_point.id)
+            data_point_id=str(data_point.id),
         ), [
             SuggestedAction(label="Verlauf anzeigen", action="query", value=f"Zeige {facet_type.name}-Verlauf"),
-            SuggestedAction(label="Weiteren hinzufügen", action="query", value=f"Füge weiteren {facet_type.name}-Datenpunkt hinzu"),
+            SuggestedAction(
+                label="Weiteren hinzufügen", action="query", value=f"Füge weiteren {facet_type.name}-Datenpunkt hinzu"
+            ),
         ]
 
     except Exception as e:
@@ -770,7 +753,7 @@ async def _handle_add_history_point(
             action="add_history_point",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), []
 
 
@@ -778,11 +761,9 @@ async def _handle_add_history_point(
 # RELATION HANDLERS
 # =============================================================================
 
+
 async def _handle_add_relation(
-    db: AsyncSession,
-    entity_id: str,
-    entity_name: str,
-    action_data: dict[str, Any]
+    db: AsyncSession, entity_id: str, entity_name: str, action_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Add a relation to another entity."""
     from app.models import Entity, EntityRelation
@@ -797,15 +778,13 @@ async def _handle_add_relation(
             action="add_relation",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), []
 
     try:
         # Find target entity
         if target_entity_id:
-            target_result = await db.execute(
-                select(Entity).where(Entity.id == UUID(target_entity_id))
-            )
+            target_result = await db.execute(select(Entity).where(Entity.id == UUID(target_entity_id)))
             target = target_result.scalar_one_or_none()
         else:
             target_result = await db.execute(
@@ -819,7 +798,7 @@ async def _handle_add_relation(
                 action="add_relation",
                 entity_id=entity_id,
                 entity_name=entity_name,
-                success=False
+                success=False,
             ), []
 
         # Check if relation already exists
@@ -827,7 +806,7 @@ async def _handle_add_relation(
             select(EntityRelation).where(
                 EntityRelation.source_entity_id == UUID(entity_id),
                 EntityRelation.target_entity_id == target.id,
-                EntityRelation.relation_type == relation_type
+                EntityRelation.relation_type == relation_type,
             )
         )
         if existing.scalar_one_or_none():
@@ -836,7 +815,7 @@ async def _handle_add_relation(
                 action="add_relation",
                 entity_id=entity_id,
                 entity_name=entity_name,
-                success=False
+                success=False,
             ), []
 
         # Create relation
@@ -854,11 +833,7 @@ async def _handle_add_relation(
         msg += f"- **Typ:** {relation_type}\n"
 
         return ContextActionResponse(
-            message=msg,
-            action="add_relation",
-            entity_id=entity_id,
-            entity_name=entity_name,
-            success=True
+            message=msg, action="add_relation", entity_id=entity_id, entity_name=entity_name, success=True
         ), [
             SuggestedAction(label="Relationen anzeigen", action="query", value="Zeige alle Relationen"),
             SuggestedAction(label="Weitere hinzufügen", action="query", value="Füge weitere Relation hinzu"),
@@ -871,15 +846,12 @@ async def _handle_add_relation(
             action="add_relation",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), []
 
 
 async def _handle_remove_relation(
-    db: AsyncSession,
-    entity_id: str,
-    entity_name: str,
-    action_data: dict[str, Any]
+    db: AsyncSession, entity_id: str, entity_name: str, action_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Remove a relation to another entity."""
     from app.models import EntityRelation
@@ -894,19 +866,17 @@ async def _handle_remove_relation(
             action="remove_relation",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), []
 
     try:
         if relation_id:
-            relation_result = await db.execute(
-                select(EntityRelation).where(EntityRelation.id == UUID(relation_id))
-            )
+            relation_result = await db.execute(select(EntityRelation).where(EntityRelation.id == UUID(relation_id)))
             relation = relation_result.scalar_one_or_none()
         else:
             query = select(EntityRelation).where(
                 EntityRelation.source_entity_id == UUID(entity_id),
-                EntityRelation.target_entity_id == UUID(target_entity_id)
+                EntityRelation.target_entity_id == UUID(target_entity_id),
             )
             if relation_type:
                 query = query.where(EntityRelation.relation_type == relation_type)
@@ -919,7 +889,7 @@ async def _handle_remove_relation(
                 action="remove_relation",
                 entity_id=entity_id,
                 entity_name=entity_name,
-                success=False
+                success=False,
             ), []
 
         await db.delete(relation)
@@ -930,7 +900,7 @@ async def _handle_remove_relation(
             action="remove_relation",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=True
+            success=True,
         ), [
             SuggestedAction(label="Relationen anzeigen", action="query", value="Zeige alle Relationen"),
         ]
@@ -942,7 +912,7 @@ async def _handle_remove_relation(
             action="remove_relation",
             entity_id=entity_id,
             entity_name=entity_name,
-            success=False
+            success=False,
         ), []
 
 
@@ -950,10 +920,9 @@ async def _handle_remove_relation(
 # WIDGET HANDLERS (Summary Dashboards)
 # =============================================================================
 
+
 async def _handle_add_widget(
-    db: AsyncSession,
-    context: AssistantContext,
-    action_data: dict[str, Any]
+    db: AsyncSession, context: AssistantContext, action_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Add a widget to a summary dashboard."""
     from app.models import CustomSummary, SummaryWidget
@@ -964,8 +933,7 @@ async def _handle_add_widget(
 
     if not summary_id:
         return ErrorResponseData(
-            message="Kein Summary-Dashboard im aktuellen Kontext gefunden.",
-            error_code="no_summary_context"
+            message="Kein Summary-Dashboard im aktuellen Kontext gefunden.", error_code="no_summary_context"
         ), []
 
     if not widget_type:
@@ -974,7 +942,7 @@ async def _handle_add_widget(
             action="add_widget",
             entity_id=None,
             entity_name=None,
-            success=False
+            success=False,
         ), [
             SuggestedAction(label="Chart", action="query", value="Füge Chart-Widget hinzu"),
             SuggestedAction(label="Tabelle", action="query", value="Füge Tabellen-Widget hinzu"),
@@ -982,21 +950,14 @@ async def _handle_add_widget(
         ]
 
     try:
-        summary_result = await db.execute(
-            select(CustomSummary).where(CustomSummary.id == UUID(summary_id))
-        )
+        summary_result = await db.execute(select(CustomSummary).where(CustomSummary.id == UUID(summary_id)))
         summary = summary_result.scalar_one_or_none()
 
         if not summary:
-            return ErrorResponseData(
-                message="Summary-Dashboard nicht gefunden.",
-                error_code="summary_not_found"
-            ), []
+            return ErrorResponseData(message="Summary-Dashboard nicht gefunden.", error_code="summary_not_found"), []
 
         # Get next position
-        widgets_result = await db.execute(
-            select(SummaryWidget).where(SummaryWidget.summary_id == summary.id)
-        )
+        widgets_result = await db.execute(select(SummaryWidget).where(SummaryWidget.summary_id == summary.id))
         existing_widgets = widgets_result.scalars().all()
         next_position = len(existing_widgets)
 
@@ -1012,14 +973,14 @@ async def _handle_add_widget(
 
         return ContextActionResponse(
             message=f"✅ **Widget hinzugefügt!**\n\n"
-                    f"- **Typ:** {widget_type}\n"
-                    f"- **Titel:** {widget.title}\n"
-                    f"- **Position:** {next_position + 1}\n\n"
-                    f"Das Widget kann jetzt konfiguriert werden.",
+            f"- **Typ:** {widget_type}\n"
+            f"- **Titel:** {widget.title}\n"
+            f"- **Position:** {next_position + 1}\n\n"
+            f"Das Widget kann jetzt konfiguriert werden.",
             action="add_widget",
             entity_id=None,
             entity_name=None,
-            success=True
+            success=True,
         ), [
             SuggestedAction(label="Widget konfigurieren", action="query", value=f"Konfiguriere Widget {widget.title}"),
             SuggestedAction(label="Dashboard öffnen", action="navigate", value=f"summaries/{summary_id}"),
@@ -1028,15 +989,12 @@ async def _handle_add_widget(
     except Exception as e:
         logger.error("add_widget_error", error=str(e))
         return ErrorResponseData(
-            message=f"Fehler beim Hinzufügen des Widgets: {str(e)}",
-            error_code="add_widget_error"
+            message=f"Fehler beim Hinzufügen des Widgets: {str(e)}", error_code="add_widget_error"
         ), []
 
 
 async def _handle_remove_widget(
-    db: AsyncSession,
-    context: AssistantContext,
-    action_data: dict[str, Any]
+    db: AsyncSession, context: AssistantContext, action_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Remove a widget from a summary dashboard."""
     from app.models import SummaryWidget
@@ -1044,22 +1002,14 @@ async def _handle_remove_widget(
     widget_id = action_data.get("widget_id") if isinstance(action_data, dict) else None
 
     if not widget_id:
-        return ErrorResponseData(
-            message="Bitte gib die Widget-ID an.",
-            error_code="missing_widget_id"
-        ), []
+        return ErrorResponseData(message="Bitte gib die Widget-ID an.", error_code="missing_widget_id"), []
 
     try:
-        widget_result = await db.execute(
-            select(SummaryWidget).where(SummaryWidget.id == UUID(widget_id))
-        )
+        widget_result = await db.execute(select(SummaryWidget).where(SummaryWidget.id == UUID(widget_id)))
         widget = widget_result.scalar_one_or_none()
 
         if not widget:
-            return ErrorResponseData(
-                message="Widget nicht gefunden.",
-                error_code="widget_not_found"
-            ), []
+            return ErrorResponseData(message="Widget nicht gefunden.", error_code="widget_not_found"), []
 
         widget_title = widget.title
         await db.delete(widget)
@@ -1070,21 +1020,18 @@ async def _handle_remove_widget(
             action="remove_widget",
             entity_id=None,
             entity_name=None,
-            success=True
+            success=True,
         ), []
 
     except Exception as e:
         logger.error("remove_widget_error", error=str(e))
         return ErrorResponseData(
-            message=f"Fehler beim Entfernen des Widgets: {str(e)}",
-            error_code="remove_widget_error"
+            message=f"Fehler beim Entfernen des Widgets: {str(e)}", error_code="remove_widget_error"
         ), []
 
 
 async def _handle_configure_widget(
-    db: AsyncSession,
-    context: AssistantContext,
-    action_data: dict[str, Any]
+    db: AsyncSession, context: AssistantContext, action_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Configure a widget on a summary dashboard."""
     from app.models import SummaryWidget
@@ -1094,22 +1041,14 @@ async def _handle_configure_widget(
     title = action_data.get("title") if isinstance(action_data, dict) else None
 
     if not widget_id:
-        return ErrorResponseData(
-            message="Bitte gib die Widget-ID an.",
-            error_code="missing_widget_id"
-        ), []
+        return ErrorResponseData(message="Bitte gib die Widget-ID an.", error_code="missing_widget_id"), []
 
     try:
-        widget_result = await db.execute(
-            select(SummaryWidget).where(SummaryWidget.id == UUID(widget_id))
-        )
+        widget_result = await db.execute(select(SummaryWidget).where(SummaryWidget.id == UUID(widget_id)))
         widget = widget_result.scalar_one_or_none()
 
         if not widget:
-            return ErrorResponseData(
-                message="Widget nicht gefunden.",
-                error_code="widget_not_found"
-            ), []
+            return ErrorResponseData(message="Widget nicht gefunden.", error_code="widget_not_found"), []
 
         if title:
             widget.title = title
@@ -1119,19 +1058,17 @@ async def _handle_configure_widget(
         await db.commit()
 
         return ContextActionResponse(
-            message=f"✅ **Widget '{widget.title}' konfiguriert!**\n\n"
-                    f"Die Änderungen wurden gespeichert.",
+            message=f"✅ **Widget '{widget.title}' konfiguriert!**\n\nDie Änderungen wurden gespeichert.",
             action="configure_widget",
             entity_id=None,
             entity_name=None,
-            success=True
+            success=True,
         ), []
 
     except Exception as e:
         logger.error("configure_widget_error", error=str(e))
         return ErrorResponseData(
-            message=f"Fehler beim Konfigurieren des Widgets: {str(e)}",
-            error_code="configure_widget_error"
+            message=f"Fehler beim Konfigurieren des Widgets: {str(e)}", error_code="configure_widget_error"
         ), []
 
 
@@ -1139,10 +1076,9 @@ async def _handle_configure_widget(
 # CRAWLER CONTROL HANDLERS
 # =============================================================================
 
+
 async def _handle_pause_crawl(
-    db: AsyncSession,
-    context: AssistantContext,
-    action_data: dict[str, Any]
+    db: AsyncSession, context: AssistantContext, action_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Pause a running crawl job."""
     from app.models import CrawlJob, CrawlJobStatus
@@ -1157,21 +1093,15 @@ async def _handle_pause_crawl(
 
     if not job_id:
         return ErrorResponseData(
-            message="Keine aktive Crawl-Job-ID gefunden. Bitte gib die Job-ID an.",
-            error_code="missing_job_id"
+            message="Keine aktive Crawl-Job-ID gefunden. Bitte gib die Job-ID an.", error_code="missing_job_id"
         ), []
 
     try:
-        job_result = await db.execute(
-            select(CrawlJob).where(CrawlJob.id == UUID(job_id))
-        )
+        job_result = await db.execute(select(CrawlJob).where(CrawlJob.id == UUID(job_id)))
         job = job_result.scalar_one_or_none()
 
         if not job:
-            return ErrorResponseData(
-                message="Crawl-Job nicht gefunden.",
-                error_code="job_not_found"
-            ), []
+            return ErrorResponseData(message="Crawl-Job nicht gefunden.", error_code="job_not_found"), []
 
         if job.status != CrawlJobStatus.RUNNING:
             return ContextActionResponse(
@@ -1179,7 +1109,7 @@ async def _handle_pause_crawl(
                 action="pause_crawl",
                 entity_id=None,
                 entity_name=None,
-                success=False
+                success=False,
             ), []
 
         job.status = CrawlJobStatus.PAUSED
@@ -1187,13 +1117,13 @@ async def _handle_pause_crawl(
 
         return ContextActionResponse(
             message=f"⏸️ **Crawl-Job pausiert!**\n\n"
-                    f"- **Job-ID:** `{job_id}`\n"
-                    f"- **Quelle:** {job.source_name or 'Unbekannt'}\n\n"
-                    f"Der Job kann mit 'Crawl fortsetzen' wieder gestartet werden.",
+            f"- **Job-ID:** `{job_id}`\n"
+            f"- **Quelle:** {job.source_name or 'Unbekannt'}\n\n"
+            f"Der Job kann mit 'Crawl fortsetzen' wieder gestartet werden.",
             action="pause_crawl",
             entity_id=None,
             entity_name=None,
-            success=True
+            success=True,
         ), [
             SuggestedAction(label="Fortsetzen", action="query", value="Setze Crawl fort"),
             SuggestedAction(label="Abbrechen", action="query", value="Breche Crawl ab"),
@@ -1201,16 +1131,11 @@ async def _handle_pause_crawl(
 
     except Exception as e:
         logger.error("pause_crawl_error", error=str(e))
-        return ErrorResponseData(
-            message=f"Fehler beim Pausieren: {str(e)}",
-            error_code="pause_crawl_error"
-        ), []
+        return ErrorResponseData(message=f"Fehler beim Pausieren: {str(e)}", error_code="pause_crawl_error"), []
 
 
 async def _handle_resume_crawl(
-    db: AsyncSession,
-    context: AssistantContext,
-    action_data: dict[str, Any]
+    db: AsyncSession, context: AssistantContext, action_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Resume a paused crawl job."""
     from app.models import CrawlJob, CrawlJobStatus
@@ -1226,22 +1151,14 @@ async def _handle_resume_crawl(
                     break
 
     if not job_id:
-        return ErrorResponseData(
-            message="Keine pausierte Crawl-Job-ID gefunden.",
-            error_code="missing_job_id"
-        ), []
+        return ErrorResponseData(message="Keine pausierte Crawl-Job-ID gefunden.", error_code="missing_job_id"), []
 
     try:
-        job_result = await db.execute(
-            select(CrawlJob).where(CrawlJob.id == UUID(job_id))
-        )
+        job_result = await db.execute(select(CrawlJob).where(CrawlJob.id == UUID(job_id)))
         job = job_result.scalar_one_or_none()
 
         if not job:
-            return ErrorResponseData(
-                message="Crawl-Job nicht gefunden.",
-                error_code="job_not_found"
-            ), []
+            return ErrorResponseData(message="Crawl-Job nicht gefunden.", error_code="job_not_found"), []
 
         if job.status != CrawlJobStatus.PAUSED:
             return ContextActionResponse(
@@ -1249,7 +1166,7 @@ async def _handle_resume_crawl(
                 action="resume_crawl",
                 entity_id=None,
                 entity_name=None,
-                success=False
+                success=False,
             ), []
 
         job.status = CrawlJobStatus.RUNNING
@@ -1257,28 +1174,23 @@ async def _handle_resume_crawl(
 
         return ContextActionResponse(
             message=f"▶️ **Crawl-Job fortgesetzt!**\n\n"
-                    f"- **Job-ID:** `{job_id}`\n"
-                    f"- **Quelle:** {job.source_name or 'Unbekannt'}\n",
+            f"- **Job-ID:** `{job_id}`\n"
+            f"- **Quelle:** {job.source_name or 'Unbekannt'}\n",
             action="resume_crawl",
             entity_id=None,
             entity_name=None,
-            success=True
+            success=True,
         ), [
             SuggestedAction(label="Pausieren", action="query", value="Pausiere Crawl"),
         ]
 
     except Exception as e:
         logger.error("resume_crawl_error", error=str(e))
-        return ErrorResponseData(
-            message=f"Fehler beim Fortsetzen: {str(e)}",
-            error_code="resume_crawl_error"
-        ), []
+        return ErrorResponseData(message=f"Fehler beim Fortsetzen: {str(e)}", error_code="resume_crawl_error"), []
 
 
 async def _handle_cancel_crawl(
-    db: AsyncSession,
-    context: AssistantContext,
-    action_data: dict[str, Any]
+    db: AsyncSession, context: AssistantContext, action_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Cancel a crawl job."""
     from app.models import CrawlJob, CrawlJobStatus
@@ -1291,22 +1203,14 @@ async def _handle_cancel_crawl(
             job_id = active_jobs[0].get("job_id")
 
     if not job_id:
-        return ErrorResponseData(
-            message="Keine Crawl-Job-ID gefunden.",
-            error_code="missing_job_id"
-        ), []
+        return ErrorResponseData(message="Keine Crawl-Job-ID gefunden.", error_code="missing_job_id"), []
 
     try:
-        job_result = await db.execute(
-            select(CrawlJob).where(CrawlJob.id == UUID(job_id))
-        )
+        job_result = await db.execute(select(CrawlJob).where(CrawlJob.id == UUID(job_id)))
         job = job_result.scalar_one_or_none()
 
         if not job:
-            return ErrorResponseData(
-                message="Crawl-Job nicht gefunden.",
-                error_code="job_not_found"
-            ), []
+            return ErrorResponseData(message="Crawl-Job nicht gefunden.", error_code="job_not_found"), []
 
         if job.status in [CrawlJobStatus.COMPLETED, CrawlJobStatus.FAILED, CrawlJobStatus.CANCELLED]:
             return ContextActionResponse(
@@ -1314,7 +1218,7 @@ async def _handle_cancel_crawl(
                 action="cancel_crawl",
                 entity_id=None,
                 entity_name=None,
-                success=False
+                success=False,
             ), []
 
         job.status = CrawlJobStatus.CANCELLED
@@ -1322,30 +1226,26 @@ async def _handle_cancel_crawl(
 
         return ContextActionResponse(
             message=f"🛑 **Crawl-Job abgebrochen!**\n\n"
-                    f"- **Job-ID:** `{job_id}`\n"
-                    f"- **Quelle:** {job.source_name or 'Unbekannt'}\n",
+            f"- **Job-ID:** `{job_id}`\n"
+            f"- **Quelle:** {job.source_name or 'Unbekannt'}\n",
             action="cancel_crawl",
             entity_id=None,
             entity_name=None,
-            success=True
+            success=True,
         ), []
 
     except Exception as e:
         logger.error("cancel_crawl_error", error=str(e))
-        return ErrorResponseData(
-            message=f"Fehler beim Abbrechen: {str(e)}",
-            error_code="cancel_crawl_error"
-        ), []
+        return ErrorResponseData(message=f"Fehler beim Abbrechen: {str(e)}", error_code="cancel_crawl_error"), []
 
 
 # =============================================================================
 # CATEGORY/SOURCE HANDLERS
 # =============================================================================
 
+
 async def _handle_start_category_crawl(
-    db: AsyncSession,
-    context: AssistantContext,
-    action_data: dict[str, Any]
+    db: AsyncSession, context: AssistantContext, action_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Start a crawl for all sources in a category."""
     from app.models import Category, Source
@@ -1358,28 +1258,19 @@ async def _handle_start_category_crawl(
 
     if not category_id:
         return ErrorResponseData(
-            message="Keine Kategorie-ID gefunden. Bitte gib die Kategorie an.",
-            error_code="missing_category_id"
+            message="Keine Kategorie-ID gefunden. Bitte gib die Kategorie an.", error_code="missing_category_id"
         ), []
 
     try:
-        category_result = await db.execute(
-            select(Category).where(Category.id == UUID(category_id))
-        )
+        category_result = await db.execute(select(Category).where(Category.id == UUID(category_id)))
         category = category_result.scalar_one_or_none()
 
         if not category:
-            return ErrorResponseData(
-                message="Kategorie nicht gefunden.",
-                error_code="category_not_found"
-            ), []
+            return ErrorResponseData(message="Kategorie nicht gefunden.", error_code="category_not_found"), []
 
         # Count active sources
         sources_result = await db.execute(
-            select(Source).where(
-                Source.category_id == category.id,
-                Source.status == "ACTIVE"
-            )
+            select(Source).where(Source.category_id == category.id, Source.status == "ACTIVE")
         )
         sources = sources_result.scalars().all()
 
@@ -1389,7 +1280,7 @@ async def _handle_start_category_crawl(
                 action="start_category_crawl",
                 entity_id=None,
                 entity_name=None,
-                success=False
+                success=False,
             ), []
 
         # Start crawl tasks
@@ -1408,11 +1299,7 @@ async def _handle_start_category_crawl(
             msg += "\n⚠️ Nur die ersten 50 Quellen wurden gestartet."
 
         return ContextActionResponse(
-            message=msg,
-            action="start_category_crawl",
-            entity_id=None,
-            entity_name=None,
-            success=True
+            message=msg, action="start_category_crawl", entity_id=None, entity_name=None, success=True
         ), [
             SuggestedAction(label="Crawler-Status", action="navigate", value="crawler"),
         ]
@@ -1420,19 +1307,17 @@ async def _handle_start_category_crawl(
     except Exception as e:
         logger.error("start_category_crawl_error", error=str(e))
         return ErrorResponseData(
-            message=f"Fehler beim Starten der Crawls: {str(e)}",
-            error_code="start_category_crawl_error"
+            message=f"Fehler beim Starten der Crawls: {str(e)}", error_code="start_category_crawl_error"
         ), []
 
 
 async def _handle_test_source_connection(
-    db: AsyncSession,
-    context: AssistantContext,
-    action_data: dict[str, Any]
+    db: AsyncSession, context: AssistantContext, action_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Test the connection to a source."""
-    from app.models import Source
     import httpx
+
+    from app.models import Source
 
     source_id = action_data.get("source_id") if isinstance(action_data, dict) else None
 
@@ -1441,21 +1326,15 @@ async def _handle_test_source_connection(
 
     if not source_id:
         return ErrorResponseData(
-            message="Keine Quellen-ID gefunden. Bitte gib die Quelle an.",
-            error_code="missing_source_id"
+            message="Keine Quellen-ID gefunden. Bitte gib die Quelle an.", error_code="missing_source_id"
         ), []
 
     try:
-        source_result = await db.execute(
-            select(Source).where(Source.id == UUID(source_id))
-        )
+        source_result = await db.execute(select(Source).where(Source.id == UUID(source_id)))
         source = source_result.scalar_one_or_none()
 
         if not source:
-            return ErrorResponseData(
-                message="Quelle nicht gefunden.",
-                error_code="source_not_found"
-            ), []
+            return ErrorResponseData(message="Quelle nicht gefunden.", error_code="source_not_found"), []
 
         # Test connection
         url = source.url
@@ -1467,6 +1346,7 @@ async def _handle_test_source_connection(
         try:
             async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
                 import time
+
                 start = time.time()
                 response = await client.get(url)
                 response_time_ms = int((time.time() - start) * 1000)
@@ -1498,11 +1378,7 @@ async def _handle_test_source_connection(
             entity_id=None,
             entity_name=None,
             success=success,
-            preview={
-                "status_code": status_code,
-                "response_time_ms": response_time_ms,
-                "error": error_msg
-            }
+            preview={"status_code": status_code, "response_time_ms": response_time_ms, "error": error_msg},
         ), [
             SuggestedAction(label="Crawl starten", action="query", value=f"Starte Crawl für {source.name}"),
         ] if success else []
@@ -1510,6 +1386,5 @@ async def _handle_test_source_connection(
     except Exception as e:
         logger.error("test_source_connection_error", error=str(e))
         return ErrorResponseData(
-            message=f"Fehler beim Testen der Verbindung: {str(e)}",
-            error_code="test_source_connection_error"
+            message=f"Fehler beim Testen der Verbindung: {str(e)}", error_code="test_source_connection_error"
         ), []

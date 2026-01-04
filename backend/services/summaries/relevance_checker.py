@@ -134,14 +134,8 @@ def count_record_changes(
         changes["total_new"] += len(new_records)
 
         # Create lookup by entity_id if available
-        old_by_id = {
-            r.get("entity_id", str(i)): r
-            for i, r in enumerate(old_records)
-        }
-        new_by_id = {
-            r.get("entity_id", str(i)): r
-            for i, r in enumerate(new_records)
-        }
+        old_by_id = {r.get("entity_id", str(i)): r for i, r in enumerate(old_records)}
+        new_by_id = {r.get("entity_id", str(i)): r for i, r in enumerate(new_records)}
 
         # Count changes
         for eid in new_by_id:
@@ -261,7 +255,7 @@ async def check_relevance(
             )
 
             # Combine scores (weighted average)
-            combined_score = (significance_score * 0.4 + ai_result["score"] * 0.6)
+            combined_score = significance_score * 0.4 + ai_result["score"] * 0.6
 
             return RelevanceCheckResult(
                 should_update=combined_score >= threshold,
@@ -307,16 +301,16 @@ async def _check_relevance_with_ai(
     prompt = f"""Analysiere diese Datenänderungen für eine Zusammenfassung.
 
 ## Zusammenfassung-Kontext:
-- Name: {summary_context.get('name', 'Unbekannt')}
-- Beschreibung: {summary_context.get('prompt', 'Keine Beschreibung')[:200]}
-- Thema: {summary_context.get('theme', {}).get('context', 'Allgemein')}
+- Name: {summary_context.get("name", "Unbekannt")}
+- Beschreibung: {summary_context.get("prompt", "Keine Beschreibung")[:200]}
+- Thema: {summary_context.get("theme", {}).get("context", "Allgemein")}
 
 ## Änderungsstatistik:
-- Neue Einträge: {changes['added']}
-- Entfernte Einträge: {changes['removed']}
-- Geänderte Einträge: {changes['changed']}
-- Gesamt vorher: {changes['total_old']}
-- Gesamt nachher: {changes['total_new']}
+- Neue Einträge: {changes["added"]}
+- Entfernte Einträge: {changes["removed"]}
+- Geänderte Einträge: {changes["changed"]}
+- Gesamt vorher: {changes["total_old"]}
+- Gesamt nachher: {changes["total_new"]}
 
 ## Änderungsbeispiele:
 {change_summary}
@@ -429,7 +423,7 @@ def _build_change_summary(
 
         # Sample new records
         old_ids = {r.get("entity_id") for r in old_records if r.get("entity_id")}
-        for record in new_records[:max_samples - samples_collected]:
+        for record in new_records[: max_samples - samples_collected]:
             entity_id = record.get("entity_id")
             if entity_id and entity_id not in old_ids:
                 name = record.get("name", entity_id)
@@ -438,7 +432,7 @@ def _build_change_summary(
 
         # Sample removed records
         new_ids = {r.get("entity_id") for r in new_records if r.get("entity_id")}
-        for record in old_records[:max_samples - samples_collected]:
+        for record in old_records[: max_samples - samples_collected]:
             entity_id = record.get("entity_id")
             if entity_id and entity_id not in new_ids:
                 name = record.get("name", entity_id)

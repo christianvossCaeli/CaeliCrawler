@@ -37,8 +37,12 @@ def infer_field_mapping_from_api_response(items: list[dict[str, Any]]) -> dict[s
     # Name field detection (priority order)
     name_candidates = [
         # Wikidata patterns (ending in Label)
-        k for k in keys if k.endswith("Label") and not k.startswith("bundesland")
-        and not k.startswith("region") and not k.startswith("parent")
+        k
+        for k in keys
+        if k.endswith("Label")
+        and not k.startswith("bundesland")
+        and not k.startswith("region")
+        and not k.startswith("parent")
     ]
     if name_candidates:
         # Prefer shorter names (e.g., "gemeindeLabel" over "administrativeDistrictLabel")
@@ -94,10 +98,10 @@ def infer_field_mapping_from_api_response(items: list[dict[str, Any]]) -> dict[s
 
     # Parent/Region field (for hierarchy)
     parent_candidates = [
-        k for k in keys if k.endswith("Label") and (
-            k.startswith("bundesland") or k.startswith("region") or
-            k.startswith("parent") or k.startswith("state")
-        )
+        k
+        for k in keys
+        if k.endswith("Label")
+        and (k.startswith("bundesland") or k.startswith("region") or k.startswith("parent") or k.startswith("state"))
     ]
     if parent_candidates:
         mapping["parent_name"] = parent_candidates[0]
@@ -263,17 +267,13 @@ async def execute_fetch_and_create(
 
     try:
         # Step 1: Ensure entity type exists
-        et_result = await session.execute(
-            select(EntityType).where(EntityType.slug == entity_type_slug)
-        )
+        et_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
         entity_type = et_result.scalar_one_or_none()
 
         if not entity_type:
             if create_entity_type_flag and entity_type_config:
                 # Create the entity type
-                entity_type, et_message = await create_entity_type_from_command(
-                    session, entity_type_config
-                )
+                entity_type, et_message = await create_entity_type_from_command(session, entity_type_config)
                 if not entity_type:
                     result["message"] = f"Entity-Typ konnte nicht erstellt werden: {et_message}"
                     return result
@@ -286,26 +286,26 @@ async def execute_fetch_and_create(
         if parent_config:
             parent_type_slug = parent_config.get("entity_type")
             if parent_type_slug:
-                pet_result = await session.execute(
-                    select(EntityType).where(EntityType.slug == parent_type_slug)
-                )
+                pet_result = await session.execute(select(EntityType).where(EntityType.slug == parent_type_slug))
                 parent_entity_type = pet_result.scalar_one_or_none()
 
                 if not parent_entity_type:
                     # Create parent entity type - use provided config or defaults
-                    parent_type_config = parent_config.get("parent_type_config") or parent_config.get("entity_type_config") or {
-                        "name": parent_type_slug.replace("-", " ").title(),
-                        "name_plural": parent_type_slug.replace("-", " ").title() + "s",
-                        "slug": parent_type_slug,
-                        "icon": "mdi-map-marker",
-                        "color": "#FF9800",
-                        "is_primary": False,
-                        "is_public": True,
-                        "supports_hierarchy": False,
-                    }
-                    parent_entity_type, pet_message = await create_entity_type_from_command(
-                        session, parent_type_config
+                    parent_type_config = (
+                        parent_config.get("parent_type_config")
+                        or parent_config.get("entity_type_config")
+                        or {
+                            "name": parent_type_slug.replace("-", " ").title(),
+                            "name_plural": parent_type_slug.replace("-", " ").title() + "s",
+                            "slug": parent_type_slug,
+                            "icon": "mdi-map-marker",
+                            "color": "#FF9800",
+                            "is_primary": False,
+                            "is_public": True,
+                            "supports_hierarchy": False,
+                        }
                     )
+                    parent_entity_type, pet_message = await create_entity_type_from_command(session, parent_type_config)
                     if parent_entity_type:
                         result["warnings"].append(f"Parent Entity-Typ '{parent_type_slug}' erstellt")
 
@@ -326,9 +326,7 @@ async def execute_fetch_and_create(
             # to link to the parent WITHIN THE SAME entity type, not separate entity types
             if "gemeinden" in query.lower() or "municipalities" in query.lower():
                 # Check if target entity type is hierarchical
-                et_check = await session.execute(
-                    select(EntityType).where(EntityType.slug == entity_type_slug)
-                )
+                et_check = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
                 entity_type_obj = et_check.scalar_one_or_none()
 
                 if entity_type_obj and entity_type_obj.supports_hierarchy:
@@ -350,16 +348,20 @@ async def execute_fetch_and_create(
                         "entity_type": "bundesland" if country in ["DE", "AT"] else "region",
                         "create_parent_type": True,
                         "parent_type_config": {
-                            "name": "Bundesland" if country == "DE" else ("Bundesland" if country == "AT" else "Region"),
+                            "name": "Bundesland"
+                            if country == "DE"
+                            else ("Bundesland" if country == "AT" else "Region"),
                             "name_plural": "Bundesländer" if country in ["DE", "AT"] else "Regions",
                             "slug": "bundesland" if country in ["DE", "AT"] else "region",
-                            "description": "Deutsche Bundesländer" if country == "DE" else ("Österreichische Bundesländer" if country == "AT" else "UK Regions"),
+                            "description": "Deutsche Bundesländer"
+                            if country == "DE"
+                            else ("Österreichische Bundesländer" if country == "AT" else "UK Regions"),
                             "icon": "mdi-map-marker-radius",
                             "color": "#FF9800",
                             "is_primary": False,
                             "is_public": True,
                             "supports_hierarchy": False,
-                        }
+                        },
                     }
 
             # For Bundesländer/regions at level 1 (no parent needed within same type)
@@ -527,9 +529,19 @@ async def execute_fetch_and_create(
         await session.commit()
 
         result["success"] = True
-        matched_info = f", {result['matched_count']} mit Parent-Entities verknüpft" if result["matched_count"] > 0 else ""
-        hierarchy_info = f", {result['hierarchy_matched_count']} hierarchisch verknüpft" if result.get("hierarchy_matched_count", 0) > 0 else ""
-        ds_info = f", {result['data_sources_created']} Datenquellen erstellt" if result.get("data_sources_created", 0) > 0 else ""
+        matched_info = (
+            f", {result['matched_count']} mit Parent-Entities verknüpft" if result["matched_count"] > 0 else ""
+        )
+        hierarchy_info = (
+            f", {result['hierarchy_matched_count']} hierarchisch verknüpft"
+            if result.get("hierarchy_matched_count", 0) > 0
+            else ""
+        )
+        ds_info = (
+            f", {result['data_sources_created']} Datenquellen erstellt"
+            if result.get("data_sources_created", 0) > 0
+            else ""
+        )
         level_info = f" (Level {hierarchy_level})" if hierarchy_level else ""
         result["message"] = (
             f"API-Import abgeschlossen{level_info}: {result['created_count']} erstellt, "

@@ -44,10 +44,7 @@ class TestURLPatternFilter:
 
     def test_exclude_takes_precedence(self):
         """Test that exclude patterns are checked before include."""
-        filter_ = URLPatternFilter(
-            include_patterns=[r"/documents/"],
-            exclude_patterns=[r"\.pdf$"]
-        )
+        filter_ = URLPatternFilter(include_patterns=[r"/documents/"], exclude_patterns=[r"\.pdf$"])
 
         # Should be excluded even though it matches include pattern
         result = filter_.check("https://example.com/documents/file.pdf")
@@ -146,10 +143,12 @@ class TestFilterPipeline:
 
     def test_all_filters_pass(self):
         """Test that content passing all filters is accepted."""
-        pipeline = FilterPipeline([
-            URLPatternFilter(include_patterns=[r".*"]),  # Pass all
-            FileSizeFilter(min_size_bytes=10),
-        ])
+        pipeline = FilterPipeline(
+            [
+                URLPatternFilter(include_patterns=[r".*"]),  # Pass all
+                FileSizeFilter(min_size_bytes=10),
+            ]
+        )
 
         content = b"x" * 100
         result = pipeline.process("https://example.com", content=content)
@@ -159,10 +158,12 @@ class TestFilterPipeline:
 
     def test_first_failure_stops_pipeline(self):
         """Test that first filter failure stops the pipeline."""
-        pipeline = FilterPipeline([
-            URLPatternFilter(include_patterns=[r"/special/"]),  # Will fail
-            FileSizeFilter(),  # Should not be reached
-        ])
+        pipeline = FilterPipeline(
+            [
+                URLPatternFilter(include_patterns=[r"/special/"]),  # Will fail
+                FileSizeFilter(),  # Should not be reached
+            ]
+        )
 
         result = pipeline.process("https://example.com/other/")
 
@@ -171,10 +172,12 @@ class TestFilterPipeline:
 
     def test_score_averaging(self):
         """Test that scores are averaged across filters."""
-        pipeline = FilterPipeline([
-            URLPatternFilter(),  # Default score 0.5
-            FileSizeFilter(),    # Default score 0.5
-        ])
+        pipeline = FilterPipeline(
+            [
+                URLPatternFilter(),  # Default score 0.5
+                FileSizeFilter(),  # Default score 0.5
+            ]
+        )
 
         content = b"x" * 200
         result = pipeline.process("https://example.com", content=content)
@@ -186,21 +189,14 @@ class TestFilterPipeline:
         """Test that add_filter returns self for chaining."""
         pipeline = FilterPipeline()
 
-        result = (
-            pipeline
-            .add_filter(URLPatternFilter())
-            .add_filter(FileSizeFilter())
-        )
+        result = pipeline.add_filter(URLPatternFilter()).add_filter(FileSizeFilter())
 
         assert result is pipeline
         assert len(pipeline.filters) == 2
 
     def test_create_default_pipeline(self):
         """Test default pipeline creation."""
-        pipeline = FilterPipeline.create_default(
-            url_include_patterns=[r"/news/"],
-            url_exclude_patterns=[r"\.pdf$"]
-        )
+        pipeline = FilterPipeline.create_default(url_include_patterns=[r"/news/"], url_exclude_patterns=[r"\.pdf$"])
 
         # Should have URL, size, and keyword filters
         assert len(pipeline.filters) == 3
@@ -224,7 +220,7 @@ class TestFilterResult:
             reason="filtered",
             relevance_score=0.3,
             filter_name="test_filter",
-            details={"key": "value"}
+            details={"key": "value"},
         )
 
         assert result.should_process is False

@@ -64,13 +64,13 @@ class URLPatternFilter(CrawlFilter):
         self.include_patterns = []
         self.exclude_patterns = []
 
-        for pattern in (include_patterns or []):
+        for pattern in include_patterns or []:
             try:
                 self.include_patterns.append(re.compile(pattern, re.IGNORECASE))
             except re.error:
                 logger.warning("Invalid include pattern", pattern=pattern)
 
-        for pattern in (exclude_patterns or []):
+        for pattern in exclude_patterns or []:
             try:
                 self.exclude_patterns.append(re.compile(pattern, re.IGNORECASE))
             except re.error:
@@ -311,10 +311,12 @@ class FilterPipeline:
 
         # URL patterns (if configured)
         if url_include_patterns or url_exclude_patterns:
-            pipeline.add_filter(URLPatternFilter(
-                include_patterns=url_include_patterns,
-                exclude_patterns=url_exclude_patterns,
-            ))
+            pipeline.add_filter(
+                URLPatternFilter(
+                    include_patterns=url_include_patterns,
+                    exclude_patterns=url_exclude_patterns,
+                )
+            )
 
         # File size (always check)
         pipeline.add_filter(FileSizeFilter())

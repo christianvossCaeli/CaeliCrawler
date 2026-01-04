@@ -26,10 +26,7 @@ class TestBooleanOperators:
     async def test_or_operator_in_location_filter(self):
         """Test OR operator for location filters."""
         # Test that OR filter data structure is correct
-        location_filters = {
-            "admin_level_1": ["Nordrhein-Westfalen", "Bayern"],
-            "logical_operator": "OR"
-        }
+        location_filters = {"admin_level_1": ["Nordrhein-Westfalen", "Bayern"], "logical_operator": "OR"}
 
         # The query should use OR between location conditions
         assert location_filters["logical_operator"] == "OR"
@@ -40,10 +37,7 @@ class TestBooleanOperators:
     @pytest.mark.asyncio
     async def test_and_operator_in_facet_filter(self):
         """Test AND operator for facet type filters."""
-        facet_filters = {
-            "facet_types": ["pain_point", "positive_signal"],
-            "facet_logical_operator": "AND"
-        }
+        facet_filters = {"facet_types": ["pain_point", "positive_signal"], "facet_logical_operator": "AND"}
 
         # Entities must have BOTH facet types
         assert facet_filters["facet_logical_operator"] == "AND"
@@ -57,10 +51,7 @@ class TestNegationSupport:
     @pytest.mark.asyncio
     async def test_negative_facet_type_filter(self):
         """Test negative facet type filter interpretation."""
-        query_params = {
-            "primary_entity_type": "territorial_entity",
-            "negative_facet_types": ["pain_point"]
-        }
+        query_params = {"primary_entity_type": "territorial_entity", "negative_facet_types": ["pain_point"]}
 
         # Should find entities WITHOUT pain points
         assert "negative_facet_types" in query_params
@@ -69,12 +60,7 @@ class TestNegationSupport:
     @pytest.mark.asyncio
     async def test_negative_location_filter(self):
         """Test negative location filter interpretation."""
-        query_params = {
-            "primary_entity_type": "person",
-            "negative_location_filter": {
-                "admin_level_1": "Bayern"
-            }
-        }
+        query_params = {"primary_entity_type": "person", "negative_location_filter": {"admin_level_1": "Bayern"}}
 
         # Should find entities NOT in Bayern
         assert "negative_location_filter" in query_params
@@ -87,12 +73,7 @@ class TestDateRangeFilters:
     @pytest.mark.asyncio
     async def test_date_range_parsing(self):
         """Test that date ranges are correctly parsed."""
-        query_params = {
-            "date_range": {
-                "start": "2025-01-01",
-                "end": "2025-03-31"
-            }
-        }
+        query_params = {"date_range": {"start": "2025-01-01", "end": "2025-03-31"}}
 
         start = datetime.fromisoformat(query_params["date_range"]["start"])
         end = datetime.fromisoformat(query_params["date_range"]["end"])
@@ -108,10 +89,7 @@ class TestDateRangeFilters:
         today = datetime.now()
         three_months_ago = today - timedelta(days=90)
 
-        date_range = {
-            "start": three_months_ago.strftime("%Y-%m-%d"),
-            "end": today.strftime("%Y-%m-%d")
-        }
+        date_range = {"start": three_months_ago.strftime("%Y-%m-%d"), "end": today.strftime("%Y-%m-%d")}
 
         assert date_range["start"] is not None
         assert date_range["end"] is not None
@@ -127,7 +105,7 @@ class TestAggregationQueries:
             "query_type": "aggregate",
             "aggregate_function": "COUNT",
             "primary_entity_type": "territorial_entity",
-            "facet_types": ["pain_point"]
+            "facet_types": ["pain_point"],
         }
 
         assert query_params["query_type"] == "aggregate"
@@ -136,11 +114,7 @@ class TestAggregationQueries:
     @pytest.mark.asyncio
     async def test_avg_aggregation(self):
         """Test AVG aggregation interpretation."""
-        query_params = {
-            "query_type": "aggregate",
-            "aggregate_function": "AVG",
-            "group_by": "admin_level_1"
-        }
+        query_params = {"query_type": "aggregate", "aggregate_function": "AVG", "group_by": "admin_level_1"}
 
         assert query_params["aggregate_function"] == "AVG"
         assert query_params["group_by"] == "admin_level_1"
@@ -148,11 +122,7 @@ class TestAggregationQueries:
     @pytest.mark.asyncio
     async def test_aggregation_with_grouping(self):
         """Test aggregation with GROUP BY."""
-        query_params = {
-            "query_type": "aggregate",
-            "aggregate_function": "COUNT",
-            "group_by": "entity_type"
-        }
+        query_params = {"query_type": "aggregate", "aggregate_function": "COUNT", "group_by": "entity_type"}
 
         assert "group_by" in query_params
 
@@ -165,10 +135,7 @@ class TestDeleteOperations:
         """Test delete entity operation in preview mode."""
         delete_data = {
             "operation": "delete_entity",
-            "delete_entity_data": {
-                "entity_name": "Test Entity",
-                "soft_delete": True
-            }
+            "delete_entity_data": {"entity_name": "Test Entity", "soft_delete": True},
         }
 
         assert delete_data["operation"] == "delete_entity"
@@ -179,10 +146,7 @@ class TestDeleteOperations:
         """Test delete facet operation in preview mode."""
         delete_data = {
             "operation": "delete_facet",
-            "delete_facet_data": {
-                "entity_name": "Gummersbach",
-                "facet_type_slug": "pain_point"
-            }
+            "delete_facet_data": {"entity_name": "Gummersbach", "facet_type_slug": "pain_point"},
         }
 
         assert delete_data["operation"] == "delete_facet"
@@ -197,8 +161,8 @@ class TestDeleteOperations:
                 "target_type": "facet",
                 "facet_type_slug": "pain_point",
                 "filter": {"admin_level_1": "Nordrhein-Westfalen"},
-                "dry_run": True
-            }
+                "dry_run": True,
+            },
         }
 
         assert batch_delete_data["batch_delete_data"]["dry_run"] is True
@@ -212,10 +176,7 @@ class TestExportOperations:
         """Test CSV export format."""
         export_data = {
             "operation": "export_query_result",
-            "export_data": {
-                "format": "csv",
-                "filters": {"admin_level_1": "Bayern"}
-            }
+            "export_data": {"format": "csv", "filters": {"admin_level_1": "Bayern"}},
         }
 
         assert export_data["export_data"]["format"] == "csv"
@@ -225,10 +186,7 @@ class TestExportOperations:
         """Test Excel export format."""
         export_data = {
             "operation": "export_query_result",
-            "export_data": {
-                "format": "xlsx",
-                "entity_type_slug": "person"
-            }
+            "export_data": {"format": "xlsx", "entity_type_slug": "person"},
         }
 
         assert export_data["export_data"]["format"] == "xlsx"
@@ -236,13 +194,7 @@ class TestExportOperations:
     @pytest.mark.asyncio
     async def test_json_export_format(self):
         """Test JSON export format."""
-        export_data = {
-            "operation": "export_query_result",
-            "export_data": {
-                "format": "json",
-                "include_facets": True
-            }
-        }
+        export_data = {"operation": "export_query_result", "export_data": {"format": "json", "include_facets": True}}
 
         assert export_data["export_data"]["format"] == "json"
         assert export_data["export_data"]["include_facets"] is True
@@ -254,25 +206,14 @@ class TestUndoSystem:
     @pytest.mark.asyncio
     async def test_undo_operation_recognition(self):
         """Test that UNDO operation is correctly recognized."""
-        undo_data = {
-            "operation": "undo_change",
-            "undo_data": {
-                "entity_name": "Gummersbach"
-            }
-        }
+        undo_data = {"operation": "undo_change", "undo_data": {"entity_name": "Gummersbach"}}
 
         assert undo_data["operation"] == "undo_change"
 
     @pytest.mark.asyncio
     async def test_get_change_history_operation(self):
         """Test that change history operation is recognized."""
-        history_data = {
-            "operation": "get_change_history",
-            "history_data": {
-                "entity_name": "Gummersbach",
-                "limit": 10
-            }
-        }
+        history_data = {"operation": "get_change_history", "history_data": {"entity_name": "Gummersbach", "limit": 10}}
 
         assert history_data["operation"] == "get_change_history"
         assert history_data["history_data"]["limit"] == 10
@@ -296,10 +237,7 @@ class TestChangeTracker:
         """Test entity change data structure."""
         changes = {
             "name": {"old": "Old Name", "new": "New Name"},
-            "core_attributes": {
-                "old": {"position": "Bürgermeister"},
-                "new": {"position": "Landrat"}
-            }
+            "core_attributes": {"old": {"position": "Bürgermeister"}, "new": {"position": "Landrat"}},
         }
 
         assert "old" in changes["name"]
@@ -314,7 +252,7 @@ class TestChangeTracker:
             "entity_id": str(uuid4()),
             "facet_type_id": str(uuid4()),
             "value": {"description": "Test pain point"},
-            "text_representation": "Test pain point"
+            "text_representation": "Test pain point",
         }
 
         assert facet_change["_operation"] == "create"
@@ -329,11 +267,7 @@ class TestMultiHopRelations:
         """Test RelationHop creation."""
         from services.smart_query.relation_resolver import RelationHop
 
-        hop = RelationHop(
-            relation_type_slug="works_for",
-            direction="source",
-            facet_filter="pain_point"
-        )
+        hop = RelationHop(relation_type_slug="works_for", direction="source", facet_filter="pain_point")
 
         assert hop.relation_type_slug == "works_for"
         assert hop.direction == "source"
@@ -356,8 +290,7 @@ class TestMultiHopRelations:
         """Test that RelationChain enforces max depth."""
         from services.smart_query.relation_resolver import MAX_RELATION_DEPTH, RelationChain, RelationHop
 
-        hops = [RelationHop(f"relation_{i}", "source")
-                for i in range(MAX_RELATION_DEPTH + 1)]
+        hops = [RelationHop(f"relation_{i}", "source") for i in range(MAX_RELATION_DEPTH + 1)]
 
         with pytest.raises(ValueError, match="exceeds maximum depth"):
             RelationChain(hops)
@@ -382,7 +315,7 @@ class TestMultiHopRelations:
         query_params = {
             "relation_chain": [
                 {"type": "works_for", "direction": "source"},
-                {"type": "member_of", "direction": "source"}
+                {"type": "member_of", "direction": "source"},
             ]
         }
 
@@ -404,7 +337,7 @@ class TestSuggestionSystem:
             "original": "NWR",
             "suggestion": "NRW (Nordrhein-Westfalen)",
             "corrected_query": "Zeige Gemeinden in NRW",
-            "message": "Meinten Sie 'NRW'?"
+            "message": "Meinten Sie 'NRW'?",
         }
 
         assert suggestion["type"] == "geographic"
@@ -418,7 +351,7 @@ class TestSuggestionSystem:
             "original": "Gemeidne",
             "suggestion": "Gemeinde (municipality)",
             "corrected_query": "Zeige alle Gemeinden",
-            "message": "Meinten Sie 'Gemeinde'?"
+            "message": "Meinten Sie 'Gemeinde'?",
         }
 
         assert suggestion["type"] == "entity_type"
@@ -431,7 +364,7 @@ class TestSuggestionSystem:
             "original": "Painpoint",
             "suggestion": "Pain Point",
             "corrected_query": "Zeige Gemeinden mit Pain Points",
-            "message": "Meinten Sie 'Pain Point'?"
+            "message": "Meinten Sie 'Pain Point'?",
         }
 
         assert suggestion["type"] == "facet_type"
@@ -445,11 +378,7 @@ class TestQueryInterpretation:
         """Test German negation keywords are recognized."""
         negation_keywords_de = ["ohne", "nicht", "keine"]
 
-        test_queries = [
-            "Gemeinden ohne Pain Points",
-            "Personen nicht in Bayern",
-            "Entitäten mit keinen Events"
-        ]
+        test_queries = ["Gemeinden ohne Pain Points", "Personen nicht in Bayern", "Entitäten mit keinen Events"]
 
         for query in test_queries:
             query_lower = query.lower()
@@ -467,7 +396,7 @@ class TestQueryInterpretation:
             "summe": "SUM",
             "gesamt": "SUM",
             "minimum": "MIN",
-            "maximum": "MAX"
+            "maximum": "MAX",
         }
 
         for keyword, expected_function in aggregation_triggers.items():
@@ -483,7 +412,7 @@ class TestQueryInterpretation:
             "Lösche die Entity Max Müller",
             "Entferne alle Pain Points",
             "Delete the entity",
-            "Remove facet from entity"
+            "Remove facet from entity",
         ]
 
         for query in test_queries:
@@ -500,7 +429,7 @@ class TestQueryInterpretation:
             "Exportiere alle Bürgermeister",
             "Export as CSV",
             "Zeige Gemeinden als Excel",
-            "Exportiere als JSON"
+            "Exportiere als JSON",
         ]
 
         for query in test_queries:
@@ -513,12 +442,7 @@ class TestQueryInterpretation:
         """Test UNDO keywords are recognized."""
         undo_keywords = ["rückgängig", "undo", "zurück", "revert"]
 
-        test_queries = [
-            "Mache die letzte Änderung rückgängig",
-            "Undo the last change",
-            "Gehe zurück",
-            "Revert changes"
-        ]
+        test_queries = ["Mache die letzte Änderung rückgängig", "Undo the last change", "Gehe zurück", "Revert changes"]
 
         for query in test_queries:
             query_lower = query.lower()
@@ -552,10 +476,12 @@ class TestMultiHopPerformance:
             # Parse relation chain (simulated)
             parsed_chain = []
             for hop in relation_chain:
-                parsed_chain.append({
-                    "type": hop["relation_type"],
-                    "dir": hop["direction"],
-                })
+                parsed_chain.append(
+                    {
+                        "type": hop["relation_type"],
+                        "dir": hop["direction"],
+                    }
+                )
 
         elapsed = time.time() - start_time
 
@@ -641,15 +567,14 @@ class TestMultiHopPerformance:
         # Create mock entity data (simulating 5000 entities)
         entities = []
         for i in range(5000):
-            entities.append({
-                "id": uuid4(),
-                "name": f"Entity {i}",
-                "type": "territorial_entity",
-                "facets": [
-                    {"type": "pain_point", "value": f"Pain {i}"}
-                    for _ in range(3)
-                ] if i % 10 == 0 else []
-            })
+            entities.append(
+                {
+                    "id": uuid4(),
+                    "name": f"Entity {i}",
+                    "type": "territorial_entity",
+                    "facets": [{"type": "pain_point", "value": f"Pain {i}"} for _ in range(3)] if i % 10 == 0 else [],
+                }
+            )
 
         # Simulate grouping by facet presence (common multi-hop operation)
         with_facets = [e for e in entities if e["facets"]]
@@ -728,10 +653,9 @@ class TestMultiHopPerformance:
         # Create mock hop results
         hop_results = []
         for hop in range(3):
-            hop_results.append([
-                {"id": uuid4(), "name": f"Entity H{hop}_{i}", "score": 0.8 - (hop * 0.1)}
-                for i in range(1000)
-            ])
+            hop_results.append(
+                [{"id": uuid4(), "name": f"Entity H{hop}_{i}", "score": 0.8 - (hop * 0.1)} for i in range(1000)]
+            )
 
         # Aggregate by merging and deduplicating
         seen_ids = set()
@@ -767,12 +691,14 @@ class TestMultiHopPerformance:
         relation_types = ["works_for", "located_in", "manages", "attends", "member_of"]
 
         for i in range(10000):
-            relations.append({
-                "id": uuid4(),
-                "source_id": uuid4(),
-                "target_id": uuid4(),
-                "relation_type": relation_types[i % len(relation_types)],
-            })
+            relations.append(
+                {
+                    "id": uuid4(),
+                    "source_id": uuid4(),
+                    "target_id": uuid4(),
+                    "relation_type": relation_types[i % len(relation_types)],
+                }
+            )
 
         start_time = time.time()
 
@@ -816,12 +742,10 @@ class TestHistoryFacetTypeOperations:
                         "unit": "EUR",
                         "unit_label": "Euro",
                         "precision": 2,
-                        "tracks": {
-                            "default": {"label": "Actual", "color": "#1976D2"}
-                        }
-                    }
-                }
-            }
+                        "tracks": {"default": {"label": "Actual", "color": "#1976D2"}},
+                    },
+                },
+            },
         }
 
         assert command["operation"] == "create_facet_type"
@@ -864,8 +788,8 @@ class TestAddHistoryPointOperation:
                 "value": 5000000,
                 "recorded_at": "2024-01-15T00:00:00",
                 "track_key": "default",
-                "note": "Budget 2024"
-            }
+                "note": "Budget 2024",
+            },
         }
 
         assert command["operation"] == "add_history_point"
@@ -883,7 +807,7 @@ class TestAddHistoryPointOperation:
                 "entity_id": entity_id,
                 "facet_type": "budget-volume",
                 "value": 5000000,
-            }
+            },
         }
 
         assert command["history_point_data"]["entity_id"] == entity_id
@@ -900,7 +824,7 @@ class TestAddHistoryPointOperation:
                 "value": 50000,
                 # recorded_at not specified - should use current time
                 # track_key not specified - should default to "default"
-            }
+            },
         }
 
         # Defaults should be applied
@@ -918,7 +842,7 @@ class TestAddHistoryPointOperation:
                 "history_point_data": {
                     "facet_type": "budget-volume",
                     "value": 5000000,
-                }
+                },
             },
             # Missing facet_type
             {
@@ -926,7 +850,7 @@ class TestAddHistoryPointOperation:
                 "history_point_data": {
                     "entity_name": "Test",
                     "value": 5000000,
-                }
+                },
             },
             # Missing value
             {
@@ -934,7 +858,7 @@ class TestAddHistoryPointOperation:
                 "history_point_data": {
                     "entity_name": "Test",
                     "facet_type": "budget-volume",
-                }
+                },
             },
         ]
 
@@ -990,20 +914,16 @@ class TestHistoryPromptIntegration:
                         "value_type": "history",
                         "value_schema": {
                             "type": "history",
-                            "properties": {
-                                "unit": "people",
-                                "unit_label": "Einwohner",
-                                "precision": 0
-                            }
-                        }
-                    }
+                            "properties": {"unit": "people", "unit_label": "Einwohner", "precision": 0},
+                        },
+                    },
                 },
                 {
                     "operation": "assign_facet_type",
                     "assign_facet_type_data": {
                         "facet_type_slug": "population",
-                        "target_entity_type_slugs": ["territorial_entity"]
-                    }
+                        "target_entity_type_slugs": ["territorial_entity"],
+                    },
                 },
                 {
                     "operation": "add_history_point",
@@ -1011,10 +931,10 @@ class TestHistoryPromptIntegration:
                         "entity_name": "Test City",
                         "facet_type": "population",
                         "value": 50000,
-                        "recorded_at": "2024-01-01T00:00:00"
-                    }
-                }
-            ]
+                        "recorded_at": "2024-01-01T00:00:00",
+                    },
+                },
+            ],
         }
 
         assert combined_command["operation"] == "combined"

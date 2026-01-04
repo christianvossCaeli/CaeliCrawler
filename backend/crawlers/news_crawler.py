@@ -34,6 +34,7 @@ logger = structlog.get_logger()
 @dataclass
 class NewsArticle:
     """Extracted news article."""
+
     url: str
     title: str
     content: str
@@ -93,16 +94,12 @@ class NewsCrawler(BaseCrawler):
                     self.logger.info("Found articles via RSS", count=len(rss_articles))
                 elif crawl_type == "auto":
                     # Fallback to HTML if RSS fails
-                    html_articles = await self._crawl_html_news(
-                        source.base_url, news_path, max_articles
-                    )
+                    html_articles = await self._crawl_html_news(source.base_url, news_path, max_articles)
                     self.articles.extend(html_articles)
                     self.logger.info("Found articles via HTML", count=len(html_articles))
             else:
                 # HTML only
-                html_articles = await self._crawl_html_news(
-                    source.base_url, news_path, max_articles
-                )
+                html_articles = await self._crawl_html_news(source.base_url, news_path, max_articles)
                 self.articles.extend(html_articles)
 
             # Filter by keywords if specified
@@ -118,9 +115,7 @@ class NewsCrawler(BaseCrawler):
 
             # Save articles as documents
             async with get_celery_session_context() as session:
-                new_count, updated_count = await self._store_articles(
-                    session, source, job
-                )
+                new_count, updated_count = await self._store_articles(session, source, job)
                 result.documents_new = new_count
                 result.documents_updated = updated_count
                 result.documents_processed = new_count + updated_count
@@ -132,11 +127,13 @@ class NewsCrawler(BaseCrawler):
 
         except Exception as e:
             self.logger.exception("News crawl failed", error=str(e))
-            result.errors.append({
-                "error": str(e),
-                "type": type(e).__name__,
-                "timestamp": datetime.now(UTC).isoformat(),
-            })
+            result.errors.append(
+                {
+                    "error": str(e),
+                    "type": type(e).__name__,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
 
         return result
 
@@ -202,6 +199,7 @@ class NewsCrawler(BaseCrawler):
         if pub_date:
             try:
                 from email.utils import parsedate_to_datetime
+
                 published = parsedate_to_datetime(pub_date)
             except Exception:  # noqa: S110
                 pass
@@ -269,9 +267,7 @@ class NewsCrawler(BaseCrawler):
             summary=self._clean_html(summary or "")[:500] if summary else None,
         )
 
-    async def _crawl_html_news(
-        self, base_url: str, news_path: str, max_articles: int
-    ) -> list[NewsArticle]:
+    async def _crawl_html_news(self, base_url: str, news_path: str, max_articles: int) -> list[NewsArticle]:
         """Crawl HTML news page for articles.
 
         Performance optimized: Uses controlled parallelism with semaphore
@@ -292,20 +288,14 @@ class NewsCrawler(BaseCrawler):
         # Semaphore for controlled parallelism (max 5 concurrent requests)
         semaphore = asyncio.Semaphore(5)
 
-        async def fetch_article_with_limit(
-            client: httpx.AsyncClient, url: str
-        ) -> NewsArticle | None:
+        async def fetch_article_with_limit(client: httpx.AsyncClient, url: str) -> NewsArticle | None:
             """Fetch article with rate limiting and semaphore control."""
             async with semaphore:
                 await asyncio.sleep(settings.crawler_default_delay)
                 try:
                     return await self._extract_article(client, url)
                 except Exception as e:
-                    self.logger.warning(
-                        "Failed to extract article",
-                        url=url,
-                        error=str(e)
-                    )
+                    self.logger.warning("Failed to extract article", url=url, error=str(e))
                     return None
 
         async with httpx.AsyncClient(
@@ -326,10 +316,7 @@ class NewsCrawler(BaseCrawler):
                     article_links = self._find_article_links(soup, news_url)
 
                     # Fetch articles in parallel with controlled concurrency
-                    tasks = [
-                        fetch_article_with_limit(client, url)
-                        for url in article_links[:max_articles]
-                    ]
+                    tasks = [fetch_article_with_limit(client, url) for url in article_links[:max_articles]]
                     results = await asyncio.gather(*tasks, return_exceptions=True)
 
                     for result in results:
@@ -342,11 +329,7 @@ class NewsCrawler(BaseCrawler):
                         break  # Found articles, stop trying other paths
 
                 except Exception as e:
-                    self.logger.warning(
-                        "Failed to crawl news page",
-                        url=news_url,
-                        error=str(e)
-                    )
+                    self.logger.warning("Failed to crawl news page", url=news_url, error=str(e))
 
         return articles
 
@@ -379,10 +362,21 @@ class NewsCrawler(BaseCrawler):
                     continue
 
                 # Skip common non-article patterns
-                if any(skip in full_url.lower() for skip in [
-                    "/login", "/register", "/search", "/kontakt", "/impressum",
-                    "/datenschutz", ".pdf", ".jpg", ".png", "#"
-                ]):
+                if any(
+                    skip in full_url.lower()
+                    for skip in [
+                        "/login",
+                        "/register",
+                        "/search",
+                        "/kontakt",
+                        "/impressum",
+                        "/datenschutz",
+                        ".pdf",
+                        ".jpg",
+                        ".png",
+                        "#",
+                    ]
+                ):
                     continue
 
                 if full_url not in links:
@@ -390,9 +384,7 @@ class NewsCrawler(BaseCrawler):
 
         return links
 
-    async def _extract_article(
-        self, client: httpx.AsyncClient, url: str
-    ) -> NewsArticle | None:
+    async def _extract_article(self, client: httpx.AsyncClient, url: str) -> NewsArticle | None:
         """Extract article content from a page."""
         response = await client.get(url)
         response.raise_for_status()
@@ -444,9 +436,7 @@ class NewsCrawler(BaseCrawler):
         date_meta = soup.find("meta", {"property": "article:published_time"})
         if date_meta and date_meta.get("content"):
             with contextlib.suppress(Exception):
-                published = datetime.fromisoformat(
-                    date_meta["content"].replace("Z", "+00:00")
-                )
+                published = datetime.fromisoformat(date_meta["content"].replace("Z", "+00:00"))
 
         # Look for date in text
         if not published:
@@ -456,17 +446,9 @@ class NewsCrawler(BaseCrawler):
                 if match:
                     try:
                         if "." in pattern:
-                            published = datetime(
-                                int(match.group(3)),
-                                int(match.group(2)),
-                                int(match.group(1))
-                            )
+                            published = datetime(int(match.group(3)), int(match.group(2)), int(match.group(1)))
                         else:
-                            published = datetime(
-                                int(match.group(1)),
-                                int(match.group(2)),
-                                int(match.group(3))
-                            )
+                            published = datetime(int(match.group(1)), int(match.group(2)), int(match.group(3)))
                         break
                     except Exception:  # noqa: S110
                         pass
@@ -478,9 +460,7 @@ class NewsCrawler(BaseCrawler):
             published_date=published,
         )
 
-    def _filter_by_keywords(
-        self, articles: list[NewsArticle], keywords: list[str]
-    ) -> list[NewsArticle]:
+    def _filter_by_keywords(self, articles: list[NewsArticle], keywords: list[str]) -> list[NewsArticle]:
         """Filter articles by keywords (case-insensitive)."""
         if not keywords:
             return articles
@@ -489,9 +469,7 @@ class NewsCrawler(BaseCrawler):
         keywords_lower = [k.lower() for k in keywords]
 
         for article in articles:
-            text_to_search = (
-                f"{article.title} {article.content} {article.summary or ''}"
-            ).lower()
+            text_to_search = (f"{article.title} {article.content} {article.summary or ''}").lower()
 
             if any(kw in text_to_search for kw in keywords_lower):
                 filtered.append(article)
@@ -505,9 +483,7 @@ class NewsCrawler(BaseCrawler):
         soup = BeautifulSoup(html_content, "lxml")
         return soup.get_text(separator=" ", strip=True)
 
-    async def _store_articles(
-        self, session, source: "DataSource", job: "CrawlJob"
-    ) -> tuple[int, int]:
+    async def _store_articles(self, session, source: "DataSource", job: "CrawlJob") -> tuple[int, int]:
         """Store articles as documents using batch operations.
 
         Performance optimized: Uses bulk loading and single commit instead of
@@ -525,8 +501,7 @@ class NewsCrawler(BaseCrawler):
 
         # Pre-compute all hashes
         article_hashes = {
-            hashlib.sha256(f"{source.id}:{article.url}".encode()).hexdigest(): article
-            for article in self.articles
+            hashlib.sha256(f"{source.id}:{article.url}".encode()).hexdigest(): article for article in self.articles
         }
 
         # Bulk-load all existing documents for this source with matching hashes

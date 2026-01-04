@@ -65,6 +65,7 @@ def require_templates_feature():
 
 # === Templates ===
 
+
 @router.get("/templates", response_model=PySisFieldTemplateListResponse)
 async def list_templates(
     is_active: bool | None = Query(default=None),
@@ -167,6 +168,7 @@ async def delete_template(
 
 # === Processes ===
 
+
 @router.get("/locations/{location_name}/processes", response_model=PySisProcessListResponse)
 async def list_location_processes(
     location_name: str,
@@ -175,10 +177,12 @@ async def list_location_processes(
 ):
     """List all PySis processes for a location."""
     # Escape SQL wildcards to prevent injection
-    safe_name = location_name.replace('%', '\\%').replace('_', '\\_')
-    query = select(PySisProcess).where(
-        PySisProcess.entity_name.ilike(f"%{safe_name}%", escape='\\')
-    ).order_by(PySisProcess.created_at.desc())
+    safe_name = location_name.replace("%", "\\%").replace("_", "\\_")
+    query = (
+        select(PySisProcess)
+        .where(PySisProcess.entity_name.ilike(f"%{safe_name}%", escape="\\"))
+        .order_by(PySisProcess.created_at.desc())
+    )
 
     result = await session.execute(query)
     processes = result.scalars().all()
@@ -205,15 +209,13 @@ async def create_process(
         raise FeatureDisabledError("pysis_field_templates")
 
     # Find matching Entity by name - entity_id is required
-    entity_result = await session.execute(
-        select(Entity).where(Entity.name == location_name).limit(1)
-    )
+    entity_result = await session.execute(select(Entity).where(Entity.name == location_name).limit(1))
     entity = entity_result.scalar_one_or_none()
 
     if not entity:
         raise HTTPException(
             status_code=404,
-            detail=f"Entity '{location_name}' nicht gefunden. PySis-Prozess kann nur mit existierender Entity verknüpft werden."
+            detail=f"Entity '{location_name}' nicht gefunden. PySis-Prozess kann nur mit existierender Entity verknüpft werden.",
         )
 
     process = PySisProcess(
@@ -371,6 +373,7 @@ async def apply_template_to_process(
 
 # === Fields ===
 
+
 @router.get("/processes/{process_id}/fields", response_model=list[PySisFieldResponse])
 async def list_process_fields(
     process_id: UUID,
@@ -483,6 +486,7 @@ async def delete_field(
 
 # === Sync Operations ===
 
+
 @router.post("/processes/{process_id}/sync/pull", response_model=PySisPullResult)
 async def pull_from_pysis(
     process_id: UUID,
@@ -517,7 +521,7 @@ async def pull_from_pysis(
         # Process ALL fields from PySis
         for field_name, value in process_data.items():
             # Skip internal/meta fields (usually start with underscore or are known meta fields)
-            if field_name.startswith('_') or field_name in ('id', 'created_at', 'updated_at', 'process_id'):
+            if field_name.startswith("_") or field_name in ("id", "created_at", "updated_at", "process_id"):
                 continue
 
             # Convert value to string
@@ -541,7 +545,7 @@ async def pull_from_pysis(
                 # Create new field - AI extraction disabled by default
                 new_field = PySisProcessField(
                     process_id=process.id,
-                    internal_name=field_name.replace('_', ' ').title(),  # Convert snake_case to Title Case
+                    internal_name=field_name.replace("_", " ").title(),  # Convert snake_case to Title Case
                     pysis_field_name=field_name,
                     field_type=_infer_field_type(value),
                     ai_extraction_enabled=False,  # User must explicitly enable
@@ -596,7 +600,7 @@ def _infer_field_type(value) -> str:
         return "object"
     # Check for date-like strings
     str_val = str(value)
-    if len(str_val) == 10 and str_val[4] == '-' and str_val[7] == '-':
+    if len(str_val) == 10 and str_val[4] == "-" and str_val[7] == "-":
         return "date"
     return "text"
 
@@ -730,6 +734,7 @@ async def push_field_to_pysis(
 
 # === AI Generation ===
 
+
 @router.post("/processes/{process_id}/generate", response_model=PySisGenerateResult)
 async def generate_fields(
     process_id: UUID,
@@ -782,6 +787,7 @@ async def generate_single_field(
 
 
 # === Accept/Reject AI Suggestions ===
+
 
 @router.post("/fields/{field_id}/accept-ai", response_model=AcceptAISuggestionResult)
 async def accept_ai_suggestion(
@@ -925,6 +931,7 @@ async def reject_ai_suggestion(
 
 # === Field History ===
 
+
 @router.get("/fields/{field_id}/history", response_model=PySisFieldHistoryListResponse)
 async def get_field_history(
     field_id: UUID,
@@ -1005,6 +1012,7 @@ async def restore_from_history(
 
 # === Test Connection ===
 
+
 @router.get("/test-connection", response_model=PySisTestConnectionResult)
 async def test_pysis_connection(
     process_id: str | None = Query(default=None, description="Optional process ID to test"),
@@ -1018,6 +1026,7 @@ async def test_pysis_connection(
 
 
 # === List Available Processes from PySis ===
+
 
 @router.get("/available-processes")
 async def list_available_processes(
@@ -1041,6 +1050,7 @@ async def list_available_processes(
 
 
 # === Analyze for Facets ===
+
 
 @router.post("/processes/{process_id}/analyze-for-facets", response_model=PySisAnalyzeForFacetsResult)
 async def analyze_pysis_for_facets_admin(
@@ -1067,10 +1077,7 @@ async def analyze_pysis_for_facets_admin(
         raise ValidationError("Prozess hat keine verknüpfte Entity. Bitte zuerst Entity verknüpfen.")
 
     # Count fields with values for response
-    fields_with_values = [
-        f for f in process.fields
-        if f.current_value or f.pysis_value or f.ai_extracted_value
-    ]
+    fields_with_values = [f for f in process.fields if f.current_value or f.pysis_value or f.ai_extracted_value]
 
     if not fields_with_values and not (data and data.include_empty_fields):
         raise ValidationError("Keine Felder mit Werten gefunden.")

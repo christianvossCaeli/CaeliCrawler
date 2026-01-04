@@ -1,6 +1,5 @@
 """Admin API endpoints for SharePoint Online integration."""
 
-
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
@@ -20,6 +19,7 @@ router = APIRouter()
 
 # === Response Models ===
 
+
 class SharePointConnectionStatus(BaseModel):
     """SharePoint connection status response."""
 
@@ -31,18 +31,13 @@ class SharePointConnectionStatus(BaseModel):
     model_config = {
         "json_schema_extra": {
             "examples": [
-                {
-                    "connected": True,
-                    "configured": True,
-                    "tenant_id": "a1b2c3d4...",
-                    "error": None
-                },
+                {"connected": True, "configured": True, "tenant_id": "a1b2c3d4...", "error": None},
                 {
                     "connected": False,
                     "configured": False,
                     "tenant_id": None,
-                    "error": "SharePoint credentials not configured. Set SHAREPOINT_TENANT_ID, SHAREPOINT_CLIENT_ID, and SHAREPOINT_CLIENT_SECRET."
-                }
+                    "error": "SharePoint credentials not configured. Set SHAREPOINT_TENANT_ID, SHAREPOINT_CLIENT_ID, and SHAREPOINT_CLIENT_SECRET.",
+                },
             ]
         }
     }
@@ -72,10 +67,10 @@ class SharePointSitesResponse(BaseModel):
                             "id": "contoso.sharepoint.com,abc123,def456",
                             "name": "Documents",
                             "display_name": "Team Documents",
-                            "web_url": "https://contoso.sharepoint.com/sites/Documents"
+                            "web_url": "https://contoso.sharepoint.com/sites/Documents",
                         }
                     ],
-                    "total": 1
+                    "total": 1,
                 }
             ]
         }
@@ -88,7 +83,9 @@ class SharePointDriveResponse(BaseModel):
     id: str = Field(description="Unique drive ID", example="b!abc123")
     name: str = Field(description="Drive name", example="Shared Documents")
     drive_type: str = Field(description="Drive type", example="documentLibrary")
-    web_url: str = Field(description="Web URL", example="https://contoso.sharepoint.com/sites/Documents/Shared%20Documents")
+    web_url: str = Field(
+        description="Web URL", example="https://contoso.sharepoint.com/sites/Documents/Shared%20Documents"
+    )
 
 
 class SharePointDrivesResponse(BaseModel):
@@ -106,10 +103,14 @@ class SharePointFileResponse(BaseModel):
     name: str = Field(description="File name", example="report.pdf")
     size: int = Field(description="File size in bytes", example=1048576)
     mime_type: str = Field(description="MIME type", example="application/pdf")
-    web_url: str = Field(description="Web URL for viewing", example="https://contoso.sharepoint.com/sites/Documents/report.pdf")
+    web_url: str = Field(
+        description="Web URL for viewing", example="https://contoso.sharepoint.com/sites/Documents/report.pdf"
+    )
     parent_path: str = Field(description="Parent folder path", example="/Windprojekte/2024")
     created_at: str | None = Field(default=None, description="Creation timestamp", example="2024-01-15T10:30:00+00:00")
-    modified_at: str | None = Field(default=None, description="Last modification timestamp", example="2024-03-20T14:45:00+00:00")
+    modified_at: str | None = Field(
+        default=None, description="Last modification timestamp", example="2024-03-20T14:45:00+00:00"
+    )
     created_by: str | None = Field(default=None, description="Creator display name", example="Max Mustermann")
     modified_by: str | None = Field(default=None, description="Last modifier display name", example="Erika Musterfrau")
 
@@ -127,42 +128,21 @@ class SharePointFilesResponse(BaseModel):
 class SharePointConfigExample(BaseModel):
     """Example configuration for SharePoint data source."""
 
-    site_url: str = Field(
-        example="contoso.sharepoint.com:/sites/Documents",
-        description="SharePoint site URL"
-    )
-    drive_name: str | None = Field(
-        default=None,
-        example="Shared Documents",
-        description="Document library name"
-    )
-    folder_path: str | None = Field(
-        default="",
-        example="/Windprojekte",
-        description="Folder path within the library"
-    )
+    site_url: str = Field(example="contoso.sharepoint.com:/sites/Documents", description="SharePoint site URL")
+    drive_name: str | None = Field(default=None, example="Shared Documents", description="Document library name")
+    folder_path: str | None = Field(default="", example="/Windprojekte", description="Folder path within the library")
     file_extensions: list[str] = Field(
-        default=[".pdf", ".docx", ".doc", ".xlsx", ".pptx"],
-        description="File extensions to include"
+        default=[".pdf", ".docx", ".doc", ".xlsx", ".pptx"], description="File extensions to include"
     )
-    recursive: bool = Field(
-        default=True,
-        description="Include files from subfolders"
-    )
+    recursive: bool = Field(default=True, description="Include files from subfolders")
     exclude_patterns: list[str] = Field(
-        default=["~$*", "*.tmp", ".DS_Store"],
-        description="File patterns to exclude (glob patterns)"
+        default=["~$*", "*.tmp", ".DS_Store"], description="File patterns to exclude (glob patterns)"
     )
-    max_files: int = Field(
-        default=1000,
-        ge=1,
-        le=10000,
-        description="Maximum files to crawl"
-    )
+    max_files: int = Field(default=1000, ge=1, le=10000, description="Maximum files to crawl")
     file_paths_text: str | None = Field(
         default=None,
         example="/Documents/Report.pdf\n/Projects/Analysis.docx",
-        description="Explicit file paths to crawl (one per line). If set, these files are fetched in addition to folder crawling."
+        description="Explicit file paths to crawl (one per line). If set, these files are fetched in addition to folder crawling.",
     )
 
 
@@ -189,15 +169,14 @@ class SharePointTestConnectionResponse(BaseModel):
 
 # === Endpoints ===
 
+
 @router.get("/status", response_model=SharePointConnectionStatus)
 async def get_sharepoint_status(
     _: User = Depends(require_editor),
 ):
     """Get SharePoint connection status and configuration."""
     is_configured = bool(
-        settings.sharepoint_tenant_id
-        and settings.sharepoint_client_id
-        and settings.sharepoint_client_secret
+        settings.sharepoint_tenant_id and settings.sharepoint_client_id and settings.sharepoint_client_secret
     )
 
     if not is_configured:
@@ -365,8 +344,7 @@ async def get_config_example(
 @router.post("/test-connection", response_model=SharePointTestConnectionResponse)
 async def test_sharepoint_connection(
     site_url: str | None = Query(
-        default=None,
-        description="Optional site URL to test (e.g., 'contoso.sharepoint.com:/sites/Documents')"
+        default=None, description="Optional site URL to test (e.g., 'contoso.sharepoint.com:/sites/Documents')"
     ),
     _: User = Depends(require_editor),
 ):
@@ -408,10 +386,7 @@ async def test_sharepoint_connection(
 
                     # List drives
                     drives = await client.list_drives(site.id)
-                    result.drives = [
-                        SharePointDriveInfo(id=d.id, name=d.name, type=d.drive_type)
-                        for d in drives
-                    ]
+                    result.drives = [SharePointDriveInfo(id=d.id, name=d.name, type=d.drive_type) for d in drives]
                 except SharePointConfigError as e:
                     result.errors.append(f"Invalid site URL: {e.message}")
                 except SharePointError as e:

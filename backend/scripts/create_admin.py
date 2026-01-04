@@ -98,6 +98,5 @@ async def main():
         await create_admin_user(email, password, full_name, session)
 
 
-
 if __name__ == "__main__":
     asyncio.run(main())

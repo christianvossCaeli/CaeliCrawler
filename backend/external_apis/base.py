@@ -40,9 +40,7 @@ class ExternalAPIRecord:
 
     def compute_hash(self) -> str:
         """Compute SHA256 hash of the raw data for change detection."""
-        return hashlib.sha256(
-            json.dumps(self.raw_data, sort_keys=True, default=str).encode()
-        ).hexdigest()
+        return hashlib.sha256(json.dumps(self.raw_data, sort_keys=True, default=str).encode()).hexdigest()
 
 
 @dataclass

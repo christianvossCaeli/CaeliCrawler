@@ -25,19 +25,21 @@ VALID_SOURCE_TYPES = ("facet_history", "live_api", "internal")
 
 class VisualizationType(str, Enum):
     """Supported visualization types."""
-    TABLE = "table"              # Tabelle mit sortierbaren Spalten
-    BAR_CHART = "bar_chart"      # Horizontales oder vertikales Balkendiagramm
-    LINE_CHART = "line_chart"    # Liniendiagramm für Zeitverläufe
-    PIE_CHART = "pie_chart"      # Kreisdiagramm für Anteile
-    STAT_CARD = "stat_card"      # KPI-Karten (1-4 Werte)
-    TEXT = "text"                # Fließtext-Antwort
-    COMPARISON = "comparison"    # Side-by-side Vergleich von 2-3 Entities
-    MAP = "map"                  # Kartenansicht (falls Geo-Daten)
-    HEATMAP = "heatmap"          # Matrix-Darstellung
+
+    TABLE = "table"  # Tabelle mit sortierbaren Spalten
+    BAR_CHART = "bar_chart"  # Horizontales oder vertikales Balkendiagramm
+    LINE_CHART = "line_chart"  # Liniendiagramm für Zeitverläufe
+    PIE_CHART = "pie_chart"  # Kreisdiagramm für Anteile
+    STAT_CARD = "stat_card"  # KPI-Karten (1-4 Werte)
+    TEXT = "text"  # Fließtext-Antwort
+    COMPARISON = "comparison"  # Side-by-side Vergleich von 2-3 Entities
+    MAP = "map"  # Kartenansicht (falls Geo-Daten)
+    HEATMAP = "heatmap"  # Matrix-Darstellung
 
 
 class ColumnType(str, Enum):
     """Column data types for tables."""
+
     TEXT = "text"
     NUMBER = "number"
     DATE = "date"
@@ -69,9 +71,7 @@ class VisualizationColumn(BaseModel):
     format: str | None = Field(None, description="Format-String (z.B. '0.0' für Zahlen)")
     sortable: bool = Field(default=True, description="Spalte sortierbar")
     width: str | None = Field(None, description="Spaltenbreite (z.B. '100px', '20%')")
-    align: Literal["left", "center", "right"] | None = Field(
-        None, description="Ausrichtung: left, center, right"
-    )
+    align: Literal["left", "center", "right"] | None = Field(None, description="Ausrichtung: left, center, right")
 
 
 class ChartAxis(BaseModel):
@@ -121,9 +121,7 @@ class ChartSeries(BaseModel):
     key: str = Field(..., description="Feld-Name für Werte", min_length=1)
     label: str = Field(..., description="Legende", min_length=1)
     color: str = Field(default="#1976D2", description="Farbe (Hex)")
-    type: Literal["line", "bar", "area"] = Field(
-        default="line", description="Serientyp: line, bar, area"
-    )
+    type: Literal["line", "bar", "area"] = Field(default="line", description="Serientyp: line, bar, area")
     stack: str | None = Field(None, description="Stack-Gruppe für gestapelte Charts")
 
     @field_validator("color")
@@ -154,9 +152,7 @@ class StatCard(BaseModel):
     label: str = Field(..., description="Beschriftung", min_length=1)
     value: Any = Field(..., description="Wert")
     unit: str | None = Field(None, description="Einheit")
-    trend: Literal["up", "down", "stable"] | None = Field(
-        None, description="Trend: up, down, stable"
-    )
+    trend: Literal["up", "down", "stable"] | None = Field(None, description="Trend: up, down, stable")
     trend_value: str | None = Field(None, description="Trend-Wert (z.B. '+5%')")
     icon: str | None = Field(None, description="Material Icon Name")
     color: str | None = Field(None, description="Farbe für den Wert")
@@ -164,6 +160,7 @@ class StatCard(BaseModel):
 
 class ComparisonEntity(BaseModel):
     """Entity data for comparison visualization."""
+
     entity_id: str
     entity_name: str
     facets: dict[str, Any] = Field(default_factory=dict)
@@ -250,6 +247,7 @@ class SourceInfo(BaseModel):
 
 class SuggestedAction(BaseModel):
     """Suggested follow-up action."""
+
     label: str = Field(..., description="Button-Text")
     action: str = Field(..., description="Action-Identifier")
     icon: str | None = Field(None, description="Material Icon")
@@ -259,6 +257,7 @@ class SuggestedAction(BaseModel):
 
 class DataPoint(BaseModel):
     """Single data point in query results."""
+
     entity_id: str
     entity_name: str
     entity_type: str | None = None
@@ -269,6 +268,7 @@ class DataPoint(BaseModel):
 
 class QueryDataResponse(BaseModel):
     """Complete response for query_data operation."""
+
     success: bool = Field(..., description="Operation erfolgreich")
     error: str | None = Field(None, description="Fehlermeldung")
 
@@ -292,6 +292,7 @@ class QueryDataResponse(BaseModel):
 
 class QueryExternalResponse(BaseModel):
     """Complete response for query_external operation."""
+
     success: bool = Field(..., description="Operation erfolgreich")
     error: str | None = Field(None, description="Fehlermeldung")
 
@@ -323,6 +324,7 @@ class QueryExternalResponse(BaseModel):
 
 class VisualizationWithData(BaseModel):
     """A single visualization block with its data (for compound queries)."""
+
     id: str = Field(..., description="Unique ID für Frontend-Key")
     title: str = Field(..., description="Titel für diesen Visualisierungsblock")
     visualization: VisualizationConfig | None = Field(None, description="Visualisierungs-Config")
@@ -333,6 +335,7 @@ class VisualizationWithData(BaseModel):
 
 class SubQueryConfig(BaseModel):
     """Configuration for a sub-query in compound queries."""
+
     description: str = Field(..., description="Beschreibung der Sub-Query")
     query_config: dict[str, Any] = Field(..., description="Query-Konfiguration")
     visualization_hint: str | None = Field(None, description="Hinweis für Visualisierungstyp")
@@ -340,6 +343,7 @@ class SubQueryConfig(BaseModel):
 
 class CompoundQueryResponse(BaseModel):
     """Response for compound queries with multiple visualizations."""
+
     success: bool = Field(..., description="Operation erfolgreich")
     error: str | None = Field(None, description="Fehlermeldung")
     is_compound: bool = Field(default=True, description="Marker für Compound Query")
@@ -355,6 +359,7 @@ class CompoundQueryResponse(BaseModel):
 
 class TimeRangeConfig(BaseModel):
     """Time range configuration for history queries."""
+
     from_date: str | None = Field(None, alias="from", description="Start-Datum (ISO)")
     to_date: str | None = Field(None, alias="to", description="End-Datum (ISO)")
     latest_only: bool = Field(default=False, description="Nur letzten Wert pro Entity")
@@ -364,6 +369,7 @@ class TimeRangeConfig(BaseModel):
 
 class QueryFilters(BaseModel):
     """Filters for query_data operation."""
+
     tags: list[str] = Field(default_factory=list, description="Tags (AND)")
     admin_level_1: str | None = Field(None, description="Bundesland/Region")
     country: str | None = Field(None, description="Land (ISO 2)")
@@ -374,6 +380,7 @@ class QueryFilters(BaseModel):
 
 class QueryDataConfig(BaseModel):
     """Configuration for query_data operation."""
+
     entity_type: str = Field(..., description="Entity-Typ Slug")
     facet_types: list[str] = Field(default_factory=list, description="Facet-Typen abfragen")
     include_core_attributes: bool = Field(default=True, description="Core-Attribute einschließen")
@@ -387,6 +394,7 @@ class QueryDataConfig(BaseModel):
 
 class QueryExternalConfig(BaseModel):
     """Configuration for query_external operation."""
+
     # Drei Optionen für API-Auswahl
     prompt: str | None = Field(None, description="Freitext für KI-API-Suche")
     api_configuration_id: str | None = Field(None, description="Spezifische API-Konfiguration")

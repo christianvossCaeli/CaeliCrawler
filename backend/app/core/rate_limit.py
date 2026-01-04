@@ -74,8 +74,7 @@ class InMemoryRateLimiter:
         current_time = time.time()
         with self._lock:
             expired_keys = [
-                k for k, (_, window_start) in self._data.items()
-                if current_time - window_start > max_age_seconds
+                k for k, (_, window_start) in self._data.items() if current_time - window_start > max_age_seconds
             ]
             for key in expired_keys:
                 del self._data[key]
@@ -165,47 +164,37 @@ RATE_LIMITS = {
     "login_failed": {"max_requests": 10, "window_seconds": 900},  # 10 failed attempts per 15 min
     "password_change": {"max_requests": 3, "window_seconds": 300},  # 3 per 5 min
     "token_refresh": {"max_requests": 30, "window_seconds": 60},  # 30 per minute (allow fast refresh)
-
     # Session Management
     "session_revoke": {"max_requests": 10, "window_seconds": 60},  # 10 per minute
     "session_list": {"max_requests": 30, "window_seconds": 60},  # 30 per minute
-
     # Data Export (expensive operations)
     "export_json": {"max_requests": 10, "window_seconds": 60},  # 10 per minute
     "export_csv": {"max_requests": 10, "window_seconds": 60},  # 10 per minute
     "export_bulk": {"max_requests": 3, "window_seconds": 300},  # 3 per 5 min
-
     # Crawler Operations (resource intensive)
     "crawler_start": {"max_requests": 5, "window_seconds": 60},  # 5 per minute
     "crawler_stop": {"max_requests": 10, "window_seconds": 60},  # 10 per minute
-
     # Admin Operations
     "user_create": {"max_requests": 10, "window_seconds": 60},  # 10 per minute
     "user_update": {"max_requests": 20, "window_seconds": 60},  # 20 per minute
     "user_delete": {"max_requests": 5, "window_seconds": 60},  # 5 per minute
-
     # API General (fallback)
     "api_general": {"max_requests": 100, "window_seconds": 60},  # 100 per minute
     "api_read": {"max_requests": 200, "window_seconds": 60},  # 200 per minute (reads are cheaper)
     "api_write": {"max_requests": 50, "window_seconds": 60},  # 50 per minute
-
     # Webhook Testing
     "webhook_test": {"max_requests": 5, "window_seconds": 60},  # 5 per minute (SSRF concern)
-
     # AI Discovery (expensive: LLM calls + web scraping)
     "ai_discovery": {"max_requests": 10, "window_seconds": 60},  # 10 per minute
     "ai_discovery_import": {"max_requests": 20, "window_seconds": 60},  # 20 per minute
-
     # External API Sync (external API calls)
     "external_api_sync": {"max_requests": 10, "window_seconds": 60},  # 10 per minute
-
     # Assistant Chat (expensive: LLM calls)
     "assistant_chat": {"max_requests": 30, "window_seconds": 60},  # 30 per minute
     "assistant_stream": {"max_requests": 30, "window_seconds": 60},  # 30 per minute
     "assistant_upload": {"max_requests": 20, "window_seconds": 60},  # 20 per minute
     "assistant_execute": {"max_requests": 20, "window_seconds": 60},  # 20 per minute
     "assistant_batch": {"max_requests": 5, "window_seconds": 60},  # 5 per minute (heavy)
-
     # Custom Summaries
     "summary_create": {"max_requests": 10, "window_seconds": 60},  # 10 per minute (AI calls)
     "summary_list": {"max_requests": 60, "window_seconds": 60},  # 60 per minute (reads)
@@ -215,7 +204,6 @@ RATE_LIMITS = {
     "summary_execute": {"max_requests": 20, "window_seconds": 60},  # 20 per minute (expensive)
     "summary_share": {"max_requests": 10, "window_seconds": 60},  # 10 per minute
     "summary_export": {"max_requests": 5, "window_seconds": 60},  # 5 per minute (PDF generation)
-
     # Public Shared Summary Access (stricter limits, prevent brute force)
     "shared_summary_access": {"max_requests": 20, "window_seconds": 60},  # 20 per minute
     "shared_summary_export": {"max_requests": 5, "window_seconds": 60},  # 5 per minute
@@ -293,6 +281,7 @@ async def check_rate_limit(
         if e.status_code == 429:
             # Log rate limit exceeded
             from uuid import UUID
+
             try:
                 user_id = UUID(identifier) if identifier else None
             except (ValueError, TypeError):

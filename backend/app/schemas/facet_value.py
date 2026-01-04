@@ -14,7 +14,9 @@ class FacetValueBase(BaseModel):
     """Base facet value schema with common fields."""
 
     value: dict[str, Any] = Field(..., description="Structured value")
-    text_representation: str | None = Field(None, description="Text for search/display (auto-generated if not provided)")
+    text_representation: str | None = Field(
+        None, description="Text for search/display (auto-generated if not provided)"
+    )
 
     # Time-based fields
     event_date: datetime | None = Field(None, description="Date of the event/action")
@@ -23,15 +25,13 @@ class FacetValueBase(BaseModel):
 
     # Source tracking
     source_type: FacetValueSourceType = Field(
-        default=FacetValueSourceType.DOCUMENT,
-        description="How this value was created"
+        default=FacetValueSourceType.DOCUMENT, description="How this value was created"
     )
     source_url: str | None = Field(None, description="Original URL where this was found")
 
     # Entity reference (optional link to another entity)
     target_entity_id: UUID | None = Field(
-        None,
-        description="Optional reference to another Entity (e.g., Person for contact facet)"
+        None, description="Optional reference to another Entity (e.g., Person for contact facet)"
     )
 
     # AI metadata

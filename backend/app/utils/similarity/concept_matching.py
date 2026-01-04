@@ -226,9 +226,7 @@ Consider terms NOT equivalent if they:
         return is_equivalent
 
     except Exception as e:
-        logger.warning(
-            "concept_equivalence_check_failed", term1=term1, term2=term2, error=str(e)
-        )
+        logger.warning("concept_equivalence_check_failed", term1=term1, term2=term2, error=str(e))
         # Track error
         await record_llm_usage(
             provider=LLMProvider.AZURE_OPENAI,

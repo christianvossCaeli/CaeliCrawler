@@ -353,7 +353,7 @@ Verwende exakt dieses JSON-Schema für deine Antwort:
 
         user_prompt = f"""Analysiere das folgende Dokument und erstelle eine strukturierte Zusammenfassung:
 
-{context if context else ''}
+{context if context else ""}
 
 DOKUMENT:
 {self._truncate_text(text)}"""
@@ -533,9 +533,12 @@ DOKUMENT:
 
         safe_prompt = prompt_result.sanitized_text
 
-        system_prompt = system_context or """Du bist ein Experte für die Analyse deutscher Dokumente.
+        system_prompt = (
+            system_context
+            or """Du bist ein Experte für die Analyse deutscher Dokumente.
 Befolge die Anweisungen des Nutzers genau.
 Antworte immer auf Deutsch."""
+        )
 
         user_prompt = f"""{safe_prompt}
 
@@ -572,11 +575,13 @@ DOKUMENT:
                 text = doc.get("text", "")
 
                 if not text:
-                    results.append({
-                        "id": doc_id,
-                        "error": "Empty document text",
-                        "success": False,
-                    })
+                    results.append(
+                        {
+                            "id": doc_id,
+                            "error": "Empty document text",
+                            "success": False,
+                        }
+                    )
                     continue
 
                 if analysis_type == AnalysisType.SUMMARIZE:
@@ -592,19 +597,23 @@ DOKUMENT:
                 else:
                     result = await self.summarize(text)
 
-                results.append({
-                    "id": doc_id,
-                    "result": result.model_dump(),
-                    "success": True,
-                })
+                results.append(
+                    {
+                        "id": doc_id,
+                        "result": result.model_dump(),
+                        "success": True,
+                    }
+                )
 
             except Exception as e:
                 self.logger.error("Batch analysis failed", doc_id=doc_id, error=str(e))
-                results.append({
-                    "id": doc_id,
-                    "error": str(e),
-                    "success": False,
-                })
+                results.append(
+                    {
+                        "id": doc_id,
+                        "error": str(e),
+                        "success": False,
+                    }
+                )
 
         return results
 
@@ -812,7 +821,9 @@ DOKUMENT (erste 2000 Zeichen):
 
         except (json.JSONDecodeError, ValueError) as e:
             self.logger.error("Relevance check parse error", error=str(e))
-            raise RuntimeError(f"KI-Service Fehler: Relevanz-Antwort konnte nicht verarbeitet werden - {str(e)}") from None
+            raise RuntimeError(
+                f"KI-Service Fehler: Relevanz-Antwort konnte nicht verarbeitet werden - {str(e)}"
+            ) from None
         except Exception as e:
             await record_llm_usage(
                 provider=LLMProvider.AZURE_OPENAI,

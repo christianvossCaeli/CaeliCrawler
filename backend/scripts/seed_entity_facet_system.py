@@ -102,7 +102,11 @@ ENTITY_TYPES = [
         "attribute_schema": {
             "type": "object",
             "properties": {
-                "org_type": {"type": "string", "title": "Organisationstyp", "description": "Typ (Unternehmen, Verband, etc.)"},
+                "org_type": {
+                    "type": "string",
+                    "title": "Organisationstyp",
+                    "description": "Typ (Unternehmen, Verband, etc.)",
+                },
                 "website": {"type": "string", "title": "Website"},
                 "email": {"type": "string", "title": "E-Mail", "format": "email"},
                 "address": {"type": "string", "title": "Adresse"},
@@ -127,7 +131,11 @@ ENTITY_TYPES = [
                 "event_end_date": {"type": "string", "title": "Enddatum", "format": "date-time"},
                 "location": {"type": "string", "title": "Ort"},
                 "organizer": {"type": "string", "title": "Veranstalter"},
-                "event_type": {"type": "string", "title": "Veranstaltungstyp", "description": "Messe, Konferenz, Workshop, etc."},
+                "event_type": {
+                    "type": "string",
+                    "title": "Veranstaltungstyp",
+                    "description": "Messe, Konferenz, Workshop, etc.",
+                },
                 "website": {"type": "string", "title": "Website"},
                 "description": {"type": "string", "title": "Beschreibung"},
             },
@@ -155,7 +163,19 @@ FACET_TYPES = [
             "type": "object",
             "properties": {
                 "description": {"type": "string"},
-                "type": {"type": "string", "enum": ["Buergerprotest", "Naturschutz", "Abstandsregelung", "Genehmigung", "Laerm", "Optik", "Artenschutz", "Sonstiges"]},
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "Buergerprotest",
+                        "Naturschutz",
+                        "Abstandsregelung",
+                        "Genehmigung",
+                        "Laerm",
+                        "Optik",
+                        "Artenschutz",
+                        "Sonstiges",
+                    ],
+                },
                 "severity": {"type": "string", "enum": ["hoch", "mittel", "niedrig"]},
                 "quote": {"type": "string"},
             },
@@ -195,7 +215,10 @@ FACET_TYPES = [
             "type": "object",
             "properties": {
                 "description": {"type": "string"},
-                "type": {"type": "string", "enum": ["Projektankuendigung", "Foerderung", "Buergerbeteiligung", "Klimaziel", "Sonstiges"]},
+                "type": {
+                    "type": "string",
+                    "enum": ["Projektankuendigung", "Foerderung", "Buergerbeteiligung", "Klimaziel", "Sonstiges"],
+                },
                 "quote": {"type": "string"},
             },
             "required": ["description"],
@@ -340,9 +363,7 @@ async def seed_entity_types(session) -> dict:
 
     for et_data in ENTITY_TYPES:
         # Check if already exists
-        result = await session.execute(
-            select(EntityType).where(EntityType.slug == et_data["slug"])
-        )
+        result = await session.execute(select(EntityType).where(EntityType.slug == et_data["slug"]))
         existing = result.scalar_one_or_none()
 
         if existing:
@@ -366,9 +387,7 @@ async def seed_facet_types(session) -> dict:
 
     for ft_data in FACET_TYPES:
         # Check if already exists
-        result = await session.execute(
-            select(FacetType).where(FacetType.slug == ft_data["slug"])
-        )
+        result = await session.execute(select(FacetType).where(FacetType.slug == ft_data["slug"]))
         existing = result.scalar_one_or_none()
 
         if existing:
@@ -465,9 +484,7 @@ async def seed_relation_types(session, entity_type_ids: dict) -> dict:
 
     for rt_data in relation_types:
         # Check if already exists
-        result = await session.execute(
-            select(RelationType).where(RelationType.slug == rt_data["slug"])
-        )
+        result = await session.execute(select(RelationType).where(RelationType.slug == rt_data["slug"]))
         existing = result.scalar_one_or_none()
 
         if existing:
@@ -489,9 +506,7 @@ async def seed_analysis_templates(session, entity_type_ids: dict, facet_type_ids
     """Seed analysis templates."""
 
     # Get default category if exists
-    result = await session.execute(
-        select(Category).where(Category.is_active.is_(True)).limit(1)
-    )
+    result = await session.execute(select(Category).where(Category.is_active.is_(True)).limit(1))
     default_category = result.scalar_one_or_none()
     category_id = default_category.id if default_category else None
 
@@ -504,7 +519,12 @@ async def seed_analysis_templates(session, entity_type_ids: dict, facet_type_ids
             "primary_entity_type_id": entity_type_ids["territorial_entity"],
             "facet_config": [
                 {"facet_type_slug": "pain_point", "enabled": True, "display_order": 1, "label": "Pain Points"},
-                {"facet_type_slug": "positive_signal", "enabled": True, "display_order": 2, "label": "Positive Signale"},
+                {
+                    "facet_type_slug": "positive_signal",
+                    "enabled": True,
+                    "display_order": 2,
+                    "label": "Positive Signale",
+                },
                 {"facet_type_slug": "contact", "enabled": True, "display_order": 3, "label": "Entscheider"},
                 {"facet_type_slug": "summary", "enabled": True, "display_order": 4},
             ],
@@ -527,7 +547,12 @@ async def seed_analysis_templates(session, entity_type_ids: dict, facet_type_ids
             "description": "Tracking welche Entscheider auf welche Veranstaltungen gehen",
             "primary_entity_type_id": entity_type_ids["event"],
             "facet_config": [
-                {"facet_type_slug": "event_attendance", "enabled": True, "display_order": 1, "time_filter": "future_only"},
+                {
+                    "facet_type_slug": "event_attendance",
+                    "enabled": True,
+                    "display_order": 1,
+                    "time_filter": "future_only",
+                },
             ],
             "aggregation_config": {
                 "group_by": "entity",
@@ -567,9 +592,7 @@ async def seed_analysis_templates(session, entity_type_ids: dict, facet_type_ids
 
     for tmpl_data in templates:
         # Check if already exists
-        result = await session.execute(
-            select(AnalysisTemplate).where(AnalysisTemplate.slug == tmpl_data["slug"])
-        )
+        result = await session.execute(select(AnalysisTemplate).where(AnalysisTemplate.slug == tmpl_data["slug"]))
         existing = result.scalar_one_or_none()
 
         if existing:

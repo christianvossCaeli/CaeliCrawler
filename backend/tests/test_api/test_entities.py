@@ -70,10 +70,13 @@ async def test_get_entity_by_id(admin_client: AsyncClient):
     unique_id = str(uuid.uuid4())[:8]
 
     # Create
-    create_response = await admin_client.post("/api/v1/entities", json={
-        "entity_type_id": entity_type_id,
-        "name": f"Test Entity {unique_id}",
-    })
+    create_response = await admin_client.post(
+        "/api/v1/entities",
+        json={
+            "entity_type_id": entity_type_id,
+            "name": f"Test Entity {unique_id}",
+        },
+    )
     assert create_response.status_code == 201
     entity_id = create_response.json()["id"]
 
@@ -96,19 +99,19 @@ async def test_update_entity(admin_client: AsyncClient):
     unique_id = str(uuid.uuid4())[:8]
 
     # Create
-    create_response = await admin_client.post("/api/v1/entities", json={
-        "entity_type_id": entity_type_id,
-        "name": f"Test Entity {unique_id}",
-    })
+    create_response = await admin_client.post(
+        "/api/v1/entities",
+        json={
+            "entity_type_id": entity_type_id,
+            "name": f"Test Entity {unique_id}",
+        },
+    )
     assert create_response.status_code == 201
     entity_id = create_response.json()["id"]
 
     # Update
     new_name = f"Updated Entity {unique_id}"
-    response = await admin_client.put(
-        f"/api/v1/entities/{entity_id}",
-        json={"name": new_name}
-    )
+    response = await admin_client.put(f"/api/v1/entities/{entity_id}", json={"name": new_name})
     assert response.status_code == 200
 
     data = response.json()

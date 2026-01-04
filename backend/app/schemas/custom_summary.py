@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, model_validator
 
 # --- Enums ---
 
+
 class SummaryStatus(str, Enum):
     """Status of a custom summary."""
 
@@ -54,6 +55,7 @@ class ExecutionStatus(str, Enum):
 
 # --- AI Interpreted Config Schemas ---
 
+
 class InterpretedWidgetConfig(BaseModel):
     """Schema for AI-interpreted widget configuration."""
 
@@ -85,37 +87,24 @@ class InterpretedConfig(BaseModel):
     summary_name: str = Field(..., min_length=1, max_length=255, description="Suggested summary name")
     description: str | None = Field(None, max_length=2000)
     widgets: list[InterpretedWidgetConfig] = Field(
-        default_factory=list,
-        max_length=20,
-        description="Suggested widgets (max 20)"
+        default_factory=list, max_length=20, description="Suggested widgets (max 20)"
     )
     suggested_schedule: str | None = Field(
-        None,
-        max_length=50,
-        pattern="^(hourly|daily|weekly|monthly|none)?$",
-        description="Suggested update schedule"
+        None, max_length=50, pattern="^(hourly|daily|weekly|monthly|none)?$", description="Suggested update schedule"
     )
     entity_types_detected: list[str] = Field(
-        default_factory=list,
-        max_length=50,
-        description="Entity types found in prompt"
+        default_factory=list, max_length=50, description="Entity types found in prompt"
     )
     facet_types_detected: list[str] = Field(
-        default_factory=list,
-        max_length=100,
-        description="Facet types found in prompt"
+        default_factory=list, max_length=100, description="Facet types found in prompt"
     )
-    confidence_score: float | None = Field(
-        None,
-        ge=0.0,
-        le=1.0,
-        description="AI confidence in interpretation"
-    )
+    confidence_score: float | None = Field(None, ge=0.0, le=1.0, description="AI confidence in interpretation")
 
     model_config = {"extra": "ignore"}  # Allow extra fields from AI but ignore them
 
 
 # --- Widget Schemas ---
+
 
 class WidgetPosition(BaseModel):
     """Grid position for a widget."""
@@ -144,8 +133,7 @@ class WidgetVisualizationConfig(BaseModel):
 
     # Table config
     columns: list[dict[str, Any]] | None = Field(
-        None,
-        description="Table column definitions: [{field, label, sortable, width}]"
+        None, description="Table column definitions: [{field, label, sortable, width}]"
     )
     show_pagination: bool = Field(default=True)
     rows_per_page: int = Field(default=10, ge=5, le=100)
@@ -265,6 +253,7 @@ class SummaryWidgetResponse(BaseModel):
 
 # --- Execution Schemas ---
 
+
 class SummaryExecutionResponse(BaseModel):
     """Schema for execution response."""
 
@@ -290,6 +279,7 @@ class SummaryExecutionDetailResponse(SummaryExecutionResponse):
 
 
 # --- Share Schemas ---
+
 
 class SummaryShareCreate(BaseModel):
     """Schema for creating a share link."""
@@ -334,6 +324,7 @@ class SharedSummaryResponse(BaseModel):
 
 
 # --- Summary Schemas ---
+
 
 class SummaryCreateFromPrompt(BaseModel):
     """Schema for creating a summary from natural language prompt."""
@@ -409,14 +400,8 @@ class SummaryDetailResponse(SummaryResponse):
     widgets: list[SummaryWidgetResponse] = Field(default_factory=list)
     last_execution: SummaryExecutionDetailResponse | None = None
     # Cache expiration metadata
-    cache_expired: bool | None = Field(
-        None,
-        description="True if cached data is older than TTL (default: 24h)"
-    )
-    cache_age_hours: float | None = Field(
-        None,
-        description="Age of cached data in hours"
-    )
+    cache_expired: bool | None = Field(None, description="True if cached data is older than TTL (default: 24h)")
+    cache_age_hours: float | None = Field(None, description="Age of cached data in hours")
 
 
 class SummaryListResponse(BaseModel):
@@ -465,6 +450,7 @@ class SummaryFavoriteToggleResponse(BaseModel):
 
 # --- Schedule Presets (für UI) ---
 
+
 class SummarySchedulePreset(BaseModel):
     """Common schedule presets for UI convenience."""
 
@@ -484,6 +470,7 @@ SCHEDULE_PRESETS: list[SummarySchedulePreset] = [
 
 
 # --- Check Updates Schemas ---
+
 
 class CheckUpdatesStatus(str, Enum):
     """Status of a check-updates task."""

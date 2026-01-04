@@ -29,7 +29,7 @@ SSE_INITIAL_DELAY = 0.5
 async def _generate_notification_events(
     user: User,
     session: AsyncSession,
-) -> AsyncGenerator[str, None]:
+) -> AsyncGenerator[str]:
     """
     Generate SSE events for notification updates.
 

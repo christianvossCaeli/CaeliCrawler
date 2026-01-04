@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Complete setup via category_setup functions."""
+
 import asyncio
 
 from app.database import get_session
@@ -11,13 +12,13 @@ from services.smart_query.category_setup import (
 
 
 async def run_setup():
-
     async for session in get_session():
         # Step 1: Bundesländer
         try:
             await setup_germany_bundeslaender_category(session)
         except Exception:
             import traceback
+
             traceback.print_exc()
 
         await session.commit()
@@ -27,6 +28,7 @@ async def run_setup():
             await setup_germany_gemeinden_category(session)
         except Exception:
             import traceback
+
             traceback.print_exc()
 
         await session.commit()
@@ -36,6 +38,7 @@ async def run_setup():
             await setup_windpark_category(session)
         except Exception:
             import traceback
+
             traceback.print_exc()
 
         await session.commit()

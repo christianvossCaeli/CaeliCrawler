@@ -37,10 +37,12 @@ def sync_all_external_apis():
                 select(APIConfiguration).where(
                     APIConfiguration.sync_enabled.is_(True),
                     APIConfiguration.is_active.is_(True),
-                    APIConfiguration.import_mode.in_([
-                        ImportMode.ENTITIES.value,
-                        ImportMode.BOTH.value,
-                    ]),
+                    APIConfiguration.import_mode.in_(
+                        [
+                            ImportMode.ENTITIES.value,
+                            ImportMode.BOTH.value,
+                        ]
+                    ),
                 )
             )
             configs = result.scalars().all()

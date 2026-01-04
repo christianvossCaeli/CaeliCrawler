@@ -115,9 +115,7 @@ class EntityLinkingService:
             if not hint or hint.startswith("geo:"):
                 continue  # Skip empty hints and geo coordinates
 
-            entity = await self._find_entity_by_name(
-                hint, municipality_type.id, country
-            )
+            entity = await self._find_entity_by_name(hint, municipality_type.id, country)
             if entity:
                 logger.debug(
                     "municipality_found_by_direct_match",
@@ -130,9 +128,7 @@ class EntityLinkingService:
         if self.use_ai and location_hints:
             interpreted = await self._ai_interpret_location(location_hints)
             if interpreted:
-                entity = await self._find_entity_by_name(
-                    interpreted, municipality_type.id, country
-                )
+                entity = await self._find_entity_by_name(interpreted, municipality_type.id, country)
                 if entity:
                     logger.info(
                         "municipality_found_by_ai",
@@ -173,9 +169,7 @@ class EntityLinkingService:
             base_conditions.append(Entity.country == country)
 
         # Try exact match first
-        result = await self.session.execute(
-            select(Entity).where(*base_conditions, Entity.name == name)
-        )
+        result = await self.session.execute(select(Entity).where(*base_conditions, Entity.name == name))
         entity = result.scalar_one_or_none()
         if entity:
             return entity
@@ -183,9 +177,7 @@ class EntityLinkingService:
         # Try normalized match
         normalized = normalize_name(name)
         result = await self.session.execute(
-            select(Entity).where(
-                *base_conditions, Entity.name_normalized == normalized
-            )
+            select(Entity).where(*base_conditions, Entity.name_normalized == normalized)
         )
         entity = result.scalar_one_or_none()
         if entity:
@@ -196,9 +188,7 @@ class EntityLinkingService:
         # fallback for ambiguous cases.
         return None
 
-    async def _ai_interpret_location(
-        self, hints: list[str]
-    ) -> str | None:
+    async def _ai_interpret_location(self, hints: list[str]) -> str | None:
         """Use AI to interpret location hints and extract municipality name.
 
         The AI is prompted to extract just the municipality name from
@@ -212,9 +202,7 @@ class EntityLinkingService:
             Interpreted municipality name, or None.
         """
         # Filter out non-useful hints
-        useful_hints = [
-            h for h in hints if h and not h.startswith("geo:") and len(h) > 2
-        ]
+        useful_hints = [h for h in hints if h and not h.startswith("geo:") and len(h) > 2]
         if not useful_hints:
             return None
 
@@ -223,7 +211,7 @@ class EntityLinkingService:
 
             prompt = f"""Extrahiere den deutschen Gemeindenamen aus diesen Standorthinweisen.
 
-Standorthinweise: {', '.join(useful_hints)}
+Standorthinweise: {", ".join(useful_hints)}
 
 Antworte NUR mit dem Gemeindenamen (z.B. "Münster", "Berlin", "Aachen").
 - Keine Bundesländer oder Regionen (z.B. nicht "Nordrhein-Westfalen")
@@ -369,25 +357,17 @@ Gemeindename:"""
 
             if entity_type_slug in ("territorial_entity", "municipality"):
                 # Use specialized territorial entity finder
-                municipality = await self.find_municipality_for_location(
-                    location_hints
-                )
+                municipality = await self.find_municipality_for_location(location_hints)
                 if municipality:
-                    relation = await self.create_location_relation(
-                        entity_id, municipality.id
-                    )
+                    relation = await self.create_location_relation(entity_id, municipality.id)
                     if relation:
                         linked_ids.append(municipality.id)
             else:
                 # Generic entity type linking
-                entities = await self.find_entities_by_type(
-                    location_hints, entity_type_slug
-                )
+                entities = await self.find_entities_by_type(location_hints, entity_type_slug)
                 for entity in entities:
                     # Create appropriate relation based on type
-                    relation_slug = self._get_relation_slug_for_type(
-                        entity_type_slug
-                    )
+                    relation_slug = self._get_relation_slug_for_type(entity_type_slug)
                     relation_type = await self._get_relation_type(relation_slug)
                     if relation_type:
                         relation = await create_relation(

@@ -90,10 +90,7 @@ def levenshtein_distance(s1: str, s2: str) -> int:
     return previous_row[-1]
 
 
-async def resolve_alias_async(
-    alias: str,
-    domain: str | None = None
-) -> str:
+async def resolve_alias_async(alias: str, domain: str | None = None) -> str:
     """
     Resolve an alias/abbreviation to its canonical form using AI.
 
@@ -144,12 +141,9 @@ IMPORTANT:
 - Return names in their native language when applicable
 - Handle abbreviations, acronyms, colloquial names, and common variations
 
-Return ONLY the canonical form or "NONE", nothing else."""
+Return ONLY the canonical form or "NONE", nothing else.""",
                 },
-                {
-                    "role": "user",
-                    "content": alias
-                }
+                {"role": "user", "content": alias},
             ],
             temperature=0,
             max_tokens=100,
@@ -191,6 +185,7 @@ def resolve_alias(alias: str, domain: str | None = None) -> str:
     In async code, use resolve_alias_async() directly for proper resolution.
     """
     import asyncio
+
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
@@ -198,7 +193,7 @@ def resolve_alias(alias: str, domain: str | None = None) -> str:
                 "resolve_alias_sync_in_async_context",
                 alias=alias,
                 domain=domain,
-                hint="Use resolve_alias_async() in async code"
+                hint="Use resolve_alias_async() in async code",
             )
             return alias
         return loop.run_until_complete(resolve_alias_async(alias, domain))
@@ -221,10 +216,7 @@ def resolve_geographic_alias(alias: str) -> str:
 DEFAULT_FUZZY_THRESHOLD = 2
 
 
-async def get_known_values_from_db(
-    entity_type_slug: str,
-    hierarchy_level: int | None = None
-) -> list[str]:
+async def get_known_values_from_db(entity_type_slug: str, hierarchy_level: int | None = None) -> list[str]:
     """
     Get list of known values from the database for fuzzy matching.
 
@@ -237,9 +229,7 @@ async def get_known_values_from_db(
         from app.models import Entity, EntityType
 
         async with get_session_context() as session:
-            et_result = await session.execute(
-                select(EntityType).where(EntityType.slug == entity_type_slug)
-            )
+            et_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
             entity_type = et_result.scalar_one_or_none()
 
             if not entity_type:
@@ -261,9 +251,7 @@ async def get_known_values_from_db(
 
 
 async def suggest_correction_async(
-    input_text: str,
-    known_values: list[str],
-    threshold: int = DEFAULT_FUZZY_THRESHOLD
+    input_text: str, known_values: list[str], threshold: int = DEFAULT_FUZZY_THRESHOLD
 ) -> tuple[str, str, int] | None:
     """
     Suggest a correction for a potentially misspelled term.
@@ -296,12 +284,11 @@ async def suggest_correction_async(
 
 
 def suggest_correction(
-    input_text: str,
-    known_values: list[str],
-    threshold: int = DEFAULT_FUZZY_THRESHOLD
+    input_text: str, known_values: list[str], threshold: int = DEFAULT_FUZZY_THRESHOLD
 ) -> tuple[str, str, int] | None:
     """Synchronous wrapper for suggest_correction_async."""
     import asyncio
+
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
@@ -318,8 +305,7 @@ async def get_known_regions_from_db() -> list[str]:
 
 
 async def suggest_geo_correction_async(
-    input_text: str,
-    threshold: int = DEFAULT_FUZZY_THRESHOLD
+    input_text: str, threshold: int = DEFAULT_FUZZY_THRESHOLD
 ) -> tuple[str, str, int] | None:
     """Backward compatible wrapper for geographic corrections."""
     # First try AI-based resolution
@@ -331,12 +317,10 @@ async def suggest_geo_correction_async(
     return await suggest_correction_async(input_text, known_regions, threshold)
 
 
-def suggest_geo_correction(
-    input_text: str,
-    threshold: int = DEFAULT_FUZZY_THRESHOLD
-) -> tuple[str, str, int] | None:
+def suggest_geo_correction(input_text: str, threshold: int = DEFAULT_FUZZY_THRESHOLD) -> tuple[str, str, int] | None:
     """Backward compatible synchronous wrapper."""
     import asyncio
+
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
@@ -347,10 +331,7 @@ def suggest_geo_correction(
 
 
 async def find_all_suggestions_async(
-    input_text: str,
-    known_values: list[str],
-    threshold: int = DEFAULT_FUZZY_THRESHOLD,
-    max_suggestions: int = 3
+    input_text: str, known_values: list[str], threshold: int = DEFAULT_FUZZY_THRESHOLD, max_suggestions: int = 3
 ) -> list[tuple[str, str, int]]:
     """
     Find all suggestions within the threshold distance.
@@ -381,9 +362,7 @@ async def find_all_suggestions_async(
 
 # Backward compatibility
 async def find_all_geo_suggestions_async(
-    input_text: str,
-    threshold: int = DEFAULT_FUZZY_THRESHOLD,
-    max_suggestions: int = 3
+    input_text: str, threshold: int = DEFAULT_FUZZY_THRESHOLD, max_suggestions: int = 3
 ) -> list[tuple[str, str, int]]:
     """Backward compatible wrapper for geographic suggestions."""
     resolved = await resolve_alias_async(input_text, domain="geographic")
@@ -395,12 +374,11 @@ async def find_all_geo_suggestions_async(
 
 
 def find_all_geo_suggestions(
-    input_text: str,
-    threshold: int = DEFAULT_FUZZY_THRESHOLD,
-    max_suggestions: int = 3
+    input_text: str, threshold: int = DEFAULT_FUZZY_THRESHOLD, max_suggestions: int = 3
 ) -> list[tuple[str, str, int]]:
     """Backward compatible synchronous wrapper."""
     import asyncio
+
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
@@ -414,7 +392,7 @@ async def resolve_with_suggestion_async(
     input_text: str,
     domain: str | None = None,
     known_values: list[str] | None = None,
-    threshold: int = DEFAULT_FUZZY_THRESHOLD
+    threshold: int = DEFAULT_FUZZY_THRESHOLD,
 ) -> tuple[str, str | None]:
     """
     Resolve an input with optional suggestion for typos.
@@ -450,10 +428,11 @@ def resolve_with_suggestion(
     input_text: str,
     domain: str | None = None,
     known_values: list[str] | None = None,
-    threshold: int = DEFAULT_FUZZY_THRESHOLD
+    threshold: int = DEFAULT_FUZZY_THRESHOLD,
 ) -> tuple[str, str | None]:
     """Synchronous wrapper."""
     import asyncio
+
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
@@ -463,10 +442,7 @@ def resolve_with_suggestion(
         return asyncio.run(resolve_with_suggestion_async(input_text, domain, known_values, threshold))
 
 
-async def expand_terms_async(
-    context: str,
-    raw_terms: list[str]
-) -> list[str]:
+async def expand_terms_async(context: str, raw_terms: list[str]) -> list[str]:
     """
     Expand abstract terms into concrete terms using AI.
 
@@ -514,12 +490,9 @@ If the term is an abstract/umbrella term, return a JSON array of specific concre
 If the term is already concrete/specific, return a JSON array containing just that term.
 
 Return ONLY a valid JSON array of strings, nothing else.
-Maximum 10 terms."""
+Maximum 10 terms.""",
                     },
-                    {
-                        "role": "user",
-                        "content": term
-                    }
+                    {"role": "user", "content": term},
                 ],
                 temperature=0,
                 max_tokens=200,
@@ -539,6 +512,7 @@ Maximum 10 terms."""
                 )
 
             import json
+
             result = response.choices[0].message.content.strip()
             terms = json.loads(result)
 
@@ -569,6 +543,7 @@ Maximum 10 terms."""
 def expand_terms(context: str, raw_terms: list[str]) -> list[str]:
     """Synchronous wrapper for expand_terms_async."""
     import asyncio
+
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():

@@ -92,7 +92,7 @@ class APIValidator:
             headers={
                 "User-Agent": "CaeliCrawler/1.0 (API Validator)",
                 "Accept": "application/json, */*",
-            }
+            },
         )
         return self
 
@@ -360,8 +360,16 @@ class APIValidator:
 
         # Common wrapper fields
         wrapper_fields = [
-            "data", "items", "results", "records", "entries",
-            "teams", "matches", "bodies", "members", "list",
+            "data",
+            "items",
+            "results",
+            "records",
+            "entries",
+            "teams",
+            "matches",
+            "bodies",
+            "members",
+            "list",
         ]
 
         for field in wrapper_fields:
@@ -390,8 +398,16 @@ class APIValidator:
 
         # Name field detection
         name_fields = [
-            "name", "title", "label", "teamName", "displayName",
-            "shortName", "fullName", "bezeichnung", "Name", "Title",
+            "name",
+            "title",
+            "label",
+            "teamName",
+            "displayName",
+            "shortName",
+            "fullName",
+            "bezeichnung",
+            "Name",
+            "Title",
         ]
         for field in name_fields:
             if field in sample:
@@ -400,21 +416,33 @@ class APIValidator:
 
         # URL/Website field detection
         url_fields = [
-            "url", "website", "homepage", "link", "web", "webseite",
-            "Website", "URL", "teamIconUrl", "imageUrl", "logoUrl",
+            "url",
+            "website",
+            "homepage",
+            "link",
+            "web",
+            "webseite",
+            "Website",
+            "URL",
+            "teamIconUrl",
+            "imageUrl",
+            "logoUrl",
         ]
         for field in url_fields:
             if field in sample:
                 value = sample[field]
-                if isinstance(value, str) and (
-                    value.startswith("http") or value.startswith("www")
-                ):
+                if isinstance(value, str) and (value.startswith("http") or value.startswith("www")):
                     mapping[field] = "base_url"
                     break
 
         # ID field detection
         id_fields = [
-            "id", "ID", "teamId", "itemId", "externalId", "code",
+            "id",
+            "ID",
+            "teamId",
+            "itemId",
+            "externalId",
+            "code",
         ]
         for field in id_fields:
             if field in sample:

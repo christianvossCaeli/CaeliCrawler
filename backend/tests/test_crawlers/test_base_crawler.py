@@ -31,7 +31,7 @@ class TestCrawlResult:
             documents_new=3,
             documents_updated=2,
             errors=[{"error": "test"}],
-            stats={"key": "value"}
+            stats={"key": "value"},
         )
 
         assert result.pages_crawled == 10
@@ -96,7 +96,7 @@ class TestGetCrawlerForSource:
         crawler = get_crawler_for_source(source)
 
         assert crawler is not None
-        assert hasattr(crawler, 'crawl')
+        assert hasattr(crawler, "crawl")
 
     def test_oparl_source(self):
         """Test getting crawler for OParl source."""
@@ -136,7 +136,7 @@ class TestCrawlerConditionalRequests:
         """Test that conditional headers are sent correctly."""
         # This would require mocking httpx
         # Just ensure the method exists
-        assert hasattr(BaseCrawler, 'fetch_with_conditional')
+        assert hasattr(BaseCrawler, "fetch_with_conditional")
 
     def test_304_not_modified_handling(self):
         """Test handling of 304 Not Modified responses."""

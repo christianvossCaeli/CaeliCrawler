@@ -23,7 +23,6 @@ from app.models.data_source import SourceStatus, SourceType
 from app.models.data_source_category import DataSourceCategory
 from app.utils.similarity import DEFAULT_SIMILARITY_THRESHOLD
 from services.entity_matching_service import EntityMatchingService
-
 from services.smart_query.utils import generate_slug
 
 logger = structlog.get_logger()
@@ -60,11 +59,7 @@ async def create_entity_type_from_command(
     slug = entity_type_data.get("slug") or generate_slug(name)
 
     # Check for exact duplicates first
-    existing = await session.execute(
-        select(EntityType).where(
-            or_(EntityType.name == name, EntityType.slug == slug)
-        )
-    )
+    existing = await session.execute(select(EntityType).where(or_(EntityType.name == name, EntityType.slug == slug)))
     exact_match = existing.scalar()
     if exact_match:
         return exact_match, f"Entity-Typ '{exact_match.name}' existiert bereits (exakt)"
@@ -148,6 +143,7 @@ async def create_entity_type_from_command(
     # Generate embedding for semantic similarity search
     # This is critical for duplicate detection to work properly
     from app.utils.similarity import generate_embedding
+
     try:
         embedding = await generate_embedding(name)
         if embedding:
@@ -185,9 +181,7 @@ async def find_entity_by_name(
         Entity.is_active.is_(True),
     )
     if entity_type_slug:
-        entity_type_result = await session.execute(
-            select(EntityType).where(EntityType.slug == entity_type_slug)
-        )
+        entity_type_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
         entity_type = entity_type_result.scalar_one_or_none()
         if entity_type:
             query = query.where(Entity.entity_type_id == entity_type.id)
@@ -221,20 +215,22 @@ async def lookup_location_coordinates(
     escaped_name = _escape_like_pattern(location_name)
 
     # First, try exact match in territorial_entity type
-    entity_type_result = await session.execute(
-        select(EntityType).where(EntityType.slug == "territorial_entity")
-    )
+    entity_type_result = await session.execute(select(EntityType).where(EntityType.slug == "territorial_entity"))
     entity_type = entity_type_result.scalar_one_or_none()
 
     if entity_type:
         # Try exact name match first (more precise)
-        exact_query = select(Entity).where(
-            Entity.entity_type_id == entity_type.id,
-            Entity.name.ilike(escaped_name, escape="\\"),
-            Entity.latitude.isnot(None),
-            Entity.longitude.isnot(None),
-            Entity.is_active.is_(True),
-        ).limit(1)
+        exact_query = (
+            select(Entity)
+            .where(
+                Entity.entity_type_id == entity_type.id,
+                Entity.name.ilike(escaped_name, escape="\\"),
+                Entity.latitude.isnot(None),
+                Entity.longitude.isnot(None),
+                Entity.is_active.is_(True),
+            )
+            .limit(1)
+        )
 
         result = await session.execute(exact_query)
         entity = result.scalar_one_or_none()
@@ -256,13 +252,17 @@ async def lookup_location_coordinates(
             }
 
         # Try partial match in territorial entities
-        partial_query = select(Entity).where(
-            Entity.entity_type_id == entity_type.id,
-            Entity.name.ilike(f"%{escaped_name}%", escape="\\"),
-            Entity.latitude.isnot(None),
-            Entity.longitude.isnot(None),
-            Entity.is_active.is_(True),
-        ).limit(1)
+        partial_query = (
+            select(Entity)
+            .where(
+                Entity.entity_type_id == entity_type.id,
+                Entity.name.ilike(f"%{escaped_name}%", escape="\\"),
+                Entity.latitude.isnot(None),
+                Entity.longitude.isnot(None),
+                Entity.is_active.is_(True),
+            )
+            .limit(1)
+        )
 
         result = await session.execute(partial_query)
         entity = result.scalar_one_or_none()
@@ -284,12 +284,16 @@ async def lookup_location_coordinates(
             }
 
     # Fallback: Search in any entity type with coordinates
-    fallback_query = select(Entity).where(
-        Entity.name.ilike(f"%{escaped_name}%", escape="\\"),
-        Entity.latitude.isnot(None),
-        Entity.longitude.isnot(None),
-        Entity.is_active.is_(True),
-    ).limit(1)
+    fallback_query = (
+        select(Entity)
+        .where(
+            Entity.name.ilike(f"%{escaped_name}%", escape="\\"),
+            Entity.latitude.isnot(None),
+            Entity.longitude.isnot(None),
+            Entity.is_active.is_(True),
+        )
+        .limit(1)
+    )
 
     result = await session.execute(fallback_query)
     entity = result.scalar_one_or_none()
@@ -345,6 +349,7 @@ async def create_entity_from_command(
     # Check if entity already exists before attempting creation
     # This allows us to reliably detect if the entity was newly created
     from app.utils.text import normalize_entity_name
+
     name_normalized = normalize_entity_name(name, entity_data.get("country", "DE"))
 
     existing_entity = await session.execute(
@@ -364,10 +369,7 @@ async def create_entity_from_command(
     location_source = None
 
     if not latitude and not longitude and entity_data.get("location_reference"):
-        location_coords = await lookup_location_coordinates(
-            session,
-            entity_data["location_reference"]
-        )
+        location_coords = await lookup_location_coordinates(session, entity_data["location_reference"])
         if location_coords:
             latitude = location_coords["latitude"]
             longitude = location_coords["longitude"]
@@ -420,9 +422,7 @@ async def create_facet_from_command(
         return None, "Facet-Typ und Ziel-Entity sind erforderlich"
 
     # Find facet type
-    facet_type_result = await session.execute(
-        select(FacetType).where(FacetType.slug == facet_type_slug)
-    )
+    facet_type_result = await session.execute(select(FacetType).where(FacetType.slug == facet_type_slug))
     facet_type = facet_type_result.scalar_one_or_none()
     if not facet_type:
         return None, f"Facet-Typ '{facet_type_slug}' nicht gefunden"
@@ -436,6 +436,7 @@ async def create_facet_from_command(
 
     # Create facet value
     from app.models.facet_value import FacetValueSourceType
+
     facet_value = FacetValue(
         id=uuid_module.uuid4(),
         entity_id=target_entity.id,
@@ -451,6 +452,7 @@ async def create_facet_from_command(
 
     # Generate embedding for semantic similarity search
     from app.utils.similarity import generate_embedding
+
     embedding = await generate_embedding(text_repr)
     if embedding:
         facet_value.text_embedding = embedding
@@ -473,9 +475,7 @@ async def create_relation_from_command(
         return None, "Relation-Typ, Quell- und Ziel-Entity sind erforderlich"
 
     # Find relation type
-    relation_type_result = await session.execute(
-        select(RelationType).where(RelationType.slug == relation_type_slug)
-    )
+    relation_type_result = await session.execute(select(RelationType).where(RelationType.slug == relation_type_slug))
     relation_type = relation_type_result.scalar_one_or_none()
     if not relation_type:
         return None, f"Relation-Typ '{relation_type_slug}' nicht gefunden"
@@ -574,16 +574,12 @@ async def create_located_in_relation(
 
     if not relation_type:
         # Check if ANY located_in exists - if so, need a unique slug
-        any_located_in = await session.execute(
-            select(RelationType).where(RelationType.slug == "located_in")
-        )
+        any_located_in = await session.execute(select(RelationType).where(RelationType.slug == "located_in"))
         existing_located_in = any_located_in.scalar_one_or_none()
 
         if existing_located_in:
             # Use an extended slug for different type combinations
-            source_type_result = await session.execute(
-                select(EntityType).where(EntityType.id == source_type_id)
-            )
+            source_type_result = await session.execute(select(EntityType).where(EntityType.id == source_type_id))
             source_type = source_type_result.scalar_one_or_none()
             slug = f"located_in_{source_type.slug}" if source_type else "located_in_generic"
         else:
@@ -686,9 +682,7 @@ async def match_entity_to_parent_by_name(
         return None
 
     # Get target entity type
-    entity_type_result = await session.execute(
-        select(EntityType).where(EntityType.slug == parent_entity_type_slug)
-    )
+    entity_type_result = await session.execute(select(EntityType).where(EntityType.slug == parent_entity_type_slug))
     entity_type = entity_type_result.scalar_one_or_none()
     if not entity_type:
         logger.warning(f"Parent entity type '{parent_entity_type_slug}' not found")
@@ -894,9 +888,7 @@ async def create_entity_with_hierarchy(
         return None, "Name ist erforderlich"
 
     # Get entity type
-    entity_type_result = await session.execute(
-        select(EntityType).where(EntityType.slug == entity_type_slug)
-    )
+    entity_type_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
     entity_type = entity_type_result.scalar_one_or_none()
     if not entity_type:
         return None, f"Entity-Typ '{entity_type_slug}' nicht gefunden"
@@ -928,6 +920,7 @@ async def create_entity_with_hierarchy(
 
     # Check if entity already exists
     from app.utils.text import normalize_entity_name
+
     name_normalized = normalize_entity_name(name, entity_data.get("country", "DE"))
 
     existing_result = await session.execute(
@@ -1042,9 +1035,7 @@ async def bulk_create_entities_from_api_data(
 
     # Pre-load existing entities of this type for faster hierarchical parent lookup
     if parent_field:
-        entity_type_result = await session.execute(
-            select(EntityType).where(EntityType.slug == entity_type_slug)
-        )
+        entity_type_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
         entity_type = entity_type_result.scalar_one_or_none()
         if entity_type:
             existing_entities_result = await session.execute(
@@ -1127,8 +1118,19 @@ async def bulk_create_entities_from_api_data(
                     core_attrs["area_km2"] = float(item.get(field_mapping["area"]))
 
             # Custom core attributes - any field not in standard mappings
-            standard_fields = {"name", "name_template", "external_id", "admin_level_1", "admin_level_2",
-                             "country", "latitude", "longitude", "population", "area", "website"}
+            standard_fields = {
+                "name",
+                "name_template",
+                "external_id",
+                "admin_level_1",
+                "admin_level_2",
+                "country",
+                "latitude",
+                "longitude",
+                "population",
+                "area",
+                "website",
+            }
             for attr_name, api_field in field_mapping.items():
                 if attr_name not in standard_fields and not attr_name.startswith("_"):
                     value = item.get(api_field)
@@ -1232,11 +1234,15 @@ async def bulk_create_entities_from_api_data(
                         )
                         entity_type = entity_type_result.scalar_one_or_none()
                         if entity_type:
-                            parent_query = select(Entity).where(
-                                Entity.entity_type_id == entity_type.id,
-                                Entity.name.ilike(escaped_name, escape="\\"),
-                                Entity.is_active.is_(True),
-                            ).limit(1)
+                            parent_query = (
+                                select(Entity)
+                                .where(
+                                    Entity.entity_type_id == entity_type.id,
+                                    Entity.name.ilike(escaped_name, escape="\\"),
+                                    Entity.is_active.is_(True),
+                                )
+                                .limit(1)
+                            )
                             parent_result = await session.execute(parent_query)
                             hierarchy_parent = parent_result.scalar_one_or_none()
                             # Cache for next lookups
@@ -1446,9 +1452,7 @@ async def create_data_source_for_entity(
         return None
 
     # Check if DataSource with this URL already exists
-    existing = await session.execute(
-        select(DataSource).where(DataSource.base_url == website_url)
-    )
+    existing = await session.execute(select(DataSource).where(DataSource.base_url == website_url))
     if existing.scalar_one_or_none():
         logger.debug("DataSource already exists", url=website_url)
         return None
@@ -1576,9 +1580,7 @@ async def create_api_data_source_for_entity(
         unique_url = f"{base_url.rstrip('/')}/{entity.slug}"
 
     # Check if DataSource with this URL already exists
-    existing = await session.execute(
-        select(DataSource).where(DataSource.base_url == unique_url)
-    )
+    existing = await session.execute(select(DataSource).where(DataSource.base_url == unique_url))
     if existing.scalar_one_or_none():
         logger.debug("API DataSource already exists", url=unique_url)
         return None
@@ -1671,27 +1673,33 @@ async def link_data_source_to_category(
     if admin_level_1 and country == "DE":
         admin_slug = generate_slug(admin_level_1)
         # Common patterns for German regional categories
-        potential_slugs.extend([
-            f"kommunale-websites-{admin_slug}",
-            f"kommunal-{admin_slug}",
-            f"ratsinformationen-{admin_slug}",
-            f"gemeinden-{admin_slug}",
-        ])
+        potential_slugs.extend(
+            [
+                f"kommunale-websites-{admin_slug}",
+                f"kommunal-{admin_slug}",
+                f"ratsinformationen-{admin_slug}",
+                f"gemeinden-{admin_slug}",
+            ]
+        )
 
     # Try entity-type-based categories
     if entity_type_slug:
-        potential_slugs.extend([
-            f"{entity_type_slug}-websites",
-            f"kommunale-{entity_type_slug}",
-            entity_type_slug,
-        ])
+        potential_slugs.extend(
+            [
+                f"{entity_type_slug}-websites",
+                f"kommunale-{entity_type_slug}",
+                entity_type_slug,
+            ]
+        )
 
     # Add generic fallbacks
-    potential_slugs.extend([
-        "kommunale-websites",
-        "kommunale-news",
-        "ratsinformationen-nrw",  # Most common
-    ])
+    potential_slugs.extend(
+        [
+            "kommunale-websites",
+            "kommunale-news",
+            "ratsinformationen-nrw",  # Most common
+        ]
+    )
 
     # Try to find a matching category
     for slug in potential_slugs:

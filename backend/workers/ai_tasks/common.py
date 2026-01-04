@@ -111,9 +111,7 @@ async def _get_active_entity_type_slugs(session: "AsyncSession") -> list[str]:
     from app.models import EntityType
 
     try:
-        result = await session.execute(
-            select(EntityType.slug).where(EntityType.is_active.is_(True))
-        )
+        result = await session.execute(select(EntityType.slug).where(EntityType.is_active.is_(True)))
         slugs = [row[0] for row in result.fetchall()]
         return slugs if slugs else ["territorial_entity", "person", "organization"]
     except Exception:
@@ -298,6 +296,7 @@ def _get_icon_for_entity_type(slug: str) -> str:
 def _get_color_for_entity_type(slug: str) -> str:
     """Get consistent color for entity type based on slug hash."""
     import hashlib
+
     hash_val = int(hashlib.md5(slug.encode()).hexdigest(), 16)  # noqa: S324
     return ENTITY_TYPE_COLORS[hash_val % len(ENTITY_TYPE_COLORS)]
 
@@ -339,9 +338,7 @@ async def _ensure_entity_type_exists(
     from app.models import EntityType
 
     # Check if it already exists
-    result = await session.execute(
-        select(EntityType).where(EntityType.slug == entity_type_slug)
-    )
+    result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
     entity_type = result.scalar_one_or_none()
 
     if entity_type:
@@ -611,22 +608,16 @@ async def _resolve_entity_smart(
         - entity_type_slug is always returned (classified type)
     """
     # Phase 1: Multi-type search for existing entity
-    entity_id, found_type = await _resolve_entity_any_type(
-        session, name, allowed_types
-    )
+    entity_id, found_type = await _resolve_entity_any_type(session, name, allowed_types)
     if entity_id:
         return entity_id, found_type
 
     # Phase 2: Classify the entity type
-    classified_type = await classify_entity_type(
-        session, name, allowed_types, default_type
-    )
+    classified_type = await classify_entity_type(session, name, allowed_types, default_type)
 
     # Phase 3: Create entity if requested
     if auto_create:
-        entity_id = await _resolve_entity(
-            session, classified_type, name, auto_create=True
-        )
+        entity_id = await _resolve_entity(session, classified_type, name, auto_create=True)
         logger.info(
             "Created entity with classified type",
             name=name,
@@ -800,10 +791,7 @@ async def _create_entity_facet_value(
 
     try:
         # Get primary entity to check its type
-        primary_entity = await session.get(
-            Entity, primary_entity_id,
-            options=[selectinload(Entity.entity_type)]
-        )
+        primary_entity = await session.get(Entity, primary_entity_id, options=[selectinload(Entity.entity_type)])
         if not primary_entity or not primary_entity.entity_type:
             logger.debug(
                 "Primary entity or type not found",

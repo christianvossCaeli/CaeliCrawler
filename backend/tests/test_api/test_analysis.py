@@ -7,6 +7,7 @@ from httpx import AsyncClient
 # Overview & Stats Tests
 # =============================================================================
 
+
 @pytest.mark.asyncio
 async def test_get_analysis_overview(admin_client: AsyncClient):
     """Test getting analysis overview."""
@@ -30,6 +31,7 @@ async def test_get_analysis_stats(admin_client: AsyncClient):
 # Smart Query Tests
 # =============================================================================
 
+
 @pytest.mark.asyncio
 async def test_smart_query_examples(admin_client: AsyncClient):
     """Test getting smart query examples."""
@@ -44,8 +46,7 @@ async def test_smart_query_examples(admin_client: AsyncClient):
 async def test_smart_query_persons(admin_client: AsyncClient):
     """Test smart query for persons."""
     response = await admin_client.post(
-        "/api/v1/analysis/smart-query",
-        json={"question": "Zeige mir alle Personen", "allow_write": False}
+        "/api/v1/analysis/smart-query", json={"question": "Zeige mir alle Personen", "allow_write": False}
     )
     assert response.status_code == 200
 
@@ -58,8 +59,7 @@ async def test_smart_query_persons(admin_client: AsyncClient):
 async def test_smart_query_events(admin_client: AsyncClient):
     """Test smart query for events."""
     response = await admin_client.post(
-        "/api/v1/analysis/smart-query",
-        json={"question": "Zeige mir kommende Veranstaltungen", "allow_write": False}
+        "/api/v1/analysis/smart-query", json={"question": "Zeige mir kommende Veranstaltungen", "allow_write": False}
     )
     assert response.status_code == 200
 
@@ -68,11 +68,7 @@ async def test_smart_query_events(admin_client: AsyncClient):
 async def test_smart_query_with_filter(admin_client: AsyncClient):
     """Test smart query with location filter."""
     response = await admin_client.post(
-        "/api/v1/analysis/smart-query",
-        json={
-            "question": "Zeige mir Entscheider in NRW",
-            "allow_write": False
-        }
+        "/api/v1/analysis/smart-query", json={"question": "Zeige mir Entscheider in NRW", "allow_write": False}
     )
     assert response.status_code == 200
 
@@ -82,11 +78,7 @@ async def test_smart_write_preview(admin_client: AsyncClient):
     """Test smart write in preview mode."""
     response = await admin_client.post(
         "/api/v1/analysis/smart-write",
-        json={
-            "question": "Erstelle eine neue Person namens Max Mustermann",
-            "preview_only": True,
-            "confirmed": False
-        }
+        json={"question": "Erstelle eine neue Person namens Max Mustermann", "preview_only": True, "confirmed": False},
     )
     # Accept 200 or error if write not allowed
     assert response.status_code in [200, 400, 403, 422]
@@ -95,6 +87,7 @@ async def test_smart_write_preview(admin_client: AsyncClient):
 # =============================================================================
 # Templates Tests
 # =============================================================================
+
 
 @pytest.mark.asyncio
 async def test_list_analysis_templates(admin_client: AsyncClient):
@@ -138,21 +131,16 @@ async def test_get_entity_report(admin_client: AsyncClient):
 # Error Handling Tests
 # =============================================================================
 
+
 @pytest.mark.asyncio
 async def test_smart_query_empty_question(admin_client: AsyncClient):
     """Test smart query with empty question fails."""
-    response = await admin_client.post(
-        "/api/v1/analysis/smart-query",
-        json={"question": "", "allow_write": False}
-    )
+    response = await admin_client.post("/api/v1/analysis/smart-query", json={"question": "", "allow_write": False})
     assert response.status_code == 422
 
 
 @pytest.mark.asyncio
 async def test_smart_query_too_short(admin_client: AsyncClient):
     """Test smart query with too short question fails."""
-    response = await admin_client.post(
-        "/api/v1/analysis/smart-query",
-        json={"question": "ab", "allow_write": False}
-    )
+    response = await admin_client.post("/api/v1/analysis/smart-query", json={"question": "ab", "allow_write": False})
     assert response.status_code == 422

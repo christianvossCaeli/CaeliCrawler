@@ -101,7 +101,9 @@ async def list_users(
     role: UserRole | None = None,
     is_active: bool | None = None,
     search: str | None = None,
-    sort_by: str | None = Query(default=None, description="Sort by field (email, full_name, role, is_active, last_login, created_at)"),
+    sort_by: str | None = Query(
+        default=None, description="Sort by field (email, full_name, role, is_active, last_login, created_at)"
+    ),
     sort_order: str | None = Query(default="desc", description="Sort order (asc, desc)"),
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_admin),
@@ -123,8 +125,7 @@ async def list_users(
         escaped_search = search.replace("%", r"\%").replace("_", r"\_")
         search_pattern = f"%{escaped_search}%"
         query = query.where(
-            (User.email.ilike(search_pattern, escape='\\')) |
-            (User.full_name.ilike(search_pattern, escape='\\'))
+            (User.email.ilike(search_pattern, escape="\\")) | (User.full_name.ilike(search_pattern, escape="\\"))
         )
 
     # Handle sorting

@@ -46,9 +46,7 @@ async def get_crawl_history(
     source_ids = list({job.source_id for job in jobs if job.source_id})
 
     # Batch load sources to avoid N+1 query
-    sources_result = await session.execute(
-        select(DataSource).where(DataSource.id.in_(source_ids))
-    )
+    sources_result = await session.execute(select(DataSource).where(DataSource.id.in_(source_ids)))
     sources_map = {s.id: s for s in sources_result.scalars().all()}
 
     # Batch load document counts using GROUP BY
@@ -75,20 +73,22 @@ async def get_crawl_history(
         doc_count = doc_counts_map.get(job.id, 0)
         extraction_count = extraction_counts_map.get(job.id, 0)
 
-        crawls.append({
-            "job_id": str(job.id),
-            "source_name": source.name if source else None,
-            "source_municipality": None,  # Legacy - location_name no longer on DataSource
-            "status": job.status.value,
-            "started_at": job.started_at.isoformat() if job.started_at else None,
-            "completed_at": job.completed_at.isoformat() if job.completed_at else None,
-            "documents_found": job.documents_found or 0,
-            "documents_new": job.documents_new or 0,
-            "documents_stored": doc_count or 0,
-            "extractions_created": extraction_count or 0,
-            "error_count": job.error_count or 0,
-            "errors": job.error_log[:3] if job.error_log else [],
-        })
+        crawls.append(
+            {
+                "job_id": str(job.id),
+                "source_name": source.name if source else None,
+                "source_municipality": None,  # Legacy - location_name no longer on DataSource
+                "status": job.status.value,
+                "started_at": job.started_at.isoformat() if job.started_at else None,
+                "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+                "documents_found": job.documents_found or 0,
+                "documents_new": job.documents_new or 0,
+                "documents_stored": doc_count or 0,
+                "extractions_created": extraction_count or 0,
+                "error_count": job.error_count or 0,
+                "errors": job.error_log[:3] if job.error_log else [],
+            }
+        )
 
     return {
         "total_crawls": len(crawls),

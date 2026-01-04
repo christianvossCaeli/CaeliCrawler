@@ -81,7 +81,7 @@ class RetryConfig:
         Returns:
             Delay in seconds
         """
-        delay = self.base_delay * (self.exponential_base ** attempt)
+        delay = self.base_delay * (self.exponential_base**attempt)
         delay = min(delay, self.max_delay)
 
         if self.jitter:
@@ -251,6 +251,7 @@ def with_retry(
         async def call_llm():
             ...
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
@@ -265,6 +266,7 @@ def with_retry(
             return await retry_async(func, *args, config=retry_config, **kwargs)
 
         return wrapper
+
     return decorator
 
 

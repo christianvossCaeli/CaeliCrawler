@@ -112,7 +112,7 @@ async def test_generate_facet_schema(admin_client: AsyncClient):
             "name_plural": "Kontakte",
             "description": "Contact information with email and phone",
             "applicable_entity_types": ["territorial_entity"],
-        }
+        },
     )
     # Accept 200 or 400/422 if AI service not available
     assert response.status_code in [200, 400, 422, 500]
@@ -121,10 +121,7 @@ async def test_generate_facet_schema(admin_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_list_facet_values_with_search(admin_client: AsyncClient):
     """Test searching facet values by text."""
-    response = await admin_client.get(
-        "/api/v1/facets/values",
-        params={"search": "test", "per_page": 10}
-    )
+    response = await admin_client.get("/api/v1/facets/values", params={"search": "test", "per_page": 10})
     assert response.status_code == 200
     data = response.json()
     assert "items" in data
@@ -135,24 +132,15 @@ async def test_list_facet_values_with_search(admin_client: AsyncClient):
 async def test_list_facet_values_with_time_filter(admin_client: AsyncClient):
     """Test filtering facet values by time."""
     # Test future_only filter
-    response = await admin_client.get(
-        "/api/v1/facets/values",
-        params={"time_filter": "future_only", "per_page": 10}
-    )
+    response = await admin_client.get("/api/v1/facets/values", params={"time_filter": "future_only", "per_page": 10})
     assert response.status_code == 200
 
     # Test past_only filter
-    response = await admin_client.get(
-        "/api/v1/facets/values",
-        params={"time_filter": "past_only", "per_page": 10}
-    )
+    response = await admin_client.get("/api/v1/facets/values", params={"time_filter": "past_only", "per_page": 10})
     assert response.status_code == 200
 
     # Test invalid filter (should fail with 422)
-    response = await admin_client.get(
-        "/api/v1/facets/values",
-        params={"time_filter": "invalid", "per_page": 10}
-    )
+    response = await admin_client.get("/api/v1/facets/values", params={"time_filter": "invalid", "per_page": 10})
     assert response.status_code == 422
 
 
@@ -175,10 +163,7 @@ async def test_facet_type_enum_validation(admin_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_full_text_search(admin_client: AsyncClient):
     """Test full-text search endpoint."""
-    response = await admin_client.get(
-        "/api/v1/facets/search",
-        params={"q": "test", "limit": 10}
-    )
+    response = await admin_client.get("/api/v1/facets/search", params={"q": "test", "limit": 10})
     assert response.status_code == 200
     data = response.json()
     assert "items" in data
@@ -200,12 +185,7 @@ async def test_full_text_search_with_filters(admin_client: AsyncClient):
 
     response = await admin_client.get(
         "/api/v1/facets/search",
-        params={
-            "q": "information",
-            "entity_id": entity_id,
-            "facet_type_slug": "pain_point",
-            "limit": 5
-        }
+        params={"q": "information", "entity_id": entity_id, "facet_type_slug": "pain_point", "limit": 5},
     )
     assert response.status_code == 200
     data = response.json()
@@ -217,6 +197,6 @@ async def test_full_text_search_short_query(admin_client: AsyncClient):
     """Test that short queries are rejected."""
     response = await admin_client.get(
         "/api/v1/facets/search",
-        params={"q": "a"}  # Too short
+        params={"q": "a"},  # Too short
     )
     assert response.status_code == 422  # Validation error

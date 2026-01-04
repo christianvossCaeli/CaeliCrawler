@@ -35,26 +35,22 @@ __all__ = [
     "BaseCrawler",
     "CrawlResult",
     "get_crawler_for_source",
-
     # Crawlers
     "OparlCrawler",
     "WebsiteCrawler",
     "RSSCrawler",
-
     # Unified Service
     "UnifiedCrawlerService",
     "DataSourceType",
     "UnifiedSearchQuery",
     "UnifiedSearchResult",
     "quick_search",
-
     # API Clients
     "BaseAPIClient",
     "OparlClient",
     "GovDataClient",
     "DIPBundestagClient",
     "FragDenStaatClient",
-
     # Constants
     "KNOWN_OPARL_ENDPOINTS",
     "GERMAN_GOVERNMENT_FEEDS",

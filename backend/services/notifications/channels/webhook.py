@@ -19,12 +19,12 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 BLOCKED_IP_RANGES = [
-    ipaddress.ip_network("127.0.0.0/8"),      # Localhost
-    ipaddress.ip_network("10.0.0.0/8"),       # Private Class A
-    ipaddress.ip_network("172.16.0.0/12"),    # Private Class B
-    ipaddress.ip_network("192.168.0.0/16"),   # Private Class C
-    ipaddress.ip_network("169.254.0.0/16"),   # Link-local (cloud metadata)
-    ipaddress.ip_network("0.0.0.0/8"),        # Current network
+    ipaddress.ip_network("127.0.0.0/8"),  # Localhost
+    ipaddress.ip_network("10.0.0.0/8"),  # Private Class A
+    ipaddress.ip_network("172.16.0.0/12"),  # Private Class B
+    ipaddress.ip_network("192.168.0.0/16"),  # Private Class C
+    ipaddress.ip_network("169.254.0.0/16"),  # Link-local (cloud metadata)
+    ipaddress.ip_network("0.0.0.0/8"),  # Current network
 ]
 
 
@@ -84,14 +84,16 @@ def create_pinned_url(original_url: str, resolved_ip: str) -> tuple[str, str]:
 
     # Replace hostname with IP in URL
     netloc = f"{resolved_ip}:{port}" if port not in (80, 443) else resolved_ip
-    pinned = urlunparse((
-        parsed.scheme,
-        netloc,
-        parsed.path,
-        parsed.params,
-        parsed.query,
-        parsed.fragment,
-    ))
+    pinned = urlunparse(
+        (
+            parsed.scheme,
+            netloc,
+            parsed.path,
+            parsed.params,
+            parsed.query,
+            parsed.fragment,
+        )
+    )
 
     return pinned, parsed.hostname
 
@@ -119,9 +121,7 @@ class WebhookChannel(NotificationChannelBase):
         # SSRF Protection: Validate URL and get resolved IP
         is_safe, error_msg, resolved_ip = is_safe_webhook_url(url)
         if not is_safe or not resolved_ip:
-            logger.error(
-                f"Blocked unsafe webhook URL for notification {notification.id}: {error_msg}"
-            )
+            logger.error(f"Blocked unsafe webhook URL for notification {notification.id}: {error_msg}")
             return False
 
         # Create pinned URL to prevent DNS rebinding attacks
@@ -219,6 +219,7 @@ class WebhookChannel(NotificationChannelBase):
             headers["Authorization"] = f"Bearer {token}"
         elif auth_type == "basic":
             import base64
+
             username = auth.get("username", "")
             password = auth.get("password", "")
             credentials = base64.b64encode(f"{username}:{password}".encode()).decode()

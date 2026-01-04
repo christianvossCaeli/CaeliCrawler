@@ -310,9 +310,11 @@ async def add_smart_query_to_existing_summary(
 
     # Get current widget count for positioning
     from sqlalchemy import func, select
+
     result = await session.execute(
-        select(func.count(SummaryWidget.id), func.max(SummaryWidget.display_order))
-        .where(SummaryWidget.summary_id == summary_id)
+        select(func.count(SummaryWidget.id), func.max(SummaryWidget.display_order)).where(
+            SummaryWidget.summary_id == summary_id
+        )
     )
     row = result.one()
     widget_count = row[0] or 0

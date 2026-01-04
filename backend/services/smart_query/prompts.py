@@ -803,7 +803,9 @@ Um fortzufahren, klicken Sie auf "Als Zusammenfassung speichern" oder formuliere
 **Beispiele für Summary-Vorschläge:**
 • "Zeige mir täglich die Bundesliga-Tabelle" → Vorschlag: Zusammenfassung
 • "Ich möchte NRW Gemeinden mit Problemen beobachten" → Vorschlag: Zusammenfassung
-• "Erstelle ein Dashboard mit Windpark-Statistiken" → Vorschlag: Zusammenfassung""" + _build_page_context_section(page_context)
+• "Erstelle ein Dashboard mit Windpark-Statistiken" → Vorschlag: Zusammenfassung""" + _build_page_context_section(
+        page_context
+    )
 
 
 def _build_page_context_section(page_context: dict[str, Any] | None) -> str:

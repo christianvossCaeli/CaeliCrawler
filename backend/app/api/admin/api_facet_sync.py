@@ -29,6 +29,7 @@ router = APIRouter()
 
 class FacetMappingItem(BaseModel):
     """Single facet mapping configuration."""
+
     facet_type_slug: str
     is_history: bool = True
     track_key: str = "default"
@@ -36,6 +37,7 @@ class FacetMappingItem(BaseModel):
 
 class EntityMatchingConfig(BaseModel):
     """Entity matching configuration."""
+
     match_by: str = Field(default="name", pattern="^(name|external_id|name_contains)$")
     api_field: str
     entity_type_slug: str | None = None
@@ -43,6 +45,7 @@ class EntityMatchingConfig(BaseModel):
 
 class APIFacetSyncResponse(BaseModel):
     """API facet sync configuration response."""
+
     id: UUID
     data_source_id: UUID
     data_source_name: str | None = None
@@ -68,6 +71,7 @@ class APIFacetSyncResponse(BaseModel):
 
 class SyncTriggerResponse(BaseModel):
     """Response after triggering a sync."""
+
     message: str
     task_id: str
     config_id: UUID
@@ -76,6 +80,7 @@ class SyncTriggerResponse(BaseModel):
 
 class SyncStatsResponse(BaseModel):
     """Sync statistics response."""
+
     total_configs: int
     configs_with_schedule: int
     last_24h_syncs: int
@@ -131,14 +136,18 @@ async def list_api_facet_syncs(
     """
     from sqlalchemy.orm import selectinload
 
-    query = select(APIConfiguration).options(
-        selectinload(APIConfiguration.data_source)
-    ).where(
-        APIConfiguration.import_mode.in_([
-            ImportMode.FACETS.value,
-            ImportMode.BOTH.value,
-        ]),
-        APIConfiguration.facet_mappings != {},
+    query = (
+        select(APIConfiguration)
+        .options(selectinload(APIConfiguration.data_source))
+        .where(
+            APIConfiguration.import_mode.in_(
+                [
+                    ImportMode.FACETS.value,
+                    ImportMode.BOTH.value,
+                ]
+            ),
+            APIConfiguration.facet_mappings != {},
+        )
     )
 
     if sync_enabled is not None:
@@ -163,17 +172,17 @@ async def get_sync_stats(
     """Get statistics about API facet syncs."""
     # Base filter for facet-enabled configs
     base_filter = [
-        APIConfiguration.import_mode.in_([
-            ImportMode.FACETS.value,
-            ImportMode.BOTH.value,
-        ]),
+        APIConfiguration.import_mode.in_(
+            [
+                ImportMode.FACETS.value,
+                ImportMode.BOTH.value,
+            ]
+        ),
         APIConfiguration.facet_mappings != {},
     ]
 
     # Count total configs
-    total_result = await session.execute(
-        select(func.count(APIConfiguration.id)).where(*base_filter)
-    )
+    total_result = await session.execute(select(func.count(APIConfiguration.id)).where(*base_filter))
     total_configs = total_result.scalar_one()
 
     # Count configs with schedule enabled
@@ -204,9 +213,7 @@ async def get_sync_stats(
         )
     )
     stats_list = stats_result.scalars().all()
-    last_24h_history_points = sum(
-        (s.get("history_points_added", 0) if s else 0) for s in stats_list
-    )
+    last_24h_history_points = sum((s.get("history_points_added", 0) if s else 0) for s in stats_list)
 
     return SyncStatsResponse(
         total_configs=total_configs,
@@ -226,9 +233,9 @@ async def get_api_facet_sync(
     from sqlalchemy.orm import selectinload
 
     result = await session.execute(
-        select(APIConfiguration).options(
-            selectinload(APIConfiguration.data_source)
-        ).where(APIConfiguration.id == config_id)
+        select(APIConfiguration)
+        .options(selectinload(APIConfiguration.data_source))
+        .where(APIConfiguration.id == config_id)
     )
     config = result.scalar_one_or_none()
 
@@ -236,16 +243,10 @@ async def get_api_facet_sync(
         raise HTTPException(status_code=404, detail="Configuration not found")
 
     if config.import_mode not in [ImportMode.FACETS.value, ImportMode.BOTH.value]:
-        raise HTTPException(
-            status_code=400,
-            detail="Configuration is not configured for facet sync"
-        )
+        raise HTTPException(status_code=400, detail="Configuration is not configured for facet sync")
 
     if not config.facet_mappings:
-        raise HTTPException(
-            status_code=400,
-            detail="Configuration has no facet_mappings"
-        )
+        raise HTTPException(status_code=400, detail="Configuration has no facet_mappings")
 
     return _config_to_response(config)
 
@@ -260,9 +261,9 @@ async def trigger_sync_now(
     from sqlalchemy.orm import selectinload
 
     result = await session.execute(
-        select(APIConfiguration).options(
-            selectinload(APIConfiguration.data_source)
-        ).where(APIConfiguration.id == config_id)
+        select(APIConfiguration)
+        .options(selectinload(APIConfiguration.data_source))
+        .where(APIConfiguration.id == config_id)
     )
     config = result.scalar_one_or_none()
 
@@ -270,10 +271,7 @@ async def trigger_sync_now(
         raise HTTPException(status_code=404, detail="Configuration not found")
 
     if config.import_mode not in [ImportMode.FACETS.value, ImportMode.BOTH.value]:
-        raise HTTPException(
-            status_code=400,
-            detail="Configuration is not configured for facet sync"
-        )
+        raise HTTPException(status_code=400, detail="Configuration is not configured for facet sync")
 
     if not config.facet_mappings:
         raise HTTPException(
@@ -313,9 +311,9 @@ async def update_schedule(
     from sqlalchemy.orm import selectinload
 
     result = await session.execute(
-        select(APIConfiguration).options(
-            selectinload(APIConfiguration.data_source)
-        ).where(APIConfiguration.id == config_id)
+        select(APIConfiguration)
+        .options(selectinload(APIConfiguration.data_source))
+        .where(APIConfiguration.id == config_id)
     )
     config = result.scalar_one_or_none()
 
@@ -326,17 +324,12 @@ async def update_schedule(
 
     if sync_interval_hours is not None:
         if sync_interval_hours < 1 or sync_interval_hours > 8760:
-            raise HTTPException(
-                status_code=400,
-                detail="sync_interval_hours must be between 1 and 8760 (1 year)"
-            )
+            raise HTTPException(status_code=400, detail="sync_interval_hours must be between 1 and 8760 (1 year)")
         config.sync_interval_hours = sync_interval_hours
 
     if sync_enabled:
         # Calculate next run
-        config.next_run_at = datetime.now(UTC) + timedelta(
-            hours=config.sync_interval_hours
-        )
+        config.next_run_at = datetime.now(UTC) + timedelta(hours=config.sync_interval_hours)
     else:
         config.next_run_at = None
 
@@ -356,9 +349,9 @@ async def delete_api_facet_sync(
     from sqlalchemy.orm import selectinload
 
     result = await session.execute(
-        select(APIConfiguration).options(
-            selectinload(APIConfiguration.data_source)
-        ).where(APIConfiguration.id == config_id)
+        select(APIConfiguration)
+        .options(selectinload(APIConfiguration.data_source))
+        .where(APIConfiguration.id == config_id)
     )
     config = result.scalar_one_or_none()
 

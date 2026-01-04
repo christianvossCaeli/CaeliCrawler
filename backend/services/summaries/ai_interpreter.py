@@ -358,8 +358,16 @@ def _process_widgets(
     for i, widget in enumerate(widgets):
         # Validate widget type
         valid_types = [
-            "table", "bar_chart", "line_chart", "pie_chart",
-            "stat_card", "text", "comparison", "timeline", "map", "calendar"
+            "table",
+            "bar_chart",
+            "line_chart",
+            "pie_chart",
+            "stat_card",
+            "text",
+            "comparison",
+            "timeline",
+            "map",
+            "calendar",
         ]
         widget_type = widget.get("widget_type", "table")
         if widget_type not in valid_types:
@@ -454,80 +462,80 @@ async def suggest_widgets_for_entity_type(
     facet_types, entity_types = await load_facet_and_entity_types(session)
 
     # Find the entity type
-    entity_type = next(
-        (et for et in entity_types if et["slug"] == entity_type_slug),
-        None
-    )
+    entity_type = next((et for et in entity_types if et["slug"] == entity_type_slug), None)
     if not entity_type:
         logger.warning("Entity type not found", slug=entity_type_slug)
         return []
 
     # Find applicable facets
     applicable_facets = [
-        ft for ft in facet_types
-        if not ft.get("applicable_entity_type_slugs") or
-        entity_type_slug in ft.get("applicable_entity_type_slugs", [])
+        ft
+        for ft in facet_types
+        if not ft.get("applicable_entity_type_slugs") or entity_type_slug in ft.get("applicable_entity_type_slugs", [])
     ]
 
     widgets = []
 
     # Add stat card for total count
-    widgets.append({
-        "widget_type": "stat_card",
-        "title": f"Anzahl {entity_type.get('name', entity_type_slug)}",
-        "position": {"x": 0, "y": 0, "w": 1, "h": 1},
-        "query_config": {
-            "entity_type": entity_type_slug,
-            "aggregate": "count",
-        },
-        "visualization_config": {},
-        "display_order": 0,
-    })
+    widgets.append(
+        {
+            "widget_type": "stat_card",
+            "title": f"Anzahl {entity_type.get('name', entity_type_slug)}",
+            "position": {"x": 0, "y": 0, "w": 1, "h": 1},
+            "query_config": {
+                "entity_type": entity_type_slug,
+                "aggregate": "count",
+            },
+            "visualization_config": {},
+            "display_order": 0,
+        }
+    )
 
     # Add table with main facets
     if applicable_facets:
         facet_slugs = [ft["slug"] for ft in applicable_facets[:5]]
         columns = [{"key": "name", "label": entity_type.get("name", "Name")}]
-        columns.extend([
-            {"key": f"facets.{slug}.value", "label": slug}
-            for slug in facet_slugs
-        ])
+        columns.extend([{"key": f"facets.{slug}.value", "label": slug} for slug in facet_slugs])
 
-        widgets.append({
-            "widget_type": "table",
-            "title": f"{entity_type.get('name_plural', entity_type['name'])} Übersicht",
-            "position": {"x": 1, "y": 0, "w": 3, "h": 3},
-            "query_config": {
-                "entity_type": entity_type_slug,
-                "facet_types": facet_slugs,
-                "limit": 50,
-            },
-            "visualization_config": {
-                "columns": columns,
-                "show_pagination": True,
-                "rows_per_page": 10,
-            },
-            "display_order": 1,
-        })
+        widgets.append(
+            {
+                "widget_type": "table",
+                "title": f"{entity_type.get('name_plural', entity_type['name'])} Übersicht",
+                "position": {"x": 1, "y": 0, "w": 3, "h": 3},
+                "query_config": {
+                    "entity_type": entity_type_slug,
+                    "facet_types": facet_slugs,
+                    "limit": 50,
+                },
+                "visualization_config": {
+                    "columns": columns,
+                    "show_pagination": True,
+                    "rows_per_page": 10,
+                },
+                "display_order": 1,
+            }
+        )
 
     # Add time-based chart if time-based facets exist
     time_facets = [ft for ft in applicable_facets if ft.get("is_time_based")]
     if time_facets and focus in ("timeline", None):
-        widgets.append({
-            "widget_type": "line_chart",
-            "title": f"{time_facets[0]['name']} Verlauf",
-            "position": {"x": 0, "y": 3, "w": 4, "h": 2},
-            "query_config": {
-                "entity_type": entity_type_slug,
-                "facet_types": [time_facets[0]["slug"]],
-            },
-            "visualization_config": {
-                "x_axis": {"field": "recorded_at", "label": "Zeit"},
-                "y_axis": {"field": "value", "label": time_facets[0]["name"]},
-                "show_legend": True,
-            },
-            "display_order": 2,
-        })
+        widgets.append(
+            {
+                "widget_type": "line_chart",
+                "title": f"{time_facets[0]['name']} Verlauf",
+                "position": {"x": 0, "y": 3, "w": 4, "h": 2},
+                "query_config": {
+                    "entity_type": entity_type_slug,
+                    "facet_types": [time_facets[0]["slug"]],
+                },
+                "visualization_config": {
+                    "x_axis": {"field": "recorded_at", "label": "Zeit"},
+                    "y_axis": {"field": "value", "label": time_facets[0]["name"]},
+                    "show_legend": True,
+                },
+                "display_order": 2,
+            }
+        )
 
     return widgets
 
@@ -554,8 +562,16 @@ def get_schedule_suggestion(
 
     # Time-sensitive themes suggest more frequent updates
     time_sensitive_keywords = [
-        "aktuell", "live", "heute", "news", "ticker", "ranking",
-        "tabelle", "stand", "börse", "wetter"
+        "aktuell",
+        "live",
+        "heute",
+        "news",
+        "ticker",
+        "ranking",
+        "tabelle",
+        "stand",
+        "börse",
+        "wetter",
     ]
     if theme and any(kw in theme.lower() for kw in time_sensitive_keywords):
         suggestion = {

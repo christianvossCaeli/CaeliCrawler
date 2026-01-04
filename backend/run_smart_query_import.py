@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Full Smart Query import via backend."""
+
 import asyncio
 
 from app.database import get_session
@@ -17,8 +18,8 @@ Verknüpfe das Ganze mit den passenden bestehenden Analysethemen.
 
 Kannst du das einrichten?"""
 
-async def run_import():
 
+async def run_import():
     async for session in get_session():
         # Step 1: Interpret the command
         interpretation = await interpret_write_command(PROMPT, session)
@@ -53,6 +54,7 @@ async def run_import():
                     result.get("error", "Unknown error")
             except Exception:
                 import traceback
+
                 traceback.print_exc()
 
         await session.commit()
@@ -62,6 +64,7 @@ async def run_import():
         sum(1 for r in total_results if r.get("success"))
 
         return total_results
+
 
 if __name__ == "__main__":
     asyncio.run(run_import())

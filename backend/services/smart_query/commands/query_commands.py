@@ -107,9 +107,7 @@ class QueryDataCommand(BaseCommand):
         response = await query_service.query_data(config, user_query)
 
         if not response.success:
-            return CommandResult.failure(
-                message=response.error or "Abfrage fehlgeschlagen"
-            )
+            return CommandResult.failure(message=response.error or "Abfrage fehlgeschlagen")
 
         # Select visualization
         if response.data:
@@ -176,11 +174,13 @@ class QueryExternalCommand(BaseCommand):
         config = self.data.get("query_config", {})
 
         # Need at least one of: prompt, api_configuration_id, or api_url
-        if not any([
-            config.get("prompt"),
-            config.get("api_configuration_id"),
-            config.get("api_url"),
-        ]):
+        if not any(
+            [
+                config.get("prompt"),
+                config.get("api_configuration_id"),
+                config.get("api_url"),
+            ]
+        ):
             return "Mindestens prompt, api_configuration_id oder api_url ist erforderlich"
 
         return None
@@ -217,9 +217,7 @@ class QueryExternalCommand(BaseCommand):
             )
             api_config = result.scalar_one_or_none()
             if not api_config:
-                return CommandResult.failure(
-                    message=f"API-Konfiguration '{api_configuration_id}' nicht gefunden"
-                )
+                return CommandResult.failure(message=f"API-Konfiguration '{api_configuration_id}' nicht gefunden")
             api_url = api_config.get_full_url()
             api_name = api_config.data_source.name if api_config.data_source else f"API {str(api_config.id)[:8]}"
 
@@ -275,12 +273,10 @@ class QueryExternalCommand(BaseCommand):
                     else:
                         return CommandResult.failure(
                             message="Keine passende API für diese Anfrage gefunden. "
-                                    "Versuche es mit query_data für interne Daten."
+                            "Versuche es mit query_data für interne Daten."
                         )
                 except ImportError:
-                    return CommandResult.failure(
-                        message="AI Source Discovery nicht verfügbar"
-                    )
+                    return CommandResult.failure(message="AI Source Discovery nicht verfügbar")
 
         # Fetch data from API
         try:
@@ -290,9 +286,7 @@ class QueryExternalCommand(BaseCommand):
             api_data = await client.fetch(api_url)
 
             if not api_data:
-                return CommandResult.failure(
-                    message=f"Keine Daten von {api_name} erhalten"
-                )
+                return CommandResult.failure(message=f"Keine Daten von {api_name} erhalten")
 
             # Ensure it's a list
             if isinstance(api_data, dict):
@@ -357,9 +351,7 @@ class QueryExternalCommand(BaseCommand):
                 api_url=api_url,
                 error=str(e),
             )
-            return CommandResult.failure(
-                message=f"API-Abfrage fehlgeschlagen: {str(e)}"
-            )
+            return CommandResult.failure(message=f"API-Abfrage fehlgeschlagen: {str(e)}")
 
 
 @default_registry.register("query_facet_history")
@@ -444,11 +436,13 @@ class QueryFacetHistoryCommand(BaseCommand):
         flat_data = []
         for entity_data in data:
             for point in entity_data.get("history", []):
-                flat_data.append({
-                    "entity_name": entity_data["entity_name"],
-                    "entity_id": entity_data["entity_id"],
-                    **point,
-                })
+                flat_data.append(
+                    {
+                        "entity_name": entity_data["entity_name"],
+                        "entity_id": entity_data["entity_id"],
+                        **point,
+                    }
+                )
 
         # Select visualization
         if flat_data:

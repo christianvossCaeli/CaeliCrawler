@@ -72,10 +72,10 @@ async def list_entity_types(
         query = query.where(EntityType.is_primary.is_(is_primary))
     if search:
         # Escape SQL wildcards to prevent injection
-        safe_search = search.replace('%', '\\%').replace('_', '\\_')
+        safe_search = search.replace("%", "\\%").replace("_", "\\_")
         query = query.where(
-            EntityType.name.ilike(f"%{safe_search}%", escape='\\') |
-            EntityType.slug.ilike(f"%{safe_search}%", escape='\\')
+            EntityType.name.ilike(f"%{safe_search}%", escape="\\")
+            | EntityType.slug.ilike(f"%{safe_search}%", escape="\\")
         )
 
     # Count total
@@ -140,9 +140,7 @@ async def create_entity_type(
 
     # Check for exact duplicate
     existing = await session.execute(
-        select(EntityType).where(
-            (EntityType.name == data.name) | (EntityType.slug == slug)
-        )
+        select(EntityType).where((EntityType.name == data.name) | (EntityType.slug == slug))
     )
     if existing.scalar():
         raise ConflictError(
@@ -152,6 +150,7 @@ async def create_entity_type(
 
     # Check for hierarchy mapping (e.g., "Stadt" should use territorial_entity)
     from app.utils.similarity import find_similar_entity_types, get_hierarchy_mapping
+
     hierarchy_mapping = get_hierarchy_mapping(data.name)
     if hierarchy_mapping:
         parent_slug = hierarchy_mapping["parent_type_slug"]
@@ -159,7 +158,7 @@ async def create_entity_type(
         raise ConflictError(
             "Hierarchischer EntityType existiert bereits",
             detail=f"'{data.name}' ist ein Hierarchie-Level von '{parent_slug}' ({level_name}). "
-                   f"Verwenden Sie stattdessen den bestehenden Typ '{parent_slug}'.",
+            f"Verwenden Sie stattdessen den bestehenden Typ '{parent_slug}'.",
         )
 
     # Check for semantically similar EntityTypes (AI-based)
@@ -168,8 +167,8 @@ async def create_entity_type(
         existing_type, score, _ = similar_types[0]
         raise ConflictError(
             "Semantisch ähnlicher EntityType existiert bereits",
-            detail=f"'{existing_type.name}' ({existing_type.slug}) ist semantisch ähnlich ({int(score*100)}%). "
-                   f"Verwenden Sie diesen statt einen neuen zu erstellen.",
+            detail=f"'{existing_type.name}' ({existing_type.slug}) ist semantisch ähnlich ({int(score * 100)}%). "
+            f"Verwenden Sie diesen statt einen neuen zu erstellen.",
         )
 
     async with AuditContext(session, current_user, request) as audit:
@@ -197,6 +196,7 @@ async def create_entity_type(
         # Generate embedding for semantic similarity search
         # This is critical for duplicate detection to work properly
         from app.utils.similarity import generate_embedding
+
         try:
             embedding = await generate_embedding(entity_type.name)
             if embedding:
@@ -244,9 +244,7 @@ async def get_entity_type(
     if not entity_type:
         raise NotFoundError("EntityType", str(entity_type_id))
 
-    entity_count = (await session.execute(
-        select(func.count()).where(Entity.entity_type_id == entity_type.id)
-    )).scalar()
+    entity_count = (await session.execute(select(func.count()).where(Entity.entity_type_id == entity_type.id))).scalar()
 
     response = EntityTypeResponse.model_validate(entity_type)
     response.entity_count = entity_count
@@ -260,16 +258,12 @@ async def get_entity_type_by_slug(
     session: AsyncSession = Depends(get_session),
 ):
     """Get a single entity type by slug."""
-    result = await session.execute(
-        select(EntityType).where(EntityType.slug == slug)
-    )
+    result = await session.execute(select(EntityType).where(EntityType.slug == slug))
     entity_type = result.scalar()
     if not entity_type:
         raise NotFoundError("EntityType", slug)
 
-    entity_count = (await session.execute(
-        select(func.count()).where(Entity.entity_type_id == entity_type.id)
-    )).scalar()
+    entity_count = (await session.execute(select(func.count()).where(Entity.entity_type_id == entity_type.id))).scalar()
 
     response = EntityTypeResponse.model_validate(entity_type)
     response.entity_count = entity_count
@@ -306,6 +300,7 @@ async def update_entity_type(
         # If name changes, regenerate embedding
         if "name" in update_data:
             from app.utils.similarity import generate_embedding
+
             embedding = await generate_embedding(update_data["name"])
             if embedding:
                 update_data["name_embedding"] = embedding
@@ -348,9 +343,7 @@ async def delete_entity_type(
         )
 
     # Check for existing entities
-    entity_count = (await session.execute(
-        select(func.count()).where(Entity.entity_type_id == entity_type.id)
-    )).scalar()
+    entity_count = (await session.execute(select(func.count()).where(Entity.entity_type_id == entity_type.id))).scalar()
 
     if entity_count > 0:
         raise ConflictError(
@@ -359,14 +352,16 @@ async def delete_entity_type(
         )
 
     # Check for RelationType dependencies (source or target)
-    relation_type_count = (await session.execute(
-        select(func.count()).where(
-            or_(
-                RelationType.source_entity_type_id == entity_type.id,
-                RelationType.target_entity_type_id == entity_type.id,
+    relation_type_count = (
+        await session.execute(
+            select(func.count()).where(
+                or_(
+                    RelationType.source_entity_type_id == entity_type.id,
+                    RelationType.target_entity_type_id == entity_type.id,
+                )
             )
         )
-    )).scalar()
+    ).scalar()
 
     if relation_type_count > 0:
         raise ConflictError(
@@ -375,11 +370,9 @@ async def delete_entity_type(
         )
 
     # Check for AnalysisTemplate dependencies
-    analysis_template_count = (await session.execute(
-        select(func.count()).where(
-            AnalysisTemplate.primary_entity_type_id == entity_type.id
-        )
-    )).scalar()
+    analysis_template_count = (
+        await session.execute(select(func.count()).where(AnalysisTemplate.primary_entity_type_id == entity_type.id))
+    ).scalar()
 
     if analysis_template_count > 0:
         raise ConflictError(
@@ -390,9 +383,7 @@ async def delete_entity_type(
     # Clean up FacetType references to this entity type slug
     slug_to_remove = entity_type.slug
     facet_types_with_ref = await session.execute(
-        select(FacetType).where(
-            FacetType.applicable_entity_type_slugs.any(slug_to_remove)
-        )
+        select(FacetType).where(FacetType.applicable_entity_type_slugs.any(slug_to_remove))
     )
     for facet_type in facet_types_with_ref.scalars():
         facet_type.applicable_entity_type_slugs = [

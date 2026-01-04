@@ -49,9 +49,7 @@ class ExportOperation(WriteOperation):
         entity_query = select(Entity).where(Entity.is_active.is_(True))
 
         # Filter by entity type
-        et_result = await session.execute(
-            select(EntityType).where(EntityType.slug == entity_type_slug)
-        )
+        et_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
         entity_type = et_result.scalar_one_or_none()
         if entity_type:
             entity_query = entity_query.where(Entity.entity_type_id == entity_type.id)
@@ -64,6 +62,7 @@ class ExportOperation(WriteOperation):
         # Filter by location
         if location_filter:
             from ..geographic_utils import resolve_geographic_alias
+
             resolved_location = resolve_geographic_alias(location_filter)
             entity_query = entity_query.where(Entity.admin_level_1 == resolved_location)
 
@@ -74,11 +73,10 @@ class ExportOperation(WriteOperation):
         # Filter by position keywords (for person entities)
         if position_keywords and entity_type_slug == "person":
             from sqlalchemy import or_
+
             position_conditions = []
             for keyword in position_keywords:
-                position_conditions.append(
-                    Entity.core_attributes["position"].astext.ilike(f"%{keyword}%")
-                )
+                position_conditions.append(Entity.core_attributes["position"].astext.ilike(f"%{keyword}%"))
             if position_conditions:
                 entity_query = entity_query.where(or_(*position_conditions))
 
@@ -97,9 +95,7 @@ class ExportOperation(WriteOperation):
         facet_type_map = {}
         if facet_type_slugs and include_facets:
             for ft_slug in facet_type_slugs:
-                ft_result = await session.execute(
-                    select(FacetType).where(FacetType.slug == ft_slug)
-                )
+                ft_result = await session.execute(select(FacetType).where(FacetType.slug == ft_slug))
                 ft = ft_result.scalar_one_or_none()
                 if ft:
                     facet_type_map[ft_slug] = ft
@@ -119,12 +115,14 @@ class ExportOperation(WriteOperation):
 
             fv_result = await session.execute(facet_query)
             for fv in fv_result.scalars().all():
-                facets_by_entity[fv.entity_id].append({
-                    "type": str(fv.facet_type_id),
-                    "value": fv.value,
-                    "text": fv.text_representation,
-                    "date": fv.event_date.isoformat() if fv.event_date else None,
-                })
+                facets_by_entity[fv.entity_id].append(
+                    {
+                        "type": str(fv.facet_type_id),
+                        "value": fv.value,
+                        "text": fv.text_representation,
+                        "date": fv.event_date.isoformat() if fv.event_date else None,
+                    }
+                )
 
         # Build export data
         export_records = []

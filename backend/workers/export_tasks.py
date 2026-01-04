@@ -54,11 +54,13 @@ def async_entity_export(
 
     try:
         # Run the async export in an event loop
-        result = run_async(_execute_async_export(
-            export_job_id,
-            export_data,
-            progress_callback=lambda p, m: _update_progress(self, export_job_id, p, m),
-        ))
+        result = run_async(
+            _execute_async_export(
+                export_job_id,
+                export_data,
+                progress_callback=lambda p, m: _update_progress(self, export_job_id, p, m),
+            )
+        )
 
         logger.info(
             "async_export_completed",
@@ -97,7 +99,7 @@ def _update_progress(task, job_id: str, progress: int, message: str):
             "progress": progress,
             "message": message,
             "job_id": job_id,
-        }
+        },
     )
 
 
@@ -163,9 +165,7 @@ async def _execute_async_export(
         entity_query = select(Entity).where(Entity.is_active.is_(True))
 
         # Filter by entity type
-        et_result = await session.execute(
-            select(EntityType).where(EntityType.slug == entity_type_slug)
-        )
+        et_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
         entity_type = et_result.scalar_one_or_none()
         if not entity_type:
             raise ValueError(f"Entity-Typ '{entity_type_slug}' nicht gefunden")
@@ -184,12 +184,13 @@ async def _execute_async_export(
         # Filter by position keywords
         if position_keywords and entity_type_slug == "person":
             from sqlalchemy import or_
+
             position_conditions = []
             for keyword in position_keywords:
                 # Escape SQL wildcards to prevent injection
-                safe_keyword = keyword.replace('%', '\\%').replace('_', '\\_')
+                safe_keyword = keyword.replace("%", "\\%").replace("_", "\\_")
                 position_conditions.append(
-                    Entity.core_attributes["position"].astext.ilike(f"%{safe_keyword}%", escape='\\')
+                    Entity.core_attributes["position"].astext.ilike(f"%{safe_keyword}%", escape="\\")
                 )
             if position_conditions:
                 entity_query = entity_query.where(or_(*position_conditions))
@@ -203,11 +204,7 @@ async def _execute_async_export(
         total_count = count_result.scalar() or 0
 
         # Update job with total count
-        await session.execute(
-            update(ExportJob)
-            .where(ExportJob.id == UUID(job_id))
-            .values(total_records=total_count)
-        )
+        await session.execute(update(ExportJob).where(ExportJob.id == UUID(job_id)).values(total_records=total_count))
         await session.commit()
 
         if total_count == 0:
@@ -236,9 +233,7 @@ async def _execute_async_export(
         facet_type_map = {}
         if facet_type_slugs and include_facets:
             for ft_slug in facet_type_slugs:
-                ft_result = await session.execute(
-                    select(FacetType).where(FacetType.slug == ft_slug)
-                )
+                ft_result = await session.execute(select(FacetType).where(FacetType.slug == ft_slug))
                 ft = ft_result.scalar_one_or_none()
                 if ft:
                     facet_type_map[ft_slug] = ft
@@ -267,12 +262,14 @@ async def _execute_async_export(
 
             fv_result = await session.execute(facet_query)
             for fv in fv_result.scalars().all():
-                facets_by_entity[fv.entity_id].append({
-                    "type": str(fv.facet_type_id),
-                    "value": fv.value,
-                    "text": fv.text_representation,
-                    "date": fv.event_date.isoformat() if fv.event_date else None,
-                })
+                facets_by_entity[fv.entity_id].append(
+                    {
+                        "type": str(fv.facet_type_id),
+                        "value": fv.value,
+                        "text": fv.text_representation,
+                        "date": fv.event_date.isoformat() if fv.event_date else None,
+                    }
+                )
 
         if progress_callback:
             progress_callback(50, "Formatiere Daten...")

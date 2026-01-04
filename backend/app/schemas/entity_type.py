@@ -54,9 +54,7 @@ class EntityTypeCreate(EntityTypeBase):
     """Schema for creating a new entity type."""
 
     slug: str | None = Field(
-        None,
-        max_length=SLUG_MAX_LENGTH,
-        description="URL-friendly slug (auto-generated if not provided)"
+        None, max_length=SLUG_MAX_LENGTH, description="URL-friendly slug (auto-generated if not provided)"
     )
 
     @field_validator("slug", mode="before")

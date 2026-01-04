@@ -25,8 +25,12 @@ class EntityBase(BaseModel):
 
     # Location fields for filtering
     country: str | None = Field(None, max_length=2, description="ISO 3166-1 alpha-2 country code (DE, GB, etc.)")
-    admin_level_1: str | None = Field(None, max_length=100, description="First-level admin division (Bundesland, Region)")
-    admin_level_2: str | None = Field(None, max_length=100, description="Second-level admin division (Landkreis, District)")
+    admin_level_1: str | None = Field(
+        None, max_length=100, description="First-level admin division (Bundesland, Region)"
+    )
+    admin_level_2: str | None = Field(
+        None, max_length=100, description="Second-level admin division (Landkreis, District)"
+    )
 
     # Core attributes (type-specific)
     core_attributes: dict[str, Any] = Field(default_factory=dict, description="Type-specific attributes")
@@ -46,9 +50,7 @@ class EntityCreate(EntityBase):
 
     entity_type_id: UUID = Field(..., description="Entity type ID")
     slug: str | None = Field(
-        None,
-        max_length=SLUG_MAX_LENGTH,
-        description="URL-friendly slug (auto-generated if not provided)"
+        None, max_length=SLUG_MAX_LENGTH, description="URL-friendly slug (auto-generated if not provided)"
     )
 
     # Ownership (optional)
@@ -219,9 +221,7 @@ class AttributeFilterOptionsResponse(BaseModel):
     entity_type_slug: str = Field(..., description="Entity type slug")
     entity_type_name: str = Field(..., description="Entity type name")
     attributes: list[FilterableAttribute] = Field(default_factory=list, description="Filterable attributes")
-    attribute_values: dict[str, list[str]] | None = Field(
-        None, description="Distinct values for requested attribute"
-    )
+    attribute_values: dict[str, list[str]] | None = Field(None, description="Distinct values for requested attribute")
 
 
 class EntityDocumentsResponse(BaseModel):

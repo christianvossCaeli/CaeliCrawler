@@ -108,14 +108,16 @@ class AIExtractor(BaseExtractor):
                 metadata = {k: v for k, v in item.items() if k not in ["name", "website", "url", "base_url"]}
                 metadata["source"] = "ai_extraction"
 
-                sources.append(ExtractedSource(
-                    name=name,
-                    base_url=website,
-                    source_type="WEBSITE",
-                    metadata=metadata,
-                    extraction_method="ai",
-                    confidence=0.75,
-                ))
+                sources.append(
+                    ExtractedSource(
+                        name=name,
+                        base_url=website,
+                        source_type="WEBSITE",
+                        metadata=metadata,
+                        extraction_method="ai",
+                        confidence=0.75,
+                    )
+                )
 
             logger.debug(
                 "AI extraction completed",
@@ -153,6 +155,7 @@ class AIExtractor(BaseExtractor):
         except ImportError:
             # Fallback: basic tag removal
             import re
+
             text = re.sub(r"<[^>]+>", " ", html_content)
             text = re.sub(r"\s+", " ", text)
             return text.strip()

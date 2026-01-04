@@ -19,8 +19,7 @@ class FacetTypeBase(BaseModel):
 
     # Value configuration with enum validation
     value_type: ValueType = Field(
-        default=ValueType.STRUCTURED,
-        description="Type: text, structured, list, reference, number, boolean"
+        default=ValueType.STRUCTURED, description="Type: text, structured, list, reference, number, boolean"
     )
     value_schema: dict[str, Any] | None = Field(None, description="JSON Schema for value structure")
 
@@ -37,8 +36,7 @@ class FacetTypeBase(BaseModel):
 
     # Aggregation configuration with enum validation
     aggregation_method: AggregationMethod = Field(
-        default=AggregationMethod.DEDUPE,
-        description="Method: count, sum, avg, list, dedupe, latest, min, max"
+        default=AggregationMethod.DEDUPE, description="Method: count, sum, avg, list, dedupe, latest, min, max"
     )
     deduplication_fields: list[str] = Field(default_factory=list, description="Fields for deduplication")
 
@@ -46,8 +44,7 @@ class FacetTypeBase(BaseModel):
     is_time_based: bool = Field(default=False, description="Has date/time component")
     time_field_path: str | None = Field(None, description="JSON path to date field")
     default_time_filter: TimeFilter = Field(
-        default=TimeFilter.ALL,
-        description="Default filter: all, future_only, past_only"
+        default=TimeFilter.ALL, description="Default filter: all, future_only, past_only"
     )
 
     # AI extraction
@@ -55,17 +52,12 @@ class FacetTypeBase(BaseModel):
     ai_extraction_prompt: str | None = Field(None, description="AI prompt template")
 
     # Entity reference configuration
-    allows_entity_reference: bool = Field(
-        default=False,
-        description="Can this FacetType reference another Entity?"
-    )
+    allows_entity_reference: bool = Field(default=False, description="Can this FacetType reference another Entity?")
     target_entity_type_slugs: list[str] = Field(
-        default_factory=list,
-        description="Allowed entity type slugs for reference (empty = all)"
+        default_factory=list, description="Allowed entity type slugs for reference (empty = all)"
     )
     auto_create_entity: bool = Field(
-        default=False,
-        description="Automatically create Entity if none found during matching?"
+        default=False, description="Automatically create Entity if none found during matching?"
     )
 
     is_active: bool = Field(default=True, description="Whether facet type is active")

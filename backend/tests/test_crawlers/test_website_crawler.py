@@ -256,9 +256,7 @@ class TestWebsiteCrawlerRetry:
     async def test_fetch_with_retry_fails_after_max_attempts(self):
         """Test that fetch raises after max retry attempts."""
         mock_client = AsyncMock()
-        mock_client.get = AsyncMock(
-            side_effect=httpx.TimeoutException("Persistent timeout")
-        )
+        mock_client.get = AsyncMock(side_effect=httpx.TimeoutException("Persistent timeout"))
 
         with pytest.raises(httpx.TimeoutException):
             await self.crawler._fetch_with_retry(mock_client, "https://example.com")

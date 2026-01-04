@@ -17,8 +17,7 @@ async def test_assign_sources_by_tags_no_tags(admin_client: AsyncClient):
     category_id = cat_response.json()["items"][0]["id"]
 
     response = await admin_client.post(
-        f"/api/admin/categories/{category_id}/assign-sources-by-tags",
-        json={"tags": [], "mode": "add"}
+        f"/api/admin/categories/{category_id}/assign-sources-by-tags", json={"tags": [], "mode": "add"}
     )
     # Should fail validation - tags required
     assert response.status_code in [400, 422]
@@ -30,8 +29,7 @@ async def test_assign_sources_by_tags_nonexistent_category(admin_client: AsyncCl
     fake_id = str(uuid.uuid4())
 
     response = await admin_client.post(
-        f"/api/admin/categories/{fake_id}/assign-sources-by-tags",
-        json={"tags": ["test-tag"], "mode": "add"}
+        f"/api/admin/categories/{fake_id}/assign-sources-by-tags", json={"tags": ["test-tag"], "mode": "add"}
     )
     assert response.status_code == 404
 
@@ -48,7 +46,7 @@ async def test_assign_sources_by_tags_add_mode(admin_client: AsyncClient):
 
     response = await admin_client.post(
         f"/api/admin/categories/{category_id}/assign-sources-by-tags",
-        json={"tags": ["nonexistent-tag-for-test"], "mode": "add"}
+        json={"tags": ["nonexistent-tag-for-test"], "mode": "add"},
     )
     assert response.status_code == 200
 
@@ -69,7 +67,7 @@ async def test_assign_sources_by_tags_replace_mode(admin_client: AsyncClient):
 
     response = await admin_client.post(
         f"/api/admin/categories/{category_id}/assign-sources-by-tags",
-        json={"tags": ["nonexistent-tag-for-test"], "mode": "replace"}
+        json={"tags": ["nonexistent-tag-for-test"], "mode": "replace"},
     )
     assert response.status_code == 200
 
@@ -175,10 +173,7 @@ async def test_get_category_data_sources(admin_client: AsyncClient):
     category_id = cat_response.json()["items"][0]["id"]
 
     # Get sources for this category
-    response = await admin_client.get(
-        "/api/admin/sources",
-        params={"category_id": category_id}
-    )
+    response = await admin_client.get("/api/admin/sources", params={"category_id": category_id})
     assert response.status_code == 200
 
     data = response.json()

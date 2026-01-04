@@ -42,11 +42,22 @@ UK_CATEGORIES = [
 - Planning policy decisions""",
         "languages": ["en"],
         "search_terms": [
-            "wind farm", "wind energy", "wind turbine", "wind power",
-            "renewable energy", "onshore wind", "offshore wind",
-            "planning application", "planning permission", "local plan",
-            "green energy", "clean energy", "net zero",
-            "repowering", "setback distance", "noise impact"
+            "wind farm",
+            "wind energy",
+            "wind turbine",
+            "wind power",
+            "renewable energy",
+            "onshore wind",
+            "offshore wind",
+            "planning application",
+            "planning permission",
+            "local plan",
+            "green energy",
+            "clean energy",
+            "net zero",
+            "repowering",
+            "setback distance",
+            "noise impact",
         ],
         "url_include_patterns": [
             "/(council|planning|committee|agenda|minutes|decision|meeting|document)/",
@@ -130,7 +141,6 @@ EXTRACT IN JSON FORMAT:
 REMEMBER: If no wind energy content is present -> is_relevant=false, pain_points=[], positive_signals=[]""",
         "schedule_cron": "0 6 * * *",  # Daily at 6 AM
     },
-
     # -------------------------------------------------------------------------
     # 2. UK LOCAL AUTHORITY NEWS & PRESS RELEASES
     # -------------------------------------------------------------------------
@@ -145,9 +155,14 @@ REMEMBER: If no wind energy content is present -> is_relevant=false, pain_points
 - Statements from councillors and officers""",
         "languages": ["en"],
         "search_terms": [
-            "wind farm", "wind energy", "renewable energy",
-            "energy transition", "climate action", "community energy",
-            "wind turbine", "public consultation"
+            "wind farm",
+            "wind energy",
+            "renewable energy",
+            "energy transition",
+            "climate action",
+            "community energy",
+            "wind turbine",
+            "public consultation",
         ],
         "url_include_patterns": [
             "/(news|press|media|announcement|update)/",
@@ -200,7 +215,6 @@ EXTRACT IN JSON FORMAT:
 }""",
         "schedule_cron": "0 8 * * *",
     },
-
     # -------------------------------------------------------------------------
     # 3. UK PARLIAMENTARY & GOVERNMENT
     # -------------------------------------------------------------------------
@@ -215,9 +229,14 @@ EXTRACT IN JSON FORMAT:
 - Political positions""",
         "languages": ["en"],
         "search_terms": [
-            "wind energy", "wind farm", "renewable energy",
-            "planning permission", "onshore wind", "offshore wind",
-            "energy security", "net zero"
+            "wind energy",
+            "wind farm",
+            "renewable energy",
+            "planning permission",
+            "onshore wind",
+            "offshore wind",
+            "energy security",
+            "net zero",
         ],
         "url_include_patterns": [
             "/(hansard|parliament|debate|question|motion)/",
@@ -274,7 +293,6 @@ EXTRACT IN JSON FORMAT:
 }""",
         "schedule_cron": "0 9 * * 1-5",
     },
-
     # -------------------------------------------------------------------------
     # 4. UK FOI REQUESTS
     # -------------------------------------------------------------------------
@@ -289,8 +307,12 @@ EXTRACT IN JSON FORMAT:
 - Refusal reasons""",
         "languages": ["en"],
         "search_terms": [
-            "wind farm", "wind energy", "planning application",
-            "wind turbine", "environmental impact", "noise assessment"
+            "wind farm",
+            "wind energy",
+            "planning application",
+            "wind turbine",
+            "environmental impact",
+            "noise assessment",
         ],
         "url_include_patterns": [
             "/(foi|freedom-of-information|disclosure|request)/",
@@ -325,7 +347,6 @@ EXTRACT IN JSON FORMAT:
 }""",
         "schedule_cron": "0 10 * * 3",
     },
-
     # -------------------------------------------------------------------------
     # 5. UK OPEN DATA - SITE ANALYSIS
     # -------------------------------------------------------------------------
@@ -340,8 +361,12 @@ EXTRACT IN JSON FORMAT:
 - Grid infrastructure""",
         "languages": ["en"],
         "search_terms": [
-            "wind energy", "wind potential", "designated area",
-            "conservation area", "landscape protection", "grid connection"
+            "wind energy",
+            "wind potential",
+            "designated area",
+            "conservation area",
+            "landscape protection",
+            "grid connection",
         ],
         "url_include_patterns": [
             "/(data|dataset|download|resource)/",
@@ -372,7 +397,6 @@ EXTRACT IN JSON FORMAT:
 }""",
         "schedule_cron": "0 2 * * 0",
     },
-
     # -------------------------------------------------------------------------
     # 6. UK LEAD QUALIFICATION (Meta-Category)
     # -------------------------------------------------------------------------
@@ -479,10 +503,7 @@ UK_DATA_SOURCES = {
                 "max_pages": 100,
                 "filter_keywords": ["wind", "energy", "climate", "planning", "renewable"],
             },
-            "extra_data": {
-                "population": 547627,
-                "region": "North West England"
-            },
+            "extra_data": {"population": 547627, "region": "North West England"},
             "priority": 10,
         },
         {
@@ -497,10 +518,7 @@ UK_DATA_SOURCES = {
                 "max_pages": 100,
                 "filter_keywords": ["wind", "energy", "climate", "planning", "renewable"],
             },
-            "extra_data": {
-                "population": 1141816,
-                "region": "West Midlands"
-            },
+            "extra_data": {"population": 1141816, "region": "West Midlands"},
             "priority": 10,
         },
         {
@@ -515,10 +533,7 @@ UK_DATA_SOURCES = {
                 "max_pages": 100,
                 "filter_keywords": ["wind", "energy", "climate", "planning", "renewable"],
             },
-            "extra_data": {
-                "population": 792525,
-                "region": "Yorkshire and the Humber"
-            },
+            "extra_data": {"population": 792525, "region": "Yorkshire and the Humber"},
             "priority": 10,
         },
         {
@@ -533,10 +548,7 @@ UK_DATA_SOURCES = {
                 "max_pages": 100,
                 "filter_keywords": ["wind", "energy", "climate", "planning", "renewable"],
             },
-            "extra_data": {
-                "population": 635640,
-                "region": "Scotland"
-            },
+            "extra_data": {"population": 635640, "region": "Scotland"},
             "priority": 10,
         },
         {
@@ -551,14 +563,10 @@ UK_DATA_SOURCES = {
                 "max_pages": 100,
                 "filter_keywords": ["wind", "energy", "climate", "planning", "renewable"],
             },
-            "extra_data": {
-                "population": 524930,
-                "region": "Scotland"
-            },
+            "extra_data": {"population": 524930, "region": "Scotland"},
             "priority": 10,
         },
     ],
-
     # -------------------------------------------------------------------------
     # UK Council News (RSS Feeds)
     # -------------------------------------------------------------------------
@@ -588,7 +596,6 @@ UK_DATA_SOURCES = {
             "priority": 10,
         },
     ],
-
     # -------------------------------------------------------------------------
     # UK Parliamentary Questions
     # -------------------------------------------------------------------------
@@ -608,7 +615,6 @@ UK_DATA_SOURCES = {
             "priority": 10,
         },
     ],
-
     # -------------------------------------------------------------------------
     # UK FOI Requests (WhatDoTheyKnow)
     # -------------------------------------------------------------------------
@@ -642,7 +648,6 @@ UK_DATA_SOURCES = {
             "priority": 8,
         },
     ],
-
     # -------------------------------------------------------------------------
     # UK Site Data (data.gov.uk)
     # -------------------------------------------------------------------------
@@ -676,7 +681,6 @@ UK_DATA_SOURCES = {
             "priority": 9,
         },
     ],
-
     # UK Lead Qualification has no direct data sources
     # (aggregated from other categories)
     "uk-lead-qualification": [],
@@ -693,9 +697,7 @@ async def seed_uk_database():
 
         for cat_data in UK_CATEGORIES:
             # Check if category already exists
-            existing = await session.execute(
-                select(Category).where(Category.slug == cat_data["slug"])
-            )
+            existing = await session.execute(select(Category).where(Category.slug == cat_data["slug"]))
             existing_cat = existing.scalar()
 
             if existing_cat:
@@ -761,7 +763,6 @@ async def seed_uk_database():
                 sources_created += 1
 
         await session.commit()
-
 
 
 async def main():

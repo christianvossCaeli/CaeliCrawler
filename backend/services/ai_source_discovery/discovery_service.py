@@ -48,9 +48,7 @@ async def call_claude_api(prompt: str, max_tokens: int = 4000) -> str | None:
                 json={
                     "model": settings.anthropic_model,
                     "max_tokens": max_tokens,
-                    "messages": [
-                        {"role": "user", "content": prompt}
-                    ],
+                    "messages": [{"role": "user", "content": prompt}],
                 },
             )
             response.raise_for_status()
@@ -66,12 +64,13 @@ async def call_claude_api(prompt: str, max_tokens: int = 4000) -> str | None:
         structlog.get_logger().error(
             "Claude API request failed",
             error=str(e),
-            status_code=getattr(e.response, 'status_code', None) if hasattr(e, 'response') else None,
+            status_code=getattr(e.response, "status_code", None) if hasattr(e, "response") else None,
         )
         return None
     except Exception as e:
         structlog.get_logger().error("Claude API error", error=str(e))
         return None
+
 
 if TYPE_CHECKING:
     pass
@@ -100,7 +99,7 @@ from .search_providers import SerpAPISearchProvider, SerperSearchProvider  # noq
 logger = structlog.get_logger()
 
 # SSRF Protection: Blocked hosts and private IP ranges
-BLOCKED_HOSTS = {'localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]'}
+BLOCKED_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"}
 
 
 def is_safe_url(url: str) -> bool:
@@ -132,9 +131,7 @@ def is_safe_url(url: str) -> bool:
 
         # Block internal domain patterns
         hostname_lower = hostname.lower()
-        if any(pattern in hostname_lower for pattern in [
-            'internal', 'intranet', 'local', 'private', 'corp'
-        ]):
+        if any(pattern in hostname_lower for pattern in ["internal", "intranet", "local", "private", "corp"]):
             return False
 
         # Try to resolve hostname and check IP
@@ -454,6 +451,7 @@ class AISourceDiscoveryService:
         semaphore = asyncio.Semaphore(max_concurrent)
 
         async with httpx.AsyncClient(timeout=30.0) as client:
+
             async def fetch_and_extract(result: SearchResult) -> list[ExtractedSource]:
                 """Fetch a single page and extract sources."""
                 sources: list[ExtractedSource] = []
@@ -562,9 +560,7 @@ class AISourceDiscoveryService:
         # Try LLM-based tag generation
         try:
             client = get_openai_client()
-            source_tags = await self._generate_tags_with_llm(
-                client, sources, prompt, strategy.base_tags
-            )
+            source_tags = await self._generate_tags_with_llm(client, sources, prompt, strategy.base_tags)
         except (ValueError, Exception) as e:
             logger.warning("LLM tag generation failed, using fallback", error=str(e))
             source_tags = {}
@@ -575,14 +571,16 @@ class AISourceDiscoveryService:
             additional_tags = source_tags.get(source.name, [])
             all_tags = list(set(strategy.base_tags + additional_tags))
 
-            result.append(SourceWithTags(
-                name=source.name,
-                base_url=source.base_url,
-                source_type=source.source_type,
-                tags=all_tags,
-                metadata=source.metadata,
-                confidence=source.confidence,
-            ))
+            result.append(
+                SourceWithTags(
+                    name=source.name,
+                    base_url=source.base_url,
+                    source_type=source.source_type,
+                    tags=all_tags,
+                    metadata=source.metadata,
+                    confidence=source.confidence,
+                )
+            )
 
         return result
 
@@ -772,12 +770,14 @@ class AISourceDiscoveryService:
                     tags = self._extract_base_tags(prompt)
                     tags.append(validation.suggestion.api_type.lower())
 
-                    api_sources.append(ValidatedAPISource(
-                        api_suggestion=validation.suggestion,
-                        validation=validation,
-                        extracted_items=extracted_items,
-                        tags=tags,
-                    ))
+                    api_sources.append(
+                        ValidatedAPISource(
+                            api_suggestion=validation.suggestion,
+                            validation=validation,
+                            extracted_items=extracted_items,
+                            tags=tags,
+                        )
+                    )
 
         # Step 5: If no valid APIs found, fallback to SERP
         web_sources: list[SourceWithTags] = []
@@ -799,9 +799,7 @@ class AISourceDiscoveryService:
             warnings.extend(serp_result.warnings)
         else:
             # Calculate stats for API discovery
-            stats.sources_extracted = sum(
-                len(s.extracted_items) for s in api_sources
-            )
+            stats.sources_extracted = sum(len(s.extracted_items) for s in api_sources)
             stats.sources_validated = len(api_sources)
 
         return DiscoveryResultV2(
@@ -974,8 +972,16 @@ class AISourceDiscoveryService:
 
         # Common wrapper fields
         wrapper_fields = [
-            "data", "items", "results", "records", "entries",
-            "teams", "matches", "bodies", "members", "list",
+            "data",
+            "items",
+            "results",
+            "records",
+            "entries",
+            "teams",
+            "matches",
+            "bodies",
+            "members",
+            "list",
         ]
 
         for field in wrapper_fields:

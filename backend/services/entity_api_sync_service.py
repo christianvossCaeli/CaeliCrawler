@@ -76,10 +76,12 @@ class EntityAPISyncService:
         # Get or validate EntityType
         entity_type = await self._get_entity_type(entity_type_slug)
         if not entity_type:
-            result["errors"].append({
-                "type": "config_error",
-                "message": f"EntityType '{entity_type_slug}' not found",
-            })
+            result["errors"].append(
+                {
+                    "type": "config_error",
+                    "message": f"EntityType '{entity_type_slug}' not found",
+                }
+            )
             return result
 
         # Determine the ID field for matching
@@ -117,11 +119,13 @@ class EntityAPISyncService:
                     )
 
             except Exception as e:
-                result["errors"].append({
-                    "type": "item_error",
-                    "index": i,
-                    "message": str(e),
-                })
+                result["errors"].append(
+                    {
+                        "type": "item_error",
+                        "index": i,
+                        "message": str(e),
+                    }
+                )
                 self.logger.warning(
                     "Failed to sync item",
                     index=i,
@@ -145,9 +149,7 @@ class EntityAPISyncService:
 
     async def _get_entity_type(self, slug: str) -> EntityType | None:
         """Get EntityType by slug."""
-        result = await self.session.execute(
-            select(EntityType).where(EntityType.slug == slug)
-        )
+        result = await self.session.execute(select(EntityType).where(EntityType.slug == slug))
         return result.scalar_one_or_none()
 
     def _get_id_field(self, field_mapping: dict[str, str]) -> str:
@@ -229,8 +231,14 @@ class EntityAPISyncService:
 
         # Standard field mappings
         standard_fields = [
-            "name", "external_id", "admin_level_1", "admin_level_2",
-            "latitude", "longitude", "country", "website"
+            "name",
+            "external_id",
+            "admin_level_1",
+            "admin_level_2",
+            "latitude",
+            "longitude",
+            "country",
+            "website",
         ]
 
         for entity_field, api_field in field_mapping.items():
@@ -299,8 +307,7 @@ class EntityAPISyncService:
         has_changes = False
 
         # Update standard fields
-        for field in ["name", "external_id", "admin_level_1", "admin_level_2",
-                      "latitude", "longitude", "country"]:
+        for field in ["name", "external_id", "admin_level_1", "admin_level_2", "latitude", "longitude", "country"]:
             new_value = data.get(field)
             if new_value is not None:
                 current_value = getattr(entity, field, None)
@@ -345,8 +352,7 @@ class EntityAPISyncService:
         source_id: str | None,
     ):
         """Replace entity fields entirely."""
-        for field in ["name", "external_id", "admin_level_1", "admin_level_2",
-                      "latitude", "longitude", "country"]:
+        for field in ["name", "external_id", "admin_level_1", "admin_level_2", "latitude", "longitude", "country"]:
             value = data.get(field)
             if value is not None:
                 setattr(entity, field, value)

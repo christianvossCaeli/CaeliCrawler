@@ -59,9 +59,7 @@ logger = structlog.get_logger()
 
 
 def generate_help_response(
-    context: AssistantContext,
-    intent_data: dict[str, Any],
-    translator: Translator
+    context: AssistantContext, intent_data: dict[str, Any], translator: Translator
 ) -> HelpResponse:
     """Generate contextual help response.
 
@@ -101,17 +99,10 @@ def generate_help_response(
 
     suggested_commands = ["/help", "/search", "/summary"]
 
-    return HelpResponse(
-        message=msg,
-        help_topics=help_topics,
-        suggested_commands=suggested_commands
-    )
+    return HelpResponse(message=msg, help_topics=help_topics, suggested_commands=suggested_commands)
 
 
-async def handle_navigation(
-    db: AsyncSession,
-    intent_data: dict[str, Any]
-) -> NavigationResponse:
+async def handle_navigation(db: AsyncSession, intent_data: dict[str, Any]) -> NavigationResponse:
     """Handle navigation requests.
 
     Args:
@@ -126,7 +117,7 @@ async def handle_navigation(
     if not target_name:
         return NavigationResponse(
             message="Wohin möchtest du navigieren? Nenne mir einen Entity-Namen.",
-            target=NavigationTarget(route="/entities")
+            target=NavigationTarget(route="/entities"),
         )
 
     # Search for entity
@@ -134,12 +125,7 @@ async def handle_navigation(
         result = await db.execute(
             select(Entity)
             .options(selectinload(Entity.entity_type))
-            .where(
-                or_(
-                    Entity.name.ilike(f"%{target_name}%"),
-                    Entity.slug.ilike(f"%{target_name}%")
-                )
-            )
+            .where(or_(Entity.name.ilike(f"%{target_name}%"), Entity.slug.ilike(f"%{target_name}%")))
             .limit(5)
         )
         entities = result.scalars().all()
@@ -147,7 +133,7 @@ async def handle_navigation(
         if not entities:
             return NavigationResponse(
                 message=f"Keine Entity mit dem Namen '{target_name}' gefunden.",
-                target=NavigationTarget(route=f"/entities?search={target_name}")
+                target=NavigationTarget(route=f"/entities?search={target_name}"),
             )
 
         entity = entities[0]
@@ -161,22 +147,17 @@ async def handle_navigation(
                 route=f"/entities/{type_slug}/{entity.slug}",
                 entity_type=type_slug,
                 entity_slug=entity.slug,
-                entity_name=entity.name
-            )
+                entity_name=entity.name,
+            ),
         )
 
     except Exception as e:
         logger.error("navigation_error", error=str(e))
-        return NavigationResponse(
-            message=f"Fehler bei der Suche: {str(e)}",
-            target=NavigationTarget(route="/entities")
-        )
+        return NavigationResponse(message=f"Fehler bei der Suche: {str(e)}", target=NavigationTarget(route="/entities"))
 
 
 async def handle_summarize(
-    db: AsyncSession,
-    context: AssistantContext,
-    translator: Translator
+    db: AsyncSession, context: AssistantContext, translator: Translator
 ) -> tuple[QueryResponse, list[SuggestedAction]]:
     """Generate a summary of the current context.
 
@@ -199,7 +180,7 @@ async def handle_summarize(
         return QueryResponse(
             message=msg,
             data=QueryResultData(items=[], total=0),
-            follow_up_suggestions=["Zeige alle Municipalities", "Zeige Pain Points"]
+            follow_up_suggestions=["Zeige alle Municipalities", "Zeige Pain Points"],
         ), []
 
     # Entity summary
@@ -208,10 +189,7 @@ async def handle_summarize(
 
         # Build entity context
         entity_context = await build_entity_context(
-            db, entity_id,
-            include_facets=True,
-            include_pysis=False,
-            include_relations=True
+            db, entity_id, include_facets=True, include_pysis=False, include_relations=True
         )
 
         # Get facet counts
@@ -233,52 +211,43 @@ async def handle_summarize(
 
         # Get facet types for suggestions
         ft_result = await db.execute(
-            select(FacetType)
-            .where(FacetType.is_active.is_(True))
-            .order_by(FacetType.display_order)
-            .limit(2)
+            select(FacetType).where(FacetType.is_active.is_(True)).order_by(FacetType.display_order).limit(2)
         )
         facet_types = ft_result.scalars().all()
 
         for ft in facet_types:
-            suggested.append(SuggestedAction(
-                label=ft.name,
-                action="query",
-                value=f"{ft.name_plural or ft.name} von {entity_context['name']}"
-            ))
+            suggested.append(
+                SuggestedAction(
+                    label=ft.name, action="query", value=f"{ft.name_plural or ft.name} von {entity_context['name']}"
+                )
+            )
 
-        suggested.append(SuggestedAction(
-            label="Relationen",
-            action="query",
-            value=f"Relationen von {entity_context['name']}"
-        ))
+        suggested.append(
+            SuggestedAction(label="Relationen", action="query", value=f"Relationen von {entity_context['name']}")
+        )
 
         return QueryResponse(
             message=msg,
             data=QueryResultData(
-                items=[{
-                    "entity_id": str(entity_id),
-                    "entity_name": entity_context["name"],
-                    "facet_counts": facet_counts,
-                    "relation_count": relation_count
-                }],
-                total=1
-            )
+                items=[
+                    {
+                        "entity_id": str(entity_id),
+                        "entity_name": entity_context["name"],
+                        "facet_counts": facet_counts,
+                        "relation_count": relation_count,
+                    }
+                ],
+                total=1,
+            ),
         ), suggested
 
     except Exception as e:
         logger.error("summarize_error", error=str(e))
-        return QueryResponse(
-            message=f"Fehler: {str(e)}",
-            data=QueryResultData()
-        ), []
+        return QueryResponse(message=f"Fehler: {str(e)}", data=QueryResultData()), []
 
 
 async def handle_image_analysis(
-    message: str,
-    context: AssistantContext,
-    images: list[dict[str, Any]],
-    language: str = "de"
+    message: str, context: AssistantContext, images: list[dict[str, Any]], language: str = "de"
 ) -> dict[str, Any]:
     """Analyze images using the Vision API.
 
@@ -296,9 +265,8 @@ async def handle_image_analysis(
         return {
             "success": False,
             "response": ErrorResponseData(
-                message="KI-Service nicht verfügbar. Bitte Azure OpenAI konfigurieren.",
-                error_code="ai_not_configured"
-            )
+                message="KI-Service nicht verfügbar. Bitte Azure OpenAI konfigurieren.", error_code="ai_not_configured"
+            ),
         }
 
     try:
@@ -334,24 +302,20 @@ async def handle_image_analysis(
                 img_base64 = img_content
 
             content_type = img.get("content_type", "image/jpeg")
-            content.append({
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:{content_type};base64,{img_base64}",
-                    "detail": "high"
+            content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{content_type};base64,{img_base64}", "detail": "high"},
                 }
-            })
+            )
 
         # Make API call
         start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
-            messages=[
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": content}
-            ],
+            messages=[{"role": "system", "content": system_instruction}, {"role": "user", "content": content}],
             temperature=0.3,
-            max_tokens=2000
+            max_tokens=2000,
         )
 
         if response.usage:
@@ -375,30 +339,19 @@ async def handle_image_analysis(
         # Build suggested actions
         suggested_actions = []
         if context.current_entity_id:
-            suggested_actions.extend([
-                SuggestedAction(
-                    label="Als Pain Point speichern",
-                    action="create_facet",
-                    value="pain_point"
-                ),
-                SuggestedAction(
-                    label="Als Notiz speichern",
-                    action="create_facet",
-                    value="summary"
-                )
-            ])
+            suggested_actions.extend(
+                [
+                    SuggestedAction(label="Als Pain Point speichern", action="create_facet", value="pain_point"),
+                    SuggestedAction(label="Als Notiz speichern", action="create_facet", value="summary"),
+                ]
+            )
 
         return {
             "success": True,
             "response": QueryResponse(
-                type="image_analysis",
-                message=analysis_result,
-                data=QueryResultData(
-                    items=[],
-                    total=len(images)
-                )
+                type="image_analysis", message=analysis_result, data=QueryResultData(items=[], total=len(images))
             ),
-            "suggested_actions": suggested_actions
+            "suggested_actions": suggested_actions,
         }
 
     except Exception as e:
@@ -406,16 +359,13 @@ async def handle_image_analysis(
         return {
             "success": False,
             "response": ErrorResponseData(
-                message=f"Bildanalyse fehlgeschlagen: {str(e)}",
-                error_code="image_analysis_error"
-            )
+                message=f"Bildanalyse fehlgeschlagen: {str(e)}", error_code="image_analysis_error"
+            ),
         }
 
 
 async def handle_discussion(
-    message: str,
-    context: AssistantContext,
-    intent_data: dict[str, Any]
+    message: str, context: AssistantContext, intent_data: dict[str, Any]
 ) -> tuple[AssistantResponseData, list[SuggestedAction]]:
     """Handle discussion, document analysis, or general conversation.
 
@@ -430,8 +380,7 @@ async def handle_discussion(
     client = get_openai_client()
     if not client:
         return ErrorResponseData(
-            message="KI-Service nicht verfügbar für Diskussionen.",
-            error_code="ai_not_available"
+            message="KI-Service nicht verfügbar für Diskussionen.", error_code="ai_not_available"
         ), []
 
     # Build context for AI
@@ -447,7 +396,7 @@ Die App verwaltet:
 
 Aktueller Kontext:
 - Route: {context.current_route}
-- Entity: {context.current_entity_name or 'keine'} (Typ: {context.current_entity_type or 'keine'})
+- Entity: {context.current_entity_name or "keine"} (Typ: {context.current_entity_type or "keine"})
 
 Der Benutzer teilt ein Dokument, Anforderungen oder möchte diskutieren.
 Analysiere den Text und gib eine hilfreiche Antwort. Wenn es um Features geht,
@@ -458,10 +407,7 @@ erkläre was bereits existiert und was noch implementiert werden müsste.
         start_time = time.time()
         response = client.chat.completions.create(
             model=settings.azure_openai_deployment_name,
-            messages=[
-                {"role": "system", "content": app_context},
-                {"role": "user", "content": message}
-            ],
+            messages=[{"role": "system", "content": app_context}, {"role": "user", "content": message}],
             temperature=0.7,
             max_tokens=2000,
         )
@@ -494,15 +440,12 @@ erkläre was bereits existiert und was noch implementiert werden müsste.
             message=ai_response,
             analysis_type=analysis_type,
             key_points=key_points[:5],
-            recommendations=recommendations[:5]
+            recommendations=recommendations[:5],
         ), suggested_actions
 
     except Exception as e:
         logger.error("discussion_error", error=str(e))
-        return ErrorResponseData(
-            message=f"Fehler bei der Analyse: {str(e)}",
-            error_code="discussion_error"
-        ), []
+        return ErrorResponseData(message=f"Fehler bei der Analyse: {str(e)}", error_code="discussion_error"), []
 
 
 def extract_discussion_insights(ai_response: str) -> tuple[list[str], list[str]]:
@@ -517,29 +460,29 @@ def extract_discussion_insights(ai_response: str) -> tuple[list[str], list[str]]
     key_points = []
     recommendations = []
 
-    lines = ai_response.split('\n')
+    lines = ai_response.split("\n")
     in_key_points = False
     in_recommendations = False
 
     for line in lines:
         line_lower = line.lower().strip()
 
-        if 'kernpunkte' in line_lower or 'key points' in line_lower or 'hauptpunkte' in line_lower:
+        if "kernpunkte" in line_lower or "key points" in line_lower or "hauptpunkte" in line_lower:
             in_key_points = True
             in_recommendations = False
             continue
-        elif 'empfehlung' in line_lower or 'recommendation' in line_lower or 'nächste schritte' in line_lower:
+        elif "empfehlung" in line_lower or "recommendation" in line_lower or "nächste schritte" in line_lower:
             in_recommendations = True
             in_key_points = False
             continue
-        elif line.startswith('#'):
+        elif line.startswith("#"):
             in_key_points = False
             in_recommendations = False
 
-        if in_key_points and line.strip().startswith(('-', '•', '*', '1', '2', '3', '4', '5')):
-            key_points.append(line.strip().lstrip('-•* 0123456789.'))
-        elif in_recommendations and line.strip().startswith(('-', '•', '*', '1', '2', '3', '4', '5')):
-            recommendations.append(line.strip().lstrip('-•* 0123456789.'))
+        if in_key_points and line.strip().startswith(("-", "•", "*", "1", "2", "3", "4", "5")):
+            key_points.append(line.strip().lstrip("-•* 0123456789."))
+        elif in_recommendations and line.strip().startswith(("-", "•", "*", "1", "2", "3", "4", "5")):
+            recommendations.append(line.strip().lstrip("-•* 0123456789."))
 
     return key_points, recommendations
 
@@ -555,9 +498,9 @@ def determine_analysis_type(message: str) -> str:
     """
     message_lower = message.lower()
 
-    if 'anforderung' in message_lower or 'requirement' in message_lower:
+    if "anforderung" in message_lower or "requirement" in message_lower:
         return "requirements"
-    elif 'plan' in message_lower or 'vorgehen' in message_lower:
+    elif "plan" in message_lower or "vorgehen" in message_lower:
         return "planning"
     elif len(message) > 500:
         return "document"
@@ -577,34 +520,19 @@ def build_discussion_suggestions(message: str) -> list[SuggestedAction]:
     suggestions = []
     message_lower = message.lower()
 
-    if 'crawler' in message_lower or 'datenquelle' in message_lower:
-        suggestions.append(SuggestedAction(
-            label="Datenquellen anzeigen",
-            action="navigate",
-            value="/admin/sources"
-        ))
+    if "crawler" in message_lower or "datenquelle" in message_lower:
+        suggestions.append(SuggestedAction(label="Datenquellen anzeigen", action="navigate", value="/admin/sources"))
 
-    if 'kategorie' in message_lower or 'category' in message_lower:
-        suggestions.append(SuggestedAction(
-            label="Kategorien verwalten",
-            action="navigate",
-            value="/admin/categories"
-        ))
+    if "kategorie" in message_lower or "category" in message_lower:
+        suggestions.append(SuggestedAction(label="Kategorien verwalten", action="navigate", value="/admin/categories"))
 
-    if 'smart query' in message_lower or 'plan modus' in message_lower:
-        suggestions.append(SuggestedAction(
-            label="Smart Query öffnen",
-            action="navigate",
-            value="/smart-query"
-        ))
+    if "smart query" in message_lower or "plan modus" in message_lower:
+        suggestions.append(SuggestedAction(label="Smart Query öffnen", action="navigate", value="/smart-query"))
 
     return suggestions
 
 
-def suggest_smart_query_redirect(
-    message: str,
-    intent_data: dict[str, Any]
-) -> RedirectResponse:
+def suggest_smart_query_redirect(message: str, intent_data: dict[str, Any]) -> RedirectResponse:
     """Suggest redirecting to Smart Query for complex writes.
 
     Args:
@@ -617,5 +545,5 @@ def suggest_smart_query_redirect(
     return RedirectResponse(
         message="Für diese komplexe Operation nutze bitte die Smart Query Seite. Ich leite dich weiter.",
         prefilled_query=message,
-        write_mode=True
+        write_mode=True,
     )

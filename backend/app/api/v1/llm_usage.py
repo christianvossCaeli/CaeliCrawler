@@ -109,8 +109,7 @@ async def update_own_limit(
     if current_user.role != UserRole.ADMIN and not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can update their own limit directly. "
-            "Please use the limit request workflow.",
+            detail="Only administrators can update their own limit directly. Please use the limit request workflow.",
         )
 
     service = LLMBudgetService(session)

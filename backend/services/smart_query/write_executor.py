@@ -245,12 +245,14 @@ async def execute_write_command(
             result["message"] = message
             if entity:
                 result["success"] = True
-                result["created_items"].append({
-                    "type": "entity",
-                    "id": str(entity.id),
-                    "name": entity.name,
-                    "entity_type": entity_type,
-                })
+                result["created_items"].append(
+                    {
+                        "type": "entity",
+                        "id": str(entity.id),
+                        "name": entity.name,
+                        "entity_type": entity_type,
+                    }
+                )
 
         elif operation == "create_facet":
             facet_data = command.get("facet_data", {})
@@ -258,11 +260,13 @@ async def execute_write_command(
             result["message"] = message
             if facet:
                 result["success"] = True
-                result["created_items"].append({
-                    "type": "facet_value",
-                    "id": str(facet.id),
-                    "facet_type": facet_data.get("facet_type"),
-                })
+                result["created_items"].append(
+                    {
+                        "type": "facet_value",
+                        "id": str(facet.id),
+                        "facet_type": facet_data.get("facet_type"),
+                    }
+                )
 
         elif operation == "create_relation":
             relation_data = command.get("relation_data", {})
@@ -270,10 +274,12 @@ async def execute_write_command(
             result["message"] = message
             if relation:
                 result["success"] = True
-                result["created_items"].append({
-                    "type": "relation",
-                    "id": str(relation.id),
-                })
+                result["created_items"].append(
+                    {
+                        "type": "relation",
+                        "id": str(relation.id),
+                    }
+                )
 
         elif operation == "create_entity_type":
             entity_type_data = command.get("entity_type_data", {})
@@ -286,14 +292,16 @@ async def execute_write_command(
             result["message"] = message
             if entity_type:
                 result["success"] = True
-                result["created_items"].append({
-                    "type": "entity_type",
-                    "id": str(entity_type.id),
-                    "name": entity_type.name,
-                    "slug": entity_type.slug,
-                    "icon": entity_type.icon,
-                    "color": entity_type.color,
-                })
+                result["created_items"].append(
+                    {
+                        "type": "entity_type",
+                        "id": str(entity_type.id),
+                        "name": entity_type.name,
+                        "slug": entity_type.slug,
+                        "icon": entity_type.icon,
+                        "color": entity_type.color,
+                    }
+                )
 
         elif operation == "create_category_setup":
             setup_data = command.get("category_setup_data", {})
@@ -316,19 +324,23 @@ async def execute_write_command(
             result["ai_extraction_prompt"] = setup_result.get("ai_extraction_prompt", "")
 
             if setup_result.get("entity_type_id"):
-                result["created_items"].append({
-                    "type": "entity_type",
-                    "id": setup_result["entity_type_id"],
-                    "name": setup_result["entity_type_name"],
-                    "slug": setup_result["entity_type_slug"],
-                })
+                result["created_items"].append(
+                    {
+                        "type": "entity_type",
+                        "id": setup_result["entity_type_id"],
+                        "name": setup_result["entity_type_name"],
+                        "slug": setup_result["entity_type_slug"],
+                    }
+                )
             if setup_result.get("category_id"):
-                result["created_items"].append({
-                    "type": "category",
-                    "id": setup_result["category_id"],
-                    "name": setup_result["category_name"],
-                    "slug": setup_result["category_slug"],
-                })
+                result["created_items"].append(
+                    {
+                        "type": "category",
+                        "id": setup_result["category_id"],
+                        "name": setup_result["category_name"],
+                        "slug": setup_result["category_slug"],
+                    }
+                )
             if setup_result.get("linked_data_source_count"):
                 result["linked_sources_count"] = setup_result["linked_data_source_count"]
 
@@ -427,7 +439,7 @@ async def execute_combined_operations(
             op_type = op.get("operation")
             op_result = None
 
-            logger.info(f"Executing combined operation {i+1}/{len(operations)}", operation=op_type)
+            logger.info(f"Executing combined operation {i + 1}/{len(operations)}", operation=op_type)
 
             # Check if operation has a registered handler
             if op_type in OPERATIONS_REGISTRY:
@@ -446,6 +458,7 @@ async def execute_combined_operations(
                 if category_slug:
                     # Link to existing category - use registered handler
                     from .operations import execute_operation
+
                     link_command = {"operation": "link_existing_category", "category_slug": category_slug}
                     handler_result = await execute_operation(session, link_command, current_user_id)
                     op_result = {
@@ -504,33 +517,41 @@ async def execute_combined_operations(
             else:
                 op_result = {"success": False, "message": f"Unbekannte Operation: {op_type}"}
 
-            result["operation_results"].append({
-                "operation": op_type,
-                "index": i,
-                **op_result,
-            })
+            result["operation_results"].append(
+                {
+                    "operation": op_type,
+                    "index": i,
+                    **op_result,
+                }
+            )
 
             # Collect created items from each operation
             if op_result.get("entity_type_id"):
-                result["created_items"].append({
-                    "type": "entity_type",
-                    "id": op_result["entity_type_id"],
-                    "name": op_result.get("entity_type_name"),
-                })
+                result["created_items"].append(
+                    {
+                        "type": "entity_type",
+                        "id": op_result["entity_type_id"],
+                        "name": op_result.get("entity_type_name"),
+                    }
+                )
             if op_result.get("entity_id"):
-                result["created_items"].append({
-                    "type": "entity",
-                    "id": op_result["entity_id"],
-                })
+                result["created_items"].append(
+                    {
+                        "type": "entity",
+                        "id": op_result["entity_id"],
+                    }
+                )
             if op_result.get("category_id"):
-                result["created_items"].append({
-                    "type": "category",
-                    "id": op_result["category_id"],
-                })
+                result["created_items"].append(
+                    {
+                        "type": "category",
+                        "id": op_result["category_id"],
+                    }
+                )
 
             # If an operation fails, stop and rollback
             if not op_result.get("success", False):
-                result["message"] = f"Operation {i+1} ({op_type}) fehlgeschlagen: {op_result.get('message')}"
+                result["message"] = f"Operation {i + 1} ({op_type}) fehlgeschlagen: {op_result.get('message')}"
                 await session.rollback()
                 return result
 

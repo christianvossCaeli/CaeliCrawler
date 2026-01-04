@@ -14,25 +14,25 @@ logger = structlog.get_logger()
 
 # Blocked IP ranges (internal/private networks)
 BLOCKED_IP_RANGES = [
-    ipaddress.ip_network("0.0.0.0/8"),        # "This" network
-    ipaddress.ip_network("10.0.0.0/8"),       # Private class A
-    ipaddress.ip_network("100.64.0.0/10"),    # Carrier-grade NAT
-    ipaddress.ip_network("127.0.0.0/8"),      # Loopback
-    ipaddress.ip_network("169.254.0.0/16"),   # Link-local
-    ipaddress.ip_network("172.16.0.0/12"),    # Private class B
-    ipaddress.ip_network("192.0.0.0/24"),     # IETF Protocol Assignments
-    ipaddress.ip_network("192.0.2.0/24"),     # TEST-NET-1
-    ipaddress.ip_network("192.168.0.0/16"),   # Private class C
-    ipaddress.ip_network("198.18.0.0/15"),    # Benchmarking
+    ipaddress.ip_network("0.0.0.0/8"),  # "This" network
+    ipaddress.ip_network("10.0.0.0/8"),  # Private class A
+    ipaddress.ip_network("100.64.0.0/10"),  # Carrier-grade NAT
+    ipaddress.ip_network("127.0.0.0/8"),  # Loopback
+    ipaddress.ip_network("169.254.0.0/16"),  # Link-local
+    ipaddress.ip_network("172.16.0.0/12"),  # Private class B
+    ipaddress.ip_network("192.0.0.0/24"),  # IETF Protocol Assignments
+    ipaddress.ip_network("192.0.2.0/24"),  # TEST-NET-1
+    ipaddress.ip_network("192.168.0.0/16"),  # Private class C
+    ipaddress.ip_network("198.18.0.0/15"),  # Benchmarking
     ipaddress.ip_network("198.51.100.0/24"),  # TEST-NET-2
-    ipaddress.ip_network("203.0.113.0/24"),   # TEST-NET-3
-    ipaddress.ip_network("224.0.0.0/4"),      # Multicast
-    ipaddress.ip_network("240.0.0.0/4"),      # Reserved
+    ipaddress.ip_network("203.0.113.0/24"),  # TEST-NET-3
+    ipaddress.ip_network("224.0.0.0/4"),  # Multicast
+    ipaddress.ip_network("240.0.0.0/4"),  # Reserved
     ipaddress.ip_network("255.255.255.255/32"),  # Broadcast
     # IPv6 private ranges
-    ipaddress.ip_network("::1/128"),          # Loopback
-    ipaddress.ip_network("fc00::/7"),         # Unique local
-    ipaddress.ip_network("fe80::/10"),        # Link-local
+    ipaddress.ip_network("::1/128"),  # Loopback
+    ipaddress.ip_network("fc00::/7"),  # Unique local
+    ipaddress.ip_network("fe80::/10"),  # Link-local
 ]
 
 # Blocked hostnames

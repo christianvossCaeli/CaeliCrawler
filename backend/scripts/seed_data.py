@@ -41,10 +41,19 @@ CATEGORIES = [
 - Bürgerbeteiligung und Widerstand
 - Beschlüsse zu Mindestabständen""",
         "search_terms": [
-            "Windkraft", "Windenergie", "Windrad", "Windpark",
-            "Flächennutzungsplan", "Konzentrationsfläche", "Vorranggebiet",
-            "Repowering", "Abstandsregelung", "Höhenbegrenzung",
-            "Artenschutz", "Vogelschutz", "Bürgerwindpark"
+            "Windkraft",
+            "Windenergie",
+            "Windrad",
+            "Windpark",
+            "Flächennutzungsplan",
+            "Konzentrationsfläche",
+            "Vorranggebiet",
+            "Repowering",
+            "Abstandsregelung",
+            "Höhenbegrenzung",
+            "Artenschutz",
+            "Vogelschutz",
+            "Bürgerwindpark",
         ],
         "ai_extraction_prompt": """Analysiere dieses kommunale Dokument für Sales Intelligence im Bereich Windenergie.
 
@@ -116,7 +125,6 @@ EXTRAHIERE IM JSON-FORMAT:
 NOCHMAL: Wenn keine Windenergie-Inhalte vorhanden sind → is_relevant=false, pain_points=[], positive_signals=[]""",
         "schedule_cron": "0 6 * * *",  # Täglich um 6 Uhr
     },
-
     # -------------------------------------------------------------------------
     # 2. KOMMUNALE WEBSITES & NEWS - WINDENERGIE
     # -------------------------------------------------------------------------
@@ -130,10 +138,20 @@ NOCHMAL: Wenn keine Windenergie-Inhalte vorhanden sind → is_relevant=false, pa
 - Ankündigungen von Informationsveranstaltungen zu Windkraft
 - Statements von Bürgermeistern und Räten zu Windenergie""",
         "search_terms": [
-            "Windkraft", "Windenergie", "Windrad", "Windpark", "Windenergieanlage",
-            "Erneuerbare Energien", "Energiewende", "Bürgerwindpark",
-            "Repowering", "Flächennutzungsplan", "Konzentrationsfläche",
-            "Genehmigung Windkraft", "Windvorranggebiet", "Klimaschutz Windenergie"
+            "Windkraft",
+            "Windenergie",
+            "Windrad",
+            "Windpark",
+            "Windenergieanlage",
+            "Erneuerbare Energien",
+            "Energiewende",
+            "Bürgerwindpark",
+            "Repowering",
+            "Flächennutzungsplan",
+            "Konzentrationsfläche",
+            "Genehmigung Windkraft",
+            "Windvorranggebiet",
+            "Klimaschutz Windenergie",
         ],
         "ai_extraction_prompt": """Analysiere diese kommunale Pressemitteilung/News für Sales Intelligence.
 
@@ -177,7 +195,6 @@ EXTRAHIERE IM JSON-FORMAT:
 }""",
         "schedule_cron": "0 8 * * *",
     },
-
     # -------------------------------------------------------------------------
     # 3. BUNDESTAG & LANDTAGE
     # -------------------------------------------------------------------------
@@ -191,9 +208,14 @@ EXTRAHIERE IM JSON-FORMAT:
 - Statistische Anfragen zu Genehmigungen
 - Politische Positionierungen""",
         "search_terms": [
-            "Windenergie", "Windkraft", "Erneuerbare Energien",
-            "Genehmigungsverfahren", "Abstandsregelung", "BImSchG",
-            "Flächenausweisung", "Repowering"
+            "Windenergie",
+            "Windkraft",
+            "Erneuerbare Energien",
+            "Genehmigungsverfahren",
+            "Abstandsregelung",
+            "BImSchG",
+            "Flächenausweisung",
+            "Repowering",
         ],
         "ai_extraction_prompt": """Analysiere dieses parlamentarische Dokument für Market Intelligence.
 
@@ -241,7 +263,6 @@ EXTRAHIERE IM JSON-FORMAT:
 }""",
         "schedule_cron": "0 9 * * 1-5",
     },
-
     # -------------------------------------------------------------------------
     # 4. IFG-ANFRAGEN (FragDenStaat)
     # -------------------------------------------------------------------------
@@ -254,10 +275,7 @@ EXTRAHIERE IM JSON-FORMAT:
 - Interne Behördenkommunikation
 - Gutachten und Studien
 - Ablehnungsgründe""",
-        "search_terms": [
-            "Windkraft", "Windenergie", "Genehmigung",
-            "BImSchG", "Umweltverträglichkeit", "Artenschutz"
-        ],
+        "search_terms": ["Windkraft", "Windenergie", "Genehmigung", "BImSchG", "Umweltverträglichkeit", "Artenschutz"],
         "ai_extraction_prompt": """Analysiere diese IFG-Anfrage/Antwort für Business Intelligence.
 
 EXTRAHIERE IM JSON-FORMAT:
@@ -284,7 +302,6 @@ EXTRAHIERE IM JSON-FORMAT:
 }""",
         "schedule_cron": "0 10 * * 3",
     },
-
     # -------------------------------------------------------------------------
     # 5. OPEN DATA - STANDORTANALYSE
     # -------------------------------------------------------------------------
@@ -298,8 +315,12 @@ EXTRAHIERE IM JSON-FORMAT:
 - Bestehende Anlagen
 - Netzinfrastruktur""",
         "search_terms": [
-            "Windenergie", "Windpotenzial", "Vorranggebiet",
-            "Naturschutzgebiet", "Landschaftsschutz", "Netzausbau"
+            "Windenergie",
+            "Windpotenzial",
+            "Vorranggebiet",
+            "Naturschutzgebiet",
+            "Landschaftsschutz",
+            "Netzausbau",
         ],
         "ai_extraction_prompt": """Beschreibe diesen Datensatz für Standortanalyse.
 
@@ -323,7 +344,6 @@ EXTRAHIERE IM JSON-FORMAT:
 }""",
         "schedule_cron": "0 2 * * 0",
     },
-
     # -------------------------------------------------------------------------
     # 6. UK WIND ENERGY
     # -------------------------------------------------------------------------
@@ -337,10 +357,18 @@ EXTRAHIERE IM JSON-FORMAT:
 - Environmental impact assessments
 - Community engagement""",
         "search_terms": [
-            "wind farm", "wind energy", "wind turbine", "planning application",
-            "renewable energy", "onshore wind", "offshore wind",
-            "environmental impact", "community benefit", "planning permission",
-            "local plan", "energy strategy"
+            "wind farm",
+            "wind energy",
+            "wind turbine",
+            "planning application",
+            "renewable energy",
+            "onshore wind",
+            "offshore wind",
+            "environmental impact",
+            "community benefit",
+            "planning permission",
+            "local plan",
+            "energy strategy",
         ],
         "ai_extraction_prompt": """Analyse this UK planning document for wind energy sales intelligence.
 
@@ -384,7 +412,6 @@ EXTRACT IN JSON FORMAT:
 }""",
         "schedule_cron": "0 7 * * *",
     },
-
     # -------------------------------------------------------------------------
     # 7. ÖSTERREICH WINDENERGIE
     # -------------------------------------------------------------------------
@@ -398,10 +425,19 @@ EXTRACT IN JSON FORMAT:
 - Bürgerbeteiligung und Einsprüche
 - Flächenwidmungen""",
         "search_terms": [
-            "Windkraft", "Windenergie", "Windpark", "Windrad",
-            "UVP", "Umweltverträglichkeitsprüfung", "Genehmigung",
-            "Flächenwidmung", "Raumordnung", "Ökostromanlagen",
-            "Energiewende", "Bürgerwindpark", "Repowering"
+            "Windkraft",
+            "Windenergie",
+            "Windpark",
+            "Windrad",
+            "UVP",
+            "Umweltverträglichkeitsprüfung",
+            "Genehmigung",
+            "Flächenwidmung",
+            "Raumordnung",
+            "Ökostromanlagen",
+            "Energiewende",
+            "Bürgerwindpark",
+            "Repowering",
         ],
         "ai_extraction_prompt": """Analysiere dieses österreichische Dokument für Windenergie Sales Intelligence.
 
@@ -446,7 +482,6 @@ EXTRAHIERE IM JSON-FORMAT:
 }""",
         "schedule_cron": "0 7 * * *",
     },
-
     # -------------------------------------------------------------------------
     # 8. LEAD-QUALIFIZIERUNG WINDENERGIE (Meta-Kategorie)
     # -------------------------------------------------------------------------
@@ -460,10 +495,16 @@ EXTRAHIERE IM JSON-FORMAT:
 - Priorisierung für Windenergie-Vertrieb
 - Personalisierte Ansprache-Empfehlungen für Windprojekte""",
         "search_terms": [
-            "Windkraft Interesse", "Windenergie Potenzial", "Windvorranggebiet",
-            "Flächennutzungsplan Wind", "Bürgermeister Windkraft",
-            "Energiebeauftragter", "Klimaschutzmanager",
-            "Windpark Planung", "Repowering Interesse", "Bürgerenergie"
+            "Windkraft Interesse",
+            "Windenergie Potenzial",
+            "Windvorranggebiet",
+            "Flächennutzungsplan Wind",
+            "Bürgermeister Windkraft",
+            "Energiebeauftragter",
+            "Klimaschutzmanager",
+            "Windpark Planung",
+            "Repowering Interesse",
+            "Bürgerenergie",
         ],
         "ai_extraction_prompt": """Erstelle eine Lead-Bewertung für diese Kommune basierend auf allen verfügbaren Informationen.
 
@@ -561,9 +602,7 @@ async def seed_database():
 
         for cat_data in CATEGORIES:
             # Check if category already exists
-            existing = await session.execute(
-                select(Category).where(Category.slug == cat_data["slug"])
-            )
+            existing = await session.execute(select(Category).where(Category.slug == cat_data["slug"]))
             existing_cat = existing.scalar()
 
             if existing_cat:
@@ -625,7 +664,6 @@ async def seed_database():
                 sources_created += 1
 
         await session.commit()
-
 
 
 async def main():

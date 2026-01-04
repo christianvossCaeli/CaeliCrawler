@@ -133,11 +133,13 @@ def register_operation(name: str) -> Callable[[type[WriteOperation]], type[Write
     Returns:
         Decorator function
     """
+
     def decorator(cls: type[WriteOperation]) -> type[WriteOperation]:
         cls.operation_name = name
         OPERATIONS_REGISTRY[name] = cls
         logger.debug("Registered write operation", operation=name, handler=cls.__name__)
         return cls
+
     return decorator
 
 

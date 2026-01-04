@@ -357,9 +357,7 @@ async def list_device_tokens(
     List all registered device tokens for current user.
     """
     result = await session.execute(
-        select(DeviceToken)
-        .where(DeviceToken.user_id == current_user.id)
-        .order_by(DeviceToken.created_at.desc())
+        select(DeviceToken).where(DeviceToken.user_id == current_user.id).order_by(DeviceToken.created_at.desc())
     )
     return [DeviceTokenResponse.model_validate(dt) for dt in result.scalars().all()]
 
@@ -386,9 +384,7 @@ async def register_device_token(
         ) from None
 
     # Check if token already exists (for any user)
-    existing = await session.execute(
-        select(DeviceToken).where(DeviceToken.token == data.token)
-    )
+    existing = await session.execute(select(DeviceToken).where(DeviceToken.token == data.token))
     existing_token = existing.scalar_one_or_none()
 
     if existing_token:
@@ -517,6 +513,7 @@ async def create_rule(
 
     # Check for duplicate by conditions
     from app.utils.similarity import find_duplicate_notification_rule
+
     duplicate = await find_duplicate_notification_rule(
         session,
         user_id=current_user.id,
@@ -810,6 +807,7 @@ async def test_webhook(
             headers["Authorization"] = f"Bearer {data.auth.get('token', '')}"
         elif auth_type == "basic":
             import base64
+
             creds = base64.b64encode(
                 f"{data.auth.get('username', '')}:{data.auth.get('password', '')}".encode()
             ).decode()

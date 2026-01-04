@@ -145,9 +145,7 @@ async def list_attachments(
                 "analysis_status": att.analysis_status.value,
                 "analysis_result": att.analysis_result,
                 "analyzed_at": att.analyzed_at.isoformat() if att.analyzed_at else None,
-                "uploaded_by_id": str(att.uploaded_by_id)
-                if att.uploaded_by_id
-                else None,
+                "uploaded_by_id": str(att.uploaded_by_id) if att.uploaded_by_id else None,
                 "created_at": att.created_at.isoformat(),
                 "is_image": att.is_image,
                 "is_pdf": att.is_pdf,
@@ -182,13 +180,9 @@ async def get_attachment(
         "analysis_status": attachment.analysis_status.value,
         "analysis_result": attachment.analysis_result,
         "analysis_error": attachment.analysis_error,
-        "analyzed_at": attachment.analyzed_at.isoformat()
-        if attachment.analyzed_at
-        else None,
+        "analyzed_at": attachment.analyzed_at.isoformat() if attachment.analyzed_at else None,
         "ai_model_used": attachment.ai_model_used,
-        "uploaded_by_id": str(attachment.uploaded_by_id)
-        if attachment.uploaded_by_id
-        else None,
+        "uploaded_by_id": str(attachment.uploaded_by_id) if attachment.uploaded_by_id else None,
         "created_at": attachment.created_at.isoformat(),
         "is_image": attachment.is_image,
         "is_pdf": attachment.is_pdf,
@@ -408,17 +402,15 @@ async def apply_facet_suggestions(
             pass
 
     # Load facet types by slug
-    slugs = [suggestions[idx].get("facet_type_slug") for idx in valid_indices if suggestions[idx].get("facet_type_slug")]
-    ft_result = await session.execute(
-        select(FacetType).where(FacetType.slug.in_(slugs))
-    )
+    slugs = [
+        suggestions[idx].get("facet_type_slug") for idx in valid_indices if suggestions[idx].get("facet_type_slug")
+    ]
+    ft_result = await session.execute(select(FacetType).where(FacetType.slug.in_(slugs)))
     facet_types_by_slug = {ft.slug: ft for ft in ft_result.scalars().all()}
 
     # Load facet types by ID
     if ft_ids:
-        ft_id_result = await session.execute(
-            select(FacetType).where(FacetType.id.in_(ft_ids))
-        )
+        ft_id_result = await session.execute(select(FacetType).where(FacetType.id.in_(ft_ids)))
         facet_types_by_id = {str(ft.id): ft for ft in ft_id_result.scalars().all()}
     else:
         facet_types_by_id = {}
@@ -443,10 +435,13 @@ async def apply_facet_suggestions(
 
             # Create facet value
             value = suggestion.get("value", {})
-            text_repr = suggestion.get("text_representation") or str(value.get("text", value.get("description", "")))[:500]
+            text_repr = (
+                suggestion.get("text_representation") or str(value.get("text", value.get("description", "")))[:500]
+            )
 
             # Check for semantically similar FacetValues (AI-based)
             from app.utils.similarity import find_similar_facet_values
+
             similar_values = await find_similar_facet_values(
                 session,
                 entity_id=entity_id,
@@ -475,16 +470,19 @@ async def apply_facet_suggestions(
             # Track for embedding generation
             facet_values_for_embedding.append((facet_value, text_repr))
 
-            created.append({
-                "facet_type": ft.name,
-                "text": text_repr[:100],
-            })
+            created.append(
+                {
+                    "facet_type": ft.name,
+                    "text": text_repr[:100],
+                }
+            )
 
         except Exception as e:
             errors.append(f"Fehler bei Index {idx}: {str(e)}")
 
     # Generate embeddings for created facet values
     from app.utils.similarity import generate_embedding
+
     for facet_value, text_repr in facet_values_for_embedding:
         embedding = await generate_embedding(text_repr)
         if embedding:

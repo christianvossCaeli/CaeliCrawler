@@ -97,9 +97,7 @@ class DuplicateTypesCleaner:
         self.log("\n=== Scanning FacetTypes for duplicates ===")
 
         result = await self.session.execute(
-            select(FacetType)
-            .where(FacetType.is_active.is_(True))
-            .order_by(FacetType.created_at.asc())  # Oldest first
+            select(FacetType).where(FacetType.is_active.is_(True)).order_by(FacetType.created_at.asc())  # Oldest first
         )
         facet_types = result.scalars().all()
 
@@ -121,7 +119,7 @@ class DuplicateTypesCleaner:
                 if emb1 is None:
                     continue
 
-            for ft2 in facet_types[i+1:]:
+            for ft2 in facet_types[i + 1 :]:
                 if ft2.id in processed_ids:
                     continue
 
@@ -129,7 +127,7 @@ class DuplicateTypesCleaner:
                 if ft1.name.lower() == ft2.name.lower() or ft1.slug == ft2.slug:
                     self.log(
                         f"  Exact duplicate: '{ft2.name}' (slug: {ft2.slug}) -> '{ft1.name}' (slug: {ft1.slug})",
-                        level="verbose"
+                        level="verbose",
                     )
                     duplicates.append((ft2, ft1, 1.0))
                     processed_ids.add(ft2.id)
@@ -147,20 +145,14 @@ class DuplicateTypesCleaner:
                 similarity = _cosine_similarity(emb1, emb2)
 
                 if similarity >= self.similarity_threshold:
-                    self.log(
-                        f"  Similar: '{ft2.name}' ({int(similarity*100)}%) -> '{ft1.name}'",
-                        level="verbose"
-                    )
+                    self.log(f"  Similar: '{ft2.name}' ({int(similarity * 100)}%) -> '{ft1.name}'", level="verbose")
                     duplicates.append((ft2, ft1, similarity))
                     processed_ids.add(ft2.id)
                 elif similarity >= 0.5:  # Medium similarity - check concept equivalence
                     # Use AI to check if concepts are equivalent (cross-lingual check)
                     is_equivalent = await are_concepts_equivalent(ft1.name, ft2.name)
                     if is_equivalent:
-                        self.log(
-                            f"  Cross-lingual: '{ft2.name}' ≡ '{ft1.name}'",
-                            level="verbose"
-                        )
+                        self.log(f"  Cross-lingual: '{ft2.name}' ≡ '{ft1.name}'", level="verbose")
                         duplicates.append((ft2, ft1, 0.95))
                         processed_ids.add(ft2.id)
 
@@ -178,9 +170,7 @@ class DuplicateTypesCleaner:
         self.log("\n=== Scanning EntityTypes for duplicates ===")
 
         result = await self.session.execute(
-            select(EntityType)
-            .where(EntityType.is_active.is_(True))
-            .order_by(EntityType.created_at.asc())
+            select(EntityType).where(EntityType.is_active.is_(True)).order_by(EntityType.created_at.asc())
         )
         entity_types = result.scalars().all()
 
@@ -200,7 +190,7 @@ class DuplicateTypesCleaner:
                 if emb1 is None:
                     continue
 
-            for et2 in entity_types[i+1:]:
+            for et2 in entity_types[i + 1 :]:
                 if et2.id in processed_ids:
                     continue
 
@@ -208,7 +198,7 @@ class DuplicateTypesCleaner:
                 if et1.name.lower() == et2.name.lower() or et1.slug == et2.slug:
                     self.log(
                         f"  Exact duplicate: '{et2.name}' (slug: {et2.slug}) -> '{et1.name}' (slug: {et1.slug})",
-                        level="verbose"
+                        level="verbose",
                     )
                     duplicates.append((et2, et1, 1.0))
                     processed_ids.add(et2.id)
@@ -224,19 +214,13 @@ class DuplicateTypesCleaner:
                 similarity = _cosine_similarity(emb1, emb2)
 
                 if similarity >= self.similarity_threshold:
-                    self.log(
-                        f"  Similar: '{et2.name}' ({int(similarity*100)}%) -> '{et1.name}'",
-                        level="verbose"
-                    )
+                    self.log(f"  Similar: '{et2.name}' ({int(similarity * 100)}%) -> '{et1.name}'", level="verbose")
                     duplicates.append((et2, et1, similarity))
                     processed_ids.add(et2.id)
                 elif similarity >= 0.5:  # Medium similarity - check concept equivalence
                     is_equivalent = await are_concepts_equivalent(et1.name, et2.name)
                     if is_equivalent:
-                        self.log(
-                            f"  Cross-lingual: '{et2.name}' ≡ '{et1.name}'",
-                            level="verbose"
-                        )
+                        self.log(f"  Cross-lingual: '{et2.name}' ≡ '{et1.name}'", level="verbose")
                         duplicates.append((et2, et1, 0.95))
                         processed_ids.add(et2.id)
 
@@ -254,9 +238,7 @@ class DuplicateTypesCleaner:
         self.log("\n=== Scanning Categories for duplicates ===")
 
         result = await self.session.execute(
-            select(Category)
-            .where(Category.is_active.is_(True))
-            .order_by(Category.created_at.asc())
+            select(Category).where(Category.is_active.is_(True)).order_by(Category.created_at.asc())
         )
         categories = result.scalars().all()
 
@@ -269,14 +251,14 @@ class DuplicateTypesCleaner:
             if cat1.id in processed_ids:
                 continue
 
-            if hasattr(cat1, 'name_embedding') and cat1.name_embedding is not None:
+            if hasattr(cat1, "name_embedding") and cat1.name_embedding is not None:
                 emb1 = cat1.name_embedding
             else:
                 emb1 = await generate_embedding(cat1.name)
                 if emb1 is None:
                     continue
 
-            for cat2 in categories[i+1:]:
+            for cat2 in categories[i + 1 :]:
                 if cat2.id in processed_ids:
                     continue
 
@@ -284,13 +266,13 @@ class DuplicateTypesCleaner:
                 if cat1.name.lower() == cat2.name.lower() or cat1.slug == cat2.slug:
                     self.log(
                         f"  Exact duplicate: '{cat2.name}' (slug: {cat2.slug}) -> '{cat1.name}' (slug: {cat1.slug})",
-                        level="verbose"
+                        level="verbose",
                     )
                     duplicates.append((cat2, cat1, 1.0))
                     processed_ids.add(cat2.id)
                     continue
 
-                if hasattr(cat2, 'name_embedding') and cat2.name_embedding is not None:
+                if hasattr(cat2, "name_embedding") and cat2.name_embedding is not None:
                     emb2 = cat2.name_embedding
                 else:
                     emb2 = await generate_embedding(cat2.name)
@@ -300,19 +282,13 @@ class DuplicateTypesCleaner:
                 similarity = _cosine_similarity(emb1, emb2)
 
                 if similarity >= self.similarity_threshold:
-                    self.log(
-                        f"  Similar: '{cat2.name}' ({int(similarity*100)}%) -> '{cat1.name}'",
-                        level="verbose"
-                    )
+                    self.log(f"  Similar: '{cat2.name}' ({int(similarity * 100)}%) -> '{cat1.name}'", level="verbose")
                     duplicates.append((cat2, cat1, similarity))
                     processed_ids.add(cat2.id)
                 elif similarity >= 0.5:  # Medium similarity - check concept equivalence
                     is_equivalent = await are_concepts_equivalent(cat1.name, cat2.name)
                     if is_equivalent:
-                        self.log(
-                            f"  Cross-lingual: '{cat2.name}' ≡ '{cat1.name}'",
-                            level="verbose"
-                        )
+                        self.log(f"  Cross-lingual: '{cat2.name}' ≡ '{cat1.name}'", level="verbose")
                         duplicates.append((cat2, cat1, 0.95))
                         processed_ids.add(cat2.id)
 
@@ -336,8 +312,7 @@ class DuplicateTypesCleaner:
         if self.dry_run:
             # Count affected records
             count = await self.session.execute(
-                select(func.count()).select_from(FacetValue)
-                .where(FacetValue.facet_type_id == duplicate.id)
+                select(func.count()).select_from(FacetValue).where(FacetValue.facet_type_id == duplicate.id)
             )
             facet_value_count = count.scalar() or 0
             self.log(f"  Would update {facet_value_count} FacetValues", level="verbose")
@@ -345,9 +320,7 @@ class DuplicateTypesCleaner:
         else:
             # Update FacetValue references
             result = await self.session.execute(
-                update(FacetValue)
-                .where(FacetValue.facet_type_id == duplicate.id)
-                .values(facet_type_id=canonical.id)
+                update(FacetValue).where(FacetValue.facet_type_id == duplicate.id).values(facet_type_id=canonical.id)
             )
             updated = result.rowcount
             self.stats["references_updated"] += updated
@@ -355,10 +328,9 @@ class DuplicateTypesCleaner:
 
             # Merge applicable_entity_type_slugs
             if duplicate.applicable_entity_type_slugs:
-                merged_slugs = list(set(
-                    (canonical.applicable_entity_type_slugs or []) +
-                    (duplicate.applicable_entity_type_slugs or [])
-                ))
+                merged_slugs = list(
+                    set((canonical.applicable_entity_type_slugs or []) + (duplicate.applicable_entity_type_slugs or []))
+                )
                 canonical.applicable_entity_type_slugs = merged_slugs
 
             # Deactivate duplicate
@@ -382,8 +354,7 @@ class DuplicateTypesCleaner:
 
         if self.dry_run:
             count = await self.session.execute(
-                select(func.count()).select_from(Entity)
-                .where(Entity.entity_type_id == duplicate.id)
+                select(func.count()).select_from(Entity).where(Entity.entity_type_id == duplicate.id)
             )
             entity_count = count.scalar() or 0
             self.log(f"  Would update {entity_count} Entities", level="verbose")
@@ -391,9 +362,7 @@ class DuplicateTypesCleaner:
         else:
             # Update Entity references
             result = await self.session.execute(
-                update(Entity)
-                .where(Entity.entity_type_id == duplicate.id)
-                .values(entity_type_id=canonical.id)
+                update(Entity).where(Entity.entity_type_id == duplicate.id).values(entity_type_id=canonical.id)
             )
             updated = result.rowcount
             self.stats["references_updated"] += updated
@@ -401,16 +370,11 @@ class DuplicateTypesCleaner:
 
             # Update FacetType applicable_entity_type_slugs
             facet_types_result = await self.session.execute(
-                select(FacetType).where(
-                    FacetType.applicable_entity_type_slugs.contains([duplicate.slug])
-                )
+                select(FacetType).where(FacetType.applicable_entity_type_slugs.contains([duplicate.slug]))
             )
             for ft in facet_types_result.scalars().all():
                 if ft.applicable_entity_type_slugs:
-                    new_slugs = [
-                        canonical.slug if s == duplicate.slug else s
-                        for s in ft.applicable_entity_type_slugs
-                    ]
+                    new_slugs = [canonical.slug if s == duplicate.slug else s for s in ft.applicable_entity_type_slugs]
                     ft.applicable_entity_type_slugs = list(set(new_slugs))
 
             # Deactivate duplicate
@@ -437,8 +401,7 @@ class DuplicateTypesCleaner:
         if self.dry_run:
             # Count affected DataSources
             count = await self.session.execute(
-                select(func.count()).select_from(DataSource)
-                .where(DataSource.category_id == duplicate.id)
+                select(func.count()).select_from(DataSource).where(DataSource.category_id == duplicate.id)
             )
             ds_count = count.scalar() or 0
             self.log(f"  Would update {ds_count} DataSources", level="verbose")
@@ -446,18 +409,14 @@ class DuplicateTypesCleaner:
         else:
             # Update DataSource references
             result = await self.session.execute(
-                update(DataSource)
-                .where(DataSource.category_id == duplicate.id)
-                .values(category_id=canonical.id)
+                update(DataSource).where(DataSource.category_id == duplicate.id).values(category_id=canonical.id)
             )
             updated = result.rowcount
             self.stats["references_updated"] += updated
             self.log(f"  Updated {updated} DataSources", level="verbose")
 
             # Update child categories
-            children_result = await self.session.execute(
-                select(Category).where(Category.parent_id == duplicate.id)
-            )
+            children_result = await self.session.execute(select(Category).where(Category.parent_id == duplicate.id))
             for child in children_result.scalars().all():
                 child.parent_id = canonical.id
 
@@ -473,7 +432,9 @@ class DuplicateTypesCleaner:
         duplicates = await self.find_duplicate_facet_types()
 
         for duplicate, canonical, score in duplicates:
-            self.log(f"\n  '{duplicate.name}' ({duplicate.slug}) -> '{canonical.name}' ({canonical.slug}) [{int(score*100)}%]")
+            self.log(
+                f"\n  '{duplicate.name}' ({duplicate.slug}) -> '{canonical.name}' ({canonical.slug}) [{int(score * 100)}%]"
+            )
             await self.merge_facet_types(duplicate, canonical)
 
     async def cleanup_entity_types(self):
@@ -481,7 +442,9 @@ class DuplicateTypesCleaner:
         duplicates = await self.find_duplicate_entity_types()
 
         for duplicate, canonical, score in duplicates:
-            self.log(f"\n  '{duplicate.name}' ({duplicate.slug}) -> '{canonical.name}' ({canonical.slug}) [{int(score*100)}%]")
+            self.log(
+                f"\n  '{duplicate.name}' ({duplicate.slug}) -> '{canonical.name}' ({canonical.slug}) [{int(score * 100)}%]"
+            )
             await self.merge_entity_types(duplicate, canonical)
 
     async def cleanup_categories(self):
@@ -489,7 +452,9 @@ class DuplicateTypesCleaner:
         duplicates = await self.find_duplicate_categories()
 
         for duplicate, canonical, score in duplicates:
-            self.log(f"\n  '{duplicate.name}' ({duplicate.slug}) -> '{canonical.name}' ({canonical.slug}) [{int(score*100)}%]")
+            self.log(
+                f"\n  '{duplicate.name}' ({duplicate.slug}) -> '{canonical.name}' ({canonical.slug}) [{int(score * 100)}%]"
+            )
             await self.merge_categories(duplicate, canonical)
 
     async def cleanup_all(self):
@@ -516,9 +481,7 @@ class DuplicateTypesCleaner:
 
 
 async def main():
-    parser = argparse.ArgumentParser(
-        description="Cleanup duplicate FacetTypes, EntityTypes, and Categories"
-    )
+    parser = argparse.ArgumentParser(description="Cleanup duplicate FacetTypes, EntityTypes, and Categories")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -545,10 +508,8 @@ async def main():
 
     args = parser.parse_args()
 
-
     if args.dry_run:
         pass
-
 
     async with get_session_context() as session:
         cleaner = DuplicateTypesCleaner(

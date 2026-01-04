@@ -121,8 +121,7 @@ class EncryptionService:
                 error="Invalid token - data may be corrupted or secret_key changed",
             )
             raise EncryptionError(
-                "Failed to decrypt data: invalid token. "
-                "This may occur if the secret_key has changed since encryption."
+                "Failed to decrypt data: invalid token. This may occur if the secret_key has changed since encryption."
             ) from e
         except json.JSONDecodeError as e:
             logger.error("decryption_failed_invalid_json", error=str(e))

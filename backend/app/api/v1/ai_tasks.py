@@ -153,9 +153,7 @@ async def get_entity_tasks(
             task_type_enum = AITaskType(task_type)
             query = query.where(AITask.task_type == task_type_enum)
         except ValueError:
-            raise HTTPException(
-                status_code=400, detail=f"Ungültiger Task-Typ: {task_type}"
-            ) from None
+            raise HTTPException(status_code=400, detail=f"Ungültiger Task-Typ: {task_type}") from None
 
     if status:
         try:

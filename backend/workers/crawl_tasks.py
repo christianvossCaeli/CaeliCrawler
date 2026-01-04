@@ -22,6 +22,7 @@ try:
         crawler_jobs_total,
         crawler_pages_crawled,
     )
+
     METRICS_AVAILABLE = True
 except ImportError:
     METRICS_AVAILABLE = False
@@ -72,11 +73,13 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                 )
                 job.status = JobStatus.FAILED
                 job.error_count = 1
-                job.error_log = [{
-                    "timestamp": datetime.now(UTC).isoformat(),
-                    "error": f"URL validation failed: {error_msg}",
-                    "type": "URLValidationError",
-                }]
+                job.error_log = [
+                    {
+                        "timestamp": datetime.now(UTC).isoformat(),
+                        "error": f"URL validation failed: {error_msg}",
+                        "type": "URLValidationError",
+                    }
+                ]
                 source.status = SourceStatus.ERROR
                 source.error_message = f"Invalid URL: {error_msg}"
                 await session.commit()
@@ -136,15 +139,15 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                     crawler_job_duration_seconds.labels(source_type=source_type).observe(duration)
                     crawler_jobs_total.labels(source_type=source_type, status="completed").inc()
                     crawler_pages_crawled.labels(source_type=source_type).inc(result.pages_crawled)
-                    crawler_documents_found.labels(
-                        source_type=source_type,
-                        document_type="mixed"
-                    ).inc(result.documents_found)
+                    crawler_documents_found.labels(source_type=source_type, document_type="mixed").inc(
+                        result.documents_found
+                    )
                     crawler_jobs_running.labels(source_type=source_type).dec()
 
                 # Trigger document processing immediately if new documents were found
                 if result.documents_new > 0:
                     from workers.processing_tasks import process_pending_documents
+
                     process_pending_documents.delay()
                     logger.info(
                         "Triggered document processing after crawl",
@@ -153,6 +156,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
 
                 # Emit notification events
                 from workers.notification_tasks import emit_event
+
                 emit_event.delay(
                     "CRAWL_COMPLETED",
                     {
@@ -163,12 +167,13 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                         "category_id": str(job.category_id) if job.category_id else None,
                         "documents_found": result.documents_found,
                         "documents_new": result.documents_new,
-                    }
+                    },
                 )
 
                 # Trigger summary updates for summaries linked to this category
                 if job.category_id:
                     from workers.summary_tasks import on_crawl_completed
+
                     on_crawl_completed.delay(str(job.id), str(job.category_id))
 
                 if result.documents_new > 0:
@@ -180,7 +185,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                             "source_name": source.name,
                             "category_id": str(job.category_id) if job.category_id else None,
                             "count": result.documents_new,
-                        }
+                        },
                     )
 
             except SoftTimeLimitExceeded:
@@ -193,11 +198,13 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                 job.status = JobStatus.FAILED
                 job.completed_at = datetime.now(UTC)
                 job.error_count += 1
-                job.error_log.append({
-                    "timestamp": datetime.now(UTC).isoformat(),
-                    "error": "Task exceeded soft time limit (55 minutes)",
-                    "type": "SoftTimeLimitExceeded",
-                })
+                job.error_log.append(
+                    {
+                        "timestamp": datetime.now(UTC).isoformat(),
+                        "error": "Task exceeded soft time limit (55 minutes)",
+                        "type": "SoftTimeLimitExceeded",
+                    }
+                )
 
                 source.status = SourceStatus.ERROR
                 source.error_message = "Crawl exceeded time limit"
@@ -210,6 +217,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
 
                 # Emit notification for timeout
                 from workers.notification_tasks import emit_event
+
                 emit_event.delay(
                     "CRAWL_FAILED",
                     {
@@ -219,7 +227,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                         "source_name": source.name,
                         "category_id": str(job.category_id) if job.category_id else None,
                         "error": "Time limit exceeded",
-                    }
+                    },
                 )
 
             except Exception as e:
@@ -227,11 +235,13 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                 job.status = JobStatus.FAILED
                 job.completed_at = datetime.now(UTC)
                 job.error_count += 1
-                job.error_log.append({
-                    "timestamp": datetime.now(UTC).isoformat(),
-                    "error": str(e),
-                    "type": type(e).__name__,
-                })
+                job.error_log.append(
+                    {
+                        "timestamp": datetime.now(UTC).isoformat(),
+                        "error": str(e),
+                        "type": type(e).__name__,
+                    }
+                )
 
                 source.status = SourceStatus.ERROR
                 source.error_message = str(e)
@@ -245,6 +255,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
 
                 # Emit notification event for failed crawl
                 from workers.notification_tasks import emit_event
+
                 emit_event.delay(
                     "CRAWL_FAILED",
                     {
@@ -254,7 +265,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                         "source_name": source.name,
                         "category_id": str(job.category_id) if job.category_id else None,
                         "error": str(e),
-                    }
+                    },
                 )
 
             await session.commit()
@@ -328,6 +339,7 @@ def check_scheduled_crawls():
 
                     # Create crawl job using schedule owner's credentials
                     from workers.crawl_tasks import create_crawl_job
+
                     create_crawl_job.delay(
                         str(source.id),
                         str(category.id),
@@ -471,9 +483,7 @@ def detect_changes(source_id: str):
                         response.headers.get("etag", ""),
                         response.headers.get("content-length", ""),
                     ]
-                    new_hash = hashlib.sha256(
-                        "".join(change_indicators).encode()
-                    ).hexdigest()
+                    new_hash = hashlib.sha256("".join(change_indicators).encode()).hexdigest()
 
                     if source.content_hash and source.content_hash != new_hash:
                         # Change detected
@@ -491,6 +501,7 @@ def detect_changes(source_id: str):
 
                         # Emit notification event for change
                         from workers.notification_tasks import emit_event
+
                         emit_event.delay(
                             "DOCUMENT_CHANGED",
                             {
@@ -499,7 +510,7 @@ def detect_changes(source_id: str):
                                 "source_name": source.name,
                                 "category_id": str(source.category_id) if source.category_id else None,
                                 "url": source.base_url,
-                            }
+                            },
                         )
 
                     source.content_hash = new_hash

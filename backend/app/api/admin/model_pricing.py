@@ -6,7 +6,7 @@ Only accessible by admins.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 import structlog
 from fastapi import APIRouter, Depends
@@ -18,7 +18,7 @@ from app.core.deps import require_admin
 from app.core.exceptions import NotFoundError
 from app.database import get_session
 from app.models import User
-from app.models.model_pricing import ModelPricing, PricingProvider, OFFICIAL_PRICING_URLS
+from app.models.model_pricing import OFFICIAL_PRICING_URLS, ModelPricing, PricingProvider
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -231,11 +231,9 @@ async def update_pricing(
     try:
         uuid_id = UUID(pricing_id)
     except ValueError:
-        raise NotFoundError("Ungültige Preis-ID")
+        raise NotFoundError("Ungültige Preis-ID") from None
 
-    result = await session.execute(
-        select(ModelPricing).where(ModelPricing.id == uuid_id)
-    )
+    result = await session.execute(select(ModelPricing).where(ModelPricing.id == uuid_id))
     pricing = result.scalar_one_or_none()
 
     if not pricing:
@@ -286,11 +284,9 @@ async def delete_pricing(
     try:
         uuid_id = UUID(pricing_id)
     except ValueError:
-        raise NotFoundError("Ungültige Preis-ID")
+        raise NotFoundError("Ungültige Preis-ID") from None
 
-    result = await session.execute(
-        select(ModelPricing).where(ModelPricing.id == uuid_id)
-    )
+    result = await session.execute(select(ModelPricing).where(ModelPricing.id == uuid_id))
     pricing = result.scalar_one_or_none()
 
     if not pricing:
@@ -456,22 +452,19 @@ async def verify_pricing(
 ) -> dict:
     """Mark a pricing entry as verified (updates last_verified_at)."""
     from uuid import UUID
-    from datetime import timezone
 
     try:
         uuid_id = UUID(pricing_id)
     except ValueError:
-        raise NotFoundError("Ungültige Preis-ID")
+        raise NotFoundError("Ungültige Preis-ID") from None
 
-    result = await session.execute(
-        select(ModelPricing).where(ModelPricing.id == uuid_id)
-    )
+    result = await session.execute(select(ModelPricing).where(ModelPricing.id == uuid_id))
     pricing = result.scalar_one_or_none()
 
     if not pricing:
         raise NotFoundError("Preiseintrag nicht gefunden")
 
-    pricing.last_verified_at = datetime.now(timezone.utc)
+    pricing.last_verified_at = datetime.now(UTC)
     await session.commit()
 
     return {"message": "Preis wurde als verifiziert markiert"}

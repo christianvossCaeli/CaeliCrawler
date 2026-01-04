@@ -29,10 +29,7 @@ MAX_SESSIONS_PER_USER = 5  # Maximum concurrent sessions per user
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash using bcrypt."""
-    return bcrypt.checkpw(
-        plain_password.encode("utf-8"),
-        hashed_password.encode("utf-8")
-    )
+    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 
 def get_password_hash(password: str) -> str:
@@ -59,9 +56,7 @@ def create_access_token(
     Returns:
         Encoded JWT token string
     """
-    expire = datetime.now(UTC) + (
-        expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
+    expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode = {
         "sub": str(user_id),
         "role": role,
@@ -177,9 +172,7 @@ def create_tokens_for_session(
     access_token = create_access_token(user_id, role, session_id)
 
     # Create refresh token
-    refresh_token, token_hash, refresh_expires_at = create_refresh_token_response(
-        user_id, role, session_id
-    )
+    refresh_token, token_hash, refresh_expires_at = create_refresh_token_response(user_id, role, session_id)
 
     return {
         "access_token": access_token,

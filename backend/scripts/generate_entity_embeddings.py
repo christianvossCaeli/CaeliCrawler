@@ -43,16 +43,18 @@ logger = structlog.get_logger(__name__)
 
 async def get_entity_stats(session: AsyncSession) -> dict:
     """Get statistics about entity embeddings."""
-    total = (await session.execute(
-        select(func.count()).select_from(Entity).where(Entity.is_active.is_(True))
-    )).scalar()
+    total = (await session.execute(select(func.count()).select_from(Entity).where(Entity.is_active.is_(True)))).scalar()
 
-    with_embedding = (await session.execute(
-        select(func.count()).select_from(Entity).where(
-            Entity.is_active.is_(True),
-            Entity.name_embedding.isnot(None),
+    with_embedding = (
+        await session.execute(
+            select(func.count())
+            .select_from(Entity)
+            .where(
+                Entity.is_active.is_(True),
+                Entity.name_embedding.isnot(None),
+            )
         )
-    )).scalar()
+    ).scalar()
 
     return {
         "total": total,
@@ -94,9 +96,7 @@ async def generate_embeddings(
 
         if entity_type_slug:
             # Get entity type ID
-            et_result = await session.execute(
-                select(EntityType).where(EntityType.slug == entity_type_slug)
-            )
+            et_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
             entity_type = et_result.scalar_one_or_none()
             if not entity_type:
                 logger.error(f"Entity type not found: {entity_type_slug}")
@@ -169,9 +169,7 @@ async def generate_embeddings(
 
 
 async def main():
-    parser = argparse.ArgumentParser(
-        description="Generate embeddings for existing entities"
-    )
+    parser = argparse.ArgumentParser(description="Generate embeddings for existing entities")
     parser.add_argument(
         "--entity-type",
         type=str,
@@ -202,7 +200,6 @@ async def main():
         limit=args.limit,
         batch_size=args.batch_size,
     )
-
 
 
 if __name__ == "__main__":

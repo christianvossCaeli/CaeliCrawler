@@ -1,6 +1,5 @@
 """Smart Query endpoints - AI-powered natural language queries and commands."""
 
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -16,27 +15,31 @@ from .helpers import build_preview
 
 router = APIRouter()
 
+
 # Rate limiter for AI-powered endpoints (expensive operations)
 # Using user ID if available, otherwise IP address
 def get_rate_limit_key(request: Request) -> str:
     """Get rate limit key - prefer user ID over IP for authenticated requests."""
     # Try to get user from request state (set by auth middleware)
-    user = getattr(request.state, 'user', None)
-    if user and hasattr(user, 'id'):
+    user = getattr(request.state, "user", None)
+    if user and hasattr(user, "id"):
         return f"user:{user.id}"
     return get_remote_address(request)
+
 
 limiter = Limiter(key_func=get_rate_limit_key)
 
 
 class ConversationMessage(BaseModel):
     """A single message in a conversation history."""
+
     role: str = Field(..., description="Message role: 'user' or 'assistant'")
     content: str = Field(..., description="Message content")
 
 
 class PageContext(BaseModel):
     """Page context for Plan Mode - enables context-aware responses."""
+
     current_route: str = Field(..., description="Current page route/path")
     view_mode: str = Field(default="unknown", description="Current view mode (dashboard, list, detail, summary, etc.)")
     available_features: list[str] = Field(default_factory=list, description="Features available on current page")
@@ -49,21 +52,21 @@ class PageContext(BaseModel):
 
 class SmartQueryRequest(BaseModel):
     """Request for smart query endpoint."""
+
     question: str = Field(..., min_length=1, max_length=10000, description="Natural language question or command")
     allow_write: bool = Field(default=False, description="Allow write operations (create entities, facets, relations)")
     mode: str | None = Field(default=None, description="Optional mode override: 'plan' for Plan Mode assistant")
     conversation_history: list[ConversationMessage] | None = Field(
-        default=None,
-        description="Conversation history for Plan Mode (list of previous messages)"
+        default=None, description="Conversation history for Plan Mode (list of previous messages)"
     )
     page_context: PageContext | None = Field(
-        default=None,
-        description="Current page context for context-aware Plan Mode responses"
+        default=None, description="Current page context for context-aware Plan Mode responses"
     )
 
 
 class SmartWriteRequest(BaseModel):
     """Request for smart write endpoint with preview support."""
+
     question: str = Field(..., min_length=3, max_length=2000, description="Natural language command")
     preview_only: bool = Field(default=True, description="If true, only return preview without executing")
     confirmed: bool = Field(default=False, description="If true and preview_only=false, execute the command")
@@ -108,8 +111,7 @@ async def smart_query_endpoint(
     conversation_history = None
     if query_request.conversation_history:
         conversation_history = [
-            {"role": msg.role, "content": msg.content}
-            for msg in query_request.conversation_history
+            {"role": msg.role, "content": msg.content} for msg in query_request.conversation_history
         ]
 
     try:
@@ -131,14 +133,13 @@ async def smart_query_endpoint(
 
 class SmartQueryStreamRequest(BaseModel):
     """Request for streaming smart query (Plan Mode only)."""
+
     question: str = Field(..., min_length=1, max_length=10000, description="User's message")
     conversation_history: list[ConversationMessage] | None = Field(
-        default=None,
-        description="Conversation history for Plan Mode"
+        default=None, description="Conversation history for Plan Mode"
     )
     page_context: PageContext | None = Field(
-        default=None,
-        description="Current page context for context-aware responses"
+        default=None, description="Current page context for context-aware responses"
     )
 
 
@@ -180,8 +181,7 @@ async def smart_query_stream_endpoint(
     conversation_history = None
     if stream_request.conversation_history:
         conversation_history = [
-            {"role": msg.role, "content": msg.content}
-            for msg in stream_request.conversation_history
+            {"role": msg.role, "content": msg.content} for msg in stream_request.conversation_history
         ]
 
     # Convert page context to dict if provided
@@ -277,9 +277,7 @@ async def smart_write_endpoint(
         }
 
     # Execute the command with current user context
-    result = await execute_write_command(
-        session, command, current_user.id, original_question=write_request.question
-    )
+    result = await execute_write_command(session, command, current_user.id, original_question=write_request.question)
     result["original_question"] = write_request.question
     result["mode"] = "write"
     result["interpretation"] = command
@@ -289,6 +287,7 @@ async def smart_write_endpoint(
 
 class ValidatePromptRequest(BaseModel):
     """Request for validating a prompt before execution."""
+
     prompt: str = Field(..., min_length=3, max_length=2000, description="The prompt to validate")
     mode: str = Field(..., description="Target mode: 'read' or 'write'")
 
@@ -360,9 +359,7 @@ async def validate_prompt_endpoint(
 
                 # Add warnings for potential issues
                 if not query_params.get("entity_type"):
-                    result["warnings"].append(
-                        "Kein Entity-Typ erkannt. Die Abfrage könnte zu allgemein sein."
-                    )
+                    result["warnings"].append("Kein Entity-Typ erkannt. Die Abfrage könnte zu allgemein sein.")
             else:
                 result["warnings"].append(
                     "Die Abfrage konnte nicht interpretiert werden. "

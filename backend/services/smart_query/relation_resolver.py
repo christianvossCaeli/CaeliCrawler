@@ -86,21 +86,15 @@ class RelationResolver:
             return
 
         # Load relation types
-        result = await self.session.execute(
-            select(RelationType).where(RelationType.is_active.is_(True))
-        )
+        result = await self.session.execute(select(RelationType).where(RelationType.is_active.is_(True)))
         self._relation_type_cache = {rt.slug: rt for rt in result.scalars().all()}
 
         # Load facet types
-        result = await self.session.execute(
-            select(FacetType).where(FacetType.is_active.is_(True))
-        )
+        result = await self.session.execute(select(FacetType).where(FacetType.is_active.is_(True)))
         self._facet_type_cache = {ft.slug: ft for ft in result.scalars().all()}
 
         # Load entity types
-        result = await self.session.execute(
-            select(EntityType).where(EntityType.is_active.is_(True))
-        )
+        result = await self.session.execute(select(EntityType).where(EntityType.is_active.is_(True)))
         self._entity_type_cache = {et.slug: et for et in result.scalars().all()}
 
         self._cache_timestamp = now
@@ -133,9 +127,7 @@ class RelationResolver:
             return [], {}
 
         current_ids = set(starting_entity_ids)
-        paths: dict[UUID, list[dict[str, Any]]] = {
-            eid: [{"entity_id": eid, "hop": 0}] for eid in starting_entity_ids
-        }
+        paths: dict[UUID, list[dict[str, Any]]] = {eid: [{"entity_id": eid, "hop": 0}] for eid in starting_entity_ids}
 
         for hop_index, hop in enumerate(chain.hops):
             logger.debug(
@@ -145,9 +137,7 @@ class RelationResolver:
                 current_count=len(current_ids),
             )
 
-            next_ids, new_paths = await self._resolve_single_hop(
-                current_ids, hop, paths, hop_index + 1
-            )
+            next_ids, new_paths = await self._resolve_single_hop(current_ids, hop, paths, hop_index + 1)
 
             if not next_ids:
                 logger.debug("No entities found after hop", hop_index=hop_index)
@@ -187,25 +177,19 @@ class RelationResolver:
         # Build query based on direction
         if hop.direction == "source":
             # Following from source to target: entity_ids are sources, we want targets
-            query = (
-                select(EntityRelation)
-                .where(
-                    EntityRelation.relation_type_id == relation_type.id,
-                    EntityRelation.source_entity_id.in_(entity_ids),
-                    EntityRelation.is_active.is_(True),
-                )
+            query = select(EntityRelation).where(
+                EntityRelation.relation_type_id == relation_type.id,
+                EntityRelation.source_entity_id.in_(entity_ids),
+                EntityRelation.is_active.is_(True),
             )
             source_field = "source_entity_id"
             target_field = "target_entity_id"
         else:
             # Following from target to source: entity_ids are targets, we want sources
-            query = (
-                select(EntityRelation)
-                .where(
-                    EntityRelation.relation_type_id == relation_type.id,
-                    EntityRelation.target_entity_id.in_(entity_ids),
-                    EntityRelation.is_active.is_(True),
-                )
+            query = select(EntityRelation).where(
+                EntityRelation.relation_type_id == relation_type.id,
+                EntityRelation.target_entity_id.in_(entity_ids),
+                EntityRelation.is_active.is_(True),
             )
             source_field = "target_entity_id"
             target_field = "source_entity_id"
@@ -248,12 +232,14 @@ class RelationResolver:
                     new_paths[target_id] = []
                 for path in current_paths[source_id]:
                     new_path = path.copy()
-                    new_path.append({
-                        "entity_id": target_id,
-                        "hop": hop_number,
-                        "relation_type": hop.relation_type_slug,
-                        "from_entity": source_id,
-                    })
+                    new_path.append(
+                        {
+                            "entity_id": target_id,
+                            "hop": hop_number,
+                            "relation_type": hop.relation_type_slug,
+                            "from_entity": source_id,
+                        }
+                    )
                     new_paths[target_id].append(new_path)
 
         return next_ids, new_paths
@@ -295,9 +281,7 @@ class RelationResolver:
         if position_filter:
             position_conditions = []
             for pos in position_filter:
-                position_conditions.append(
-                    Entity.core_attributes["position"].astext.ilike(f"%{pos}%")
-                )
+                position_conditions.append(Entity.core_attributes["position"].astext.ilike(f"%{pos}%"))
             if position_conditions:
                 conditions.append(or_(*position_conditions))
 
@@ -394,16 +378,12 @@ class RelationResolver:
             if base_filters.get("position_keywords"):
                 pos_conditions = []
                 for kw in base_filters["position_keywords"]:
-                    pos_conditions.append(
-                        Entity.core_attributes["position"].astext.ilike(f"%{kw}%")
-                    )
+                    pos_conditions.append(Entity.core_attributes["position"].astext.ilike(f"%{kw}%"))
                 if pos_conditions:
                     conditions.append(or_(*pos_conditions))
 
         # Get all primary entities
-        primary_result = await self.session.execute(
-            select(Entity.id).where(*conditions)
-        )
+        primary_result = await self.session.execute(select(Entity.id).where(*conditions))
         primary_ids = [row[0] for row in primary_result.fetchall()]
 
         if not primary_ids:
@@ -440,9 +420,7 @@ class RelationResolver:
         # Filter final entities by facet requirements
         if target_facet_types:
             facet_type_ids = [
-                self._facet_type_cache[ft].id
-                for ft in target_facet_types
-                if ft in self._facet_type_cache
+                self._facet_type_cache[ft].id for ft in target_facet_types if ft in self._facet_type_cache
             ]
             if facet_type_ids:
                 fv_result = await self.session.execute(
@@ -458,9 +436,7 @@ class RelationResolver:
 
         if negative_facet_types and final_ids:
             neg_facet_type_ids = [
-                self._facet_type_cache[ft].id
-                for ft in negative_facet_types
-                if ft in self._facet_type_cache
+                self._facet_type_cache[ft].id for ft in negative_facet_types if ft in self._facet_type_cache
             ]
             if neg_facet_type_ids:
                 neg_result = await self.session.execute(
@@ -550,9 +526,7 @@ class RelationResolver:
         # Load entity details
         entity_details: dict[UUID, Entity] = {}
         if all_entity_ids:
-            result = await self.session.execute(
-                select(Entity).where(Entity.id.in_(all_entity_ids))
-            )
+            result = await self.session.execute(select(Entity).where(Entity.id.in_(all_entity_ids)))
             for entity in result.scalars().all():
                 entity_details[entity.id] = entity
 
@@ -625,9 +599,11 @@ def parse_relation_chain_from_query(query_params: dict[str, Any]) -> list[dict[s
             normalized_chain.append(normalized_hop)
         elif isinstance(hop, str):
             # Simple format: just the relation type slug
-            normalized_chain.append({
-                "type": hop,
-                "direction": "source",
-            })
+            normalized_chain.append(
+                {
+                    "type": hop,
+                    "direction": "source",
+                }
+            )
 
     return normalized_chain if normalized_chain else None

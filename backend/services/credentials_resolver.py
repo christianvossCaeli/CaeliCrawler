@@ -50,10 +50,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.encryption import EncryptionError, EncryptionService
 from app.core.exceptions import ConfigurationError
 from app.models.user_api_credentials import (
+    PURPOSE_DESCRIPTIONS,
     ApiCredentialType,
     LLMProvider,
     LLMPurpose,
-    PURPOSE_DESCRIPTIONS,
     UserApiCredentials,
     UserLLMConfig,
 )

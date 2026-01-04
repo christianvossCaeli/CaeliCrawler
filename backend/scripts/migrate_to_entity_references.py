@@ -27,9 +27,7 @@ async def resolve_entity(
 ) -> UUID | None:
     """Resolve an entity name to its UUID."""
     try:
-        et_result = await session.execute(
-            select(EntityType).where(EntityType.slug == entity_type_slug)
-        )
+        et_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
         entity_type = et_result.scalar_one_or_none()
         if not entity_type:
             return None
@@ -59,10 +57,7 @@ async def migrate_extracted_data(session: AsyncSession, batch_size: int = 100):
     while True:
         result = await session.execute(
             select(ExtractedData)
-            .where(
-                ExtractedData.entity_references.is_(None)
-                | (ExtractedData.entity_references == [])
-            )
+            .where(ExtractedData.entity_references.is_(None) | (ExtractedData.entity_references == []))
             .offset(offset)
             .limit(batch_size)
         )
@@ -87,13 +82,15 @@ async def migrate_extracted_data(session: AsyncSession, batch_size: int = 100):
             entity_id = await resolve_entity(session, "territorial-entity", municipality)
 
             # Create entity_references
-            ext.entity_references = [{
-                "entity_type": "territorial-entity",
-                "entity_name": municipality,
-                "entity_id": str(entity_id) if entity_id else None,
-                "role": "primary",
-                "confidence": ext.confidence_score or 0.5,
-            }]
+            ext.entity_references = [
+                {
+                    "entity_type": "territorial-entity",
+                    "entity_name": municipality,
+                    "entity_id": str(entity_id) if entity_id else None,
+                    "role": "primary",
+                    "confidence": ext.confidence_score or 0.5,
+                }
+            ]
 
             if entity_id:
                 ext.primary_entity_id = entity_id
@@ -102,7 +99,6 @@ async def migrate_extracted_data(session: AsyncSession, batch_size: int = 100):
 
         await session.commit()
         offset += batch_size
-
 
 
 async def update_categories(session: AsyncSession):
@@ -122,13 +118,18 @@ async def update_categories(session: AsyncSession):
                 "role_field": "role",
                 "default_role": "decision_maker",
             }
-        }
+        },
     }
 
     default_display_fields = {
         "columns": [
             {"key": "document", "label": "Dokument", "type": "document_link", "width": "220px"},
-            {"key": "entity_references.territorial-entity", "label": "Kommune", "type": "entity_link", "width": "150px"},
+            {
+                "key": "entity_references.territorial-entity",
+                "label": "Kommune",
+                "type": "entity_link",
+                "width": "150px",
+            },
             {"key": "confidence_score", "label": "Konfidenz", "type": "confidence", "width": "110px"},
             {"key": "relevance_score", "label": "Relevanz", "type": "confidence", "width": "110px"},
             {"key": "human_verified", "label": "Geprüft", "type": "boolean", "width": "80px"},
@@ -138,9 +139,7 @@ async def update_categories(session: AsyncSession):
     }
 
     # Update categories without entity_reference_config
-    result = await session.execute(
-        select(Category).where(Category.entity_reference_config.is_(None))
-    )
+    result = await session.execute(select(Category).where(Category.entity_reference_config.is_(None)))
     categories = result.scalars().all()
 
     updated = 0
@@ -158,7 +157,6 @@ async def main():
     async with async_session_factory() as session:
         await migrate_extracted_data(session)
         await update_categories(session)
-
 
 
 if __name__ == "__main__":

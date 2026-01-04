@@ -159,9 +159,7 @@ class DataQueryService:
             Dictionary with entities and their history data
         """
         # Get facet type
-        ft_result = await self.session.execute(
-            select(FacetType).where(FacetType.slug == facet_type_slug)
-        )
+        ft_result = await self.session.execute(select(FacetType).where(FacetType.slug == facet_type_slug))
         facet_type = ft_result.scalar_one_or_none()
 
         if not facet_type:
@@ -171,9 +169,7 @@ class DataQueryService:
             return {"error": f"FacetType '{facet_type_slug}' ist kein History-Typ", "data": []}
 
         # Get entity type
-        et_result = await self.session.execute(
-            select(EntityType).where(EntityType.slug == entity_type_slug)
-        )
+        et_result = await self.session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
         entity_type = et_result.scalar_one_or_none()
 
         if not entity_type:
@@ -225,26 +221,30 @@ class DataQueryService:
                 history_by_entity[hp.entity_id] = []
 
             if len(history_by_entity[hp.entity_id]) < limit_per_entity:
-                history_by_entity[hp.entity_id].append({
-                    "id": str(hp.id),
-                    "recorded_at": hp.recorded_at.isoformat() if hp.recorded_at else None,
-                    "value": hp.value,
-                    "value_label": hp.value_label,
-                    "track_key": hp.track_key,
-                    "annotations": hp.annotations,
-                })
+                history_by_entity[hp.entity_id].append(
+                    {
+                        "id": str(hp.id),
+                        "recorded_at": hp.recorded_at.isoformat() if hp.recorded_at else None,
+                        "value": hp.value,
+                        "value_label": hp.value_label,
+                        "track_key": hp.track_key,
+                        "annotations": hp.annotations,
+                    }
+                )
 
         # Build result
         data = []
         for entity_id, history in history_by_entity.items():
             entity = entity_map.get(entity_id)
             if entity:
-                data.append({
-                    "entity_id": str(entity_id),
-                    "entity_name": entity.name,
-                    "history": history,
-                    "point_count": len(history),
-                })
+                data.append(
+                    {
+                        "entity_id": str(entity_id),
+                        "entity_name": entity.name,
+                        "history": history,
+                        "point_count": len(history),
+                    }
+                )
 
         return {
             "data": data,
@@ -267,9 +267,7 @@ class DataQueryService:
         For regular facets, returns the current value.
         """
         # Get entity type
-        et_result = await self.session.execute(
-            select(EntityType).where(EntityType.slug == entity_type_slug)
-        )
+        et_result = await self.session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
         entity_type = et_result.scalar_one_or_none()
 
         if not entity_type:
@@ -298,9 +296,7 @@ class DataQueryService:
             return []
 
         # Get facet types - bulk load instead of N+1 queries
-        ft_result = await self.session.execute(
-            select(FacetType).where(FacetType.slug.in_(facet_type_slugs))
-        )
+        ft_result = await self.session.execute(select(FacetType).where(FacetType.slug.in_(facet_type_slugs)))
         facet_types = {ft.slug: ft for ft in ft_result.scalars().all()}
 
         entity_ids = [e.id for e in entities]
@@ -320,12 +316,13 @@ class DataQueryService:
                     FacetValueHistory.value,
                     FacetValueHistory.value_label,
                     FacetValueHistory.recorded_at,
-                    func.row_number().over(
+                    func.row_number()
+                    .over(
                         partition_by=[FacetValueHistory.entity_id, FacetValueHistory.facet_type_id],
-                        order_by=FacetValueHistory.recorded_at.desc()
-                    ).label("rn")
-                )
-                .where(
+                        order_by=FacetValueHistory.recorded_at.desc(),
+                    )
+                    .label("rn"),
+                ).where(
                     FacetValueHistory.entity_id.in_(entity_ids),
                     FacetValueHistory.facet_type_id.in_(history_ft_ids),
                 )
@@ -351,8 +348,7 @@ class DataQueryService:
         if regular_facet_types:
             regular_ft_ids = [ft.id for ft in regular_facet_types.values()]
             fv_result = await self.session.execute(
-                select(FacetValue)
-                .where(
+                select(FacetValue).where(
                     FacetValue.entity_id.in_(entity_ids),
                     FacetValue.facet_type_id.in_(regular_ft_ids),
                     FacetValue.is_active.is_(True),
@@ -396,9 +392,7 @@ class DataQueryService:
 
     async def _get_entity_type(self, slug: str) -> EntityType | None:
         """Get entity type by slug."""
-        result = await self.session.execute(
-            select(EntityType).where(EntityType.slug == slug)
-        )
+        result = await self.session.execute(select(EntityType).where(EntityType.slug == slug))
         return result.scalar_one_or_none()
 
     async def _get_facet_types(self, slugs: list[str]) -> dict[str, FacetType]:
@@ -406,9 +400,7 @@ class DataQueryService:
         if not slugs:
             return {}
 
-        result = await self.session.execute(
-            select(FacetType).where(FacetType.slug.in_(slugs))
-        )
+        result = await self.session.execute(select(FacetType).where(FacetType.slug.in_(slugs)))
         return {ft.slug: ft for ft in result.scalars().all()}
 
     async def _query_entities(
@@ -463,14 +455,10 @@ class DataQueryService:
         for ft_slug, ft in facet_type_map.items():
             if ft.value_type == "history":
                 # Load history facets
-                await self._load_history_facets(
-                    facet_data, entity_ids, ft, ft_slug, time_range
-                )
+                await self._load_history_facets(facet_data, entity_ids, ft, ft_slug, time_range)
             else:
                 # Load regular facets
-                await self._load_regular_facets(
-                    facet_data, entity_ids, ft, ft_slug
-                )
+                await self._load_regular_facets(facet_data, entity_ids, ft, ft_slug)
 
         return facet_data
 
@@ -483,7 +471,7 @@ class DataQueryService:
         time_range: Any | None = None,
     ) -> None:
         """Load history facet values."""
-        latest_only = time_range and hasattr(time_range, 'latest_only') and time_range.latest_only
+        latest_only = time_range and hasattr(time_range, "latest_only") and time_range.latest_only
 
         if latest_only:
             # Get only latest value per entity using window function
@@ -494,12 +482,10 @@ class DataQueryService:
                     FacetValueHistory.value_label,
                     FacetValueHistory.recorded_at,
                     FacetValueHistory.track_key,
-                    func.row_number().over(
-                        partition_by=FacetValueHistory.entity_id,
-                        order_by=FacetValueHistory.recorded_at.desc()
-                    ).label("rn")
-                )
-                .where(
+                    func.row_number()
+                    .over(partition_by=FacetValueHistory.entity_id, order_by=FacetValueHistory.recorded_at.desc())
+                    .label("rn"),
+                ).where(
                     FacetValueHistory.entity_id.in_(entity_ids),
                     FacetValueHistory.facet_type_id == facet_type.id,
                 )
@@ -528,10 +514,10 @@ class DataQueryService:
             )
 
             if time_range:
-                if hasattr(time_range, 'from_date') and time_range.from_date:
+                if hasattr(time_range, "from_date") and time_range.from_date:
                     from_dt = datetime.fromisoformat(time_range.from_date)
                     query = query.where(FacetValueHistory.recorded_at >= from_dt)
-                if hasattr(time_range, 'to_date') and time_range.to_date:
+                if hasattr(time_range, "to_date") and time_range.to_date:
                     to_dt = datetime.fromisoformat(time_range.to_date)
                     query = query.where(FacetValueHistory.recorded_at <= to_dt)
 
@@ -542,12 +528,14 @@ class DataQueryService:
                     facet_data[hp.entity_id][facet_slug] = []
 
                 if isinstance(facet_data[hp.entity_id][facet_slug], list):
-                    facet_data[hp.entity_id][facet_slug].append({
-                        "value": hp.value,
-                        "value_label": hp.value_label,
-                        "recorded_at": hp.recorded_at.isoformat() if hp.recorded_at else None,
-                        "track_key": hp.track_key,
-                    })
+                    facet_data[hp.entity_id][facet_slug].append(
+                        {
+                            "value": hp.value,
+                            "value_label": hp.value_label,
+                            "recorded_at": hp.recorded_at.isoformat() if hp.recorded_at else None,
+                            "track_key": hp.track_key,
+                        }
+                    )
 
     async def _load_regular_facets(
         self,
@@ -651,39 +639,43 @@ class DataQueryService:
         actions = []
 
         # Always suggest export
-        actions.append(SuggestedAction(
-            label="Als CSV exportieren",
-            action="export_csv",
-            icon="mdi-download",
-            params={
-                "entity_type": config.entity_type,
-                "facet_types": config.facet_types,
-            },
-        ))
-
-        # Check if any history facets - suggest sync setup
-        has_history_facets = any(
-            ft.value_type == "history" for ft in facet_type_map.values()
-        )
-
-        if has_history_facets:
-            actions.append(SuggestedAction(
-                label="Automatisch aktualisieren",
-                action="setup_api_sync",
-                icon="mdi-sync",
+        actions.append(
+            SuggestedAction(
+                label="Als CSV exportieren",
+                action="export_csv",
+                icon="mdi-download",
                 params={
                     "entity_type": config.entity_type,
                     "facet_types": config.facet_types,
                 },
-                description="Richte automatische API-Synchronisation ein",
-            ))
+            )
+        )
+
+        # Check if any history facets - suggest sync setup
+        has_history_facets = any(ft.value_type == "history" for ft in facet_type_map.values())
+
+        if has_history_facets:
+            actions.append(
+                SuggestedAction(
+                    label="Automatisch aktualisieren",
+                    action="setup_api_sync",
+                    icon="mdi-sync",
+                    params={
+                        "entity_type": config.entity_type,
+                        "facet_types": config.facet_types,
+                    },
+                    description="Richte automatische API-Synchronisation ein",
+                )
+            )
 
         # Suggest visualization change
-        actions.append(SuggestedAction(
-            label="Visualisierung ändern",
-            action="change_visualization",
-            icon="mdi-chart-bar",
-            params={},
-        ))
+        actions.append(
+            SuggestedAction(
+                label="Visualisierung ändern",
+                action="change_visualization",
+                icon="mdi-chart-bar",
+                params={},
+            )
+        )
 
         return actions

@@ -162,6 +162,7 @@ class DIPBundestagClient(BaseAPIClient):
 
     def __init__(self, api_key: str | None = None, **kwargs):
         import os
+
         # Load API key from environment variable (public API key for DIP Bundestag)
         resolved_api_key = api_key or os.environ.get("DIP_BUNDESTAG_API_KEY")
         super().__init__(api_key=resolved_api_key, **kwargs)

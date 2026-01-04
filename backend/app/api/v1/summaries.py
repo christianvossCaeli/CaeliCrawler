@@ -38,6 +38,7 @@ router = APIRouter()
 
 # --- Helpers ---
 
+
 def validate_share_token(token: str) -> bool:
     """
     Validate share token format.
@@ -52,18 +53,21 @@ def validate_share_token(token: str) -> bool:
         return False
 
     # Must only contain URL-safe base64 characters
-    return re.match(r'^[A-Za-z0-9_-]+$', token)
+    return re.match(r"^[A-Za-z0-9_-]+$", token)
 
 
 # --- Schemas ---
 
+
 class SharedSummaryRequest(BaseModel):
     """Request body for accessing a shared summary."""
+
     password: str | None = None
 
 
 class SharedWidgetResponse(BaseModel):
     """Widget data in shared summary response."""
+
     id: str
     widget_type: str
     title: str
@@ -74,6 +78,7 @@ class SharedWidgetResponse(BaseModel):
 
 class SharedSummaryResponse(BaseModel):
     """Response for shared summary access."""
+
     summary: dict[str, Any]
     widgets: list[SharedWidgetResponse]
     widget_data: dict[str, Any]
@@ -82,6 +87,7 @@ class SharedSummaryResponse(BaseModel):
 
 
 # --- Endpoints ---
+
 
 async def _add_timing_noise():
     """Add random delay to prevent timing attacks."""
@@ -130,9 +136,7 @@ async def access_shared_summary(
         )
 
     # Find share by token
-    result = await session.execute(
-        select(SummaryShare).where(SummaryShare.share_token == token)
-    )
+    result = await session.execute(select(SummaryShare).where(SummaryShare.share_token == token))
     share = result.scalar_one_or_none()
 
     if not share:
@@ -179,9 +183,7 @@ async def access_shared_summary(
 
     # Load summary with widgets
     summary_result = await session.execute(
-        select(CustomSummary)
-        .options(selectinload(CustomSummary.widgets))
-        .where(CustomSummary.id == share.summary_id)
+        select(CustomSummary).options(selectinload(CustomSummary.widgets)).where(CustomSummary.id == share.summary_id)
     )
     summary = summary_result.scalar_one_or_none()
 
@@ -246,7 +248,9 @@ async def access_shared_summary(
         },
         widgets=widgets,
         widget_data=widget_data,
-        last_updated=last_execution.completed_at.isoformat() if last_execution and last_execution.completed_at else None,
+        last_updated=last_execution.completed_at.isoformat()
+        if last_execution and last_execution.completed_at
+        else None,
         allow_export=share.allow_export,
     )
 
@@ -287,9 +291,7 @@ async def export_shared_summary(
         )
 
     # Find share by token
-    result = await session.execute(
-        select(SummaryShare).where(SummaryShare.share_token == token)
-    )
+    result = await session.execute(select(SummaryShare).where(SummaryShare.share_token == token))
     share = result.scalar_one_or_none()
 
     if not share:
@@ -354,9 +356,7 @@ async def export_shared_summary(
         return StreamingResponse(
             io.BytesIO(pdf_bytes),
             media_type="application/pdf",
-            headers={
-                "Content-Disposition": f"attachment; filename=\"{safe_filename}.pdf\""
-            }
+            headers={"Content-Disposition": f'attachment; filename="{safe_filename}.pdf"'},
         )
     except ImportError as e:
         raise HTTPException(

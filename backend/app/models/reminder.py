@@ -145,10 +145,7 @@ class Reminder(Base):
     @property
     def is_due(self) -> bool:
         """Check if the reminder is due."""
-        return (
-            self.status == ReminderStatus.PENDING
-            and self.remind_at <= datetime.now(UTC)
-        )
+        return self.status == ReminderStatus.PENDING and self.remind_at <= datetime.now(UTC)
 
     def mark_sent(self) -> None:
         """Mark the reminder as sent."""

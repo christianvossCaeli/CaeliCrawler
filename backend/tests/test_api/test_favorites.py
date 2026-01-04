@@ -271,9 +271,7 @@ async def test_list_favorites_with_filter(admin_client: AsyncClient):
         favorite_id = add_response.json()["id"]
 
         # List with filter
-        response = await admin_client.get(
-            f"/api/v1/favorites?entity_type_slug={entity_type_slug}"
-        )
+        response = await admin_client.get(f"/api/v1/favorites?entity_type_slug={entity_type_slug}")
         assert response.status_code == 200
 
         data = response.json()
@@ -317,9 +315,7 @@ async def test_list_favorites_with_search(admin_client: AsyncClient):
         favorite_id = add_response.json()["id"]
 
         # Search for the unique name
-        response = await admin_client.get(
-            f"/api/v1/favorites?search={unique_name[:10]}"
-        )
+        response = await admin_client.get(f"/api/v1/favorites?search={unique_name[:10]}")
         assert response.status_code == 200
 
         data = response.json()

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Full setup: cleanup + smart query prompt."""
+
 import asyncio
 import logging
 
 # Suppress SQL logging
-for logger_name in ['sqlalchemy.engine', 'sqlalchemy', 'httpx', 'httpcore']:
+for logger_name in ["sqlalchemy.engine", "sqlalchemy", "httpx", "httpcore"]:
     logging.getLogger(logger_name).setLevel(logging.WARNING)
 
 PROMPT = """Ich möchte Windenergie-Projekte und Potenziale für Windflächen in Deutschland analysieren. Dafür brauche ich:
@@ -18,11 +19,11 @@ Verknüpfe das Ganze mit den passenden bestehenden Analysethemen.
 
 Kannst du das einrichten?"""
 
+
 async def main():
     from sqlalchemy import text
 
     from app.database import engine, get_session
-
 
     async with engine.begin() as conn:
         await conn.execute(text("TRUNCATE TABLE data_sources CASCADE"))
@@ -34,7 +35,6 @@ async def main():
         result.scalar()
         result = await conn.execute(text("SELECT count(*) FROM facet_types"))
         result.scalar()
-
 
     async for session in get_session():
         from services.smart_query import execute_write_command, interpret_write_command
@@ -56,37 +56,40 @@ async def main():
         result = await execute_write_command(session, command)
         await session.commit()
 
-        if result.get('message'):
+        if result.get("message"):
             pass
-        if result.get('created_count'):
+        if result.get("created_count"):
             pass
-        if result.get('results'):
-            for r in result.get('results', []):
-                "✓" if r.get('success', True) else "✗"
-                r.get('message', r.get('step_name', 'Unknown'))[:80]
+        if result.get("results"):
+            for r in result.get("results", []):
+                "✓" if r.get("success", True) else "✗"
+                r.get("message", r.get("step_name", "Unknown"))[:80]
         break
-
 
     async with engine.begin() as conn:
         # Entity Types
-        result = await conn.execute(text("""
+        result = await conn.execute(
+            text("""
             SELECT et.slug, et.name, count(e.id) as entity_count
             FROM entity_types et
             LEFT JOIN entities e ON e.entity_type_id = et.id
             GROUP BY et.id, et.slug, et.name
             ORDER BY entity_count DESC
-        """))
+        """)
+        )
         for _row in result:
             pass
 
         # Hierarchy
-        result = await conn.execute(text("""
+        result = await conn.execute(
+            text("""
             SELECT
               CASE WHEN parent_id IS NULL THEN 'Root (Bundesländer)' ELSE 'Children (Gemeinden)' END as level,
               count(*)
             FROM entities
             GROUP BY (parent_id IS NULL)
-        """))
+        """)
+        )
         for _row in result:
             pass
 
@@ -96,12 +99,14 @@ async def main():
             pass
 
         # Relations
-        result = await conn.execute(text("""
+        result = await conn.execute(
+            text("""
             SELECT rt.name, count(er.id)
             FROM relation_types rt
             LEFT JOIN entity_relations er ON er.relation_type_id = rt.id
             GROUP BY rt.id, rt.name
-        """))
+        """)
+        )
         for _row in result:
             pass
 

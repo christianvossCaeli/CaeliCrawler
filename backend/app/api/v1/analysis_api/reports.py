@@ -91,16 +91,12 @@ async def get_analysis_overview(
             raise NotFoundError("AnalysisTemplate", str(template_id))
         entity_type = await session.get(EntityType, template.primary_entity_type_id)
     elif template_slug:
-        t_result = await session.execute(
-            select(AnalysisTemplate).where(AnalysisTemplate.slug == template_slug)
-        )
+        t_result = await session.execute(select(AnalysisTemplate).where(AnalysisTemplate.slug == template_slug))
         template = t_result.scalar()
         if template:
             entity_type = await session.get(EntityType, template.primary_entity_type_id)
     elif entity_type_slug:
-        et_result = await session.execute(
-            select(EntityType).where(EntityType.slug == entity_type_slug)
-        )
+        et_result = await session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
         entity_type = et_result.scalar()
 
     if not entity_type:
@@ -112,20 +108,14 @@ async def get_analysis_overview(
     # Determine which facet types to include
     facet_type_ids = []
     if facet_types:
-        ft_result = await session.execute(
-            select(FacetType).where(FacetType.slug.in_(facet_types))
-        )
+        ft_result = await session.execute(select(FacetType).where(FacetType.slug.in_(facet_types)))
         facet_type_ids = [ft.id for ft in ft_result.scalars().all()]
     elif template and template.facet_config:
         enabled_slugs = [
-            fc.get("facet_type_slug") or fc.get("facet_type")
-            for fc in template.facet_config
-            if fc.get("enabled", True)
+            fc.get("facet_type_slug") or fc.get("facet_type") for fc in template.facet_config if fc.get("enabled", True)
         ]
         if enabled_slugs:
-            ft_result = await session.execute(
-                select(FacetType).where(FacetType.slug.in_(enabled_slugs))
-            )
+            ft_result = await session.execute(select(FacetType).where(FacetType.slug.in_(enabled_slugs)))
             facet_type_ids = [ft.id for ft in ft_result.scalars().all()]
 
     # Get all entities of this type
@@ -159,16 +149,11 @@ async def get_analysis_overview(
                 or_(
                     FacetValue.event_date >= now,
                     FacetValue.valid_until >= now,
-                    and_(FacetValue.event_date.is_(None), FacetValue.valid_until.is_(None))
+                    and_(FacetValue.event_date.is_(None), FacetValue.valid_until.is_(None)),
                 )
             )
         elif time_filter == "past_only":
-            fv_query = fv_query.where(
-                or_(
-                    FacetValue.event_date < now,
-                    FacetValue.valid_until < now
-                )
-            )
+            fv_query = fv_query.where(or_(FacetValue.event_date < now, FacetValue.valid_until < now))
 
         fv_result = await session.execute(fv_query)
         facet_values = fv_result.scalars().all()
@@ -194,38 +179,37 @@ async def get_analysis_overview(
                 total_verified += sum(1 for fv in fvs if fv.human_verified)
 
         # Count relations
-        relation_count = (await session.execute(
-            select(func.count()).where(
-                or_(
-                    EntityRelation.source_entity_id == entity.id,
-                    EntityRelation.target_entity_id == entity.id
+        relation_count = (
+            await session.execute(
+                select(func.count()).where(
+                    or_(EntityRelation.source_entity_id == entity.id, EntityRelation.target_entity_id == entity.id)
                 )
             )
-        )).scalar()
+        ).scalar()
 
         # Count data sources
-        source_count = (await session.execute(
-            select(func.count()).where(DataSource.entity_id == entity.id)
-        )).scalar()
+        source_count = (await session.execute(select(func.count()).where(DataSource.entity_id == entity.id))).scalar()
 
         latest_facet = max((fv.created_at for fv in facet_values), default=None)
 
-        overview_items.append({
-            "entity_id": str(entity.id),
-            "entity_name": entity.name,
-            "entity_slug": entity.slug,
-            "external_id": entity.external_id,
-            "hierarchy_path": entity.hierarchy_path,
-            "latitude": entity.latitude,
-            "longitude": entity.longitude,
-            "total_facet_values": len(facet_values),
-            "verified_count": total_verified,
-            "avg_confidence": round(avg_confidence, 2),
-            "facet_counts": facet_counts,
-            "relation_count": relation_count,
-            "source_count": source_count,
-            "latest_facet_date": latest_facet.isoformat() if latest_facet else None,
-        })
+        overview_items.append(
+            {
+                "entity_id": str(entity.id),
+                "entity_name": entity.name,
+                "entity_slug": entity.slug,
+                "external_id": entity.external_id,
+                "hierarchy_path": entity.hierarchy_path,
+                "latitude": entity.latitude,
+                "longitude": entity.longitude,
+                "total_facet_values": len(facet_values),
+                "verified_count": total_verified,
+                "avg_confidence": round(avg_confidence, 2),
+                "facet_counts": facet_counts,
+                "relation_count": relation_count,
+                "source_count": source_count,
+                "latest_facet_date": latest_facet.isoformat() if latest_facet else None,
+            }
+        )
 
     # Sort by total facet values
     overview_items.sort(key=lambda x: x["total_facet_values"], reverse=True)
@@ -242,7 +226,9 @@ async def get_analysis_overview(
             "id": str(template.id),
             "slug": template.slug,
             "name": template.name,
-        } if template else None,
+        }
+        if template
+        else None,
         "filters": {
             "category_id": str(category_id) if category_id else None,
             "facet_types": facet_types,
@@ -280,9 +266,7 @@ async def get_entity_report(
     if template_id:
         template = await session.get(AnalysisTemplate, template_id)
     elif template_slug:
-        t_result = await session.execute(
-            select(AnalysisTemplate).where(AnalysisTemplate.slug == template_slug)
-        )
+        t_result = await session.execute(select(AnalysisTemplate).where(AnalysisTemplate.slug == template_slug))
         template = t_result.scalar()
 
     # Determine facet type configuration
@@ -314,16 +298,11 @@ async def get_entity_report(
             or_(
                 FacetValue.event_date >= now,
                 FacetValue.valid_until >= now,
-                and_(FacetValue.event_date.is_(None), FacetValue.valid_until.is_(None))
+                and_(FacetValue.event_date.is_(None), FacetValue.valid_until.is_(None)),
             )
         )
     elif time_filter == "past_only":
-        fv_query = fv_query.where(
-            or_(
-                FacetValue.event_date < now,
-                FacetValue.valid_until < now
-            )
-        )
+        fv_query = fv_query.where(or_(FacetValue.event_date < now, FacetValue.valid_until < now))
 
     fv_result = await session.execute(fv_query)
     facet_values = fv_result.scalars().all()
@@ -339,7 +318,14 @@ async def get_entity_report(
         # Apply per-facet time filter from template
         if ft.slug in facet_config:
             ft_time_filter = facet_config[ft.slug].get("time_filter")
-            if ft_time_filter == "future_only" and fv.event_date and fv.event_date < now or ft_time_filter == "past_only" and fv.event_date and fv.event_date >= now:
+            if (
+                ft_time_filter == "future_only"
+                and fv.event_date
+                and fv.event_date < now
+                or ft_time_filter == "past_only"
+                and fv.event_date
+                and fv.event_date >= now
+            ):
                 continue
 
         if ft.slug not in facets_by_type:
@@ -356,29 +342,31 @@ async def get_entity_report(
         # Get document info if available
         document = await session.get(Document, fv.source_document_id) if fv.source_document_id else None
 
-        facets_by_type[ft.slug]["values"].append({
-            "id": str(fv.id),
-            "value": fv.value,
-            "text": fv.text_representation,
-            "event_date": fv.event_date.isoformat() if fv.event_date else None,
-            "confidence": fv.confidence_score,
-            "verified": fv.human_verified,
-            "source_url": fv.source_url,
-            "document": {
-                "id": str(document.id),
-                "title": document.title,
-                "url": document.original_url,
-            } if document else None,
-            "occurrence_count": fv.occurrence_count,
-            "first_seen": fv.first_seen.isoformat() if fv.first_seen else None,
-            "last_seen": fv.last_seen.isoformat() if fv.last_seen else None,
-        })
+        facets_by_type[ft.slug]["values"].append(
+            {
+                "id": str(fv.id),
+                "value": fv.value,
+                "text": fv.text_representation,
+                "event_date": fv.event_date.isoformat() if fv.event_date else None,
+                "confidence": fv.confidence_score,
+                "verified": fv.human_verified,
+                "source_url": fv.source_url,
+                "document": {
+                    "id": str(document.id),
+                    "title": document.title,
+                    "url": document.original_url,
+                }
+                if document
+                else None,
+                "occurrence_count": fv.occurrence_count,
+                "first_seen": fv.first_seen.isoformat() if fv.first_seen else None,
+                "last_seen": fv.last_seen.isoformat() if fv.last_seen else None,
+            }
+        )
 
     # Aggregate and deduplicate per facet type
     for slug, data in facets_by_type.items():
-        ft_result = await session.execute(
-            select(FacetType).where(FacetType.slug == slug)
-        )
+        ft_result = await session.execute(select(FacetType).where(FacetType.slug == slug))
         ft = ft_result.scalar()
 
         if ft and ft.deduplication_fields:
@@ -388,10 +376,9 @@ async def get_entity_report(
                 "total": len(data["values"]),
                 "unique": len(deduped),
                 "verified": sum(1 for v in data["values"] if v.get("verified")),
-                "avg_confidence": round(
-                    sum(v.get("confidence", 0) for v in data["values"]) / len(data["values"]),
-                    2
-                ) if data["values"] else 0,
+                "avg_confidence": round(sum(v.get("confidence", 0) for v in data["values"]) / len(data["values"]), 2)
+                if data["values"]
+                else 0,
             }
             data["values"] = deduped
         else:
@@ -400,19 +387,15 @@ async def get_entity_report(
             data["aggregated"] = {
                 "total": len(data["values"]),
                 "verified": sum(1 for v in data["values"] if v.get("verified")),
-                "avg_confidence": round(
-                    sum(v.get("confidence", 0) for v in data["values"]) / len(data["values"]),
-                    2
-                ) if data["values"] else 0,
+                "avg_confidence": round(sum(v.get("confidence", 0) for v in data["values"]) / len(data["values"]), 2)
+                if data["values"]
+                else 0,
             }
 
     # Get relations
     relations = []
     rel_query = select(EntityRelation).where(
-        or_(
-            EntityRelation.source_entity_id == entity_id,
-            EntityRelation.target_entity_id == entity_id
-        ),
+        or_(EntityRelation.source_entity_id == entity_id, EntityRelation.target_entity_id == entity_id),
         EntityRelation.is_active.is_(True),
     )
     rel_result = await session.execute(rel_query)
@@ -425,34 +408,40 @@ async def get_entity_report(
 
         is_outgoing = rel.source_entity_id == entity_id
 
-        relations.append({
-            "id": str(rel.id),
-            "relation_type": rt.slug if rt else None,
-            "relation_name": rt.name if is_outgoing else (rt.name_inverse if rt else None),
-            "direction": "outgoing" if is_outgoing else "incoming",
-            "related_entity": {
-                "id": str(other_entity.id),
-                "name": other_entity.name,
-                "slug": other_entity.slug,
-                "type": other_et.slug if other_et else None,
-                "type_name": other_et.name if other_et else None,
-            } if other_entity else None,
-            "attributes": rel.attributes,
-            "confidence": rel.confidence_score,
-            "verified": rel.human_verified,
-        })
+        relations.append(
+            {
+                "id": str(rel.id),
+                "relation_type": rt.slug if rt else None,
+                "relation_name": rt.name if is_outgoing else (rt.name_inverse if rt else None),
+                "direction": "outgoing" if is_outgoing else "incoming",
+                "related_entity": {
+                    "id": str(other_entity.id),
+                    "name": other_entity.name,
+                    "slug": other_entity.slug,
+                    "type": other_et.slug if other_et else None,
+                    "type_name": other_et.name if other_et else None,
+                }
+                if other_entity
+                else None,
+                "attributes": rel.attributes,
+                "confidence": rel.confidence_score,
+                "verified": rel.human_verified,
+            }
+        )
 
     # Get data sources for this entity
     sources = []
     source_query = select(DataSource).where(DataSource.entity_id == entity_id)
     source_result = await session.execute(source_query)
     for src in source_result.scalars().all():
-        sources.append({
-            "id": str(src.id),
-            "name": src.name,
-            "url": src.url,
-            "is_active": src.is_active,
-        })
+        sources.append(
+            {
+                "id": str(src.id),
+                "name": src.name,
+                "url": src.url,
+                "is_active": src.is_active,
+            }
+        )
 
     # Calculate overview stats
     total_values = sum(len(d["values"]) for d in facets_by_type.values())
@@ -473,12 +462,16 @@ async def get_entity_report(
             "id": str(entity_type.id),
             "slug": entity_type.slug,
             "name": entity_type.name,
-        } if entity_type else None,
+        }
+        if entity_type
+        else None,
         "template": {
             "id": str(template.id),
             "slug": template.slug,
             "name": template.name,
-        } if template else None,
+        }
+        if template
+        else None,
         "overview": {
             "total_facet_values": total_values,
             "verified_values": verified_values,

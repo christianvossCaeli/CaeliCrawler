@@ -114,22 +114,16 @@ class SetupAPIFacetSyncCommand(BaseCommand):
         # Validate entity type exists (if specified)
         entity_type_slug = entity_matching.get("entity_type_slug")
         if entity_type_slug:
-            et_result = await self.session.execute(
-                select(EntityType).where(EntityType.slug == entity_type_slug)
-            )
+            et_result = await self.session.execute(select(EntityType).where(EntityType.slug == entity_type_slug))
             if not et_result.scalar_one_or_none():
-                return CommandResult.failure(
-                    message=f"Entity-Typ '{entity_type_slug}' nicht gefunden"
-                )
+                return CommandResult.failure(message=f"Entity-Typ '{entity_type_slug}' nicht gefunden")
 
         # Check and create missing FacetTypes
         created_facet_types = []
         for _api_field, mapping in facet_mapping.items():
             ft_slug = mapping.get("facet_type_slug")
 
-            ft_result = await self.session.execute(
-                select(FacetType).where(FacetType.slug == ft_slug)
-            )
+            ft_result = await self.session.execute(select(FacetType).where(FacetType.slug == ft_slug))
             existing_ft = ft_result.scalar_one_or_none()
 
             if not existing_ft:
@@ -139,17 +133,15 @@ class SetupAPIFacetSyncCommand(BaseCommand):
                 is_history = mapping.get("is_history", True)
                 ft_name = ft_slug.replace("-", " ").replace("_", " ").title()
 
-                similar_types = await find_similar_facet_types(
-                    self.session, ft_name, threshold=0.7
-                )
+                similar_types = await find_similar_facet_types(self.session, ft_name, threshold=0.7)
 
                 if similar_types:
                     # Use existing similar FacetType instead of creating duplicate
                     best_match, score, reason = similar_types[0]
                     if entity_type_slug and entity_type_slug not in (best_match.applicable_entity_type_slugs or []):
-                        best_match.applicable_entity_type_slugs = (
-                            best_match.applicable_entity_type_slugs or []
-                        ) + [entity_type_slug]
+                        best_match.applicable_entity_type_slugs = (best_match.applicable_entity_type_slugs or []) + [
+                            entity_type_slug
+                        ]
                     created_facet_types.append(f"{ft_name} (matched: {best_match.name})")
 
                     logger.info(
@@ -185,13 +177,9 @@ class SetupAPIFacetSyncCommand(BaseCommand):
                     )
 
         # Check if DataSource with same name already exists
-        existing_ds = await self.session.execute(
-            select(DataSource).where(DataSource.name == name)
-        )
+        existing_ds = await self.session.execute(select(DataSource).where(DataSource.name == name))
         if existing_ds.scalar_one_or_none():
-            return CommandResult.failure(
-                message=f"Datenquelle mit Name '{name}' existiert bereits"
-            )
+            return CommandResult.failure(message=f"Datenquelle mit Name '{name}' existiert bereits")
 
         # Create DataSource first
         data_source = DataSource(
@@ -210,13 +198,13 @@ class SetupAPIFacetSyncCommand(BaseCommand):
             # Simple heuristic: weekly = 168h, daily = 24h, hourly = 1h
             parts = schedule_cron.split()
             if len(parts) >= 5:
-                if parts[4] != '*':  # Day of week specified
+                if parts[4] != "*":  # Day of week specified
                     sync_interval_hours = 168
-                elif parts[2] != '*':  # Day of month specified
+                elif parts[2] != "*":  # Day of month specified
                     sync_interval_hours = 720  # ~monthly
-                elif parts[1] != '*':  # Hour specified (daily)
+                elif parts[1] != "*":  # Hour specified (daily)
                     sync_interval_hours = 24
-                elif parts[0] != '*':  # Minute specified (hourly)
+                elif parts[0] != "*":  # Minute specified (hourly)
                     sync_interval_hours = 1
 
         # Create APIConfiguration with facet sync config
@@ -254,9 +242,7 @@ class SetupAPIFacetSyncCommand(BaseCommand):
             message_parts.append(f"Facet-Typen erstellt: {', '.join(created_facet_types)}.")
 
         if schedule_cron and api_config.next_run_at:
-            message_parts.append(
-                f"Nächster Sync: {api_config.next_run_at.strftime('%d.%m.%Y %H:%M')}."
-            )
+            message_parts.append(f"Nächster Sync: {api_config.next_run_at.strftime('%d.%m.%Y %H:%M')}.")
 
         logger.info(
             "api_facet_sync_configured",
@@ -317,6 +303,7 @@ class TriggerAPISyncCommand(BaseCommand):
         # Find configuration
         if config_id:
             from uuid import UUID
+
             result = await self.session.execute(
                 select(APIConfiguration)
                 .options(selectinload(APIConfiguration.data_source))
@@ -334,22 +321,18 @@ class TriggerAPISyncCommand(BaseCommand):
             api_config = result.scalar_one_or_none()
 
         if not api_config:
-            return CommandResult.failure(
-                message="API-Konfiguration nicht gefunden"
-            )
+            return CommandResult.failure(message="API-Konfiguration nicht gefunden")
 
         if not api_config.is_active:
-            return CommandResult.failure(
-                message="API-Konfiguration ist nicht aktiv"
-            )
+            return CommandResult.failure(message="API-Konfiguration ist nicht aktiv")
 
         if not api_config.facet_mappings:
-            return CommandResult.failure(
-                message="API-Konfiguration hat kein facet_mappings konfiguriert"
-            )
+            return CommandResult.failure(message="API-Konfiguration hat kein facet_mappings konfiguriert")
 
         # Get name for logging/response
-        config_display_name = api_config.data_source.name if api_config.data_source else f"Config {str(api_config.id)[:8]}"
+        config_display_name = (
+            api_config.data_source.name if api_config.data_source else f"Config {str(api_config.id)[:8]}"
+        )
 
         # Trigger async sync
         task = sync_api_config_now.delay(str(api_config.id))

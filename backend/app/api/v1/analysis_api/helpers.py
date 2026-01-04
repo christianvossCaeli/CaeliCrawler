@@ -1,7 +1,6 @@
 """Helper functions for analysis API - translations and preview building."""
 
 
-
 def operation_to_german(op: str) -> str:
     """Convert operation to German."""
     return {

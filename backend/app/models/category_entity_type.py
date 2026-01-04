@@ -37,9 +37,7 @@ class CategoryEntityType(Base):
 
     __tablename__ = "category_entity_types"
 
-    __table_args__ = (
-        UniqueConstraint("category_id", "entity_type_id", name="uq_category_entity_type"),
-    )
+    __table_args__ = (UniqueConstraint("category_id", "entity_type_id", name="uq_category_entity_type"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

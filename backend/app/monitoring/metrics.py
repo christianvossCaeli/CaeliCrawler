@@ -162,6 +162,7 @@ app_info = Info(
 
 # === Helper Classes and Functions ===
 
+
 class CrawlerJobTracker:
     """Context manager for tracking crawler job metrics."""
 
@@ -183,14 +184,11 @@ class CrawlerJobTracker:
     def set_error(self, error_type: str = "unknown") -> None:
         """Mark the job as failed."""
         self.status = "failed"
-        crawler_errors_total.labels(
-            source_type=self.source_type,
-            error_type=error_type
-        ).inc()
+        crawler_errors_total.labels(source_type=self.source_type, error_type=error_type).inc()
 
 
 @contextmanager
-def track_crawler_job(source_type: str) -> Generator[CrawlerJobTracker, None, None]:
+def track_crawler_job(source_type: str) -> Generator[CrawlerJobTracker]:
     """Context manager for tracking crawler job execution.
 
     Example:
@@ -219,17 +217,14 @@ def track_crawler_job(source_type: str) -> Generator[CrawlerJobTracker, None, No
         crawler_pages_crawled.labels(source_type=source_type).inc(tracker.pages)
 
         # Record job completion
-        crawler_jobs_total.labels(
-            source_type=source_type,
-            status=tracker.status
-        ).inc()
+        crawler_jobs_total.labels(source_type=source_type, status=tracker.status).inc()
 
         # Decrement running jobs
         crawler_jobs_running.labels(source_type=source_type).dec()
 
 
 @contextmanager
-def track_document_processing(document_type: str) -> Generator[None, None, None]:
+def track_document_processing(document_type: str) -> Generator[None]:
     """Context manager for tracking document processing.
 
     Example:
@@ -251,7 +246,7 @@ def track_document_processing(document_type: str) -> Generator[None, None, None]
 
 
 @contextmanager
-def track_ai_analysis() -> Generator[None, None, None]:
+def track_ai_analysis() -> Generator[None]:
     """Context manager for tracking AI analysis.
 
     Example:
@@ -292,13 +287,16 @@ def update_data_sources_gauge(sources_by_type_status: dict) -> None:
 
 def set_app_info(version: str, environment: str) -> None:
     """Set application info metrics."""
-    app_info.info({
-        "version": version,
-        "environment": environment,
-    })
+    app_info.info(
+        {
+            "version": version,
+            "environment": environment,
+        }
+    )
 
 
 # === FastAPI Metrics Endpoint ===
+
 
 def setup_metrics_endpoint(app) -> None:
     """Setup the /metrics endpoint for Prometheus scraping.

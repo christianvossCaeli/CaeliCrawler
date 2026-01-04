@@ -186,9 +186,7 @@ class SummaryWidget(Base):
     )
 
     # Indexes
-    __table_args__ = (
-        Index("ix_summary_widgets_summary_order", "summary_id", "display_order"),
-    )
+    __table_args__ = (Index("ix_summary_widgets_summary_order", "summary_id", "display_order"),)
 
     def __repr__(self) -> str:
         return f"<SummaryWidget(id={self.id}, type={self.widget_type}, title='{self.title}')>"

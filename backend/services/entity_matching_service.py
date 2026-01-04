@@ -34,7 +34,6 @@ from app.utils.text import create_slug, normalize_core_entity_name, normalize_en
 logger = structlog.get_logger()
 
 
-
 import re  # noqa: E402
 from dataclasses import dataclass  # noqa: E402
 
@@ -42,6 +41,7 @@ from dataclasses import dataclass  # noqa: E402
 @dataclass
 class CompositeEntityMatch:
     """Result of detecting a composite entity name."""
+
     is_composite: bool
     pattern_type: str  # e.g., "gemeinden_und", "region_gemeinde"
     extracted_names: list[str]
@@ -84,11 +84,7 @@ def detect_composite_entity_name(name: str) -> CompositeEntityMatch:
         CompositeEntityMatch with detection results
     """
     # Check for "Gemeinden X und Y" pattern
-    match = re.search(
-        r"(?:Gemeinden?|Städte|Märkte)\s+(.+?)\s+und\s+(.+?)(?:,|\s*$)",
-        name,
-        re.IGNORECASE
-    )
+    match = re.search(r"(?:Gemeinden?|Städte|Märkte)\s+(.+?)\s+und\s+(.+?)(?:,|\s*$)", name, re.IGNORECASE)
     if match:
         name1 = match.group(1).strip()
         name2 = match.group(2).strip()
@@ -102,11 +98,7 @@ def detect_composite_entity_name(name: str) -> CompositeEntityMatch:
         )
 
     # Check for "Region X, Gemeinde/Stadt/Markt Y" pattern
-    match = re.search(
-        r"Region\s+[^,]+,\s+(?:Gemeinde|Stadt|Markt)\s+([^,]+?)(?:,|\s*$)",
-        name,
-        re.IGNORECASE
-    )
+    match = re.search(r"Region\s+[^,]+,\s+(?:Gemeinde|Stadt|Markt)\s+([^,]+?)(?:,|\s*$)", name, re.IGNORECASE)
     if match:
         extracted = match.group(1).strip()
         # Clean up trailing location info
@@ -120,9 +112,7 @@ def detect_composite_entity_name(name: str) -> CompositeEntityMatch:
 
     # Check for "insbesondere Gemeinde X" pattern
     match = re.search(
-        r"(?:insbesondere|speziell|vor allem)\s+(?:Gemeinde|Stadt|Markt)?\s*([^,]+?)(?:,|\s*$)",
-        name,
-        re.IGNORECASE
+        r"(?:insbesondere|speziell|vor allem)\s+(?:Gemeinde|Stadt|Markt)?\s*([^,]+?)(?:,|\s*$)", name, re.IGNORECASE
     )
     if match:
         extracted = match.group(1).strip()
@@ -254,9 +244,7 @@ class EntityMatchingService:
 
         # 5. Try core name match (catches "Markt X" vs "X", "X (Region Y)" vs "X")
         # This is a fast pattern-based check that runs automatically
-        core_match = await self._find_by_core_name(
-            entity_type.id, name, country, name_normalized
-        )
+        core_match = await self._find_by_core_name(entity_type.id, name, country, name_normalized)
         if core_match:
             entity, reason = core_match
             logger.info(
@@ -272,9 +260,7 @@ class EntityMatchingService:
         # This uses AI embeddings to find semantically similar names
         # E.g., "Windkraftanlage Nordsee" might match "Offshore Wind Farm North Sea"
         if similarity_threshold < 1.0:
-            similar_entity = await self._find_similar_entity(
-                entity_type.id, name, similarity_threshold
-            )
+            similar_entity = await self._find_similar_entity(entity_type.id, name, similarity_threshold)
             if similar_entity:
                 logger.info(
                     "Found similar entity via embedding",
@@ -288,9 +274,7 @@ class EntityMatchingService:
         # If detected and component entities exist, return one of them instead
         composite = detect_composite_entity_name(name)
         if composite.is_composite:
-            existing_entity = await self._resolve_composite_entity(
-                entity_type.id, composite, country
-            )
+            existing_entity = await self._resolve_composite_entity(entity_type.id, composite, country)
             if existing_entity:
                 logger.info(
                     "Resolved composite entity name to existing entity",
@@ -373,27 +357,21 @@ class EntityMatchingService:
             return entity
 
         # 5. Try core name match
-        core_match = await self._find_by_core_name(
-            entity_type.id, name, country, name_normalized
-        )
+        core_match = await self._find_by_core_name(entity_type.id, name, country, name_normalized)
         if core_match:
             entity, _reason = core_match
             return entity
 
         # 6. Try embedding-based semantic similarity match (if threshold < 1.0)
         if similarity_threshold < 1.0:
-            similar_entity = await self._find_similar_entity(
-                entity_type.id, name, similarity_threshold
-            )
+            similar_entity = await self._find_similar_entity(entity_type.id, name, similarity_threshold)
             if similar_entity:
                 return similar_entity
 
         # 7. Check for composite entity names
         composite = detect_composite_entity_name(name)
         if composite.is_composite:
-            existing_entity = await self._resolve_composite_entity(
-                entity_type.id, composite, country
-            )
+            existing_entity = await self._resolve_composite_entity(entity_type.id, composite, country)
             if existing_entity:
                 return existing_entity
 
@@ -495,9 +473,7 @@ class EntityMatchingService:
         if slug in self._entity_type_cache:
             return self._entity_type_cache[slug]
 
-        result = await self.session.execute(
-            select(EntityType).where(EntityType.slug == slug)
-        )
+        result = await self.session.execute(select(EntityType).where(EntityType.slug == slug))
         entity_type = result.scalar_one_or_none()
 
         if entity_type:
@@ -510,9 +486,7 @@ class EntityMatchingService:
         """Deprecated: Use get_entity_type instead."""
         return await self.get_entity_type(slug)
 
-    async def _find_by_external_id(
-        self, entity_type_id: uuid.UUID, external_id: str
-    ) -> Entity | None:
+    async def _find_by_external_id(self, entity_type_id: uuid.UUID, external_id: str) -> Entity | None:
         """Find entity by external ID."""
         result = await self.session.execute(
             select(Entity).where(
@@ -523,9 +497,7 @@ class EntityMatchingService:
         )
         return result.scalar_one_or_none()
 
-    async def _find_by_normalized_name(
-        self, entity_type_id: uuid.UUID, name_normalized: str
-    ) -> Entity | None:
+    async def _find_by_normalized_name(self, entity_type_id: uuid.UUID, name_normalized: str) -> Entity | None:
         """Find entity by normalized name."""
         result = await self.session.execute(
             select(Entity).where(
@@ -581,11 +553,13 @@ class EntityMatchingService:
         # Efficient query: Use LIKE with the core_normalized as substring
         # This leverages indexes and reduces the result set
         result = await self.session.execute(
-            select(Entity).where(
+            select(Entity)
+            .where(
                 Entity.entity_type_id == entity_type_id,
                 Entity.is_active.is_(True),
                 Entity.name_normalized.contains(core_normalized),
-            ).limit(50)  # Reasonable limit for performance
+            )
+            .limit(50)  # Reasonable limit for performance
         )
         candidates = result.scalars().all()
 
@@ -609,22 +583,17 @@ class EntityMatchingService:
 
         return None
 
-    async def _find_similar_entity(
-        self, entity_type_id: uuid.UUID, name: str, threshold: float
-    ) -> Entity | None:
+    async def _find_similar_entity(self, entity_type_id: uuid.UUID, name: str, threshold: float) -> Entity | None:
         """Find entity with similar name using fuzzy matching."""
         try:
             from app.utils.similarity import find_similar_entities
 
-            matches = await find_similar_entities(
-                self.session, entity_type_id, name, threshold
-            )
+            matches = await find_similar_entities(self.session, entity_type_id, name, threshold)
             if matches:
                 return matches[0][0]  # Return best match
         except ImportError:
             logger.warning("Similarity module not available")
         return None
-
 
     async def _resolve_composite_entity(
         self,
@@ -663,13 +632,15 @@ class EntityMatchingService:
             # Also try searching with the full extracted name (might have location suffixes)
             # e.g., "Bad Rodach" from "insbesondere Gemeinde Bad Rodach, Landkreis Coburg"
             # Escape SQL wildcards to prevent injection
-            safe_name = extracted_name.replace('%', '\\%').replace('_', '\\_')
+            safe_name = extracted_name.replace("%", "\\%").replace("_", "\\_")
             result = await self.session.execute(
-                select(Entity).where(
+                select(Entity)
+                .where(
                     Entity.entity_type_id == entity_type_id,
-                    Entity.name.ilike(f"%{safe_name}%", escape='\\'),
+                    Entity.name.ilike(f"%{safe_name}%", escape="\\"),
                     Entity.is_active.is_(True),
-                ).limit(1)
+                )
+                .limit(1)
             )
             entity = result.scalar_one_or_none()
             if entity:
@@ -755,9 +726,7 @@ class EntityMatchingService:
                     name=name,
                     name_normalized=name_normalized,
                 )
-                return await self._find_by_normalized_name(
-                    entity_type.id, name_normalized
-                )
+                return await self._find_by_normalized_name(entity_type.id, name_normalized)
             # Re-raise other integrity errors
             raise
 
@@ -903,32 +872,26 @@ class EntityMatchingService:
         Supports common contact/person/organization data structures.
         """
         # Try direct name fields
-        for field in ['name', 'full_name', 'display_name', 'title',
-                      'organisation', 'organization', 'company', 'firma']:
+        for field in ["name", "full_name", "display_name", "title", "organisation", "organization", "company", "firma"]:
             if field in value and value[field]:
                 return str(value[field]).strip()
 
         # Try combining first/last name (for persons)
-        first_name = value.get('first_name', '') or value.get('vorname', '') or value.get('given_name', '')
-        last_name = value.get('last_name', '') or value.get('nachname', '') or value.get('family_name', '')
+        first_name = value.get("first_name", "") or value.get("vorname", "") or value.get("given_name", "")
+        last_name = value.get("last_name", "") or value.get("nachname", "") or value.get("family_name", "")
         if first_name or last_name:
             full_name = f"{first_name} {last_name}".strip()
             if full_name:
                 return full_name
 
         # Try role-based name (e.g., "Bürgermeister")
-        role = value.get('role', '') or value.get('position', '') or value.get('funktion', '')
+        role = value.get("role", "") or value.get("position", "") or value.get("funktion", "")
         if role:
             return str(role).strip()
 
         return None
 
-    def _classify_entity_type(
-        self,
-        name: str,
-        value: dict[str, Any],
-        allowed_types: list[str]
-    ) -> str | None:
+    def _classify_entity_type(self, name: str, value: dict[str, Any], allowed_types: list[str]) -> str | None:
         """
         Classify whether a name/value represents a person or organization.
 
@@ -938,45 +901,81 @@ class EntityMatchingService:
         - Roles/positions → organization (usually refers to a department)
         """
         import re
+
         name_lower = name.lower()
 
         # Check for organization indicators (comprehensive list)
         org_patterns = [
-            'gmbh', 'ag', 'e.v.', 'ev', 'verein', 'verband', 'gesellschaft',
-            'behörde', 'amt', 'ministerium', 'direktion', 'abteilung',
-            'regierung', 'verwaltung', 'bundesland', 'kreis', 'landkreis',
-            'stadt', 'gemeinde', 'kommune', 'region', 'bezirk',
-            'universität', 'hochschule', 'institut', 'stiftung',
-            'zuständig', 'planungsbehörde', 'regionalverband',
+            "gmbh",
+            "ag",
+            "e.v.",
+            "ev",
+            "verein",
+            "verband",
+            "gesellschaft",
+            "behörde",
+            "amt",
+            "ministerium",
+            "direktion",
+            "abteilung",
+            "regierung",
+            "verwaltung",
+            "bundesland",
+            "kreis",
+            "landkreis",
+            "stadt",
+            "gemeinde",
+            "kommune",
+            "region",
+            "bezirk",
+            "universität",
+            "hochschule",
+            "institut",
+            "stiftung",
+            "zuständig",
+            "planungsbehörde",
+            "regionalverband",
             # Additional patterns
-            'planungsverband', 'landesamt', 'landtag', 'landesregierung',
-            'landesplanungsbehörde', 'verbandsversammlung', 'genehmigungsdirektion',
-            'regionaldirektion', 'planungsausschuss', 'bezirksregierung',
-            'regierungsbezirk', 'fachkommission', 'bundesamt', 'sekretariat',
-            'ausschuss', 'kommission', 'träger',
+            "planungsverband",
+            "landesamt",
+            "landtag",
+            "landesregierung",
+            "landesplanungsbehörde",
+            "verbandsversammlung",
+            "genehmigungsdirektion",
+            "regionaldirektion",
+            "planungsausschuss",
+            "bezirksregierung",
+            "regierungsbezirk",
+            "fachkommission",
+            "bundesamt",
+            "sekretariat",
+            "ausschuss",
+            "kommission",
+            "träger",
         ]
 
         for pattern in org_patterns:
             if pattern in name_lower:
-                if 'organization' in allowed_types:
-                    return 'organization'
+                if "organization" in allowed_types:
+                    return "organization"
                 elif allowed_types:
                     return allowed_types[0]
 
         # Check for person name patterns first (titles, hyphenated names, etc.)
         person_patterns = [
             # Title + Name (Dr., Prof., Dipl.-Geogr., Dr.-Ing.)
-            r'^(dr\.?\-?ing\.?|dr\.|prof\.|dipl\.?\-?\w*\.?)\s',
+            r"^(dr\.?\-?ing\.?|dr\.|prof\.|dipl\.?\-?\w*\.?)\s",
             # Two words starting with capital letters (including hyphens in names)
-            r'^[A-ZÄÖÜ][a-zäöüß]+[\-]?[A-ZÄÖÜ]?[a-zäöüß]*\s+[A-ZÄÖÜ][a-zäöüß\-]+$',
+            r"^[A-ZÄÖÜ][a-zäöüß]+[\-]?[A-ZÄÖÜ]?[a-zäöüß]*\s+[A-ZÄÖÜ][a-zäöüß\-]+$",
             # Three words with nobility particles
-            r'^[A-ZÄÖÜ][a-zäöüß]+\s+(von|van|de|zu|vom)\s+[A-ZÄÖÜ]',
+            r"^[A-ZÄÖÜ][a-zäöüß]+\s+(von|van|de|zu|vom)\s+[A-ZÄÖÜ]",
         ]
 
         for pattern in person_patterns:
             if re.search(pattern, name, re.IGNORECASE):
-                if 'person' in allowed_types:
-                    return 'person'
+                if "person" in allowed_types:
+                    return "person"
                 elif allowed_types:
                     return allowed_types[0]
 
@@ -986,27 +985,27 @@ class EntityMatchingService:
             # Allow hyphenated names and umlauts
             def is_name_word(word: str) -> bool:
                 # Remove common titles
-                word = re.sub(r'^(dr|prof|dipl|ing|herr|frau)\.?\-?', '', word, flags=re.IGNORECASE)
+                word = re.sub(r"^(dr|prof|dipl|ing|herr|frau)\.?\-?", "", word, flags=re.IGNORECASE)
                 if not word:
                     return True
                 # Check if word starts with uppercase and contains only letters/hyphens
-                return bool(re.match(r'^[A-ZÄÖÜ][a-zäöüß\-]*$', word))
+                return bool(re.match(r"^[A-ZÄÖÜ][a-zäöüß\-]*$", word))
 
             looks_like_person = all(is_name_word(w) for w in words if w)
             if looks_like_person:
-                if 'person' in allowed_types:
-                    return 'person'
+                if "person" in allowed_types:
+                    return "person"
                 elif allowed_types:
                     return allowed_types[0]
 
         # Check for explicit type hints in the value
-        entity_type_hint = value.get('entity_type') or value.get('type')
+        entity_type_hint = value.get("entity_type") or value.get("type")
         if entity_type_hint:
             hint_lower = str(entity_type_hint).lower()
-            if 'person' in hint_lower and 'person' in allowed_types:
-                return 'person'
-            if 'org' in hint_lower and 'organization' in allowed_types:
-                return 'organization'
+            if "person" in hint_lower and "person" in allowed_types:
+                return "person"
+            if "org" in hint_lower and "organization" in allowed_types:
+                return "organization"
 
         # Default to first allowed type
         return allowed_types[0] if allowed_types else None
@@ -1021,29 +1020,29 @@ class EntityMatchingService:
         attrs = {}
 
         # Email
-        email = value.get('email') or value.get('e_mail') or value.get('mail')
+        email = value.get("email") or value.get("e_mail") or value.get("mail")
         if email:
-            attrs['email'] = str(email).lower().strip()
+            attrs["email"] = str(email).lower().strip()
 
         # Phone
-        phone = value.get('phone') or value.get('telefon') or value.get('tel')
+        phone = value.get("phone") or value.get("telefon") or value.get("tel")
         if phone:
-            attrs['phone'] = str(phone).strip()
+            attrs["phone"] = str(phone).strip()
 
         # Role/Position
-        role = value.get('role') or value.get('position') or value.get('funktion')
+        role = value.get("role") or value.get("position") or value.get("funktion")
         if role:
-            attrs['role'] = str(role).strip()
+            attrs["role"] = str(role).strip()
 
         # Department
-        department = value.get('department') or value.get('abteilung')
+        department = value.get("department") or value.get("abteilung")
         if department:
-            attrs['department'] = str(department).strip()
+            attrs["department"] = str(department).strip()
 
         # Website
-        website = value.get('website') or value.get('url') or value.get('homepage')
+        website = value.get("website") or value.get("url") or value.get("homepage")
         if website:
-            attrs['website'] = str(website).strip()
+            attrs["website"] = str(website).strip()
 
         return attrs
 

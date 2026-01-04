@@ -42,6 +42,7 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class DuplicateCandidate:
     """Represents a potential duplicate pair."""
+
     entity1_id: str
     entity1_name: str
     entity1_slug: str
@@ -58,6 +59,7 @@ class DuplicateCandidate:
 @dataclass
 class DuplicateCluster:
     """A group of entities that are potential duplicates of each other."""
+
     cluster_id: int
     entity_type: str
     entities: list[dict]
@@ -133,7 +135,7 @@ class EntityDuplicateScanner:
         lon1: float | None,
         lat2: float | None,
         lon2: float | None,
-        max_distance_km: float = 5.0
+        max_distance_km: float = 5.0,
     ) -> tuple[bool, float | None]:
         """Check if two coordinates are within max_distance_km."""
         if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
@@ -145,18 +147,14 @@ class EntityDuplicateScanner:
         lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
         dlat = lat2 - lat1
         dlon = lon2 - lon1
-        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
         c = 2 * asin(sqrt(a))
         km = 6371 * c
 
         return km <= max_distance_km, km
 
     async def scan_entities(
-        self,
-        session,
-        entity_type_slug: str | None = None,
-        country: str | None = None,
-        limit: int | None = None
+        self, session, entity_type_slug: str | None = None, country: str | None = None, limit: int | None = None
     ) -> list[DuplicateCandidate]:
         """Scan entities for duplicates."""
 
@@ -180,7 +178,6 @@ class EntityDuplicateScanner:
         result = await session.execute(query)
         entities = result.scalars().all()
 
-
         if not entities:
             return []
 
@@ -191,7 +188,6 @@ class EntityDuplicateScanner:
             country_code = entity.country or "unknown"
             grouped[(type_slug, country_code)].append(entity)
 
-
         # Scan each group
         total_comparisons = 0
         duplicates_found = 0
@@ -200,7 +196,6 @@ class EntityDuplicateScanner:
             n = len(group_entities)
             if n < 2:
                 continue
-
 
             # First pass: Group by normalized name for exact matches
             by_normalized: dict[str, list[Entity]] = defaultdict(list)
@@ -212,20 +207,22 @@ class EntityDuplicateScanner:
             for _norm_name, ents in by_normalized.items():
                 if len(ents) > 1:
                     for i, e1 in enumerate(ents):
-                        for e2 in ents[i+1:]:
-                            self.duplicates.append(DuplicateCandidate(
-                                entity1_id=str(e1.id),
-                                entity1_name=e1.name,
-                                entity1_slug=e1.slug,
-                                entity2_id=str(e2.id),
-                                entity2_name=e2.name,
-                                entity2_slug=e2.slug,
-                                similarity_score=1.0,
-                                match_reason="Exakter Match (normalisiert)",
-                                entity_type=type_slug,
-                                country=country_code,
-                                admin_level_1=e1.admin_level_1,
-                            ))
+                        for e2 in ents[i + 1 :]:
+                            self.duplicates.append(
+                                DuplicateCandidate(
+                                    entity1_id=str(e1.id),
+                                    entity1_name=e1.name,
+                                    entity1_slug=e1.slug,
+                                    entity2_id=str(e2.id),
+                                    entity2_name=e2.name,
+                                    entity2_slug=e2.slug,
+                                    similarity_score=1.0,
+                                    match_reason="Exakter Match (normalisiert)",
+                                    entity_type=type_slug,
+                                    country=country_code,
+                                    admin_level_1=e1.admin_level_1,
+                                )
+                            )
                             duplicates_found += 1
 
             # Second pass: Compare by core names (generic pattern-based)
@@ -244,60 +241,61 @@ class EntityDuplicateScanner:
             for _core_name, ents in by_core.items():
                 if len(ents) > 1:
                     for i, e1 in enumerate(ents):
-                        for e2 in ents[i+1:]:
+                        for e2 in ents[i + 1 :]:
                             pair = (str(e1.id), str(e2.id))
                             if pair not in seen_pairs and (pair[1], pair[0]) not in seen_pairs:
                                 core_display = self.extract_core_name(e1.name, country_code)
-                                self.duplicates.append(DuplicateCandidate(
-                                    entity1_id=str(e1.id),
-                                    entity1_name=e1.name,
-                                    entity1_slug=e1.slug,
-                                    entity2_id=str(e2.id),
-                                    entity2_name=e2.name,
-                                    entity2_slug=e2.slug,
-                                    similarity_score=0.95,
-                                    match_reason=f"Kernname identisch: '{core_display}'",
-                                    entity_type=type_slug,
-                                    country=country_code,
-                                    admin_level_1=e1.admin_level_1,
-                                ))
+                                self.duplicates.append(
+                                    DuplicateCandidate(
+                                        entity1_id=str(e1.id),
+                                        entity1_name=e1.name,
+                                        entity1_slug=e1.slug,
+                                        entity2_id=str(e2.id),
+                                        entity2_name=e2.name,
+                                        entity2_slug=e2.slug,
+                                        similarity_score=0.95,
+                                        match_reason=f"Kernname identisch: '{core_display}'",
+                                        entity_type=type_slug,
+                                        country=country_code,
+                                        admin_level_1=e1.admin_level_1,
+                                    )
+                                )
                                 seen_pairs.add(pair)
                                 duplicates_found += 1
 
             # Third pass: Fuzzy matching (only for smaller groups to avoid n² complexity)
             if n <= 1000:
                 for i, e1 in enumerate(group_entities):
-                    for e2 in group_entities[i+1:]:
+                    for e2 in group_entities[i + 1 :]:
                         total_comparisons += 1
                         pair = (str(e1.id), str(e2.id))
                         if pair in seen_pairs or (pair[1], pair[0]) in seen_pairs:
                             continue
 
-                        is_eq, score, reason = self.are_names_equivalent(
-                            e1.name, e2.name, country_code
-                        )
+                        is_eq, score, reason = self.are_names_equivalent(e1.name, e2.name, country_code)
 
                         if is_eq and reason:
-                            self.duplicates.append(DuplicateCandidate(
-                                entity1_id=str(e1.id),
-                                entity1_name=e1.name,
-                                entity1_slug=e1.slug,
-                                entity2_id=str(e2.id),
-                                entity2_name=e2.name,
-                                entity2_slug=e2.slug,
-                                similarity_score=score,
-                                match_reason=reason,
-                                entity_type=type_slug,
-                                country=country_code,
-                                admin_level_1=e1.admin_level_1,
-                            ))
+                            self.duplicates.append(
+                                DuplicateCandidate(
+                                    entity1_id=str(e1.id),
+                                    entity1_name=e1.name,
+                                    entity1_slug=e1.slug,
+                                    entity2_id=str(e2.id),
+                                    entity2_name=e2.name,
+                                    entity2_slug=e2.slug,
+                                    similarity_score=score,
+                                    match_reason=reason,
+                                    entity_type=type_slug,
+                                    country=country_code,
+                                    admin_level_1=e1.admin_level_1,
+                                )
+                            )
                             seen_pairs.add(pair)
                             duplicates_found += 1
 
                         # Progress indicator
                         if total_comparisons % 10000 == 0:
                             pass
-
 
         return self.duplicates
 
@@ -359,13 +357,15 @@ class EntityDuplicateScanner:
             # Suggest the shortest name as canonical (usually the cleanest)
             canonical = min(entities, key=lambda e: len(e["name"]))["name"]
 
-            self.clusters.append(DuplicateCluster(
-                cluster_id=cluster_id,
-                entity_type=cluster_types.get(root, "unknown"),
-                entities=entities,
-                match_reasons=list(cluster_reasons[root]),
-                suggested_canonical=canonical,
-            ))
+            self.clusters.append(
+                DuplicateCluster(
+                    cluster_id=cluster_id,
+                    entity_type=cluster_types.get(root, "unknown"),
+                    entities=entities,
+                    match_reasons=list(cluster_reasons[root]),
+                    suggested_canonical=canonical,
+                )
+            )
 
         # Sort by cluster size (largest first)
         self.clusters.sort(key=lambda c: len(c.entities), reverse=True)
@@ -377,7 +377,6 @@ class EntityDuplicateScanner:
 
         if not self.clusters:
             return
-
 
         for cluster in self.clusters[:50]:  # Limit output
             for entity in cluster.entities:
@@ -409,7 +408,6 @@ class EntityDuplicateScanner:
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-
     def get_patterns_for_similarity(self) -> str:
         """Generate summary of duplicate patterns found."""
         # Analyze patterns in found duplicates
@@ -422,7 +420,7 @@ class EntityDuplicateScanner:
             if ", " in dup.entity1_name or ", " in dup.entity2_name:
                 pattern_counts["comma_qualifier"] += 1
 
-        summary = f'''
+        summary = f"""
 # Duplicate Pattern Summary
 # =========================
 # Total duplicates found: {len(self.duplicates)}
@@ -441,7 +439,7 @@ class EntityDuplicateScanner:
 #
 # See: app/utils/text.py - extract_core_entity_name()
 # See: services/entity_matching_service.py - get_or_create_entity()
-'''
+"""
         return summary
 
 

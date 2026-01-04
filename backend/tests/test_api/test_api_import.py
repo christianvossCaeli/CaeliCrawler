@@ -26,7 +26,7 @@ async def test_preview_api_import_invalid_url(admin_client: AsyncClient):
             "api_url": "not-a-valid-url",
             "api_type": "wikidata",
             "params": {},
-        }
+        },
     )
     # Should fail validation or return error
     assert response.status_code in [400, 422, 500]
@@ -73,7 +73,7 @@ async def test_execute_api_import_no_category(admin_client: AsyncClient):
             "params": {},
             "default_tags": ["test"],
             # Missing category_ids
-        }
+        },
     )
     assert response.status_code in [400, 422]
 

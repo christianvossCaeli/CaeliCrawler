@@ -53,7 +53,6 @@ async def main():
 
     only_missing = not args.force
 
-
     reset_similarity_stats()
 
     async with async_session_factory() as session:
@@ -63,30 +62,18 @@ async def main():
             results = await populate_all_embeddings(session, only_missing=only_missing)
         else:
             if args.types:
-                results["entity_types"] = await batch_update_type_embeddings(
-                    session, EntityType, only_missing
-                )
-                results["facet_types"] = await batch_update_type_embeddings(
-                    session, FacetType, only_missing
-                )
-                results["categories"] = await batch_update_type_embeddings(
-                    session, Category, only_missing
-                )
-                results["relation_types"] = await batch_update_relation_type_embeddings(
-                    session, only_missing
-                )
+                results["entity_types"] = await batch_update_type_embeddings(session, EntityType, only_missing)
+                results["facet_types"] = await batch_update_type_embeddings(session, FacetType, only_missing)
+                results["categories"] = await batch_update_type_embeddings(session, Category, only_missing)
+                results["relation_types"] = await batch_update_relation_type_embeddings(session, only_missing)
                 await session.commit()
 
             if args.entities:
-                results["entities"] = await batch_update_embeddings(
-                    session, only_missing=only_missing
-                )
+                results["entities"] = await batch_update_embeddings(session, only_missing=only_missing)
                 await session.commit()
 
             if args.facets:
-                results["facet_values"] = await batch_update_facet_value_embeddings(
-                    session, only_missing=only_missing
-                )
+                results["facet_values"] = await batch_update_facet_value_embeddings(session, only_missing=only_missing)
                 await session.commit()
 
     # Print results
@@ -94,7 +81,6 @@ async def main():
     total = 0
     for _key, count in results.items():
         total += count
-
 
     get_similarity_stats()
 

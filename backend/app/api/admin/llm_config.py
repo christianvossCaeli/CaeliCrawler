@@ -33,13 +33,13 @@ from app.database import get_session
 from app.models import User
 from app.models.user_api_credentials import (
     EMBEDDINGS_REQUIRED_FIELDS,
-    LLMProvider,
-    LLMPurpose,
     PROVIDER_DESCRIPTIONS,
     PROVIDER_FIELDS,
     PROVIDER_OPTIONAL_FIELDS,
     PURPOSE_DESCRIPTIONS,
     PURPOSE_VALID_PROVIDERS,
+    LLMProvider,
+    LLMPurpose,
     UserLLMConfig,
 )
 
@@ -209,9 +209,8 @@ def validate_credentials(
     missing = [f for f in required_fields if not credentials.get(f)]
 
     # api_key is always required
-    if "api_key" not in credentials or not credentials["api_key"]:
-        if "api_key" not in missing:
-            missing.append("api_key")
+    if ("api_key" not in credentials or not credentials["api_key"]) and "api_key" not in missing:
+        missing.append("api_key")
 
     if missing:
         raise ValidationError(f"Fehlende Pflichtfelder: {', '.join(missing)}")
@@ -233,9 +232,7 @@ async def get_all_purposes(
     """
     language = current_user.language or "de"
 
-    return AllPurposesResponse(
-        purposes=[get_purpose_info(purpose, language) for purpose in LLMPurpose]
-    )
+    return AllPurposesResponse(purposes=[get_purpose_info(purpose, language) for purpose in LLMPurpose])
 
 
 @router.get("/status", response_model=AllConfigStatusResponse)
@@ -248,9 +245,7 @@ async def get_all_config_status(
     Returns the status of each purpose including whether it's configured,
     which provider is used, and any error messages.
     """
-    result = await session.execute(
-        select(UserLLMConfig).where(UserLLMConfig.user_id == current_user.id)
-    )
+    result = await session.execute(select(UserLLMConfig).where(UserLLMConfig.user_id == current_user.id))
     configs = {c.purpose: c for c in result.scalars().all()}
 
     language = current_user.language or "de"
@@ -270,7 +265,7 @@ async def get_purpose_config(
     try:
         llm_purpose = LLMPurpose(purpose)
     except ValueError:
-        raise ValidationError(f"Unbekannter Zweck: {purpose}")
+        raise ValidationError(f"Unbekannter Zweck: {purpose}") from None
 
     result = await session.execute(
         select(UserLLMConfig).where(
@@ -303,13 +298,13 @@ async def save_purpose_config(
     try:
         llm_purpose = LLMPurpose(purpose)
     except ValueError:
-        raise ValidationError(f"Unbekannter Zweck: {purpose}")
+        raise ValidationError(f"Unbekannter Zweck: {purpose}") from None
 
     # Parse and validate provider
     try:
         provider = LLMProvider(data.provider)
     except ValueError:
-        raise ValidationError(f"Unbekannter Provider: {data.provider}")
+        raise ValidationError(f"Unbekannter Provider: {data.provider}") from None
 
     validate_provider_for_purpose(llm_purpose, provider)
     validate_credentials(provider, data.credentials, llm_purpose)
@@ -370,7 +365,7 @@ async def delete_purpose_config(
     try:
         llm_purpose = LLMPurpose(purpose)
     except ValueError:
-        raise ValidationError(f"Unbekannter Zweck: {purpose}")
+        raise ValidationError(f"Unbekannter Zweck: {purpose}") from None
 
     result = await session.execute(
         select(UserLLMConfig).where(
@@ -413,7 +408,7 @@ async def test_purpose_config(
     try:
         llm_purpose = LLMPurpose(purpose)
     except ValueError:
-        raise ValidationError(f"Unbekannter Zweck: {purpose}")
+        raise ValidationError(f"Unbekannter Zweck: {purpose}") from None
 
     result = await session.execute(
         select(UserLLMConfig).where(
@@ -631,7 +626,7 @@ async def get_active_config(
     try:
         llm_purpose = LLMPurpose(purpose)
     except ValueError:
-        raise ValidationError(f"Unbekannter Zweck: {purpose}")
+        raise ValidationError(f"Unbekannter Zweck: {purpose}") from None
 
     result = await session.execute(
         select(UserLLMConfig).where(
@@ -667,8 +662,8 @@ async def get_active_config(
             model = creds.get("model", "gpt-4o")
         elif config.provider == LLMProvider.ANTHROPIC:
             model = creds.get("model", "claude-opus-4-5")
-    except Exception:
-        pass
+    except Exception:  # noqa: S110
+        pass  # Decryption failures are expected when credentials are not set
 
     # Get pricing for the model
     pricing = None

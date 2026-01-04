@@ -113,6 +113,7 @@ class TokenBlacklist:
     def _hash_token(self, token: str) -> str:
         """Create a short hash of the token for storage."""
         import hashlib
+
         return hashlib.sha256(token.encode()).hexdigest()[:32]
 
 

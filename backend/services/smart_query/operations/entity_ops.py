@@ -62,6 +62,7 @@ class UpdateEntityOperation(WriteOperation):
             from sqlalchemy import and_, select
 
             from app.utils.text import normalize_name
+
             new_normalized = normalize_name(new_name)
 
             existing = await session.execute(

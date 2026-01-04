@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Full Smart Query test via backend."""
+
 import asyncio
 
 from app.database import get_session
@@ -16,7 +17,6 @@ async def test():
 - Für alle sollen die passenden Facetten nutzbar sein
 
 Kannst du das einrichten?"""
-
 
         # First interpret the command
         command = await interpret_write_command(prompt, session)
@@ -39,6 +39,7 @@ Kannst du das einrichten?"""
             pass
 
         break
+
 
 if __name__ == "__main__":
     asyncio.run(test())

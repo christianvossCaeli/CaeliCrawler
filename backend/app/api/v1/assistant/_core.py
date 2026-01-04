@@ -72,13 +72,15 @@ async def chat(
     for attachment_id in request.attachment_ids:
         attachment_data = get_attachment(attachment_id)
         if attachment_data:
-            attachments.append({
-                "id": attachment_id,
-                "content": attachment_data["content"],
-                "filename": attachment_data["filename"],
-                "content_type": attachment_data["content_type"],
-                "size": attachment_data["size"],
-            })
+            attachments.append(
+                {
+                    "id": attachment_id,
+                    "content": attachment_data["content"],
+                    "filename": attachment_data["filename"],
+                    "content_type": attachment_data["content_type"],
+                    "size": attachment_data["size"],
+                }
+            )
 
     assistant = AssistantService(session)
     return await assistant.process_message(
@@ -87,7 +89,7 @@ async def chat(
         conversation_history=request.conversation_history,
         mode=request.mode,
         language=request.language,
-        attachments=attachments
+        attachments=attachments,
     )
 
 
@@ -133,17 +135,19 @@ async def chat_stream(
     for attachment_id in request.attachment_ids:
         attachment_data = get_attachment(attachment_id)
         if attachment_data:
-            attachments.append({
-                "id": attachment_id,
-                "content": attachment_data["content"],
-                "filename": attachment_data["filename"],
-                "content_type": attachment_data["content_type"],
-                "size": attachment_data["size"],
-            })
+            attachments.append(
+                {
+                    "id": attachment_id,
+                    "content": attachment_data["content"],
+                    "filename": attachment_data["filename"],
+                    "content_type": attachment_data["content_type"],
+                    "size": attachment_data["size"],
+                }
+            )
 
     assistant = AssistantService(session)
 
-    async def generate() -> AsyncGenerator[str, None]:
+    async def generate() -> AsyncGenerator[str]:
         try:
             async for chunk in assistant.process_message_stream(
                 message=request.message,
@@ -151,7 +155,7 @@ async def chat_stream(
                 conversation_history=request.conversation_history,
                 mode=request.mode,
                 language=request.language,
-                attachments=attachments
+                attachments=attachments,
             ):
                 yield f"data: {json.dumps(chunk)}\n\n"
             yield "data: [DONE]\n\n"
@@ -167,5 +171,5 @@ async def chat_stream(
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",  # Disable nginx buffering
-        }
+        },
     )

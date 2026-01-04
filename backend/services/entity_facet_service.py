@@ -77,11 +77,8 @@ async def get_or_create_entity(
 
 async def get_facet_type_by_slug(session: AsyncSession, slug: str) -> FacetType | None:
     """Get facet type by slug."""
-    result = await session.execute(
-        select(FacetType).where(FacetType.slug == slug, FacetType.is_active.is_(True))
-    )
+    result = await session.execute(select(FacetType).where(FacetType.slug == slug, FacetType.is_active.is_(True)))
     return result.scalar_one_or_none()
-
 
 
 async def classify_facet_type_with_ai(
@@ -163,7 +160,7 @@ Nur den slug oder "NONE" ausgeben, keine Erklärung."""
             return None
 
         # Parse response
-        result_slug = response.strip().lower().strip('"\'')
+        result_slug = response.strip().lower().strip("\"'")
 
         if result_slug == "none" or not result_slug:
             return None
@@ -210,7 +207,7 @@ async def emit_facet_type_created_notification(
                 "created_from_field": created_from_field,
                 "needs_review": True,
                 "message": f"Neuer FacetType '{facet_type.name}' wurde automatisch erstellt für Feld '{created_from_field}'",
-            }
+            },
         )
 
         logger.info(
@@ -223,6 +220,7 @@ async def emit_facet_type_created_notification(
             "Failed to emit FacetType creation notification",
             error=str(e),
         )
+
 
 def _infer_value_schema_from_data(data: Any) -> dict[str, Any]:
     """
@@ -237,35 +235,22 @@ def _infer_value_schema_from_data(data: Any) -> dict[str, Any]:
     if isinstance(data, str):
         return {
             "type": "object",
-            "properties": {
-                "text": {"type": "string"}
-            },
-            "display": {
-                "primary_field": "text",
-                "layout": "inline"
-            }
+            "properties": {"text": {"type": "string"}},
+            "display": {"primary_field": "text", "layout": "inline"},
         }
 
     if isinstance(data, (int, float)):
         return {
             "type": "object",
-            "properties": {
-                "value": {"type": "number"}
-            },
-            "display": {
-                "primary_field": "value",
-                "layout": "inline"
-            }
+            "properties": {"value": {"type": "number"}},
+            "display": {"primary_field": "value", "layout": "inline"},
         }
 
     if isinstance(data, list):
         # For arrays, infer from first element if present
         if data and isinstance(data[0], dict):
             return _infer_value_schema_from_data(data[0])
-        return {
-            "type": "array",
-            "items": {"type": "string"}
-        }
+        return {"type": "array", "items": {"type": "string"}}
 
     if isinstance(data, dict):
         properties = {}
@@ -312,8 +297,8 @@ def _infer_value_schema_from_data(data: Any) -> dict[str, Any]:
             "display": {
                 "primary_field": primary_field or "description",
                 "chip_fields": chip_fields[:4],  # Max 4 chips
-                "layout": "card"
-            }
+                "layout": "card",
+            },
         }
 
     return {"type": "object", "properties": {}}
@@ -418,8 +403,8 @@ async def get_or_create_facet_type(
 
     # Generate slug from field name
     slug = field_name.lower().replace(" ", "_")
-    slug = re.sub(r'[^a-z0-9_]', '', slug)
-    slug = re.sub(r'_+', '_', slug).strip('_')
+    slug = re.sub(r"[^a-z0-9_]", "", slug)
+    slug = re.sub(r"_+", "_", slug).strip("_")
 
     # 1. Try exact slug match first
     existing = await get_facet_type_by_slug(session, slug)
@@ -449,9 +434,7 @@ async def get_or_create_facet_type(
 
     # 3. For medium confidence matches, use AI classification to confirm
     if use_ai_classification and similarity_match and 0.7 <= similarity_score < 0.9:
-        ai_classified_slug = await classify_facet_type_with_ai(
-            session, field_name, sample_data
-        )
+        ai_classified_slug = await classify_facet_type_with_ai(session, field_name, sample_data)
         if ai_classified_slug:
             # AI confirmed a match
             if ai_classified_slug == similarity_match.slug:
@@ -480,9 +463,7 @@ async def get_or_create_facet_type(
 
     # 4. No AI classification or low confidence - try AI as primary classifier
     if use_ai_classification and not similarity_match:
-        ai_classified_slug = await classify_facet_type_with_ai(
-            session, field_name, sample_data
-        )
+        ai_classified_slug = await classify_facet_type_with_ai(session, field_name, sample_data)
         if ai_classified_slug:
             ai_type = await get_facet_type_by_slug(session, ai_classified_slug)
             if ai_type:
@@ -507,11 +488,11 @@ async def get_or_create_facet_type(
         return None
 
     # Infer schema from sample data
-    value_schema = _infer_value_schema_from_data(sample_data) if sample_data else {
-        "type": "object",
-        "properties": {},
-        "display": {"primary_field": "text", "layout": "card"}
-    }
+    value_schema = (
+        _infer_value_schema_from_data(sample_data)
+        if sample_data
+        else {"type": "object", "properties": {}, "display": {"primary_field": "text", "layout": "card"}}
+    )
 
     # Create human-readable name
     name = _humanize_field_name(field_name)
@@ -606,6 +587,7 @@ async def create_facet_value(
     resolved_target_entity_id = target_entity_id
     if resolve_entity_reference and not target_entity_id and facet_type and facet_type.allows_entity_reference:
         from services.entity_matching_service import EntityMatchingService
+
         matching_service = EntityMatchingService(session)
         resolved_target_entity_id = await matching_service.resolve_target_entity_for_facet(
             facet_type=facet_type,
@@ -632,6 +614,7 @@ async def create_facet_value(
 
         # Generate embedding for semantic similarity search
         from app.utils.similarity import generate_embedding
+
         embedding = await generate_embedding(text_representation)
         if embedding:
             facet_value.text_embedding = embedding
@@ -793,10 +776,7 @@ async def convert_extraction_to_facets(
         return {}
 
     # Determine municipality name from AI extraction
-    municipality_name = (
-        content.get("municipality")
-        or content.get("source_location")
-    )
+    municipality_name = content.get("municipality") or content.get("source_location")
 
     if not municipality_name or municipality_name.lower() in ("", "unbekannt", "null"):
         logger.debug("No municipality name found, skipping facet creation")
@@ -816,10 +796,22 @@ async def convert_extraction_to_facets(
 
     # Metadata fields to skip (not actual facet data)
     SKIP_FIELDS = {
-        "municipality", "source_location", "source_region", "source_admin_level_1",
-        "region", "landkreis", "bundesland", "land", "country",
-        "document_type", "relevance", "relevance_score", "confidence",
-        "extraction_date", "processing_notes", "raw_text",
+        "municipality",
+        "source_location",
+        "source_region",
+        "source_admin_level_1",
+        "region",
+        "landkreis",
+        "bundesland",
+        "land",
+        "country",
+        "document_type",
+        "relevance",
+        "relevance_score",
+        "confidence",
+        "extraction_date",
+        "processing_notes",
+        "raw_text",
     }
 
     # Process each field in extracted_content
@@ -891,9 +883,7 @@ async def convert_extraction_to_facets(
             text = field_value.strip()
             if len(text) >= 10:
                 # Check for duplicates
-                is_dupe = await check_duplicate_facet(
-                    session, entity.id, facet_type.id, text
-                )
+                is_dupe = await check_duplicate_facet(session, entity.id, facet_type.id, text)
                 if not is_dupe:
                     await create_facet_value(
                         session,
@@ -955,9 +945,7 @@ async def _process_single_facet_value(
         if len(text) < 10:
             return False
 
-        is_dupe = await check_duplicate_facet(
-            session, entity.id, facet_type.id, text
-        )
+        is_dupe = await check_duplicate_facet(session, entity.id, facet_type.id, text)
         if is_dupe:
             return False
 
@@ -991,9 +979,7 @@ async def _process_single_facet_value(
             return False
 
         # Check for duplicates using primary text
-        is_dupe = await check_duplicate_facet(
-            session, entity.id, facet_type.id, text_repr
-        )
+        is_dupe = await check_duplicate_facet(session, entity.id, facet_type.id, text_repr)
         if is_dupe:
             return False
 
@@ -1027,9 +1013,19 @@ def _extract_text_representation(value: dict[str, Any], primary_field: str) -> s
 
     # Try common field names in order of preference
     candidates = [
-        "description", "text", "name", "title", "content",
-        "beschreibung", "bezeichnung", "aenderungen", "inhalt",
-        "summary", "zusammenfassung", "message", "nachricht",
+        "description",
+        "text",
+        "name",
+        "title",
+        "content",
+        "beschreibung",
+        "bezeichnung",
+        "aenderungen",
+        "inhalt",
+        "summary",
+        "zusammenfassung",
+        "message",
+        "nachricht",
     ]
 
     for field in candidates:
@@ -1051,9 +1047,7 @@ def _extract_text_representation(value: dict[str, Any], primary_field: str) -> s
 # =============================================================================
 
 
-async def get_relation_type_by_slug(
-    session: AsyncSession, slug: str
-) -> RelationType | None:
+async def get_relation_type_by_slug(session: AsyncSession, slug: str) -> RelationType | None:
     """Get relation type by slug.
 
     Args:
@@ -1064,9 +1058,7 @@ async def get_relation_type_by_slug(
         RelationType if found and active, None otherwise
     """
     result = await session.execute(
-        select(RelationType).where(
-            RelationType.slug == slug, RelationType.is_active.is_(True)
-        )
+        select(RelationType).where(RelationType.slug == slug, RelationType.is_active.is_(True))
     )
     return result.scalar_one_or_none()
 

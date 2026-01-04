@@ -141,11 +141,7 @@ class AnalysisTemplate(Base):
 
     def get_enabled_facet_slugs(self) -> list[str]:
         """Get list of enabled facet type slugs."""
-        return [
-            fc["facet_type_slug"]
-            for fc in self.facet_config
-            if fc.get("enabled", True)
-        ]
+        return [fc["facet_type_slug"] for fc in self.facet_config if fc.get("enabled", True)]
 
     def get_facet_config_by_slug(self, slug: str) -> dict[str, Any] | None:
         """Get facet configuration by slug."""

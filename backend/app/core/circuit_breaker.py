@@ -37,6 +37,7 @@ T = TypeVar("T")
 
 class CircuitState(Enum):
     """Circuit breaker states."""
+
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
@@ -44,19 +45,18 @@ class CircuitState(Enum):
 
 class CircuitBreakerError(Exception):
     """Raised when circuit is open and request is blocked."""
+
     def __init__(self, name: str, state: CircuitState, retry_after: float):
         self.name = name
         self.state = state
         self.retry_after = retry_after
-        super().__init__(
-            f"Circuit breaker '{name}' is {state.value}. "
-            f"Retry after {retry_after:.1f}s"
-        )
+        super().__init__(f"Circuit breaker '{name}' is {state.value}. Retry after {retry_after:.1f}s")
 
 
 @dataclass
 class CircuitBreakerConfig:
     """Configuration for a circuit breaker."""
+
     # Thresholds
     failure_threshold: int = 5  # Failures before opening
     success_threshold: int = 2  # Successes in half-open to close
@@ -75,6 +75,7 @@ class CircuitBreakerConfig:
 @dataclass
 class CircuitBreakerState:
     """State tracking for a circuit breaker."""
+
     state: CircuitState = CircuitState.CLOSED
     failure_count: int = 0
     success_count: int = 0
@@ -171,9 +172,7 @@ class CircuitBreaker:
             "failure_threshold": self.config.failure_threshold,
             "recovery_timeout": self.config.recovery_timeout,
             "time_since_last_failure": (
-                time.time() - self._state.last_failure_time
-                if self._state.last_failure_time > 0
-                else None
+                time.time() - self._state.last_failure_time if self._state.last_failure_time > 0 else None
             ),
         }
 
@@ -244,9 +243,7 @@ class CircuitBreaker:
                 else:
                     # Still open, block
                     retry_after = self.config.recovery_timeout - time_since_open
-                    raise CircuitBreakerError(
-                        self.name, self._state.state, retry_after
-                    )
+                    raise CircuitBreakerError(self.name, self._state.state, retry_after)
 
             # Half-open: allow request through (test)
             return
@@ -348,6 +345,7 @@ def circuit_breaker(
         async def call_openai(prompt: str) -> str:
             return await openai_client.complete(prompt)
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         # Create or get the circuit breaker
         breaker = CircuitBreaker.get(name)

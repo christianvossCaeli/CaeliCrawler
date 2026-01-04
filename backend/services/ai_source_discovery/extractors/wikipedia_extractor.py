@@ -110,14 +110,16 @@ class WikipediaExtractor(BaseExtractor):
                     if link:
                         href = link["href"]
                         if href.startswith("http") and "wikipedia.org" not in href:
-                            sources.append(ExtractedSource(
-                                name=name or self._extract_domain(href),
-                                base_url=href,
-                                source_type="WEBSITE",
-                                metadata={"source": "wikipedia_infobox"},
-                                extraction_method="wikipedia_infobox",
-                                confidence=0.85,
-                            ))
+                            sources.append(
+                                ExtractedSource(
+                                    name=name or self._extract_domain(href),
+                                    base_url=href,
+                                    source_type="WEBSITE",
+                                    metadata={"source": "wikipedia_infobox"},
+                                    extraction_method="wikipedia_infobox",
+                                    confidence=0.85,
+                                )
+                            )
 
         return sources
 
@@ -174,14 +176,16 @@ class WikipediaExtractor(BaseExtractor):
                         break
 
             if name and found_url and "wikipedia.org" not in found_url:
-                sources.append(ExtractedSource(
-                    name=name,
-                    base_url=found_url,
-                    source_type="WEBSITE",
-                    metadata={"source": "wikipedia_table"},
-                    extraction_method="wikipedia_table",
-                    confidence=0.8,
-                ))
+                sources.append(
+                    ExtractedSource(
+                        name=name,
+                        base_url=found_url,
+                        source_type="WEBSITE",
+                        metadata={"source": "wikipedia_table"},
+                        extraction_method="wikipedia_table",
+                        confidence=0.8,
+                    )
+                )
 
         return sources
 
@@ -215,13 +219,15 @@ class WikipediaExtractor(BaseExtractor):
                 name = self._clean_text(text)[:100]
 
             if external_link and name:
-                sources.append(ExtractedSource(
-                    name=name,
-                    base_url=external_link,
-                    source_type="WEBSITE",
-                    metadata={"source": "wikipedia_list"},
-                    extraction_method="wikipedia_list",
-                    confidence=0.7,
-                ))
+                sources.append(
+                    ExtractedSource(
+                        name=name,
+                        base_url=external_link,
+                        source_type="WEBSITE",
+                        metadata={"source": "wikipedia_list"},
+                        extraction_method="wikipedia_list",
+                        confidence=0.7,
+                    )
+                )
 
         return sources

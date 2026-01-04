@@ -85,7 +85,7 @@ async def list_facet_values(
         query = query.where(
             or_(
                 FacetValue.search_vector.op("@@")(search_query),
-                FacetValue.text_representation.ilike(search_pattern, escape='\\')
+                FacetValue.text_representation.ilike(search_pattern, escape="\\"),
             )
         )
 
@@ -96,16 +96,11 @@ async def list_facet_values(
             or_(
                 FacetValue.event_date >= now,
                 FacetValue.valid_until >= now,
-                and_(FacetValue.event_date.is_(None), FacetValue.valid_until.is_(None))
+                and_(FacetValue.event_date.is_(None), FacetValue.valid_until.is_(None)),
             )
         )
     elif time_filter == "past_only":
-        query = query.where(
-            or_(
-                FacetValue.event_date < now,
-                FacetValue.valid_until < now
-            )
-        )
+        query = query.where(or_(FacetValue.event_date < now, FacetValue.valid_until < now))
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
@@ -113,17 +108,18 @@ async def list_facet_values(
 
     # Sort: verified first, then by confidence (desc), then by created_at (desc)
     # Use selectinload for eager loading of relationships
-    query = query.options(
-        selectinload(FacetValue.entity),
-        selectinload(FacetValue.facet_type),
-        selectinload(FacetValue.category),
-        selectinload(FacetValue.source_document),
-        selectinload(FacetValue.target_entity).selectinload(Entity.entity_type),
-    ).order_by(
-        FacetValue.human_verified.desc(),
-        FacetValue.confidence_score.desc(),
-        FacetValue.created_at.desc()
-    ).offset((page - 1) * per_page).limit(per_page)
+    query = (
+        query.options(
+            selectinload(FacetValue.entity),
+            selectinload(FacetValue.facet_type),
+            selectinload(FacetValue.category),
+            selectinload(FacetValue.source_document),
+            selectinload(FacetValue.target_entity).selectinload(Entity.entity_type),
+        )
+        .order_by(FacetValue.human_verified.desc(), FacetValue.confidence_score.desc(), FacetValue.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    )
     result = await session.execute(query)
     values = result.scalars().all()
 
@@ -180,7 +176,7 @@ async def create_facet_value(
             raise ConflictError(
                 "FacetType not applicable",
                 detail=f"FacetType '{facet_type.name}' is not applicable for entity type '{entity_type_slug}'. "
-                       f"Applicable types: {', '.join(facet_type.applicable_entity_type_slugs)}",
+                f"Applicable types: {', '.join(facet_type.applicable_entity_type_slugs)}",
             )
 
     # Use provided text_representation or generate from value
@@ -188,6 +184,7 @@ async def create_facet_value(
 
     # Check for semantically similar FacetValues (AI-based)
     from app.utils.similarity import find_similar_facet_values
+
     similar_values = await find_similar_facet_values(
         session,
         entity_id=data.entity_id,
@@ -215,7 +212,7 @@ async def create_facet_value(
                 raise ConflictError(
                     "Target entity type not allowed",
                     detail=f"Entity type '{target_type_slug}' is not allowed as target for facet type '{facet_type.name}'. "
-                           f"Allowed types: {', '.join(facet_type.target_entity_type_slugs)}",
+                    f"Allowed types: {', '.join(facet_type.target_entity_type_slugs)}",
                 )
 
     async with AuditContext(session, current_user, request) as audit:
@@ -228,7 +225,9 @@ async def create_facet_value(
             event_date=data.event_date,
             valid_from=data.valid_from,
             valid_until=data.valid_until,
-            source_type=FacetValueSourceType(data.source_type.value) if data.source_type else FacetValueSourceType.MANUAL,
+            source_type=FacetValueSourceType(data.source_type.value)
+            if data.source_type
+            else FacetValueSourceType.MANUAL,
             source_document_id=data.source_document_id,
             source_url=data.source_url,
             confidence_score=data.confidence_score,
@@ -241,6 +240,7 @@ async def create_facet_value(
 
         # Generate embedding for semantic similarity search
         from app.utils.similarity import generate_embedding
+
         embedding = await generate_embedding(text_repr)
         if embedding:
             facet_value.text_embedding = embedding
@@ -332,6 +332,7 @@ async def update_facet_value(
         # If text_representation changes, regenerate embedding
         if "text_representation" in update_data or "value" in update_data:
             from app.utils.similarity import generate_embedding
+
             text_repr = update_data.get("text_representation") or fv.text_representation
             embedding = await generate_embedding(text_repr)
             if embedding:

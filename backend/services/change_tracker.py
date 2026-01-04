@@ -121,13 +121,14 @@ class ChangeTracker:
                 "entity_id": str(facet.entity_id),
                 "facet_type_id": str(facet.facet_type_id),
                 "value": old_values.get("value") if old_values else facet.value,
-                "text_representation": old_values.get("text_representation") if old_values else facet.text_representation,
+                "text_representation": old_values.get("text_representation")
+                if old_values
+                else facet.text_representation,
             }
         else:  # update
             diff = {
                 "_operation": "update",
-                **{k: {"old": old_values.get(k), "new": getattr(facet, k, None)}
-                   for k in (old_values or {})}
+                **{k: {"old": old_values.get(k), "new": getattr(facet, k, None)} for k in (old_values or {})},
             }
 
         # Create version record
@@ -265,6 +266,7 @@ class ChangeTracker:
 
             # Regenerate embedding for restored facet
             from app.utils.similarity import generate_embedding
+
             embedding = await generate_embedding(text_repr)
             if embedding:
                 facet.text_embedding = embedding
@@ -290,6 +292,7 @@ class ChangeTracker:
             # If text_representation was restored, regenerate embedding
             if "text_representation" in restored:
                 from app.utils.similarity import generate_embedding
+
                 embedding = await generate_embedding(restored["text_representation"])
                 if embedding:
                     facet.text_embedding = embedding

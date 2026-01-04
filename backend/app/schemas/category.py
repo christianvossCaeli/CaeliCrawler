@@ -31,9 +31,30 @@ VALID_EXTRACTION_HANDLERS = ("default", "event")
 
 # Known ISO 639-1 language codes
 VALID_LANGUAGE_CODES: set[str] = {
-    "de", "en", "fr", "nl", "it", "es", "pl", "da", "pt", "sv",
-    "no", "fi", "cs", "hu", "ro", "bg", "el", "tr", "ru", "uk",
-    "ar", "zh", "ja", "ko"
+    "de",
+    "en",
+    "fr",
+    "nl",
+    "it",
+    "es",
+    "pl",
+    "da",
+    "pt",
+    "sv",
+    "no",
+    "fi",
+    "cs",
+    "hu",
+    "ro",
+    "bg",
+    "el",
+    "tr",
+    "ru",
+    "uk",
+    "ar",
+    "zh",
+    "ja",
+    "ko",
 }
 
 
@@ -101,9 +122,7 @@ def _validate_languages_impl(
         if lang:
             code = lang.lower().strip()
             if len(code) != 2:
-                raise ValueError(
-                    f"Invalid language code '{lang}': must be a 2-letter ISO 639-1 code"
-                )
+                raise ValueError(f"Invalid language code '{lang}': must be a 2-letter ISO 639-1 code")
             # Accept valid codes and unknown 2-letter codes (for flexibility)
             validated.append(code)
 
@@ -160,7 +179,9 @@ class _CategoryFieldsMixin(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255, description="Category name")
     description: str | None = Field(None, description="Category description")
-    purpose: str = Field(..., min_length=1, description="Purpose of this category (e.g., 'Windkraft-Restriktionen analysieren')")
+    purpose: str = Field(
+        ..., min_length=1, description="Purpose of this category (e.g., 'Windkraft-Restriktionen analysieren')"
+    )
     search_terms: list[str] = Field(default_factory=list, description="Search terms for this category")
     document_types: list[str] = Field(default_factory=list, description="Document types to search for")
 
@@ -413,9 +434,7 @@ class CategoryAiSetupPreview(BaseModel):
     """
 
     # Suggested EntityType
-    suggested_entity_type: EntityTypeSuggestion = Field(
-        ..., description="Suggested EntityType configuration"
-    )
+    suggested_entity_type: EntityTypeSuggestion = Field(..., description="Suggested EntityType configuration")
 
     # List of existing EntityTypes user can choose instead
     existing_entity_types: list[EntityTypeSuggestion] = Field(
@@ -436,9 +455,7 @@ class CategoryAiSetupPreview(BaseModel):
     )
 
     # Generated extraction prompt
-    suggested_extraction_prompt: str = Field(
-        ..., description="AI-generated extraction prompt"
-    )
+    suggested_extraction_prompt: str = Field(..., description="AI-generated extraction prompt")
 
     # Generated search terms
     suggested_search_terms: list[str] = Field(
@@ -510,12 +527,8 @@ class CategoryCreateWithAiSetup(CategoryCreate):
         """Ensure either new EntityType config or existing ID is provided."""
         if self.create_new_entity_type:
             if not self.ai_entity_type_config:
-                raise ValueError(
-                    "ai_entity_type_config required when create_new_entity_type is true"
-                )
+                raise ValueError("ai_entity_type_config required when create_new_entity_type is true")
         else:
             if not self.use_existing_entity_type_id:
-                raise ValueError(
-                    "use_existing_entity_type_id required when create_new_entity_type is false"
-                )
+                raise ValueError("use_existing_entity_type_id required when create_new_entity_type is false")
         return self

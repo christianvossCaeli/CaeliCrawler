@@ -6,19 +6,17 @@ from sqlalchemy import create_engine, pool
 from sqlalchemy.engine import Connection
 
 from alembic import context
-
-# Import all models to ensure they're registered with metadata
+from app.config import settings
 from app.database import Base
 from app.models import (
+    ApiExport,
     Category,
-    DataSource,
+    ChangeLog,
     CrawlJob,
+    DataSource,
     Document,
     ExtractedData,
-    ChangeLog,
-    ApiExport,
 )
-from app.config import settings
 
 # Alembic Config object
 config = context.config

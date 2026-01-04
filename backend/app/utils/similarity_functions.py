@@ -76,6 +76,7 @@ def invalidate_all_similarity_caches() -> None:
 # Entity Similarity (uses pgvector for DB-level search)
 # =============================================================================
 
+
 async def find_similar_entities(
     session: AsyncSession,
     entity_type_id: uuid.UUID,
@@ -250,11 +251,7 @@ async def find_similar_types[T: Base](
         for row in result:
             item = row[0]
             similarity = float(row[1])
-            matches.append((
-                item,
-                similarity,
-                f"Semantisch ähnlich zu '{item.name}' ({int(similarity * 100)}%)"
-            ))
+            matches.append((item, similarity, f"Semantisch ähnlich zu '{item.name}' ({int(similarity * 100)}%)"))
             _increment_stat("matches_found")
 
         if matches:
@@ -286,11 +283,13 @@ async def find_similar_types[T: Base](
         is_equivalent = await are_concepts_equivalent(name, item.name)
 
         if is_equivalent:
-            matches.append((
-                item,
-                0.95,  # High score for concept equivalence
-                f"Konzept-Match: '{name}' ≡ '{item.name}'"
-            ))
+            matches.append(
+                (
+                    item,
+                    0.95,  # High score for concept equivalence
+                    f"Konzept-Match: '{name}' ≡ '{item.name}'",
+                )
+            )
             _increment_stat("matches_found")
             logger.info(
                 f"{model_class.__name__} cross-lingual match found",
@@ -329,11 +328,9 @@ async def find_similar_types[T: Base](
                 best_match_name = check_text
 
         if best_similarity >= threshold:
-            matches.append((
-                item,
-                best_similarity,
-                f"Semantisch ähnlich zu '{best_match_name}' ({int(best_similarity * 100)}%)"
-            ))
+            matches.append(
+                (item, best_similarity, f"Semantisch ähnlich zu '{best_match_name}' ({int(best_similarity * 100)}%)")
+            )
             _increment_stat("matches_found")
 
     # Sort by similarity descending
@@ -355,6 +352,7 @@ async def find_similar_types[T: Base](
 # Convenience Wrappers (for backwards compatibility and cleaner API)
 # =============================================================================
 
+
 async def find_similar_entity_types(
     session: AsyncSession,
     name: str,
@@ -363,6 +361,7 @@ async def find_similar_entity_types(
 ) -> list[tuple["EntityType", float, str]]:
     """Find EntityTypes with semantically similar names."""
     from app.models import EntityType
+
     return await find_similar_types(session, EntityType, name, threshold, exclude_id)
 
 
@@ -417,6 +416,7 @@ async def find_similar_facet_types(
 ) -> list[tuple["FacetType", float, str]]:
     """Find FacetTypes with semantically similar names."""
     from app.models import FacetType
+
     return await find_similar_types(session, FacetType, name, threshold, exclude_id)
 
 
@@ -428,9 +428,9 @@ async def find_similar_categories(
 ) -> list[tuple["Category", float, str]]:
     """Find Categories with semantically similar names."""
     from app.models import Category
+
     return await find_similar_types(
-        session, Category, name, threshold, exclude_id,
-        name_fields=["name", "description", "purpose"]
+        session, Category, name, threshold, exclude_id, name_fields=["name", "description", "purpose"]
     )
 
 
@@ -567,11 +567,7 @@ async def find_similar_relation_types(
         rt_result = await session.execute(rt_query)
         for rt in rt_result.scalars():
             similarity, reason = seen_ids[rt.id]
-            matches.append((
-                rt,
-                similarity,
-                f"{reason} ({int(similarity * 100)}%)"
-            ))
+            matches.append((rt, similarity, f"{reason} ({int(similarity * 100)}%)"))
             _increment_stat("matches_found")
 
     matches.sort(key=lambda x: x[1], reverse=True)
@@ -591,6 +587,7 @@ async def find_similar_relation_types(
 # =============================================================================
 # Embedding Update Functions
 # =============================================================================
+
 
 async def update_entity_embedding(
     session: AsyncSession,
@@ -739,7 +736,7 @@ async def batch_update_embeddings(
 
     # Process in batches
     for i in range(0, len(entities), batch_size):
-        batch = entities[i:i + batch_size]
+        batch = entities[i : i + batch_size]
         names = [e.name for e in batch]
 
         try:
@@ -833,7 +830,7 @@ async def batch_update_facet_value_embeddings(
     updated_count = 0
 
     for i in range(0, len(facet_values), batch_size):
-        batch = facet_values[i:i + batch_size]
+        batch = facet_values[i : i + batch_size]
         texts = [fv.text_representation for fv in batch]
 
         try:
@@ -988,7 +985,7 @@ def _normalize_type_name(name: str) -> str:
     result = name.lower().strip()
 
     # Replace German umlauts
-    umlaut_map = {'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss'}
+    umlaut_map = {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}
     for umlaut, replacement in umlaut_map.items():
         result = result.replace(umlaut, replacement)
 
@@ -996,7 +993,6 @@ def _normalize_type_name(name: str) -> str:
     result = result.replace("-", " ").replace("_", " ")
 
     return result.strip()
-
 
 
 # Cache for hierarchy mappings
@@ -1047,12 +1043,9 @@ Hierarchy levels (from largest to smallest):
 
 If the term is NOT a territorial/geographic term, respond: {"is_territorial": false}
 
-Respond ONLY with valid JSON, nothing else."""
+Respond ONLY with valid JSON, nothing else.""",
                 },
-                {
-                    "role": "user",
-                    "content": name
-                }
+                {"role": "user", "content": name},
             ],
             temperature=0,
             max_tokens=100,
@@ -1073,6 +1066,7 @@ Respond ONLY with valid JSON, nothing else."""
             )
 
         import json
+
         result_text = response.choices[0].message.content.strip()
         result = json.loads(result_text)
 
@@ -1113,6 +1107,7 @@ Respond ONLY with valid JSON, nothing else."""
         # Don't cache errors - allow retry on next call
         return None
 
+
 def get_hierarchy_mapping(name: str) -> dict | None:
     """
     Check if a name maps to a hierarchy level of an existing EntityType.
@@ -1122,13 +1117,14 @@ def get_hierarchy_mapping(name: str) -> dict | None:
     In async code, use get_hierarchy_mapping_async() directly.
     """
     import asyncio
+
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
             logger.debug(
                 "get_hierarchy_mapping_sync_in_async_context",
                 name=name,
-                hint="Use get_hierarchy_mapping_async() in async code"
+                hint="Use get_hierarchy_mapping_async() in async code",
             )
             return None
         return loop.run_until_complete(get_hierarchy_mapping_async(name))
@@ -1139,6 +1135,7 @@ def get_hierarchy_mapping(name: str) -> dict | None:
 # =============================================================================
 # Location Duplicate Detection
 # =============================================================================
+
 
 def find_similar_locations_by_name(
     name: str,
@@ -1156,6 +1153,7 @@ def find_similar_locations_by_name(
         return []
 
     from app.models import Location
+
     new_normalized = Location.normalize_name(name, country)
 
     matches: list[tuple[Location, float, str]] = []
@@ -1168,11 +1166,7 @@ def find_similar_locations_by_name(
         similarity = SequenceMatcher(None, new_normalized, loc.name_normalized).ratio()
 
         if similarity >= threshold:
-            matches.append((
-                loc,
-                similarity,
-                f"Ähnlicher Name: '{loc.name}' ({int(similarity * 100)}%)"
-            ))
+            matches.append((loc, similarity, f"Ähnlicher Name: '{loc.name}' ({int(similarity * 100)}%)"))
 
     matches.sort(key=lambda x: x[1], reverse=True)
     return matches
@@ -1189,7 +1183,7 @@ def check_location_geo_proximity(
     import math
 
     if any(x is None for x in [lat1, lon1, lat2, lon2]):
-        return False, float('inf')
+        return False, float("inf")
 
     R = 6371.0  # Earth radius in km
 
@@ -1265,6 +1259,7 @@ async def find_duplicate_location(
 # Config-Hash based Duplicate Detection
 # =============================================================================
 
+
 def compute_config_hash(config: dict) -> str:
     """Compute a deterministic hash for a configuration dictionary."""
     config_str = json.dumps(config, sort_keys=True, default=str)
@@ -1330,6 +1325,7 @@ async def find_duplicate_by_config[T: Base](
 # =============================================================================
 # FacetValue Semantic Duplicate Detection
 # =============================================================================
+
 
 async def find_similar_facet_values(
     session: AsyncSession,
@@ -1399,11 +1395,7 @@ async def find_similar_facet_values(
         similarity = float(row[1])
         seen_ids.add(fv.id)
         text_preview = fv.text_representation[:50] if fv.text_representation else "..."
-        matches.append((
-            fv,
-            similarity,
-            f"Ähnlicher Wert: '{text_preview}...' ({int(similarity * 100)}%)"
-        ))
+        matches.append((fv, similarity, f"Ähnlicher Wert: '{text_preview}...' ({int(similarity * 100)}%)"))
         _increment_stat("matches_found")
 
     # Fallback: check items without stored embeddings (on-demand generation)
@@ -1431,11 +1423,7 @@ async def find_similar_facet_values(
 
         if similarity >= threshold:
             text_preview = fv.text_representation[:50]
-            matches.append((
-                fv,
-                similarity,
-                f"Ähnlicher Wert: '{text_preview}...' ({int(similarity * 100)}%)"
-            ))
+            matches.append((fv, similarity, f"Ähnlicher Wert: '{text_preview}...' ({int(similarity * 100)}%)"))
             _increment_stat("matches_found")
 
     matches.sort(key=lambda x: x[1], reverse=True)
@@ -1445,6 +1433,7 @@ async def find_similar_facet_values(
 # =============================================================================
 # Simple Duplicate Detection Functions
 # =============================================================================
+
 
 async def find_duplicate_entity_attachment(
     session: AsyncSession,

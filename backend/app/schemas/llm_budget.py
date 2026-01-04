@@ -48,9 +48,7 @@ class BudgetStatusResponse(BaseModel):
     is_critical: bool = Field(description="Has reached critical threshold")
     is_blocked: bool = Field(default=False, description="Usage >= 100% and budget blocks on limit")
     blocks_on_limit: bool = Field(default=False, description="Whether this budget blocks LLM access when exhausted")
-    projected_month_end_cents: int = Field(
-        description="Projected cost by end of month"
-    )
+    projected_month_end_cents: int = Field(description="Projected cost by end of month")
 
 
 class BudgetAlertResponse(BaseModel):
@@ -96,15 +94,9 @@ class LLMBudgetConfigCreate(BaseModel):
         description="Task type or model name for type-specific budgets",
     )
     monthly_limit_cents: int = Field(gt=0, description="Monthly limit in USD cents")
-    warning_threshold_percent: int = Field(
-        default=80, ge=1, le=99, description="Warning threshold percentage"
-    )
-    critical_threshold_percent: int = Field(
-        default=95, ge=1, le=100, description="Critical threshold percentage"
-    )
-    alert_emails: list[str] = Field(
-        default_factory=list, description="Email addresses for alerts"
-    )
+    warning_threshold_percent: int = Field(default=80, ge=1, le=99, description="Warning threshold percentage")
+    critical_threshold_percent: int = Field(default=95, ge=1, le=100, description="Critical threshold percentage")
+    alert_emails: list[str] = Field(default_factory=list, description="Email addresses for alerts")
     description: str | None = Field(default=None, max_length=1000)
     is_active: bool = Field(default=True)
     blocks_on_limit: bool = Field(
@@ -130,9 +122,7 @@ class LLMBudgetConfigCreate(BaseModel):
         """Ensure critical threshold is greater than warning threshold."""
         warning = info.data.get("warning_threshold_percent", 80)
         if v <= warning:
-            raise ValueError(
-                "Critical threshold must be greater than warning threshold"
-            )
+            raise ValueError("Critical threshold must be greater than warning threshold")
         return v
 
 

@@ -109,10 +109,10 @@ class TestAiInterpreter:
         assert callable(interpret_summary_prompt)
 
         # Verify InterpretedConfig schema exists with expected fields
-        assert hasattr(InterpretedConfig, 'model_fields')
-        assert 'summary_name' in InterpretedConfig.model_fields
-        assert 'theme' in InterpretedConfig.model_fields
-        assert 'widgets' in InterpretedConfig.model_fields
+        assert hasattr(InterpretedConfig, "model_fields")
+        assert "summary_name" in InterpretedConfig.model_fields
+        assert "theme" in InterpretedConfig.model_fields
+        assert "widgets" in InterpretedConfig.model_fields
 
     def test_interpreted_config_validation(self):
         """Test InterpretedConfig validation."""
@@ -230,8 +230,16 @@ class TestSummaryModels:
         from app.models.summary_widget import SummaryWidgetType
 
         expected_types = [
-            "TABLE", "BAR_CHART", "LINE_CHART", "PIE_CHART",
-            "STAT_CARD", "TEXT", "COMPARISON", "TIMELINE", "MAP", "CALENDAR"
+            "TABLE",
+            "BAR_CHART",
+            "LINE_CHART",
+            "PIE_CHART",
+            "STAT_CARD",
+            "TEXT",
+            "COMPARISON",
+            "TIMELINE",
+            "MAP",
+            "CALENDAR",
         ]
         for type_name in expected_types:
             assert hasattr(SummaryWidgetType, type_name)
@@ -273,9 +281,10 @@ class TestSummaryTasks:
             mock_context.return_value.__aenter__.return_value = mock_session
 
             from workers.summary_tasks import check_scheduled_summaries
+
             # The task exists and is properly defined
             assert check_scheduled_summaries is not None
-            assert hasattr(check_scheduled_summaries, 'delay')
+            assert hasattr(check_scheduled_summaries, "delay")
 
 
 class TestSummaryApiSchemas:
@@ -425,11 +434,13 @@ class TestCrawlIntegration:
     def test_on_crawl_completed_task_exists(self):
         """Test that on_crawl_completed task is defined."""
         from workers.summary_tasks import on_crawl_completed
+
         assert on_crawl_completed is not None
 
     def test_on_preset_completed_task_exists(self):
         """Test that on_preset_completed task is defined."""
         from workers.summary_tasks import on_preset_completed
+
         assert on_preset_completed is not None
 
 

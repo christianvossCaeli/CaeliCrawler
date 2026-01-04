@@ -9,7 +9,7 @@ Provides:
 """
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TypedDict
 
 import httpx
@@ -163,7 +163,7 @@ class ModelPricingService:
         try:
             provider_enum = PricingProvider(provider)
         except ValueError:
-            raise ValueError(f"Invalid provider: {provider}")
+            raise ValueError(f"Invalid provider: {provider}") from None
 
         try:
             source_enum = PricingSource(source)
@@ -179,7 +179,7 @@ class ModelPricingService:
         )
         pricing = result.scalar_one_or_none()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if pricing:
             # Update existing
@@ -281,10 +281,7 @@ class ModelPricingService:
     async def _fetch_azure_prices(cls) -> dict[str, dict]:
         """Fetch and parse Azure OpenAI prices from retail API."""
         prices: dict[str, dict] = {}
-        next_url = (
-            "https://prices.azure.com/api/retail/prices"
-            "?$filter=productName eq 'Azure OpenAI'"
-        )
+        next_url = "https://prices.azure.com/api/retail/prices?$filter=productName eq 'Azure OpenAI'"
 
         async with httpx.AsyncClient(timeout=30) as client:
             while next_url:
@@ -602,12 +599,8 @@ class ModelPricingService:
         all_results["azure_openai"] = azure_result
         all_results["openai"] = openai_result
         all_results["anthropic"] = anthropic_result
-        all_results["total_updated"] = (
-            azure_result["updated"] + openai_result["updated"] + anthropic_result["updated"]
-        )
-        all_results["total_added"] = (
-            azure_result["added"] + openai_result["added"] + anthropic_result["added"]
-        )
+        all_results["total_updated"] = azure_result["updated"] + openai_result["updated"] + anthropic_result["updated"]
+        all_results["total_added"] = azure_result["added"] + openai_result["added"] + anthropic_result["added"]
         all_results["total_errors"] = (
             len(azure_result["errors"]) + len(openai_result["errors"]) + len(anthropic_result["errors"])
         )
@@ -707,9 +700,7 @@ class ModelPricingService:
                     # Get cached input price if available
                     cached_input_cost = model_data.get("cache_read_input_token_cost")
                     cached_input_per_1m = (
-                        float(cached_input_cost) * 1_000_000
-                        if cached_input_cost is not None
-                        else None
+                        float(cached_input_cost) * 1_000_000 if cached_input_cost is not None else None
                     )
 
                     # Create display name from model key
@@ -738,6 +729,7 @@ class ModelPricingService:
             # Refresh the pricing cache
             try:
                 from services.llm_usage_tracker import refresh_pricing_cache
+
                 await refresh_pricing_cache()
             except Exception as e:
                 logger.warning("pricing_cache_refresh_after_litellm_sync_failed", error=str(e))

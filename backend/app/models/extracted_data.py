@@ -34,9 +34,7 @@ class ExtractedData(Base):
     """
 
     __tablename__ = "extracted_data"
-    __table_args__ = (
-        Index("ix_extracted_data_search_vector", "search_vector", postgresql_using="gin"),
-    )
+    __table_args__ = (Index("ix_extracted_data_search_vector", "search_vector", postgresql_using="gin"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

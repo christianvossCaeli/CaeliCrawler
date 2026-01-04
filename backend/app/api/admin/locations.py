@@ -50,12 +50,14 @@ async def list_countries(
     # Build response with all supported countries
     countries = []
     for country_data in get_supported_countries():
-        countries.append(CountryInfo(
-            code=country_data["code"],
-            name=country_data["name"],
-            name_de=country_data["name_de"],
-            location_count=counts.get(country_data["code"], 0),
-        ))
+        countries.append(
+            CountryInfo(
+                code=country_data["code"],
+                name=country_data["name"],
+                name_de=country_data["name_de"],
+                location_count=counts.get(country_data["code"], 0),
+            )
+        )
 
     # Sort by location_count desc, then by name
     countries.sort(key=lambda x: (-x.location_count, x.name))
@@ -106,10 +108,7 @@ async def get_admin_levels(
             query = query.where(Location.admin_level_1 == parent)
 
     result = await session.execute(query)
-    items = [
-        AdminLevelInfo(value=row[0], count=row[1])
-        for row in result.all()
-    ]
+    items = [AdminLevelInfo(value=row[0], count=row[1]) for row in result.all()]
 
     return AdminLevelsResponse(
         country=country,
@@ -136,7 +135,7 @@ async def link_all_sources(
     return {
         "sources_linked": 0,
         "processes_linked": 0,
-        "message": "DataSources are no longer linked to locations directly. Use Categories for grouping."
+        "message": "DataSources are no longer linked to locations directly. Use Categories for grouping.",
     }
 
 
@@ -166,22 +165,19 @@ async def list_locations_with_sources(
         country = country.upper()
 
     # Main query - all locations
-    main_query = (
-        select(
-            Location.id,
-            Location.name,
-            Location.country,
-            Location.admin_level_1,
-            Location.admin_level_2,
-            Location.official_code,
-            Location.population,
-            literal(0).label("source_count"),  # Legacy - no longer tracked
-            literal(0).label("document_count"),  # Legacy - no longer tracked
-            literal(0).label("extracted_count"),
-            literal(True).label("has_location_record"),
-        )
-        .where(Location.is_active.is_(True))
-    )
+    main_query = select(
+        Location.id,
+        Location.name,
+        Location.country,
+        Location.admin_level_1,
+        Location.admin_level_2,
+        Location.official_code,
+        Location.population,
+        literal(0).label("source_count"),  # Legacy - no longer tracked
+        literal(0).label("document_count"),  # Legacy - no longer tracked
+        literal(0).label("extracted_count"),
+        literal(True).label("has_location_record"),
+    ).where(Location.is_active.is_(True))
 
     # Apply filters
     if country:
@@ -192,13 +188,13 @@ async def list_locations_with_sources(
         main_query = main_query.where(Location.admin_level_2 == admin_level_2)
     if search:
         # Escape SQL wildcards to prevent injection
-        safe_search = search.replace('%', '\\%').replace('_', '\\_')
+        safe_search = search.replace("%", "\\%").replace("_", "\\_")
         search_normalized = Location.normalize_name(search, country or "DE")
-        safe_search_normalized = search_normalized.replace('%', '\\%').replace('_', '\\_')
+        safe_search_normalized = search_normalized.replace("%", "\\%").replace("_", "\\_")
         main_query = main_query.where(
             or_(
-                Location.name.ilike(f"%{safe_search}%", escape='\\'),
-                Location.name_normalized.ilike(f"%{safe_search_normalized}%", escape='\\'),
+                Location.name.ilike(f"%{safe_search}%", escape="\\"),
+                Location.name_normalized.ilike(f"%{safe_search_normalized}%", escape="\\"),
             )
         )
 
@@ -214,19 +210,14 @@ async def list_locations_with_sources(
         # Use already escaped values from above
         count_query = count_query.where(
             or_(
-                Location.name.ilike(f"%{safe_search}%", escape='\\'),
-                Location.name_normalized.ilike(f"%{safe_search_normalized}%", escape='\\'),
+                Location.name.ilike(f"%{safe_search}%", escape="\\"),
+                Location.name_normalized.ilike(f"%{safe_search_normalized}%", escape="\\"),
             )
         )
     total = (await session.execute(count_query)).scalar() or 0
 
     # Add ordering and pagination
-    main_query = (
-        main_query
-        .order_by(Location.name)
-        .offset((page - 1) * per_page)
-        .limit(per_page)
-    )
+    main_query = main_query.order_by(Location.name).offset((page - 1) * per_page).limit(per_page)
 
     # Execute main query
     result = await session.execute(main_query)
@@ -235,19 +226,21 @@ async def list_locations_with_sources(
     # Build results
     items = []
     for row in rows:
-        items.append({
-            "id": str(row.id),
-            "name": row.name,
-            "country": row.country,
-            "admin_level_1": row.admin_level_1,
-            "admin_level_2": row.admin_level_2,
-            "official_code": row.official_code,
-            "population": row.population,
-            "source_count": row.source_count,
-            "document_count": row.document_count,
-            "extracted_count": row.extracted_count,
-            "has_location_record": row.has_location_record,
-        })
+        items.append(
+            {
+                "id": str(row.id),
+                "name": row.name,
+                "country": row.country,
+                "admin_level_1": row.admin_level_1,
+                "admin_level_2": row.admin_level_2,
+                "official_code": row.official_code,
+                "population": row.population,
+                "source_count": row.source_count,
+                "document_count": row.document_count,
+                "extracted_count": row.extracted_count,
+                "has_location_record": row.has_location_record,
+            }
+        )
 
     return {
         "items": items,
@@ -278,15 +271,15 @@ async def search_locations(
 
     # Normalize the search query and escape SQL wildcards
     search_normalized = Location.normalize_name(q, country or "DE")
-    safe_q = q.replace('%', '\\%').replace('_', '\\_')
-    safe_search_normalized = search_normalized.replace('%', '\\%').replace('_', '\\_')
+    safe_q = q.replace("%", "\\%").replace("_", "\\_")
+    safe_search_normalized = search_normalized.replace("%", "\\%").replace("_", "\\_")
 
     # Build query
     query = select(Location).where(
         Location.is_active.is_(True),
         or_(
-            Location.name.ilike(f"%{safe_q}%", escape='\\'),
-            Location.name_normalized.ilike(f"%{safe_search_normalized}%", escape='\\'),
+            Location.name.ilike(f"%{safe_q}%", escape="\\"),
+            Location.name_normalized.ilike(f"%{safe_search_normalized}%", escape="\\"),
         ),
     )
 
@@ -300,8 +293,8 @@ async def search_locations(
 
     # Order by relevance (use escaped patterns)
     query = query.order_by(
-        Location.name_normalized.ilike(safe_search_normalized, escape='\\').desc(),
-        Location.name_normalized.ilike(f"{safe_search_normalized}%", escape='\\').desc(),
+        Location.name_normalized.ilike(safe_search_normalized, escape="\\").desc(),
+        Location.name_normalized.ilike(f"{safe_search_normalized}%", escape="\\").desc(),
         Location.name,
     ).limit(limit)
 
@@ -312,8 +305,8 @@ async def search_locations(
     count_query = select(func.count(Location.id)).where(
         Location.is_active.is_(True),
         or_(
-            Location.name.ilike(f"%{safe_q}%", escape='\\'),
-            Location.name_normalized.ilike(f"%{safe_search_normalized}%", escape='\\'),
+            Location.name.ilike(f"%{safe_q}%", escape="\\"),
+            Location.name_normalized.ilike(f"%{safe_search_normalized}%", escape="\\"),
         ),
     )
     if country:
@@ -362,12 +355,12 @@ async def list_locations(
     # Search filter
     if search:
         # Escape SQL wildcards to prevent injection
-        safe_search = search.replace('%', '\\%').replace('_', '\\_')
+        safe_search = search.replace("%", "\\%").replace("_", "\\_")
         search_normalized = Location.normalize_name(search, country or "DE")
-        safe_search_normalized = search_normalized.replace('%', '\\%').replace('_', '\\_')
+        safe_search_normalized = search_normalized.replace("%", "\\%").replace("_", "\\_")
         search_filter = or_(
-            Location.name.ilike(f"%{safe_search}%", escape='\\'),
-            Location.name_normalized.ilike(f"%{safe_search_normalized}%", escape='\\'),
+            Location.name.ilike(f"%{safe_search}%", escape="\\"),
+            Location.name_normalized.ilike(f"%{safe_search_normalized}%", escape="\\"),
         )
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
@@ -433,9 +426,7 @@ async def get_location(
     _: User = Depends(require_editor),
 ):
     """Get a specific location by ID."""
-    result = await session.execute(
-        select(Location).where(Location.id == location_id)
-    )
+    result = await session.execute(select(Location).where(Location.id == location_id))
     location = result.scalar_one_or_none()
 
     if not location:
@@ -546,9 +537,7 @@ async def update_location(
     current_user: User = Depends(require_editor),
 ):
     """Update a location."""
-    result = await session.execute(
-        select(Location).where(Location.id == location_id)
-    )
+    result = await session.execute(select(Location).where(Location.id == location_id))
     location = result.scalar_one_or_none()
 
     if not location:
@@ -588,9 +577,7 @@ async def delete_location(
     current_user: User = Depends(require_admin),
 ):
     """Delete a location (soft delete)."""
-    result = await session.execute(
-        select(Location).where(Location.id == location_id)
-    )
+    result = await session.execute(select(Location).where(Location.id == location_id))
     location = result.scalar_one_or_none()
 
     if not location:
@@ -690,10 +677,10 @@ async def enrich_admin_levels(
                     if data:
                         address = data[0].get("address", {})
                         admin_level_2 = (
-                            address.get("county") or
-                            address.get("city_district") or
-                            address.get("state_district") or
-                            address.get("district")
+                            address.get("county")
+                            or address.get("city_district")
+                            or address.get("state_district")
+                            or address.get("district")
                         )
                         if admin_level_2:
                             loc.admin_level_2 = admin_level_2

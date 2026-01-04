@@ -25,8 +25,7 @@ def _split_cron_expression(expression: str) -> list[str]:
     parts = expression.strip().split()
     if len(parts) not in (5, 6):
         raise ValueError(
-            "Expected 5 or 6 fields (minute hour day month weekday, optional leading seconds), "
-            f"got {len(parts)}"
+            f"Expected 5 or 6 fields (minute hour day month weekday, optional leading seconds), got {len(parts)}"
         )
     return parts
 

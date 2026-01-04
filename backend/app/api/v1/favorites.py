@@ -63,8 +63,8 @@ async def list_favorites(
     # Search in entity name
     if search:
         # Escape SQL wildcards to prevent injection
-        safe_search = search.replace('%', '\\%').replace('_', '\\_')
-        query = query.where(Entity.name.ilike(f"%{safe_search}%", escape='\\'))
+        safe_search = search.replace("%", "\\%").replace("_", "\\_")
+        query = query.where(Entity.name.ilike(f"%{safe_search}%", escape="\\"))
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())

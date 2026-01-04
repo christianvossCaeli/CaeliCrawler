@@ -538,11 +538,13 @@ class VisualizationSelector:
 
         # Always include entity_name first if present
         if data and "entity_name" in data[0]:
-            columns.append(VisualizationColumn(
-                key="entity_name",
-                label="Name",
-                type=ColumnType.TEXT,
-            ))
+            columns.append(
+                VisualizationColumn(
+                    key="entity_name",
+                    label="Name",
+                    type=ColumnType.TEXT,
+                )
+            )
 
         # Add numeric facet columns
         if data and "facets" in data[0]:
@@ -551,11 +553,13 @@ class VisualizationSelector:
                 if isinstance(facet_value, dict) and "value" in facet_value:
                     value = facet_value["value"]
                     col_type = ColumnType.NUMBER if isinstance(value, (int, float)) else ColumnType.TEXT
-                    columns.append(VisualizationColumn(
-                        key=f"facets.{facet_key}.value",
-                        label=facet_key.replace("-", " ").replace("_", " ").title(),
-                        type=col_type,
-                    ))
+                    columns.append(
+                        VisualizationColumn(
+                            key=f"facets.{facet_key}.value",
+                            label=facet_key.replace("-", " ").replace("_", " ").title(),
+                            type=col_type,
+                        )
+                    )
 
         # Determine sort column
         sort_column = None
@@ -608,12 +612,14 @@ class VisualizationSelector:
             type="number",
         )
 
-        series = [ChartSeries(
-            key=y_key,
-            label=y_label,
-            color=CHART_COLORS["primary"],
-            type="bar",
-        )]
+        series = [
+            ChartSeries(
+                key=y_key,
+                label=y_label,
+                color=CHART_COLORS["primary"],
+                type="bar",
+            )
+        ]
 
         return VisualizationConfig(
             type=VisualizationType.BAR_CHART,
@@ -650,12 +656,14 @@ class VisualizationSelector:
             type="number",
         )
 
-        series = [ChartSeries(
-            key=y_key,
-            label=y_label,
-            color=CHART_COLORS["primary"],
-            type="line",
-        )]
+        series = [
+            ChartSeries(
+                key=y_key,
+                label=y_label,
+                color=CHART_COLORS["primary"],
+                type="line",
+            )
+        ]
 
         return VisualizationConfig(
             type=VisualizationType.LINE_CHART,
@@ -725,11 +733,13 @@ class VisualizationSelector:
                         break
 
             if value is not None:
-                cards.append(StatCard(
-                    label=label,
-                    value=value,
-                    unit=unit,
-                ))
+                cards.append(
+                    StatCard(
+                        label=label,
+                        value=value,
+                        unit=unit,
+                    )
+                )
 
         return VisualizationConfig(
             type=VisualizationType.STAT_CARD,
@@ -834,11 +844,13 @@ class VisualizationSelector:
                 elif col.get("type") == "date":
                     col_type = ColumnType.DATE
 
-                columns.append(VisualizationColumn(
-                    key=col.get("key", ""),
-                    label=col.get("label", col.get("key", "")),
-                    type=col_type,
-                ))
+                columns.append(
+                    VisualizationColumn(
+                        key=col.get("key", ""),
+                        label=col.get("label", col.get("key", "")),
+                        type=col_type,
+                    )
+                )
 
         # Build axes if provided
         x_axis = None
@@ -863,12 +875,14 @@ class VisualizationSelector:
         if "series" in ai_result and ai_result["series"]:
             series = []
             for s in ai_result["series"]:
-                series.append(ChartSeries(
-                    key=s.get("key", ""),
-                    label=s.get("label", ""),
-                    color=s.get("color", CHART_COLORS["primary"]),
-                    type=s.get("type", "line"),
-                ))
+                series.append(
+                    ChartSeries(
+                        key=s.get("key", ""),
+                        label=s.get("label", ""),
+                        color=s.get("color", CHART_COLORS["primary"]),
+                        type=s.get("type", "line"),
+                    )
+                )
 
         # Build stat cards if provided
         cards = None
@@ -889,11 +903,13 @@ class VisualizationSelector:
                                 value = facet.get("value")
                             break
 
-                cards.append(StatCard(
-                    label=c.get("label", ""),
-                    value=value,
-                    unit=c.get("unit"),
-                ))
+                cards.append(
+                    StatCard(
+                        label=c.get("label", ""),
+                        value=value,
+                        unit=c.get("unit"),
+                    )
+                )
 
         return VisualizationConfig(
             type=viz_type,

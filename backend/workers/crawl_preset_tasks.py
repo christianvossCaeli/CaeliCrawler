@@ -190,6 +190,7 @@ def execute_crawl_preset(self, preset_id: str):
                 # Trigger summary updates for summaries linked to this preset
                 if job_ids:
                     from workers.summary_tasks import on_preset_completed
+
                     on_preset_completed.delay(preset_id)
 
                 return {
@@ -233,11 +234,13 @@ def cleanup_archived_presets():
 
             # Delete old archived presets that haven't been used
             result = await session.execute(
-                delete(CrawlPreset).where(
+                delete(CrawlPreset)
+                .where(
                     CrawlPreset.status == PresetStatus.ARCHIVED,
                     CrawlPreset.is_favorite.is_(False),  # Never delete favorites
                     CrawlPreset.last_used_at < cutoff_date,
-                ).returning(CrawlPreset.id)
+                )
+                .returning(CrawlPreset.id)
             )
             deleted_ids = result.scalars().all()
             await session.commit()
