@@ -136,6 +136,70 @@ def force_cleanup_connections(max_idle_minutes: int = 2):
     return run_async(_force_cleanup())
 
 
+@celery_app.task(name="workers.maintenance_tasks.sync_azure_model_pricing")
+def sync_azure_model_pricing():
+    """Sync Azure OpenAI model pricing from Azure Retail Prices API.
+
+    This task runs weekly (every Sunday at 3 AM) to keep Azure pricing data
+    up-to-date. The Azure Retail Prices API is the only provider with a public
+    pricing API. OpenAI and Anthropic prices must be updated manually.
+
+    The task fetches all Azure OpenAI model prices and upserts them into the
+    model_pricing table, updating existing entries and adding new ones.
+    """
+    from app.database import get_celery_session_context
+    from services.model_pricing_service import ModelPricingService
+
+    async def _sync():
+        async with get_celery_session_context() as session:
+            results = await ModelPricingService.sync_azure_prices(session)
+
+            if results["errors"]:
+                logger.warning(
+                    "azure_pricing_sync_partial",
+                    updated=results["updated"],
+                    added=results["added"],
+                    errors=results["errors"],
+                )
+            else:
+                logger.info(
+                    "azure_pricing_sync_complete",
+                    updated=results["updated"],
+                    added=results["added"],
+                )
+
+            return results
+
+    return run_async(_sync())
+
+
+@celery_app.task(name="workers.maintenance_tasks.seed_model_pricing")
+def seed_model_pricing():
+    """Seed default model pricing data if table is empty.
+
+    This task should be called once during initial setup to populate the
+    model_pricing table with default prices for OpenAI, Anthropic, and
+    Azure OpenAI models.
+
+    If pricing data already exists, this task does nothing.
+    """
+    from app.database import get_celery_session_context
+    from services.model_pricing_service import ModelPricingService
+
+    async def _seed():
+        async with get_celery_session_context() as session:
+            count = await ModelPricingService.seed_default_pricing(session)
+
+            if count > 0:
+                logger.info("model_pricing_seeded", count=count)
+            else:
+                logger.info("model_pricing_already_exists")
+
+            return {"seeded": count}
+
+    return run_async(_seed())
+
+
 @celery_app.task(name="workers.maintenance_tasks.aggregate_llm_usage")
 def aggregate_llm_usage():
     """Aggregate old LLM usage records into monthly summaries.

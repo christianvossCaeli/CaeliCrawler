@@ -449,6 +449,7 @@ async def interpret_plan_query_stream(
     question: str,
     session: AsyncSession,
     conversation_history: list[dict[str, str]] | None = None,
+    page_context: dict | None = None,
 ):
     """Interpret a plan mode query with streaming response.
 
@@ -458,6 +459,7 @@ async def interpret_plan_query_stream(
         question: The user's current message
         session: Database session for loading types
         conversation_history: List of previous messages
+        page_context: Optional dict with current page context for context-aware responses
 
     Yields:
         SSE-formatted strings for streaming response
@@ -476,12 +478,13 @@ async def interpret_plan_query_stream(
         # Load all types from database
         entity_types, facet_types, relation_types, categories = await load_all_types_for_write(session)
 
-        # Build the system prompt
+        # Build the system prompt with optional page context
         system_prompt = build_plan_mode_prompt(
             entity_types=entity_types,
             facet_types=facet_types,
             relation_types=relation_types,
             categories=categories,
+            page_context=page_context,
         )
 
         logger.debug(

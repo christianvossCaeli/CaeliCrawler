@@ -47,7 +47,7 @@ from services.assistant.action_executor import (
 )
 from services.assistant.common import get_openai_client
 from services.assistant.context_actions import handle_context_action
-from services.assistant.prompts import INTENT_CLASSIFICATION_PROMPT
+from services.assistant.prompts import INTENT_CLASSIFICATION_PROMPT, get_page_documentation
 from services.assistant.query_handler import handle_context_query, handle_query
 from services.assistant.response_formatter import (
     generate_help_response,
@@ -242,11 +242,28 @@ class AssistantService:
             logger.error("Azure OpenAI client not configured")
             raise ValueError("KI-Service nicht verfügbar. Bitte Azure OpenAI konfigurieren.")
 
+        # Build context-aware parameters from page_data if available
+        raw_page_data = getattr(context, 'page_data', None)
+        page_data: dict = raw_page_data if isinstance(raw_page_data, dict) else {}
+
+        # Extract page context with safe defaults
+        selected_count = page_data.get('selected_count', 0)
+        selected_ids: list[str] = page_data.get('selected_ids', [])
+        active_filters = page_data.get('filters', {})
+        available_features: list[str] = page_data.get('available_features', [])
+        available_actions: list[str] = page_data.get('available_actions', [])
+
         prompt = INTENT_CLASSIFICATION_PROMPT.format(
             current_route=context.current_route,
             entity_type=context.current_entity_type or "keine",
             entity_name=context.current_entity_name or "keine",
             view_mode=context.view_mode.value,
+            selected_count=selected_count,
+            selected_ids=", ".join(selected_ids[:5]) + ("..." if len(selected_ids) > 5 else ""),
+            active_filters=str(active_filters) if active_filters else "keine",
+            available_features=", ".join(available_features) if available_features else "keine",
+            available_actions=", ".join(available_actions) if available_actions else "keine",
+            page_documentation=get_page_documentation(context.current_route),
             message=message
         )
 

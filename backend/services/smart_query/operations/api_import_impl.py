@@ -15,6 +15,102 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = structlog.get_logger()
 
 
+def infer_field_mapping_from_api_response(items: list[dict[str, Any]]) -> dict[str, str]:
+    """Infer field mapping from API response structure.
+
+    This is a fallback when AI analysis is not available.
+    It uses heuristics to detect common field patterns.
+
+    Args:
+        items: Sample of API response items
+
+    Returns:
+        Inferred field mapping (entity_field -> api_field)
+    """
+    if not items:
+        return {}
+
+    sample = items[0]
+    keys = set(sample.keys())
+    mapping = {}
+
+    # Name field detection (priority order)
+    name_candidates = [
+        # Wikidata patterns (ending in Label)
+        k for k in keys if k.endswith("Label") and not k.startswith("bundesland")
+        and not k.startswith("region") and not k.startswith("parent")
+    ]
+    if name_candidates:
+        # Prefer shorter names (e.g., "gemeindeLabel" over "administrativeDistrictLabel")
+        name_candidates.sort(key=len)
+        mapping["name"] = name_candidates[0]
+    elif "name" in keys:
+        mapping["name"] = "name"
+    elif "label" in keys:
+        mapping["name"] = "label"
+    elif "title" in keys:
+        mapping["name"] = "title"
+
+    # External ID detection
+    id_candidates = ["ags", "gss", "lau", "nuts", "external_id", "id", "code", "identifier"]
+    for candidate in id_candidates:
+        if candidate in keys:
+            mapping["external_id"] = candidate
+            break
+
+    # Location fields
+    if "lat" in keys:
+        mapping["latitude"] = "lat"
+    elif "latitude" in keys:
+        mapping["latitude"] = "latitude"
+
+    if "lon" in keys:
+        mapping["longitude"] = "lon"
+    elif "lng" in keys:
+        mapping["longitude"] = "lng"
+    elif "longitude" in keys:
+        mapping["longitude"] = "longitude"
+
+    # Population
+    pop_candidates = ["einwohner", "population", "pop", "inhabitants"]
+    for candidate in pop_candidates:
+        if candidate in keys:
+            mapping["population"] = candidate
+            break
+
+    # Area
+    area_candidates = ["flaeche", "area", "fläche", "area_km2"]
+    for candidate in area_candidates:
+        if candidate in keys:
+            mapping["area"] = candidate
+            break
+
+    # Website
+    web_candidates = ["website", "url", "homepage", "official_website"]
+    for candidate in web_candidates:
+        if candidate in keys:
+            mapping["website"] = candidate
+            break
+
+    # Parent/Region field (for hierarchy)
+    parent_candidates = [
+        k for k in keys if k.endswith("Label") and (
+            k.startswith("bundesland") or k.startswith("region") or
+            k.startswith("parent") or k.startswith("state")
+        )
+    ]
+    if parent_candidates:
+        mapping["parent_name"] = parent_candidates[0]
+
+    logger.info(
+        "Inferred field mapping from API response",
+        mapping=mapping,
+        sample_keys=list(keys)[:10],
+    )
+
+    return mapping
+
+
 async def execute_fetch_and_create(
     session: AsyncSession,
     fetch_data: dict[str, Any],
@@ -102,6 +198,35 @@ async def execute_fetch_and_create(
             if "windpark" in template_name.lower():
                 match_to_parent = True
 
+    # Check for cached field mapping in APIConfiguration
+    # This allows reuse of AI-generated mappings from previous imports
+    if not field_mapping:
+        try:
+            from app.models import APIConfiguration
+
+            api_type = api_config.get("type", "sparql")
+            cached_config = await session.execute(
+                select(APIConfiguration).where(
+                    APIConfiguration.entity_type_slug == entity_type_slug,
+                    APIConfiguration.api_type == api_type.upper(),
+                )
+            )
+            api_configuration = cached_config.scalar_one_or_none()
+
+            if api_configuration and api_configuration.field_mappings:
+                field_mapping = api_configuration.field_mappings
+                logger.info(
+                    "Using cached field mapping from APIConfiguration",
+                    api_config_id=str(api_configuration.id),
+                    field_mapping_keys=list(field_mapping.keys()),
+                )
+        except Exception as cache_load_error:
+            # Cache loading failure should not break the import
+            logger.warning(
+                "Failed to load cached field mapping",
+                error=str(cache_load_error),
+            )
+
     # Build parent_match_config if matching is enabled
     # This allows fuzzy matching of entities to parent entities by name
     parent_match_config = None
@@ -188,58 +313,13 @@ async def execute_fetch_and_create(
         fetcher = ExternalAPIFetcher()
 
         try:
-            # Apply default field mappings for predefined queries
+            # Get query info for hierarchy setup (field_mapping will be generated by AI)
             query = api_config.get("query", "")
             country = api_config.get("country", "DE")
 
-            # Set default field mappings based on query type
-            if not field_mapping:
-                if "gemeinden" in query.lower() or "municipalities" in query.lower():
-                    if country == "DE":
-                        field_mapping = {
-                            "name": "gemeindeLabel",
-                            "external_id": "ags",
-                            "admin_level_1": "bundeslandLabel",
-                            "population": "einwohner",
-                            "area": "flaeche",
-                            "latitude": "lat",
-                            "longitude": "lon",
-                            "website": "website",  # Official website URL
-                            "country": "DE",
-                        }
-                    elif country == "AT":
-                        field_mapping = {
-                            "name": "gemeindeLabel",
-                            "external_id": "gkz",
-                            "admin_level_1": "bundeslandLabel",
-                            "population": "einwohner",
-                            "area": "flaeche",
-                            "latitude": "lat",
-                            "longitude": "lon",
-                            "website": "website",  # Official website URL
-                            "country": "AT",
-                        }
-                elif "bundeslaender" in query.lower() or "states" in query.lower():
-                    field_mapping = {
-                        "name": "bundeslandLabel",
-                        "population": "einwohner",
-                        "area": "flaeche",
-                        "latitude": "lat",
-                        "longitude": "lon",
-                        "website": "website",  # Official website URL
-                        "country": country,
-                    }
-                elif "councils" in query.lower() or "parishes" in query.lower() or "uk-local-authorit" in query.lower() or "local_authorit" in query.lower():
-                    field_mapping = {
-                        "name": "councilLabel",
-                        "external_id": "gss_code",
-                        "admin_level_1": "regionLabel",
-                        "population": "einwohner",
-                        "latitude": "lat",
-                        "longitude": "lon",
-                        "website": "website",  # Official website URL
-                        "country": "GB",
-                    }
+            # NOTE: field_mapping is now generated dynamically by ai_analyze_api_response()
+            # The hardcoded mappings have been removed to enable dynamic field detection.
+            # The AI will analyze the API response and generate appropriate mappings.
 
             # Set default hierarchy for municipalities
             # For hierarchical entity types (like territorial-entity), we use parent_field
@@ -350,6 +430,44 @@ async def execute_fetch_and_create(
                         detected_type=ai_result.get("analysis", {}).get("detected_entity_type"),
                     )
 
+                    # Cache the AI-generated field mapping in APIConfiguration for future syncs
+                    try:
+                        from app.models import APIConfiguration
+
+                        # Find or create APIConfiguration for this query pattern
+                        api_type = api_config.get("type", "sparql")
+
+                        # Try to find an existing APIConfiguration by query pattern
+                        existing_config = await session.execute(
+                            select(APIConfiguration).where(
+                                APIConfiguration.entity_type_slug == entity_type_slug,
+                                APIConfiguration.api_type == api_type.upper(),
+                            )
+                        )
+                        api_configuration = existing_config.scalar_one_or_none()
+
+                        if api_configuration:
+                            # Update existing config with new field mappings
+                            api_configuration.field_mappings = field_mapping
+                            logger.info(
+                                "Updated cached field mapping in APIConfiguration",
+                                api_config_id=str(api_configuration.id),
+                            )
+                        else:
+                            # Note: Creating new APIConfiguration requires a DataSource
+                            # For now, just log that we couldn't cache (no DataSource context)
+                            logger.info(
+                                "Could not cache field mapping - no APIConfiguration found",
+                                entity_type_slug=entity_type_slug,
+                            )
+
+                    except Exception as cache_error:
+                        # Caching failure should not break the import
+                        logger.warning(
+                            "Failed to cache field mapping",
+                            error=str(cache_error),
+                        )
+
                 # Apply AI-suggested parent config if not set
                 ai_parent_config = ai_result.get("parent_config", {})
                 if not parent_config and ai_parent_config.get("use_hierarchy"):
@@ -365,12 +483,23 @@ async def execute_fetch_and_create(
                     entity_type_config = ai_et_suggestion
 
             except ValueError as e:
-                # AI not configured - use fallback
+                # AI not configured - use heuristic fallback
                 logger.warning("AI analysis skipped - not configured", error=str(e))
-                result["warnings"].append("KI-Analyse übersprungen - Azure OpenAI nicht konfiguriert")
+                result["warnings"].append("KI-Analyse übersprungen - verwende heuristische Felderkennung")
+
+                # Apply fallback field mapping detection
+                if not field_mapping and fetch_result.items:
+                    field_mapping = infer_field_mapping_from_api_response(fetch_result.items)
+                    result["warnings"].append(f"Erkannte Felder: {list(field_mapping.keys())}")
+
             except Exception as e:
                 logger.warning("AI analysis failed, using fallback", error=str(e))
                 result["warnings"].append(f"KI-Analyse fehlgeschlagen: {str(e)}")
+
+                # Apply fallback field mapping detection
+                if not field_mapping and fetch_result.items:
+                    field_mapping = infer_field_mapping_from_api_response(fetch_result.items)
+                    result["warnings"].append(f"Erkannte Felder: {list(field_mapping.keys())}")
 
         # Step 5: Bulk create entities
         create_result = await bulk_create_entities_from_api_data(

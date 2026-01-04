@@ -18,6 +18,7 @@ from app.models.notification import (
 )
 from app.models.user import User
 from app.models.user_email import UserEmailAddress
+from app.services.notification_broadcast import notification_broadcaster
 from services.notifications.channel_registry import (
     NotificationChannelRegistry,
     get_channel_registry,
@@ -217,6 +218,15 @@ class NotificationService:
             notification.status = NotificationStatus.READ
 
         await self.session.commit()
+
+        # Broadcast read event and updated count
+        try:
+            await notification_broadcaster.broadcast_read(user_id, notification.id)
+            unread_count = await self.get_unread_count(user_id)
+            await notification_broadcaster.broadcast_count_update(user_id, unread_count)
+        except Exception as e:
+            logger.warning(f"Failed to broadcast read event: {e}")
+
         return True
 
     async def mark_all_as_read(self, user_id: UUID) -> int:
@@ -242,6 +252,14 @@ class NotificationService:
             )
         )
         await self.session.commit()
+
+        # Broadcast all-read event
+        if result.rowcount > 0:
+            try:
+                await notification_broadcaster.broadcast_all_read(user_id)
+                await notification_broadcaster.broadcast_count_update(user_id, 0)
+            except Exception as e:
+                logger.warning(f"Failed to broadcast all-read event: {e}")
 
         return result.rowcount
 

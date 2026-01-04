@@ -16,6 +16,7 @@ from app.models.notification import (
 )
 from app.models.notification_rule import NotificationRule
 from app.models.user import User
+from app.services.notification_broadcast import notification_broadcaster
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ class NotificationEventDispatcher:
             return []
 
         notification_ids: list[str] = []
+        created_notifications: list[Notification] = []
 
         for rule in rules:
             # Check if payload matches rule conditions
@@ -64,6 +66,7 @@ class NotificationEventDispatcher:
                 session, rule, event_type, payload
             )
             notification_ids.append(str(notification.id))
+            created_notifications.append(notification)
 
             # Update rule statistics
             rule.trigger_count += 1
@@ -71,12 +74,36 @@ class NotificationEventDispatcher:
 
         await session.commit()
 
+        # Broadcast new notifications via SSE
+        for notification in created_notifications:
+            try:
+                await notification_broadcaster.broadcast_new_notification(
+                    user_id=notification.user_id,
+                    notification_data=self._serialize_notification(notification),
+                )
+            except Exception as e:
+                logger.warning(f"Failed to broadcast notification: {e}")
+
         logger.info(
             f"Dispatched event {event_type.value}: "
             f"{len(notification_ids)} notifications created"
         )
 
         return notification_ids
+
+    def _serialize_notification(self, notification: Notification) -> dict[str, Any]:
+        """Serialize a notification for SSE broadcast."""
+        return {
+            "id": str(notification.id),
+            "event_type": notification.event_type.value,
+            "channel": notification.channel.value,
+            "title": notification.title,
+            "body": notification.body,
+            "status": notification.status.value,
+            "related_entity_type": notification.related_entity_type,
+            "related_entity_id": str(notification.related_entity_id) if notification.related_entity_id else None,
+            "created_at": notification.created_at.isoformat() if notification.created_at else None,
+        }
 
     async def _find_matching_rules(
         self,

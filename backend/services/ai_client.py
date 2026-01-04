@@ -3,9 +3,17 @@
 This module centralizes Azure OpenAI client creation and common AI operations
 to avoid code duplication across the codebase.
 
-Provides both sync and async client factories:
-- AzureOpenAIClientFactory: Async client for async contexts (FastAPI endpoints, async tasks)
-- SyncAzureOpenAIClientFactory: Sync client for sync contexts (Celery workers, streaming)
+IMPORTANT: Global system-level Azure OpenAI credentials have been removed.
+All AI operations now require user-specific credentials configured via the
+API Credentials UI (/admin/api-credentials).
+
+Use the user-aware factory functions:
+- create_sync_client_for_user(azure_config) - For sync contexts
+- create_async_client_for_user(azure_config) - For async contexts
+
+Get user credentials via:
+    from services.credentials_resolver import get_azure_openai_config
+    config = await get_azure_openai_config(session, user_id)
 """
 
 import json
@@ -15,58 +23,54 @@ from typing import Any
 import structlog
 from openai import AsyncAzureOpenAI, AzureOpenAI
 
-from app.config import settings
 from app.models.llm_usage import LLMProvider, LLMTaskType
 from services.llm_usage_tracker import record_llm_usage
 
 logger = structlog.get_logger()
 
+# Error message for deprecated global client usage
+_DEPRECATED_MSG = (
+    "Globale Azure OpenAI Credentials wurden entfernt. "
+    "Bitte konfigurieren Sie Ihre API-Zugangsdaten unter /admin/api-credentials. "
+    "Verwenden Sie create_sync_client_for_user() oder create_async_client_for_user() "
+    "mit den User-Credentials aus dem credentials_resolver."
+)
+
 
 class SyncAzureOpenAIClientFactory:
-    """Factory for creating synchronous Azure OpenAI clients.
+    """DEPRECATED: Factory for creating synchronous Azure OpenAI clients.
 
-    Use this for:
-    - Celery workers (sync context)
-    - Streaming responses (SSE)
-    - Any non-async code paths
+    This class is deprecated. Use create_sync_client_for_user() instead
+    with user-specific credentials from the credentials_resolver.
+
+    Example:
+        from services.credentials_resolver import get_azure_openai_config
+        from services.ai_client import create_sync_client_for_user
+
+        config = await get_azure_openai_config(session, user_id)
+        if config:
+            client = create_sync_client_for_user(config)
     """
 
     _instance: AzureOpenAI | None = None
 
     @classmethod
     def create_client(cls) -> AzureOpenAI:
-        """Create a new sync Azure OpenAI client instance.
-
-        Returns:
-            Configured AzureOpenAI client
+        """DEPRECATED: Global credentials have been removed.
 
         Raises:
-            ValueError: If Azure OpenAI is not configured
+            ValueError: Always - use create_sync_client_for_user() instead
         """
-        if not settings.azure_openai_api_key:
-            raise ValueError(
-                "KI-Service nicht erreichbar: Azure OpenAI ist nicht konfiguriert"
-            )
-
-        return AzureOpenAI(
-            azure_endpoint=settings.azure_openai_endpoint,
-            api_key=settings.azure_openai_api_key,
-            api_version=settings.azure_openai_api_version,
-        )
+        raise ValueError(_DEPRECATED_MSG)
 
     @classmethod
     def get_client(cls) -> AzureOpenAI:
-        """Get a shared sync Azure OpenAI client instance (singleton).
-
-        Returns:
-            Shared AzureOpenAI client
+        """DEPRECATED: Global credentials have been removed.
 
         Raises:
-            ValueError: If Azure OpenAI is not configured
+            ValueError: Always - use create_sync_client_for_user() instead
         """
-        if cls._instance is None:
-            cls._instance = cls.create_client()
-        return cls._instance
+        raise ValueError(_DEPRECATED_MSG)
 
     @classmethod
     def reset_client(cls) -> None:
@@ -74,64 +78,50 @@ class SyncAzureOpenAIClientFactory:
         cls._instance = None
 
 
-# Convenience function for backward compatibility
+# Convenience function - DEPRECATED
 def get_sync_openai_client() -> AzureOpenAI:
-    """Get a shared sync Azure OpenAI client.
-
-    This is a convenience function that wraps SyncAzureOpenAIClientFactory.get_client().
-
-    Returns:
-        Shared AzureOpenAI client
+    """DEPRECATED: Use create_sync_client_for_user() instead.
 
     Raises:
-        ValueError: If Azure OpenAI is not configured
+        ValueError: Always - use create_sync_client_for_user() instead
     """
-    return SyncAzureOpenAIClientFactory.get_client()
+    raise ValueError(_DEPRECATED_MSG)
 
 
 class AzureOpenAIClientFactory:
-    """Factory for creating Azure OpenAI clients with consistent configuration."""
+    """DEPRECATED: Factory for creating Azure OpenAI clients.
+
+    This class is deprecated. Use create_async_client_for_user() instead
+    with user-specific credentials from the credentials_resolver.
+
+    Example:
+        from services.credentials_resolver import get_azure_openai_config
+        from services.ai_client import create_async_client_for_user
+
+        config = await get_azure_openai_config(session, user_id)
+        if config:
+            client = create_async_client_for_user(config)
+    """
 
     _instance: AsyncAzureOpenAI | None = None
 
     @classmethod
     def create_client(cls) -> AsyncAzureOpenAI:
-        """
-        Create a new Azure OpenAI client instance.
-
-        Returns:
-            Configured AsyncAzureOpenAI client
+        """DEPRECATED: Global credentials have been removed.
 
         Raises:
-            ValueError: If Azure OpenAI is not configured
+            ValueError: Always - use create_async_client_for_user() instead
         """
-        if not settings.azure_openai_api_key:
-            raise ValueError(
-                "KI-Service nicht erreichbar: Azure OpenAI ist nicht konfiguriert"
-            )
-
-        return AsyncAzureOpenAI(
-            azure_endpoint=settings.azure_openai_endpoint,
-            api_key=settings.azure_openai_api_key,
-            api_version=settings.azure_openai_api_version,
-        )
+        raise ValueError(_DEPRECATED_MSG)
 
     @classmethod
     def get_client(cls) -> AsyncAzureOpenAI:
-        """
-        Get a shared Azure OpenAI client instance (singleton pattern).
-
-        This is useful for reusing connections within a single request.
-
-        Returns:
-            Shared AsyncAzureOpenAI client
+        """DEPRECATED: Global credentials have been removed.
 
         Raises:
-            ValueError: If Azure OpenAI is not configured
+            ValueError: Always - use create_async_client_for_user() instead
         """
-        if cls._instance is None:
-            cls._instance = cls.create_client()
-        return cls._instance
+        raise ValueError(_DEPRECATED_MSG)
 
     @classmethod
     def reset_client(cls) -> None:
@@ -142,6 +132,7 @@ class AzureOpenAIClientFactory:
 async def call_ai_with_json_response(
     client: AsyncAzureOpenAI,
     messages: list[dict[str, str]],
+    deployment: str,
     temperature: float = 0.1,
     max_tokens: int = 4096,
     operation_name: str = "AI call",
@@ -154,6 +145,7 @@ async def call_ai_with_json_response(
     Args:
         client: AsyncAzureOpenAI client instance
         messages: List of message dicts with 'role' and 'content'
+        deployment: The deployment name to use (from user's azure_config)
         temperature: Model temperature (0.0-2.0)
         max_tokens: Maximum tokens in response
         operation_name: Name for error messages
@@ -164,7 +156,6 @@ async def call_ai_with_json_response(
     Raises:
         RuntimeError: If AI call fails or response cannot be parsed
     """
-    deployment = settings.azure_openai_deployment_name
     start_time = time.time()
     try:
         response = await client.chat.completions.create(
@@ -236,3 +227,114 @@ def get_tokens_used(response) -> int | None:
     if response and hasattr(response, "usage") and response.usage:
         return response.usage.total_tokens
     return None
+
+
+# =============================================================================
+# User-Aware Client Factories
+# =============================================================================
+
+
+def create_sync_client_for_user(azure_config: dict[str, Any]) -> AzureOpenAI:
+    """Create a sync Azure OpenAI client using user-specific credentials.
+
+    This is the preferred method for creating clients in contexts where
+    user credentials should be used instead of system-wide settings.
+
+    Args:
+        azure_config: Dict with keys:
+            - endpoint: Azure OpenAI endpoint URL
+            - api_key: API key
+            - api_version: API version (e.g., "2025-04-01-preview")
+            - deployment_name: Default deployment name
+            - embeddings_deployment: Embeddings deployment name (optional)
+
+    Returns:
+        Configured AzureOpenAI client
+
+    Raises:
+        ValueError: If required config keys are missing
+
+    Example:
+        from services.credentials_resolver import get_azure_openai_config
+
+        config = await get_azure_openai_config(session, user_id)
+        if config:
+            client = create_sync_client_for_user(config)
+    """
+    required_keys = ["endpoint", "api_key", "api_version"]
+    missing_keys = [k for k in required_keys if not azure_config.get(k)]
+    if missing_keys:
+        raise ValueError(
+            f"Azure OpenAI Konfiguration unvollständig. Fehlende Felder: {', '.join(missing_keys)}"
+        )
+
+    return AzureOpenAI(
+        azure_endpoint=azure_config["endpoint"],
+        api_key=azure_config["api_key"],
+        api_version=azure_config["api_version"],
+    )
+
+
+def create_async_client_for_user(azure_config: dict[str, Any]) -> AsyncAzureOpenAI:
+    """Create an async Azure OpenAI client using user-specific credentials.
+
+    This is the preferred method for creating clients in async contexts where
+    user credentials should be used instead of system-wide settings.
+
+    Args:
+        azure_config: Dict with keys:
+            - endpoint: Azure OpenAI endpoint URL
+            - api_key: API key
+            - api_version: API version (e.g., "2025-04-01-preview")
+            - deployment_name: Default deployment name
+            - embeddings_deployment: Embeddings deployment name (optional)
+
+    Returns:
+        Configured AsyncAzureOpenAI client
+
+    Raises:
+        ValueError: If required config keys are missing
+
+    Example:
+        from services.credentials_resolver import get_azure_openai_config
+
+        config = await get_azure_openai_config(session, user_id)
+        if config:
+            client = create_async_client_for_user(config)
+    """
+    required_keys = ["endpoint", "api_key", "api_version"]
+    missing_keys = [k for k in required_keys if not azure_config.get(k)]
+    if missing_keys:
+        raise ValueError(
+            f"Azure OpenAI Konfiguration unvollständig. Fehlende Felder: {', '.join(missing_keys)}"
+        )
+
+    return AsyncAzureOpenAI(
+        azure_endpoint=azure_config["endpoint"],
+        api_key=azure_config["api_key"],
+        api_version=azure_config["api_version"],
+    )
+
+
+def get_deployment_name(azure_config: dict[str, Any]) -> str:
+    """Get the deployment name from user config.
+
+    Args:
+        azure_config: User's Azure OpenAI configuration
+
+    Returns:
+        Deployment name for chat/completion operations
+    """
+    return azure_config.get("deployment_name", "gpt-4o")
+
+
+def get_embeddings_deployment(azure_config: dict[str, Any]) -> str:
+    """Get the embeddings deployment name from user config.
+
+    Args:
+        azure_config: User's Azure OpenAI configuration
+
+    Returns:
+        Deployment name for embeddings operations
+    """
+    return azure_config.get("embeddings_deployment", "text-embedding-3-large")

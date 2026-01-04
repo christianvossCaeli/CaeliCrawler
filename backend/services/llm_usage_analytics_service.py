@@ -23,6 +23,7 @@ from app.schemas.llm_usage import (
     LLMUsageByCategory,
     LLMUsageByModel,
     LLMUsageByTask,
+    LLMUsageByUser,
     LLMUsageSummary,
     LLMUsageTopConsumer,
     LLMUsageTrend,
@@ -67,6 +68,7 @@ class LLMUsageAnalyticsService:
         by_model = await self._get_by_model(base_filter)
         by_task = await self._get_by_task(base_filter)
         by_category = await self._get_by_category(base_filter)
+        by_user = await self._get_by_user(base_filter)
         daily_trend = await self._get_daily_trend(start_date, end_date, base_filter)
         top_consumers = await self._get_top_consumers(base_filter)
 
@@ -77,6 +79,7 @@ class LLMUsageAnalyticsService:
             by_model=by_model,
             by_task=by_task,
             by_category=by_category,
+            by_user=by_user,
             daily_trend=daily_trend,
             top_consumers=top_consumers,
         )
@@ -211,6 +214,69 @@ class LLMUsageAnalyticsService:
             for row in result.all()
         ]
 
+    async def _get_by_user(self, base_filter) -> list[LLMUsageByUser]:
+        """Get usage breakdown by user."""
+        from app.models.user import User
+        from app.models.user_api_credentials import ApiCredentialType, UserApiCredentials
+
+        # Get usage grouped by user
+        query = (
+            select(
+                LLMUsageRecord.user_id,
+                User.email.label("user_email"),
+                User.full_name.label("user_name"),
+                func.count(LLMUsageRecord.id).label("request_count"),
+                func.sum(LLMUsageRecord.total_tokens).label("total_tokens"),
+                func.sum(LLMUsageRecord.prompt_tokens).label("prompt_tokens"),
+                func.sum(LLMUsageRecord.completion_tokens).label("completion_tokens"),
+                func.sum(LLMUsageRecord.estimated_cost_cents).label("cost_cents"),
+                func.array_agg(func.distinct(LLMUsageRecord.model)).label("models_used"),
+            )
+            .outerjoin(User, LLMUsageRecord.user_id == User.id)
+            .where(base_filter)
+            .group_by(LLMUsageRecord.user_id, User.email, User.full_name)
+            .order_by(func.sum(LLMUsageRecord.estimated_cost_cents).desc())
+            .limit(20)
+        )
+
+        result = await self.session.execute(query)
+        rows = result.all()
+
+        # Get users with configured credentials
+        user_ids = [row.user_id for row in rows if row.user_id]
+        users_with_creds: set[UUID] = set()
+
+        if user_ids:
+            cred_query = (
+                select(UserApiCredentials.user_id)
+                .where(
+                    and_(
+                        UserApiCredentials.user_id.in_(user_ids),
+                        UserApiCredentials.is_active,
+                        UserApiCredentials.credential_type == ApiCredentialType.AZURE_OPENAI,
+                    )
+                )
+                .distinct()
+            )
+            cred_result = await self.session.execute(cred_query)
+            users_with_creds = {row[0] for row in cred_result.all()}
+
+        return [
+            LLMUsageByUser(
+                user_id=row.user_id,
+                user_email=row.user_email,
+                user_name=row.user_name,
+                request_count=row.request_count,
+                total_tokens=row.total_tokens or 0,
+                prompt_tokens=row.prompt_tokens or 0,
+                completion_tokens=row.completion_tokens or 0,
+                cost_cents=row.cost_cents or 0,
+                models_used=[m for m in (row.models_used or []) if m],
+                has_credentials=row.user_id in users_with_creds if row.user_id else False,
+            )
+            for row in rows
+        ]
+
     async def _get_daily_trend(
         self, start_date: datetime, end_date: datetime, base_filter
     ) -> list[LLMUsageTrend]:
@@ -293,12 +359,12 @@ class LLMUsageAnalyticsService:
         projected = int(daily_avg * days_in_month)
 
         # Check if any budget has warnings
-        from app.models.llm_budget import LLMBudgetConfig
+        from app.models.llm_budget import BudgetType, LLMBudgetConfig
 
         budget_query = select(LLMBudgetConfig).where(
             and_(
                 LLMBudgetConfig.is_active,
-                LLMBudgetConfig.budget_type == "global",
+                LLMBudgetConfig.budget_type == BudgetType.GLOBAL,
             )
         )
         budget_result = await self.session.execute(budget_query)

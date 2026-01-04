@@ -4,8 +4,6 @@
 import httpx
 import structlog
 
-from app.config import settings
-
 from ..models import SearchResult
 from .base import BaseSearchProvider
 
@@ -18,13 +16,26 @@ class SerperSearchProvider(BaseSearchProvider):
 
     Pricing: $50/Monat for 50,000 searches
     Documentation: https://serper.dev/docs
+
+    Example usage with user credentials:
+        from services.credentials_resolver import get_serper_key
+
+        api_key = await get_serper_key(session, user_id)
+        provider = SerperSearchProvider(api_key=api_key)
+        results = await provider.search(["query"])
     """
 
     API_URL = "https://google.serper.dev/search"
     TIMEOUT = 30.0
 
-    def __init__(self):
-        self.api_key = getattr(settings, "serper_api_key", None)
+    def __init__(self, api_key: str | None = None):
+        """Initialize Serper provider.
+
+        Args:
+            api_key: Serper API key. Required for search to work.
+                     If None, search will return empty results.
+        """
+        self.api_key = api_key
 
     async def search(
         self,
@@ -103,8 +114,8 @@ class SerperSearchProvider(BaseSearchProvider):
     def _get_mock_results(self, queries: list[str]) -> list[SearchResult]:
         """Return empty results when no API key is configured."""
         logger.error(
-            "SERPER_API_KEY not configured - web search disabled. "
-            "Set SERPER_API_KEY environment variable for AI Source Discovery.",
+            "Serper API key not provided - web search disabled. "
+            "User must configure Serper credentials under Settings > API Credentials.",
             queries=queries,
         )
         return []

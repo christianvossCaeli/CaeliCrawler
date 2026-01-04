@@ -608,6 +608,7 @@ def build_plan_mode_prompt(
     facet_types: list[dict[str, Any]],
     relation_types: list[dict[str, Any]],
     categories: list[dict[str, Any]],
+    page_context: dict[str, Any] | None = None,
 ) -> str:
     """Build the Plan Mode system prompt.
 
@@ -615,12 +616,14 @@ def build_plan_mode_prompt(
     the correct prompts for Smart Query. It knows:
     1. The code/implementation (static documentation)
     2. The database contents (dynamic from DB)
+    3. The current page context (if provided)
 
     Args:
         entity_types: List of entity types from database
         facet_types: List of facet types with applicable_entity_type_slugs
         relation_types: List of relation types
         categories: List of categories
+        page_context: Optional dict with current_route, view_mode, available_features, etc.
 
     Returns:
         System prompt for Claude Opus
@@ -800,4 +803,149 @@ Um fortzufahren, klicken Sie auf "Als Zusammenfassung speichern" oder formuliere
 **Beispiele für Summary-Vorschläge:**
 • "Zeige mir täglich die Bundesliga-Tabelle" → Vorschlag: Zusammenfassung
 • "Ich möchte NRW Gemeinden mit Problemen beobachten" → Vorschlag: Zusammenfassung
-• "Erstelle ein Dashboard mit Windpark-Statistiken" → Vorschlag: Zusammenfassung"""
+• "Erstelle ein Dashboard mit Windpark-Statistiken" → Vorschlag: Zusammenfassung""" + _build_page_context_section(page_context)
+
+
+def _build_page_context_section(page_context: dict[str, Any] | None) -> str:
+    """Build the page context section for the Plan Mode prompt.
+
+    This section provides context-aware information based on the current page
+    the user is viewing.
+    """
+    if not page_context:
+        return ""
+
+    current_route = page_context.get("current_route", "")
+    view_mode = page_context.get("view_mode", "unknown")
+    available_features = page_context.get("available_features", [])
+
+    # Page-specific documentation
+    page_docs = _get_page_documentation(current_route)
+
+    # Build the context section
+    features_list = "\n".join(f"• {f}" for f in available_features) if available_features else "• (keine Features)"
+
+    return f"""
+
+## TEIL 5: Aktueller Seitenkontext
+
+Der Benutzer befindet sich aktuell auf: **{current_route}**
+Ansichtsmodus: **{view_mode}**
+
+### Verfügbare Features auf dieser Seite:
+{features_list}
+
+### Was der Benutzer auf dieser Seite tun kann:
+{page_docs}
+
+**Nutze diesen Kontext**, um dem Benutzer kontextuell relevante Hilfe zu geben.
+Wenn der Benutzer nach Features dieser Seite fragt, erkläre sie basierend auf den verfügbaren Features."""
+
+
+def _get_page_documentation(route: str) -> str:
+    """Get documentation for a specific page/route."""
+
+    # Entity detail page
+    if "/entities/" in route and len(route.split("/")) >= 4:
+        return """**Entity-Detail-Seite**
+Hier kann der Benutzer:
+• Facet-Werte anzeigen, hinzufügen und bearbeiten
+• Relationen zu anderen Entities verwalten
+• Dokumente und Anhänge ansehen
+• PySis-Daten analysieren und Facets anreichern
+• Einen Crawl für diese Entity starten
+
+Beispiel-Aktionen:
+• "Füge ein neues Problemfeld hinzu"
+• "Zeige mir alle Relationen"
+• "Analysiere die PySis-Daten"
+• "Starte einen Crawl für diese Entity"""
+
+    # Entities list page
+    if route.startswith("/entities"):
+        return """**Entities-Liste**
+Hier kann der Benutzer:
+• Entities nach Typ filtern
+• Nach verschiedenen Kriterien suchen und sortieren
+• Mehrere Entities auswählen für Bulk-Operationen
+• Neue Entities erstellen
+• Entities exportieren
+
+Beispiel-Aktionen:
+• "Zeige nur Gemeinden in Bayern"
+• "Erstelle eine neue Person"
+• "Exportiere die gefilterten Ergebnisse"
+• "Füge allen ausgewählten Entities ein Facet hinzu"""
+
+    # Summary dashboard page
+    if "/summary-dashboard/" in route or "/summaries/" in route:
+        return """**Zusammenfassungen/Dashboard**
+Hier kann der Benutzer:
+• Widgets hinzufügen, bearbeiten und löschen
+• Widget-Typen ändern (Tabelle, Diagramm, etc.)
+• Widgets neu anordnen
+• Daten aktualisieren/refreshen
+• Die Zusammenfassung teilen oder exportieren
+
+Beispiel-Aktionen:
+• "Ändere das erste Widget zu einem Liniendiagramm"
+• "Füge ein neues Widget mit Umsatzstatistiken hinzu"
+• "Aktualisiere alle Daten"
+• "Verschiebe das Balkendiagramm nach oben"""
+
+    # Categories page
+    if "/categories" in route:
+        return """**Kategorien-Seite**
+Hier kann der Benutzer:
+• Kategorien und deren Entities ansehen
+• Einen Crawl für die Kategorie starten
+• Kategorie-Konfiguration anpassen
+• Quellen für die Kategorie verwalten
+
+Beispiel-Aktionen:
+• "Starte einen Crawl für diese Kategorie"
+• "Zeige alle Entities dieser Kategorie"
+• "Wie viele Entities hat diese Kategorie?"""
+
+    # Sources page
+    if "/sources" in route:
+        return """**Quellen-Seite**
+Hier kann der Benutzer:
+• Datenquellen verwalten
+• Neue Quellen hinzufügen
+• Verbindungen testen
+• Dokumente aus Quellen ansehen
+
+Beispiel-Aktionen:
+• "Füge eine neue SharePoint-Quelle hinzu"
+• "Teste die Verbindung"
+• "Zeige Dokumente dieser Quelle"""
+
+    # Smart Query page
+    if "/smart-query" in route:
+        return """**Smart Query**
+Der Benutzer ist bereits in der Smart Query Ansicht.
+Hier kann er:
+• Natürlichsprachige Abfragen ausführen
+• Ergebnisse als Zusammenfassung speichern
+• Abfragen für späteren Gebrauch speichern
+• Ergebnisse exportieren
+
+Der Benutzer nutzt gerade den Plan-Modus, um die richtige Abfrage zu formulieren."""
+
+    # Crawler page
+    if "/crawler" in route:
+        return """**Crawler-Verwaltung**
+Hier kann der Benutzer:
+• Laufende Crawl-Jobs verwalten
+• Jobs starten, pausieren oder abbrechen
+• Logs und Fortschritt ansehen
+
+Beispiel-Aktionen:
+• "Pausiere den aktuellen Job"
+• "Zeige den Fortschritt"""
+
+    # Default - unknown page
+    return """Der Benutzer befindet sich auf einer Seite des Systems.
+Helfe ihm dabei, die gewünschte Aktion zu formulieren oder erkläre ihm,
+was auf dieser Seite möglich ist."""

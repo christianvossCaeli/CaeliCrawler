@@ -12,14 +12,26 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.llm_budget import BudgetType, LLMBudgetAlert, LLMBudgetConfig
+from app.models.llm_budget import (
+    BudgetType,
+    LimitIncreaseRequestStatus,
+    LLMBudgetAlert,
+    LLMBudgetConfig,
+    LLMBudgetLimitRequest,
+)
 from app.models.llm_usage import LLMUsageRecord
+from app.models.user import User
 from app.schemas.llm_budget import (
+    AdminLimitRequestAction,
     BudgetStatusListResponse,
     BudgetStatusResponse,
+    LimitIncreaseRequestCreate,
+    LimitIncreaseRequestListResponse,
+    LimitIncreaseRequestResponse,
     LLMBudgetConfigCreate,
     LLMBudgetConfigResponse,
     LLMBudgetConfigUpdate,
+    UserBudgetStatusResponse,
 )
 
 logger = structlog.get_logger(__name__)
@@ -141,6 +153,7 @@ class LLMBudgetService:
         statuses = []
         any_warning = False
         any_critical = False
+        any_blocked = False
 
         for budget in budgets:
             # Build query based on budget type
@@ -173,11 +186,14 @@ class LLMBudgetService:
 
             is_warning = usage_percent >= budget.warning_threshold_percent
             is_critical = usage_percent >= budget.critical_threshold_percent
+            is_blocked = usage_percent >= 100 and budget.blocks_on_limit
 
             if is_warning:
                 any_warning = True
             if is_critical:
                 any_critical = True
+            if is_blocked:
+                any_blocked = True
 
             # Calculate projection
             daily_avg = current_usage / days_elapsed if days_elapsed > 0 else 0
@@ -195,6 +211,8 @@ class LLMBudgetService:
                     critical_threshold_percent=budget.critical_threshold_percent,
                     is_warning=is_warning,
                     is_critical=is_critical,
+                    is_blocked=is_blocked,
+                    blocks_on_limit=budget.blocks_on_limit,
                     projected_month_end_cents=projected,
                 )
             )
@@ -203,6 +221,7 @@ class LLMBudgetService:
             budgets=statuses,
             any_warning=any_warning,
             any_critical=any_critical,
+            any_blocked=any_blocked,
         )
 
     async def check_and_send_alerts(self) -> list[dict]:
@@ -541,3 +560,329 @@ Diese Nachricht wurde automatisch von CaeliCrawler gesendet.
             }
             for alert in alerts
         ]
+
+    # === User Budget Methods ===
+
+    async def get_user_budget(self, user_id: UUID) -> LLMBudgetConfig | None:
+        """Get the budget configuration for a specific user."""
+        result = await self.session.execute(
+            select(LLMBudgetConfig).where(
+                LLMBudgetConfig.budget_type == BudgetType.USER,
+                LLMBudgetConfig.reference_id == user_id,
+                LLMBudgetConfig.is_active,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_user_budget_status(
+        self, user_id: UUID
+    ) -> UserBudgetStatusResponse | None:
+        """Get current budget status for a user."""
+        budget = await self.get_user_budget(user_id)
+        if not budget:
+            return None
+
+        # Get current month usage for this user
+        now = datetime.now(UTC)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        usage_query = select(
+            func.coalesce(func.sum(LLMUsageRecord.estimated_cost_cents), 0)
+        ).where(
+            LLMUsageRecord.created_at >= month_start,
+            LLMUsageRecord.user_id == user_id,
+        )
+
+        result = await self.session.execute(usage_query)
+        current_usage = result.scalar() or 0
+
+        usage_percent = (
+            current_usage / budget.monthly_limit_cents * 100
+            if budget.monthly_limit_cents > 0
+            else 0
+        )
+
+        return UserBudgetStatusResponse(
+            budget_id=budget.id,
+            monthly_limit_cents=budget.monthly_limit_cents,
+            current_usage_cents=current_usage,
+            usage_percent=usage_percent,
+            is_warning=usage_percent >= budget.warning_threshold_percent,
+            is_critical=usage_percent >= budget.critical_threshold_percent,
+            is_blocked=usage_percent >= 100,
+        )
+
+    async def check_user_can_use_llm(self, user_id: UUID) -> tuple[bool, str | None]:
+        """
+        Check if a user can use LLM functions.
+
+        Checks both user-specific budgets and any blocking budgets (GLOBAL, etc.)
+
+        Returns:
+            tuple: (can_use: bool, reason: str | None)
+                   If can_use is False, reason contains the blocking message.
+        """
+        # Check user-specific budget first
+        user_status = await self.get_user_budget_status(user_id)
+
+        if user_status is not None and user_status.is_blocked:
+            return False, (
+                f"Your monthly LLM budget is exhausted. "
+                f"Used: ${user_status.current_usage_cents / 100:.2f} / "
+                f"${user_status.monthly_limit_cents / 100:.2f}. "
+                f"Please request a limit increase or wait until next month."
+            )
+
+        # Check all blocking budgets (GLOBAL, CATEGORY, etc.)
+        budget_status = await self.get_budget_status()
+        for budget in budget_status.budgets:
+            if budget.is_blocked:
+                return False, (
+                    f"LLM budget '{budget.budget_name}' is exhausted. "
+                    f"Used: ${budget.current_usage_cents / 100:.2f} / "
+                    f"${budget.monthly_limit_cents / 100:.2f}. "
+                    f"Please contact an administrator."
+                )
+
+        return True, None
+
+    async def update_user_budget_limit(
+        self, user_id: UUID, new_limit_cents: int
+    ) -> UserBudgetStatusResponse:
+        """
+        Update a user's budget limit directly.
+
+        Used by admins for self-service limit updates.
+
+        Args:
+            user_id: The user's ID
+            new_limit_cents: New monthly limit in USD cents
+
+        Returns:
+            Updated budget status
+
+        Raises:
+            ValueError: If no budget exists for the user
+        """
+        budget = await self.get_user_budget(user_id)
+
+        if not budget:
+            raise ValueError(
+                "No budget configured for this user. "
+                "Please contact an administrator to set up a budget first."
+            )
+
+        # Update the limit
+        budget.monthly_limit_cents = new_limit_cents
+
+        # Return updated status
+        return await self.get_user_budget_status(user_id)
+
+    # === Limit Increase Request Methods ===
+
+    async def create_limit_request(
+        self, user_id: UUID, data: LimitIncreaseRequestCreate
+    ) -> LimitIncreaseRequestResponse:
+        """Create a new limit increase request."""
+        budget = await self.get_user_budget(user_id)
+
+        if not budget:
+            raise ValueError("No budget configured for this user")
+
+        if data.requested_limit_cents <= budget.monthly_limit_cents:
+            raise ValueError(
+                "Requested limit must be greater than current limit"
+            )
+
+        # Check for pending request
+        existing = await self.session.execute(
+            select(LLMBudgetLimitRequest).where(
+                LLMBudgetLimitRequest.user_id == user_id,
+                LLMBudgetLimitRequest.status == LimitIncreaseRequestStatus.PENDING,
+            )
+        )
+        if existing.scalar_one_or_none():
+            raise ValueError("You already have a pending limit increase request")
+
+        request = LLMBudgetLimitRequest(
+            user_id=user_id,
+            budget_id=budget.id,
+            requested_limit_cents=data.requested_limit_cents,
+            current_limit_cents=budget.monthly_limit_cents,
+            reason=data.reason,
+            status=LimitIncreaseRequestStatus.PENDING,
+        )
+
+        self.session.add(request)
+        await self.session.flush()
+
+        logger.info(
+            "Limit increase request created",
+            request_id=str(request.id),
+            user_id=str(user_id),
+            requested_cents=data.requested_limit_cents,
+        )
+
+        return LimitIncreaseRequestResponse.model_validate(request)
+
+    async def get_user_limit_requests(
+        self, user_id: UUID
+    ) -> list[LimitIncreaseRequestResponse]:
+        """Get all limit requests for a specific user."""
+        result = await self.session.execute(
+            select(LLMBudgetLimitRequest)
+            .where(LLMBudgetLimitRequest.user_id == user_id)
+            .order_by(LLMBudgetLimitRequest.created_at.desc())
+        )
+        requests = result.scalars().all()
+
+        return [LimitIncreaseRequestResponse.model_validate(r) for r in requests]
+
+    async def list_limit_requests(
+        self,
+        status: LimitIncreaseRequestStatus | None = None,
+        limit: int = 50,
+    ) -> LimitIncreaseRequestListResponse:
+        """List all limit increase requests (admin view)."""
+        query = (
+            select(LLMBudgetLimitRequest, User.email)
+            .join(User, LLMBudgetLimitRequest.user_id == User.id)
+            .order_by(LLMBudgetLimitRequest.created_at.desc())
+            .limit(limit)
+        )
+
+        if status:
+            query = query.where(LLMBudgetLimitRequest.status == status)
+
+        result = await self.session.execute(query)
+        rows = result.all()
+
+        # Count pending
+        pending_count_result = await self.session.execute(
+            select(func.count(LLMBudgetLimitRequest.id)).where(
+                LLMBudgetLimitRequest.status == LimitIncreaseRequestStatus.PENDING
+            )
+        )
+        pending_count = pending_count_result.scalar() or 0
+
+        # Total count
+        total_result = await self.session.execute(
+            select(func.count(LLMBudgetLimitRequest.id))
+        )
+        total = total_result.scalar() or 0
+
+        requests = []
+        for request, user_email in rows:
+            response = LimitIncreaseRequestResponse.model_validate(request)
+            response.user_email = user_email
+            requests.append(response)
+
+        return LimitIncreaseRequestListResponse(
+            requests=requests,
+            total=total,
+            pending_count=pending_count,
+        )
+
+    async def get_limit_request(
+        self, request_id: UUID
+    ) -> LimitIncreaseRequestResponse | None:
+        """Get a specific limit request."""
+        result = await self.session.execute(
+            select(LLMBudgetLimitRequest, User.email)
+            .join(User, LLMBudgetLimitRequest.user_id == User.id)
+            .where(LLMBudgetLimitRequest.id == request_id)
+        )
+        row = result.one_or_none()
+
+        if not row:
+            return None
+
+        request, user_email = row
+        response = LimitIncreaseRequestResponse.model_validate(request)
+        response.user_email = user_email
+        return response
+
+    async def approve_limit_request(
+        self,
+        request_id: UUID,
+        admin_id: UUID,
+        action: AdminLimitRequestAction | None = None,
+    ) -> LimitIncreaseRequestResponse:
+        """Approve a limit increase request."""
+        result = await self.session.execute(
+            select(LLMBudgetLimitRequest).where(
+                LLMBudgetLimitRequest.id == request_id
+            )
+        )
+        request = result.scalar_one_or_none()
+
+        if not request:
+            raise ValueError("Request not found")
+
+        if request.status != LimitIncreaseRequestStatus.PENDING:
+            raise ValueError("Request is not pending")
+
+        # Update the budget
+        budget_result = await self.session.execute(
+            select(LLMBudgetConfig).where(LLMBudgetConfig.id == request.budget_id)
+        )
+        budget = budget_result.scalar_one_or_none()
+
+        if budget:
+            budget.monthly_limit_cents = request.requested_limit_cents
+            budget.updated_at = datetime.now(UTC)
+
+        # Update the request
+        request.status = LimitIncreaseRequestStatus.APPROVED
+        request.reviewed_by = admin_id
+        request.reviewed_at = datetime.now(UTC)
+        if action and action.notes:
+            request.admin_notes = action.notes
+
+        await self.session.flush()
+
+        logger.info(
+            "Limit increase request approved",
+            request_id=str(request_id),
+            admin_id=str(admin_id),
+            new_limit_cents=request.requested_limit_cents,
+        )
+
+        return LimitIncreaseRequestResponse.model_validate(request)
+
+    async def deny_limit_request(
+        self,
+        request_id: UUID,
+        admin_id: UUID,
+        action: AdminLimitRequestAction | None = None,
+    ) -> LimitIncreaseRequestResponse:
+        """Deny a limit increase request."""
+        result = await self.session.execute(
+            select(LLMBudgetLimitRequest).where(
+                LLMBudgetLimitRequest.id == request_id
+            )
+        )
+        request = result.scalar_one_or_none()
+
+        if not request:
+            raise ValueError("Request not found")
+
+        if request.status != LimitIncreaseRequestStatus.PENDING:
+            raise ValueError("Request is not pending")
+
+        # Update the request
+        request.status = LimitIncreaseRequestStatus.DENIED
+        request.reviewed_by = admin_id
+        request.reviewed_at = datetime.now(UTC)
+        if action and action.notes:
+            request.admin_notes = action.notes
+
+        await self.session.flush()
+
+        logger.info(
+            "Limit increase request denied",
+            request_id=str(request_id),
+            admin_id=str(admin_id),
+        )
+
+        return LimitIncreaseRequestResponse.model_validate(request)

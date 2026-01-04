@@ -211,6 +211,11 @@ celery_app.conf.update(
             "task": "workers.maintenance_tasks.check_llm_budgets",
             "schedule": crontab(hour=8, minute=0),  # Daily at 8 AM
         },
+        # Model Pricing maintenance
+        "sync-azure-model-pricing-weekly": {
+            "task": "workers.maintenance_tasks.sync_azure_model_pricing",
+            "schedule": crontab(hour=3, minute=0, day_of_week=0),  # Weekly on Sunday at 3 AM
+        },
     },
 )
 

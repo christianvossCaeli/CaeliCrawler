@@ -65,8 +65,10 @@ from services.assistant.prompts import (
     FACET_TYPE_SUGGESTION_PROMPT,
     IMAGE_ANALYSIS_PROMPT,
     INTENT_CLASSIFICATION_PROMPT,
+    PAGE_DOCUMENTATION,
     RESPONSE_GENERATION_PROMPT,
     SUMMARIZE_PROMPT,
+    get_page_documentation,
 )
 
 # Query Handler
@@ -108,6 +110,8 @@ __all__ = [
     "IMAGE_ANALYSIS_PROMPT",
     "CONTEXT_RESPONSE_PROMPT",
     "SUMMARIZE_PROMPT",
+    "PAGE_DOCUMENTATION",
+    "get_page_documentation",
     # Utils
     "format_entity_link",
     "extract_json_from_response",

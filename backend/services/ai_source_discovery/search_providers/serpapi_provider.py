@@ -4,8 +4,6 @@
 import httpx
 import structlog
 
-from app.config import settings
-
 from ..models import SearchResult
 from .base import BaseSearchProvider
 
@@ -19,13 +17,26 @@ class SerpAPISearchProvider(BaseSearchProvider):
     Same API as used in caeli-google-news-fetch Contao module.
     Pricing: ~$50/month for 5,000 searches
     Documentation: https://serpapi.com/search-api
+
+    Example usage with user credentials:
+        from services.credentials_resolver import get_serpapi_key
+
+        api_key = await get_serpapi_key(session, user_id)
+        provider = SerpAPISearchProvider(api_key=api_key)
+        results = await provider.search(["query"])
     """
 
     API_URL = "https://serpapi.com/search.json"
     TIMEOUT = 30.0
 
-    def __init__(self):
-        self.api_key = getattr(settings, "serpapi_api_key", None)
+    def __init__(self, api_key: str | None = None):
+        """Initialize SerpAPI provider.
+
+        Args:
+            api_key: SerpAPI API key. Required for search to work.
+                     If None, search will return empty results.
+        """
+        self.api_key = api_key
 
     async def search(
         self,
@@ -44,8 +55,8 @@ class SerpAPISearchProvider(BaseSearchProvider):
         """
         if not self.api_key:
             logger.error(
-                "SERPAPI_API_KEY not configured - web search disabled. "
-                "Set SERPAPI_API_KEY environment variable for AI Source Discovery."
+                "SerpAPI API key not provided - web search disabled. "
+                "User must configure SerpAPI credentials under Settings > API Credentials."
             )
             return []
 

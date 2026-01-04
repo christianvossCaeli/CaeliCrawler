@@ -91,6 +91,40 @@ async def handle_context_action(
         elif action == "add_history_point":
             return await _handle_add_history_point(db, entity_id, entity_name, action_data)
 
+        # Relation Actions
+        elif action == "add_relation":
+            return await _handle_add_relation(db, entity_id, entity_name, action_data)
+
+        elif action == "remove_relation":
+            return await _handle_remove_relation(db, entity_id, entity_name, action_data)
+
+        # Widget Actions (for Summary Dashboards)
+        elif action == "add_widget":
+            return await _handle_add_widget(db, context, action_data)
+
+        elif action == "remove_widget":
+            return await _handle_remove_widget(db, context, action_data)
+
+        elif action == "configure_widget":
+            return await _handle_configure_widget(db, context, action_data)
+
+        # Crawler Control Actions
+        elif action == "pause_crawl":
+            return await _handle_pause_crawl(db, context, action_data)
+
+        elif action == "resume_crawl":
+            return await _handle_resume_crawl(db, context, action_data)
+
+        elif action == "cancel_crawl":
+            return await _handle_cancel_crawl(db, context, action_data)
+
+        # Category/Source Actions
+        elif action == "start_category_crawl":
+            return await _handle_start_category_crawl(db, context, action_data)
+
+        elif action == "test_source_connection":
+            return await _handle_test_source_connection(db, context, action_data)
+
         else:
             return ErrorResponseData(
                 message=f"Unbekannte Aktion: {action}",
@@ -737,4 +771,745 @@ async def _handle_add_history_point(
             entity_id=entity_id,
             entity_name=entity_name,
             success=False
+        ), []
+
+
+# =============================================================================
+# RELATION HANDLERS
+# =============================================================================
+
+async def _handle_add_relation(
+    db: AsyncSession,
+    entity_id: str,
+    entity_name: str,
+    action_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
+    """Add a relation to another entity."""
+    from app.models import Entity, EntityRelation
+
+    target_entity_id = action_data.get("target_entity_id") if isinstance(action_data, dict) else None
+    target_entity_name = action_data.get("target_entity_name") if isinstance(action_data, dict) else None
+    relation_type = action_data.get("relation_type", "related_to") if isinstance(action_data, dict) else "related_to"
+
+    if not target_entity_id and not target_entity_name:
+        return ContextActionResponse(
+            message="Bitte gib die Ziel-Entity an (ID oder Name).",
+            action="add_relation",
+            entity_id=entity_id,
+            entity_name=entity_name,
+            success=False
+        ), []
+
+    try:
+        # Find target entity
+        if target_entity_id:
+            target_result = await db.execute(
+                select(Entity).where(Entity.id == UUID(target_entity_id))
+            )
+            target = target_result.scalar_one_or_none()
+        else:
+            target_result = await db.execute(
+                select(Entity).where(Entity.name.ilike(f"%{target_entity_name}%")).limit(1)
+            )
+            target = target_result.scalar_one_or_none()
+
+        if not target:
+            return ContextActionResponse(
+                message=f"Ziel-Entity '{target_entity_name or target_entity_id}' nicht gefunden.",
+                action="add_relation",
+                entity_id=entity_id,
+                entity_name=entity_name,
+                success=False
+            ), []
+
+        # Check if relation already exists
+        existing = await db.execute(
+            select(EntityRelation).where(
+                EntityRelation.source_entity_id == UUID(entity_id),
+                EntityRelation.target_entity_id == target.id,
+                EntityRelation.relation_type == relation_type
+            )
+        )
+        if existing.scalar_one_or_none():
+            return ContextActionResponse(
+                message=f"Relation '{relation_type}' zu **{target.name}** existiert bereits.",
+                action="add_relation",
+                entity_id=entity_id,
+                entity_name=entity_name,
+                success=False
+            ), []
+
+        # Create relation
+        relation = EntityRelation(
+            source_entity_id=UUID(entity_id),
+            target_entity_id=target.id,
+            relation_type=relation_type,
+        )
+        db.add(relation)
+        await db.commit()
+
+        msg = "✅ **Relation hinzugefügt!**\n\n"
+        msg += f"- **Von:** {entity_name}\n"
+        msg += f"- **Zu:** {target.name}\n"
+        msg += f"- **Typ:** {relation_type}\n"
+
+        return ContextActionResponse(
+            message=msg,
+            action="add_relation",
+            entity_id=entity_id,
+            entity_name=entity_name,
+            success=True
+        ), [
+            SuggestedAction(label="Relationen anzeigen", action="query", value="Zeige alle Relationen"),
+            SuggestedAction(label="Weitere hinzufügen", action="query", value="Füge weitere Relation hinzu"),
+        ]
+
+    except Exception as e:
+        logger.error("add_relation_error", error=str(e))
+        return ContextActionResponse(
+            message=f"Fehler beim Hinzufügen der Relation: {str(e)}",
+            action="add_relation",
+            entity_id=entity_id,
+            entity_name=entity_name,
+            success=False
+        ), []
+
+
+async def _handle_remove_relation(
+    db: AsyncSession,
+    entity_id: str,
+    entity_name: str,
+    action_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
+    """Remove a relation to another entity."""
+    from app.models import EntityRelation
+
+    relation_id = action_data.get("relation_id") if isinstance(action_data, dict) else None
+    target_entity_id = action_data.get("target_entity_id") if isinstance(action_data, dict) else None
+    relation_type = action_data.get("relation_type") if isinstance(action_data, dict) else None
+
+    if not relation_id and not target_entity_id:
+        return ContextActionResponse(
+            message="Bitte gib die Relation-ID oder die Ziel-Entity-ID an.",
+            action="remove_relation",
+            entity_id=entity_id,
+            entity_name=entity_name,
+            success=False
+        ), []
+
+    try:
+        if relation_id:
+            relation_result = await db.execute(
+                select(EntityRelation).where(EntityRelation.id == UUID(relation_id))
+            )
+            relation = relation_result.scalar_one_or_none()
+        else:
+            query = select(EntityRelation).where(
+                EntityRelation.source_entity_id == UUID(entity_id),
+                EntityRelation.target_entity_id == UUID(target_entity_id)
+            )
+            if relation_type:
+                query = query.where(EntityRelation.relation_type == relation_type)
+            relation_result = await db.execute(query.limit(1))
+            relation = relation_result.scalar_one_or_none()
+
+        if not relation:
+            return ContextActionResponse(
+                message="Relation nicht gefunden.",
+                action="remove_relation",
+                entity_id=entity_id,
+                entity_name=entity_name,
+                success=False
+            ), []
+
+        await db.delete(relation)
+        await db.commit()
+
+        return ContextActionResponse(
+            message="✅ **Relation entfernt!**\n\nDie Verknüpfung wurde erfolgreich gelöscht.",
+            action="remove_relation",
+            entity_id=entity_id,
+            entity_name=entity_name,
+            success=True
+        ), [
+            SuggestedAction(label="Relationen anzeigen", action="query", value="Zeige alle Relationen"),
+        ]
+
+    except Exception as e:
+        logger.error("remove_relation_error", error=str(e))
+        return ContextActionResponse(
+            message=f"Fehler beim Entfernen der Relation: {str(e)}",
+            action="remove_relation",
+            entity_id=entity_id,
+            entity_name=entity_name,
+            success=False
+        ), []
+
+
+# =============================================================================
+# WIDGET HANDLERS (Summary Dashboards)
+# =============================================================================
+
+async def _handle_add_widget(
+    db: AsyncSession,
+    context: AssistantContext,
+    action_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
+    """Add a widget to a summary dashboard."""
+    from app.models import CustomSummary, SummaryWidget
+
+    summary_id = context.page_data.get("summary_id") if context.page_data else None
+    widget_type = action_data.get("widget_type") if isinstance(action_data, dict) else None
+    title = action_data.get("title") if isinstance(action_data, dict) else None
+
+    if not summary_id:
+        return ErrorResponseData(
+            message="Kein Summary-Dashboard im aktuellen Kontext gefunden.",
+            error_code="no_summary_context"
+        ), []
+
+    if not widget_type:
+        return ContextActionResponse(
+            message="Bitte gib den Widget-Typ an (z.B. chart, table, stat, text).",
+            action="add_widget",
+            entity_id=None,
+            entity_name=None,
+            success=False
+        ), [
+            SuggestedAction(label="Chart", action="query", value="Füge Chart-Widget hinzu"),
+            SuggestedAction(label="Tabelle", action="query", value="Füge Tabellen-Widget hinzu"),
+            SuggestedAction(label="Statistik", action="query", value="Füge Statistik-Widget hinzu"),
+        ]
+
+    try:
+        summary_result = await db.execute(
+            select(CustomSummary).where(CustomSummary.id == UUID(summary_id))
+        )
+        summary = summary_result.scalar_one_or_none()
+
+        if not summary:
+            return ErrorResponseData(
+                message="Summary-Dashboard nicht gefunden.",
+                error_code="summary_not_found"
+            ), []
+
+        # Get next position
+        widgets_result = await db.execute(
+            select(SummaryWidget).where(SummaryWidget.summary_id == summary.id)
+        )
+        existing_widgets = widgets_result.scalars().all()
+        next_position = len(existing_widgets)
+
+        widget = SummaryWidget(
+            summary_id=summary.id,
+            widget_type=widget_type,
+            title=title or f"Neues {widget_type.title()}-Widget",
+            position=next_position,
+            config=action_data.get("config", {}),
+        )
+        db.add(widget)
+        await db.commit()
+
+        return ContextActionResponse(
+            message=f"✅ **Widget hinzugefügt!**\n\n"
+                    f"- **Typ:** {widget_type}\n"
+                    f"- **Titel:** {widget.title}\n"
+                    f"- **Position:** {next_position + 1}\n\n"
+                    f"Das Widget kann jetzt konfiguriert werden.",
+            action="add_widget",
+            entity_id=None,
+            entity_name=None,
+            success=True
+        ), [
+            SuggestedAction(label="Widget konfigurieren", action="query", value=f"Konfiguriere Widget {widget.title}"),
+            SuggestedAction(label="Dashboard öffnen", action="navigate", value=f"summaries/{summary_id}"),
+        ]
+
+    except Exception as e:
+        logger.error("add_widget_error", error=str(e))
+        return ErrorResponseData(
+            message=f"Fehler beim Hinzufügen des Widgets: {str(e)}",
+            error_code="add_widget_error"
+        ), []
+
+
+async def _handle_remove_widget(
+    db: AsyncSession,
+    context: AssistantContext,
+    action_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
+    """Remove a widget from a summary dashboard."""
+    from app.models import SummaryWidget
+
+    widget_id = action_data.get("widget_id") if isinstance(action_data, dict) else None
+
+    if not widget_id:
+        return ErrorResponseData(
+            message="Bitte gib die Widget-ID an.",
+            error_code="missing_widget_id"
+        ), []
+
+    try:
+        widget_result = await db.execute(
+            select(SummaryWidget).where(SummaryWidget.id == UUID(widget_id))
+        )
+        widget = widget_result.scalar_one_or_none()
+
+        if not widget:
+            return ErrorResponseData(
+                message="Widget nicht gefunden.",
+                error_code="widget_not_found"
+            ), []
+
+        widget_title = widget.title
+        await db.delete(widget)
+        await db.commit()
+
+        return ContextActionResponse(
+            message=f"✅ **Widget '{widget_title}' entfernt!**",
+            action="remove_widget",
+            entity_id=None,
+            entity_name=None,
+            success=True
+        ), []
+
+    except Exception as e:
+        logger.error("remove_widget_error", error=str(e))
+        return ErrorResponseData(
+            message=f"Fehler beim Entfernen des Widgets: {str(e)}",
+            error_code="remove_widget_error"
+        ), []
+
+
+async def _handle_configure_widget(
+    db: AsyncSession,
+    context: AssistantContext,
+    action_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
+    """Configure a widget on a summary dashboard."""
+    from app.models import SummaryWidget
+
+    widget_id = action_data.get("widget_id") if isinstance(action_data, dict) else None
+    config = action_data.get("config") if isinstance(action_data, dict) else None
+    title = action_data.get("title") if isinstance(action_data, dict) else None
+
+    if not widget_id:
+        return ErrorResponseData(
+            message="Bitte gib die Widget-ID an.",
+            error_code="missing_widget_id"
+        ), []
+
+    try:
+        widget_result = await db.execute(
+            select(SummaryWidget).where(SummaryWidget.id == UUID(widget_id))
+        )
+        widget = widget_result.scalar_one_or_none()
+
+        if not widget:
+            return ErrorResponseData(
+                message="Widget nicht gefunden.",
+                error_code="widget_not_found"
+            ), []
+
+        if title:
+            widget.title = title
+        if config:
+            widget.config = {**(widget.config or {}), **config}
+
+        await db.commit()
+
+        return ContextActionResponse(
+            message=f"✅ **Widget '{widget.title}' konfiguriert!**\n\n"
+                    f"Die Änderungen wurden gespeichert.",
+            action="configure_widget",
+            entity_id=None,
+            entity_name=None,
+            success=True
+        ), []
+
+    except Exception as e:
+        logger.error("configure_widget_error", error=str(e))
+        return ErrorResponseData(
+            message=f"Fehler beim Konfigurieren des Widgets: {str(e)}",
+            error_code="configure_widget_error"
+        ), []
+
+
+# =============================================================================
+# CRAWLER CONTROL HANDLERS
+# =============================================================================
+
+async def _handle_pause_crawl(
+    db: AsyncSession,
+    context: AssistantContext,
+    action_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
+    """Pause a running crawl job."""
+    from app.models import CrawlJob, CrawlJobStatus
+
+    job_id = action_data.get("job_id") if isinstance(action_data, dict) else None
+
+    # Try to get from page context if not provided
+    if not job_id and context.page_data:
+        active_jobs = context.page_data.get("active_jobs", [])
+        if active_jobs and len(active_jobs) > 0:
+            job_id = active_jobs[0].get("job_id")
+
+    if not job_id:
+        return ErrorResponseData(
+            message="Keine aktive Crawl-Job-ID gefunden. Bitte gib die Job-ID an.",
+            error_code="missing_job_id"
+        ), []
+
+    try:
+        job_result = await db.execute(
+            select(CrawlJob).where(CrawlJob.id == UUID(job_id))
+        )
+        job = job_result.scalar_one_or_none()
+
+        if not job:
+            return ErrorResponseData(
+                message="Crawl-Job nicht gefunden.",
+                error_code="job_not_found"
+            ), []
+
+        if job.status != CrawlJobStatus.RUNNING:
+            return ContextActionResponse(
+                message=f"Job ist nicht aktiv (Status: {job.status.value}).",
+                action="pause_crawl",
+                entity_id=None,
+                entity_name=None,
+                success=False
+            ), []
+
+        job.status = CrawlJobStatus.PAUSED
+        await db.commit()
+
+        return ContextActionResponse(
+            message=f"⏸️ **Crawl-Job pausiert!**\n\n"
+                    f"- **Job-ID:** `{job_id}`\n"
+                    f"- **Quelle:** {job.source_name or 'Unbekannt'}\n\n"
+                    f"Der Job kann mit 'Crawl fortsetzen' wieder gestartet werden.",
+            action="pause_crawl",
+            entity_id=None,
+            entity_name=None,
+            success=True
+        ), [
+            SuggestedAction(label="Fortsetzen", action="query", value="Setze Crawl fort"),
+            SuggestedAction(label="Abbrechen", action="query", value="Breche Crawl ab"),
+        ]
+
+    except Exception as e:
+        logger.error("pause_crawl_error", error=str(e))
+        return ErrorResponseData(
+            message=f"Fehler beim Pausieren: {str(e)}",
+            error_code="pause_crawl_error"
+        ), []
+
+
+async def _handle_resume_crawl(
+    db: AsyncSession,
+    context: AssistantContext,
+    action_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
+    """Resume a paused crawl job."""
+    from app.models import CrawlJob, CrawlJobStatus
+
+    job_id = action_data.get("job_id") if isinstance(action_data, dict) else None
+
+    if not job_id and context.page_data:
+        active_jobs = context.page_data.get("active_jobs", [])
+        if active_jobs:
+            for j in active_jobs:
+                if j.get("status") == "paused":
+                    job_id = j.get("job_id")
+                    break
+
+    if not job_id:
+        return ErrorResponseData(
+            message="Keine pausierte Crawl-Job-ID gefunden.",
+            error_code="missing_job_id"
+        ), []
+
+    try:
+        job_result = await db.execute(
+            select(CrawlJob).where(CrawlJob.id == UUID(job_id))
+        )
+        job = job_result.scalar_one_or_none()
+
+        if not job:
+            return ErrorResponseData(
+                message="Crawl-Job nicht gefunden.",
+                error_code="job_not_found"
+            ), []
+
+        if job.status != CrawlJobStatus.PAUSED:
+            return ContextActionResponse(
+                message=f"Job ist nicht pausiert (Status: {job.status.value}).",
+                action="resume_crawl",
+                entity_id=None,
+                entity_name=None,
+                success=False
+            ), []
+
+        job.status = CrawlJobStatus.RUNNING
+        await db.commit()
+
+        return ContextActionResponse(
+            message=f"▶️ **Crawl-Job fortgesetzt!**\n\n"
+                    f"- **Job-ID:** `{job_id}`\n"
+                    f"- **Quelle:** {job.source_name or 'Unbekannt'}\n",
+            action="resume_crawl",
+            entity_id=None,
+            entity_name=None,
+            success=True
+        ), [
+            SuggestedAction(label="Pausieren", action="query", value="Pausiere Crawl"),
+        ]
+
+    except Exception as e:
+        logger.error("resume_crawl_error", error=str(e))
+        return ErrorResponseData(
+            message=f"Fehler beim Fortsetzen: {str(e)}",
+            error_code="resume_crawl_error"
+        ), []
+
+
+async def _handle_cancel_crawl(
+    db: AsyncSession,
+    context: AssistantContext,
+    action_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
+    """Cancel a crawl job."""
+    from app.models import CrawlJob, CrawlJobStatus
+
+    job_id = action_data.get("job_id") if isinstance(action_data, dict) else None
+
+    if not job_id and context.page_data:
+        active_jobs = context.page_data.get("active_jobs", [])
+        if active_jobs and len(active_jobs) > 0:
+            job_id = active_jobs[0].get("job_id")
+
+    if not job_id:
+        return ErrorResponseData(
+            message="Keine Crawl-Job-ID gefunden.",
+            error_code="missing_job_id"
+        ), []
+
+    try:
+        job_result = await db.execute(
+            select(CrawlJob).where(CrawlJob.id == UUID(job_id))
+        )
+        job = job_result.scalar_one_or_none()
+
+        if not job:
+            return ErrorResponseData(
+                message="Crawl-Job nicht gefunden.",
+                error_code="job_not_found"
+            ), []
+
+        if job.status in [CrawlJobStatus.COMPLETED, CrawlJobStatus.FAILED, CrawlJobStatus.CANCELLED]:
+            return ContextActionResponse(
+                message=f"Job ist bereits beendet (Status: {job.status.value}).",
+                action="cancel_crawl",
+                entity_id=None,
+                entity_name=None,
+                success=False
+            ), []
+
+        job.status = CrawlJobStatus.CANCELLED
+        await db.commit()
+
+        return ContextActionResponse(
+            message=f"🛑 **Crawl-Job abgebrochen!**\n\n"
+                    f"- **Job-ID:** `{job_id}`\n"
+                    f"- **Quelle:** {job.source_name or 'Unbekannt'}\n",
+            action="cancel_crawl",
+            entity_id=None,
+            entity_name=None,
+            success=True
+        ), []
+
+    except Exception as e:
+        logger.error("cancel_crawl_error", error=str(e))
+        return ErrorResponseData(
+            message=f"Fehler beim Abbrechen: {str(e)}",
+            error_code="cancel_crawl_error"
+        ), []
+
+
+# =============================================================================
+# CATEGORY/SOURCE HANDLERS
+# =============================================================================
+
+async def _handle_start_category_crawl(
+    db: AsyncSession,
+    context: AssistantContext,
+    action_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
+    """Start a crawl for all sources in a category."""
+    from app.models import Category, Source
+    from workers.crawl_tasks import start_crawl_for_source
+
+    category_id = action_data.get("category_id") if isinstance(action_data, dict) else None
+
+    if not category_id and context.page_data:
+        category_id = context.page_data.get("category_id")
+
+    if not category_id:
+        return ErrorResponseData(
+            message="Keine Kategorie-ID gefunden. Bitte gib die Kategorie an.",
+            error_code="missing_category_id"
+        ), []
+
+    try:
+        category_result = await db.execute(
+            select(Category).where(Category.id == UUID(category_id))
+        )
+        category = category_result.scalar_one_or_none()
+
+        if not category:
+            return ErrorResponseData(
+                message="Kategorie nicht gefunden.",
+                error_code="category_not_found"
+            ), []
+
+        # Count active sources
+        sources_result = await db.execute(
+            select(Source).where(
+                Source.category_id == category.id,
+                Source.status == "ACTIVE"
+            )
+        )
+        sources = sources_result.scalars().all()
+
+        if not sources:
+            return ContextActionResponse(
+                message=f"Keine aktiven Quellen in Kategorie **{category.name}** gefunden.",
+                action="start_category_crawl",
+                entity_id=None,
+                entity_name=None,
+                success=False
+            ), []
+
+        # Start crawl tasks
+        started_count = 0
+        for source in sources[:50]:  # Limit to 50 sources at once
+            try:
+                start_crawl_for_source.delay(str(source.id))
+                started_count += 1
+            except Exception as task_error:
+                logger.warning("Failed to start crawl task", source_id=str(source.id), error=str(task_error))
+
+        msg = f"🚀 **Crawl für Kategorie '{category.name}' gestartet!**\n\n"
+        msg += f"- **Gestartete Crawls:** {started_count}\n"
+        msg += f"- **Quellen gesamt:** {len(sources)}\n"
+        if len(sources) > 50:
+            msg += "\n⚠️ Nur die ersten 50 Quellen wurden gestartet."
+
+        return ContextActionResponse(
+            message=msg,
+            action="start_category_crawl",
+            entity_id=None,
+            entity_name=None,
+            success=True
+        ), [
+            SuggestedAction(label="Crawler-Status", action="navigate", value="crawler"),
+        ]
+
+    except Exception as e:
+        logger.error("start_category_crawl_error", error=str(e))
+        return ErrorResponseData(
+            message=f"Fehler beim Starten der Crawls: {str(e)}",
+            error_code="start_category_crawl_error"
+        ), []
+
+
+async def _handle_test_source_connection(
+    db: AsyncSession,
+    context: AssistantContext,
+    action_data: dict[str, Any]
+) -> tuple[AssistantResponseData, list[SuggestedAction]]:
+    """Test the connection to a source."""
+    from app.models import Source
+    import httpx
+
+    source_id = action_data.get("source_id") if isinstance(action_data, dict) else None
+
+    if not source_id and context.page_data:
+        source_id = context.page_data.get("source_id")
+
+    if not source_id:
+        return ErrorResponseData(
+            message="Keine Quellen-ID gefunden. Bitte gib die Quelle an.",
+            error_code="missing_source_id"
+        ), []
+
+    try:
+        source_result = await db.execute(
+            select(Source).where(Source.id == UUID(source_id))
+        )
+        source = source_result.scalar_one_or_none()
+
+        if not source:
+            return ErrorResponseData(
+                message="Quelle nicht gefunden.",
+                error_code="source_not_found"
+            ), []
+
+        # Test connection
+        url = source.url
+        success = False
+        status_code = None
+        error_msg = None
+        response_time_ms = None
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                import time
+                start = time.time()
+                response = await client.get(url)
+                response_time_ms = int((time.time() - start) * 1000)
+                status_code = response.status_code
+                success = 200 <= status_code < 400
+        except httpx.TimeoutException:
+            error_msg = "Timeout nach 10 Sekunden"
+        except httpx.RequestError as e:
+            error_msg = str(e)
+
+        if success:
+            msg = "✅ **Verbindung erfolgreich!**\n\n"
+            msg += f"- **Quelle:** {source.name}\n"
+            msg += f"- **URL:** {url}\n"
+            msg += f"- **Status:** {status_code}\n"
+            msg += f"- **Antwortzeit:** {response_time_ms}ms\n"
+        else:
+            msg = "❌ **Verbindung fehlgeschlagen!**\n\n"
+            msg += f"- **Quelle:** {source.name}\n"
+            msg += f"- **URL:** {url}\n"
+            if status_code:
+                msg += f"- **Status:** {status_code}\n"
+            if error_msg:
+                msg += f"- **Fehler:** {error_msg}\n"
+
+        return ContextActionResponse(
+            message=msg,
+            action="test_source_connection",
+            entity_id=None,
+            entity_name=None,
+            success=success,
+            preview={
+                "status_code": status_code,
+                "response_time_ms": response_time_ms,
+                "error": error_msg
+            }
+        ), [
+            SuggestedAction(label="Crawl starten", action="query", value=f"Starte Crawl für {source.name}"),
+        ] if success else []
+
+    except Exception as e:
+        logger.error("test_source_connection_error", error=str(e))
+        return ErrorResponseData(
+            message=f"Fehler beim Testen der Verbindung: {str(e)}",
+            error_code="test_source_connection_error"
         ), []

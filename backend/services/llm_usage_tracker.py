@@ -4,7 +4,7 @@ Centralized LLM usage tracking service.
 Provides:
 - Context manager for automatic tracking
 - Async batch writing for performance
-- Cost calculation based on model pricing
+- Cost calculation based on model pricing (from database or fallback)
 - Integration with Prometheus metrics
 
 Usage:
@@ -21,6 +21,7 @@ Usage:
 """
 
 import asyncio
+import threading
 import time
 import uuid
 from collections import deque
@@ -35,22 +36,204 @@ from app.models.llm_usage import LLMProvider, LLMTaskType, LLMUsageRecord
 
 logger = structlog.get_logger(__name__)
 
+# ============================================================================
+# Pricing Cache - Database-backed with in-memory cache
+# ============================================================================
+
+# In-memory cache for model pricing (populated from database)
+_pricing_cache: dict[str, dict[str, float]] = {}
+_pricing_cache_lock = threading.RLock()
+_pricing_cache_timestamp: float = 0.0
+_PRICING_CACHE_TTL_SECONDS = 300.0  # 5 minutes
+
 
 # Model pricing in USD per 1M tokens (as of January 2025)
 # Update these values when pricing changes
+# Source: https://openai.com/pricing, https://anthropic.com/pricing
 MODEL_PRICING: dict[str, dict[str, float]] = {
-    # Azure OpenAI
-    "gpt-4.1-mini": {"input": 0.15, "output": 0.60},
+    # Azure OpenAI / OpenAI Standard
+    "gpt-4.1": {"input": 2.00, "output": 8.00},
+    "gpt-4.1-mini": {"input": 0.40, "output": 1.60},
+    "gpt-4.1-nano": {"input": 0.10, "output": 0.40},
     "gpt-4o": {"input": 2.50, "output": 10.00},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+    "gpt-4-turbo": {"input": 10.00, "output": 30.00},
+    "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
+    "o1": {"input": 15.00, "output": 60.00},
+    "o1-mini": {"input": 1.10, "output": 4.40},
+    "o1-pro": {"input": 150.00, "output": 600.00},
+    "o3-mini": {"input": 1.10, "output": 4.40},
+    # Embeddings
     "text-embedding-3-large": {"input": 0.13, "output": 0.0},
     "text-embedding-3-small": {"input": 0.02, "output": 0.0},
-    # Anthropic Claude (via Azure)
+    "text-embedding-ada-002": {"input": 0.10, "output": 0.0},
+    # Anthropic Claude
     "claude-opus-4-5": {"input": 15.00, "output": 75.00},
     "claude-sonnet-4": {"input": 3.00, "output": 15.00},
+    "claude-3-5-sonnet": {"input": 3.00, "output": 15.00},
+    "claude-3-5-haiku": {"input": 0.80, "output": 4.00},
+    "claude-3-opus": {"input": 15.00, "output": 75.00},
+    "claude-3-sonnet": {"input": 3.00, "output": 15.00},
+    "claude-3-haiku": {"input": 0.25, "output": 1.25},
     # Fallback for unknown models
     "default": {"input": 1.00, "output": 3.00},
 }
+
+
+def _load_pricing_from_database() -> dict[str, dict[str, float]]:
+    """Load pricing from database synchronously.
+
+    Uses a new database connection since we can't use async in sync context.
+    Falls back to empty dict on errors (caller handles fallback to defaults).
+    """
+    try:
+        from sqlalchemy import create_engine, select
+        from sqlalchemy.orm import Session
+
+        from app.config import settings
+        from app.models.model_pricing import ModelPricing
+
+        # Create sync engine for one-off query
+        sync_url = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
+        engine = create_engine(sync_url, pool_pre_ping=True)
+
+        result: dict[str, dict[str, float]] = {}
+        with Session(engine) as session:
+            stmt = select(ModelPricing).where(
+                ModelPricing.is_active.is_(True),
+                ModelPricing.is_deprecated.is_(False),
+            )
+            for row in session.execute(stmt).scalars():
+                # Store both with and without provider prefix for matching
+                result[row.model_name.lower()] = {
+                    "input": row.input_price_per_1m,
+                    "output": row.output_price_per_1m,
+                }
+                # Also store with display name for matching
+                if row.display_name:
+                    result[row.display_name.lower()] = {
+                        "input": row.input_price_per_1m,
+                        "output": row.output_price_per_1m,
+                    }
+
+        engine.dispose()
+        logger.debug("pricing_cache_loaded_from_db", count=len(result))
+        return result
+
+    except Exception as e:
+        logger.warning("pricing_cache_load_failed", error=str(e))
+        return {}
+
+
+def _get_cached_pricing() -> dict[str, dict[str, float]]:
+    """Get pricing from cache, refreshing if stale."""
+    global _pricing_cache, _pricing_cache_timestamp
+
+    current_time = time.time()
+
+    with _pricing_cache_lock:
+        # Check if cache is fresh
+        if _pricing_cache and (current_time - _pricing_cache_timestamp) < _PRICING_CACHE_TTL_SECONDS:
+            return _pricing_cache
+
+        # Try to refresh from database
+        db_pricing = _load_pricing_from_database()
+        if db_pricing:
+            _pricing_cache = db_pricing
+            _pricing_cache_timestamp = current_time
+            return _pricing_cache
+
+        # If database failed but we have stale cache, use it
+        if _pricing_cache:
+            logger.debug("pricing_cache_using_stale")
+            return _pricing_cache
+
+        # No cache at all, will fall back to hardcoded defaults
+        return {}
+
+
+async def refresh_pricing_cache() -> int:
+    """Async function to refresh the pricing cache from database.
+
+    Returns the number of models cached.
+    """
+    global _pricing_cache, _pricing_cache_timestamp
+
+    try:
+        from sqlalchemy import select
+
+        from app.database import async_session_maker
+        from app.models.model_pricing import ModelPricing
+
+        result: dict[str, dict[str, float]] = {}
+        async with async_session_maker() as session:
+            stmt = select(ModelPricing).where(
+                ModelPricing.is_active.is_(True),
+                ModelPricing.is_deprecated.is_(False),
+            )
+            async_result = await session.execute(stmt)
+            for row in async_result.scalars():
+                result[row.model_name.lower()] = {
+                    "input": row.input_price_per_1m,
+                    "output": row.output_price_per_1m,
+                }
+                if row.display_name:
+                    result[row.display_name.lower()] = {
+                        "input": row.input_price_per_1m,
+                        "output": row.output_price_per_1m,
+                    }
+
+        with _pricing_cache_lock:
+            _pricing_cache = result
+            _pricing_cache_timestamp = time.time()
+
+        logger.info("pricing_cache_refreshed", count=len(result))
+        return len(result)
+
+    except Exception as e:
+        logger.error("pricing_cache_refresh_failed", error=str(e))
+        return 0
+
+
+def get_model_pricing(model: str) -> dict[str, float]:
+    """Get pricing for a model, with fuzzy matching for deployment names.
+
+    Checks database-backed cache first, falls back to hardcoded defaults.
+
+    Args:
+        model: Model name or deployment name
+
+    Returns:
+        Dict with 'input' and 'output' pricing per 1M tokens
+    """
+    if not model:
+        return MODEL_PRICING["default"]
+
+    model_lower = model.lower()
+
+    # Try database cache first
+    cached = _get_cached_pricing()
+    if cached:
+        # Exact match in cache
+        if model_lower in cached:
+            return cached[model_lower]
+
+        # Fuzzy match in cache (for deployment names like "my-gpt-4o-deployment")
+        for known_model, pricing in cached.items():
+            if known_model in model_lower or model_lower in known_model:
+                return pricing
+
+    # Fall back to hardcoded pricing
+    # Exact match first
+    if model in MODEL_PRICING:
+        return MODEL_PRICING[model]
+
+    # Try partial match (for deployment names like "my-gpt-4o-deployment")
+    for known_model in MODEL_PRICING:
+        if known_model in model_lower or model_lower in known_model:
+            return MODEL_PRICING[known_model]
+
+    return MODEL_PRICING["default"]
 
 
 @dataclass
@@ -160,8 +343,8 @@ class LLMUsageTracker:
         Returns:
             Estimated cost in USD cents (rounded up)
         """
-        # Get pricing for model, fall back to default
-        pricing = MODEL_PRICING.get(model, MODEL_PRICING["default"])
+        # Get pricing for model with fuzzy matching
+        pricing = get_model_pricing(model)
 
         # Calculate costs per million tokens
         input_cost = (prompt_tokens / 1_000_000) * pricing["input"]

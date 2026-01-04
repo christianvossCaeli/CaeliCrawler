@@ -94,7 +94,20 @@ class DiscoverSourcesOperation(WriteOperation):
         )
 
         try:
-            service = AISourceDiscoveryService()
+            # Get user's search API credentials
+            serpapi_key = None
+            serper_key = None
+
+            if user_id:
+                from services.credentials_resolver import get_serpapi_key, get_serper_key
+
+                serpapi_key = await get_serpapi_key(session, user_id)
+                serper_key = await get_serper_key(session, user_id)
+
+            service = AISourceDiscoveryService(
+                serpapi_key=serpapi_key,
+                serper_key=serper_key,
+            )
             discovery_result = await service.discover_sources(
                 prompt=prompt,
                 max_results=max_results,

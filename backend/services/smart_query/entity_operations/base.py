@@ -1436,6 +1436,15 @@ async def create_data_source_for_entity(
     """
     from urllib.parse import urlparse
 
+    # Validate website_url - must be a valid HTTP(S) URL
+    if not website_url or not website_url.startswith(("http://", "https://")):
+        logger.warning(
+            "Invalid or missing website_url, skipping DataSource creation",
+            entity_name=entity.name,
+            website_url=website_url,
+        )
+        return None
+
     # Check if DataSource with this URL already exists
     existing = await session.execute(
         select(DataSource).where(DataSource.base_url == website_url)
@@ -1549,6 +1558,16 @@ async def create_api_data_source_for_entity(
     """
     template_name = api_config.get("template", "")
     base_url = api_config.get("base_url", "")
+
+    # Validate base_url - must be a valid HTTP(S) URL
+    if not base_url or not base_url.startswith(("http://", "https://")):
+        logger.warning(
+            "Invalid or missing base_url in api_config, skipping DataSource creation",
+            entity_name=entity.name,
+            base_url=base_url,
+            template=template_name,
+        )
+        return None
 
     # Create unique URL per entity using external_id
     if entity.external_id:

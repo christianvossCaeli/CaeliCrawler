@@ -1,5 +1,128 @@
 """Assistant Service - Prompt Templates."""
 
+# Page-specific documentation for context-aware assistance
+PAGE_DOCUMENTATION = {
+    "/entities": """
+## Entitäten-Liste
+Hier können Sie:
+- **Filtern**: Nach Entity-Typ, Kategorie, Facet-Werten oder Standort
+- **Sortieren**: Nach Name, Datum, Facet-Anzahl
+- **Bulk-Auswahl**: Mehrere Entities für Massenoperationen auswählen
+- **Erstellen**: Neue Entities anlegen
+- **Export**: Ausgewählte Entities als CSV/Excel exportieren
+- **Erweiterte Filter**: Komplexe Filter-Kombinationen erstellen
+""",
+    "/entities/{type}/{id}": """
+## Entity-Detailansicht
+Hier können Sie:
+- **Übersicht**: Alle Entity-Daten auf einen Blick sehen
+- **Facets bearbeiten**: Werte hinzufügen, ändern oder löschen
+- **Relationen verwalten**: Verknüpfungen zu anderen Entities erstellen
+- **Dokumente einsehen**: Zugehörige Dokumente und Anhänge anzeigen
+- **PySis-Analyse**: Strukturierte Datenanalyse starten
+- **Facet-Anreicherung**: Facets aus PySis-Daten generieren
+- **Crawl starten**: Neue Daten für diese Entity crawlen
+""",
+    "/categories": """
+## Kategorien-Verwaltung
+Hier können Sie:
+- **Kategorien erstellen**: Neue Crawl-Kategorien anlegen
+- **Quellen zuweisen**: Datenquellen per Tags zuordnen
+- **Crawl starten**: Kategorie-weite Crawl-Jobs starten
+- **Dokumente reanalysieren**: KI-Extraktion erneut ausführen
+- **Entity-Typen zuweisen**: Ziel-Entity-Typ konfigurieren
+""",
+    "/sources": """
+## Datenquellen-Verwaltung
+Hier können Sie:
+- **Quellen erstellen**: Neue Datenquellen (Webseiten, APIs, RSS) anlegen
+- **Verbindung testen**: Konnektivität und Erreichbarkeit prüfen
+- **Tags zuweisen**: Quellen mit Tags für einfache Filterung versehen
+- **Status überwachen**: Crawl-Status und Fehler einsehen
+- **KI-Quellensuche**: Automatisch passende Quellen finden lassen
+""",
+    "/smart-query": """
+## Smart Query
+Hier können Sie:
+- **Natürlichsprachige Abfragen**: Fragen in normalem Deutsch stellen
+- **Read-Mode**: Daten abfragen ohne Änderungen
+- **Write-Mode**: Änderungen per Spracheingabe vornehmen
+- **Plan-Mode**: Komplexe mehrstufige Operationen planen
+- **Ergebnisse exportieren**: Abfrageergebnisse als CSV/Excel speichern
+- **Als Summary speichern**: Abfrage als wiederverwendbares Dashboard speichern
+""",
+    "/crawler": """
+## Crawler-Steuerung
+Hier können Sie:
+- **Aktive Jobs überwachen**: Laufende Crawl-Jobs in Echtzeit sehen
+- **Jobs starten**: Neue Crawl-Jobs für Quellen starten
+- **Jobs pausieren/stoppen**: Laufende Jobs kontrollieren
+- **Logs einsehen**: Detaillierte Crawl-Logs analysieren
+- **Presets verwalten**: Wiederverwendbare Crawl-Konfigurationen speichern
+""",
+    "/summaries": """
+## Dashboards & Summaries
+Hier können Sie:
+- **Widgets hinzufügen**: Diagramme, Tabellen, Karten einfügen
+- **Widgets konfigurieren**: Datenquellen und Visualisierung anpassen
+- **Layout anpassen**: Widgets per Drag&Drop anordnen
+- **Daten aktualisieren**: Live-Daten neu laden
+- **Teilen**: Dashboards mit anderen Nutzern teilen
+- **Exportieren**: Dashboard-Daten als PDF/Excel exportieren
+""",
+    "/favorites": """
+## Favoriten
+Hier können Sie:
+- **Favoriten organisieren**: Gespeicherte Entities verwalten
+- **Schnellzugriff**: Direkt zu wichtigen Entities navigieren
+- **Sortieren**: Nach Name oder Datum hinzugefügt ordnen
+""",
+    "/documents": """
+## Dokumente
+Hier können Sie:
+- **Dokumente durchsuchen**: Volltext-Suche in allen Dokumenten
+- **Filtern**: Nach Typ, Status, Quelle oder Kategorie
+- **Extraktionen einsehen**: KI-extrahierte Daten anzeigen
+- **Verknüpfungen**: Zugehörige Entities sehen
+""",
+}
+
+
+def get_page_documentation(route: str) -> str:
+    """Get page-specific documentation for the current route.
+
+    Matches routes in order of specificity:
+    1. Exact match
+    2. Entity detail pattern (/entities/{type}/{id})
+    3. Prefix match with path boundary (e.g., /sources matches /sources/edit)
+    """
+    # Normalize route (remove trailing slash for comparison)
+    normalized_route = route.rstrip("/") if route != "/" else route
+
+    # Exact match
+    if normalized_route in PAGE_DOCUMENTATION:
+        return PAGE_DOCUMENTATION[normalized_route]
+
+    # Check with trailing slash removed from patterns
+    for pattern in PAGE_DOCUMENTATION:
+        normalized_pattern = pattern.rstrip("/") if pattern != "/" else pattern
+        if normalized_route == normalized_pattern:
+            return PAGE_DOCUMENTATION[pattern]
+
+    # Entity detail pattern (special case)
+    if normalized_route.startswith("/entities/") and normalized_route.count("/") >= 2:
+        return PAGE_DOCUMENTATION.get("/entities/{type}/{id}", "")
+
+    # Prefix match with path boundary check
+    # Ensures /sources matches /sources/edit but not /sourcesview
+    for pattern, doc in PAGE_DOCUMENTATION.items():
+        normalized_pattern = pattern.rstrip("/") if pattern != "/" else pattern
+        if normalized_route.startswith(normalized_pattern + "/") or normalized_route == normalized_pattern:
+            return doc
+
+    return ""
+
+
 INTENT_CLASSIFICATION_PROMPT = """Du bist ein Intent-Classifier für einen Chat-Assistenten in einer Entity-Management-App.
 
 ## Kontext der aktuellen Seite:
@@ -7,6 +130,13 @@ INTENT_CLASSIFICATION_PROMPT = """Du bist ein Intent-Classifier für einen Chat-
 - Entity-Typ: {entity_type}
 - Entity-Name: {entity_name}
 - View-Mode: {view_mode}
+- Ausgewählte Entities: {selected_count} (IDs: {selected_ids})
+- Aktive Filter: {active_filters}
+- Verfügbare Features: {available_features}
+- Verfügbare Aktionen: {available_actions}
+
+## Seitenspezifische Hilfe:
+{page_documentation}
 
 ## Verfügbare Intents:
 1. QUERY - Benutzer stellt eine Frage/Suche (z.B. "Zeige Pain Points", "Welche Events gibt es?")

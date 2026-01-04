@@ -248,7 +248,20 @@ class QueryExternalCommand(BaseCommand):
                 try:
                     from services.ai_source_discovery import AISourceDiscoveryService
 
-                    discovery_service = AISourceDiscoveryService()
+                    # Get user's search API credentials
+                    serpapi_key = None
+                    serper_key = None
+
+                    if self.current_user_id:
+                        from services.credentials_resolver import get_serpapi_key, get_serper_key
+
+                        serpapi_key = await get_serpapi_key(self.session, self.current_user_id)
+                        serper_key = await get_serper_key(self.session, self.current_user_id)
+
+                    discovery_service = AISourceDiscoveryService(
+                        serpapi_key=serpapi_key,
+                        serper_key=serper_key,
+                    )
                     discovery_result = await discovery_service.discover_sources(
                         prompt=prompt,
                         max_results=5,

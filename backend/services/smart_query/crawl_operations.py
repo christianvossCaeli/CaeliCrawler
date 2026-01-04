@@ -8,6 +8,7 @@ from sqlalchemy import Float, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Category, DataSource, DataSourceCategory, Entity
+from app.models.data_source import SourceStatus
 from services.smart_query.constants import TAG_ALIASES
 
 logger = structlog.get_logger()
@@ -168,12 +169,14 @@ async def find_sources_for_crawl(
     Supports multiple filter strategies that can be combined:
 
     1. source_ids: Explicit list of DataSource IDs
-    2. category_slug: Filter by category
-    3. search: Name search
-    4. tags: Filter by tags (entity_type, region, etc.) - uses AND logic
+    2. category_slug or category_id: Filter by category
+    3. status: Filter by source status (PENDING, ACTIVE, PAUSED, ERROR)
+    4. search: Name search
     5. entity_type: Filter by entity type tag (e.g., "territorial-entity", "windpark")
     6. admin_level_1: Filter by region/Bundesland (e.g., "Bayern", "NRW")
-    7. entity_filters: Advanced entity-based filtering
+    7. tags: Filter by tags (entity_type, region, etc.) - uses AND logic
+    8. source_type: Filter by source types (WEBSITE, OPARL_API, RSS, etc.)
+    9. entity_filters: Advanced entity-based filtering
 
     Multiple filters are combined with AND logic.
 
@@ -181,8 +184,8 @@ async def find_sources_for_crawl(
         # All sources in Bayern
         {"admin_level_1": "Bayern"}
 
-        # All Gemeinden in Bayern
-        {"admin_level_1": "Bayern", "tags": ["kommunal"]}
+        # All active sources in a specific category
+        {"category_id": "uuid-here", "status": "ACTIVE"}
 
         # All territorial entities in NRW for a specific category
         {"entity_type": "territorial-entity", "admin_level_1": "NRW",
@@ -190,7 +193,9 @@ async def find_sources_for_crawl(
     """
     source_ids = crawl_data.get("source_ids", [])
     category_slug = crawl_data.get("category_slug")
+    category_id = crawl_data.get("category_id")  # UUID from frontend
     search = crawl_data.get("search")
+    status_filter = crawl_data.get("status")  # Source status filter
 
     # New generic filters
     tags = crawl_data.get("tags", [])
@@ -199,8 +204,11 @@ async def find_sources_for_crawl(
     entity_filters = crawl_data.get("entity_filters", {})
     source_types = crawl_data.get("source_type", [])
 
-    # Build base query
-    query = select(DataSource).where(DataSource.status != "ERROR")
+    # Build base query - exclude ERROR sources by default unless explicitly filtered
+    if status_filter:
+        query = select(DataSource)
+    else:
+        query = select(DataSource).where(DataSource.status != SourceStatus.ERROR)
     conditions = []
 
     # Strategy 1: Explicit source IDs (highest priority, returns immediately)
@@ -209,25 +217,40 @@ async def find_sources_for_crawl(
         result = await session.execute(query.limit(limit))
         return list(result.scalars().all())
 
-    # Strategy 2: Category filter
+    # Strategy 2: Category filter (by slug or UUID)
+    resolved_category_id = None
     if category_slug:
         cat_result = await session.execute(
             select(Category).where(Category.slug == category_slug)
         )
         category = cat_result.scalar_one_or_none()
         if category:
-            # Need to join with category table
-            query = (
-                query
-                .join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id)
-                .where(DataSourceCategory.category_id == category.id)
-            )
+            resolved_category_id = category.id
+    elif category_id:
+        # category_id is already a UUID from frontend
+        resolved_category_id = UUID(category_id) if isinstance(category_id, str) else category_id
 
-    # Strategy 3: Name search
+    if resolved_category_id:
+        # Need to join with category table
+        query = (
+            query
+            .join(DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id)
+            .where(DataSourceCategory.category_id == resolved_category_id)
+        )
+
+    # Strategy 3: Status filter
+    if status_filter:
+        try:
+            status_enum = SourceStatus(status_filter.upper())
+            conditions.append(DataSource.status == status_enum)
+        except ValueError:
+            logger.warning(f"Invalid status filter value: {status_filter}")
+
+    # Strategy 4: Name search
     if search:
         conditions.append(DataSource.name.ilike(f"%{search}%"))
 
-    # Strategy 4: Entity type filter (tag-based, supports multi-select)
+    # Strategy 5: Entity type filter (tag-based, supports multi-select)
     if entity_types:
         # Backwards compatibility: convert string to list
         if isinstance(entity_types, str):
@@ -242,7 +265,7 @@ async def find_sources_for_crawl(
             if entity_type_conditions:
                 conditions.append(or_(*entity_type_conditions))
 
-    # Strategy 5: Admin level 1 / Region filter
+    # Strategy 6: Admin level 1 / Region filter
     if admin_level_1:
         # Expand to include aliases (e.g., "Bayern" -> ["bayern", "by"])
         region_tags = expand_tag(admin_level_1)
@@ -251,7 +274,7 @@ async def find_sources_for_crawl(
         if region_conditions:
             conditions.append(or_(*region_conditions))
 
-    # Strategy 6: Additional tags (AND logic - all must be present)
+    # Strategy 7: Additional tags (AND logic - all must be present)
     if tags:
         for tag in tags:
             expanded = expand_tag(tag)
@@ -260,7 +283,7 @@ async def find_sources_for_crawl(
             if tag_conditions:
                 conditions.append(or_(*tag_conditions))
 
-    # Strategy 7: Source type filter (multi-select)
+    # Strategy 8: Source type filter (multi-select)
     if source_types:
         # Backwards compatibility: convert string to list
         if isinstance(source_types, str):
@@ -278,7 +301,7 @@ async def find_sources_for_crawl(
             if valid_types:
                 conditions.append(DataSource.source_type.in_(valid_types))
 
-    # Strategy 8: Advanced entity filters (via Entity join)
+    # Strategy 9: Advanced entity filters (via Entity join)
     entity_id_filter = None
     if entity_filters:
         # Build entity query for filtering
@@ -353,10 +376,12 @@ async def find_sources_for_crawl(
     logger.info(
         "Finding sources for crawl",
         category_slug=category_slug,
+        category_id=str(resolved_category_id) if resolved_category_id else None,
         entity_types=entity_types,
         admin_level_1=admin_level_1,
         tags=tags,
         source_types=source_types,
+        status_filter=status_filter,
         search=search,
         entity_filters=entity_filters,
     )

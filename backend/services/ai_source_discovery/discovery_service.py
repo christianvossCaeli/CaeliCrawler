@@ -170,10 +170,31 @@ class AISourceDiscoveryService:
     5. Deduplizierung und Validierung
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        serpapi_key: str | None = None,
+        serper_key: str | None = None,
+    ):
+        """Initialize the AI Source Discovery Service.
+
+        Args:
+            serpapi_key: SerpAPI API key for primary search. If None, SerpAPI is disabled.
+            serper_key: Serper API key for fallback search. If None, Serper is disabled.
+
+        Example usage with user credentials:
+            from services.credentials_resolver import get_search_api_config
+
+            search_config = await get_search_api_config(session, user_id)
+            if search_config:
+                api_type, api_key = search_config
+                if api_type == "serpapi":
+                    service = AISourceDiscoveryService(serpapi_key=api_key)
+                else:
+                    service = AISourceDiscoveryService(serper_key=api_key)
+        """
         # Search providers with fallback chain: SerpAPI → Serper
-        self.primary_search_provider = SerpAPISearchProvider()
-        self.fallback_search_provider = SerperSearchProvider()
+        self.primary_search_provider = SerpAPISearchProvider(api_key=serpapi_key)
+        self.fallback_search_provider = SerperSearchProvider(api_key=serper_key)
         self.extractors = [
             WikipediaExtractor(),
             HTMLTableExtractor(),

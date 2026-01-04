@@ -56,12 +56,18 @@ async def get_shared_http_client() -> httpx.AsyncClient:
     )
 
     if needs_recreation:
-        # Close old client if it exists and is on a different loop
-        if _http_client is not None and not _http_client.is_closed:
-            try:  # noqa: SIM105
-                await _http_client.aclose()
-            except Exception:  # noqa: S110
-                pass  # Ignore errors when closing stale client
+        # If client exists but is on a different (likely closed) loop,
+        # we cannot safely await aclose() - just discard the reference.
+        # The old client will be garbage collected.
+        if _http_client is not None:
+            if not _http_client.is_closed and _http_client_loop_id == current_loop_id:
+                # Same loop, can safely close
+                try:
+                    await _http_client.aclose()
+                except Exception:  # noqa: S110
+                    pass
+            # Clear reference regardless - old client on dead loop can't be reused
+            _http_client = None
 
         _http_client = httpx.AsyncClient(
             timeout=httpx.Timeout(30.0, connect=10.0),
@@ -349,11 +355,22 @@ class WebsiteCrawler(BaseCrawler):
 
             # Save found documents
             from sqlalchemy import select
+            from urllib.parse import urlparse, unquote
             async with get_session_context() as session:
                 for doc_url in self.document_urls:
                     # Determine document type from URL
                     ext = doc_url.split(".")[-1].lower().split("?")[0]
                     doc_type = ext.upper() if ext in download_extensions else "HTML"
+
+                    # Extract title from URL filename
+                    parsed = urlparse(doc_url)
+                    filename = unquote(parsed.path.split("/")[-1])
+                    # Remove extension and clean up
+                    title = filename.rsplit(".", 1)[0] if "." in filename else filename
+                    # Replace underscores/dashes with spaces for readability
+                    title = title.replace("_", " ").replace("-", " ").strip()
+                    # If title is empty or just whitespace, use None
+                    title = title if title else None
 
                     # Create hash from URL
                     file_hash = self.compute_text_hash(doc_url)
@@ -375,6 +392,7 @@ class WebsiteCrawler(BaseCrawler):
                         crawl_job_id=job.id,
                         document_type=doc_type,
                         original_url=doc_url,
+                        title=title,
                         file_hash=file_hash,
                         processing_status=ProcessingStatus.PENDING,
                     )

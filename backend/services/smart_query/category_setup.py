@@ -418,7 +418,20 @@ async def create_category_setup_with_ai(
                 # Import here to avoid circular imports
                 from services.ai_source_discovery.discovery_service import AISourceDiscoveryService
 
-                discovery_service = AISourceDiscoveryService()
+                # Get user's search API credentials
+                serpapi_key = None
+                serper_key = None
+
+                if current_user_id:
+                    from services.credentials_resolver import get_serpapi_key, get_serper_key
+
+                    serpapi_key = await get_serpapi_key(session, current_user_id)
+                    serper_key = await get_serper_key(session, current_user_id)
+
+                discovery_service = AISourceDiscoveryService(
+                    serpapi_key=serpapi_key,
+                    serper_key=serper_key,
+                )
                 discovery_result = await discovery_service.discover_sources(
                     prompt=discovery_prompt,
                     max_results=200,  # Get more, AI will determine actual limit

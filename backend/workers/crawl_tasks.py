@@ -160,16 +160,16 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                         "entity_id": str(job.id),
                         "source_id": source_id,
                         "source_name": source.name,
-                        "category_id": str(source.category_id) if source.category_id else None,
+                        "category_id": str(job.category_id) if job.category_id else None,
                         "documents_found": result.documents_found,
                         "documents_new": result.documents_new,
                     }
                 )
 
                 # Trigger summary updates for summaries linked to this category
-                if source.category_id:
+                if job.category_id:
                     from workers.summary_tasks import on_crawl_completed
-                    on_crawl_completed.delay(str(job.id), str(source.category_id))
+                    on_crawl_completed.delay(str(job.id), str(job.category_id))
 
                 if result.documents_new > 0:
                     emit_event.delay(
@@ -178,7 +178,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                             "entity_type": "data_source",
                             "entity_id": source_id,
                             "source_name": source.name,
-                            "category_id": str(source.category_id) if source.category_id else None,
+                            "category_id": str(job.category_id) if job.category_id else None,
                             "count": result.documents_new,
                         }
                     )
@@ -217,7 +217,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                         "entity_id": str(job.id),
                         "source_id": source_id,
                         "source_name": source.name,
-                        "category_id": str(source.category_id) if source.category_id else None,
+                        "category_id": str(job.category_id) if job.category_id else None,
                         "error": "Time limit exceeded",
                     }
                 )
@@ -252,7 +252,7 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
                         "entity_id": str(job.id),
                         "source_id": source_id,
                         "source_name": source.name,
-                        "category_id": str(source.category_id) if source.category_id else None,
+                        "category_id": str(job.category_id) if job.category_id else None,
                         "error": str(e),
                     }
                 )
@@ -266,8 +266,9 @@ def crawl_source(self, source_id: str, job_id: str, force: bool = False):
 def check_scheduled_crawls():
     """Check for sources due for scheduled crawling.
 
-    IMPORTANT: Only processes categories with schedule_enabled=True.
-    This ensures crawls only happen when explicitly enabled by the user.
+    IMPORTANT: Only processes categories with:
+    - schedule_enabled=True
+    - schedule_owner_id set (user whose API credentials will be used)
     """
     from sqlalchemy import select
 
@@ -277,11 +278,12 @@ def check_scheduled_crawls():
 
     async def _check():
         async with get_celery_session_context() as session:
-            # Only get categories that are active AND have schedule_enabled=True
+            # Only get categories that are active, schedule_enabled, AND have a schedule_owner
             result = await session.execute(
                 select(Category).where(
                     Category.is_active.is_(True),
-                    Category.schedule_enabled.is_(True),  # Must be explicitly enabled!
+                    Category.schedule_enabled.is_(True),
+                    Category.schedule_owner_id.isnot(None),  # Must have owner for API credentials
                 )
             )
             categories = result.scalars().all()
@@ -324,9 +326,13 @@ def check_scheduled_crawls():
                     if source.last_crawl >= prev_run:
                         continue  # Already crawled this period
 
-                    # Create crawl job
+                    # Create crawl job using schedule owner's credentials
                     from workers.crawl_tasks import create_crawl_job
-                    create_crawl_job.delay(str(source.id), str(category.id))
+                    create_crawl_job.delay(
+                        str(source.id),
+                        str(category.id),
+                        str(category.schedule_owner_id),  # Use schedule owner's API credentials
+                    )
                     jobs_created += 1
 
             logger.info(
@@ -339,12 +345,13 @@ def check_scheduled_crawls():
 
 
 @celery_app.task(name="workers.crawl_tasks.create_crawl_job")
-def create_crawl_job(source_id: str, category_id: str, force: bool = False):
+def create_crawl_job(source_id: str, category_id: str, user_id: str | None = None, force: bool = False):
     """Create a new crawl job and start crawling.
 
     Args:
         source_id: UUID of the data source to crawl
         category_id: UUID of the category
+        user_id: UUID of the user who initiated the crawl (for API credential resolution)
         force: If True, create job even if one already exists (default: False)
 
     Returns:
@@ -386,6 +393,7 @@ def create_crawl_job(source_id: str, category_id: str, force: bool = False):
             job = CrawlJob(
                 source_id=UUID(source_id),
                 category_id=UUID(category_id),
+                user_id=UUID(user_id) if user_id else None,
                 status=JobStatus.PENDING,
             )
             session.add(job)

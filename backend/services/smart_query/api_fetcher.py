@@ -10,6 +10,7 @@ import asyncio
 import base64
 import os
 from dataclasses import dataclass, field
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -334,7 +335,7 @@ class WikidataSPARQLClient:
         query: str,
         page_size: int = DEFAULT_PAGE_SIZE,
         max_results: int | None = None,
-        progress_callback: callable | None = None,
+        progress_callback: Callable | None = None,
     ) -> FetchResult:
         """Fetch all results from a query using pagination.
 
@@ -671,7 +672,7 @@ class ExternalAPIFetcher:
     async def fetch(
         self,
         api_config: dict[str, Any],
-        progress_callback: callable | None = None,
+        progress_callback: Callable | None = None,
     ) -> FetchResult:
         """Fetch data from an external API.
 
