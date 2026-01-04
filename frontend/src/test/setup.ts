@@ -51,3 +51,19 @@ global.fetch = vi.fn()
 afterEach(() => {
   vi.clearAllMocks()
 })
+
+/**
+ * Helper to create a mock AxiosResponse with required fields
+ * Use this in tests to wrap API response data.
+ * Uses type assertion to satisfy AxiosResponse requirements in tests.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mockAxiosResponse<T>(data: T, status = 200): any {
+  return {
+    data,
+    status,
+    statusText: status === 200 ? 'OK' : 'Error',
+    headers: {},
+    config: { headers: {} },
+  }
+}

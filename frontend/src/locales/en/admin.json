@@ -3,6 +3,10 @@
     "users": {
       "title": "User Management",
       "subtitle": "Create, edit and manage users",
+      "emptyState": {
+        "title": "No users",
+        "description": "No users have been created yet."
+      },
       "filters": {
         "search": "Search",
         "role": "Role",
@@ -126,6 +130,10 @@
         "SECURITY_ALERT": "Security Alert",
         "RATE_LIMIT_EXCEEDED": "Rate Limit Exceeded"
       },
+      "emptyState": {
+        "title": "No entries",
+        "description": "No audit log entries have been recorded yet."
+      },
       "clear": {
         "button": "Clear Log",
         "title": "Clear Audit Log",
@@ -142,6 +150,10 @@
     "entityTypes": {
       "title": "Entity Types",
       "subtitle": "Manage categories for entities (e.g. municipalities, persons, organizations)",
+      "emptyState": {
+        "title": "No entity types",
+        "description": "No entity types have been created yet. Create your first entity type to get started."
+      },
       "tabs": {
         "basic": "General",
         "appearance": "Appearance",
@@ -216,6 +228,10 @@
       "title": "Facet Types",
       "subtitle": "Manage attributes and properties for entity types",
       "allTypes": "All Types",
+      "emptyState": {
+        "title": "No facet types",
+        "description": "No facet types have been created yet. Create your first facet type to define properties for your data."
+      },
       "systemType": "System Type",
       "cannotDeleteSystem": "System type cannot be deleted",
       "hasValues": "Still has values",
@@ -226,7 +242,9 @@
         "basic": "General",
         "appearance": "Appearance",
         "schema": "Schema & Settings",
-        "ai": "AI Extraction"
+        "ai": "AI Extraction",
+        "behavior": "Behavior",
+        "entityRef": "Entity Reference"
       },
       "columns": {
         "name": "Name",
@@ -248,7 +266,10 @@
         "icon": "Icon",
         "iconPlaceholder": "mdi-account",
         "iconHint": "Material Design Icon Name (mdi-*)",
+        "customIcon": "Custom Icon",
         "color": "Color",
+        "entityTypes": "Entity Types",
+        "entityTypesHint": "Select which entity types this facet applies to",
         "applicableEntityTypes": "Applicable Entity Types",
         "applicableEntityTypesHint": "Empty = applies to all entity types",
         "valueType": "Value Type",
@@ -274,7 +295,16 @@
         "aiDisabledInfo": "AI extraction is disabled. Enable it to automatically extract data from documents.",
         "aiSchemaGenerator": "AI Assistant",
         "aiSchemaGeneratorHint": "Generate schema, prompt and settings automatically based on name and description",
-        "generateSchema": "Generate"
+        "generateSchema": "Generate",
+        "allowsEntityReference": "Allows Entity Reference",
+        "allowsEntityReferenceHint": "Facet values can be linked to entities",
+        "autoCreateEntity": "Auto-Create Entity",
+        "autoCreateEntityHint": "Automatically create an entity when a facet value is added",
+        "targetEntityTypes": "Target Entity Types",
+        "targetEntityTypesHint": "Which entity types can be referenced",
+        "entityRefInfo": "Entity references allow linking facet values to entities for better data modeling.",
+        "entityRefDisabledInfo": "Enable entity references to link facet values to entities.",
+        "schemaPlaceholder": "Enter JSON schema for value structure..."
       },
       "actions": {
         "create": "New Facet Type"
@@ -476,6 +506,335 @@
         "deleted": "Preset deleted",
         "executed": "{count} crawl jobs started",
         "executeFailed": "Execution failed"
+      }
+    },
+    "llmUsage": {
+      "title": "LLM Usage",
+      "subtitle": "Token usage and cost analysis for AI models",
+      "noData": "No data available",
+      "uncategorized": "Uncategorized",
+      "stats": {
+        "requests": "Requests",
+        "tokens": "Tokens",
+        "cost": "Cost",
+        "projected": "Projected (Month)"
+      },
+      "filters": {
+        "period": "Period",
+        "provider": "Provider",
+        "taskType": "Task Type",
+        "clear": "Clear Filters"
+      },
+      "charts": {
+        "trend": "Usage Trend",
+        "byModel": "Cost by Model"
+      },
+      "tables": {
+        "byTaskType": "By Task Type",
+        "byCategory": "By Category",
+        "byUser": "By User",
+        "byUserHint": "Token usage and costs per user with API credentials status",
+        "topConsumers": "Top Consumers",
+        "headers": {
+          "taskType": "Task Type",
+          "taskName": "Task",
+          "category": "Category",
+          "user": "User",
+          "requests": "Requests",
+          "tokens": "Tokens",
+          "cost": "Cost",
+          "avgDuration": "Avg Duration",
+          "models": "Models"
+        }
+      },
+      "systemUser": "System",
+      "hasCredentials": "Own API credentials configured",
+      "noCredentials": "No own API credentials",
+      "budget": {
+        "title": "Budgets",
+        "add": "Create Budget",
+        "edit": "Edit Budget",
+        "noBudgets": "No budgets configured",
+        "noBudgetsHint": "Create a budget to monitor your LLM costs and receive notifications when thresholds are exceeded.",
+        "deleteTitle": "Delete Budget",
+        "deleteConfirm": "Do you really want to delete the budget \"{name}\"?",
+        "warningAlert": "One or more budgets have exceeded the warning threshold.",
+        "criticalWarning": "ATTENTION: One or more budgets have exceeded the critical threshold!",
+        "blocksOnLimitTooltip": "Blocks LLM access when exceeded",
+        "monitorOnlyTooltip": "Monitoring only (does not block)",
+        "info": {
+          "show": "Show info",
+          "title": "How LLM Budgets Work",
+          "overview": "Budgets allow you to monitor and control your LLM costs. You can receive warnings at certain thresholds and optionally block access when the budget is exhausted.",
+          "typesTitle": "Budget Types:",
+          "typeGlobal": "Total budget for all LLM usage of the instance",
+          "typeUser": "Individual budget per user",
+          "typeCategory": "Budget for a specific category",
+          "typeTaskType": "Budget for a task type (e.g., SmartQuery, Assistant)",
+          "typeModel": "Budget for a specific LLM model",
+          "blockingTitle": "Blocking on Limit:",
+          "blockingDescription": "When enabled, LLM access is blocked for the affected scope once 100% of the budget is reached. Without this option, the budget only serves for monitoring and notifications."
+        },
+        "headers": {
+          "name": "Name",
+          "type": "Type",
+          "limit": "Monthly Limit",
+          "status": "Status",
+          "active": "Active",
+          "blocking": "Blocking"
+        },
+        "form": {
+          "name": "Name",
+          "type": "Budget Type",
+          "limit": "Monthly Limit",
+          "warningThreshold": "Warning Threshold",
+          "criticalThreshold": "Critical Threshold",
+          "alertEmails": "Email Recipients",
+          "alertEmailsHint": "Enter email addresses for notifications",
+          "description": "Description",
+          "active": "Active",
+          "blocksOnLimit": "Blocks on Limit",
+          "blocksOnLimitHint": "Block LLM access when 100% of budget is reached"
+        },
+        "createSuccess": "Budget created successfully",
+        "updateSuccess": "Budget updated successfully",
+        "deleteSuccess": "Budget deleted successfully",
+        "saveError": "Error saving budget",
+        "deleteError": "Error deleting budget"
+      }
+    },
+    "apiCredentials": {
+      "title": "API Credentials",
+      "subtitle": "Manage your personal API keys for external services",
+      "info": {
+        "title": "Personal API Credentials",
+        "description": "These API keys are stored encrypted and used for your crawl jobs, AI features, and source discovery. Each user must configure their own keys."
+      },
+      "sections": {
+        "search": "Web Search APIs",
+        "searchDescription": "APIs for AI-powered source discovery. These are used to automatically find relevant OParl sources on the web.",
+        "ai": "AI & LLM APIs",
+        "aiDescription": "APIs for document analysis, summaries and intelligent features. At least one LLM provider must be configured."
+      },
+      "types": {
+        "serpapi": {
+          "name": "SerpAPI",
+          "description": "Google Search API for AI-powered source discovery.",
+          "useCases": "Automatic search for OParl endpoints and municipal data sources on the web."
+        },
+        "serper": {
+          "name": "Serper",
+          "description": "Alternative Google Search API with lower pricing.",
+          "useCases": "Used as alternative to SerpAPI. Only one search API is required."
+        },
+        "azure_openai": {
+          "name": "Azure OpenAI",
+          "description": "Microsoft Azure hosted OpenAI Service with enterprise features.",
+          "useCases": "Document analysis, summaries, embeddings for semantic search, AI assistant and Smart Query."
+        },
+        "openai": {
+          "name": "OpenAI",
+          "description": "Direct access to OpenAI API (not Azure).",
+          "useCases": "Alternative to Azure OpenAI. Easier setup, but without enterprise features."
+        },
+        "anthropic": {
+          "name": "Anthropic Claude",
+          "description": "Claude models from Anthropic for complex analyses.",
+          "useCases": "Extended API discovery, Plan Mode for complex queries and detailed document analyses."
+        }
+      },
+      "usedFor": "Used for",
+      "form": {
+        "apiKey": "API Key",
+        "apiKeyPlaceholder": "Enter your API key",
+        "endpoint": "Endpoint URL",
+        "endpointPlaceholder": "https://...",
+        "apiVersion": "API Version",
+        "deploymentName": "Deployment Name",
+        "deploymentNamePlaceholder": "e.g. gpt-4o",
+        "embeddingsDeployment": "Embeddings Deployment",
+        "embeddingsDeploymentPlaceholder": "e.g. text-embedding-3-large",
+        "model": "Model",
+        "modelPlaceholder": "e.g. claude-opus-4-5",
+        "organization": "Organization",
+        "organizationPlaceholder": "org-... (optional)",
+        "openaiModelPlaceholder": "e.g. gpt-4o",
+        "embeddingsModel": "Embeddings Model",
+        "embeddingsModelPlaceholder": "e.g. text-embedding-3-large"
+      },
+      "status": {
+        "configured": "Configured",
+        "notConfigured": "Not configured",
+        "active": "Active",
+        "inactive": "Inactive",
+        "lastUsed": "Last used",
+        "lastError": "Last error"
+      },
+      "actions": {
+        "save": "Save",
+        "test": "Test Connection",
+        "delete": "Remove",
+        "show": "Show",
+        "hide": "Hide"
+      },
+      "dialog": {
+        "deleteTitle": "Delete Credentials?",
+        "deleteConfirm": "Do you really want to delete these API credentials? Features using this service will no longer work."
+      },
+      "messages": {
+        "saved": "{type} credentials saved successfully",
+        "deleted": "{type} credentials deleted",
+        "testSuccess": "Connection successful",
+        "testFailed": "Connection test failed",
+        "saveError": "Error saving credentials",
+        "deleteError": "Error deleting credentials",
+        "loadError": "Error loading credentials"
+      }
+    },
+    "llmConfig": {
+      "title": "AI Configuration",
+      "subtitle": "Configure AI providers for each purpose",
+      "info": {
+        "title": "Purpose-based AI Configuration",
+        "description": "Choose the appropriate AI provider for each purpose. For example, you can use Azure OpenAI for document analysis and Anthropic for the assistant."
+      },
+      "currentProvider": "Current Provider",
+      "form": {
+        "selectProvider": "Select Provider",
+        "apiKey": "API Key",
+        "apiKeyPlaceholder": "Enter your API key",
+        "endpoint": "Endpoint URL",
+        "endpointPlaceholder": "https://...",
+        "apiVersion": "API Version",
+        "deploymentName": "Deployment Name",
+        "deploymentNamePlaceholder": "e.g. gpt-4o",
+        "embeddingsDeployment": "Embeddings Deployment",
+        "embeddingsDeploymentPlaceholder": "e.g. text-embedding-3-large",
+        "model": "Model",
+        "modelPlaceholder": "e.g. claude-opus-4-5",
+        "organization": "Organization",
+        "organizationPlaceholder": "org-... (optional)",
+        "openaiModelPlaceholder": "e.g. gpt-4o",
+        "embeddingsModel": "Embeddings Model",
+        "embeddingsModelPlaceholder": "e.g. text-embedding-3-large"
+      },
+      "status": {
+        "configured": "Configured",
+        "notConfigured": "Not configured",
+        "lastUsed": "Last used"
+      },
+      "actions": {
+        "save": "Save",
+        "test": "Test",
+        "delete": "Remove"
+      },
+      "dialog": {
+        "deleteTitle": "Delete Configuration?",
+        "deleteConfirm": "Do you really want to delete this configuration? The corresponding service will no longer work."
+      },
+      "messages": {
+        "saved": "Configuration saved successfully",
+        "deleted": "Configuration deleted",
+        "testSuccess": "Connection successful",
+        "testFailed": "Connection test failed",
+        "saveError": "Error saving configuration",
+        "deleteError": "Error deleting configuration",
+        "loadError": "Error loading configuration"
+      }
+    },
+    "modelPricing": {
+      "title": "Model Pricing",
+      "subtitle": "Manage prices for AI models",
+      "info": {
+        "title": "Price Data Sources",
+        "description": "Azure prices are synced automatically every week. OpenAI and Anthropic prices must be maintained manually as no public APIs are available."
+      },
+      "stats": {
+        "totalModels": "Total Models",
+        "staleCount": "Stale",
+        "azureModels": "Azure OpenAI",
+        "openaiModels": "OpenAI",
+        "anthropicModels": "Anthropic"
+      },
+      "columns": {
+        "provider": "Provider",
+        "model": "Model",
+        "inputPrice": "Input/1M",
+        "outputPrice": "Output/1M",
+        "source": "Source",
+        "lastVerified": "Verified",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "filters": {
+        "provider": "Provider",
+        "allProviders": "All Providers",
+        "includeDeprecated": "Show deprecated"
+      },
+      "sources": {
+        "manual": "Manual",
+        "azure_api": "Azure API",
+        "official_docs": "Official Docs",
+        "litellm": "LiteLLM"
+      },
+      "daysAgo": "{days} days",
+      "status": {
+        "active": "Active",
+        "deprecated": "Deprecated",
+        "stale": "Stale"
+      },
+      "actions": {
+        "add": "Add Price",
+        "edit": "Edit",
+        "verify": "Mark as verified",
+        "delete": "Delete",
+        "syncAll": "Sync All",
+        "syncAzure": "Sync Azure Prices",
+        "syncLiteLLM": "LiteLLM",
+        "syncLiteLLMTooltip": "Sync current prices from the LiteLLM community database (OpenAI, Anthropic)",
+        "seedDefaults": "Load Default Prices"
+      },
+      "dialog": {
+        "addTitle": "Add New Price",
+        "editTitle": "Edit Price",
+        "deleteTitle": "Delete Price?",
+        "deleteConfirm": "Do you really want to mark this price entry as deprecated?"
+      },
+      "form": {
+        "provider": "Provider",
+        "modelName": "Model Name",
+        "modelNamePlaceholder": "e.g. gpt-4o",
+        "displayName": "Display Name",
+        "displayNamePlaceholder": "e.g. GPT-4o (optional)",
+        "inputPrice": "Price per 1M Input Tokens (USD)",
+        "outputPrice": "Price per 1M Output Tokens (USD)",
+        "cachedInputPrice": "Price per 1M Cached Input Tokens (optional)",
+        "sourceUrl": "Source URL",
+        "sourceUrlPlaceholder": "https://...",
+        "notes": "Notes"
+      },
+      "messages": {
+        "created": "Price entry created",
+        "updated": "Price entry updated",
+        "deleted": "Price entry marked as deprecated",
+        "verified": "Price marked as verified",
+        "syncSuccess": "Prices synced: {updated} updated, {added} added",
+        "syncFailed": "Sync failed",
+        "syncPartialFailed": "Sync partially failed ({errors} errors)",
+        "litellmSuccess": "LiteLLM prices synced: {updated} updated, {added} added",
+        "litellmFailed": "LiteLLM sync failed",
+        "litellmPartialFailed": "LiteLLM sync partially failed ({errors} errors)",
+        "seeded": "{count} default prices loaded",
+        "seedFailed": "Failed to load default prices",
+        "alreadySeeded": "Price data already exists",
+        "loadError": "Error loading prices",
+        "saveFailed": "Failed to save",
+        "deleteFailed": "Failed to delete",
+        "staleWarning": "{count} prices are older than 30 days"
+      },
+      "officialUrls": {
+        "title": "Official Pricing Pages",
+        "hint": "Find current prices on the official pricing pages of the providers"
       }
     }
   }

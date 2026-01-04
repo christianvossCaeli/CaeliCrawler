@@ -1,6 +1,10 @@
 {
   "crawler": {
     "title": "Datensammler Status",
+    "emptyState": {
+      "title": "Keine aktiven Jobs",
+      "description": "Es laufen derzeit keine Datensammlungen. Starten Sie einen neuen Crawl über die Quellenverwaltung."
+    },
     "subtitle": "Live-Übersicht aller Sammel-Jobs und deren Status",
     "status": "Status",
     "startCrawl": "Datensammlung starten",
@@ -46,6 +50,7 @@
     "close": "Schließen",
     "loadingLog": "Lade Log...",
     "recentActivities": "Letzte Aktivitäten",
+    "crawledUrls": "Gecrawlte URLs",
     "pages": "Seiten",
     "docs": "Docs",
     "jobCancelling": "Job wird abgebrochen...",
@@ -64,6 +69,23 @@
     "confirmCancelJobMessage": "Möchten Sie den Job \"{name}\" wirklich abbrechen?",
     "bulkCancel": "Ausgewählte abbrechen",
     "selectAll": "Alle auswählen",
-    "selectedCount": "{count} ausgewählt"
+    "selectedCount": "{count} ausgewählt",
+    "selectableCount": "{count} auswählbar",
+    "retrySelected": "{count} erneut starten",
+    "deleteSelected": "{count} löschen",
+    "clearSelection": "Auswahl aufheben",
+    "cleanupFailed": "{count} fehlgeschlagene bereinigen",
+    "bulkRetryTitle": "Jobs erneut starten?",
+    "bulkRetryMessage": "Möchten Sie {count} fehlgeschlagene/abgebrochene Jobs erneut starten?",
+    "bulkRetrySuccess": "{count} Jobs wurden zur erneuten Ausführung eingeplant",
+    "bulkRetryPartialError": "{count} Jobs konnten nicht gestartet werden",
+    "bulkDeleteTitle": "Jobs löschen?",
+    "bulkDeleteMessage": "Möchten Sie {count} Jobs unwiderruflich löschen? Die zugehörigen Dokumente bleiben erhalten.",
+    "bulkDeleteSuccess": "{count} Jobs wurden gelöscht",
+    "bulkDeletePartialError": "{count} Jobs konnten nicht gelöscht werden",
+    "cleanupFailedTitle": "Fehlgeschlagene Jobs bereinigen?",
+    "cleanupFailedMessage": "Möchten Sie alle {count} fehlgeschlagenen Jobs unwiderruflich löschen?",
+    "cleanupSuccess": "{count} fehlgeschlagene Jobs wurden bereinigt",
+    "noFailedJobsToCleanup": "Keine fehlgeschlagenen Jobs zum Bereinigen"
   }
 }

@@ -164,7 +164,9 @@
       "addFirstWidget": "Fügen Sie Ihr erstes Widget hinzu",
       "refreshData": "Daten aktualisieren",
       "ariaLabel": "Dashboard für Zusammenfassung",
-      "widgetsGrid": "Widget-Bereich mit Visualisierungen"
+      "widgetsGrid": "Widget-Bereich mit Visualisierungen",
+      "suggestion": "Als Zusammenfassung speichern?",
+      "suggestionHint": "Diese Abfrage kann als automatisch aktualisierte Zusammenfassung gespeichert werden."
     },
 
     "executionHistory": "Ausführungsverlauf",

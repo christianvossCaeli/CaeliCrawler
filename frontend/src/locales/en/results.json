@@ -3,6 +3,10 @@
     "title": "Results",
     "subtitle": "AI-extracted analysis results from processed documents",
     "aiExtractedData": "AI-extracted Data",
+    "emptyState": {
+      "title": "No results",
+      "description": "No AI extractions have been found yet. Process documents with AI analysis to see results here."
+    },
     "loading": {
       "title": "Loading data",
       "subtitle": "Retrieving extracted results..."

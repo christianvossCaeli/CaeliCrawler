@@ -23,9 +23,9 @@
     "pendingRequestExists": "Sie haben bereits einen ausstehenden Antrag",
     "requestHistory": "Ihre Anträge",
     "requestStatus": {
-      "pending": "Ausstehend",
-      "approved": "Genehmigt",
-      "denied": "Abgelehnt"
+      "PENDING": "Ausstehend",
+      "APPROVED": "Genehmigt",
+      "DENIED": "Abgelehnt"
     },
     "limitRequests": "Limit-Anträge",
     "pending": "ausstehend",
@@ -42,6 +42,12 @@
     "deny": "Ablehnen",
     "requestApproved": "Antrag wurde genehmigt",
     "requestDenied": "Antrag wurde abgelehnt",
-    "reviewedAt": "Bearbeitet am"
+    "reviewedAt": "Bearbeitet am",
+    "adminSelfService": "Als Administrator können Sie Ihr Limit direkt anpassen",
+    "newLimit": "Neues Limit",
+    "adminLimitHint": "Setzen Sie Ihr monatliches Budget-Limit in USD",
+    "updateLimit": "Limit aktualisieren",
+    "mustBePositive": "Muss ein positiver Wert sein",
+    "limitUpdated": "Ihr Limit wurde erfolgreich aktualisiert"
   }
 }

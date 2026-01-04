@@ -86,6 +86,24 @@
       "welcome": {
         "title": "Welcome to Plan Mode!",
         "description": "I'll help you formulate the perfect query. Just describe what you want to achieve and I'll explain step by step how it works."
+      },
+      "ariaLabel": "Plan Mode Chat",
+      "conversationAriaLabel": "Conversation history",
+      "generatedPromptAriaLabel": "Generated Prompt",
+      "adoptActionsAriaLabel": "Prompt actions",
+      "testPromptAriaLabel": "Test prompt",
+      "testPrompt": "Test",
+      "adoptToReadAriaLabel": "Execute prompt in Read Mode",
+      "adoptToWriteAriaLabel": "Execute prompt in Write Mode",
+      "newConversationAriaLabel": "Start new conversation",
+      "userMessage": "You",
+      "assistantMessage": "Assistant",
+      "streaming": "currently writing",
+      "promptGenerated": "A ready prompt has been generated",
+      "validation": {
+        "valid": "Prompt is valid",
+        "invalid": "Prompt has issues",
+        "preview": "Preview"
       }
     },
     "actions": {
@@ -194,7 +212,18 @@
       "noWriteOperation": "No write operation detected",
       "queryError": "Error during query",
       "noVisualizationsTitle": "No visualizations available",
-      "noVisualizationsHint": "The compound query did not produce any visualizations. Please try rephrasing your query."
+      "noVisualizationsHint": "The compound query did not produce any visualizations. Please try rephrasing your query.",
+      "emptyQuestion": "Please enter a question",
+      "emptyPrompt": "The prompt is empty",
+      "conversationTooLong": "The conversation is too long. Please start a new conversation.",
+      "partialResponse": "Incomplete response - partial answer displayed",
+      "timeout": "Request timeout",
+      "timeoutPartial": "Timeout - partial answer displayed",
+      "cancelled": "Request cancelled",
+      "cancelledPartial": "Request cancelled - partial answer displayed",
+      "rateLimited": "Too many requests. Please wait a moment.",
+      "serverError": "The server is currently unavailable.",
+      "validationError": "Validation error"
     },
     "sourceTypes": {
       "document": "Document",
@@ -211,6 +240,9 @@
   "visualization": {
     "noData": "No data available",
     "noVisualization": "No visualization available",
+    "errorTitle": "Visualization could not be loaded",
+    "errorDescription": "The data will be displayed as a table instead.",
+    "retry": "Try again",
     "tableLabel": "Data table with query results",
     "columns": {
       "name": "Name",

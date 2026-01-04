@@ -2,6 +2,10 @@
   "documents": {
     "title": "Documents",
     "subtitle": "Browse found and processed documents",
+    "emptyState": {
+      "title": "No documents",
+      "description": "No documents have been found yet. Start a crawl to collect documents."
+    },
     "document": "Document",
     "documents": "Documents",
     "filters": {

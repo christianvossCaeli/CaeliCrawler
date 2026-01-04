@@ -105,7 +105,30 @@
     "showing": "Zeige",
     "entries": "Einträge",
     "noResults": "Keine Ergebnisse gefunden",
+    "noResultsDescription": "Versuchen Sie, Ihre Suche oder Filter anzupassen",
+    "dismiss": "Später",
     "searchPlaceholder": "Suchen...",
+    "clearFilters": "Filter löschen",
+    "createNew": "Neu erstellen",
+    "csvExported": "CSV erfolgreich exportiert",
+    "dateFormat": "Datumsformat",
+    "errorDetails": "Fehlerdetails",
+    "errorOccurred": "Ein Fehler ist aufgetreten",
+    "exportConfigMissing": "Export-Konfiguration fehlt",
+    "exportFailed": "Export fehlgeschlagen",
+    "fieldRequired": "Dieses Feld ist erforderlich",
+    "invalidEmail": "Ungültige E-Mail-Adresse",
+    "invalidRegex": "Ungültiger regulärer Ausdruck",
+    "loadFailed": "Laden fehlgeschlagen",
+    "loginFailed": "Anmeldung fehlgeschlagen",
+    "more": "mehr",
+    "noDataToExport": "Keine Daten zum Exportieren",
+    "outOfRange": "Wert liegt außerhalb des Bereichs",
+    "passwordChangeError": "Fehler beim Ändern des Passworts",
+    "pin": "Anpinnen",
+    "unpin": "Lösen",
+    "searchError": "Suchfehler",
+    "tryAdjustingFilters": "Versuchen Sie, Ihre Filter anzupassen",
     "showMore": "+{count} weitere",
     "showLess": "Weniger anzeigen",
     "filterActive": "Filter aktiv",
@@ -174,7 +197,9 @@
       "users": "Benutzerverwaltung",
       "auditLog": "Änderungsverlauf",
       "apiTemplates": "API-Vorlagen",
-      "llmUsage": "LLM-Verbrauch"
+      "llmUsage": "LLM-Verbrauch",
+      "modelPricing": "Modellpreise",
+      "llmConfig": "KI-Konfiguration"
     }
   },
   "auth": {
@@ -286,5 +311,65 @@
     "message": "Ihr Benutzerkonto verfügt nicht über die erforderlichen Rechte, um auf diesen Bereich zuzugreifen. Wenden Sie sich an einen Administrator, wenn Sie Zugriff benötigen.",
     "backToDashboard": "Zurück zur Übersicht",
     "attemptedPath": "Angeforderte Seite"
+  },
+  "aiProvider": {
+    "loadingConfig": "Lade KI-Konfiguration...",
+    "loadError": "Konfiguration konnte nicht geladen werden",
+    "provider": "Anbieter",
+    "model": "Modell",
+    "inputCost": "Eingabe",
+    "outputCost": "Ausgabe",
+    "estimatedCost": "Geschätzte Kosten",
+    "notConfigured": "Nicht konfiguriert",
+    "tokens": "Tokens",
+    "perMillionTokens": "pro 1M Tokens"
+  },
+  "attributes": {
+    "country": "Land",
+    "state": "Bundesland",
+    "county": "Landkreis",
+    "population": "Einwohner",
+    "area_km2": "Fläche (km²)",
+    "academic_title": "Titel",
+    "first_name": "Vorname",
+    "last_name": "Nachname",
+    "email": "E-Mail",
+    "phone": "Telefon",
+    "role": "Position",
+    "org_type": "Organisationstyp",
+    "address": "Adresse",
+    "event_date": "Startdatum",
+    "event_end_date": "Enddatum",
+    "location": "Ort",
+    "organizer": "Veranstalter",
+    "event_type": "Veranstaltungstyp",
+    "description": "Beschreibung"
+  },
+  "severity": {
+    "HIGH": "Hoch",
+    "MEDIUM": "Mittel",
+    "LOW": "Niedrig",
+    "UNKNOWN": "Unbekannt"
+  },
+  "sentiment": {
+    "POSITIVE": "Positiv",
+    "NEGATIVE": "Negativ",
+    "NEUTRAL": "Neutral",
+    "UNKNOWN": "Unbekannt"
+  },
+  "sourceType": {
+    "DOCUMENT": "Dokument",
+    "MANUAL": "Manuell",
+    "PYSIS": "PySIS",
+    "SMART_QUERY": "Smart Query",
+    "AI_ASSISTANT": "KI-Assistent",
+    "IMPORT": "Import",
+    "ATTACHMENT": "Anhang"
+  },
+  "facetTypes": {
+    "pain_point": "Schmerzpunkt",
+    "positive_signal": "Positives Signal",
+    "contact": "Kontaktperson",
+    "summary": "Zusammenfassung"
   }
 }

@@ -97,6 +97,7 @@
     "justNow": "Just now",
     "minutesAgo": "{n} min ago",
     "hoursAgo": "{n} hrs ago",
+    "daysAgo": "{n} day(s) ago",
     "pleaseWait": "Please wait...",
     "processing": "Processing...",
     "itemsPerPage": "Items per page",
@@ -104,7 +105,30 @@
     "showing": "Showing",
     "entries": "entries",
     "noResults": "No results found",
+    "noResultsDescription": "Try adjusting your search or filters",
+    "dismiss": "Later",
     "searchPlaceholder": "Search...",
+    "clearFilters": "Clear filters",
+    "createNew": "Create new",
+    "csvExported": "CSV exported successfully",
+    "dateFormat": "Date format",
+    "errorDetails": "Error details",
+    "errorOccurred": "An error occurred",
+    "exportConfigMissing": "Export configuration missing",
+    "exportFailed": "Export failed",
+    "fieldRequired": "This field is required",
+    "invalidEmail": "Invalid email address",
+    "invalidRegex": "Invalid regular expression",
+    "loadFailed": "Failed to load data",
+    "loginFailed": "Login failed",
+    "more": "more",
+    "noDataToExport": "No data to export",
+    "outOfRange": "Value is out of range",
+    "passwordChangeError": "Error changing password",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "searchError": "Search error",
+    "tryAdjustingFilters": "Try adjusting your filters",
     "showMore": "+{count} more",
     "showLess": "Show less",
     "filterActive": "Filter active",
@@ -172,7 +196,10 @@
       "title": "Administration",
       "users": "User Management",
       "auditLog": "Change History",
-      "apiTemplates": "API Templates"
+      "apiTemplates": "API Templates",
+      "llmUsage": "LLM Usage",
+      "modelPricing": "Model Pricing",
+      "llmConfig": "AI Configuration"
     }
   },
   "auth": {
@@ -269,11 +296,80 @@
     "pattern": "Invalid format",
     "unique": "This value already exists",
     "integer": "Please enter an integer",
-    "number": "Please enter a number"
+    "number": "Please enter a number",
+    "positiveNumber": "Please enter a positive number",
+    "percentRange": "Value must be between 0 and 100"
   },
   "dynamicForm": {
     "noSchema": "No schema defined for this facet type. Please enter a text value.",
     "arrayHint": "Enter multiple values, press Enter to confirm",
     "unknownType": "Unknown field type: {type}"
+  },
+  "forbidden": {
+    "title": "Access Denied",
+    "subtitle": "You do not have permission to access this page",
+    "message": "Your user account does not have the required permissions to access this area. Please contact an administrator if you need access.",
+    "backToDashboard": "Back to Dashboard",
+    "attemptedPath": "Requested page"
+  },
+  "aiProvider": {
+    "loadingConfig": "Loading AI configuration...",
+    "loadError": "Failed to load configuration",
+    "provider": "Provider",
+    "model": "Model",
+    "inputCost": "Input",
+    "outputCost": "Output",
+    "estimatedCost": "Estimated cost",
+    "notConfigured": "Not configured",
+    "tokens": "Tokens",
+    "perMillionTokens": "per 1M Tokens"
+  },
+  "attributes": {
+    "country": "Country",
+    "state": "State",
+    "county": "County",
+    "population": "Population",
+    "area_km2": "Area (km²)",
+    "academic_title": "Title",
+    "first_name": "First Name",
+    "last_name": "Last Name",
+    "email": "Email",
+    "phone": "Phone",
+    "role": "Role",
+    "org_type": "Organization Type",
+    "address": "Address",
+    "event_date": "Start Date",
+    "event_end_date": "End Date",
+    "location": "Location",
+    "organizer": "Organizer",
+    "event_type": "Event Type",
+    "description": "Description"
+  },
+  "severity": {
+    "HIGH": "High",
+    "MEDIUM": "Medium",
+    "LOW": "Low",
+    "UNKNOWN": "Unknown"
+  },
+  "sentiment": {
+    "POSITIVE": "Positive",
+    "NEGATIVE": "Negative",
+    "NEUTRAL": "Neutral",
+    "UNKNOWN": "Unknown"
+  },
+  "sourceType": {
+    "DOCUMENT": "Document",
+    "MANUAL": "Manual",
+    "PYSIS": "PySIS",
+    "SMART_QUERY": "Smart Query",
+    "AI_ASSISTANT": "AI Assistant",
+    "IMPORT": "Import",
+    "ATTACHMENT": "Attachment"
+  },
+  "facetTypes": {
+    "pain_point": "Pain Point",
+    "positive_signal": "Positive Signal",
+    "contact": "Contact Person",
+    "summary": "Summary"
   }
 }

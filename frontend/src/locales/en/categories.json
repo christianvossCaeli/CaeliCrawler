@@ -10,7 +10,10 @@
       "search": "Search",
       "filters": "URL Filters",
       "ai": "AI",
-      "dataSources": "Data Sources"
+      "dataSources": "Data Sources",
+      "ariaLabel": "Analysis topic settings",
+      "filtersWarning": "Warning: No URL filters defined",
+      "sourceCount": "{count} sources assigned"
     },
     "filters": {
       "search": "Search (Name/Purpose)",
@@ -52,6 +55,9 @@
       "purposeHint": "Describe what the AI should analyze in this analysis topic",
       "searchInfo": "Search terms and document types help the crawler find relevant documents",
       "scheduleTitle": "Scheduling",
+      "scheduleEnabled": "Enable automatic data collection",
+      "scheduleEnabledHint": "Data will be automatically collected according to the configured schedule.",
+      "scheduleDisabledHint": "Automatic data collection is disabled. Data must be collected manually.",
       "includePlaceholder": "e.g. /documents/",
       "excludePlaceholder": "e.g. /archive/"
     },
@@ -137,6 +143,26 @@
       "active": "Active",
       "pending": "Pending",
       "error": "Error"
+    },
+    "validation": {
+      "nameRequired": "Name is required",
+      "nameMinLength": "Name must have at least 1 character",
+      "nameMaxLength": "Name must have at most 255 characters",
+      "purposeRequired": "Purpose is required",
+      "purposeMinLength": "Purpose must have at least 10 characters",
+      "languagesRequired": "At least one language is required",
+      "cronFieldCount": "Cron expression must have 5 or 6 fields",
+      "cronInvalid": "Invalid cron expression",
+      "regexInvalid": "Invalid regular expression for {field}",
+      "regexPatternInvalid": "Invalid pattern in {field}: {pattern}",
+      "urlPatternInvalid": "Invalid URL pattern: {pattern}",
+      "promptTooLong": "Prompt must have at most 10,000 characters",
+      "searchTermsInvalid": "Search terms must be text entries",
+      "searchTermTooLong": "Search term too long: {term}",
+      "documentTypesInvalid": "Document types must be text entries",
+      "documentTypeEmpty": "Document type cannot be empty",
+      "extractionHandlerInvalid": "Handler must be 'default' or 'event'",
+      "targetEntityTypeInvalid": "Invalid target entity type ID"
     },
     "messages": {
       "created": "Analysis topic created successfully",

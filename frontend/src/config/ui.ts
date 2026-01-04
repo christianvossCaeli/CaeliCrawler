@@ -46,15 +46,6 @@ export type DialogSize = (typeof DIALOG_SIZES)[keyof typeof DIALOG_SIZES]
 export const DIALOG_FULLSCREEN_BREAKPOINT = 'sm'
 
 /**
- * Common table row heights
- */
-export const TABLE_ROW_HEIGHT = {
-  COMPACT: 40,
-  DEFAULT: 52,
-  COMFORTABLE: 64,
-} as const
-
-/**
  * Common card elevations
  */
 export const CARD_ELEVATION = {
@@ -63,15 +54,4 @@ export const CARD_ELEVATION = {
   DEFAULT: 2,
   RAISED: 4,
   FLOATING: 8,
-} as const
-
-/**
- * Common spacing values (based on 4px grid)
- */
-export const SPACING = {
-  XS: 1, // 4px
-  SM: 2, // 8px
-  MD: 4, // 16px
-  LG: 6, // 24px
-  XL: 8, // 32px
 } as const

@@ -2,6 +2,7 @@
   "dashboard": {
     "title": "Übersicht",
     "subtitle": "Aktuelle Statistiken und Aktivitäten im Überblick",
+    "loading": "Dashboard wird geladen...",
     "welcome": "Willkommen zurück",
     "customize": "Anpassen",
     "finishEditing": "Fertig",

@@ -71,8 +71,31 @@ export const CRAWL_DEFAULTS = {
   },
 } as const
 
-// NOTE: SOURCE_TYPE_OPTIONS is defined in @/types/sources.ts
-// to avoid duplication and ensure consistent typing
+/**
+ * Source Type Options for Dropdowns
+ * Used in preset editor and source filters
+ */
+export const SOURCE_TYPE_OPTIONS = [
+  { value: 'WEBSITE', title: 'Website' },
+  { value: 'OPARL_API', title: 'OParl API' },
+  { value: 'RSS', title: 'RSS Feed' },
+  { value: 'CUSTOM_API', title: 'Custom API' },
+  { value: 'REST_API', title: 'REST API' },
+  { value: 'SPARQL_API', title: 'SPARQL API' },
+] as const
+
+/**
+ * Source Type Labels Mapping
+ * Maps source type enum values to human-readable labels
+ */
+export const SOURCE_TYPE_LABELS: Record<string, string> = {
+  WEBSITE: 'Website',
+  OPARL_API: 'OParl API',
+  RSS: 'RSS Feed',
+  CUSTOM_API: 'Custom API',
+  REST_API: 'REST API',
+  SPARQL_API: 'SPARQL API',
+}
 
 /** Table header configuration item */
 export interface TableHeaderConfig {
@@ -107,24 +130,19 @@ export const AI_DISCOVERY = {
 export const ACTION_CLEANUP_DELAY = 1000
 
 /**
- * Standard dialog sizes for consistent UI
- * - SM: Confirmation dialogs, simple forms (delete, save template)
- * - MD: Info dialogs, medium forms (category info)
- * - LG: Complex forms (source form, bulk import)
- * - XL: Full-featured dialogs with tables (AI discovery, API import)
+ * Crawl Presets Configuration
  */
-export const DIALOG_SIZES = {
-  /** Small dialogs (confirmations, simple forms) */
-  SM: 500,
-  /** Medium dialogs (info displays, medium forms) */
-  MD: 700,
-  /** Large dialogs (complex forms) */
-  LG: 900,
-  /** Extra large dialogs (tables, multi-step wizards) */
-  XL: 1200,
+export const CRAWL_PRESETS = {
+  /** localStorage keys for persisting UI state */
+  STORAGE_KEYS: {
+    INFO_HIDDEN: 'crawlPresets.infoHidden',
+    EDITOR_INFO_HIDDEN: 'crawlPresets.editorInfoHidden',
+  },
+  /** Debounce delay for auto-preview in ms */
+  AUTO_PREVIEW_DELAY_MS: 500,
+  /** Default CRON expression for new scheduled presets */
+  DEFAULT_CRON: '0 6 * * *',
 } as const
-
-export type DialogSize = (typeof DIALOG_SIZES)[keyof typeof DIALOG_SIZES]
 
 /**
  * UI Layout Constants

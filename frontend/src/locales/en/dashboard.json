@@ -2,6 +2,7 @@
   "dashboard": {
     "title": "Dashboard",
     "subtitle": "Current statistics and activities at a glance",
+    "loading": "Loading dashboard...",
     "welcome": "Welcome back",
     "customize": "Customize",
     "finishEditing": "Done",

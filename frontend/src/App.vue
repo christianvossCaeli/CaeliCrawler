@@ -93,6 +93,9 @@
       <v-toolbar-title>CaeliCrawler</v-toolbar-title>
       <v-spacer></v-spacer>
 
+      <!-- LLM Budget Status -->
+      <LLMUsageStatusBar class="mr-2" />
+
       <!-- Notifications Button -->
       <v-btn icon variant="tonal" :title="$t('nav.notifications')" :aria-label="$t('nav.notifications')" @click="router.push('/notifications')">
         <v-badge
@@ -164,7 +167,7 @@
     </v-main>
 
     <!-- Password Change Dialog -->
-    <v-dialog v-model="passwordDialogOpen" max-width="400" role="dialog" aria-modal="true">
+    <v-dialog v-model="passwordDialogOpen" :max-width="DIALOG_SIZES.XS" role="dialog" aria-modal="true">
       <v-card>
         <v-card-title>{{ $t('auth.changePassword') }}</v-card-title>
         <v-card-text class="pt-4">
@@ -245,6 +248,7 @@ import ChatAssistant from './components/assistant/ChatAssistant.vue'
 import LanguageSwitcher from './components/LanguageSwitcher.vue'
 import AriaLiveRegion from './components/AriaLiveRegion.vue'
 import { ErrorBoundary } from './components/common'
+import LLMUsageStatusBar from './components/common/LLMUsageStatusBar.vue'
 import { useSnackbar } from './composables/useSnackbar'
 import { useAuthStore } from './stores/auth'
 import { useNotifications } from './composables/useNotifications'
@@ -252,6 +256,7 @@ import { useFeatureFlags } from './composables/useFeatureFlags'
 import { dataApi } from './services/api'
 import { setLocale, type SupportedLocale } from './locales'
 import { useLogger } from '@/composables/useLogger'
+import { DIALOG_SIZES } from '@/config/ui'
 
 const logger = useLogger('App')
 
@@ -262,7 +267,7 @@ const vuetifyLocale = useLocale()
 // Badge counts for navigation
 const pendingDocsCount = ref(0)
 const unverifiedResultsCount = ref(0)
-const { unreadCount, loadUnreadCount } = useNotifications()
+const { unreadCount, initRealtime, cleanupRealtime } = useNotifications()
 const { loadFeatureFlags } = useFeatureFlags()
 
 const drawer = ref(true)
@@ -313,6 +318,8 @@ const adminNavItems = computed(() => [
   { title: t('nav.admin.users'), icon: 'mdi-account-group', to: '/admin/users' },
   { title: t('nav.admin.auditLog'), icon: 'mdi-history', to: '/admin/audit-log' },
   { title: t('nav.admin.llmUsage'), icon: 'mdi-brain', to: '/admin/llm-usage' },
+  { title: t('nav.admin.modelPricing'), icon: 'mdi-currency-usd', to: '/admin/model-pricing' },
+  { title: t('nav.admin.llmConfig'), icon: 'mdi-cog-outline', to: '/admin/api-credentials' },
 ])
 
 // User helpers
@@ -380,8 +387,7 @@ async function changePassword() {
   }
 }
 
-// Notification polling interval
-let notificationInterval: ReturnType<typeof setInterval> | null = null
+// Badge counts polling interval (notifications now use SSE)
 let badgeInterval: ReturnType<typeof setInterval> | null = null
 
 // Load badge counts for navigation
@@ -403,17 +409,14 @@ watch(
   () => auth.isAuthenticated,
   async (isAuth) => {
     if (isAuth) {
-      await loadUnreadCount()
       await loadBadgeCounts()
       await loadFeatureFlags()
-      // Poll every 60 seconds
-      notificationInterval = setInterval(loadUnreadCount, 60000)
+      // Initialize real-time notifications (SSE with polling fallback)
+      await initRealtime()
       badgeInterval = setInterval(loadBadgeCounts, 60000)
     } else {
-      if (notificationInterval) {
-        clearInterval(notificationInterval)
-        notificationInterval = null
-      }
+      // Cleanup SSE and polling
+      cleanupRealtime()
       if (badgeInterval) {
         clearInterval(badgeInterval)
         badgeInterval = null
@@ -451,12 +454,10 @@ onMounted(() => {
   }
 })
 
-// Cleanup all intervals on unmount to prevent memory leaks
+// Cleanup all resources on unmount to prevent memory leaks
 onUnmounted(() => {
-  if (notificationInterval) {
-    clearInterval(notificationInterval)
-    notificationInterval = null
-  }
+  // Cleanup SSE and any polling fallback
+  cleanupRealtime()
   if (badgeInterval) {
     clearInterval(badgeInterval)
     badgeInterval = null

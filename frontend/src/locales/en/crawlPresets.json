@@ -4,7 +4,7 @@
     "create": "New Preset",
     "edit": "Edit Preset",
     "delete": "Delete Preset",
-    "execute": "Execute Now",
+    "execute": "Execute",
     "preview": "Preview",
     "all": "All",
     "favorites": "Favorites",
@@ -21,6 +21,9 @@
     "tagsHint": "Press Enter to add tags",
     "tagsHintSelect": "Select tags from the list",
     "sourceType": "Source Type",
+    "status": "Status",
+    "search": "Search",
+    "searchHint": "Free text search in source names",
     "limit": "Limit",
     "sourcesMatched": "sources matched",
     "loadingPreview": "Loading preview...",
@@ -35,7 +38,18 @@
     "daysAgo": "{n} days ago",
     "addedToFavorites": "Added to favorites",
     "removedFromFavorites": "Removed from favorites",
+    "addToFavorites": "Add to favorites",
+    "removeFromFavorites": "Remove from favorites",
     "deleteConfirm": "Do you really want to delete the preset \"{name}\"?",
+    "noFiltersConfigured": "No filters configured - crawls all sources",
+    "nextRun": "Next run",
+    "filterLabels": {
+      "entityTypes": "Entity Types",
+      "sourceTypes": "Source Types",
+      "tags": "Tags",
+      "limit": "Limit",
+      "types": "types"
+    },
     "schedule": {
       "title": "Schedule",
       "enabled": "Automatic Execution"
@@ -46,6 +60,21 @@
       "deleted": "Preset deleted",
       "executed": "{count} crawl jobs started",
       "executeFailed": "Execution failed"
-    }
+    },
+    "info": {
+      "overview": "Crawl presets save filter configurations for recurring crawl tasks. This allows you to re-execute frequently used combinations of entity types, categories, tags, and source types with a single click.",
+      "overviewDetails": "When executing a preset, all data sources matching the configured filters will be crawled. The number of matching sources is shown before execution.",
+      "hideInfo": "Hide this info",
+      "showInfo": "Show info",
+      "editorTitle": "What are Crawl Presets?",
+      "editorDescription": "Crawl presets let you save and reuse frequently used filter configurations. Define once which entities and sources should be crawled – then you can start the crawl anytime with a single click.",
+      "editorDetails": "Filter options: Select entity types, categories, tags, source types, status, or use free text search. The preview shows how many sources match. For scheduled crawls, the current filter state is used at execution time – new matching sources are automatically included.",
+      "scheduleHint": "Schedules use CRON expressions (server time: UTC). You will be notified if scheduled crawls fail.",
+      "previewHint": "The preview shows currently matching sources. '0 sources' means no data sources match the selected filters."
+    },
+    "category": "Category",
+    "duplicate": "Duplicate",
+    "duplicateSuccess": "Preset duplicated – you can now edit it",
+    "duplicateSuffix": "(Copy)"
   }
 }

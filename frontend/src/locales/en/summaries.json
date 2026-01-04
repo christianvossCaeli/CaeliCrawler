@@ -164,7 +164,9 @@
       "addFirstWidget": "Add your first widget",
       "refreshData": "Refresh data",
       "ariaLabel": "Summary dashboard",
-      "widgetsGrid": "Widget area with visualizations"
+      "widgetsGrid": "Widget area with visualizations",
+      "suggestion": "Save as summary?",
+      "suggestionHint": "This query can be saved as an automatically updating summary."
     },
 
     "executionHistory": "Execution History",

@@ -3,6 +3,10 @@
     "title": "Ergebnisse",
     "subtitle": "KI-extrahierte Analyseergebnisse aus verarbeiteten Dokumenten",
     "aiExtractedData": "KI-extrahierte Daten",
+    "emptyState": {
+      "title": "Keine Ergebnisse",
+      "description": "Es wurden noch keine KI-Extraktionen gefunden. Verarbeiten Sie Dokumente mit KI-Analyse, um hier Ergebnisse zu sehen."
+    },
     "loading": {
       "title": "Daten werden geladen",
       "subtitle": "Extrahierte Ergebnisse werden abgerufen..."

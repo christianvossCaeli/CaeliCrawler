@@ -1,6 +1,10 @@
 {
   "crawler": {
     "title": "Crawler Status",
+    "emptyState": {
+      "title": "No active jobs",
+      "description": "There are no crawl jobs running. Start a new crawl from the sources management."
+    },
     "subtitle": "Live overview of all crawl jobs and their status",
     "status": "Status",
     "startCrawl": "Start Crawl",
@@ -46,6 +50,7 @@
     "close": "Close",
     "loadingLog": "Loading log...",
     "recentActivities": "Recent Activities",
+    "crawledUrls": "Crawled URLs",
     "pages": "Pages",
     "docs": "Docs",
     "jobCancelling": "Cancelling job...",
@@ -64,6 +69,23 @@
     "confirmCancelJobMessage": "Are you sure you want to cancel the job \"{name}\"?",
     "bulkCancel": "Cancel selected",
     "selectAll": "Select all",
-    "selectedCount": "{count} selected"
+    "selectedCount": "{count} selected",
+    "selectableCount": "{count} selectable",
+    "retrySelected": "Retry {count}",
+    "deleteSelected": "Delete {count}",
+    "clearSelection": "Clear selection",
+    "cleanupFailed": "Cleanup {count} failed",
+    "bulkRetryTitle": "Retry jobs?",
+    "bulkRetryMessage": "Do you want to retry {count} failed/cancelled jobs?",
+    "bulkRetrySuccess": "{count} jobs scheduled for retry",
+    "bulkRetryPartialError": "{count} jobs could not be retried",
+    "bulkDeleteTitle": "Delete jobs?",
+    "bulkDeleteMessage": "Do you want to permanently delete {count} jobs? Associated documents will be preserved.",
+    "bulkDeleteSuccess": "{count} jobs deleted",
+    "bulkDeletePartialError": "{count} jobs could not be deleted",
+    "cleanupFailedTitle": "Cleanup failed jobs?",
+    "cleanupFailedMessage": "Do you want to permanently delete all {count} failed jobs?",
+    "cleanupSuccess": "{count} failed jobs cleaned up",
+    "noFailedJobsToCleanup": "No failed jobs to cleanup"
   }
 }

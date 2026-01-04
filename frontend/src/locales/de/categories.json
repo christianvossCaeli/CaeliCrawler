@@ -10,7 +10,10 @@
       "search": "Suche",
       "filters": "URL-Filter",
       "ai": "KI",
-      "dataSources": "Datenquellen"
+      "dataSources": "Datenquellen",
+      "ariaLabel": "Einstellungen für Analysethema",
+      "filtersWarning": "Warnung: Keine URL-Filter definiert",
+      "sourceCount": "{count} Quellen zugewiesen"
     },
     "filters": {
       "search": "Suche (Name/Zweck)",
@@ -140,6 +143,26 @@
       "active": "Aktiv",
       "pending": "Ausstehend",
       "error": "Fehler"
+    },
+    "validation": {
+      "nameRequired": "Name ist erforderlich",
+      "nameMinLength": "Name muss mindestens 1 Zeichen haben",
+      "nameMaxLength": "Name darf maximal 255 Zeichen haben",
+      "purposeRequired": "Zweck ist erforderlich",
+      "purposeMinLength": "Zweck muss mindestens 10 Zeichen haben",
+      "languagesRequired": "Mindestens eine Sprache ist erforderlich",
+      "cronFieldCount": "Cron-Ausdruck muss 5 oder 6 Felder haben",
+      "cronInvalid": "Ungültiger Cron-Ausdruck",
+      "regexInvalid": "Ungültiger regulärer Ausdruck für {field}",
+      "regexPatternInvalid": "Ungültiges Muster in {field}: {pattern}",
+      "urlPatternInvalid": "Ungültiges URL-Muster: {pattern}",
+      "promptTooLong": "Prompt darf maximal 10.000 Zeichen haben",
+      "searchTermsInvalid": "Suchbegriffe müssen Texteinträge sein",
+      "searchTermTooLong": "Suchbegriff zu lang: {term}",
+      "documentTypesInvalid": "Dokumenttypen müssen Texteinträge sein",
+      "documentTypeEmpty": "Dokumenttyp darf nicht leer sein",
+      "extractionHandlerInvalid": "Handler muss 'default' oder 'event' sein",
+      "targetEntityTypeInvalid": "Ungültige Ziel-Entitätstyp-ID"
     },
     "messages": {
       "created": "Analysethema erfolgreich erstellt",

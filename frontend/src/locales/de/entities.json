@@ -9,6 +9,8 @@
     "entityTypeNavigation": "Datentyp-Navigation",
     "statistics": "Statistiken",
     "items": "{count} Einträge",
+    "loading": "Lade Datensätze...",
+    "loadingDetail": "Lade Datensatz-Details...",
     "tabs": {
       "general": "Allgemein",
       "attributes": "Eigenschaften",
@@ -230,7 +232,15 @@
     "enrichCompleted": "Anreicherung abgeschlossen",
     "enrichFailed": "Anreicherung fehlgeschlagen",
     "enrichRunning": "Anreicherung läuft",
+    "enrichSuccessMessage": "Anreicherung erfolgreich abgeschlossen",
     "processing": "Verarbeite",
+    "viewEntity": "Datensatz anzeigen",
+    "extractions": {
+      "title": "KI-Extraktionen",
+      "subtitle": "Aus Dokumenten durch KI extrahierte Daten",
+      "empty": "Noch keine Extraktionen vorhanden",
+      "viewResult": "Ergebnis anzeigen"
+    },
     "tabs": {
       "properties": "Eigenschaften",
       "relations": "Verknüpfungen",
@@ -352,6 +362,7 @@
       "exportNotes": "Notizen",
       "addNote": "Neue Notiz hinzufügen...",
       "saveNote": "Notiz speichern",
+      "deleteNote": "Notiz löschen?",
       "addRelation": "Verknüpfung hinzufügen",
       "editRelation": "Verknüpfung bearbeiten",
       "deleteRelation": "Verknüpfung löschen?",
@@ -364,7 +375,11 @@
       "noEntitiesFound": "Keine Datensätze gefunden",
       "typeToSearch": "Mind. 2 Zeichen eingeben zum Suchen",
       "relationAttributes": "Eigenschaften (JSON, optional)",
-      "relationAttributesHint": "z.B. since: 2024, role: Partner"
+      "relationAttributesHint": "z.B. since: 2024, role: Partner",
+      "linkToEntity": "Mit Datensatz verknüpfen",
+      "selectEntity": "Datensatz auswählen",
+      "searchEntity": "Suchen...",
+      "entityLinkHint": "Wählen Sie einen bestehenden Datensatz aus oder füllen Sie die Felder unten manuell aus."
     },
     "messages": {
       "entityNotFound": "Datensatz nicht gefunden",
@@ -401,6 +416,9 @@
       "sourceDeleteError": "Fehler beim Löschen der Datenquelle",
       "copiedToClipboard": "In Zwischenablage kopiert",
       "enrichError": "Fehler beim Starten der Anreicherung",
+      "enrichSuccess": "Anreicherung erfolgreich abgeschlossen",
+      "linkError": "Fehler beim Verknüpfen des Datensatzes",
+      "unlinkError": "Fehler beim Entfernen der Verknüpfung",
       "relationCreated": "Verknüpfung erstellt",
       "relationUpdated": "Verknüpfung aktualisiert",
       "relationDeleted": "Verknüpfung gelöscht",
@@ -530,6 +548,22 @@
         "locations": "Orte",
         "dates": "Daten"
       }
+    },
+    "referencedBy": {
+      "title": "Referenziert in",
+      "subtitle": "Zeigt alle Facets, die auf diesen Datensatz verweisen",
+      "goToSource": "Zum Quell-Datensatz",
+      "empty": "Dieser Datensatz wird derzeit in keinen Facets referenziert."
+    },
+    "facets": {
+      "linkEntityTitle": "Facet mit Datensatz verknüpfen",
+      "linkEntityDescription": "Suchen Sie nach einem Datensatz, um dieses Facet zu verknüpfen.",
+      "searchEntity": "Datensatz suchen...",
+      "linkToEntity": "Mit Datensatz verknüpfen",
+      "unlinkEntity": "Verknüpfung entfernen",
+      "changeEntityLink": "Anderen Datensatz verknüpfen",
+      "entityLinked": "Datensatz erfolgreich verknüpft",
+      "entityUnlinked": "Verknüpfung erfolgreich entfernt"
     }
   },
   "facetEnrichment": {

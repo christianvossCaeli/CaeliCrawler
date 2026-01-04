@@ -47,6 +47,36 @@ body {
 }
 
 /* ===========================================
+   Vue Transition Animations
+   =========================================== */
+
+/* Fade Transition - für Skeleton→Content Wechsel */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Slide-Fade Transition - für Panel/Dialog Einblendungen */
+.slide-fade-enter-active {
+  transition: all 0.3s ease-out;
+}
+
+.slide-fade-leave-active {
+  transition: all 0.2s ease-in;
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateY(-10px);
+  opacity: 0;
+}
+
+/* ===========================================
    Chip/Badge Styles - Bessere Lesbarkeit
    =========================================== */
 .v-chip {
@@ -286,6 +316,11 @@ body {
 
 /* ===========================================
    Tabellen Action Buttons
+   ===========================================
+   WCAG 2.1 requires 44x44px touch targets.
+   We use 36px visual size with touch target
+   expansion via pseudo-elements for better
+   aesthetics while maintaining accessibility.
    =========================================== */
 
 /* Actions Wrapper für einzeilige Buttons */
@@ -296,13 +331,25 @@ body {
   align-items: center;
 }
 
-/* Action Buttons - "buttoniger" mit Hintergrund */
+/* Action Buttons - visible size with touch target expansion */
 .table-actions .v-btn {
-  min-width: 32px !important;
-  width: 32px !important;
-  height: 32px !important;
+  min-width: 36px !important;
+  width: 36px !important;
+  height: 36px !important;
   background-color: #f5f5f5 !important;
   border: 1px solid #e0e0e0 !important;
+  position: relative;
+}
+
+/* Invisible touch target expansion to 44px */
+.table-actions .v-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .table-actions .v-btn:hover {
@@ -383,11 +430,22 @@ body {
   background-color: #e1bee7 !important;
 }
 
-/* X-Small Buttons in table-actions */
+/* X-Small Buttons in table-actions - maintain touch target */
 .table-actions .v-btn--size-x-small {
-  min-width: 26px !important;
-  width: 26px !important;
-  height: 26px !important;
+  min-width: 30px !important;
+  width: 30px !important;
+  height: 30px !important;
+}
+
+/* X-Small buttons also get touch target expansion */
+.table-actions .v-btn--size-x-small::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  min-height: 44px;
 }
 
 /* Purple Chips für PYSIS */
@@ -765,6 +823,10 @@ body {
   white-space: nowrap;
 }
 
+.max-width-content {
+  max-width: 500px;
+}
+
 /* -------------------------------------------
    Dialog/Container Min-Heights
    Für konsistente Dialog-Inhalte
@@ -843,6 +905,10 @@ body {
    ------------------------------------------- */
 .col-width-xs {
   width: 40px;
+}
+
+.col-width-60 {
+  width: 60px;
 }
 
 .col-width-sm {
@@ -1052,5 +1118,81 @@ body {
   .v-treeview-node__toggle {
     min-width: 44px;
     min-height: 44px;
+  }
+}
+
+/* ===========================================
+   Dark Mode Text Contrast Improvements
+   ===========================================
+   WCAG 2.1 requires minimum 4.5:1 contrast ratio.
+   Vuetify's text-medium-emphasis can be too dim
+   in dark mode, so we increase its brightness.
+   =========================================== */
+.v-theme--caeliDark .text-medium-emphasis {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.v-theme--caeliDark .text-high-emphasis {
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Also improve contrast for text-disabled which can be hard to read */
+.v-theme--caeliDark .text-disabled {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* ===========================================
+   Accessibility Utilities
+   =========================================== */
+
+/* Screen reader only - visually hidden but accessible */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* Skip link for keyboard navigation */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--bs-primary);
+  color: white;
+  padding: 8px 16px;
+  z-index: 9999;
+  transition: top 0.2s;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* Focus visible outline for keyboard navigation */
+*:focus-visible {
+  outline: 2px solid var(--bs-tertiary);
+  outline-offset: 2px;
+}
+
+/* Remove outline for mouse users */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

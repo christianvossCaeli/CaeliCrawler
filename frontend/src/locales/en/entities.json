@@ -9,6 +9,8 @@
     "entityTypeNavigation": "Entity Type Navigation",
     "statistics": "Statistics",
     "items": "{count} items",
+    "loading": "Loading entities...",
+    "loadingDetail": "Loading entity details...",
     "tabs": {
       "general": "General",
       "attributes": "Attributes",
@@ -230,7 +232,15 @@
     "enrichCompleted": "Enrichment completed",
     "enrichFailed": "Enrichment failed",
     "enrichRunning": "Enrichment running",
+    "enrichSuccessMessage": "Enrichment completed successfully",
     "processing": "Processing",
+    "viewEntity": "View entity",
+    "extractions": {
+      "title": "AI Extractions",
+      "subtitle": "Data extracted from documents by AI",
+      "empty": "No extractions yet",
+      "viewResult": "View result"
+    },
     "tabs": {
       "properties": "Properties",
       "relations": "Relations",
@@ -352,6 +362,7 @@
       "exportNotes": "Notes",
       "addNote": "Add new note...",
       "saveNote": "Save note",
+      "deleteNote": "Delete note?",
       "addRelation": "Add Relation",
       "editRelation": "Edit Relation",
       "deleteRelation": "Delete relation?",
@@ -364,7 +375,11 @@
       "noEntitiesFound": "No entities found",
       "typeToSearch": "Type at least 2 characters to search",
       "relationAttributes": "Attributes (JSON, optional)",
-      "relationAttributesHint": "e.g. since: 2024, role: Partner"
+      "relationAttributesHint": "e.g. since: 2024, role: Partner",
+      "linkToEntity": "Link to entity",
+      "selectEntity": "Select entity",
+      "searchEntity": "Search...",
+      "entityLinkHint": "Select an existing entity or fill in the fields below manually."
     },
     "messages": {
       "entityNotFound": "Entity not found",
@@ -401,6 +416,9 @@
       "sourceDeleteError": "Error deleting data source",
       "copiedToClipboard": "Copied to clipboard",
       "enrichError": "Error starting enrichment",
+      "enrichSuccess": "Enrichment completed successfully",
+      "linkError": "Error linking entity",
+      "unlinkError": "Error unlinking entity",
       "relationCreated": "Relation created",
       "relationUpdated": "Relation updated",
       "relationDeleted": "Relation deleted",
@@ -530,6 +548,22 @@
         "locations": "Locations",
         "dates": "Dates"
       }
+    },
+    "referencedBy": {
+      "title": "Referenced By",
+      "subtitle": "Shows all facets that reference this entity",
+      "goToSource": "Go to source entity",
+      "empty": "This entity is not currently referenced in any facets."
+    },
+    "facets": {
+      "linkEntityTitle": "Link Facet to Entity",
+      "linkEntityDescription": "Search for an entity to link this facet to.",
+      "searchEntity": "Search entity...",
+      "linkToEntity": "Link to entity",
+      "unlinkEntity": "Remove link",
+      "changeEntityLink": "Link different entity",
+      "entityLinked": "Entity successfully linked",
+      "entityUnlinked": "Link successfully removed"
     }
   },
   "facetEnrichment": {

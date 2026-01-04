@@ -4,7 +4,7 @@
     "create": "Neues Preset",
     "edit": "Preset bearbeiten",
     "delete": "Preset löschen",
-    "execute": "Jetzt ausführen",
+    "execute": "Ausführen",
     "preview": "Vorschau",
     "all": "Alle",
     "favorites": "Favoriten",
@@ -21,6 +21,9 @@
     "tagsHint": "Eingabe mit Enter bestätigen",
     "tagsHintSelect": "Tags aus der Liste auswählen",
     "sourceType": "Quellen-Typ",
+    "status": "Status",
+    "search": "Suche",
+    "searchHint": "Freitextsuche in Quellennamen",
     "limit": "Limit",
     "sourcesMatched": "Quellen gefunden",
     "loadingPreview": "Lade Vorschau...",
@@ -35,7 +38,18 @@
     "daysAgo": "Vor {n} Tagen",
     "addedToFavorites": "Zu Favoriten hinzugefügt",
     "removedFromFavorites": "Aus Favoriten entfernt",
+    "addToFavorites": "Zu Favoriten hinzufügen",
+    "removeFromFavorites": "Aus Favoriten entfernen",
     "deleteConfirm": "Möchten Sie das Preset \"{name}\" wirklich löschen?",
+    "noFiltersConfigured": "Keine Filter konfiguriert - crawlt alle Quellen",
+    "nextRun": "Nächste Ausführung",
+    "filterLabels": {
+      "entityTypes": "Entity-Typen",
+      "sourceTypes": "Quellen-Typen",
+      "tags": "Tags",
+      "limit": "Limit",
+      "types": "Typen"
+    },
     "schedule": {
       "title": "Zeitplan",
       "enabled": "Automatische Ausführung"
@@ -46,6 +60,21 @@
       "deleted": "Preset gelöscht",
       "executed": "{count} Crawl-Jobs gestartet",
       "executeFailed": "Ausführung fehlgeschlagen"
-    }
+    },
+    "info": {
+      "overview": "Crawl-Presets speichern Filter-Konfigurationen für wiederkehrende Crawl-Aufgaben. So können Sie häufig verwendete Kombinationen aus Entity-Typen, Kategorien, Tags und Quellen-Typen mit einem Klick erneut ausführen.",
+      "overviewDetails": "Beim Ausführen eines Presets werden alle Datenquellen gecrawlt, die den konfigurierten Filtern entsprechen. Die Anzahl der gefundenen Quellen wird Ihnen vor der Ausführung angezeigt.",
+      "hideInfo": "Nicht mehr anzeigen",
+      "showInfo": "Info anzeigen",
+      "editorTitle": "Was sind Crawl-Presets?",
+      "editorDescription": "Mit Crawl-Presets können Sie häufig verwendete Filter-Konfigurationen speichern und wiederverwenden. Definieren Sie einmal, welche Entities und Quellen gecrawlt werden sollen – danach können Sie den Crawl jederzeit mit einem Klick starten.",
+      "editorDetails": "Filter-Optionen: Wählen Sie Entity-Typen, Kategorien, Tags, Quellen-Typen, Status oder nutzen Sie die Freitextsuche. Die Vorschau zeigt, wie viele Quellen betroffen sind. Bei geplanten Crawls wird der aktuelle Filterstand zum Ausführungszeitpunkt verwendet – neue passende Quellen werden automatisch einbezogen.",
+      "scheduleHint": "Zeitpläne nutzen CRON-Ausdrücke (Serverzeit: UTC). Bei Fehlern während geplanter Crawls werden Sie per Benachrichtigung informiert.",
+      "previewHint": "Die Vorschau zeigt die aktuell passenden Quellen. Bei '0 Quellen' sind keine Datenquellen mit den gewählten Filtern vorhanden."
+    },
+    "category": "Kategorie",
+    "duplicate": "Duplizieren",
+    "duplicateSuccess": "Preset dupliziert – Sie können es jetzt bearbeiten",
+    "duplicateSuffix": "(Kopie)"
   }
 }

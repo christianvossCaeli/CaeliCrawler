@@ -3,6 +3,10 @@
     "users": {
       "title": "Benutzerverwaltung",
       "subtitle": "Benutzer erstellen, bearbeiten und verwalten",
+      "emptyState": {
+        "title": "Keine Benutzer",
+        "description": "Es wurden noch keine Benutzer angelegt."
+      },
       "filters": {
         "search": "Suche",
         "role": "Rolle",
@@ -126,6 +130,10 @@
         "SECURITY_ALERT": "Sicherheitswarnung",
         "RATE_LIMIT_EXCEEDED": "Rate-Limit überschritten"
       },
+      "emptyState": {
+        "title": "Keine Einträge",
+        "description": "Es wurden noch keine Audit-Log-Einträge erfasst."
+      },
       "clear": {
         "button": "Verlauf leeren",
         "title": "Audit-Log leeren",
@@ -142,6 +150,10 @@
     "entityTypes": {
       "title": "Datentypen",
       "subtitle": "Kategorien für Datensätze verwalten (z.B. Gemeinden, Personen, Organisationen)",
+      "emptyState": {
+        "title": "Keine Datentypen vorhanden",
+        "description": "Es wurden noch keine Datentypen erstellt. Erstellen Sie Ihren ersten Datentyp, um zu beginnen."
+      },
       "tabs": {
         "basic": "Allgemein",
         "appearance": "Darstellung",
@@ -216,6 +228,10 @@
       "title": "Merkmalstypen",
       "subtitle": "Eigenschaften und Attribute für Datentypen verwalten",
       "allTypes": "Alle Typen",
+      "emptyState": {
+        "title": "Keine Merkmalstypen vorhanden",
+        "description": "Erstellen Sie Ihren ersten Merkmalstyp, um Eigenschaften für Ihre Daten zu definieren."
+      },
       "systemType": "System-Typ",
       "cannotDeleteSystem": "System-Typ kann nicht gelöscht werden",
       "hasValues": "Hat noch Werte",
@@ -226,7 +242,9 @@
         "basic": "Allgemein",
         "appearance": "Darstellung",
         "schema": "Schema & Einstellungen",
-        "ai": "KI-Extraktion"
+        "ai": "KI-Extraktion",
+        "behavior": "Verhalten",
+        "entityRef": "Datensatz-Referenz"
       },
       "columns": {
         "name": "Name",
@@ -248,7 +266,10 @@
         "icon": "Symbol",
         "iconPlaceholder": "mdi-account",
         "iconHint": "Material Design Icon Name (mdi-*)",
+        "customIcon": "Eigenes Symbol",
         "color": "Farbe",
+        "entityTypes": "Datentypen",
+        "entityTypesHint": "Wählen Sie die Datentypen aus, für die dieses Merkmal gilt",
         "applicableEntityTypes": "Gültig für Datentypen",
         "applicableEntityTypesHint": "Leer = gilt für alle Datentypen",
         "valueType": "Werttyp",
@@ -274,7 +295,16 @@
         "aiDisabledInfo": "Die KI-Extraktion ist deaktiviert. Aktiviere sie, um automatisch Daten aus Dokumenten zu extrahieren.",
         "aiSchemaGenerator": "KI-Assistent",
         "aiSchemaGeneratorHint": "Generiere Schema, Anweisung und Einstellungen automatisch basierend auf Name und Beschreibung",
-        "generateSchema": "Generieren"
+        "generateSchema": "Generieren",
+        "allowsEntityReference": "Erlaubt Datensatz-Verknüpfung",
+        "allowsEntityReferenceHint": "Merkmalswerte können mit Datensätzen verknüpft werden",
+        "autoCreateEntity": "Datensatz automatisch erstellen",
+        "autoCreateEntityHint": "Automatisch einen Datensatz erstellen, wenn ein Merkmalswert hinzugefügt wird",
+        "targetEntityTypes": "Ziel-Datentypen",
+        "targetEntityTypesHint": "Welche Datentypen können verknüpft werden",
+        "entityRefInfo": "Datensatz-Verknüpfungen ermöglichen die Verbindung von Merkmalswerten mit Datensätzen für bessere Datenmodellierung.",
+        "entityRefDisabledInfo": "Aktiviere Datensatz-Verknüpfungen, um Merkmalswerte mit Datensätzen zu verbinden.",
+        "schemaPlaceholder": "JSON-Schema für die Wertstruktur eingeben..."
       },
       "actions": {
         "create": "Neuer Merkmalstyp"
@@ -502,31 +532,56 @@
       "tables": {
         "byTaskType": "Nach Aufgabentyp",
         "byCategory": "Nach Kategorie",
+        "byUser": "Nach Benutzer",
+        "byUserHint": "Token-Verbrauch und Kosten pro Benutzer mit API-Zugangsdaten-Status",
         "topConsumers": "Größte Verbraucher",
         "headers": {
           "taskType": "Aufgabentyp",
           "taskName": "Aufgabe",
           "category": "Kategorie",
+          "user": "Benutzer",
           "requests": "Anfragen",
           "tokens": "Tokens",
           "cost": "Kosten",
-          "avgDuration": "Ø Dauer"
+          "avgDuration": "Ø Dauer",
+          "models": "Modelle"
         }
       },
+      "systemUser": "System",
+      "hasCredentials": "Eigene API-Zugangsdaten konfiguriert",
+      "noCredentials": "Keine eigenen API-Zugangsdaten",
       "budget": {
         "title": "Budgets",
         "add": "Budget erstellen",
         "edit": "Budget bearbeiten",
+        "noBudgets": "Keine Budgets konfiguriert",
+        "noBudgetsHint": "Erstellen Sie ein Budget, um Ihre LLM-Kosten zu überwachen und bei Überschreitung der Schwellenwerte benachrichtigt zu werden.",
         "deleteTitle": "Budget löschen",
         "deleteConfirm": "Möchten Sie das Budget \"{name}\" wirklich löschen?",
         "warningAlert": "Ein oder mehrere Budgets haben die Warnschwelle überschritten.",
         "criticalWarning": "ACHTUNG: Ein oder mehrere Budgets haben die kritische Schwelle überschritten!",
+        "blocksOnLimitTooltip": "Blockiert LLM-Zugriff bei Überschreitung",
+        "monitorOnlyTooltip": "Nur Monitoring (blockiert nicht)",
+        "info": {
+          "show": "Info anzeigen",
+          "title": "So funktionieren LLM-Budgets",
+          "overview": "Budgets ermöglichen die Überwachung und Kontrolle Ihrer LLM-Kosten. Sie können Warnungen bei bestimmten Schwellenwerten erhalten und optional den Zugriff blockieren, wenn das Budget erschöpft ist.",
+          "typesTitle": "Budget-Typen:",
+          "typeGlobal": "Gesamtbudget für alle LLM-Nutzung der Instanz",
+          "typeUser": "Individuelles Budget pro Benutzer",
+          "typeCategory": "Budget für eine bestimmte Kategorie",
+          "typeTaskType": "Budget für einen Task-Typ (z.B. SmartQuery, Assistant)",
+          "typeModel": "Budget für ein bestimmtes LLM-Modell",
+          "blockingTitle": "Blockierung bei Limit:",
+          "blockingDescription": "Wenn aktiviert, wird der LLM-Zugriff für den betroffenen Bereich blockiert, sobald 100% des Budgets erreicht sind. Ohne diese Option dient das Budget nur zur Überwachung und Benachrichtigung."
+        },
         "headers": {
           "name": "Name",
           "type": "Typ",
           "limit": "Monatliches Limit",
           "status": "Status",
-          "active": "Aktiv"
+          "active": "Aktiv",
+          "blocking": "Blockiert"
         },
         "form": {
           "name": "Name",
@@ -537,8 +592,249 @@
           "alertEmails": "E-Mail-Empfänger",
           "alertEmailsHint": "E-Mail-Adressen für Benachrichtigungen eingeben",
           "description": "Beschreibung",
-          "active": "Aktiv"
+          "active": "Aktiv",
+          "blocksOnLimit": "Blockiert bei Limit",
+          "blocksOnLimitHint": "LLM-Zugriff blockieren, wenn 100% des Budgets erreicht sind"
+        },
+        "createSuccess": "Budget erfolgreich erstellt",
+        "updateSuccess": "Budget erfolgreich aktualisiert",
+        "deleteSuccess": "Budget erfolgreich gelöscht",
+        "saveError": "Fehler beim Speichern des Budgets",
+        "deleteError": "Fehler beim Löschen des Budgets"
+      }
+    },
+    "apiCredentials": {
+      "title": "API-Zugangsdaten",
+      "subtitle": "Verwalten Sie Ihre persönlichen API-Schlüssel für externe Dienste",
+      "info": {
+        "title": "Persönliche API-Zugangsdaten",
+        "description": "Diese API-Schlüssel werden verschlüsselt gespeichert und für Ihre Crawl-Jobs, KI-Funktionen und Quellen-Suche verwendet. Jeder Benutzer muss seine eigenen Schlüssel konfigurieren."
+      },
+      "sections": {
+        "search": "Web-Suche APIs",
+        "searchDescription": "APIs für die KI-gestützte Quellen-Entdeckung. Diese werden verwendet, um automatisch relevante OParl-Quellen im Web zu finden.",
+        "ai": "KI & LLM APIs",
+        "aiDescription": "APIs für Dokumentenanalyse, Zusammenfassungen und intelligente Funktionen. Mindestens ein LLM-Anbieter muss konfiguriert sein."
+      },
+      "types": {
+        "serpapi": {
+          "name": "SerpAPI",
+          "description": "Google-Suche API für die KI-gestützte Quellen-Entdeckung.",
+          "useCases": "Automatische Suche nach OParl-Endpunkten und kommunalen Datenquellen im Web."
+        },
+        "serper": {
+          "name": "Serper",
+          "description": "Alternative Google-Suche API mit günstigeren Preisen.",
+          "useCases": "Wird als Alternative zu SerpAPI verwendet. Nur eine Such-API ist erforderlich."
+        },
+        "azure_openai": {
+          "name": "Azure OpenAI",
+          "description": "Microsoft Azure gehosteter OpenAI Service mit Enterprise-Features.",
+          "useCases": "Dokumentenanalyse, Zusammenfassungen, Embeddings für semantische Suche, KI-Assistent und Smart Query."
+        },
+        "openai": {
+          "name": "OpenAI",
+          "description": "Direkter Zugang zur OpenAI API (nicht Azure).",
+          "useCases": "Alternative zu Azure OpenAI. Einfachere Einrichtung, aber ohne Enterprise-Features."
+        },
+        "anthropic": {
+          "name": "Anthropic Claude",
+          "description": "Claude-Modelle von Anthropic für komplexe Analysen.",
+          "useCases": "Erweiterte API-Erkennung, Plan-Mode für komplexe Abfragen und detaillierte Dokumentenanalysen."
         }
+      },
+      "usedFor": "Verwendung",
+      "form": {
+        "apiKey": "API-Schlüssel",
+        "apiKeyPlaceholder": "Ihren API-Schlüssel eingeben",
+        "endpoint": "Endpunkt-URL",
+        "endpointPlaceholder": "https://...",
+        "apiVersion": "API-Version",
+        "deploymentName": "Deployment-Name",
+        "deploymentNamePlaceholder": "z.B. gpt-4o",
+        "embeddingsDeployment": "Embeddings-Deployment",
+        "embeddingsDeploymentPlaceholder": "z.B. text-embedding-3-large",
+        "model": "Modell",
+        "modelPlaceholder": "z.B. claude-opus-4-5",
+        "organization": "Organisation",
+        "organizationPlaceholder": "org-... (optional)",
+        "openaiModelPlaceholder": "z.B. gpt-4o",
+        "embeddingsModel": "Embeddings-Modell",
+        "embeddingsModelPlaceholder": "z.B. text-embedding-3-large"
+      },
+      "status": {
+        "configured": "Konfiguriert",
+        "notConfigured": "Nicht konfiguriert",
+        "active": "Aktiv",
+        "inactive": "Inaktiv",
+        "lastUsed": "Zuletzt verwendet",
+        "lastError": "Letzter Fehler"
+      },
+      "actions": {
+        "save": "Speichern",
+        "test": "Verbindung testen",
+        "delete": "Entfernen",
+        "show": "Anzeigen",
+        "hide": "Verbergen"
+      },
+      "dialog": {
+        "deleteTitle": "Zugangsdaten löschen?",
+        "deleteConfirm": "Möchten Sie diese API-Zugangsdaten wirklich löschen? Funktionen, die diesen Dienst nutzen, werden nicht mehr funktionieren."
+      },
+      "messages": {
+        "saved": "{type}-Zugangsdaten erfolgreich gespeichert",
+        "deleted": "{type}-Zugangsdaten gelöscht",
+        "testSuccess": "Verbindung erfolgreich",
+        "testFailed": "Verbindungstest fehlgeschlagen",
+        "saveError": "Fehler beim Speichern",
+        "deleteError": "Fehler beim Löschen",
+        "loadError": "Fehler beim Laden der Zugangsdaten"
+      }
+    },
+    "llmConfig": {
+      "title": "KI-Konfiguration",
+      "subtitle": "Konfigurieren Sie die KI-Anbieter für jeden Anwendungszweck",
+      "info": {
+        "title": "Zweck-basierte KI-Konfiguration",
+        "description": "Wählen Sie für jeden Anwendungszweck den passenden KI-Anbieter. So können Sie z.B. Azure OpenAI für Dokumentenanalyse und Anthropic für den Assistenten verwenden."
+      },
+      "currentProvider": "Aktueller Anbieter",
+      "form": {
+        "selectProvider": "Anbieter auswählen",
+        "apiKey": "API-Schlüssel",
+        "apiKeyPlaceholder": "Ihren API-Schlüssel eingeben",
+        "endpoint": "Endpunkt-URL",
+        "endpointPlaceholder": "https://...",
+        "apiVersion": "API-Version",
+        "deploymentName": "Deployment-Name",
+        "deploymentNamePlaceholder": "z.B. gpt-4o",
+        "embeddingsDeployment": "Embeddings-Deployment",
+        "embeddingsDeploymentPlaceholder": "z.B. text-embedding-3-large",
+        "model": "Modell",
+        "modelPlaceholder": "z.B. claude-opus-4-5",
+        "organization": "Organisation",
+        "organizationPlaceholder": "org-... (optional)",
+        "openaiModelPlaceholder": "z.B. gpt-4o",
+        "embeddingsModel": "Embeddings-Modell",
+        "embeddingsModelPlaceholder": "z.B. text-embedding-3-large"
+      },
+      "status": {
+        "configured": "Konfiguriert",
+        "notConfigured": "Nicht konfiguriert",
+        "lastUsed": "Zuletzt verwendet"
+      },
+      "actions": {
+        "save": "Speichern",
+        "test": "Testen",
+        "delete": "Entfernen"
+      },
+      "dialog": {
+        "deleteTitle": "Konfiguration löschen?",
+        "deleteConfirm": "Möchten Sie diese Konfiguration wirklich löschen? Der entsprechende Dienst wird nicht mehr funktionieren."
+      },
+      "messages": {
+        "saved": "Konfiguration erfolgreich gespeichert",
+        "deleted": "Konfiguration gelöscht",
+        "testSuccess": "Verbindung erfolgreich",
+        "testFailed": "Verbindungstest fehlgeschlagen",
+        "saveError": "Fehler beim Speichern",
+        "deleteError": "Fehler beim Löschen",
+        "loadError": "Fehler beim Laden der Konfiguration"
+      }
+    },
+    "modelPricing": {
+      "title": "Modellpreise",
+      "subtitle": "Preise für KI-Modelle verwalten",
+      "info": {
+        "title": "Preisdaten-Quellen",
+        "description": "Azure-Preise werden wöchentlich automatisch synchronisiert. OpenAI- und Anthropic-Preise müssen manuell gepflegt werden, da keine öffentlichen APIs verfügbar sind."
+      },
+      "stats": {
+        "totalModels": "Modelle gesamt",
+        "staleCount": "Veraltet",
+        "azureModels": "Azure OpenAI",
+        "openaiModels": "OpenAI",
+        "anthropicModels": "Anthropic"
+      },
+      "columns": {
+        "provider": "Anbieter",
+        "model": "Modell",
+        "inputPrice": "Input/1M",
+        "outputPrice": "Output/1M",
+        "source": "Quelle",
+        "lastVerified": "Verifiziert",
+        "status": "Status",
+        "actions": "Aktionen"
+      },
+      "filters": {
+        "provider": "Anbieter",
+        "allProviders": "Alle Anbieter",
+        "includeDeprecated": "Veraltete anzeigen"
+      },
+      "sources": {
+        "manual": "Manuell",
+        "azure_api": "Azure API",
+        "official_docs": "Offizielle Docs",
+        "litellm": "LiteLLM"
+      },
+      "daysAgo": "{days} Tage",
+      "status": {
+        "active": "Aktiv",
+        "deprecated": "Veraltet",
+        "stale": "Veraltet"
+      },
+      "actions": {
+        "add": "Preis hinzufügen",
+        "edit": "Bearbeiten",
+        "verify": "Als geprüft markieren",
+        "delete": "Löschen",
+        "syncAll": "Alle synchronisieren",
+        "syncAzure": "Azure-Preise synchronisieren",
+        "syncLiteLLM": "LiteLLM",
+        "syncLiteLLMTooltip": "Aktuelle Preise aus der LiteLLM Community-Datenbank synchronisieren (OpenAI, Anthropic)",
+        "seedDefaults": "Standardpreise laden"
+      },
+      "dialog": {
+        "addTitle": "Neuen Preis hinzufügen",
+        "editTitle": "Preis bearbeiten",
+        "deleteTitle": "Preis löschen?",
+        "deleteConfirm": "Möchten Sie diesen Preiseintrag wirklich als veraltet markieren?"
+      },
+      "form": {
+        "provider": "Anbieter",
+        "modelName": "Modellname",
+        "modelNamePlaceholder": "z.B. gpt-4o",
+        "displayName": "Anzeigename",
+        "displayNamePlaceholder": "z.B. GPT-4o (optional)",
+        "inputPrice": "Preis pro 1M Input-Tokens (USD)",
+        "outputPrice": "Preis pro 1M Output-Tokens (USD)",
+        "cachedInputPrice": "Preis pro 1M gecachte Input-Tokens (optional)",
+        "sourceUrl": "Quell-URL",
+        "sourceUrlPlaceholder": "https://...",
+        "notes": "Notizen"
+      },
+      "messages": {
+        "created": "Preiseintrag erstellt",
+        "updated": "Preiseintrag aktualisiert",
+        "deleted": "Preiseintrag als veraltet markiert",
+        "verified": "Preis als geprüft markiert",
+        "syncSuccess": "Preise synchronisiert: {updated} aktualisiert, {added} hinzugefügt",
+        "syncFailed": "Synchronisierung fehlgeschlagen",
+        "syncPartialFailed": "Synchronisierung teilweise fehlgeschlagen ({errors} Fehler)",
+        "litellmSuccess": "LiteLLM-Preise synchronisiert: {updated} aktualisiert, {added} hinzugefügt",
+        "litellmFailed": "LiteLLM-Synchronisierung fehlgeschlagen",
+        "litellmPartialFailed": "LiteLLM-Synchronisierung teilweise fehlgeschlagen ({errors} Fehler)",
+        "seeded": "{count} Standardpreise geladen",
+        "seedFailed": "Laden der Standardpreise fehlgeschlagen",
+        "alreadySeeded": "Preisdaten waren bereits vorhanden",
+        "loadError": "Fehler beim Laden der Preise",
+        "saveFailed": "Speichern fehlgeschlagen",
+        "deleteFailed": "Löschen fehlgeschlagen",
+        "staleWarning": "{count} Preise sind älter als 30 Tage"
+      },
+      "officialUrls": {
+        "title": "Offizielle Preisseiten",
+        "hint": "Aktuelle Preise finden Sie auf den offiziellen Preisseiten der Anbieter"
       }
     }
   }

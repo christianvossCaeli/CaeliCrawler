@@ -23,9 +23,9 @@
     "pendingRequestExists": "You already have a pending request",
     "requestHistory": "Your Requests",
     "requestStatus": {
-      "pending": "Pending",
-      "approved": "Approved",
-      "denied": "Denied"
+      "PENDING": "Pending",
+      "APPROVED": "Approved",
+      "DENIED": "Denied"
     },
     "limitRequests": "Limit Requests",
     "pending": "pending",
@@ -42,6 +42,12 @@
     "deny": "Deny",
     "requestApproved": "Request has been approved",
     "requestDenied": "Request has been denied",
-    "reviewedAt": "Reviewed at"
+    "reviewedAt": "Reviewed at",
+    "adminSelfService": "As an administrator, you can update your limit directly",
+    "newLimit": "New Limit",
+    "adminLimitHint": "Set your monthly budget limit in USD",
+    "updateLimit": "Update Limit",
+    "mustBePositive": "Must be a positive value",
+    "limitUpdated": "Your limit has been updated successfully"
   }
 }

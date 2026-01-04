@@ -152,6 +152,18 @@ const router = createRouter({
       component: () => import('@/views/admin/LLMUsageView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
     },
+    {
+      path: '/admin/api-credentials',
+      name: 'admin-api-credentials',
+      component: () => import('@/views/admin/ApiCredentialsView.vue'),
+      meta: { requiresAuth: true }  // Editors and Admins can access (backend checks role)
+    },
+    {
+      path: '/admin/model-pricing',
+      name: 'admin-model-pricing',
+      component: () => import('@/views/admin/ModelPricingView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
 
     // Custom Summaries routes
     {

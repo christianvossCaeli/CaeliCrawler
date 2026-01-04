@@ -51,6 +51,7 @@ import deMisc from './de/misc.json'
 import deFavorites from './de/favorites.json'
 import deCrawlPresets from './de/crawlPresets.json'
 import deSummaries from './de/summaries.json'
+import deLlm from './de/llm.json'
 
 // English locale modules
 import enCommon from './en/common.json'
@@ -75,6 +76,7 @@ import enMisc from './en/misc.json'
 import enFavorites from './en/favorites.json'
 import enCrawlPresets from './en/crawlPresets.json'
 import enSummaries from './en/summaries.json'
+import enLlm from './en/llm.json'
 
 // Merge German modules
 const de = {
@@ -103,6 +105,7 @@ const de = {
   ...deFavorites,
   ...deCrawlPresets,
   ...deSummaries,
+  ...deLlm,
 }
 
 // Merge English modules
@@ -132,6 +135,7 @@ const en = {
   ...enFavorites,
   ...enCrawlPresets,
   ...enSummaries,
+  ...enLlm,
 }
 
 export type SupportedLocale = 'de' | 'en'
@@ -139,10 +143,10 @@ export type SupportedLocale = 'de' | 'en'
 export const SUPPORTED_LOCALES: SupportedLocale[] = ['de', 'en']
 export const DEFAULT_LOCALE: SupportedLocale = 'de'
 
-export const LOCALE_NAMES: Record<SupportedLocale, string> = {
+export const LOCALE_NAMES = {
   de: 'Deutsch',
   en: 'English',
-}
+} satisfies Record<SupportedLocale, string>
 
 /**
  * Get the initial locale from localStorage or use default
