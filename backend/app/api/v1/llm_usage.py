@@ -5,11 +5,12 @@ request limit increases.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user
 from app.database import get_session
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.llm_budget import (
     LimitIncreaseRequestCreate,
     LimitIncreaseRequestResponse,
@@ -18,6 +19,12 @@ from app.schemas.llm_budget import (
 from services.llm_budget_service import LLMBudgetService
 
 router = APIRouter(prefix="/me/llm", tags=["User LLM Usage"])
+
+
+class AdminSelfLimitUpdate(BaseModel):
+    """Admin self-service limit update."""
+
+    new_limit_cents: int = Field(gt=0, description="New monthly limit in USD cents")
 
 
 @router.get(
@@ -77,3 +84,46 @@ async def get_my_limit_requests(
     """Get all limit requests for the current user."""
     service = LLMBudgetService(session)
     return await service.get_user_limit_requests(current_user.id)
+
+
+@router.put(
+    "/limit",
+    response_model=UserBudgetStatusResponse,
+    summary="Update own limit (admin only)",
+    description="Allows administrators to directly update their own monthly LLM budget limit "
+    "without going through the request approval workflow. "
+    "Non-admin users receive a 403 error.",
+)
+async def update_own_limit(
+    data: AdminSelfLimitUpdate,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> UserBudgetStatusResponse:
+    """
+    Admin self-service limit update.
+
+    Admins can directly set their own budget limit for self-regulation
+    without needing approval from another admin.
+    """
+    # Only admins can use this endpoint
+    if current_user.role != UserRole.ADMIN and not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can update their own limit directly. "
+            "Please use the limit request workflow.",
+        )
+
+    service = LLMBudgetService(session)
+
+    try:
+        result = await service.update_user_budget_limit(
+            user_id=current_user.id,
+            new_limit_cents=data.new_limit_cents,
+        )
+        await session.commit()
+        return result
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from None

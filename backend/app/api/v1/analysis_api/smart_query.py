@@ -35,6 +35,18 @@ class ConversationMessage(BaseModel):
     content: str = Field(..., description="Message content")
 
 
+class PageContext(BaseModel):
+    """Page context for Plan Mode - enables context-aware responses."""
+    current_route: str = Field(..., description="Current page route/path")
+    view_mode: str = Field(default="unknown", description="Current view mode (dashboard, list, detail, summary, etc.)")
+    available_features: list[str] = Field(default_factory=list, description="Features available on current page")
+    entity_type: str | None = Field(default=None, description="Current entity type if applicable")
+    entity_id: str | None = Field(default=None, description="Current entity ID if applicable")
+    summary_id: str | None = Field(default=None, description="Current summary ID if applicable")
+    widget_ids: list[str] = Field(default_factory=list, description="Widget IDs if on summary page")
+    filter_state: dict | None = Field(default=None, description="Current filter state if applicable")
+
+
 class SmartQueryRequest(BaseModel):
     """Request for smart query endpoint."""
     question: str = Field(..., min_length=1, max_length=10000, description="Natural language question or command")
@@ -43,6 +55,10 @@ class SmartQueryRequest(BaseModel):
     conversation_history: list[ConversationMessage] | None = Field(
         default=None,
         description="Conversation history for Plan Mode (list of previous messages)"
+    )
+    page_context: PageContext | None = Field(
+        default=None,
+        description="Current page context for context-aware Plan Mode responses"
     )
 
 
@@ -120,6 +136,10 @@ class SmartQueryStreamRequest(BaseModel):
         default=None,
         description="Conversation history for Plan Mode"
     )
+    page_context: PageContext | None = Field(
+        default=None,
+        description="Current page context for context-aware responses"
+    )
 
 
 @router.post("/smart-query/stream")
@@ -164,11 +184,17 @@ async def smart_query_stream_endpoint(
             for msg in stream_request.conversation_history
         ]
 
+    # Convert page context to dict if provided
+    page_context_dict = None
+    if stream_request.page_context:
+        page_context_dict = stream_request.page_context.model_dump()
+
     async def event_generator():
         async for event in interpret_plan_query_stream(
             question=stream_request.question,
             session=session,
             conversation_history=conversation_history,
+            page_context=page_context_dict,
         ):
             yield event
 

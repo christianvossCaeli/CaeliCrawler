@@ -108,8 +108,8 @@ def _summary_to_response(summary: CustomSummary) -> SummaryResponse:
         original_prompt=summary.original_prompt,
         interpreted_config=summary.interpreted_config,
         layout_config=summary.layout_config,
-        status=SummaryStatus(summary.status.value),
-        trigger_type=SummaryTriggerType(summary.trigger_type.value),
+        status=summary.status.value,  # Pass string, Pydantic coerces to schema enum
+        trigger_type=summary.trigger_type.value,  # Pass string, Pydantic coerces to schema enum
         schedule_cron=summary.schedule_cron,
         trigger_category_id=summary.trigger_category_id,
         trigger_preset_id=summary.trigger_preset_id,
@@ -130,7 +130,7 @@ def _widget_to_response(widget: SummaryWidget) -> SummaryWidgetResponse:
     """Convert widget model to response schema."""
     return SummaryWidgetResponse(
         id=widget.id,
-        widget_type=SummaryWidgetType(widget.widget_type.value),
+        widget_type=widget.widget_type.value,  # Pass string, Pydantic coerces to schema enum
         title=widget.title,
         subtitle=widget.subtitle,
         position=WidgetPosition(
@@ -151,7 +151,7 @@ def _execution_to_response(execution: SummaryExecution) -> SummaryExecutionRespo
     """Convert execution model to response schema."""
     return SummaryExecutionResponse(
         id=execution.id,
-        status=ExecutionStatus(execution.status.value),
+        status=execution.status.value,  # Pass string, Pydantic coerces to schema enum
         triggered_by=execution.triggered_by,
         trigger_details=execution.trigger_details,
         has_changes=execution.has_changes,
@@ -465,7 +465,7 @@ async def get_summary(
 
             response_data["last_execution"] = SummaryExecutionDetailResponse(
                 id=last_exec.id,
-                status=ExecutionStatus(last_exec.status.value),
+                status=last_exec.status.value,  # Pass string, Pydantic coerces to schema enum
                 triggered_by=last_exec.triggered_by,
                 trigger_details=last_exec.trigger_details,
                 has_changes=last_exec.has_changes,
@@ -588,7 +588,7 @@ async def execute_summary(
 
     return SummaryExecuteResponse(
         execution_id=execution.id,
-        status=ExecutionStatus(execution.status.value),
+        status=execution.status.value,  # Pass string, Pydantic coerces to schema enum
         has_changes=execution.has_changes,
         cached_data=execution.cached_data if execution.status == ExecutionStatus.COMPLETED else None,
         message="Ausführung abgeschlossen" if execution.status == ExecutionStatus.COMPLETED else "Keine relevanten Änderungen",

@@ -162,7 +162,16 @@ async def discover_sources(
     # Rate limiting - expensive operation (LLM + web scraping)
     await check_rate_limit(http_request, "ai_discovery", identifier=str(user.id))
 
-    service = AISourceDiscoveryService()
+    # Get user's search API credentials
+    from services.credentials_resolver import get_serpapi_key, get_serper_key
+
+    serpapi_key = await get_serpapi_key(session, user.id)
+    serper_key = await get_serper_key(session, user.id)
+
+    service = AISourceDiscoveryService(
+        serpapi_key=serpapi_key,
+        serper_key=serper_key,
+    )
 
     result = await service.discover_sources(
         prompt=request.prompt,
@@ -373,7 +382,16 @@ async def discover_sources_v2(
     # Rate limiting - expensive operation
     await check_rate_limit(http_request, "ai_discovery", identifier=str(user.id))
 
-    service = AISourceDiscoveryService()
+    # Get user's search API credentials
+    from services.credentials_resolver import get_serpapi_key, get_serper_key
+
+    serpapi_key = await get_serpapi_key(session, user.id)
+    serper_key = await get_serper_key(session, user.id)
+
+    service = AISourceDiscoveryService(
+        serpapi_key=serpapi_key,
+        serper_key=serper_key,
+    )
 
     result = await service.discover_sources_v2(
         prompt=request.prompt,

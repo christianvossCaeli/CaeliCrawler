@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 logger = structlog.get_logger(__name__)
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer  # noqa: E402
-from pydantic import BaseModel, EmailStr, Field  # noqa: E402
+from pydantic import BaseModel, ConfigDict, EmailStr, Field  # noqa: E402
 from sqlalchemy import and_, select  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
@@ -63,8 +63,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     language: str = "de"
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TokenResponse(BaseModel):
@@ -96,8 +95,7 @@ class SessionResponse(BaseModel):
     last_used_at: datetime
     is_current: bool = False
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SessionListResponse(BaseModel):

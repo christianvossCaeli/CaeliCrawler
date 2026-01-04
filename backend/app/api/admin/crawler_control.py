@@ -96,7 +96,7 @@ async def start_crawl(
 
             # Create a job for each category
             for cat_id in category_ids:
-                create_crawl_job.delay(str(source_id), str(cat_id))
+                create_crawl_job.delay(str(source_id), str(cat_id), str(current_user.id))
                 job_ids.append(source_id)
 
     else:
@@ -164,7 +164,7 @@ async def start_crawl(
         # If filtering by specific category, use that for all sources
         if crawl_request.category_id:
             for source in sources:
-                create_crawl_job.delay(str(source.id), str(crawl_request.category_id))
+                create_crawl_job.delay(str(source.id), str(crawl_request.category_id), str(current_user.id))
                 job_ids.append(source.id)
         else:
             # Get N:M category assignments for all sources
@@ -183,7 +183,7 @@ async def start_crawl(
                     logger.warning(f"Source {source.name} has no category assignments, skipping")
                     continue
                 for cat_id in category_ids:
-                    create_crawl_job.delay(str(source.id), str(cat_id))
+                    create_crawl_job.delay(str(source.id), str(cat_id), str(current_user.id))
                     job_ids.append(source.id)
 
     # Audit log for crawler start
@@ -244,7 +244,7 @@ async def retry_job(
     category = await session.get(Category, job.category_id) if job.category_id else None
 
     # Create a new crawl job with the same source and category
-    create_crawl_job.delay(str(job.source_id), str(job.category_id))
+    create_crawl_job.delay(str(job.source_id), str(job.category_id), str(current_user.id))
 
     async with AuditContext(session, current_user, request) as audit:
         audit.track_action(
@@ -308,6 +308,47 @@ async def cancel_job(
         await session.commit()
 
     return MessageResponse(message="Job cancelled")
+
+
+@router.delete("/jobs/{job_id}", response_model=MessageResponse)
+async def delete_job(
+    job_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+):
+    """Delete a completed, failed, or cancelled crawl job."""
+    job = await session.get(CrawlJob, job_id)
+    if not job:
+        raise NotFoundError("Crawl Job", str(job_id))
+
+    if job.status not in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
+        raise ValidationError("Can only delete completed, failed, or cancelled jobs")
+
+    # Get source and category names for audit
+    source = await session.get(DataSource, job.source_id) if job.source_id else None
+    category = await session.get(Category, job.category_id) if job.category_id else None
+
+    async with AuditContext(session, current_user, request) as audit:
+        audit.track_action(
+            action=AuditAction.DELETE,
+            entity_type="CrawlJob",
+            entity_id=job.id,
+            entity_name=source.name if source else str(job_id),
+            changes={
+                "deleted": True,
+                "status": job.status.value,
+                "source_name": source.name if source else None,
+                "category_name": category.name if category else None,
+                "pages_crawled": job.pages_crawled,
+                "documents_found": job.documents_found,
+            },
+        )
+
+        await session.delete(job)
+        await session.commit()
+
+    return MessageResponse(message="Job deleted")
 
 
 @router.get("/stats", response_model=CrawlJobStats)

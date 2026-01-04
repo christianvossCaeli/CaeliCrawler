@@ -15,6 +15,8 @@ from app.models.user import User
 from app.schemas.extracted_data import (
     DisplayColumn,
     DisplayFieldsConfig,
+    ExtractedDataBulkVerify,
+    ExtractedDataBulkVerifyResponse,
     ExtractedDataListResponse,
     ExtractedDataResponse,
     ExtractedDataVerify,
@@ -308,6 +310,55 @@ async def verify_extraction(
     await session.refresh(extraction)
 
     return ExtractedDataResponse.model_validate(extraction)
+
+
+@router.put("/extracted/bulk-verify", response_model=ExtractedDataBulkVerifyResponse)
+async def bulk_verify_extractions(
+    data: ExtractedDataBulkVerify,
+    current_user: User = Depends(require_editor),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Bulk verify multiple extracted data entries.
+
+    Verifies up to 100 extractions in a single request.
+    Returns the count of successfully verified and failed entries.
+    """
+    from datetime import datetime
+
+    verified_ids: list[UUID] = []
+    failed_ids: list[UUID] = []
+
+    verifier = current_user.full_name or current_user.email or str(current_user.id)
+    now = datetime.now(UTC)
+
+    for extraction_id in data.ids:
+        extraction = await session.get(ExtractedData, extraction_id)
+        if not extraction:
+            failed_ids.append(extraction_id)
+            continue
+
+        # Skip already verified
+        if extraction.human_verified:
+            verified_ids.append(extraction_id)
+            continue
+
+        try:
+            extraction.human_verified = True
+            extraction.verified_by = verifier
+            extraction.verified_at = now
+            verified_ids.append(extraction_id)
+        except Exception:
+            failed_ids.append(extraction_id)
+
+    await session.commit()
+
+    return ExtractedDataBulkVerifyResponse(
+        verified_ids=verified_ids,
+        failed_ids=failed_ids,
+        verified_count=len(verified_ids),
+        failed_count=len(failed_ids),
+    )
 
 
 @router.get("/by-entity/{entity_id}", response_model=ExtractedDataListResponse)

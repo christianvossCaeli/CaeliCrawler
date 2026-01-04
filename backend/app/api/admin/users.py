@@ -120,7 +120,8 @@ async def list_users(
         query = query.where(User.is_active == is_active)
     if search:
         # Escape SQL wildcards to prevent injection
-        search_pattern = f"%{search.replace('%', '\\%').replace('_', '\\_')}%"
+        escaped_search = search.replace("%", r"\%").replace("_", r"\_")
+        search_pattern = f"%{escaped_search}%"
         query = query.where(
             (User.email.ilike(search_pattern, escape='\\')) |
             (User.full_name.ilike(search_pattern, escape='\\'))

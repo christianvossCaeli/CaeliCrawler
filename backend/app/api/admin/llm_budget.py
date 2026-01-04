@@ -10,8 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import require_admin
 from app.database import get_session
 from app.models.user import User
+from app.models.llm_budget import LimitIncreaseRequestStatus
 from app.schemas.llm_budget import (
+    AdminLimitRequestAction,
     BudgetStatusListResponse,
+    LimitIncreaseRequestListResponse,
+    LimitIncreaseRequestResponse,
     LLMBudgetConfigCreate,
     LLMBudgetConfigResponse,
     LLMBudgetConfigUpdate,
@@ -158,3 +162,116 @@ async def trigger_budget_check(
         "alerts_triggered": len(alerts),
         "alerts": alerts,
     }
+
+
+# === Limit Increase Request Endpoints ===
+
+
+@router.get(
+    "/limit-requests",
+    response_model=LimitIncreaseRequestListResponse,
+    summary="List limit increase requests",
+)
+async def list_limit_requests(
+    status: LimitIncreaseRequestStatus | None = Query(
+        None, description="Filter by request status"
+    ),
+    limit: int = Query(50, ge=1, le=200),
+    _: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_session),
+):
+    """
+    List all limit increase requests.
+
+    Returns requests with user information for admin review.
+    """
+    service = LLMBudgetService(db)
+    return await service.list_limit_requests(status=status, limit=limit)
+
+
+@router.get(
+    "/limit-requests/{request_id}",
+    response_model=LimitIncreaseRequestResponse,
+    summary="Get limit request details",
+)
+async def get_limit_request(
+    request_id: UUID,
+    _: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_session),
+):
+    """
+    Get details of a specific limit increase request.
+    """
+    service = LLMBudgetService(db)
+    request = await service.get_limit_request(request_id)
+
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    return request
+
+
+@router.post(
+    "/limit-requests/{request_id}/approve",
+    response_model=LimitIncreaseRequestResponse,
+    summary="Approve limit request",
+)
+async def approve_limit_request(
+    request_id: UUID,
+    action: AdminLimitRequestAction | None = None,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_session),
+):
+    """
+    Approve a limit increase request.
+
+    This updates the user's budget to the requested limit.
+    """
+    service = LLMBudgetService(db)
+
+    try:
+        result = await service.approve_limit_request(
+            request_id=request_id,
+            admin_id=admin.id,
+            action=action,
+        )
+        await db.commit()
+        return result
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        ) from None
+
+
+@router.post(
+    "/limit-requests/{request_id}/deny",
+    response_model=LimitIncreaseRequestResponse,
+    summary="Deny limit request",
+)
+async def deny_limit_request(
+    request_id: UUID,
+    action: AdminLimitRequestAction | None = None,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_session),
+):
+    """
+    Deny a limit increase request.
+
+    The user's budget remains unchanged.
+    """
+    service = LLMBudgetService(db)
+
+    try:
+        result = await service.deny_limit_request(
+            request_id=request_id,
+            admin_id=admin.id,
+            action=action,
+        )
+        await db.commit()
+        return result
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        ) from None

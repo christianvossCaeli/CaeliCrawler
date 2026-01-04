@@ -115,12 +115,15 @@ async def _create_preset_internal(
     Raises:
         ValidationError: If cron expression is invalid
     """
+    # Use mode='json' to properly serialize UUIDs to strings for JSONB storage
+    filters_dict = filters.model_dump(mode='json', exclude_none=True)
+    
     # Check for duplicate by filter configuration
     from app.utils.similarity import find_duplicate_crawl_preset
     duplicate = await find_duplicate_crawl_preset(
         session,
         user_id=user_id,
-        filters=filters.model_dump(exclude_none=True),
+        filters=filters_dict,
     )
     if duplicate:
         existing_preset, reason = duplicate
@@ -139,7 +142,7 @@ async def _create_preset_internal(
         user_id=user_id,
         name=name,
         description=description,
-        filters=filters.model_dump(exclude_none=True),
+        filters=filters_dict,
         schedule_cron=schedule_cron,
         schedule_enabled=schedule_enabled,
         next_run_at=next_run,
@@ -312,7 +315,8 @@ async def update_preset(
     if update_data.description is not None:
         preset.description = update_data.description
     if update_data.filters is not None:
-        preset.filters = update_data.filters.model_dump(exclude_none=True)
+        # Use mode='json' to properly serialize UUIDs to strings for JSONB storage
+        preset.filters = update_data.filters.model_dump(mode='json', exclude_none=True)
     if update_data.schedule_cron is not None:
         if update_data.schedule_cron and not validate_cron_expression(update_data.schedule_cron):
             raise ValidationError("Invalid cron expression")
