@@ -1,14 +1,16 @@
 <template>
   <v-dialog
     :model-value="modelValue"
-    max-width="900"
+    :max-width="DIALOG_SIZES.XL"
     persistent
     scrollable
+    role="dialog"
+    :aria-labelledby="titleId"
     @update:model-value="emit('update:modelValue', $event)"
   >
     <v-card>
-      <v-card-title class="d-flex align-center pa-4 bg-primary">
-        <v-avatar color="primary-darken-1" size="40" class="mr-3">
+      <v-card-title :id="titleId" class="d-flex align-center pa-4 bg-primary">
+        <v-avatar color="primary-darken-1" size="40" class="mr-3" aria-hidden="true">
           <v-icon color="on-primary">
             {{ editMode ? 'mdi-folder-edit' : 'mdi-folder-plus' }}
           </v-icon>
@@ -23,37 +25,41 @@
         </div>
       </v-card-title>
 
-      <v-tabs v-model="activeTab" class="dialog-tabs">
-        <v-tab value="general">
-          <v-icon start>mdi-form-textbox</v-icon>
+      <v-tabs v-model="activeTab" class="dialog-tabs" role="tablist" :aria-label="$t('categories.tabs.ariaLabel')">
+        <v-tab value="general" role="tab" :aria-selected="activeTab === 'general'">
+          <v-icon start aria-hidden="true">mdi-form-textbox</v-icon>
           {{ $t('categories.tabs.general') }}
         </v-tab>
-        <v-tab value="search">
-          <v-icon start>mdi-magnify</v-icon>
+        <v-tab value="search" role="tab" :aria-selected="activeTab === 'search'">
+          <v-icon start aria-hidden="true">mdi-magnify</v-icon>
           {{ $t('categories.tabs.search') }}
         </v-tab>
-        <v-tab value="filters">
-          <v-icon start>mdi-filter</v-icon>
+        <v-tab value="filters" role="tab" :aria-selected="activeTab === 'filters'">
+          <v-icon start aria-hidden="true">mdi-filter</v-icon>
           {{ $t('categories.tabs.filters') }}
           <v-icon
             v-if="!formData.url_include_patterns?.length && !formData.url_exclude_patterns?.length"
             color="warning"
             size="x-small"
             class="ml-1"
+            :aria-label="$t('categories.tabs.filtersWarning')"
           >
             mdi-alert
           </v-icon>
         </v-tab>
-        <v-tab value="ai">
-          <v-icon start>mdi-robot</v-icon>
+        <v-tab value="ai" role="tab" :aria-selected="activeTab === 'ai'">
+          <v-icon start aria-hidden="true">mdi-robot</v-icon>
           {{ $t('categories.tabs.ai') }}
         </v-tab>
-        <v-tab v-if="editMode" value="dataSources">
-          <v-icon start>mdi-database</v-icon>
+        <v-tab v-if="editMode" value="dataSources" role="tab" :aria-selected="activeTab === 'dataSources'">
+          <v-icon start aria-hidden="true">mdi-database</v-icon>
           {{ $t('categories.tabs.dataSources') }}
-          <v-chip v-if="category?.source_count" size="x-small" color="primary" class="ml-1">
+          <v-chip v-if="category?.source_count" size="x-small" color="primary" class="ml-1" aria-hidden="true">
             {{ category.source_count }}
           </v-chip>
+          <span v-if="category?.source_count" class="sr-only">
+            {{ $t('categories.tabs.sourceCount', { count: category.source_count }) }}
+          </span>
         </v-tab>
       </v-tabs>
 
@@ -117,12 +123,21 @@
       <v-divider />
 
       <v-card-actions class="pa-4">
-        <v-btn variant="tonal" @click="emit('update:modelValue', false)">
+        <v-btn
+          variant="tonal"
+          :aria-label="$t('common.cancel')"
+          @click="emit('update:modelValue', false)"
+        >
           {{ $t('common.cancel') }}
         </v-btn>
         <v-spacer />
-        <v-btn variant="tonal" color="primary" @click="handleSave">
-          <v-icon start>mdi-check</v-icon>
+        <v-btn
+          variant="tonal"
+          color="primary"
+          :aria-label="editMode ? $t('common.save') + ' ' + formData.name : $t('common.save')"
+          @click="handleSave"
+        >
+          <v-icon start aria-hidden="true">mdi-check</v-icon>
           {{ $t('common.save') }}
         </v-btn>
       </v-card-actions>
@@ -132,12 +147,21 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { DIALOG_SIZES } from '@/config/ui'
+import { generateAriaId } from '@/utils/dialogAccessibility'
 import type { CategoryFormData, Category, DataSourcesTabState } from '@/composables/useCategoriesView'
 import CategoryFormGeneral from './CategoryFormGeneral.vue'
 import CategoryFormSearch from './CategoryFormSearch.vue'
 import CategoryFormFilters from './CategoryFormFilters.vue'
 import CategoryFormAi from './CategoryFormAi.vue'
 import CategoryDetailsPanel from './CategoryDetailsPanel.vue'
+
+const props = defineProps<CategoryEditFormProps>()
+
+const emit = defineEmits<CategoryEditFormEmits>()
+
+// Accessibility IDs
+const titleId = generateAriaId('category-edit-title')
 
 export interface CategoryEditFormProps {
   modelValue: boolean
@@ -157,9 +181,6 @@ export interface CategoryEditFormEmits {
   (e: 'save'): void
   (e: 'assign-sources'): void
 }
-
-const props = defineProps<CategoryEditFormProps>()
-const emit = defineEmits<CategoryEditFormEmits>()
 
 const activeTab = ref('general')
 const form = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)

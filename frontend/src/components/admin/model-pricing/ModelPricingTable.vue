@@ -118,6 +118,7 @@ import {
   getProviderLabel,
   getSourceColor,
 } from '@/utils/llmProviders'
+import { useDateFormatter } from '@/composables'
 
 defineProps<{
   entries: PricingEntry[]
@@ -128,6 +129,8 @@ defineEmits<{
   edit: [entry: PricingEntry]
   delete: [entry: PricingEntry]
 }>()
+
+const { formatDateShort } = useDateFormatter()
 
 const { t } = useI18n()
 
@@ -144,6 +147,6 @@ const headers = computed(() => [
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleDateString()
+  return formatDateShort(dateStr)
 }
 </script>

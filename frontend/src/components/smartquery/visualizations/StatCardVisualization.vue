@@ -32,7 +32,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useDateFormatter } from '@/composables'
 import type { VisualizationConfig, StatCard } from './types'
+
+const props = defineProps<{
+  data: StatDataItem[]
+  config?: VisualizationConfig
+}>()
+
+const { formatNumber } = useDateFormatter()
 
 // Local interface for stat data items
 interface StatDataItem {
@@ -42,11 +50,6 @@ interface StatDataItem {
   facets?: Record<string, { value?: unknown } | unknown>
   [key: string]: unknown
 }
-
-const props = defineProps<{
-  data: StatDataItem[]
-  config?: VisualizationConfig
-}>()
 
 const statCards = computed((): StatCard[] => {
   // Use configured cards if available
@@ -96,7 +99,7 @@ function formatStatValue(value: unknown, unit?: string): string {
 
   let formatted: string
   if (typeof value === 'number') {
-    formatted = value.toLocaleString()
+    formatted = formatNumber(value)
   } else {
     formatted = String(value)
   }

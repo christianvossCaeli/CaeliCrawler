@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Enrich from PySis Dialog -->
-    <v-dialog v-model="showEnrichDialog" max-width="500">
+    <v-dialog v-model="showEnrichDialog" :max-width="DIALOG_SIZES.SM">
       <v-card>
         <v-card-title>
           <v-icon start color="secondary">mdi-database-arrow-up</v-icon>
@@ -34,7 +34,7 @@
     </v-dialog>
 
     <!-- Enrich Task Status Dialog -->
-    <v-dialog v-model="showStatusDialog" max-width="500" persistent>
+    <v-dialog v-model="showStatusDialog" :max-width="DIALOG_SIZES.SM" persistent>
       <v-card>
         <v-card-title>
           <v-icon
@@ -101,10 +101,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { pysisApi, aiTasksApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { useLogger } from '@/composables/useLogger'
-import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { getErrorMessage } from '@/utils/errorMessage'
 
 const props = withDefaults(defineProps<Props>(), {
   overwrite: false,

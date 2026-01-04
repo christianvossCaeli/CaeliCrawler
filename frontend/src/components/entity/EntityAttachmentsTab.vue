@@ -47,7 +47,7 @@
           <v-list-item-title>{{ att.filename }}</v-list-item-title>
           <v-list-item-subtitle>
             {{ formatFileSize(att.file_size) }} -
-            {{ formatDate(att.created_at) }}
+            {{ formatDateShort(att.created_at) }}
             <v-chip size="x-small" :color="getStatusColor(att.analysis_status)" class="ml-2">
               <v-progress-circular
                 v-if="att.analysis_status === 'ANALYZING'"
@@ -90,13 +90,13 @@
               </v-btn>
 
               <!-- Download -->
-              <v-btn icon size="small" variant="text" @click="downloadAttachment(att)">
+              <v-btn icon size="small" variant="text" :aria-label="t('common.download')" @click="downloadAttachment(att)">
                 <v-icon>mdi-download</v-icon>
                 <v-tooltip activator="parent">{{ t('common.download') }}</v-tooltip>
               </v-btn>
 
               <!-- Delete -->
-              <v-btn v-if="canEdit" icon size="small" variant="text" color="error" @click="confirmDelete(att)">
+              <v-btn v-if="canEdit" icon size="small" variant="text" color="error" :aria-label="t('common.delete')" @click="confirmDelete(att)">
                 <v-icon>mdi-delete</v-icon>
                 <v-tooltip activator="parent">{{ t('common.delete') }}</v-tooltip>
               </v-btn>
@@ -115,7 +115,7 @@
     </v-card-text>
 
     <!-- Upload Dialog -->
-    <v-dialog v-model="uploadDialog" max-width="500">
+    <v-dialog v-model="uploadDialog" :max-width="DIALOG_SIZES.SM">
       <v-card>
         <v-card-title>{{ t('entityDetail.attachments.uploadTitle') }}</v-card-title>
         <v-card-text>
@@ -152,7 +152,7 @@
     </v-dialog>
 
     <!-- Analysis Result Dialog -->
-    <v-dialog v-model="analysisDialog" max-width="800" scrollable>
+    <v-dialog v-model="analysisDialog" :max-width="DIALOG_SIZES.LG" scrollable>
       <v-card v-if="selectedAttachment">
         <v-card-title class="d-flex align-center">
           <v-icon start>mdi-chart-box</v-icon>
@@ -289,7 +289,7 @@
     </v-dialog>
 
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="deleteDialog" max-width="400">
+    <v-dialog v-model="deleteDialog" :max-width="DIALOG_SIZES.XS">
       <v-card>
         <v-card-title>{{ t('entityDetail.attachments.deleteConfirm') }}</v-card-title>
         <v-card-text>
@@ -318,9 +318,10 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { attachmentApi } from '@/services/api'
-import { useStatusColors } from '@/composables'
+import { useStatusColors, useDateFormatter } from '@/composables'
 import { useLogger } from '@/composables/useLogger'
-import { getErrorMessage } from '@/composables/useApiErrorHandler'
+import { getErrorMessage } from '@/utils/errorMessage'
+import { DIALOG_SIZES } from '@/config/ui'
 
 const props = withDefaults(defineProps<{
   entityId: string
@@ -368,6 +369,7 @@ interface Attachment {
 
 const { t } = useI18n()
 const { getStatusColor } = useStatusColors()
+const { formatDateShort, formatFileSize } = useDateFormatter()
 
 // State
 const loading = ref(false)
@@ -623,15 +625,7 @@ function getThumbnailUrl(attachmentId: string): string {
   return attachmentApi.getThumbnailUrl(props.entityId, attachmentId)
 }
 
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString()
-}
+// formatFileSize and formatDate now from useDateFormatter composable
 
 // getStatusColor now from useStatusColors composable
 

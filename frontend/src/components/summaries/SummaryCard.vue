@@ -148,7 +148,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { CustomSummary } from '@/stores/customSummaries'
-import { useRelativeTime } from '@/composables/useRelativeTime'
+import { useDateFormatter } from '@/composables/useDateFormatter'
 import { capitalize } from '@/composables/useStringUtils'
 import { useStatusColors } from '@/composables'
 
@@ -165,7 +165,7 @@ defineEmits<{
   share: []
 }>()
 const { t } = useI18n()
-const { formatRelativeTime } = useRelativeTime()
+const { formatRelativeTime } = useDateFormatter()
 const { getStatusColor } = useStatusColors()
 
 // Use centralized status colors
@@ -173,11 +173,11 @@ const statusColor = computed(() => getStatusColor(props.summary.status))
 
 const triggerLabel = computed(() => {
   switch (props.summary.trigger_type) {
-    case 'cron':
+    case 'CRON':
       return props.summary.schedule_cron || t('summaries.trigger.scheduled')
-    case 'crawl_category':
+    case 'CRAWL_CATEGORY':
       return t('summaries.trigger.afterCrawl')
-    case 'crawl_preset':
+    case 'CRAWL_PRESET':
       return t('summaries.trigger.afterPreset')
     default:
       return t('summaries.trigger.manual')

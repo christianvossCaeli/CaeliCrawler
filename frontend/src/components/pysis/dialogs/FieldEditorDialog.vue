@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="700" @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog :model-value="modelValue" :max-width="DIALOG_SIZES.ML" @update:model-value="$emit('update:modelValue', $event)">
     <v-card v-if="field">
       <v-card-title>
         {{ field.internal_name }}
@@ -41,6 +41,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 
 interface Field {
   id: string

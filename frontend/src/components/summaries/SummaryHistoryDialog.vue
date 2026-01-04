@@ -1,7 +1,7 @@
 <template>
   <v-dialog
     v-model="modelValue"
-    max-width="700"
+    :max-width="DIALOG_SIZES.ML"
     role="dialog"
     aria-modal="true"
     :aria-labelledby="dialogTitleId"
@@ -92,13 +92,17 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useCustomSummariesStore, type SummaryExecution } from '@/stores/customSummaries'
-import { useDialogFocus, useStatusColors } from '@/composables'
+import { useDialogFocus, useStatusColors, useDateFormatter } from '@/composables'
 
 const modelValue = defineModel<boolean>()
+
 const props = defineProps<{
   summaryId: string
 }>()
+
+const { formatDateTime: formatDateTimeComposable } = useDateFormatter()
 
 const { t } = useI18n()
 const store = useCustomSummariesStore()
@@ -125,14 +129,7 @@ async function loadExecutions() {
 }
 
 function formatDateTime(dateStr: string): string {
-  // Use browser locale for consistent date formatting
-  return new Date(dateStr).toLocaleString(undefined, {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatDateTimeComposable(dateStr)
 }
 
 function close() {

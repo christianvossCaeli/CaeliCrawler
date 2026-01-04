@@ -76,7 +76,7 @@
         </template>
 
         <template #item.actions="{ item }">
-          <template v-if="item.status === 'pending'">
+          <template v-if="item.status === 'PENDING'">
             <v-btn
               icon="mdi-check"
               color="success"
@@ -137,7 +137,7 @@
     </v-card-text>
 
     <!-- Notes Dialog -->
-    <v-dialog v-model="notesDialog" max-width="400">
+    <v-dialog v-model="notesDialog" :max-width="DIALOG_SIZES.XS">
       <v-card>
         <v-card-title>
           {{ notesAction === 'approve' ? t('llm.approveRequest') : t('llm.denyRequest') }}
@@ -185,7 +185,8 @@ import {
   formatDate,
   formatPercentIncrease,
   getStatusColor,
-} from '@/composables/useLLMFormatting'
+} from '@/utils/llmFormatting'
+import { DIALOG_SIZES } from '@/config/ui'
 
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
@@ -193,7 +194,7 @@ const { showSuccess, showError } = useSnackbar()
 const loading = ref(false)
 const requests = ref<LimitIncreaseRequest[]>([])
 const pendingCount = ref(0)
-const statusFilter = ref<LimitRequestStatus | null>(null)
+const statusFilter = ref<LimitRequestStatus | '' | null>(null)
 const processingId = ref<string | null>(null)
 const notesDialog = ref(false)
 const notesAction = ref<'approve' | 'deny'>('approve')
@@ -210,17 +211,17 @@ const headers = computed(() => [
 ])
 
 const statusOptions = computed(() => [
-  { title: t('llm.requestStatus.pending'), value: 'pending' },
-  { title: t('llm.requestStatus.approved'), value: 'approved' },
-  { title: t('llm.requestStatus.denied'), value: 'denied' },
+  { title: t('llm.requestStatus.PENDING'), value: 'PENDING' },
+  { title: t('llm.requestStatus.APPROVED'), value: 'APPROVED' },
+  { title: t('llm.requestStatus.DENIED'), value: 'DENIED' },
 ])
 
 async function loadRequests() {
   loading.value = true
   try {
-    const response = await getLimitRequests({
-      status: statusFilter.value || undefined,
-    })
+    // Ensure empty string is treated as no filter (v-select clearable may set '')
+    const status = statusFilter.value || undefined
+    const response = await getLimitRequests(status ? { status } : undefined)
     requests.value = response.requests
     pendingCount.value = response.pending_count
   } catch {
@@ -265,7 +266,12 @@ async function confirmAction() {
   }
 }
 
-watch(statusFilter, () => {
+watch(statusFilter, (newValue) => {
+  // Normalize empty string to null for cleaner handling
+  if (newValue === '') {
+    statusFilter.value = null
+    return // The assignment will trigger this watch again with null
+  }
   loadRequests()
 })
 

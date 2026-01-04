@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Edit Data Source Dialog -->
-    <v-dialog v-model="editDialogVisible" max-width="800" persistent scrollable>
+    <v-dialog v-model="editDialogVisible" :max-width="DIALOG_SIZES.LG" persistent scrollable>
       <v-card>
         <v-card-title class="d-flex align-center pa-4 bg-primary">
           <v-avatar color="primary-darken-1" size="40" class="mr-3">
@@ -81,7 +81,7 @@
     </v-dialog>
 
     <!-- Delete Source Confirmation -->
-    <v-dialog v-model="deleteDialogVisible" max-width="450">
+    <v-dialog v-model="deleteDialogVisible" :max-width="DIALOG_SIZES.SM">
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon color="error" class="mr-2">mdi-alert</v-icon>
@@ -123,6 +123,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { adminApi } from '@/services/api'
 import { useSnackbar } from '@/composables/useSnackbar'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'

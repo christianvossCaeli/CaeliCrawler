@@ -92,7 +92,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useDateFormatter } from '@/composables'
 import type { VisualizationConfig } from './types'
+
+const props = defineProps<{
+  data: ComparisonEntity[]
+  config?: VisualizationConfig
+}>()
+
+const { formatNumber } = useDateFormatter()
 
 // Local interface for comparison entities
 interface ComparisonEntity {
@@ -104,11 +112,6 @@ interface ComparisonEntity {
   tags?: string[]
   [key: string]: unknown
 }
-
-const props = defineProps<{
-  data: ComparisonEntity[]
-  config?: VisualizationConfig
-}>()
 
 const { t } = useI18n()
 
@@ -162,7 +165,7 @@ const comparisonSummary = computed(() => {
   return t('smartQuery.comparison.summary', {
     entity: maxEntity.entity_name,
     facet: facetLabel,
-    value: maxValue.toLocaleString(),
+    value: formatNumber(maxValue),
   })
 })
 
@@ -180,13 +183,13 @@ function getFacetValue(entity: ComparisonEntity, facetKey: string): string {
   if (typeof facetValue === 'object' && facetValue !== null && 'value' in (facetValue as Record<string, unknown>)) {
     const val = (facetValue as Record<string, unknown>).value
     if (typeof val === 'number') {
-      return val.toLocaleString()
+      return formatNumber(val)
     }
     return String(val)
   }
 
   if (typeof facetValue === 'number') {
-    return facetValue.toLocaleString()
+    return formatNumber(facetValue)
   }
 
   return String(facetValue)
@@ -218,7 +221,7 @@ function formatAttrKey(key: string): string {
 
 function formatAttrValue(value: unknown): string {
   if (value === null || value === undefined) return '-'
-  if (typeof value === 'number') return value.toLocaleString()
+  if (typeof value === 'number') return formatNumber(value)
   if (typeof value === 'boolean') return value ? t('common.yes') : t('common.no')
   return String(value)
 }

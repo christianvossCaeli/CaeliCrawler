@@ -1,7 +1,7 @@
 <template>
   <v-dialog
     :model-value="modelValue"
-    max-width="500"
+    :max-width="DIALOG_SIZES.SM"
     @update:model-value="$emit('update:modelValue', $event)"
   >
     <v-card>
@@ -49,21 +49,38 @@
           </div>
         </v-alert>
 
-        <!-- Request Form -->
+        <!-- Admin Self-Service Section -->
+        <v-alert
+          v-if="isAdmin"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+        >
+          <div class="d-flex align-center">
+            <v-icon class="mr-2" size="small">mdi-shield-account</v-icon>
+            {{ t('llm.adminSelfService') }}
+          </div>
+        </v-alert>
+
+        <!-- Request Form (different for admin vs regular user) -->
         <v-form
-          v-if="!hasPendingRequest"
+          v-if="isAdmin || !hasPendingRequest"
           ref="formRef"
           @submit.prevent="handleSubmit"
         >
           <v-text-field
             v-model.number="requestedLimitDollars"
-            :label="t('llm.requestedLimit')"
-            :hint="t('llm.requestedLimitHint')"
+            :label="isAdmin ? t('llm.newLimit') : t('llm.requestedLimit')"
+            :hint="isAdmin ? t('llm.adminLimitHint') : t('llm.requestedLimitHint')"
             type="number"
             step="1"
             min="1"
             prefix="$"
-            :rules="[
+            :rules="isAdmin ? [
+              v => !!v || t('validation.required'),
+              v => v > 0 || t('llm.mustBePositive'),
+            ] : [
               v => !!v || t('validation.required'),
               v => v > currentLimitDollars || t('llm.mustBeGreaterThanCurrent'),
             ]"
@@ -72,6 +89,7 @@
           />
 
           <v-textarea
+            v-if="!isAdmin"
             v-model="reason"
             :label="t('llm.reason')"
             :hint="t('llm.reasonHint')"
@@ -132,14 +150,14 @@
           {{ t('common.close') }}
         </v-btn>
         <v-btn
-          v-if="!hasPendingRequest"
+          v-if="isAdmin || !hasPendingRequest"
           color="primary"
           variant="flat"
           :loading="submitting"
           :disabled="!canSubmit"
           @click="handleSubmit"
         >
-          {{ t('llm.submitRequest') }}
+          {{ isAdmin ? t('llm.updateLimit') : t('llm.submitRequest') }}
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -149,9 +167,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getMyLimitRequests, requestLimitIncrease } from '@/services/api/llm'
+import { DIALOG_SIZES } from '@/config/ui'
+import { getMyLimitRequests, requestLimitIncrease, updateOwnLimit } from '@/services/api/llm'
 import type { LimitIncreaseRequest, LimitRequestStatus, UserBudgetStatus } from '@/types/llm-usage'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { useAuthStore } from '@/stores/auth'
 import {
   formatCurrency,
   formatDate,
@@ -159,7 +179,7 @@ import {
   getStatusIcon,
   getBudgetColor,
   getBudgetAlertType,
-} from '@/composables/useLLMFormatting'
+} from '@/utils/llmFormatting'
 
 const props = defineProps<{
   modelValue: boolean
@@ -173,6 +193,10 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const { showSuccess, showError } = useSnackbar()
+const authStore = useAuthStore()
+
+// Check if user is admin for self-service limit update
+const isAdmin = computed(() => authStore.isAdmin)
 
 const formRef = ref()
 const submitting = ref(false)
@@ -186,10 +210,15 @@ const currentLimitDollars = computed(() => {
 })
 
 const hasPendingRequest = computed(() => {
-  return requests.value.some(r => r.status === 'pending')
+  return requests.value.some(r => r.status === 'PENDING')
 })
 
 const canSubmit = computed(() => {
+  if (isAdmin.value) {
+    // Admins only need a positive value
+    return requestedLimitDollars.value > 0
+  }
+  // Regular users need value > current AND a reason
   return requestedLimitDollars.value > currentLimitDollars.value && reason.value.length >= 10
 })
 
@@ -215,11 +244,18 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
-    await requestLimitIncrease({
-      requested_limit_cents: requestedLimitDollars.value * 100,
-      reason: reason.value,
-    })
-    showSuccess(t('llm.requestSubmitted'))
+    if (isAdmin.value) {
+      // Admin self-service: directly update own limit
+      await updateOwnLimit(requestedLimitDollars.value * 100)
+      showSuccess(t('llm.limitUpdated'))
+    } else {
+      // Regular user: submit request for approval
+      await requestLimitIncrease({
+        requested_limit_cents: requestedLimitDollars.value * 100,
+        reason: reason.value,
+      })
+      showSuccess(t('llm.requestSubmitted'))
+    }
     emit('submitted')
     emit('update:modelValue', false)
     reason.value = ''
@@ -237,8 +273,13 @@ watch(() => props.modelValue, (open) => {
   if (open) {
     loadRequests()
     if (props.status) {
-      // Suggest 50% increase as default
-      requestedLimitDollars.value = Math.ceil((props.status.monthly_limit_cents / 100) * 1.5)
+      if (isAdmin.value) {
+        // Admins see their current limit as default
+        requestedLimitDollars.value = props.status.monthly_limit_cents / 100
+      } else {
+        // Suggest 50% increase as default for regular users
+        requestedLimitDollars.value = Math.ceil((props.status.monthly_limit_cents / 100) * 1.5)
+      }
     }
   }
 })

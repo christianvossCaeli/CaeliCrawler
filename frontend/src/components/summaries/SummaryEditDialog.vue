@@ -1,7 +1,7 @@
 <template>
   <v-dialog
     v-model="modelValue"
-    max-width="600"
+    :max-width="DIALOG_SIZES.MD"
     role="dialog"
     aria-modal="true"
     :aria-labelledby="dialogTitleId"
@@ -46,14 +46,14 @@
             :label="t('summaries.triggerType')"
             class="mb-4"
           >
-            <v-radio value="manual" :label="t('summaries.triggerManual')" />
-            <v-radio value="cron" :label="t('summaries.triggerCron')" />
-            <v-radio value="crawl_category" :label="t('summaries.triggerCrawlCategory')" />
+            <v-radio value="MANUAL" :label="t('summaries.triggerManual')" />
+            <v-radio value="CRON" :label="t('summaries.triggerCron')" />
+            <v-radio value="CRAWL_CATEGORY" :label="t('summaries.triggerCrawlCategory')" />
           </v-radio-group>
 
           <!-- Cron Schedule (if cron selected) -->
           <v-select
-            v-if="form.trigger_type === 'cron'"
+            v-if="form.trigger_type === 'CRON'"
             v-model="form.schedule_cron"
             :items="schedulePresets"
             item-title="description"
@@ -70,7 +70,7 @@
 
           <!-- Schedule Enabled -->
           <v-switch
-            v-if="form.trigger_type !== 'manual'"
+            v-if="form.trigger_type !== 'MANUAL'"
             v-model="form.schedule_enabled"
             :label="t('summaries.scheduleEnabled')"
             color="primary"
@@ -136,6 +136,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useCustomSummariesStore, type CustomSummary, type SummaryUpdate } from '@/stores/customSummaries'
 import { useDialogFocus } from '@/composables'
 
@@ -163,8 +164,8 @@ const isSaving = ref(false)
 const form = ref<SummaryUpdate>({
   name: '',
   description: '',
-  status: 'draft',
-  trigger_type: 'manual',
+  status: 'DRAFT',
+  trigger_type: 'MANUAL',
   schedule_cron: undefined,
   schedule_enabled: false,
   check_relevance: true,
@@ -173,10 +174,10 @@ const form = ref<SummaryUpdate>({
 })
 
 const statusOptions = [
-  { title: t('summaries.statusDraft'), value: 'draft' },
-  { title: t('summaries.statusActive'), value: 'active' },
-  { title: t('summaries.statusPaused'), value: 'paused' },
-  { title: t('summaries.statusArchived'), value: 'archived' },
+  { title: t('summaries.statusDraft'), value: 'DRAFT' },
+  { title: t('summaries.statusActive'), value: 'ACTIVE' },
+  { title: t('summaries.statusPaused'), value: 'PAUSED' },
+  { title: t('summaries.statusArchived'), value: 'ARCHIVED' },
 ]
 
 const schedulePresets = computed(() => store.schedulePresets)

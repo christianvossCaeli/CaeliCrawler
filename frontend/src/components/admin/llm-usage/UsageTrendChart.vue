@@ -22,10 +22,13 @@ import {
 import 'chartjs-adapter-date-fns'
 import { de } from 'date-fns/locale'
 import type { LLMUsageTrend } from '@/types/llm-usage'
+import { useDateFormatter } from '@/composables'
 
 const props = defineProps<{
   data: LLMUsageTrend[]
 }>()
+
+const { formatNumber, formatDateShort } = useDateFormatter()
 
 ChartJS.register(
   CategoryScale,
@@ -113,11 +116,7 @@ const chartOptions = computed(() => ({
           if (label) {
             try {
               const date = new Date(label)
-              return date.toLocaleDateString('de-DE', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-              })
+              return formatDateShort(date)
             } catch {
               return label
             }
@@ -128,7 +127,7 @@ const chartOptions = computed(() => ({
           const value = context.parsed.y ?? 0
           const label = context.dataset.label
           if (label === 'Tokens') {
-            return `${label}: ${value.toLocaleString('de-DE')}`
+            return `${label}: ${formatNumber(value)}`
           }
           if (label === 'Kosten ($)') {
             return `${label}: $${value.toFixed(2)}`

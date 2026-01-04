@@ -66,6 +66,7 @@
           variant="outlined"
           density="comfortable"
           :error="hasInvalidIncludePatterns"
+          :aria-invalid="hasInvalidIncludePatterns"
           :error-messages="invalidIncludePatternsMessage"
           @update:model-value="updateConfig('url_include_patterns', $event)"
         >
@@ -101,6 +102,7 @@
           variant="outlined"
           density="comfortable"
           :error="hasInvalidExcludePatterns"
+          :aria-invalid="hasInvalidExcludePatterns"
           :error-messages="invalidExcludePatternsMessage"
           @update:model-value="updateConfig('url_exclude_patterns', $event)"
         >

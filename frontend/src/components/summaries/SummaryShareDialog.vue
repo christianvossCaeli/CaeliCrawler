@@ -1,7 +1,7 @@
 <template>
   <v-dialog
     v-model="modelValue"
-    max-width="500"
+    :max-width="DIALOG_SIZES.SM"
     role="dialog"
     aria-modal="true"
     :aria-labelledby="dialogTitleId"
@@ -115,9 +115,10 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useCustomSummariesStore, type CustomSummary, type SummaryShare } from '@/stores/customSummaries'
 import { useSnackbar } from '@/composables/useSnackbar'
-import { useDialogFocus } from '@/composables'
+import { useDialogFocus, useDateFormatter } from '@/composables'
 import { useLogger } from '@/composables/useLogger'
 
 const modelValue = defineModel<boolean>()
@@ -125,6 +126,8 @@ const modelValue = defineModel<boolean>()
 const props = defineProps<{
   summary: CustomSummary
 }>()
+
+const { formatDateShort } = useDateFormatter()
 
 const logger = useLogger('SummaryShareDialog')
 
@@ -245,12 +248,7 @@ async function copyShareUrl(share: SummaryShare) {
 }
 
 function formatDate(dateStr: string): string {
-  // Use browser locale for consistent date formatting
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+  return formatDateShort(dateStr)
 }
 
 function close() {

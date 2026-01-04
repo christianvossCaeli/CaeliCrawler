@@ -36,6 +36,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { escapeHtml } from '@/utils/messageFormatting'
 
 const props = defineProps<{
   inputText: string
@@ -229,18 +230,6 @@ const visibleHints = computed(() => {
     .sort((a, b) => b.priority - a.priority)
     .slice(0, 3)
 })
-
-// Escape HTML to prevent XSS
-function escapeHtml(str: string): string {
-  const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  }
-  return str.replace(/[&<>"']/g, (c) => map[c])
-}
 
 // Highlight the trigger word in the hint text (with XSS protection)
 function highlightTrigger(text: string, trigger: string | RegExp): string {

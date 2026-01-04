@@ -71,7 +71,7 @@
         <!-- Dynamic Credentials Form based on selected provider -->
         <template v-if="selectedProvider">
           <!-- SerpAPI / Serper - simple API key only -->
-          <template v-if="selectedProvider === 'serpapi' || selectedProvider === 'serper'">
+          <template v-if="selectedProvider === 'SERPAPI' || selectedProvider === 'SERPER'">
             <v-text-field
               v-model="formData.api_key"
               :label="t('admin.llmConfig.form.apiKey')"
@@ -86,7 +86,7 @@
           </template>
 
           <!-- Azure OpenAI - multiple fields -->
-          <template v-else-if="selectedProvider === 'azure_openai'">
+          <template v-else-if="selectedProvider === 'AZURE_OPENAI'">
             <v-text-field
               v-model="formData.endpoint"
               :label="t('admin.llmConfig.form.endpoint')"
@@ -134,7 +134,7 @@
           </template>
 
           <!-- OpenAI (Standard) - key, org, model -->
-          <template v-else-if="selectedProvider === 'openai'">
+          <template v-else-if="selectedProvider === 'OPENAI'">
             <v-text-field
               v-model="formData.api_key"
               :label="t('admin.llmConfig.form.apiKey')"
@@ -173,7 +173,7 @@
           </template>
 
           <!-- Anthropic - endpoint, key, model -->
-          <template v-else-if="selectedProvider === 'anthropic'">
+          <template v-else-if="selectedProvider === 'ANTHROPIC'">
             <v-text-field
               v-model="formData.endpoint"
               :label="t('admin.llmConfig.form.endpoint')"
@@ -249,6 +249,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { PurposeInfo, PurposeConfigStatus } from '@/services/api/admin'
+import { useDateFormatter } from '@/composables'
 
 const props = defineProps<{
   purposeInfo: PurposeInfo
@@ -262,6 +263,8 @@ const emit = defineEmits<{
   test: []
   delete: []
 }>()
+
+const { formatDateTime } = useDateFormatter()
 
 const { t } = useI18n()
 
@@ -303,10 +306,10 @@ function onProviderChange(provider: string | null) {
   formData.embeddings_model = 'text-embedding-3-large'
 
   // Set defaults based on provider
-  if (provider === 'anthropic') {
+  if (provider === 'ANTHROPIC') {
     formData.endpoint = 'https://api.anthropic.com'
     formData.model = 'claude-opus-4-5'
-  } else if (provider === 'openai') {
+  } else if (provider === 'OPENAI') {
     formData.model = 'gpt-4o'
   }
 }
@@ -322,7 +325,7 @@ watch(() => props.status, () => {
 const required = (v: string) => !!v || t('common.required')
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString()
+  return formatDateTime(dateStr)
 }
 
 function handleSave() {
@@ -330,16 +333,16 @@ function handleSave() {
 
   const credentials: Record<string, string> = { api_key: formData.api_key }
 
-  if (selectedProvider.value === 'azure_openai') {
+  if (selectedProvider.value === 'AZURE_OPENAI') {
     credentials.endpoint = formData.endpoint
     credentials.api_version = formData.api_version
     credentials.deployment_name = formData.deployment_name
     credentials.embeddings_deployment = formData.embeddings_deployment
-  } else if (selectedProvider.value === 'openai') {
+  } else if (selectedProvider.value === 'OPENAI') {
     if (formData.organization) credentials.organization = formData.organization
     if (formData.model) credentials.model = formData.model
     if (formData.embeddings_model) credentials.embeddings_model = formData.embeddings_model
-  } else if (selectedProvider.value === 'anthropic') {
+  } else if (selectedProvider.value === 'ANTHROPIC') {
     credentials.endpoint = formData.endpoint
     credentials.model = formData.model
   }

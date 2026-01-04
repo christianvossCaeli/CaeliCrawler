@@ -33,7 +33,7 @@
     </VueCal>
 
     <!-- Event detail popup -->
-    <v-dialog v-model="showEventDialog" max-width="400">
+    <v-dialog v-model="showEventDialog" :max-width="DIALOG_SIZES.XS">
       <v-card v-if="selectedEvent">
         <v-card-title class="d-flex align-center">
           <v-icon class="mr-2" color="primary">mdi-calendar</v-icon>
@@ -79,6 +79,7 @@ import { VueCal } from 'vue-cal'
 import 'vue-cal/style.css'
 import type { VisualizationConfig } from './types'
 import { getNestedValue } from './types'
+import { DIALOG_SIZES } from '@/config/ui'
 
 // Calendar data item interface
 interface CalendarDataItem {

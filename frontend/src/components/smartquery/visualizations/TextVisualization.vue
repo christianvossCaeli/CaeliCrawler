@@ -46,22 +46,22 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import DOMPurify from 'dompurify'
+import { useDateFormatter } from '@/composables'
 import type { VisualizationConfig } from './types'
+import { DOMPURIFY_CONFIG } from '@/utils/messageFormatting'
 
 const props = defineProps<{
   data: Record<string, unknown>[]
   config?: VisualizationConfig
 }>()
 
+const { formatNumber } = useDateFormatter()
+
 const { t } = useI18n()
 
 const textContent = computed(() => props.config?.text_content || '')
 
-// DOMPurify config for safe output
-const purifyConfig = {
-  ALLOWED_TAGS: ['strong', 'em', 'b', 'i', 'br', 'ul', 'li', 'p'],
-  ALLOWED_ATTR: [] as string[],
-}
+// Use centralized DOMPurify config for visualization output
 
 // Simple markdown-like rendering with XSS protection
 const renderedContent = computed(() => {
@@ -77,7 +77,7 @@ const renderedContent = computed(() => {
     .replace(/(<li>.*<\/li>)+/g, '<ul>$&</ul>')
 
   // Sanitize HTML to prevent XSS
-  return DOMPurify.sanitize(html, purifyConfig)
+  return DOMPurify.sanitize(html, DOMPURIFY_CONFIG.VISUALIZATION)
 })
 
 function formatFacetKey(key: string): string {
@@ -94,7 +94,7 @@ function formatFacetValue(value: unknown): string {
     if ('value' in value) {
       const v = value.value
       if (typeof v === 'number') {
-        return v.toLocaleString()
+        return formatNumber(v)
       }
       return String(v)
     }
@@ -102,7 +102,7 @@ function formatFacetValue(value: unknown): string {
   }
 
   if (typeof value === 'number') {
-    return value.toLocaleString()
+    return formatNumber(value)
   }
 
   return String(value)

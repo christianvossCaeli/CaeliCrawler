@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="modelValue" max-width="600">
+  <v-dialog v-model="modelValue" :max-width="DIALOG_SIZES.MD">
     <v-card>
       <v-card-title class="d-flex align-center pa-4 bg-primary">
         <v-avatar color="primary-darken-1" size="40" class="mr-3">
@@ -68,6 +68,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 
 const modelValue = defineModel<boolean>()
 

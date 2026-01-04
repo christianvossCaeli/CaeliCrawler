@@ -21,7 +21,7 @@
         <div class="d-flex align-center ga-2">
           <v-icon size="small" color="primary">mdi-map-marker-multiple</v-icon>
           <div class="text-caption">
-            <strong>{{ totalFeatures.toLocaleString() }}</strong>
+            <strong>{{ formatNumber(totalFeatures) }}</strong>
             {{ t('visualization.map.featuresOnMap') }}
           </div>
         </div>
@@ -91,7 +91,7 @@
         <v-icon :icon="selectedFeature.icon || 'mdi-map-marker'" :color="selectedFeature.color || 'primary'" class="mr-2" size="small"></v-icon>
         <span class="text-truncate" style="max-width: 200px;">{{ selectedFeature.name }}</span>
         <v-spacer></v-spacer>
-        <v-btn icon="mdi-close" size="x-small" variant="text" @click="selectedFeature = null"></v-btn>
+        <v-btn icon="mdi-close" size="x-small" variant="text" :aria-label="t('common.close')" @click="selectedFeature = null"></v-btn>
       </v-card-title>
       <v-card-text class="py-2 popup-content">
         <div v-if="selectedFeature.entity_type" class="text-caption text-medium-emphasis mb-1">
@@ -131,6 +131,7 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { VisualizationConfig } from './types'
 import { useLogger } from '@/composables/useLogger'
+import { useDateFormatter } from '@/composables'
 
 // =============================================================================
 // Types
@@ -174,6 +175,7 @@ const props = defineProps<{
 }>()
 
 const logger = useLogger('MapVisualization')
+const { formatNumber, formatDateShort } = useDateFormatter()
 
 // =============================================================================
 // Composables & Props
@@ -710,9 +712,9 @@ function formatAttributeKey(key: string): string {
 
 function formatAttributeValue(value: unknown): string {
   if (value === null || value === undefined) return '-'
-  if (typeof value === 'number') return value.toLocaleString()
+  if (typeof value === 'number') return formatNumber(value)
   if (typeof value === 'boolean') return value ? t('common.yes') : t('common.no')
-  if (value instanceof Date) return value.toLocaleDateString()
+  if (value instanceof Date) return formatDateShort(value)
   return String(value)
 }
 
@@ -731,14 +733,46 @@ watch(() => props.data, () => {
 }, { deep: true })
 
 // Watch for theme changes
-watch(isDark, () => {
-  if (map.value) {
-    map.value.setStyle(mapStyle.value)
-    map.value.once('style.load', () => {
-      loadGeoData()
-      setupMapInteractions()
-    })
-  }
+watch(isDark, async () => {
+  if (!map.value) return
+
+  // Store current view state before style change
+  const center = map.value.getCenter()
+  const zoom = map.value.getZoom()
+
+  // Set new style (removes all layers/sources)
+  map.value.setStyle(mapStyle.value)
+
+  // Wait for style to fully load with fallback
+  await new Promise<void>((resolve) => {
+    if (!map.value) return resolve()
+
+    // Check if already loaded (can happen with cached styles)
+    if (map.value.isStyleLoaded()) {
+      resolve()
+      return
+    }
+
+    // Listen for style.load event
+    const onStyleLoad = () => resolve()
+    map.value.once('style.load', onStyleLoad)
+
+    // Fallback timeout in case event doesn't fire
+    setTimeout(() => {
+      map.value?.off('style.load', onStyleLoad)
+      resolve()
+    }, 1000)
+  })
+
+  if (!map.value) return
+
+  // Restore view state
+  map.value.setCenter(center)
+  map.value.setZoom(zoom)
+
+  // Reload data and interactions
+  loadGeoData()
+  setupMapInteractions()
 })
 
 onMounted(() => {

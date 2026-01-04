@@ -83,17 +83,20 @@
                   v-if="!email.is_verified"
                   icon="mdi-email-send"
                   variant="tonal"
-                  size="small"
+                  size="default"
                   color="primary"
                   :title="t('notifications.settings.resendVerification')"
+                  :aria-label="t('notifications.settings.resendVerification')"
                   @click="resendVerification(email)"
                 />
                 <v-btn
                   v-if="!email.is_primary"
                   icon="mdi-delete"
                   variant="tonal"
-                  size="small"
+                  size="default"
                   color="error"
+                  :title="t('common.delete')"
+                  :aria-label="t('common.delete')"
                   @click="confirmDeleteEmail(email)"
                 />
               </template>
@@ -105,7 +108,7 @@
   </v-card>
 
   <!-- Add Email Dialog -->
-  <v-dialog v-model="addEmailDialog" max-width="500">
+  <v-dialog v-model="addEmailDialog" :max-width="DIALOG_SIZES.SM">
     <v-card>
       <v-card-title>{{ t('notifications.settings.addEmailTitle') }}</v-card-title>
       <v-card-text>
@@ -137,7 +140,7 @@
   </v-dialog>
 
   <!-- Delete Confirmation Dialog -->
-  <v-dialog v-model="deleteEmailDialog" max-width="400">
+  <v-dialog v-model="deleteEmailDialog" :max-width="DIALOG_SIZES.XS">
     <v-card>
       <v-card-title>{{ t('notifications.settings.deleteEmailTitle') }}</v-card-title>
       <v-card-text>
@@ -164,6 +167,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useNotifications, type UserEmailAddress, type NotificationPreferences } from '@/composables/useNotifications'
+import { DIALOG_SIZES } from '@/config/ui'
 
 const { t } = useI18n()
 

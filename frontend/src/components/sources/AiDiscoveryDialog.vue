@@ -18,6 +18,7 @@
           <div class="text-caption opacity-80">{{ $t('sources.aiDiscovery.subtitle') }}</div>
         </div>
         <v-spacer />
+        <AiProviderBadge purpose="web_search" variant="tonal" class="mr-2" />
         <v-btn
           icon
           variant="text"
@@ -210,8 +211,10 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
+import { extractErrorMessage } from '@/utils/errorMessage'
 import { useLogger } from '@/composables/useLogger'
-import { AI_DISCOVERY, DIALOG_SIZES } from '@/config/sources'
+import { AI_DISCOVERY } from '@/config/sources'
+import { DIALOG_SIZES } from '@/config/ui'
 import {
   AiDiscoveryInputPhase,
   AiDiscoverySearchingPhase,
@@ -221,6 +224,7 @@ import {
   AiDiscoveryValidations,
   AiDiscoverySaveTemplateDialog,
 } from './ai-discovery'
+import AiProviderBadge from '@/components/common/AiProviderBadge.vue'
 import type {
   DiscoveryResultV2,
   DiscoveryExample,
@@ -333,15 +337,6 @@ const importButtonText = computed(() => {
 // Methods
 // ============================================================================
 
-/** Extract error message from various error types */
-const getErrorMessage = (error: unknown): string => {
-  if (error && typeof error === 'object') {
-    const err = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
-    return err.response?.data?.detail || err.response?.data?.message || err.message || t('common.unknownError')
-  }
-  return t('common.unknownError')
-}
-
 /** Load example prompts from API */
 const loadExamples = async () => {
   try {
@@ -393,7 +388,7 @@ const startDiscovery = async () => {
     phase.value = 'results'
   } catch (error: unknown) {
     logger.error('Discovery failed', error)
-    errorMessage.value = getErrorMessage(error)
+    errorMessage.value = extractErrorMessage(error)
     phase.value = 'input'
   } finally {
     isSearching.value = false
@@ -455,7 +450,7 @@ const importSources = async () => {
     close()
   } catch (error: unknown) {
     logger.error('Import failed', error)
-    errorMessage.value = getErrorMessage(error)
+    errorMessage.value = extractErrorMessage(error)
   } finally {
     isImporting.value = false
   }
@@ -508,7 +503,7 @@ const confirmSaveTemplate = async () => {
     showTemplateDialog.value = false
   } catch (error: unknown) {
     logger.error('Failed to save template', error)
-    errorMessage.value = getErrorMessage(error)
+    errorMessage.value = extractErrorMessage(error)
   } finally {
     isSavingTemplate.value = false
   }

@@ -1,7 +1,7 @@
 <template>
   <v-dialog
     v-model="dialogModel"
-    max-width="900"
+    :max-width="DIALOG_SIZES.XL"
     scrollable
     :persistent="isRunning"
   >
@@ -273,6 +273,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { entityDataApi } from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
 

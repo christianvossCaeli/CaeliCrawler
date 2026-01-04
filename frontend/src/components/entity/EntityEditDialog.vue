@@ -1,7 +1,7 @@
 <template>
   <v-dialog
     v-model="modelValue"
-    max-width="500"
+    :max-width="DIALOG_SIZES.SM"
     role="dialog"
     aria-modal="true"
     :aria-labelledby="dialogTitleId"
@@ -40,6 +40,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useDialogFocus } from '@/composables'
 
 const modelValue = defineModel<boolean>({ default: false })

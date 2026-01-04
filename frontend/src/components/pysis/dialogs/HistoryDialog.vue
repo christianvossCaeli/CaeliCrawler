@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="600" @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog :model-value="modelValue" :max-width="DIALOG_SIZES.MD" @update:model-value="$emit('update:modelValue', $event)">
     <v-card v-if="field">
       <v-card-title>
         <v-icon start>mdi-history</v-icon>
@@ -57,6 +57,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useDateFormatter } from '@/composables/useDateFormatter'
 
 interface Field {

@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="500" @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog :model-value="modelValue" :max-width="DIALOG_SIZES.SM" @update:model-value="$emit('update:modelValue', $event)">
     <v-card>
       <v-card-title>{{ t('pysis.template') }}</v-card-title>
       <v-card-text class="pt-4">
@@ -45,6 +45,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 
 interface Template {
   id: string

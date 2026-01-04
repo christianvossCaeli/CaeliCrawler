@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="400" @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog :model-value="modelValue" :max-width="DIALOG_SIZES.XS" @update:model-value="$emit('update:modelValue', $event)">
     <v-card>
       <v-card-title>
         <v-icon start color="success">mdi-check-circle</v-icon>
@@ -21,6 +21,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 
 defineProps<{
   modelValue: boolean

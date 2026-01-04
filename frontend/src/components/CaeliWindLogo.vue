@@ -40,19 +40,14 @@
 </template>
 
 <script setup lang="ts">
-defineProps({
-  width: {
-    type: Number,
-    default: 200
-  },
-  height: {
-    type: Number,
-    default: 41
-  },
-  primaryColor: {
-    type: String,
-    default: '#113534'
-  }
+withDefaults(defineProps<{
+  width?: number
+  height?: number
+  primaryColor?: string
+}>(), {
+  width: 200,
+  height: 41,
+  primaryColor: '#113534',
 })
 </script>
 

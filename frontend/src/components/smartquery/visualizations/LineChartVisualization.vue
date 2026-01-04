@@ -45,7 +45,7 @@ const props = defineProps<{
   config?: VisualizationConfig
 }>()
 
-const { dateLocale } = useDateFormatter()
+const { dateLocale, formatNumber, formatDateShort } = useDateFormatter()
 
 // Register Chart.js components
 ChartJS.register(
@@ -192,11 +192,7 @@ const chartOptions = computed(() => {
             if (label && isTimeSeries) {
               try {
                 const date = new Date(label)
-                return date.toLocaleDateString(undefined, {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                })
+                return formatDateShort(date)
               } catch {
                 return label
               }
@@ -206,7 +202,7 @@ const chartOptions = computed(() => {
           label: (context: { parsed: { y: unknown }; dataset: { label?: string } }) => {
             const value = context.parsed.y
             if (typeof value === 'number') {
-              return `${context.dataset.label}: ${value.toLocaleString()}`
+              return `${context.dataset.label}: ${formatNumber(value)}`
             }
             return `${context.dataset.label}: ${value}`
           },
@@ -247,7 +243,7 @@ const chartOptions = computed(() => {
         },
         ticks: {
           callback: function(tickValue: string | number) {
-            return Number(tickValue).toLocaleString()
+            return formatNumber(Number(tickValue))
           },
         },
       },

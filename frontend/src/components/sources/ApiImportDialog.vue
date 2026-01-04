@@ -260,7 +260,7 @@ import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
 import { useSourceHelpers } from '@/composables/useSourceHelpers'
 import { useLogger } from '@/composables/useLogger'
-import { DIALOG_SIZES } from '@/config/sources'
+import { DIALOG_SIZES } from '@/config/ui'
 import type { CategoryResponse } from '@/types/category'
 
 // defineModel() for two-way binding (Vue 3.4+)

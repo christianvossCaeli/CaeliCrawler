@@ -31,9 +31,9 @@
         <div v-html="formatMessageContent(msg.content)"></div>
 
         <!-- Query Results -->
-        <div v-if="msg.response_type === 'query_result' && msg.response_data?.data?.items?.length" class="message__results">
+        <div v-if="getQueryResultData(msg)?.data?.items?.length" class="message__results">
           <button
-            v-for="(item, i) in msg.response_data.data.items"
+            v-for="(item, i) in getQueryResultData(msg)!.data!.items"
             :key="i"
             class="result-item"
             @click="$emit('item-click', item)"
@@ -44,19 +44,19 @@
 
         <!-- Navigation -->
         <button
-          v-if="msg.response_type === 'navigation' && msg.response_data?.target"
+          v-if="getNavigationData(msg)?.target"
           class="nav-btn"
-          @click="$emit('navigate', msg.response_data?.target?.route || '')"
+          @click="$emit('navigate', getNavigationData(msg)!.target.route || '')"
         >
           <v-icon size="14">mdi-arrow-right</v-icon>
-          {{ t('assistant.goTo', { name: msg.response_data.target.entity_name || 'Seite' }) }}
+          {{ t('assistant.goTo', { name: getNavigationData(msg)!.target.entity_name || 'Seite' }) }}
         </button>
 
         <!-- Redirect to Smart Query -->
         <button
           v-if="msg.response_type === 'redirect_to_smart_query'"
           class="nav-btn nav-btn--smart-query"
-          @click="$emit('smart-query-redirect', msg.response_data)"
+          @click="$emit('smart-query-redirect', msg.response_data as Record<string, unknown> | undefined)"
         >
           <v-icon size="14">mdi-magnify</v-icon>
           {{ t('assistant.openSmartQuery') }}
@@ -93,7 +93,11 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatMessage, formatMessageTime } from '@/utils/messageFormatting'
 import AiProviderBadge from '@/components/common/AiProviderBadge.vue'
-import type { ConversationMessage } from '@/composables/assistant/types'
+import type {
+  ConversationMessage,
+  QueryResultResponse,
+  NavigationResponse,
+} from '@/composables/assistant/types'
 
 const props = defineProps<{
   messages: ConversationMessage[]
@@ -110,6 +114,21 @@ defineEmits<{
 
 const { t } = useI18n()
 const containerRef = ref<HTMLElement | null>(null)
+
+// Type guard helpers for response data
+function getQueryResultData(msg: ConversationMessage): QueryResultResponse | undefined {
+  if (msg.response_type === 'query_result' && msg.response_data) {
+    return msg.response_data as QueryResultResponse
+  }
+  return undefined
+}
+
+function getNavigationData(msg: ConversationMessage): NavigationResponse | undefined {
+  if (msg.response_type === 'navigation' && msg.response_data) {
+    return msg.response_data as NavigationResponse
+  }
+  return undefined
+}
 
 function formatMessageContent(content: string): string {
   return formatMessage(content)

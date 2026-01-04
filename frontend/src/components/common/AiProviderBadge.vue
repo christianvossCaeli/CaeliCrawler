@@ -70,11 +70,7 @@ import { getActiveConfig, type ActiveConfigInfo, type LLMPurpose } from '@/servi
 import { useLogger } from '@/composables/useLogger'
 import { getProviderIcon as getIcon, getProviderColor as getColor } from '@/utils/llmProviders'
 
-const logger = useLogger('AiProviderBadge')
-
-// Simple in-memory cache for config data (shared across instances)
-const configCache = new Map<string, { data: ActiveConfigInfo; timestamp: number }>()
-const CACHE_TTL_MS = 60_000 // 1 minute cache
+// 1 minute cache
 
 const props = withDefaults(defineProps<{
   /**
@@ -104,6 +100,11 @@ const props = withDefaults(defineProps<{
   compact: false,
 })
 
+const logger = useLogger('AiProviderBadge')
+
+// Simple in-memory cache for config data (shared across instances)
+const configCache = new Map<string, { data: ActiveConfigInfo; timestamp: number }>()
+const CACHE_TTL_MS = 60_000
 const { t } = useI18n()
 
 const loading = ref(false)

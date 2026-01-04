@@ -95,7 +95,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getMyLLMUsage } from '@/services/api/llm'
 import type { UserBudgetStatus } from '@/types/llm-usage'
-import { formatCurrency, formatPercent, getBudgetColor } from '@/composables/useLLMFormatting'
+import { formatCurrency, formatPercent, getBudgetColor } from '@/utils/llmFormatting'
 import LimitIncreaseDialog from './LimitIncreaseDialog.vue'
 
 const { t } = useI18n()

@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="600" @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog :model-value="modelValue" :max-width="DIALOG_SIZES.MD" @update:model-value="$emit('update:modelValue', $event)">
     <v-card v-if="settings">
       <v-card-title>
         <v-icon start>mdi-cog</v-icon>
@@ -54,6 +54,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 
 interface FieldSettings {
   id: string

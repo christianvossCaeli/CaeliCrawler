@@ -1,8 +1,13 @@
 <template>
-  <v-dialog v-model="modelValue" max-width="650">
+  <v-dialog
+    v-model="modelValue"
+    :max-width="DIALOG_SIZES.ML"
+    role="dialog"
+    :aria-labelledby="titleId"
+  >
     <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon class="mr-2">mdi-spider-web</v-icon>
+      <v-card-title :id="titleId" class="d-flex align-center">
+        <v-icon class="mr-2" aria-hidden="true">mdi-spider-web</v-icon>
         {{ t('categories.crawler.title') }} {{ category?.name }}
       </v-card-title>
       <v-card-text>
@@ -10,7 +15,7 @@
         <v-alert :type="filteredCount > 100 ? 'warning' : 'info'" class="mb-4">
           <div class="d-flex align-center justify-space-between">
             <span>
-              <strong>{{ filteredCount.toLocaleString() }}</strong> {{ t('categories.crawler.estimatedCount') }}
+              <strong>{{ formatNumber(filteredCount) }}</strong> {{ t('categories.crawler.estimatedCount') }}
             </span>
             <v-btn
               v-if="hasFilter"
@@ -110,7 +115,7 @@
       </v-card-text>
       <v-card-actions>
         <v-chip size="small" variant="tonal">
-          {{ filteredCount.toLocaleString() }} {{ t('categories.crawler.sourcesCount') }}
+          {{ formatNumber(filteredCount) }} {{ t('categories.crawler.sourcesCount') }}
         </v-chip>
         <v-spacer></v-spacer>
         <v-btn variant="tonal" @click="modelValue = false">{{ t('common.cancel') }}</v-btn>
@@ -130,22 +135,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-// Types
-interface Category {
-  id: string
-  name: string
-  source_count?: number
-  url_include_patterns?: string[]
-  url_exclude_patterns?: string[]
-}
-
-interface CrawlerFilter {
-  search: string | null
-  limit: number | null
-  status: string | null
-  source_type: string | null
-}
+import { useDateFormatter } from '@/composables'
+import { DIALOG_SIZES } from '@/config/ui'
 
 const modelValue = defineModel<boolean>()
 
@@ -163,6 +154,27 @@ defineEmits<{
   'resetFilters': []
   'start': []
 }>()
+
+const { formatNumber } = useDateFormatter()
+
+// Types
+interface Category {
+  id: string
+  name: string
+  source_count?: number
+  url_include_patterns?: string[]
+  url_exclude_patterns?: string[]
+}
+
+interface CrawlerFilter {
+  search: string | null
+  limit: number | null
+  status: string | null
+  source_type: string | null
+}
+
+// Accessibility
+const titleId = `crawler-dialog-title-${Math.random().toString(36).slice(2, 9)}`
 
 const { t } = useI18n()
 

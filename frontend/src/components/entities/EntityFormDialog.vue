@@ -1,7 +1,7 @@
 <template>
   <v-dialog
     :model-value="modelValue"
-    max-width="800"
+    :max-width="DIALOG_SIZES.LG"
     persistent
     scrollable
     @update:model-value="$emit('update:model-value', $event)"
@@ -287,6 +287,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import type { EntityForm } from '@/composables/useEntitiesView'
 import type { Entity, EntityType } from '@/types/entity'
 

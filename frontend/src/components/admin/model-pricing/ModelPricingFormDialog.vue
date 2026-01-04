@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="600" persistent @update:model-value="$emit('update:modelValue', $event)">
+  <v-dialog :model-value="modelValue" :max-width="DIALOG_SIZES.MD" persistent @update:model-value="$emit('update:modelValue', $event)">
     <v-card>
       <v-card-title>
         {{ editingId ? t('admin.modelPricing.dialog.editTitle') : t('admin.modelPricing.dialog.addTitle') }}
@@ -99,6 +99,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { getProviderLabel } from '@/utils/llmProviders'
 
 export interface PricingFormData {
@@ -128,9 +129,9 @@ const { t } = useI18n()
 const formRef = ref()
 
 const providerSelectOptions = [
-  { title: getProviderLabel('azure_openai'), value: 'azure_openai' },
-  { title: getProviderLabel('openai'), value: 'openai' },
-  { title: getProviderLabel('anthropic'), value: 'anthropic' },
+  { title: getProviderLabel('AZURE_OPENAI'), value: 'AZURE_OPENAI' },
+  { title: getProviderLabel('OPENAI'), value: 'OPENAI' },
+  { title: getProviderLabel('ANTHROPIC'), value: 'ANTHROPIC' },
 ]
 
 const localForm = ref<PricingFormData>({ ...props.initialData })
@@ -147,8 +148,8 @@ watch(
 )
 
 async function handleSubmit() {
-  const { valid } = await formRef.value?.validate()
-  if (!valid) return
+  const result = await formRef.value?.validate()
+  if (!result?.valid) return
 
   emit('submit', localForm.value)
 }

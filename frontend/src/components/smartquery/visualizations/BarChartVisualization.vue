@@ -16,6 +16,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js'
+import { useDateFormatter } from '@/composables'
 import type { VisualizationConfig } from './types'
 import { getNestedValue } from './types'
 
@@ -23,6 +24,8 @@ const props = defineProps<{
   data: Record<string, unknown>[]
   config?: VisualizationConfig
 }>()
+
+const { formatNumber } = useDateFormatter()
 
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
@@ -99,7 +102,7 @@ const chartOptions = computed(() => ({
         label: (context: { parsed: { y: unknown }; dataset: { label?: string } }) => {
           const value = context.parsed.y
           if (typeof value === 'number') {
-            return `${context.dataset.label}: ${value.toLocaleString()}`
+            return `${context.dataset.label}: ${formatNumber(value)}`
           }
           return `${context.dataset.label}: ${value}`
         },
@@ -126,7 +129,7 @@ const chartOptions = computed(() => ({
       beginAtZero: true,
       ticks: {
         callback: function(tickValue: string | number) {
-          return Number(tickValue).toLocaleString()
+          return formatNumber(Number(tickValue))
         },
       },
     },

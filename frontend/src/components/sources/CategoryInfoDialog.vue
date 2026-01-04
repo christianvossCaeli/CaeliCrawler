@@ -167,7 +167,7 @@
  */
 import { useI18n } from 'vue-i18n'
 import { useSourceHelpers } from '@/composables/useSourceHelpers'
-import { DIALOG_SIZES } from '@/config/sources'
+import { DIALOG_SIZES } from '@/config/ui'
 import type { CategoryResponse } from '@/types/category'
 
 // =============================================================================

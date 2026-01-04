@@ -6,14 +6,452 @@
  */
 
 /* =====================================================
-   FAB & Panel Layout
+   AI Trigger Button - Caeli Wind Edition
    ===================================================== */
 
-.chat-fab {
-  position: fixed !important;
-  bottom: 24px;
-  right: 24px;
+.ai-trigger {
+  position: fixed;
+  bottom: 30%;
+  right: 0;
   z-index: 1000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  outline: none;
+}
+
+/* Floating animated orbs - Caeli Wind Colors */
+.ai-trigger__orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(10px);
+  opacity: 0.3;
+  transition: all 0.4s ease;
+}
+
+.ai-trigger__orb--1 {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #92a0ff, #113634);
+  top: -15px;
+  left: -20px;
+  animation: none;
+}
+
+.ai-trigger__orb--2 {
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(135deg, #deeec6, #92a0ff);
+  bottom: -12px;
+  left: 10px;
+  animation: none;
+}
+
+.ai-trigger__orb--3 {
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, #113634, #deeec6);
+  top: 50%;
+  left: -25px;
+  animation: none;
+}
+
+.ai-trigger:hover .ai-trigger__orb--1 {
+  animation: orb-float-1 4s ease-in-out infinite;
+}
+
+.ai-trigger:hover .ai-trigger__orb--2 {
+  animation: orb-float-2 5s ease-in-out infinite;
+}
+
+.ai-trigger:hover .ai-trigger__orb--3 {
+  animation: orb-float-3 6s ease-in-out infinite;
+}
+
+@keyframes orb-float-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+  50% { transform: translate(5px, -8px) scale(1.1); opacity: 0.7; }
+}
+
+@keyframes orb-float-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+  50% { transform: translate(-6px, 6px) scale(1.15); opacity: 0.65; }
+}
+
+@keyframes orb-float-3 {
+  0%, 100% { transform: translate(0, -50%) scale(1); opacity: 0.4; }
+  50% { transform: translate(8px, -50%) scale(1.2); opacity: 0.6; }
+}
+
+/* Main button inner - Light Mode */
+.ai-trigger__inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 12px 10px 12px 14px;
+
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.97) 0%,
+    rgba(222, 238, 198, 0.3) 100%
+  );
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(222, 238, 198, 0.6);
+  border-right: none;
+  border-radius: 28px 0 0 28px;
+
+  color: #113634;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+
+  box-shadow:
+    -4px 4px 24px rgba(17, 54, 52, 0.15),
+    -2px 8px 32px rgba(146, 160, 255, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(17, 54, 52, 0.05);
+
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Sparkle effects */
+.ai-trigger__sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.sparkle {
+  position: absolute;
+  font-size: 10px;
+  opacity: 0;
+  color: #92a0ff;
+  animation: none;
+}
+
+.ai-trigger:hover .sparkle {
+  animation: sparkle-burst 2s ease-out infinite;
+}
+
+.sparkle--1 {
+  top: -8px;
+  left: 20%;
+  animation-delay: 0s;
+  color: #92a0ff;
+}
+
+.sparkle--2 {
+  top: -5px;
+  right: 15%;
+  animation-delay: 0.6s;
+  color: #113634;
+}
+
+.sparkle--3 {
+  bottom: -6px;
+  left: 40%;
+  animation-delay: 1.2s;
+  color: #deeec6;
+}
+
+@keyframes sparkle-burst {
+  0% { opacity: 0; transform: translateY(0) scale(0.5); }
+  20% { opacity: 1; transform: translateY(-4px) scale(1); }
+  40% { opacity: 1; transform: translateY(-8px) scale(1.1); }
+  100% { opacity: 0; transform: translateY(-16px) scale(0.3); }
+}
+
+/* Icon wrapper with Caeli Wind gradient */
+.ai-trigger__icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #113634 0%, #92a0ff 100%);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(17, 54, 52, 0.3);
+}
+
+.ai-trigger__icon {
+  width: 16px;
+  height: 16px;
+  color: #deeec6;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ai-trigger__text {
+  background: linear-gradient(135deg, #113634, #92a0ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 800;
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Notification badge */
+.ai-trigger__badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+}
+
+.ai-trigger__badge-dot {
+  position: absolute;
+  inset: 2px;
+  background: linear-gradient(135deg, #871623, #dc3545);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(135, 22, 35, 0.5);
+}
+
+.ai-trigger__badge-ping {
+  position: absolute;
+  inset: 0;
+  background: #871623;
+  border-radius: 50%;
+  animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes ping {
+  0% { transform: scale(1); opacity: 0.8; }
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+
+/* Hover Effects - Light Mode */
+.ai-trigger:hover .ai-trigger__inner {
+  gap: 8px;
+  padding: 14px 14px 14px 18px;
+  box-shadow:
+    -8px 4px 40px rgba(17, 54, 52, 0.2),
+    -4px 8px 48px rgba(146, 160, 255, 0.18),
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.ai-trigger:hover .ai-trigger__text {
+  width: 20px;
+  opacity: 1;
+  margin-left: 2px;
+}
+
+.ai-trigger:hover .ai-trigger__icon {
+  transform: rotate(180deg) scale(1.1);
+}
+
+.ai-trigger:hover .ai-trigger__orb {
+  opacity: 0.8;
+  filter: blur(6px);
+}
+
+.ai-trigger:hover .sparkle {
+  animation-duration: 1.8s;
+}
+
+/* Active/Press Effect */
+.ai-trigger:active .ai-trigger__inner {
+  transform: translateY(-2px) scale(0.98);
+  transition-duration: 0.1s;
+}
+
+/* Focus Visible */
+.ai-trigger:focus-visible .ai-trigger__inner {
+  outline: 3px solid rgba(146, 160, 255, 0.6);
+  outline-offset: 4px;
+}
+
+/* Unread Animation - Light Mode */
+.ai-trigger--unread .ai-trigger__inner {
+  animation: unread-breathe 3s ease-in-out infinite;
+}
+
+.ai-trigger--unread .ai-trigger__orb {
+  opacity: 0.75;
+  animation-duration: 3s;
+}
+
+@keyframes unread-breathe {
+  0%, 100% {
+    box-shadow:
+      -4px 4px 24px rgba(17, 54, 52, 0.15),
+      -2px 8px 32px rgba(146, 160, 255, 0.12),
+      0 2px 8px rgba(0, 0, 0, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 1);
+  }
+  50% {
+    box-shadow:
+      -6px 6px 32px rgba(17, 54, 52, 0.25),
+      -4px 12px 48px rgba(146, 160, 255, 0.2),
+      0 4px 12px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 1);
+  }
+}
+
+/* =====================================================
+   AI Trigger - Dark Mode (caeliDark)
+   ===================================================== */
+
+.v-theme--caeliDark .ai-trigger__inner {
+  background: linear-gradient(135deg,
+    rgba(26, 47, 46, 0.95) 0%,
+    rgba(17, 54, 52, 0.9) 100%
+  );
+  border-color: rgba(222, 238, 198, 0.2);
+  color: #deeec6;
+
+  box-shadow:
+    -4px 4px 24px rgba(0, 0, 0, 0.3),
+    -2px 8px 32px rgba(146, 160, 255, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(222, 238, 198, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.v-theme--caeliDark .ai-trigger__icon-wrap {
+  background: linear-gradient(135deg, #deeec6 0%, #92a0ff 100%);
+  box-shadow: 0 2px 8px rgba(222, 238, 198, 0.3);
+}
+
+.v-theme--caeliDark .ai-trigger__icon {
+  color: #113634;
+}
+
+.v-theme--caeliDark .ai-trigger__text {
+  background: linear-gradient(135deg, #deeec6, #92a0ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.v-theme--caeliDark .sparkle--1 {
+  color: #deeec6;
+}
+
+.v-theme--caeliDark .sparkle--2 {
+  color: #92a0ff;
+}
+
+.v-theme--caeliDark .sparkle--3 {
+  color: #deeec6;
+}
+
+.v-theme--caeliDark .ai-trigger__orb--1 {
+  background: linear-gradient(135deg, #deeec6, #92a0ff);
+}
+
+.v-theme--caeliDark .ai-trigger__orb--2 {
+  background: linear-gradient(135deg, #92a0ff, #113634);
+}
+
+.v-theme--caeliDark .ai-trigger__orb--3 {
+  background: linear-gradient(135deg, #deeec6, #113634);
+}
+
+/* Dark Mode Hover */
+.v-theme--caeliDark .ai-trigger:hover .ai-trigger__inner {
+  box-shadow:
+    -8px 4px 40px rgba(0, 0, 0, 0.4),
+    -4px 8px 48px rgba(146, 160, 255, 0.15),
+    0 4px 12px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(222, 238, 198, 0.15);
+}
+
+/* Dark Mode Focus */
+.v-theme--caeliDark .ai-trigger:focus-visible .ai-trigger__inner {
+  outline-color: rgba(222, 238, 198, 0.6);
+}
+
+/* Dark Mode Unread Animation */
+.v-theme--caeliDark .ai-trigger--unread .ai-trigger__inner {
+  animation: unread-breathe-dark 3s ease-in-out infinite;
+}
+
+@keyframes unread-breathe-dark {
+  0%, 100% {
+    box-shadow:
+      -4px 4px 24px rgba(0, 0, 0, 0.3),
+      -2px 8px 32px rgba(146, 160, 255, 0.1),
+      0 2px 8px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(222, 238, 198, 0.1);
+  }
+  50% {
+    box-shadow:
+      -6px 6px 32px rgba(0, 0, 0, 0.4),
+      -4px 12px 48px rgba(146, 160, 255, 0.2),
+      0 4px 12px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(222, 238, 198, 0.2);
+  }
+}
+
+/* Trigger Fade Transition */
+.trigger-fade-enter-active,
+.trigger-fade-leave-active {
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.trigger-fade-enter-from {
+  opacity: 0;
+  transform: scale(0.5) translateY(20px);
+}
+
+.trigger-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+}
+
+/* Mobile Adjustments */
+@media (max-width: 600px) {
+  .ai-trigger {
+    bottom: 16px;
+    right: 16px;
+  }
+
+  .ai-trigger__inner {
+    padding: 10px 16px 10px 12px;
+    font-size: 0.85rem;
+    gap: 6px;
+  }
+
+  .ai-trigger__icon-wrap {
+    width: 24px;
+    height: 24px;
+  }
+
+  .ai-trigger__icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .ai-trigger__orb {
+    display: none;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .ai-trigger__orb,
+  .sparkle,
+  .ai-trigger__inner,
+  .ai-trigger__icon,
+  .ai-trigger__text,
+  .ai-trigger__badge-ping {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 .chat-backdrop {

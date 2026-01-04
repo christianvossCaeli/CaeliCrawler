@@ -1,5 +1,6 @@
 <template>
   <v-data-table-server
+    v-model="internalSelection"
     :headers="tableHeaders"
     :items="entities"
     :items-length="totalEntities"
@@ -7,6 +8,9 @@
     :items-per-page="itemsPerPage"
     :page="currentPage"
     :sort-by="sortBy"
+    :show-select="showSelect"
+    item-value="id"
+    return-object
     class="cursor-pointer"
     @update:options="handleOptionsUpdate"
     @click:row="(_event: Event, { item }: { item: Entity }) => $emit('entity-click', item)"
@@ -66,7 +70,7 @@
       <div class="table-actions d-flex justify-end ga-1">
         <v-btn
           icon="mdi-eye"
-          size="small"
+          size="default"
           variant="tonal"
           color="primary"
           :title="t('common.details')"
@@ -76,7 +80,7 @@
         <v-btn
           v-if="canEdit"
           icon="mdi-pencil"
-          size="small"
+          size="default"
           variant="tonal"
           :title="t('common.edit')"
           :aria-label="t('common.edit')"
@@ -85,7 +89,7 @@
         <v-btn
           v-if="canEdit"
           icon="mdi-delete"
-          size="small"
+          size="default"
           variant="tonal"
           color="error"
           :title="t('common.delete')"
@@ -129,12 +133,17 @@ interface Props {
   errorMessage?: string
   /** Technical error details */
   errorDetails?: string
+  /** Enable bulk selection mode */
+  showSelect?: boolean
+  /** Currently selected entities */
+  selectedEntities?: Entity[]
 }
 
 interface Emits {
   (e: 'update:items-per-page', value: number): void
   (e: 'update:current-page', value: number): void
   (e: 'update:sort-by', value: SortItem[]): void
+  (e: 'update:selectedEntities', value: Entity[]): void
   (e: 'entity-click', entity: Entity): void
   (e: 'entity-edit', entity: Entity): void
   (e: 'entity-delete', entity: Entity): void
@@ -148,6 +157,8 @@ const props = withDefaults(defineProps<Props>(), {
   error: false,
   errorMessage: undefined,
   errorDetails: undefined,
+  showSelect: false,
+  selectedEntities: () => [],
 })
 const emit = defineEmits<Emits>()
 
@@ -180,6 +191,12 @@ function handleOptionsUpdate(options: { page: number; itemsPerPage: number; sort
   }
   emit('update:current-page', options.page)
 }
+
+// Selection handling with v-model pattern
+const internalSelection = computed({
+  get: () => props.selectedEntities,
+  set: (value) => emit('update:selectedEntities', value)
+})
 </script>
 
 <style scoped>

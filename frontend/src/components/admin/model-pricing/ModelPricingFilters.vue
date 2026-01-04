@@ -63,8 +63,8 @@ const { t } = useI18n()
 
 const providerOptions = computed(() => [
   { title: t('admin.modelPricing.filters.allProviders'), value: null },
-  { title: getProviderLabel('azure_openai'), value: 'azure_openai' },
-  { title: getProviderLabel('openai'), value: 'openai' },
-  { title: getProviderLabel('anthropic'), value: 'anthropic' },
+  { title: getProviderLabel('AZURE_OPENAI'), value: 'AZURE_OPENAI' },
+  { title: getProviderLabel('OPENAI'), value: 'OPENAI' },
+  { title: getProviderLabel('ANTHROPIC'), value: 'ANTHROPIC' },
 ])
 </script>

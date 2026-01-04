@@ -1,7 +1,7 @@
 <template>
   <v-dialog
     v-model="modelValue"
-    max-width="600"
+    :max-width="DIALOG_SIZES.MD"
     role="dialog"
     aria-modal="true"
     :aria-labelledby="dialogTitleId"
@@ -161,6 +161,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useCustomSummariesStore, type SummaryWidget, type WidgetUpdate, type WidgetVisualizationConfig } from '@/stores/customSummaries'
 import { useDialogFocus } from '@/composables'
 import ColumnConfigDialog from './ColumnConfigDialog.vue'

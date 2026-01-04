@@ -57,7 +57,7 @@ defineProps<{
 }>()
 
 const { t } = useI18n()
-const { formatDate: formatLocaleDate } = useDateFormatter()
+const { formatDateTime: formatDate } = useDateFormatter()
 
 // Computed
 const headers = computed(() => [
@@ -65,14 +65,4 @@ const headers = computed(() => [
   { title: t('entityDetail.documentHeaders.type'), key: 'document_type', sortable: true },
   { title: t('entityDetail.documentHeaders.date'), key: 'created_at', sortable: true },
 ])
-
-// Helper functions
-function formatDate(dateString?: string): string {
-  if (!dateString) return ''
-  try {
-    return formatLocaleDate(dateString, 'dd.MM.yyyy HH:mm')
-  } catch {
-    return dateString
-  }
-}
 </script>

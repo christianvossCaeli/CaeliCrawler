@@ -16,6 +16,7 @@
         class="mb-3"
         clearable
         :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :aria-invalid="getFieldErrors(key).length > 0"
         :error-messages="getFieldErrors(key)"
         @update:model-value="formData[key] = $event"
       ></v-select>
@@ -34,6 +35,7 @@
         density="comfortable"
         class="mb-3"
         :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :aria-invalid="getFieldErrors(key).length > 0"
         :error-messages="getFieldErrors(key)"
       ></v-text-field>
 
@@ -51,6 +53,7 @@
         density="comfortable"
         class="mb-3"
         :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :aria-invalid="getFieldErrors(key).length > 0"
         :error-messages="getFieldErrors(key)"
       ></v-text-field>
 
@@ -69,6 +72,7 @@
         density="comfortable"
         class="mb-3"
         :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :aria-invalid="getFieldErrors(key).length > 0"
         :error-messages="getFieldErrors(key)"
       ></v-textarea>
 
@@ -85,6 +89,7 @@
         density="comfortable"
         class="mb-3"
         :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :aria-invalid="getFieldErrors(key).length > 0"
         :error-messages="getFieldErrors(key)"
       ></v-text-field>
 
@@ -103,6 +108,7 @@
         density="comfortable"
         class="mb-3"
         :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :aria-invalid="getFieldErrors(key).length > 0"
         :error-messages="getFieldErrors(key)"
       ></v-text-field>
 
@@ -121,6 +127,7 @@
         density="comfortable"
         class="mb-3"
         :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :aria-invalid="getFieldErrors(key).length > 0"
         :error-messages="getFieldErrors(key)"
       ></v-text-field>
 
@@ -153,6 +160,7 @@
         density="comfortable"
         class="mb-3"
         :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :aria-invalid="getFieldErrors(key).length > 0"
         :error-messages="getFieldErrors(key)"
         @update:model-value="formData[key] = $event"
       ></v-combobox>
@@ -168,6 +176,7 @@
         density="comfortable"
         class="mb-3"
         :aria-describedby="field.description ? `${key}-hint` : undefined"
+        :aria-invalid="getFieldErrors(key).length > 0"
         :error-messages="getFieldErrors(key)"
       ></v-text-field>
     </template>
@@ -214,13 +223,13 @@ const { t } = useI18n()
 // ============================================================================
 
 interface SchemaProperty {
-  type: string
+  type?: string
   title?: string
   description?: string
   enum?: string[]
   format?: string
   items?: {
-    type: string
+    type?: string
     enum?: string[]
   }
   minimum?: number

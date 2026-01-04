@@ -240,7 +240,7 @@ export function formatValue(value: unknown, type: ColumnType, format?: string): 
  * Icon mapping for visualization types.
  * Used across multiple components to ensure consistent iconography.
  */
-export const VISUALIZATION_ICONS: Record<VisualizationType, string> = {
+export const VISUALIZATION_ICONS = {
   table: 'mdi-table',
   bar_chart: 'mdi-chart-bar',
   line_chart: 'mdi-chart-line',
@@ -251,7 +251,7 @@ export const VISUALIZATION_ICONS: Record<VisualizationType, string> = {
   map: 'mdi-map',
   heatmap: 'mdi-grid',
   calendar: 'mdi-calendar',
-}
+} satisfies Record<VisualizationType, string>
 
 /**
  * Get the icon for a visualization type.
@@ -265,7 +265,7 @@ export function getVisualizationIcon(type?: VisualizationType): string {
 /**
  * Color mapping for visualization types (for use in chips, badges, etc.)
  */
-export const VISUALIZATION_COLORS: Record<VisualizationType, string> = {
+export const VISUALIZATION_COLORS = {
   table: 'blue-grey',
   bar_chart: 'blue',
   line_chart: 'green',
@@ -276,7 +276,7 @@ export const VISUALIZATION_COLORS: Record<VisualizationType, string> = {
   map: 'teal',
   heatmap: 'deep-orange',
   calendar: 'light-green',
-}
+} satisfies Record<VisualizationType, string>
 
 /**
  * Get the color for a visualization type.

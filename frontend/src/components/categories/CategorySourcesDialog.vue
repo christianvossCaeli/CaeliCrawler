@@ -1,8 +1,13 @@
 <template>
-  <v-dialog v-model="modelValue" max-width="900">
+  <v-dialog
+    v-model="modelValue"
+    :max-width="DIALOG_SIZES.XL"
+    role="dialog"
+    :aria-labelledby="titleId"
+  >
     <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon class="mr-2">mdi-database-outline</v-icon>
+      <v-card-title :id="titleId" class="d-flex align-center">
+        <v-icon class="mr-2" aria-hidden="true">mdi-database-outline</v-icon>
         {{ t('categories.dialog.sourcesFor') }} {{ category?.name }}
         <v-chip color="primary" size="small" class="ml-2">
           {{ total }} {{ t('categories.crawler.sourcesCount') }}
@@ -110,7 +115,13 @@
           {{ t('categories.dialog.showAllInSourcesView') }}
         </v-btn>
         <v-spacer></v-spacer>
-        <v-btn variant="tonal" @click="modelValue = false">{{ t('common.close') }}</v-btn>
+        <v-btn
+          variant="tonal"
+          :aria-label="t('common.close')"
+          @click="modelValue = false"
+        >
+          {{ t('common.close') }}
+        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -119,6 +130,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { getContrastColor } from '@/composables/useColorHelpers'
 import { useStatusColors } from '@/composables'
 
@@ -168,6 +180,9 @@ const emit = defineEmits<{
   (e: 'update:perPage', value: number): void
   (e: 'update:search', value: string): void
 }>()
+
+// Accessibility
+const titleId = `sources-dialog-title-${Math.random().toString(36).slice(2, 9)}`
 
 const { t } = useI18n()
 const { getStatusColor } = useStatusColors()

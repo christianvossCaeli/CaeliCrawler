@@ -16,6 +16,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js'
+import { useDateFormatter } from '@/composables'
 import type { VisualizationConfig } from './types'
 import { getNestedValue } from './types'
 
@@ -23,6 +24,8 @@ const props = defineProps<{
   data: Record<string, unknown>[]
   config?: VisualizationConfig
 }>()
+
+const { formatNumber } = useDateFormatter()
 
 // Register Chart.js components
 ChartJS.register(ArcElement, Title, Tooltip, Legend)
@@ -94,7 +97,7 @@ const chartOptions = computed(() => ({
           const value = context.parsed
           const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
           const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0
-          return `${context.label}: ${value.toLocaleString()} (${percentage}%)`
+          return `${context.label}: ${formatNumber(value)} (${percentage}%)`
         },
       },
     },

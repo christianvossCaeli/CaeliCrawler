@@ -213,6 +213,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/services/api'
+import { extractErrorMessage } from '@/utils/errorMessage'
 import { SEARCH } from '@/config/sources'
 import type { CrawlConfig, SharePointTestResult } from '@/types/sources'
 
@@ -318,10 +319,9 @@ async function testConnection() {
 
     emit('test-result', testResult.value)
   } catch (error: unknown) {
-    const err = error as { response?: { data?: { detail?: string } } }
     testResult.value = {
       success: false,
-      message: err.response?.data?.detail || t('sources.sharepoint.connectionError'),
+      message: extractErrorMessage(error),
     }
     emit('test-result', testResult.value)
   } finally {

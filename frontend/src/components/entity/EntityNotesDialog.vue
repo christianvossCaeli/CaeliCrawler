@@ -1,7 +1,7 @@
 <template>
   <v-dialog
     v-model="modelValue"
-    max-width="700"
+    :max-width="DIALOG_SIZES.ML"
     scrollable
     role="dialog"
     aria-modal="true"
@@ -81,6 +81,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useDateFormatter } from '@/composables/useDateFormatter'
 import { useDialogFocus } from '@/composables'
 

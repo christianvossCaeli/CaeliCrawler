@@ -76,7 +76,7 @@
   </v-card>
 
   <!-- Create/Edit Rule Dialog -->
-  <v-dialog v-model="ruleDialog" max-width="700" persistent>
+  <v-dialog v-model="ruleDialog" :max-width="DIALOG_SIZES.ML" persistent>
     <v-card>
       <v-card-title>{{ editMode ? t('notifications.rules.edit') : t('notifications.rules.createNew') }}</v-card-title>
       <v-card-text>
@@ -275,7 +275,7 @@
   </v-dialog>
 
   <!-- Delete Confirmation -->
-  <v-dialog v-model="deleteDialog" max-width="400">
+  <v-dialog v-model="deleteDialog" :max-width="DIALOG_SIZES.XS">
     <v-card>
       <v-card-title>{{ t('notifications.rules.deleteTitle') }}</v-card-title>
       <v-card-text>
@@ -297,6 +297,13 @@ import { useNotifications, type NotificationRule } from '@/composables/useNotifi
 import { useDialogFocus } from '@/composables'
 import { useDateFormatter } from '@/composables/useDateFormatter'
 import { useLogger } from '@/composables/useLogger'
+import { DIALOG_SIZES } from '@/config/ui'
+import {
+  getEventTypeColor,
+  getChannelColor,
+  getChannelIcon,
+  useNotificationFormatting,
+} from '@/utils/notificationFormatting'
 
 const logger = useLogger('NotificationRules')
 
@@ -318,6 +325,9 @@ const {
   toggleRuleActive,
   testWebhook,
 } = useNotifications()
+
+// Use shared notification formatting utilities
+const { getEventTypeLabel, getChannelLabel } = useNotificationFormatting(eventTypes, channels)
 
 // Table headers
 const headers = computed(() => [
@@ -585,49 +595,6 @@ const isValidUrl = (url: string) => {
   } catch {
     return false
   }
-}
-
-const getEventTypeColor = (eventType: string): string => {
-  const colors: Record<string, string> = {
-    NEW_DOCUMENT: 'success',
-    DOCUMENT_CHANGED: 'info',
-    DOCUMENT_REMOVED: 'error',
-    CRAWL_COMPLETED: 'success',
-    CRAWL_FAILED: 'error',
-    AI_ANALYSIS_COMPLETED: 'cyan',
-    HIGH_CONFIDENCE_RESULT: 'orange',
-  }
-  return colors[eventType] || 'grey'
-}
-
-const getEventTypeLabel = (eventType: string): string => {
-  const type = eventTypes.value.find((e) => e.value === eventType)
-  return type?.label || eventType
-}
-
-const getChannelColor = (channel: string): string => {
-  const colors: Record<string, string> = {
-    EMAIL: 'blue',
-    WEBHOOK: 'purple',
-    IN_APP: 'green',
-    MS_TEAMS: 'indigo',
-  }
-  return colors[channel] || 'grey'
-}
-
-const getChannelIcon = (channel: string): string => {
-  const icons: Record<string, string> = {
-    EMAIL: 'mdi-email',
-    WEBHOOK: 'mdi-webhook',
-    IN_APP: 'mdi-bell',
-    MS_TEAMS: 'mdi-microsoft-teams',
-  }
-  return icons[channel] || 'mdi-bell'
-}
-
-const getChannelLabel = (channel: string): string => {
-  const ch = channels.value.find((c) => c.value === channel)
-  return ch?.label || channel
 }
 
 // Watch for auth type changes

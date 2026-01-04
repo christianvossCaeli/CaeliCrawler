@@ -1,7 +1,7 @@
 <template>
   <v-dialog
     :model-value="modelValue"
-    max-width="520"
+    :max-width="DIALOG_SIZES.SM"
     @update:model-value="$emit('update:model-value', $event)"
   >
     <v-card>
@@ -144,6 +144,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import type { SchemaAttribute, LocationOptions } from '@/composables/useEntitiesView'
 
 interface Props {

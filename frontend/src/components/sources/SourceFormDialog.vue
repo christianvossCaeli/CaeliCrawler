@@ -317,6 +317,7 @@
                     variant="outlined"
                     density="comfortable"
                     :error="hasInvalidIncludePatterns"
+                    :aria-invalid="hasInvalidIncludePatterns"
                     :error-messages="invalidIncludePatternsMessage"
                   >
                     <template #chip="{ item, props: chipProps }">
@@ -350,6 +351,7 @@
                     variant="outlined"
                     density="comfortable"
                     :error="hasInvalidExcludePatterns"
+                    :aria-invalid="hasInvalidExcludePatterns"
                     :error-messages="invalidExcludePatternsMessage"
                   >
                     <template #chip="{ item, props: chipProps }">
@@ -397,7 +399,8 @@ import { entityApi } from '@/services/api'
 import { useSourceHelpers } from '@/composables/useSourceHelpers'
 import { useFormValidation } from '@/composables/useFormValidation'
 import { useLogger } from '@/composables/useLogger'
-import { ENTITY_SEARCH, DIALOG_SIZES } from '@/config/sources'
+import { ENTITY_SEARCH } from '@/config/sources'
+import { DIALOG_SIZES } from '@/config/ui'
 import { isValidRegexPattern } from '@/utils/csvParser'
 import SharePointConfig from './SharePointConfig.vue'
 import type { VForm } from 'vuetify/components'

@@ -57,7 +57,7 @@
  *
  * Allows users to save a discovered API configuration as a reusable template.
  */
-import { DIALOG_SIZES } from '@/config/sources'
+import { DIALOG_SIZES } from '@/config/ui'
 import type { TemplateFormData } from './types'
 
 // Props (non-model props only)

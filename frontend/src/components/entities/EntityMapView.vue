@@ -12,9 +12,9 @@
         <div class="d-flex align-center ga-2">
           <v-icon size="small" color="primary">mdi-map-marker-multiple</v-icon>
           <div class="text-caption">
-            <strong>{{ totalWithCoords.toLocaleString() }}</strong>
+            <strong>{{ formatNumber(totalWithCoords) }}</strong>
             <span class="text-medium-emphasis">
-              / {{ (totalWithCoords + totalWithoutCoords).toLocaleString() }}
+              / {{ formatNumber(totalWithCoords + totalWithoutCoords) }}
             </span>
             {{ $t('entities.mapView.onMap') }}
           </div>
@@ -85,7 +85,7 @@
         <v-icon :icon="selectedEntity.icon" :color="selectedEntity.color" class="mr-2" size="small"></v-icon>
         {{ selectedEntity.name }}
         <v-spacer></v-spacer>
-        <v-btn icon="mdi-close" size="x-small" variant="text" @click="selectedEntity = null"></v-btn>
+        <v-btn icon="mdi-close" size="x-small" variant="text" :aria-label="$t('common.close')" @click="selectedEntity = null"></v-btn>
       </v-card-title>
       <v-card-text class="py-2">
         <div v-if="selectedEntity.entity_type_name" class="text-caption text-medium-emphasis mb-1">
@@ -117,10 +117,12 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { entityApi } from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
+import { useDateFormatter } from '@/composables'
 
 const props = defineProps<Props>()
 
 const logger = useLogger('EntityMapView')
+const { formatNumber } = useDateFormatter()
 
 interface Props {
   entityTypeSlug?: string
@@ -561,29 +563,48 @@ watch(
 
 // Watch for theme changes and update map style
 watch(isDark, async () => {
-  if (map.value) {
-    // Store current view state
-    const center = map.value.getCenter()
-    const zoom = map.value.getZoom()
-    const bearing = map.value.getBearing()
-    const pitch = map.value.getPitch()
+  if (!map.value) return
 
-    // Set new style (this removes all layers/sources)
-    map.value.setStyle(mapStyle.value)
+  // Store current view state
+  const center = map.value.getCenter()
+  const zoom = map.value.getZoom()
+  const bearing = map.value.getBearing()
+  const pitch = map.value.getPitch()
 
-    // Wait for new style to load, then restore data and view
-    map.value.once('style.load', async () => {
-      if (!map.value) return
-      // Restore view state
-      map.value.setCenter(center)
-      map.value.setZoom(zoom)
-      map.value.setBearing(bearing)
-      map.value.setPitch(pitch)
+  // Set new style (this removes all layers/sources)
+  map.value.setStyle(mapStyle.value)
 
-      // Reload geo data (re-adds sources and layers)
-      await loadGeoData()
-    })
-  }
+  // Wait for style to fully load with fallback
+  await new Promise<void>((resolve) => {
+    if (!map.value) return resolve()
+
+    // Check if already loaded (can happen with cached styles)
+    if (map.value.isStyleLoaded()) {
+      resolve()
+      return
+    }
+
+    // Listen for style.load event
+    const onStyleLoad = () => resolve()
+    map.value.once('style.load', onStyleLoad)
+
+    // Fallback timeout in case event doesn't fire
+    setTimeout(() => {
+      map.value?.off('style.load', onStyleLoad)
+      resolve()
+    }, 1000)
+  })
+
+  if (!map.value) return
+
+  // Restore view state
+  map.value.setCenter(center)
+  map.value.setZoom(zoom)
+  map.value.setBearing(bearing)
+  map.value.setPitch(pitch)
+
+  // Reload geo data (re-adds sources and layers)
+  await loadGeoData()
 })
 
 // Lifecycle

@@ -1,12 +1,45 @@
 <template>
-  <v-dialog v-model="dialogVisible" max-width="700" persistent @keydown="handleKeydown">
-    <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon class="mr-2">mdi-content-save-cog</v-icon>
+  <v-dialog
+    v-model="dialogVisible"
+    :max-width="DIALOG_SIZES.ML"
+    persistent
+    aria-labelledby="preset-editor-title"
+    @keydown="handleKeydown"
+  >
+    <v-card role="dialog" aria-modal="true">
+      <v-card-title id="preset-editor-title" class="d-flex align-center">
+        <v-icon class="mr-2" aria-hidden="true">mdi-content-save-cog</v-icon>
         {{ isEditing ? t('crawlPresets.edit') : t('crawlPresets.create') }}
       </v-card-title>
 
       <v-card-text>
+        <!-- Collapsible Info Box -->
+        <v-alert
+          v-if="!editorInfoHidden"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+          closable
+          @click:close="hideEditorInfo"
+        >
+          <template #title>
+            {{ t('crawlPresets.info.editorTitle') }}
+          </template>
+          <div>{{ t('crawlPresets.info.editorDescription') }}</div>
+          <div class="text-caption mt-2">{{ t('crawlPresets.info.editorDetails') }}</div>
+        </v-alert>
+        <v-btn
+          v-else
+          variant="text"
+          size="x-small"
+          color="info"
+          class="mb-3"
+          prepend-icon="mdi-information-outline"
+          @click="showEditorInfo"
+        >
+          {{ t('crawlPresets.info.showInfo') }}
+        </v-btn>
         <v-form ref="formRef" v-model="formValid">
           <!-- Basic Info -->
           <v-text-field
@@ -45,7 +78,33 @@
             :loading="entityTypesLoading"
             clearable
             class="mb-3"
+            :no-data-text="t('common.noData')"
           />
+
+          <!-- Category: Single-Select Dropdown -->
+          <v-autocomplete
+            v-model="formData.filters.category_id"
+            :label="t('crawlPresets.category')"
+            :items="categories"
+            item-title="name"
+            item-value="id"
+            variant="outlined"
+            density="compact"
+            :loading="categoriesLoading"
+            clearable
+            class="mb-3"
+            :no-data-text="t('common.noData')"
+          >
+            <template #item="{ item, props: itemProps }">
+              <v-list-item v-bind="itemProps">
+                <template #append>
+                  <v-chip v-if="item.raw.sources_count" size="x-small" color="grey">
+                    {{ item.raw.sources_count }} {{ t('crawlPresets.sourcesMatched').split(' ')[0] }}
+                  </v-chip>
+                </template>
+              </v-list-item>
+            </template>
+          </v-autocomplete>
 
           <!-- Tags: Multi-Select from available tags -->
           <v-autocomplete
@@ -63,6 +122,7 @@
             :hint="t('crawlPresets.tagsHintSelect')"
             persistent-hint
             class="mb-4"
+            :no-data-text="t('common.noData')"
           >
             <template #item="{ item, props: itemProps }">
               <v-list-item v-bind="itemProps">
@@ -73,8 +133,20 @@
             </template>
           </v-autocomplete>
 
+          <!-- Search Text Field -->
+          <v-text-field
+            v-model="formData.filters.search"
+            :label="t('crawlPresets.search')"
+            :hint="t('crawlPresets.searchHint')"
+            variant="outlined"
+            density="compact"
+            clearable
+            prepend-inner-icon="mdi-magnify"
+            class="mb-3"
+          />
+
           <v-row>
-            <v-col cols="6">
+            <v-col cols="4">
               <!-- Source Type: Multi-Select -->
               <v-select
                 v-model="formData.filters.source_type"
@@ -88,7 +160,18 @@
                 clearable
               />
             </v-col>
-            <v-col cols="6">
+            <v-col cols="4">
+              <!-- Status: Multi-Select -->
+              <v-select
+                v-model="formData.filters.status"
+                :label="t('crawlPresets.status')"
+                :items="statusOptions"
+                variant="outlined"
+                density="compact"
+                clearable
+              />
+            </v-col>
+            <v-col cols="4">
               <v-text-field
                 v-model.number="formData.filters.limit"
                 :label="t('crawlPresets.limit')"
@@ -97,6 +180,7 @@
                 type="number"
                 min="1"
                 max="10000"
+                :rules="limitRules"
               />
             </v-col>
           </v-row>
@@ -111,6 +195,16 @@
             color="primary"
             density="compact"
           />
+
+          <v-alert
+            v-if="formData.schedule_enabled"
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mb-3"
+          >
+            <div class="text-caption">{{ t('crawlPresets.info.scheduleHint') }}</div>
+          </v-alert>
 
           <v-row v-if="formData.schedule_enabled">
             <v-col cols="12">
@@ -138,6 +232,9 @@
               <div v-if="previewData.sources_preview?.length" class="text-caption mt-1">
                 {{ previewData.sources_preview.map(s => s.name).slice(0, 3).join(', ') }}
                 <span v-if="previewData.has_more">...</span>
+              </div>
+              <div v-if="previewData.sources_count === 0" class="text-caption mt-1">
+                {{ t('crawlPresets.info.previewHint') }}
               </div>
             </template>
           </v-alert>
@@ -171,13 +268,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
+import { SOURCE_TYPE_OPTIONS, CRAWL_PRESETS } from '@/config/sources'
 import { useCrawlPresetsStore, type CrawlPreset, type CrawlPresetFilters, cleanFilters } from '@/stores/crawlPresets'
 import { crawlPresetsApi, entityApi, adminApi } from '@/services/api'
+import { categoryApi } from '@/services/api/categories'
 import { useSnackbar } from '@/composables/useSnackbar'
 import ScheduleBuilder from '@/components/common/ScheduleBuilder.vue'
 import { useLogger } from '@/composables/useLogger'
+
+interface Props {
+  modelValue: boolean
+  preset?: CrawlPreset | null
+}
 
 const props = withDefaults(defineProps<Props>(), {
   preset: null,
@@ -194,11 +299,6 @@ const { t } = useI18n()
 const presetsStore = useCrawlPresetsStore()
 const { showSuccess, showError } = useSnackbar()
 
-interface Props {
-  modelValue: boolean
-  preset?: CrawlPreset | null
-}
-
 const dialogVisible = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value),
@@ -212,10 +312,25 @@ const saving = ref(false)
 const previewLoading = ref(false)
 const previewData = ref<{ sources_count: number; sources_preview: Array<{ id: string; name: string; status?: string }>; has_more: boolean } | null>(null)
 
+// Info box visibility (persisted in localStorage)
+const editorInfoHidden = ref(localStorage.getItem(CRAWL_PRESETS.STORAGE_KEYS.EDITOR_INFO_HIDDEN) === 'true')
+
+function hideEditorInfo() {
+  editorInfoHidden.value = true
+  localStorage.setItem(CRAWL_PRESETS.STORAGE_KEYS.EDITOR_INFO_HIDDEN, 'true')
+}
+
+function showEditorInfo() {
+  editorInfoHidden.value = false
+  localStorage.removeItem(CRAWL_PRESETS.STORAGE_KEYS.EDITOR_INFO_HIDDEN)
+}
+
 // Dynamic data from API
 const entityTypes = ref<Array<{ slug: string; name: string }>>([])
+const categories = ref<Array<{ id: string; name: string; sources_count?: number }>>([])
 const availableTags = ref<Array<{ tag: string; count: number }>>([])
 const entityTypesLoading = ref(false)
+const categoriesLoading = ref(false)
 const tagsLoading = ref(false)
 
 const formData = ref({
@@ -223,67 +338,104 @@ const formData = ref({
   description: '',
   filters: {
     entity_type: [] as string[],
+    category_id: undefined as string | undefined,
     tags: [] as string[],
     source_type: [] as string[],
+    status: undefined as string | undefined,
+    search: undefined as string | undefined,
     limit: undefined as number | undefined,
   } as CrawlPresetFilters,
   schedule_cron: '',
   schedule_enabled: false,
 })
 
-const sourceTypes = [
-  { value: 'WEBSITE', title: 'Website' },
-  { value: 'OPARL_API', title: 'OParl API' },
-  { value: 'RSS', title: 'RSS Feed' },
-  { value: 'CUSTOM_API', title: 'Custom API' },
-  { value: 'REST_API', title: 'REST API' },
-  { value: 'SPARQL_API', title: 'SPARQL API' },
+// Source types from centralized config
+const sourceTypes = SOURCE_TYPE_OPTIONS
+
+// Source status options
+const statusOptions = [
+  { value: 'PENDING', title: 'Pending' },
+  { value: 'ACTIVE', title: 'Active' },
+  { value: 'PAUSED', title: 'Paused' },
+  { value: 'ERROR', title: 'Error' },
 ]
 
-// Load dynamic data on mount
-onMounted(async () => {
-  // Load entity types
+// Validation rules for limit field
+const limitRules = [
+  (v: number | undefined) => v === undefined || v === null || v >= 1 || t('validation.min', { min: 1 }),
+  (v: number | undefined) => v === undefined || v === null || v <= 10000 || t('validation.max', { max: 10000 }),
+]
+
+// Track if data has been loaded
+const dataLoaded = ref(false)
+
+// Load dynamic data (called when dialog opens)
+async function loadDropdownData() {
+  if (dataLoaded.value) return // Only load once
+
+  // Set all loading states
   entityTypesLoading.value = true
-  try {
-    const response = await entityApi.getEntityTypes({ per_page: 100 })
-    entityTypes.value = response.data.items.map((et: { slug: string; name: string }) => ({
+  categoriesLoading.value = true
+  tagsLoading.value = true
+
+  // Load all data in parallel
+  const [entityTypesResult, categoriesResult, tagsResult] = await Promise.allSettled([
+    entityApi.getEntityTypes({ per_page: 100 }),
+    categoryApi.list({ per_page: 100 }),
+    adminApi.getAvailableTags(),
+  ])
+
+  // Process entity types result
+  if (entityTypesResult.status === 'fulfilled') {
+    entityTypes.value = entityTypesResult.value.data.items.map((et: { slug: string; name: string }) => ({
       slug: et.slug,
       name: et.name,
     }))
-  } catch (error) {
-    logger.error('Failed to load entity types:', error)
-  } finally {
-    entityTypesLoading.value = false
+  } else {
+    logger.error('Failed to load entity types:', entityTypesResult.reason)
   }
+  entityTypesLoading.value = false
 
-  // Load available tags
-  tagsLoading.value = true
-  try {
-    const response = await adminApi.getAvailableTags()
-    availableTags.value = response.data.tags || []
-  } catch (error) {
-    logger.error('Failed to load tags:', error)
-  } finally {
-    tagsLoading.value = false
+  // Process categories result
+  if (categoriesResult.status === 'fulfilled') {
+    categories.value = categoriesResult.value.data.items.map((cat: { id: string; name: string; sources_count?: number }) => ({
+      id: cat.id,
+      name: cat.name,
+      sources_count: cat.sources_count,
+    }))
+  } else {
+    logger.error('Failed to load categories:', categoriesResult.reason)
   }
-})
+  categoriesLoading.value = false
 
-/** Debounce delay for auto-preview in milliseconds */
-const AUTO_PREVIEW_DELAY = 500
+  // Process tags result
+  if (tagsResult.status === 'fulfilled') {
+    availableTags.value = tagsResult.value.data.tags || []
+  } else {
+    logger.error('Failed to load tags:', tagsResult.reason)
+  }
+  tagsLoading.value = false
+
+  dataLoaded.value = true
+}
+
 let previewDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 watch(
   () => formData.value.schedule_enabled,
   (enabled) => {
     if (enabled && !formData.value.schedule_cron) {
-      formData.value.schedule_cron = '0 6 * * *'
+      formData.value.schedule_cron = CRAWL_PRESETS.DEFAULT_CRON
     }
   }
 )
 
 // Reset form when dialog opens
-watch(() => props.modelValue, (visible) => {
+watch(() => props.modelValue, async (visible) => {
   if (visible) {
+    // Load dropdown data first (ensures categories are available for display)
+    await loadDropdownData()
+
     if (props.preset) {
       // Copy filters and ensure backwards compatibility (convert strings to arrays)
       const filters = { ...props.preset.filters }
@@ -303,6 +455,13 @@ watch(() => props.modelValue, (visible) => {
       // tags: ensure array
       filters.tags = filters.tags || []
 
+      // category_id: keep as-is (string or undefined)
+      filters.category_id = filters.category_id || undefined
+
+      // Generic filter fields: keep as-is (string or undefined)
+      filters.status = filters.status || undefined
+      filters.search = filters.search || undefined
+
       formData.value = {
         name: props.preset.name,
         description: props.preset.description || '',
@@ -316,8 +475,11 @@ watch(() => props.modelValue, (visible) => {
         description: '',
         filters: {
           entity_type: [],
+          category_id: undefined,
           tags: [],
           source_type: [],
+          status: undefined,
+          search: undefined,
           limit: undefined,
         },
         schedule_cron: '',
@@ -347,7 +509,7 @@ watch(
       if (Object.keys(filters).length > 0) {
         loadPreview()
       }
-    }, AUTO_PREVIEW_DELAY)
+    }, CRAWL_PRESETS.AUTO_PREVIEW_DELAY_MS)
   },
   { deep: true }
 )

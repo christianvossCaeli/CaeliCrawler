@@ -219,6 +219,7 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { entityApi } from '@/services/api'
 import { useLogger } from '@/composables/useLogger'
+import { escapeHtml } from '@/utils/messageFormatting'
 
 const props = defineProps<{
   wizardState: WizardState
@@ -378,17 +379,6 @@ function handleNext() {
   }
 
   emit('next', value)
-}
-
-function escapeHtml(text: string): string {
-  const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  }
-  return text.replace(/[&<>"']/g, (char) => map[char])
 }
 
 function formatQuestion(question: string): string {

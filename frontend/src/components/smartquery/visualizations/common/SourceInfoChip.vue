@@ -27,13 +27,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useDateFormatter } from '@/composables'
 import type { SourceInfo } from '../types'
 
 const props = defineProps<{
   sourceInfo: SourceInfo
 }>()
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const { formatDateTime } = useDateFormatter()
 
 const chipColor = computed(() => {
   switch (props.sourceInfo.type) {
@@ -82,7 +84,7 @@ const formattedDate = computed(() => {
   if (!props.sourceInfo.last_updated) return ''
   try {
     const date = new Date(props.sourceInfo.last_updated)
-    return date.toLocaleString(locale.value === 'de' ? 'de-DE' : 'en-US')
+    return formatDateTime(date)
   } catch {
     return props.sourceInfo.last_updated
   }

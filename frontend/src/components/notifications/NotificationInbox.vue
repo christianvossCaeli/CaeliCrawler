@@ -112,7 +112,7 @@
   </v-card>
 
   <!-- Notification Detail Dialog -->
-  <v-dialog v-model="detailDialog" max-width="600" role="dialog" aria-modal="true">
+  <v-dialog v-model="detailDialog" :max-width="DIALOG_SIZES.MD" role="dialog" aria-modal="true">
     <v-card v-if="selectedNotification">
       <v-card-title class="d-flex align-center">
         <v-icon :color="getEventTypeColor(selectedNotification.event_type)" class="mr-2" aria-hidden="true">
@@ -168,8 +168,15 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useNotifications, type Notification } from '@/composables/useNotifications'
 import { useDateFormatter } from '@/composables/useDateFormatter'
+import {
+  getEventTypeColor,
+  getEventTypeIcon,
+  getChannelColor,
+  useNotificationFormatting,
+} from '@/utils/notificationFormatting'
 
 const { t } = useI18n()
 const { formatDate: formatLocaleDate } = useDateFormatter()
@@ -191,6 +198,9 @@ const {
   markAsRead,
   markAllAsRead,
 } = useNotifications()
+
+// Use shared notification formatting utilities
+const { getEventTypeLabel, getChannelLabel } = useNotificationFormatting(eventTypes, channels)
 
 // Local state
 const detailDialog = ref(false)
@@ -265,58 +275,6 @@ const formatDate = (dateStr: string) => {
 
 const formatDateTime = (dateStr: string) => {
   return formatLocaleDate(dateStr, 'dd.MM.yyyy HH:mm:ss')
-}
-
-const getEventTypeColor = (eventType: string): string => {
-  const colors: Record<string, string> = {
-    NEW_DOCUMENT: 'success',
-    DOCUMENT_CHANGED: 'info',
-    DOCUMENT_REMOVED: 'error',
-    CRAWL_STARTED: 'purple',
-    CRAWL_COMPLETED: 'success',
-    CRAWL_FAILED: 'error',
-    AI_ANALYSIS_COMPLETED: 'cyan',
-    HIGH_CONFIDENCE_RESULT: 'orange',
-    SOURCE_STATUS_CHANGED: 'grey',
-    SOURCE_ERROR: 'error',
-  }
-  return colors[eventType] || 'grey'
-}
-
-const getEventTypeIcon = (eventType: string): string => {
-  const icons: Record<string, string> = {
-    NEW_DOCUMENT: 'mdi-file-document-plus',
-    DOCUMENT_CHANGED: 'mdi-file-document-edit',
-    DOCUMENT_REMOVED: 'mdi-file-document-remove',
-    CRAWL_STARTED: 'mdi-play-circle',
-    CRAWL_COMPLETED: 'mdi-check-circle',
-    CRAWL_FAILED: 'mdi-alert-circle',
-    AI_ANALYSIS_COMPLETED: 'mdi-brain',
-    HIGH_CONFIDENCE_RESULT: 'mdi-star',
-    SOURCE_STATUS_CHANGED: 'mdi-sync',
-    SOURCE_ERROR: 'mdi-alert',
-  }
-  return icons[eventType] || 'mdi-bell'
-}
-
-const getEventTypeLabel = (eventType: string): string => {
-  const type = eventTypes.value.find((e) => e.value === eventType)
-  return type?.label || eventType
-}
-
-const getChannelColor = (channel: string): string => {
-  const colors: Record<string, string> = {
-    EMAIL: 'blue',
-    WEBHOOK: 'purple',
-    IN_APP: 'green',
-    MS_TEAMS: 'indigo',
-  }
-  return colors[channel] || 'grey'
-}
-
-const getChannelLabel = (channel: string): string => {
-  const ch = channels.value.find((c) => c.value === channel)
-  return ch?.label || channel
 }
 
 const getStatusLabel = (status: string): string => {

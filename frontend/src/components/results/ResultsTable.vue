@@ -72,7 +72,7 @@
         <div class="table-actions d-flex justify-end ga-1">
           <v-btn
             icon="mdi-eye"
-            size="small"
+            size="default"
             variant="tonal"
             :title="$t('common.details')"
             :aria-label="$t('common.details')"
@@ -82,7 +82,7 @@
           <v-btn
             v-if="canVerify"
             :icon="normalizeItem(item).human_verified ? 'mdi-check-circle' : 'mdi-check'"
-            size="small"
+            size="default"
             variant="tonal"
             :color="normalizeItem(item).human_verified ? 'success' : 'grey'"
             :title="normalizeItem(item).human_verified ? $t('results.actions.verified') : $t('results.actions.verify')"
@@ -92,7 +92,7 @@
 
           <v-btn
             icon="mdi-file-document"
-            size="small"
+            size="default"
             variant="tonal"
             color="info"
             :title="$t('results.actions.goToDocument')"
@@ -102,7 +102,7 @@
 
           <v-btn
             icon="mdi-code-json"
-            size="small"
+            size="default"
             variant="tonal"
             :title="$t('results.actions.exportJson')"
             :aria-label="$t('results.actions.exportJson')"
@@ -111,15 +111,21 @@
         </div>
       </template>
 
-      <!-- Empty State -->
+      <!-- Empty / Error State -->
       <template #no-data>
-        <div class="text-center py-8">
-          <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-chart-box-outline</v-icon>
-          <h3 class="text-h6 mb-2">{{ $t('results.emptyState.title', 'Keine Ergebnisse') }}</h3>
-          <p class="text-body-2 text-medium-emphasis">
-            {{ $t('results.emptyState.description', 'Es wurden noch keine AI-Extraktionen gefunden.') }}
-          </p>
-        </div>
+        <TableErrorState
+          v-if="props.error"
+          :title="$t('common.loadError')"
+          :message="props.errorMessage || $t('errors.generic')"
+          :retrying="loading"
+          @retry="emit('retry')"
+        />
+        <EmptyState
+          v-else
+          icon="mdi-chart-box-outline"
+          :title="$t('results.emptyState.title', 'Keine Ergebnisse')"
+          :description="$t('results.emptyState.description', 'Es wurden noch keine AI-Extraktionen gefunden.')"
+        />
       </template>
     </v-data-table-server>
   </v-card>
@@ -133,6 +139,7 @@
  */
 import { computed } from 'vue'
 import EntityReferencePopup from './EntityReferencePopup.vue'
+import { TableErrorState, EmptyState } from '@/components/common'
 import {
   useResultsHelpers,
   normalizeResultItem,
@@ -152,6 +159,10 @@ const props = defineProps<{
   page: number
   perPage: number
   sortBy: SortConfig[]
+  /** Whether an error occurred during data loading */
+  error?: boolean
+  /** User-friendly error message */
+  errorMessage?: string
 }>()
 
 const emit = defineEmits<{
@@ -163,6 +174,8 @@ const emit = defineEmits<{
   'show-details': [item: SearchResult]
   'verify': [item: SearchResult]
   'export-json': [item: SearchResult]
+  /** Emitted when user clicks retry after an error */
+  'retry': []
 }>()
 
 const { getConfidenceColor, formatConfidence, formatDate } = useResultsHelpers()

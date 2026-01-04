@@ -30,9 +30,9 @@
       ></div>
 
       <!-- Query Results -->
-      <div v-if="message.response_type === 'query_result' && message.response_data?.data?.items?.length" class="mt-2">
+      <div v-if="queryResultData?.data?.items?.length" class="mt-2">
         <v-chip
-          v-for="(item, idx) in message.response_data.data.items.slice(0, 15)"
+          v-for="(item, idx) in queryResultData.data.items.slice(0, 15)"
           :key="idx"
           size="small"
           variant="outlined"
@@ -42,18 +42,18 @@
           {{ item.entity_name || item.name || t('entities.entity') }}
         </v-chip>
         <v-chip
-          v-if="message.response_data.data.items.length > 15"
+          v-if="queryResultData.data.items.length > 15"
           size="small"
           variant="text"
           class="mr-1 mb-1"
         >
-          {{ t('assistant.more', { count: message.response_data.data.items.length - 15 }) }}
+          {{ t('assistant.more', { count: queryResultData.data.items.length - 15 }) }}
         </v-chip>
       </div>
 
       <!-- Query Correction Suggestions (when no results found) -->
       <div
-        v-if="message.response_type === 'query_result' && !message.response_data?.data?.items?.length && message.response_data?.data?.suggestions?.length"
+        v-if="queryResultData && !queryResultData.data?.items?.length && queryResultData.data?.suggestions?.length"
         class="mt-3"
       >
         <div class="text-caption text-medium-emphasis mb-2">
@@ -61,7 +61,7 @@
           {{ t('assistant.didYouMean') }}
         </div>
         <v-chip
-          v-for="(suggestion, idx) in message.response_data.data.suggestions"
+          v-for="(suggestion, idx) in queryResultData.data.suggestions"
           :key="idx"
           size="small"
           variant="tonal"
@@ -78,15 +78,15 @@
 
       <!-- Navigation Target -->
       <v-btn
-        v-if="message.response_type === 'navigation' && message.response_data?.target"
+        v-if="navigationData?.target"
         size="small"
         variant="tonal"
         color="primary"
         class="mt-2"
-        @click="$emit('navigate', message.response_data?.target?.route || '')"
+        @click="$emit('navigate', navigationData.target.route || '')"
       >
         <v-icon start size="small">mdi-arrow-right</v-icon>
-        {{ t('assistant.goTo', { name: message.response_data.target.entity_name || t('nav.entities') }) }}
+        {{ t('assistant.goTo', { name: navigationData.target.entity_name || t('nav.entities') }) }}
       </v-btn>
 
       <!-- Redirect to Smart Query -->
@@ -96,16 +96,16 @@
         variant="tonal"
         color="warning"
         class="mt-2"
-        @click="$emit('smart-query-redirect', message.response_data ?? null)"
+        @click="$emit('smart-query-redirect', (message.response_data as unknown as Record<string, unknown>) ?? null)"
       >
         <v-icon start size="small">mdi-magnify</v-icon>
         {{ t('assistant.openSmartQuery') }}
       </v-btn>
 
       <!-- Help Topics -->
-      <div v-if="message.response_type === 'help' && message.response_data?.suggested_commands?.length" class="mt-2">
+      <div v-if="helpData?.suggested_commands?.length" class="mt-2">
         <v-chip
-          v-for="cmd in message.response_data.suggested_commands"
+          v-for="cmd in helpData.suggested_commands"
           :key="cmd"
           size="small"
           variant="outlined"
@@ -118,40 +118,40 @@
       </div>
 
       <!-- Discussion Response - Key Points & Recommendations -->
-      <div v-if="message.response_type === 'discussion'" class="mt-3">
+      <div v-if="discussionData" class="mt-3">
         <!-- Analysis Type Badge -->
         <v-chip
-          v-if="message.response_data?.analysis_type"
+          v-if="discussionData.analysis_type"
           size="small"
           variant="tonal"
-          :color="getAnalysisTypeColor(message.response_data.analysis_type)"
+          :color="getAnalysisTypeColor(discussionData.analysis_type)"
           class="mb-2"
         >
-          <v-icon start size="small">{{ getAnalysisTypeIcon(message.response_data.analysis_type) }}</v-icon>
-          {{ getAnalysisTypeLabel(message.response_data.analysis_type) }}
+          <v-icon start size="small">{{ getAnalysisTypeIcon(discussionData.analysis_type) }}</v-icon>
+          {{ getAnalysisTypeLabel(discussionData.analysis_type) }}
         </v-chip>
 
         <!-- Key Points -->
-        <div v-if="message.response_data?.key_points?.length" class="discussion-section mb-2">
+        <div v-if="discussionData.key_points?.length" class="discussion-section mb-2">
           <div class="text-caption text-medium-emphasis mb-1">
             <v-icon size="small" class="mr-1">mdi-lightbulb-outline</v-icon>
             {{ t('assistant.keyPoints') }}
           </div>
           <ul class="discussion-list">
-            <li v-for="(point, idx) in message.response_data.key_points" :key="idx">
+            <li v-for="(point, idx) in discussionData.key_points" :key="idx">
               {{ point }}
             </li>
           </ul>
         </div>
 
         <!-- Recommendations -->
-        <div v-if="message.response_data?.recommendations?.length" class="discussion-section">
+        <div v-if="discussionData.recommendations?.length" class="discussion-section">
           <div class="text-caption text-medium-emphasis mb-1">
             <v-icon size="small" class="mr-1">mdi-clipboard-check-outline</v-icon>
             {{ t('assistant.recommendations') }}
           </div>
           <ul class="discussion-list">
-            <li v-for="(rec, idx) in message.response_data.recommendations" :key="idx">
+            <li v-for="(rec, idx) in discussionData.recommendations" :key="idx">
               {{ rec }}
             </li>
           </ul>
@@ -180,11 +180,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import DOMPurify from 'dompurify'
 import type { ConversationMessage } from '@/composables/useAssistant'
+import type {
+  QueryResultResponse,
+  NavigationResponse,
+  HelpResponse,
+  DiscussionResponse,
+} from '@/composables/assistant/types'
 import { useLogger } from '@/composables/useLogger'
+import { escapeHtml, DOMPURIFY_CONFIG } from '@/utils/messageFormatting'
 
 const props = defineProps<{
   message: ConversationMessage
@@ -202,6 +209,31 @@ const emit = defineEmits<{
 const logger = useLogger('ChatMessage')
 
 const { t, locale } = useI18n()
+
+// Type-safe computed properties for response data
+const queryResultData = computed(() =>
+  props.message.response_type === 'query_result'
+    ? props.message.response_data as QueryResultResponse | undefined
+    : undefined
+)
+
+const navigationData = computed(() =>
+  props.message.response_type === 'navigation'
+    ? props.message.response_data as NavigationResponse | undefined
+    : undefined
+)
+
+const helpData = computed(() =>
+  props.message.response_type === 'help'
+    ? props.message.response_data as HelpResponse | undefined
+    : undefined
+)
+
+const discussionData = computed(() =>
+  props.message.response_type === 'discussion'
+    ? props.message.response_data as DiscussionResponse | undefined
+    : undefined
+)
 
 // Copy functionality
 const copied = ref(false)
@@ -230,17 +262,6 @@ function handleTextClick(event: MouseEvent) {
   }
 }
 
-function escapeHtml(text: string): string {
-  const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  }
-  return text.replace(/[&<>"']/g, (char) => map[char])
-}
-
 function formatMessage(content: string): string {
   // 1. First escape HTML to prevent XSS
   let formatted = escapeHtml(content)
@@ -261,10 +282,7 @@ function formatMessage(content: string): string {
   )
 
   // 4. Final sanitization with DOMPurify for defense-in-depth
-  return DOMPurify.sanitize(formatted, {
-    ALLOWED_TAGS: ['strong', 'code', 'br', 'span'],
-    ALLOWED_ATTR: ['class', 'data-type', 'data-slug', 'role', 'tabindex']
-  })
+  return DOMPurify.sanitize(formatted, DOMPURIFY_CONFIG.EXTENDED)
 }
 
 function formatTime(date: Date): string {

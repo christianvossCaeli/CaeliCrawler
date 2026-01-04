@@ -30,7 +30,7 @@
             {{ process.field_count }} {{ t('pysis.fields') }} | {{ t('pysis.lastSynced') }}: {{ formatDate(process.last_synced_at) }}
           </v-list-item-subtitle>
           <template #append>
-            <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :aria-label="t('common.delete')" @click.stop="deleteProcess(process)"></v-btn>
+            <v-btn icon="mdi-delete" size="small" variant="tonal" color="error" :aria-label="t('common.delete')" @click.stop="handleDeleteProcess(process)"></v-btn>
           </template>
         </v-list-item>
       </v-list>
@@ -55,15 +55,15 @@
           </v-btn>
         </v-btn-group>
         <v-btn-group density="compact" class="ml-2">
-          <v-btn size="small" color="secondary" :loading="generating" @click="generateAllFields">
+          <v-btn size="small" color="secondary" :loading="generating" @click="handleGenerateAllFields">
             <v-icon start>mdi-auto-fix</v-icon>
             {{ t('pysis.ai') }}
           </v-btn>
-          <v-btn size="small" color="info" :loading="syncing" @click="pullFromPySis">
+          <v-btn size="small" color="info" :loading="syncing" @click="handlePullFromPySis">
             <v-icon start>mdi-download</v-icon>
             {{ t('pysis.pull') }}
           </v-btn>
-          <v-btn size="small" color="success" :loading="syncing" @click="pushToPySis">
+          <v-btn size="small" color="success" :loading="syncing" @click="handlePushToPySis">
             <v-icon start>mdi-upload</v-icon>
             {{ t('pysis.push') }}
           </v-btn>
@@ -131,7 +131,7 @@
                 density="compact"
                 hide-details
                 color="primary"
-                @change="toggleAiExtraction(field)"
+                @change="handleToggleAiExtraction(field)"
               ></v-checkbox>
             </td>
             <td>
@@ -145,7 +145,7 @@
                 <span class="text-info text-caption">{{ t('pysis.aiGenerating') }}</span>
               </div>
               <!-- Current Value -->
-              <div class="field-value-preview" role="button" tabindex="0" :aria-label="t('pysis.editField')" @click="openFieldEditor(field)" @keydown.enter.prevent="openFieldEditor(field)" @keydown.space.prevent="openFieldEditor(field)">
+              <div class="field-value-preview" role="button" tabindex="0" :aria-label="t('pysis.editField')" @click="handleOpenFieldEditor(field)" @keydown.enter.prevent="handleOpenFieldEditor(field)" @keydown.space.prevent="handleOpenFieldEditor(field)">
                 {{ truncateValue(field.current_value) || t('pysis.empty') }}
               </div>
               <!-- AI Suggestion (if different from current) -->
@@ -161,11 +161,11 @@
                   {{ truncateValue(field.ai_extracted_value, 150) }}
                 </div>
                 <div class="d-flex ga-1 mt-1">
-                  <v-btn size="x-small" color="success" variant="tonal" @click="acceptAiSuggestion(field)">
+                  <v-btn size="x-small" color="success" variant="tonal" @click="handleAcceptAiSuggestion(field)">
                     <v-icon start size="small">mdi-check</v-icon>
                     {{ t('pysis.accept') }}
                   </v-btn>
-                  <v-btn size="x-small" color="error" variant="tonal" @click="rejectAiSuggestion(field)">
+                  <v-btn size="x-small" color="error" variant="tonal" @click="handleRejectAiSuggestion(field)">
                     <v-icon start size="small">mdi-close</v-icon>
                     {{ t('pysis.reject') }}
                   </v-btn>
@@ -190,12 +190,12 @@
                   :aria-label="t('pysis.generateAI')"
                   :disabled="!field.ai_extraction_enabled || generatingFieldIds.has(field.id)"
                   :loading="generatingFieldIds.has(field.id)"
-                  @click="generateField(field)"
+                  @click="handleGenerateField(field)"
                 ></v-btn>
-                <v-btn icon="mdi-cog" size="x-small" variant="tonal" :title="t('pysis.settings')" :aria-label="t('pysis.settings')" @click="openFieldSettings(field)"></v-btn>
-                <v-btn icon="mdi-history" size="x-small" variant="tonal" :title="t('pysis.history')" :aria-label="t('pysis.history')" @click="showHistory(field)"></v-btn>
-                <v-btn icon="mdi-upload" size="x-small" variant="tonal" color="info" :title="t('pysis.pushToPySis')" :aria-label="t('pysis.pushToPySis')" @click="pushFieldToPySis(field)"></v-btn>
-                <v-btn icon="mdi-delete" size="x-small" variant="tonal" color="error" :title="t('common.delete')" :aria-label="t('common.delete')" @click="deleteField(field)"></v-btn>
+                <v-btn icon="mdi-cog" size="x-small" variant="tonal" :title="t('pysis.settings')" :aria-label="t('pysis.settings')" @click="handleOpenFieldSettings(field)"></v-btn>
+                <v-btn icon="mdi-history" size="x-small" variant="tonal" :title="t('pysis.history')" :aria-label="t('pysis.history')" @click="handleShowHistory(field)"></v-btn>
+                <v-btn icon="mdi-upload" size="x-small" variant="tonal" color="info" :title="t('pysis.pushToPySis')" :aria-label="t('pysis.pushToPySis')" @click="handlePushFieldToPySis(field)"></v-btn>
+                <v-btn icon="mdi-delete" size="x-small" variant="tonal" color="error" :title="t('common.delete')" :aria-label="t('common.delete')" @click="handleDeleteField(field)"></v-btn>
               </div>
             </td>
           </tr>
@@ -206,360 +206,69 @@
       </v-card-text>
     </v-card>
 
-    <!-- Add Process Dialog -->
-    <v-dialog v-model="showAddProcessDialog" max-width="500">
-      <v-card>
-        <v-card-title>{{ t('pysis.addProcess') }}</v-card-title>
-        <v-card-text class="pt-4">
-          <v-text-field
-            v-model="newProcess.pysis_process_id"
-            :label="t('pysis.processId')"
-            :placeholder="t('pysis.processIdPlaceholder')"
-            :hint="t('pysis.processIdHint')"
-            persistent-hint
-            class="mb-3"
-          ></v-text-field>
-          <v-text-field
-            v-model="newProcess.name"
-            :label="t('pysis.displayName')"
-            :placeholder="t('pysis.displayNamePlaceholder')"
-          ></v-text-field>
-          <v-select
-            v-if="flags.pysisFieldTemplates"
-            v-model="newProcess.template_id"
-            :items="templates"
-            item-title="name"
-            item-value="id"
-            :label="t('pysis.applyTemplate')"
-            clearable
-            class="mt-3"
-          ></v-select>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="showAddProcessDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="primary" :loading="loading" @click="createProcess">{{ t('common.add') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <!-- Dialogs -->
+    <AddProcessDialog
+      v-model="showAddProcessDialog"
+      :loading="loading"
+      :show-templates="flags.pysisFieldTemplates"
+      :templates="templates"
+      @submit="handleCreateProcess"
+    />
 
-    <!-- Add Field Dialog -->
-    <v-dialog v-model="showAddFieldDialog" max-width="500">
-      <v-card>
-        <v-card-title>{{ t('pysis.addField') }}</v-card-title>
-        <v-card-text class="pt-4">
-          <v-text-field
-            v-model="newField.internal_name"
-            :label="t('pysis.internalName')"
-            :placeholder="t('pysis.internalNamePlaceholder')"
-            class="mb-3"
-          ></v-text-field>
-          <v-text-field
-            v-model="newField.pysis_field_name"
-            :label="t('pysis.pysisFieldName')"
-            :placeholder="t('pysis.pysisFieldNamePlaceholder')"
-            :hint="t('pysis.pysisFieldNameHint')"
-            persistent-hint
-            class="mb-3"
-          ></v-text-field>
-          <v-select
-            v-model="newField.field_type"
-            :items="fieldTypes"
-            :label="t('pysis.fieldType')"
-            class="mb-3"
-          ></v-select>
-          <v-switch
-            v-model="newField.ai_extraction_enabled"
-            :label="t('pysis.aiExtractionEnabled')"
-            color="primary"
-          ></v-switch>
-          <v-textarea
-            v-if="newField.ai_extraction_enabled"
-            v-model="newField.ai_extraction_prompt"
-            :label="t('pysis.aiPrompt')"
-            :placeholder="t('pysis.aiPromptPlaceholder')"
-            rows="3"
-          ></v-textarea>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="showAddFieldDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="primary" :loading="loading" @click="createField">{{ t('common.add') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <AddFieldDialog
+      v-model="showAddFieldDialog"
+      :loading="loading"
+      :field-types="fieldTypes"
+      @submit="handleCreateField"
+    />
 
-    <!-- Apply Template Dialog -->
-    <v-dialog v-if="flags.pysisFieldTemplates" v-model="showTemplateDialog" max-width="500">
-      <v-card>
-        <v-card-title>{{ t('pysis.template') }}</v-card-title>
-        <v-card-text class="pt-4">
-          <v-select
-            v-model="selectedTemplateId"
-            :items="templates"
-            item-title="name"
-            item-value="id"
-            :label="t('pysis.selectTemplate')"
-            class="mb-3"
-          >
-            <template #item="{ item, props: itemProps }">
-              <v-list-item v-bind="itemProps">
-                <v-list-item-subtitle>
-                  {{ item.raw.fields?.length || 0 }} {{ t('pysis.fields') }}
-                </v-list-item-subtitle>
-              </v-list-item>
-            </template>
-          </v-select>
-          <v-switch
-            v-model="overwriteExisting"
-            :label="t('pysis.overwriteExisting')"
-            color="warning"
-          ></v-switch>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="showTemplateDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="primary" :loading="loading" :disabled="!selectedTemplateId" @click="applyTemplate">{{ t('pysis.apply') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <TemplateDialog
+      v-if="flags.pysisFieldTemplates"
+      v-model="showTemplateDialog"
+      :loading="loading"
+      :templates="templates"
+      @submit="handleApplyTemplate"
+    />
 
-    <!-- Field Editor Dialog -->
-    <v-dialog v-model="showFieldEditorDialog" max-width="700">
-      <v-card v-if="editingField">
-        <v-card-title>
-          {{ editingField.internal_name }}
-          <v-chip size="small" class="ml-2" :color="getSourceColor(editingField.value_source)">
-            {{ editingField.value_source }}
-          </v-chip>
-        </v-card-title>
-        <v-card-subtitle>
-          <code>{{ editingField.pysis_field_name }}</code>
-        </v-card-subtitle>
-        <v-card-text>
-          <v-textarea
-            v-model="editingField.current_value"
-            :label="t('common.value')"
-            variant="outlined"
-            rows="10"
-            auto-grow
-          ></v-textarea>
-          <v-alert v-if="editingField.ai_extracted_value && editingField.ai_extracted_value !== editingField.current_value" type="info" density="compact" class="mt-3">
-            <strong>{{ t('pysis.aiSuggestion') }}:</strong>
-            <div class="text-body-2 mt-1">{{ editingField.ai_extracted_value }}</div>
-            <v-btn size="small" class="mt-2" @click="useAiValue">{{ t('pysis.useAiValue') }}</v-btn>
-          </v-alert>
-        </v-card-text>
-        <v-card-actions>
-          <v-btn variant="tonal" @click="showFieldEditorDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" color="primary" @click="saveFieldValue">{{ t('common.save') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <FieldEditorDialog
+      v-model="showFieldEditorDialog"
+      :field="editingField"
+      @save="handleSaveFieldValue"
+    />
 
-    <!-- History Dialog -->
-    <v-dialog v-model="showHistoryDialog" max-width="600">
-      <v-card v-if="historyField">
-        <v-card-title>
-          <v-icon start>mdi-history</v-icon>
-          {{ t('pysis.history') }}: {{ historyField.internal_name }}
-        </v-card-title>
-        <v-card-text>
-          <v-progress-linear v-if="loadingHistory" indeterminate></v-progress-linear>
-          <v-list v-else-if="historyEntries.length" density="compact">
-            <v-list-item
-              v-for="entry in historyEntries"
-              :key="entry.id"
-              :class="getHistoryItemClass(entry.action)"
-            >
-              <template #prepend>
-                <v-icon :color="getHistoryActionColor(entry.action)" size="small">
-                  {{ getHistoryActionIcon(entry.action) }}
-                </v-icon>
-              </template>
-              <v-list-item-title class="text-caption">
-                <v-chip size="x-small" :color="getSourceColor(entry.source)" class="mr-2">
-                  {{ entry.source }}
-                </v-chip>
-                <span class="text-medium-emphasis">{{ formatHistoryAction(entry.action) }}</span>
-                <span v-if="entry.confidence_score" class="ml-2 text-medium-emphasis-darken-1">
-                  ({{ Math.round(entry.confidence_score * 100) }}% {{ t('pysis.confidence') }})
-                </span>
-              </v-list-item-title>
-              <v-list-item-subtitle class="mt-1">
-                <div class="history-value">{{ truncateValue(entry.value, 200) || t('pysis.empty') }}</div>
-                <div class="text-caption text-medium-emphasis mt-1">{{ formatDate(entry.created_at) }}</div>
-              </v-list-item-subtitle>
-              <template #append>
-                <v-btn
-                  v-if="entry.action !== 'rejected'"
-                  icon="mdi-restore"
-                  size="x-small"
-                  variant="tonal"
-                  :title="t('pysis.restoreValue')"
-                  @click="restoreFromHistory(entry)"
-                ></v-btn>
-              </template>
-            </v-list-item>
-          </v-list>
-          <div v-else class="text-center text-medium-emphasis py-4">
-            {{ t('pysis.noHistory') }}
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="showHistoryDialog = false">{{ t('common.close') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <HistoryDialog
+      v-model="showHistoryDialog"
+      :field="historyField"
+      :entries="historyEntries"
+      :loading="loadingHistory"
+      @restore="handleRestoreFromHistory"
+    />
 
-    <!-- Field Settings Dialog -->
-    <v-dialog v-model="showFieldSettingsDialog" max-width="600">
-      <v-card v-if="editingFieldSettings">
-        <v-card-title>
-          <v-icon start>mdi-cog</v-icon>
-          {{ t('pysis.fieldSettings') }}: {{ editingFieldSettings.internal_name }}
-        </v-card-title>
-        <v-card-text class="pt-4">
-          <v-text-field
-            v-model="editingFieldSettings.internal_name"
-            :label="t('pysis.internalName')"
-            variant="outlined"
-            density="compact"
-            class="mb-3"
-          ></v-text-field>
-          <v-select
-            v-model="editingFieldSettings.field_type"
-            :items="fieldTypes"
-            :label="t('pysis.fieldType')"
-            variant="outlined"
-            density="compact"
-            class="mb-3"
-          ></v-select>
-          <v-switch
-            v-model="editingFieldSettings.ai_extraction_enabled"
-            :label="t('pysis.aiExtractionEnabled')"
-            color="primary"
-            class="mb-3"
-          ></v-switch>
-          <v-textarea
-            v-model="editingFieldSettings.ai_extraction_prompt"
-            :label="t('pysis.aiPrompt')"
-            variant="outlined"
-            rows="6"
-            :placeholder="getDefaultPromptPlaceholder()"
-            :hint="t('pysis.aiPromptHint')"
-            persistent-hint
-          ></v-textarea>
-          <v-alert v-if="!editingFieldSettings.ai_extraction_prompt" type="warning" variant="tonal" density="compact" class="mt-3">
-            {{ t('pysis.noPromptWarning', { name: editingFieldSettings.internal_name }) }}
-          </v-alert>
-        </v-card-text>
-        <v-card-actions>
-          <v-btn variant="tonal" @click="showFieldSettingsDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" color="primary" :loading="loading" @click="saveFieldSettings">{{ t('common.save') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <FieldSettingsDialog
+      v-model="showFieldSettingsDialog"
+      :settings="editingFieldSettings"
+      :field-types="fieldTypes"
+      :loading="loading"
+      @save="handleSaveFieldSettings"
+    />
 
-    <!-- Analyze for Facets Dialog -->
-    <v-dialog v-model="showAnalyzeForFacetsDialog" max-width="500">
-      <v-card>
-        <v-card-title>
-          <v-icon start color="info">mdi-brain</v-icon>
-          {{ t('pysis.facets.analyzeForFacetsTitle') }}
-        </v-card-title>
-        <v-card-text>
-          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
-            {{ t('pysis.facets.analyzeForFacetsDescription') }}
-          </v-alert>
-          <v-checkbox
-            v-model="analyzeIncludeEmpty"
-            :label="t('pysis.facets.includeEmptyFields')"
-            density="compact"
-            hide-details
-            class="mb-2"
-          ></v-checkbox>
-          <v-slider
-            v-model="analyzeMinConfidence"
-            :label="t('pysis.facets.minConfidence')"
-            :min="0"
-            :max="1"
-            :step="0.1"
-            thumb-label
-            density="compact"
-            class="mt-4"
-          >
-            <template #thumb-label="{ modelValue }">
-              {{ Math.round(modelValue * 100) }}%
-            </template>
-          </v-slider>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="showAnalyzeForFacetsDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="info" :loading="analyzingForFacets" @click="analyzeForFacets">
-            <v-icon start>mdi-brain</v-icon>
-            {{ t('pysis.facets.startAnalysis') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <AnalyzeForFacetsDialog
+      v-model="showAnalyzeForFacetsDialog"
+      :loading="analyzingForFacets"
+      @submit="handleAnalyzeForFacets"
+    />
 
-    <!-- Enrich Facets Dialog -->
-    <v-dialog v-model="showEnrichFacetsDialog" max-width="500">
-      <v-card>
-        <v-card-title>
-          <v-icon start color="secondary">mdi-database-arrow-up</v-icon>
-          {{ t('pysis.facets.enrichFacetsTitle') }}
-        </v-card-title>
-        <v-card-text>
-          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
-            {{ t('pysis.facets.enrichFacetsDescription') }}
-          </v-alert>
-          <v-checkbox
-            v-model="enrichOverwrite"
-            :label="t('pysis.facets.overwriteExisting')"
-            density="compact"
-            hide-details
-            color="warning"
-          ></v-checkbox>
-          <v-alert v-if="enrichOverwrite" type="warning" variant="tonal" density="compact" class="mt-3">
-            {{ t('pysis.facets.overwriteWarning') }}
-          </v-alert>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" @click="showEnrichFacetsDialog = false">{{ t('common.cancel') }}</v-btn>
-          <v-btn variant="tonal" color="secondary" :loading="enrichingFacets" @click="enrichFacetsFromPysis">
-            <v-icon start>mdi-database-arrow-up</v-icon>
-            {{ t('pysis.facets.startEnrichment') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <EnrichFacetsDialog
+      v-model="showEnrichFacetsDialog"
+      :loading="enrichingFacets"
+      @submit="handleEnrichFacetsFromPysis"
+    />
 
-    <!-- Task Started Info Dialog -->
-    <v-dialog v-model="showTaskStartedDialog" max-width="400">
-      <v-card>
-        <v-card-title>
-          <v-icon start color="success">mdi-check-circle</v-icon>
-          {{ t('pysis.facets.taskStarted') }}
-        </v-card-title>
-        <v-card-text>
-          <p>{{ taskStartedMessage }}</p>
-          <p class="text-caption text-medium-emphasis mt-2">
-            {{ t('pysis.facets.taskId') }}: <code>{{ startedTaskId }}</code>
-          </p>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="tonal" color="primary" @click="showTaskStartedDialog = false">{{ t('common.ok') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <TaskStartedDialog
+      v-model="showTaskStartedDialog"
+      :message="taskStartedMessage"
+      :task-id="startedTaskId"
+    />
 
     <!-- Snackbar -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="3000">
@@ -569,245 +278,325 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
+import { ref, watch, onMounted, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { pysisApi } from '@/services/api'
-import { useDateFormatter } from '@/composables/useDateFormatter'
 import { useFeatureFlags } from '@/composables/useFeatureFlags'
-import { useLogger } from '@/composables/useLogger'
-import { getErrorMessage } from '@/composables/useApiErrorHandler'
-
-// Extended PySis types for component use (API returns more fields)
-interface PySisProcessLocal {
-  id: string
-  pysis_process_id: string
-  name?: string
-  field_count?: number
-  sync_status?: string
-  last_synced_at?: string
-  entity_id?: string
-}
-
-interface PySisFieldLocal {
-  id: string
-  internal_name: string
-  pysis_field_name: string
-  field_type: string
-  current_value?: string
-  ai_extracted_value?: string
-  ai_extraction_enabled?: boolean
-  ai_extraction_prompt?: string
-  value_source?: string
-  needs_push?: boolean
-  confidence_score?: number
-}
-
-interface PySisHistoryEntry {
-  id: string
-  value: string
-  recorded_at: string
-  source: string
-  action: string
-  confidence_score?: number
-  created_at?: string
-}
-
-interface PySisTemplate {
-  id: string
-  name?: string
-  description?: string
-  fields?: { internal_name: string; pysis_field_name: string; field_type: string }[]
-}
-
-interface AvailablePySisProcess {
-  process_id: string
-  name?: string
-  description?: string
-}
+import { getErrorMessage } from '@/utils/errorMessage'
+import {
+  usePySisProcess,
+  type PySisField,
+  type PySisProcess,
+  type PySisHistoryEntry,
+} from '@/composables/usePySisProcess'
+import {
+  AddProcessDialog,
+  AddFieldDialog,
+  TemplateDialog,
+  FieldEditorDialog,
+  HistoryDialog,
+  FieldSettingsDialog,
+  AnalyzeForFacetsDialog,
+  EnrichFacetsDialog,
+  TaskStartedDialog,
+} from './pysis/dialogs'
 
 const props = defineProps<{
   municipality: string
 }>()
+
 const emit = defineEmits<{
   updated: []
   'update:process-count': [count: number]
 }>()
-const logger = useLogger('PySisTab')
+
 const { t } = useI18n()
-const { formatDate: formatLocaleDate } = useDateFormatter()
 const { flags } = useFeatureFlags()
 
-// State
-const loading = ref(false)
-const syncing = ref(false)
-const generating = ref(false)
-const processes = ref<PySisProcessLocal[]>([])
-const selectedProcess = ref<PySisProcessLocal | null>(null)
-const fields = ref<PySisFieldLocal[]>([])
-const templates = ref<PySisTemplate[]>([])
-const availableProcesses = ref<AvailablePySisProcess[]>([])
-const loadingAvailableProcesses = ref(false)
-
-// Computed: Sort fields with AI enabled first
-const sortedFields = computed(() => {
-  return [...fields.value].sort((a, b) => {
-    // AI-enabled fields first
-    if (a.ai_extraction_enabled && !b.ai_extraction_enabled) return -1
-    if (!a.ai_extraction_enabled && b.ai_extraction_enabled) return 1
-    // Then sort by internal name
-    return (a.internal_name || '').localeCompare(b.internal_name || '')
-  })
+// Use the composable for all business logic
+const municipalityRef = toRef(props, 'municipality')
+const pysis = usePySisProcess(municipalityRef, {
+  onProcessCountChange: (count) => emit('update:process-count', count),
+  onUpdated: () => emit('updated'),
 })
 
-// Dialogs
+// Destructure composable state and methods
+const {
+  loading,
+  syncing,
+  generating,
+  processes,
+  selectedProcess,
+  fields,
+  templates,
+  generatingFieldIds,
+  historyEntries,
+  loadingHistory,
+  historyField,
+  analyzingForFacets,
+  enrichingFacets,
+  editingField,
+  editingFieldSettings,
+  sortedFields,
+  fieldTypes,
+  formatDate,
+  getSyncStatusColor,
+  getSyncStatusIcon,
+  getSourceColor,
+  getConfidenceColor,
+  truncateValue,
+  loadProcesses,
+  loadTemplates,
+  selectProcess,
+  createProcess,
+  deleteProcess,
+  createField,
+  toggleAiExtraction,
+  updateFieldSettings,
+  deleteField,
+  saveFieldValue,
+  restoreFromHistory,
+  applyTemplate,
+  pullFromPySis,
+  pushToPySis,
+  pushFieldToPySis,
+  generateAllFields,
+  generateField,
+  acceptAiSuggestion,
+  rejectAiSuggestion,
+  analyzeForFacets,
+  enrichFacetsFromPysis,
+  loadHistory,
+  openFieldEditor,
+  openFieldSettings,
+} = pysis
+
+// Dialog state
 const showAddProcessDialog = ref(false)
 const showAddFieldDialog = ref(false)
 const showTemplateDialog = ref(false)
 const showFieldEditorDialog = ref(false)
-const showManualInput = ref(false)
 const showHistoryDialog = ref(false)
 const showFieldSettingsDialog = ref(false)
-
-// PySis-Facets Dialogs
 const showAnalyzeForFacetsDialog = ref(false)
 const showEnrichFacetsDialog = ref(false)
 const showTaskStartedDialog = ref(false)
 
-// PySis-Facets State
-const analyzingForFacets = ref(false)
-const enrichingFacets = ref(false)
-const analyzeIncludeEmpty = ref(false)
-const analyzeMinConfidence = ref(0)
-const enrichOverwrite = ref(false)
+// Task dialog state
 const startedTaskId = ref('')
 const taskStartedMessage = ref('')
-
-// Field Settings
-const editingFieldSettings = ref<PySisFieldLocal | null>(null)
-
-// History
-const historyField = ref<PySisFieldLocal | null>(null)
-const historyEntries = ref<PySisHistoryEntry[]>([])
-const loadingHistory = ref(false)
-
-// Track fields currently being generated
-const generatingFieldIds = ref<Set<string>>(new Set())
-
-// Field Editor
-const editingField = ref<PySisFieldLocal | null>(null)
-
-// New Process Form
-const newProcess = ref({
-  pysis_process_id: '',
-  name: '',
-  template_id: null as string | null,
-})
-
-// New Field Form
-const newField = ref({
-  internal_name: '',
-  pysis_field_name: '',
-  field_type: 'text',
-  ai_extraction_enabled: true,
-  ai_extraction_prompt: '',
-})
-
-// Template application
-const selectedTemplateId = ref<string | null>(null)
-const overwriteExisting = ref(false)
 
 // Snackbar
 const snackbar = ref(false)
 const snackbarText = ref('')
 const snackbarColor = ref('success')
 
-const fieldTypes = computed(() => [
-  { title: t('pysis.fieldTypes.text'), value: 'text' },
-  { title: t('pysis.fieldTypes.number'), value: 'number' },
-  { title: t('pysis.fieldTypes.date'), value: 'date' },
-  { title: t('pysis.fieldTypes.boolean'), value: 'boolean' },
-  { title: t('pysis.fieldTypes.list'), value: 'list' },
-])
-
-// Methods
 const showMessage = (text: string, color = 'success') => {
   snackbarText.value = text
   snackbarColor.value = color
   snackbar.value = true
 }
 
-const formatDate = (dateStr: string | null | undefined) => {
-  if (!dateStr) return t('results.never')
-  return formatLocaleDate(dateStr, 'dd.MM.yyyy HH:mm')
-}
-
-const getSyncStatusColor = (status?: string) => {
-  if (!status) return 'grey'
-  const colors: Record<string, string> = {
-    SYNCED: 'success',
-    PENDING: 'warning',
-    ERROR: 'error',
-    NEVER: 'grey',
+// Handler functions
+const handleCreateProcess = async (form: { pysis_process_id: string; name: string; template_id: string | null }) => {
+  try {
+    await createProcess(form)
+    showMessage(t('pysis.processAdded'))
+    showAddProcessDialog.value = false
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
   }
-  return colors[status] || 'grey'
 }
 
-const getSyncStatusIcon = (status?: string) => {
-  if (!status) return 'mdi-help-circle'
-  const icons: Record<string, string> = {
-    SYNCED: 'mdi-check-circle',
-    PENDING: 'mdi-clock',
-    ERROR: 'mdi-alert-circle',
-    NEVER: 'mdi-help-circle',
+const handleDeleteProcess = async (process: PySisProcess) => {
+  if (!confirm(t('pysis.confirmDeleteProcess', { name: process.name || process.pysis_process_id }))) return
+  try {
+    await deleteProcess(process)
+    showMessage(t('pysis.processDeleted'))
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
   }
-  return icons[status] || 'mdi-help-circle'
 }
 
-const getSourceColor = (source?: string) => {
-  if (!source) return 'grey'
-  const colors: Record<string, string> = {
-    AI: 'info',
-    MANUAL: 'primary',
-    PYSIS: 'purple',
+const handleCreateField = async (form: { internal_name: string; pysis_field_name: string; field_type: string; ai_extraction_enabled: boolean; ai_extraction_prompt: string }) => {
+  try {
+    await createField(form)
+    showMessage(t('pysis.fieldAdded'))
+    showAddFieldDialog.value = false
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
   }
-  return colors[source] || 'grey'
 }
 
-const getConfidenceColor = (score?: number) => {
-  if (!score) return 'grey'
-  if (score >= 0.8) return 'success'
-  if (score >= 0.5) return 'warning'
-  return 'error'
+const handleToggleAiExtraction = async (field: PySisField) => {
+  try {
+    await toggleAiExtraction(field)
+  } catch {
+    showMessage(t('pysis.error'), 'error')
+  }
 }
 
-const truncateValue = (value: string | null | undefined, maxLength = 100) => {
-  if (!value) return null
-  if (value.length <= maxLength) return value
-  return value.substring(0, maxLength) + '...'
-}
-
-const openFieldEditor = (field: PySisFieldLocal) => {
-  // Create a copy to edit
-  editingField.value = { ...field }
+const handleOpenFieldEditor = (field: PySisField) => {
+  openFieldEditor(field)
   showFieldEditorDialog.value = true
 }
 
-const saveFieldValue = async () => {
-  if (!editingField.value) return
+const handleOpenFieldSettings = (field: PySisField) => {
+  openFieldSettings(field)
+  showFieldSettingsDialog.value = true
+}
 
+const handleSaveFieldSettings = async (settings: { id: string; internal_name: string; field_type: string; ai_extraction_enabled?: boolean; ai_extraction_prompt?: string }) => {
   try {
-    await pysisApi.updateFieldValue(editingField.value.id, {
-      value: editingField.value.current_value,
-      source: 'MANUAL',
-    })
-    // Update the field in the list
-    const editedId = editingField.value.id
-    const field = fields.value.find((f) => f.id === editedId)
-    if (field && editingField.value) {
-      field.current_value = editingField.value.current_value
-      field.value_source = 'MANUAL'
-      field.needs_push = true
+    await updateFieldSettings(settings)
+    showFieldSettingsDialog.value = false
+    showMessage(t('pysis.settingsSaved'))
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
+  }
+}
+
+const handleDeleteField = async (field: PySisField) => {
+  if (!confirm(t('pysis.confirmDeleteField', { name: field.internal_name }))) return
+  try {
+    await deleteField(field)
+    showMessage(t('pysis.fieldDeleted'))
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
+  }
+}
+
+const handleApplyTemplate = async (templateId: string, overwrite: boolean) => {
+  try {
+    await applyTemplate(templateId, overwrite)
+    showMessage(t('pysis.templateApplied'))
+    showTemplateDialog.value = false
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
+  }
+}
+
+const handlePullFromPySis = async () => {
+  try {
+    const result = await pullFromPySis()
+    if (result) {
+      let msg = ''
+      if (result.created > 0 && result.updated > 0) {
+        msg = t('pysis.newFieldsCreated', { created: result.created }) + ', ' + t('pysis.fieldsUpdated', { updated: result.updated })
+      } else if (result.created > 0) {
+        msg = t('pysis.newFieldsCreated', { created: result.created })
+      } else if (result.updated > 0) {
+        msg = t('pysis.fieldsUpdated', { updated: result.updated })
+      } else {
+        msg = t('pysis.noChanges')
+      }
+      showMessage(msg)
     }
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
+  }
+}
+
+const handlePushToPySis = async () => {
+  try {
+    const count = await pushToPySis()
+    showMessage(t('pysis.fieldsSynced', { count }))
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
+  }
+}
+
+const handlePushFieldToPySis = async (field: PySisField) => {
+  try {
+    await pushFieldToPySis(field)
+    showMessage(t('pysis.fieldsSynced', { count: 1 }))
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
+  }
+}
+
+const handleGenerateAllFields = async () => {
+  try {
+    const count = await generateAllFields()
+    showMessage(t('pysis.fieldsGenerated', { count }))
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
+  }
+}
+
+const handleGenerateField = async (field: PySisField) => {
+  try {
+    await generateField(field)
+    showMessage(t('pysis.aiGenerationStarted'), 'info')
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
+  }
+}
+
+const handleAcceptAiSuggestion = async (field: PySisField) => {
+  try {
+    await acceptAiSuggestion(field)
+    showMessage(t('pysis.aiSuggestionAccepted'))
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
+  }
+}
+
+const handleRejectAiSuggestion = async (field: PySisField) => {
+  try {
+    await rejectAiSuggestion(field)
+    showMessage(t('pysis.aiSuggestionRejected'))
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
+  }
+}
+
+const handleShowHistory = async (field: PySisField) => {
+  showHistoryDialog.value = true
+  try {
+    await loadHistory(field)
+  } catch {
+    showMessage(t('pysis.error'), 'error')
+  }
+}
+
+const handleRestoreFromHistory = async (entry: PySisHistoryEntry) => {
+  try {
+    await restoreFromHistory(entry)
+    showMessage(t('pysis.valueRestored'))
+    showHistoryDialog.value = false
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
+  }
+}
+
+const handleAnalyzeForFacets = async (options: { includeEmpty: boolean; minConfidence: number }) => {
+  try {
+    const taskId = await analyzeForFacets(options)
+    startedTaskId.value = taskId
+    taskStartedMessage.value = t('pysis.facets.analyzeTaskStartedMessage')
+    showAnalyzeForFacetsDialog.value = false
+    showTaskStartedDialog.value = true
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
+  }
+}
+
+const handleEnrichFacetsFromPysis = async (overwrite: boolean) => {
+  try {
+    const taskId = await enrichFacetsFromPysis(overwrite)
+    startedTaskId.value = taskId
+    taskStartedMessage.value = t('pysis.facets.enrichTaskStartedMessage')
+    showEnrichFacetsDialog.value = false
+    showTaskStartedDialog.value = true
+  } catch (error) {
+    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
+  }
+}
+
+const handleSaveFieldValue = async (value: string) => {
+  if (!editingField.value) return
+  try {
+    await saveFieldValue(editingField.value, value)
     showFieldEditorDialog.value = false
     showMessage(t('pysis.valueSaved'))
   } catch (error) {
@@ -815,673 +604,24 @@ const saveFieldValue = async () => {
   }
 }
 
-const useAiValue = () => {
-  if (editingField.value?.ai_extracted_value) {
-    editingField.value.current_value = editingField.value.ai_extracted_value
-  }
-}
-
-const loadProcesses = async () => {
-  if (!props.municipality) return
-  try {
-    const response = await pysisApi.getProcesses(props.municipality)
-    processes.value = response.data.items || []
-    emit('update:process-count', processes.value.length)
-  } catch (error) {
-    logger.error('Failed to load processes', error)
-    emit('update:process-count', 0)
-  }
-}
-
-const loadTemplates = async () => {
-  try {
-    const response = await pysisApi.getTemplates({ is_active: true })
-    templates.value = response.data.items || []
-  } catch (error) {
-    logger.error('Failed to load templates', error)
-  }
-}
-
-const loadAvailableProcesses = async () => {
-  if (loadingAvailableProcesses.value) return
-  loadingAvailableProcesses.value = true
-  try {
-    const response = await pysisApi.getAvailableProcesses()
-    availableProcesses.value = response.data.items || []
-    if (response.data.error) {
-      logger.warn('PySis API error:', response.data.error)
-    }
-  } catch (error) {
-    logger.error('Failed to load available processes', error)
-    availableProcesses.value = []
-  } finally {
-    loadingAvailableProcesses.value = false
-  }
-}
-
-const selectProcess = async (process: PySisProcessLocal) => {
-  selectedProcess.value = process
-  await loadFields()
-}
-
-const loadFields = async () => {
-  if (!selectedProcess.value) return
-  try {
-    const response = await pysisApi.getFields(selectedProcess.value.id)
-    fields.value = response.data || []
-  } catch (error) {
-    logger.error('Failed to load fields', error)
-  }
-}
-
-const createProcess = async () => {
-  if (!newProcess.value.pysis_process_id) {
-    showMessage(t('pysis.enterProcessId'), 'error')
-    return
-  }
-
-  loading.value = true
-  try {
-    await pysisApi.createProcess(props.municipality, newProcess.value)
-    showMessage(t('pysis.processAdded'))
-    showAddProcessDialog.value = false
-    newProcess.value = { pysis_process_id: '', name: '', template_id: null }
-    await loadProcesses()
-    emit('updated')
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  } finally {
-    loading.value = false
-  }
-}
-
-const deleteProcess = async (process: PySisProcessLocal) => {
-  if (!confirm(t('pysis.confirmDeleteProcess', { name: process.name || process.pysis_process_id }))) return
-
-  try {
-    await pysisApi.deleteProcess(process.id)
-    showMessage(t('pysis.processDeleted'))
-    if (selectedProcess.value?.id === process.id) {
-      selectedProcess.value = null
-      fields.value = []
-    }
-    await loadProcesses()
-    emit('updated')
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  }
-}
-
-const createField = async () => {
-  if (!selectedProcess.value || !newField.value.internal_name || !newField.value.pysis_field_name) {
-    showMessage(t('pysis.fillRequired'), 'error')
-    return
-  }
-
-  loading.value = true
-  try {
-    await pysisApi.createField(selectedProcess.value.id, newField.value)
-    showMessage(t('pysis.fieldAdded'))
-    showAddFieldDialog.value = false
-    newField.value = { internal_name: '', pysis_field_name: '', field_type: 'text', ai_extraction_enabled: true, ai_extraction_prompt: '' }
-    await loadFields()
-    await loadProcesses()
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  } finally {
-    loading.value = false
-  }
-}
-
-const toggleAiExtraction = async (field: PySisFieldLocal) => {
-  try {
-    await pysisApi.updateField(field.id, { ai_extraction_enabled: field.ai_extraction_enabled })
-  } catch (error) {
-    logger.error('Failed to toggle AI extraction', error)
-    // Revert on error
-    field.ai_extraction_enabled = !field.ai_extraction_enabled
-    showMessage(t('pysis.error'), 'error')
-  }
-}
-
-const openFieldSettings = (field: PySisFieldLocal) => {
-  // Create a copy to edit - include pysis_field_name for type compatibility
-  editingFieldSettings.value = {
-    id: field.id,
-    internal_name: field.internal_name,
-    pysis_field_name: field.pysis_field_name,
-    field_type: field.field_type,
-    ai_extraction_enabled: field.ai_extraction_enabled,
-    ai_extraction_prompt: field.ai_extraction_prompt || '',
-  }
-  showFieldSettingsDialog.value = true
-}
-
-const saveFieldSettings = async () => {
-  if (!editingFieldSettings.value) return
-
-  loading.value = true
-  try {
-    await pysisApi.updateField(editingFieldSettings.value.id, {
-      internal_name: editingFieldSettings.value.internal_name,
-      field_type: editingFieldSettings.value.field_type,
-      ai_extraction_enabled: editingFieldSettings.value.ai_extraction_enabled,
-      ai_extraction_prompt: editingFieldSettings.value.ai_extraction_prompt || undefined,
-    })
-
-    // Update the field in the local list
-    const editedSettingsId = editingFieldSettings.value.id
-    const field = fields.value.find((f) => f.id === editedSettingsId)
-    if (field && editingFieldSettings.value) {
-      field.internal_name = editingFieldSettings.value.internal_name
-      field.field_type = editingFieldSettings.value.field_type
-      field.ai_extraction_enabled = editingFieldSettings.value.ai_extraction_enabled
-      field.ai_extraction_prompt = editingFieldSettings.value.ai_extraction_prompt
-    }
-
-    showFieldSettingsDialog.value = false
-    showMessage(t('pysis.settingsSaved'))
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  } finally {
-    loading.value = false
-  }
-}
-
-const getDefaultPromptPlaceholder = () => {
-  if (!editingFieldSettings.value) return ''
-  return t('pysis.defaultPromptPlaceholder', { name: editingFieldSettings.value.internal_name })
-}
-
-const deleteField = async (field: PySisFieldLocal) => {
-  if (!confirm(t('pysis.confirmDeleteField', { name: field.internal_name }))) return
-
-  try {
-    await pysisApi.deleteField(field.id)
-    showMessage(t('pysis.fieldDeleted'))
-    await loadFields()
-    await loadProcesses()
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  }
-}
-
-const applyTemplate = async () => {
-  if (!selectedProcess.value || !selectedTemplateId.value) return
-
-  loading.value = true
-  try {
-    await pysisApi.applyTemplate(selectedProcess.value.id, {
-      template_id: selectedTemplateId.value,
-      overwrite_existing: overwriteExisting.value,
-    })
-    showMessage(t('pysis.templateApplied'))
-    showTemplateDialog.value = false
-    selectedTemplateId.value = null
-    overwriteExisting.value = false
-    await loadFields()
-    await loadProcesses()
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  } finally {
-    loading.value = false
-  }
-}
-
-const pullFromPySis = async () => {
-  if (!selectedProcess.value) return
-
-  syncing.value = true
-  try {
-    const response = await pysisApi.pullFromPySis(selectedProcess.value.id)
-    if (response.data.success) {
-      const created = response.data.fields_created || 0
-      const updated = response.data.fields_updated || 0
-      let msg = ''
-      if (created > 0 && updated > 0) {
-        msg = t('pysis.newFieldsCreated', { created }) + ', ' + t('pysis.fieldsUpdated', { updated })
-      } else if (created > 0) {
-        msg = t('pysis.newFieldsCreated', { created })
-      } else if (updated > 0) {
-        msg = t('pysis.fieldsUpdated', { updated })
-      } else {
-        msg = t('pysis.noChanges')
-      }
-      showMessage(msg)
-      await loadFields()
-      await loadProcesses()
-    } else {
-      showMessage(response.data.errors?.join(', ') || t('pysis.error'), 'error')
-    }
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  } finally {
-    syncing.value = false
-  }
-}
-
-const pushToPySis = async () => {
-  if (!selectedProcess.value) return
-
-  syncing.value = true
-  try {
-    const response = await pysisApi.pushToPySis(selectedProcess.value.id)
-    if (response.data.success) {
-      showMessage(t('pysis.fieldsSynced', { count: response.data.fields_synced }))
-      await loadFields()
-      await loadProcesses()
-    } else {
-      showMessage(response.data.errors?.join(', ') || t('pysis.error'), 'error')
-    }
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  } finally {
-    syncing.value = false
-  }
-}
-
-const pushFieldToPySis = async (field: PySisFieldLocal) => {
-  try {
-    const response = await pysisApi.pushFieldToPySis(field.id)
-    if (response.data.success) {
-      showMessage(t('pysis.fieldsSynced', { count: 1 }))
-      await loadFields()
-    } else {
-      showMessage(response.data.errors?.join(', ') || t('pysis.error'), 'error')
-    }
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  }
-}
-
-const generateAllFields = async () => {
-  if (!selectedProcess.value) return
-
-  generating.value = true
-  try {
-    const response = await pysisApi.generateFields(selectedProcess.value.id)
-    if (response.data.success) {
-      showMessage(t('pysis.fieldsGenerated', { count: response.data.fields_generated }))
-      // Poll for updates after a delay (track timeout for cleanup)
-      const timeoutId = setTimeout(() => {
-        pendingTimeouts.delete(timeoutId as unknown as number)
-        loadFields()
-      }, 5000) as unknown as number
-      pendingTimeouts.add(timeoutId)
-    } else {
-      showMessage(response.data.errors?.join(', ') || t('pysis.error'), 'error')
-    }
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  } finally {
-    generating.value = false
-  }
-}
-
-const generateField = async (field: PySisFieldLocal) => {
-  try {
-    const response = await pysisApi.generateField(field.id)
-    if (response.data.success) {
-      // Mark field as generating
-      generatingFieldIds.value.add(field.id)
-      showMessage(t('pysis.aiGenerationStarted'), 'info')
-
-      // Poll for completion
-      pollForFieldCompletion(field.id, field.internal_name)
-    } else {
-      showMessage(response.data.errors?.join(', ') || t('pysis.error'), 'error')
-    }
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  }
-}
-
-// Track active polling intervals and timeouts for cleanup
-const pollingIntervals = new Map<string, number>()
-const pendingTimeouts = new Set<number>()
-
-const pollForFieldCompletion = (fieldId: string, fieldName: string) => {
-  // Clear any existing interval for this field
-  if (pollingIntervals.has(fieldId)) {
-    clearInterval(pollingIntervals.get(fieldId))
-  }
-
-  const checkField = async () => {
-    // Stop if field is no longer in generating state
-    if (!generatingFieldIds.value.has(fieldId)) {
-      clearInterval(pollingIntervals.get(fieldId))
-      pollingIntervals.delete(fieldId)
-      return
-    }
-
-    // Stop if no process selected
-    if (!selectedProcess.value) {
-      stopGenerating(fieldId)
-      return
-    }
-
-    try {
-      const response = await pysisApi.getFields(selectedProcess.value.id)
-      const updatedFields = response.data || []
-      const updatedField = updatedFields.find((f: PySisFieldLocal) => f.id === fieldId)
-
-      if (updatedField?.ai_extracted_value) {
-        // AI suggestion is ready!
-        stopGenerating(fieldId)
-        fields.value = updatedFields
-        showMessage(t('pysis.aiReady', { name: fieldName }), 'success')
-      }
-    } catch (error) {
-      logger.error('Polling error', error)
-      // Don't stop on error - keep trying
-    }
-  }
-
-  // Start polling every 2 seconds
-  const intervalId = setInterval(checkField, 2000) as unknown as number
-  pollingIntervals.set(fieldId, intervalId)
-
-  // Also check immediately after a short delay (track timeout for cleanup)
-  const initialTimeoutId = setTimeout(() => {
-    pendingTimeouts.delete(initialTimeoutId as unknown as number)
-    checkField()
-  }, 1500) as unknown as number
-  pendingTimeouts.add(initialTimeoutId)
-}
-
-const stopGenerating = (fieldId: string) => {
-  generatingFieldIds.value.delete(fieldId)
-  if (pollingIntervals.has(fieldId)) {
-    clearInterval(pollingIntervals.get(fieldId))
-    pollingIntervals.delete(fieldId)
-  }
-}
-
-const stopAllGenerating = () => {
-  // Clear all polling intervals
-  pollingIntervals.forEach((intervalId) => clearInterval(intervalId))
-  pollingIntervals.clear()
-  // Clear all pending timeouts
-  pendingTimeouts.forEach((timeoutId) => clearTimeout(timeoutId))
-  pendingTimeouts.clear()
-  generatingFieldIds.value.clear()
-}
-
-const acceptAiSuggestion = async (field: PySisFieldLocal) => {
-  try {
-    const response = await pysisApi.acceptAiSuggestion(field.id)
-    if (response.data.success) {
-      showMessage(t('pysis.aiSuggestionAccepted'))
-      // Update field in list
-      field.current_value = response.data.accepted_value
-      field.value_source = 'AI'
-      field.ai_extracted_value = undefined
-      field.needs_push = true
-    } else {
-      showMessage(response.data.message || t('pysis.error'), 'error')
-    }
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  }
-}
-
-const rejectAiSuggestion = async (field: PySisFieldLocal) => {
-  try {
-    const response = await pysisApi.rejectAiSuggestion(field.id)
-    if (response.data.success) {
-      showMessage(t('pysis.aiSuggestionRejected'))
-      // Update field in list
-      field.ai_extracted_value = undefined
-      field.confidence_score = undefined
-    } else {
-      showMessage(response.data.message || t('pysis.error'), 'error')
-    }
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  }
-}
-
-// History functions
-const showHistory = async (field: PySisFieldLocal) => {
-  historyField.value = field
-  historyEntries.value = []
-  showHistoryDialog.value = true
-  loadingHistory.value = true
-
-  try {
-    const response = await pysisApi.getFieldHistory(field.id, 20)
-    historyEntries.value = response.data.items || []
-  } catch (error) {
-    logger.error('Failed to load history', error)
-    showMessage(t('pysis.error'), 'error')
-  } finally {
-    loadingHistory.value = false
-  }
-}
-
-const restoreFromHistory = async (entry: PySisHistoryEntry) => {
-  if (!historyField.value) return
-
-  try {
-    const response = await pysisApi.restoreFromHistory(historyField.value.id, entry.id)
-    if (response.data.success) {
-      showMessage(t('pysis.valueRestored'))
-      // Update field in list
-      const historyFieldId = historyField.value.id
-      const field = fields.value.find((f) => f.id === historyFieldId)
-      if (field) {
-        field.current_value = response.data.accepted_value
-        field.value_source = 'MANUAL'
-        field.needs_push = true
-      }
-      showHistoryDialog.value = false
-    } else {
-      showMessage(response.data.message || t('pysis.error'), 'error')
-    }
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  }
-}
-
-const getHistoryActionIcon = (action: string) => {
-  const icons: Record<string, string> = {
-    accepted: 'mdi-check-circle',
-    rejected: 'mdi-close-circle',
-    replaced: 'mdi-swap-horizontal',
-    restored: 'mdi-restore',
-    manual_edit: 'mdi-pencil',
-    generated: 'mdi-auto-fix',
-    pulled: 'mdi-download',
-    pushed: 'mdi-upload',
-  }
-  return icons[action] || 'mdi-circle'
-}
-
-const getHistoryActionColor = (action: string) => {
-  const colors: Record<string, string> = {
-    accepted: 'success',
-    rejected: 'error',
-    replaced: 'grey',
-    restored: 'info',
-    manual_edit: 'primary',
-    generated: 'info',
-    pulled: 'purple',
-    pushed: 'success',
-  }
-  return colors[action] || 'grey'
-}
-
-const formatHistoryAction = (action: string) => {
-  const key = `pysis.historyActions.${action}`
-  const translated = t(key)
-  return translated !== key ? translated : action
-}
-
-const getHistoryItemClass = (action: string) => {
-  if (action === 'rejected') return 'bg-red-lighten-5'
-  if (action === 'accepted') return 'bg-green-lighten-5'
-  return ''
-}
-
-// PySis-Facets Functions
-const analyzeForFacets = async () => {
-  if (!selectedProcess.value?.entity_id) {
-    showMessage(t('pysis.facets.needsEntity'), 'error')
-    return
-  }
-
-  analyzingForFacets.value = true
-  try {
-    const response = await pysisApi.analyzeForFacets({
-      entity_id: selectedProcess.value.entity_id,
-      process_id: selectedProcess.value.id,
-      include_empty: analyzeIncludeEmpty.value,
-      min_confidence: analyzeMinConfidence.value,
-    })
-
-    if (response.data.success) {
-      startedTaskId.value = response.data.task_id
-      taskStartedMessage.value = t('pysis.facets.analyzeTaskStartedMessage')
-      showAnalyzeForFacetsDialog.value = false
-      showTaskStartedDialog.value = true
-    } else {
-      showMessage(response.data.message || t('pysis.error'), 'error')
-    }
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  } finally {
-    analyzingForFacets.value = false
-  }
-}
-
-const enrichFacetsFromPysis = async () => {
-  if (!selectedProcess.value?.entity_id) {
-    showMessage(t('pysis.facets.needsEntity'), 'error')
-    return
-  }
-
-  enrichingFacets.value = true
-  try {
-    const response = await pysisApi.enrichFacetsFromPysis({
-      entity_id: selectedProcess.value.entity_id,
-      overwrite: enrichOverwrite.value,
-    })
-
-    if (response.data.success) {
-      startedTaskId.value = response.data.task_id
-      taskStartedMessage.value = t('pysis.facets.enrichTaskStartedMessage')
-      showEnrichFacetsDialog.value = false
-      showTaskStartedDialog.value = true
-    } else {
-      showMessage(response.data.message || t('pysis.error'), 'error')
-    }
-  } catch (error) {
-    showMessage(getErrorMessage(error) || t('pysis.error'), 'error')
-  } finally {
-    enrichingFacets.value = false
-  }
-}
-
-// Watch for municipality changes
-watch(() => props.municipality, () => {
-  selectedProcess.value = null
-  fields.value = []
-  loadProcesses()
+// Field Editor sync
+watch(editingField, (field) => {
+  if (!field) showFieldEditorDialog.value = false
 })
 
-// Reset manual input when dialog opens
-watch(showAddProcessDialog, (isOpen) => {
-  if (isOpen) {
-    showManualInput.value = false
-    // Pre-load available processes when dialog opens
-    if (availableProcesses.value.length === 0) {
-      loadAvailableProcesses()
-    }
-  }
+watch(showFieldEditorDialog, (show) => {
+  if (!show) editingField.value = null
 })
 
+// Initialize
 onMounted(() => {
   loadProcesses()
   if (flags.value.pysisFieldTemplates) {
     loadTemplates()
   }
 })
-
-onUnmounted(() => {
-  // Cleanup: Stop all polling intervals when component is destroyed
-  stopAllGenerating()
-})
 </script>
 
 <style scoped>
-.field-value-input {
-  font-size: 0.85rem;
-}
-
-.field-value-preview {
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  background-color: rgba(var(--v-theme-on-surface), 0.03);
-  font-size: 0.85rem;
-  line-height: 1.4;
-  white-space: pre-wrap;
-  word-break: break-word;
-  min-height: 32px;
-  transition: background-color 0.2s;
-}
-
-.field-value-preview:hover {
-  background-color: rgba(var(--v-theme-on-surface), 0.08);
-}
-
-.field-value-preview:focus-visible {
-  outline: 2px solid rgb(var(--v-theme-primary));
-  outline-offset: -2px;
-}
-
-.ai-suggestion {
-  padding: 8px;
-  border-radius: 4px;
-  background-color: rgba(var(--v-theme-info), 0.08);
-  border-left: 3px solid rgb(var(--v-theme-info));
-}
-
-.ai-suggestion-text {
-  padding: 4px;
-  background-color: rgba(var(--v-theme-surface), 0.8);
-  border-radius: 2px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 80px;
-  overflow-y: auto;
-}
-
-.table-actions {
-  display: flex;
-  gap: 2px;
-}
-
-.history-value {
-  padding: 4px 8px;
-  background-color: rgba(var(--v-theme-on-surface), 0.03);
-  border-radius: 4px;
-  font-size: 0.8rem;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.generating-indicator {
-  display: flex;
-  align-items: center;
-  padding: 4px 8px;
-  background-color: rgba(var(--v-theme-info), 0.1);
-  border-radius: 4px;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
+@import './pysis/styles/pysis-tab.css';
 </style>

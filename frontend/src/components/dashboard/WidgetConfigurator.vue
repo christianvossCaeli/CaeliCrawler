@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="dialog" max-width="700" scrollable>
+  <v-dialog v-model="dialog" :max-width="DIALOG_SIZES.ML" scrollable>
     <v-card>
       <v-card-title class="d-flex align-center py-4">
         <v-icon icon="mdi-view-dashboard-edit" class="mr-3" size="28" />
@@ -187,6 +187,7 @@
  */
 
 import { ref, computed, watch } from 'vue'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useDashboardStore } from '@/stores/dashboard'
 import { getAllWidgets, WIDGET_SIZE_OPTIONS } from '@/widgets'
 import type { WidgetConfig, WidgetDefinition } from '@/widgets/types'

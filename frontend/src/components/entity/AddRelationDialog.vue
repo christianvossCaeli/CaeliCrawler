@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="modelValue" max-width="600" scrollable>
+  <v-dialog v-model="modelValue" :max-width="DIALOG_SIZES.MD" scrollable>
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon start>{{ editing ? 'mdi-pencil' : 'mdi-link-plus' }}</v-icon>
@@ -107,6 +107,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 
 // Types
 interface RelationType {

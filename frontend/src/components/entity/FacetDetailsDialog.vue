@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="modelValue" max-width="800" scrollable>
+  <v-dialog v-model="modelValue" :max-width="DIALOG_SIZES.LG" scrollable>
     <v-card v-if="facetGroup">
       <v-card-title class="d-flex align-center">
         <v-icon :icon="facetGroup.facet_type_icon" :color="facetGroup.facet_type_color" class="mr-2"></v-icon>
@@ -73,6 +73,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useDateFormatter } from '@/composables/useDateFormatter'
 import { useFacetTypeRenderer } from '@/composables/useFacetTypeRenderer'
 import { GenericFacetValueRenderer } from '@/components/facets'

@@ -73,7 +73,7 @@
 <script setup lang="ts">
 import { ref, watch, toRef } from 'vue'
 import type { DataSourceResponse } from '@/types/sources'
-import { DIALOG_SIZES } from '@/config/sources'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useDialogFocus } from '@/composables'
 
 // Props (non-model props only)

@@ -1,7 +1,7 @@
 <template>
   <v-dialog
     v-model="modelValue"
-    max-width="600"
+    :max-width="DIALOG_SIZES.MD"
     role="dialog"
     aria-modal="true"
     :aria-labelledby="dialogTitleId"
@@ -146,6 +146,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useCustomSummariesStore, type WidgetCreate } from '@/stores/customSummaries'
 import { VISUALIZATION_ICONS, VISUALIZATION_COLORS } from '@/components/smartquery/visualizations/types'
 import { useDialogFocus } from '@/composables'

@@ -167,10 +167,10 @@
                   <v-chip v-if="rel.human_verified" size="x-small" color="success" variant="flat">
                     <v-icon size="x-small">mdi-check</v-icon>
                   </v-chip>
-                  <v-btn v-if="canEdit" icon size="x-small" variant="text" @click.stop="$emit('editRelation', rel)">
+                  <v-btn v-if="canEdit" icon size="x-small" variant="text" :aria-label="t('common.edit')" @click.stop="$emit('editRelation', rel)">
                     <v-icon size="x-small">mdi-pencil</v-icon>
                   </v-btn>
-                  <v-btn v-if="canEdit" icon size="x-small" variant="text" color="error" @click.stop="$emit('deleteRelation', rel)">
+                  <v-btn v-if="canEdit" icon size="x-small" variant="text" color="error" :aria-label="t('common.delete')" @click.stop="$emit('deleteRelation', rel)">
                     <v-icon size="x-small">mdi-delete</v-icon>
                   </v-btn>
                 </div>

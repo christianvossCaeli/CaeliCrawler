@@ -171,12 +171,14 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { exportApi } from '@/services/api'
-import { useStatusColors } from '@/composables'
+import { useStatusColors, useDateFormatter } from '@/composables'
 import { useLogger } from '@/composables/useLogger'
 
 defineEmits<{
   close: []
 }>()
+
+const { formatDateTime } = useDateFormatter()
 
 const logger = useLogger('ExportProgressPanel')
 
@@ -222,8 +224,7 @@ function getStatusLabel(status: string): string {
 
 function formatTime(dateString: string | null): string {
   if (!dateString) return ''
-  const date = new Date(dateString)
-  return date.toLocaleString()
+  return formatDateTime(dateString)
 }
 
 function formatFileSize(bytes: number): string {

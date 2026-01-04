@@ -1,7 +1,7 @@
 <template>
   <v-dialog
     v-model="modelValue"
-    max-width="700"
+    :max-width="DIALOG_SIZES.ML"
     persistent
     role="dialog"
     aria-modal="true"
@@ -29,6 +29,7 @@
                 rows="4"
                 counter
                 maxlength="2000"
+                :aria-invalid="!!promptError"
                 :error-messages="promptError"
                 autofocus
               />
@@ -155,6 +156,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useCustomSummariesStore } from '@/stores/customSummaries'
 import { useDialogFocus } from '@/composables'
 import { useLogger } from '@/composables/useLogger'

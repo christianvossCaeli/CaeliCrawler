@@ -1,8 +1,16 @@
 <template>
-  <v-dialog v-model="modelValue" max-width="900" persistent scrollable>
+  <v-dialog
+    v-model="modelValue"
+    :max-width="DIALOG_SIZES.XL"
+    persistent
+    scrollable
+    role="dialog"
+    :aria-labelledby="titleId"
+    :aria-busy="loading"
+  >
     <v-card>
-      <v-card-title class="d-flex align-center pa-4 bg-info">
-        <v-avatar color="info-darken-1" size="40" class="mr-3">
+      <v-card-title :id="titleId" class="d-flex align-center pa-4 bg-info">
+        <v-avatar color="info-darken-1" size="40" class="mr-3" aria-hidden="true">
           <v-icon color="on-info">mdi-robot</v-icon>
         </v-avatar>
         <div>
@@ -194,6 +202,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 
 const modelValue = defineModel<boolean>()
 
@@ -215,6 +224,9 @@ const emit = defineEmits<{
   'saveWithoutAi': []
   'saveWithAi': []
 }>()
+
+// Accessibility
+const titleId = `ai-preview-dialog-title-${Math.random().toString(36).slice(2, 9)}`
 
 // Types
 interface EntityType {

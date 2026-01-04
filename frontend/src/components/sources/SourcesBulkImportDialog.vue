@@ -252,7 +252,8 @@ import { useSourceHelpers } from '@/composables/useSourceHelpers'
 import { useLogger } from '@/composables/useLogger'
 import type { BulkImportState } from '@/types/sources'
 import type { CategoryResponse } from '@/types/category'
-import { BULK_IMPORT, DIALOG_SIZES } from '@/config/sources'
+import { BULK_IMPORT } from '@/config/sources'
+import { DIALOG_SIZES } from '@/config/ui'
 import { parseCsv, validateCsvInput } from '@/utils/csvParser'
 
 // defineModel() for two-way binding (Vue 3.4+)

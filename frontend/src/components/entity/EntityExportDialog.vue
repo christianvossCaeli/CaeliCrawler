@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="modelValue" max-width="500">
+  <v-dialog v-model="modelValue" :max-width="DIALOG_SIZES.SM">
     <v-card>
       <v-card-title>
         <v-icon start>mdi-export</v-icon>
@@ -59,6 +59,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 
 // Types
 interface ExportOptions {

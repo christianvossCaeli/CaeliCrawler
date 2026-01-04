@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="modelValue" max-width="600" scrollable>
+  <v-dialog v-model="modelValue" :max-width="DIALOG_SIZES.MD" scrollable>
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon start :color="getFacetSourceColor(sourceFacet?.source_type)">
@@ -168,6 +168,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import { useDateFormatter } from '@/composables/useDateFormatter'
 
 const modelValue = defineModel<boolean>()

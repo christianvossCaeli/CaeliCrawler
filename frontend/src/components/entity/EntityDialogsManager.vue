@@ -132,7 +132,7 @@
     />
 
     <!-- Edit Facet Dialog -->
-    <v-dialog v-model="internalEditFacetDialog" max-width="800" scrollable>
+    <v-dialog v-model="internalEditFacetDialog" :max-width="DIALOG_SIZES.LG" scrollable>
       <v-card min-height="400">
         <v-card-title class="d-flex align-center">
           <v-icon start>mdi-pencil</v-icon>
@@ -175,6 +175,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DIALOG_SIZES } from '@/config/ui'
 import type {
   FacetType,
   FacetValue,

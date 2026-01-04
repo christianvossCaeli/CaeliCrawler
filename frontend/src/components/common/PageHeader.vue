@@ -12,7 +12,7 @@
         <h1 class="text-h4 font-weight-bold">
           {{ title }}
           <span v-if="count !== undefined" class="text-medium-emphasis font-weight-regular">
-            ({{ typeof count === 'number' ? count.toLocaleString() : count }})
+            ({{ typeof count === 'number' ? formatNumber(count) : count }})
           </span>
         </h1>
         <p v-if="subtitle" class="text-body-2 text-medium-emphasis mb-0">
@@ -27,6 +27,8 @@
 </template>
 
 <script setup lang="ts">
+import { useDateFormatter } from '@/composables'
+
 withDefaults(defineProps<{
   title: string
   subtitle?: string
@@ -40,6 +42,9 @@ withDefaults(defineProps<{
   avatarSize: 56,
   iconSize: 32
 })
+
+const { formatNumber } = useDateFormatter()
+
 </script>
 
 <style scoped>

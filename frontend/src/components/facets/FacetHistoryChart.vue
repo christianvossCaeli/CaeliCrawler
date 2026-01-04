@@ -78,7 +78,7 @@
     </v-card-actions>
 
     <!-- Add Data Point Dialog -->
-    <v-dialog v-if="canEdit" v-model="showAddDialog" max-width="500">
+    <v-dialog v-if="canEdit" v-model="showAddDialog" :max-width="DIALOG_SIZES.SM">
       <v-card>
         <v-card-title>{{ $t('entities.history.addDataPoint') }}</v-card-title>
         <v-card-text>
@@ -126,8 +126,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
+import { DIALOG_SIZES } from '@/config/ui'
 import { Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -146,7 +146,6 @@ import { facetApi } from '@/services/api'
 import type { EntityHistoryResponse, HistoryTrack } from '@/types/facets'
 import { useLogger } from '@/composables/useLogger'
 import { useDateFormatter } from '@/composables/useDateFormatter'
-import { formatNumber } from '@/utils/viewHelpers'
 
 const props = withDefaults(defineProps<{
   entityId: string
@@ -183,8 +182,7 @@ ChartJS.register(
   Filler
 )
 
-const { locale } = useI18n()
-const { dateLocale, formatDate: formatLocaleDate } = useDateFormatter()
+const { dateLocale, formatDate: formatLocaleDate, formatNumber } = useDateFormatter()
 const theme = useTheme()
 
 // Computed for dark mode
@@ -394,7 +392,7 @@ function formatValue(value: number | null | undefined, short = false): string {
     return (value / 1000).toFixed(1) + 'k' + (unit ? ' ' + unit : '')
   }
 
-  const formatted = value.toLocaleString(locale.value, {
+  const formatted = formatNumber(value, {
     minimumFractionDigits: precision,
     maximumFractionDigits: precision,
   })
