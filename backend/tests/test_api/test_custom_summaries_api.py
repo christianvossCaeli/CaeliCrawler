@@ -64,9 +64,9 @@ class TestCustomSummariesAdminApi:
         assert update.description is None
         assert update.status is None
 
-        # Only status
-        update = SummaryUpdate(status="paused")
-        assert update.status == "paused"
+        # Only status (enum values are uppercase)
+        update = SummaryUpdate(status="PAUSED")
+        assert update.status == "PAUSED"
         assert update.name is None
 
     def test_widget_create_schema_types(self):
