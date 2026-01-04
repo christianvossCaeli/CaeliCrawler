@@ -220,7 +220,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
 
       - name: Install Alembic
         run: pip install alembic psycopg2-binary sqlalchemy
