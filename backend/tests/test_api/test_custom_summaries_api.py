@@ -157,7 +157,7 @@ class TestSummaryExecutionApi:
 
         response = SummaryExecutionResponse(
             id=uuid.uuid4(),
-            status="completed",
+            status="COMPLETED",
             triggered_by="manual",
             trigger_details=None,
             has_changes=True,
@@ -168,7 +168,7 @@ class TestSummaryExecutionApi:
             completed_at=datetime.now(),
         )
 
-        assert response.status == "completed"
+        assert response.status == "COMPLETED"
         assert response.has_changes is True
         assert response.duration_ms == 1500
 
