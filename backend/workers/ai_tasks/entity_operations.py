@@ -27,42 +27,87 @@ logger = structlog.get_logger()
 
 
 # =============================================================================
-# Embedding Task Status Tracking
+# Embedding Task Status Tracking (Redis-based for cross-process visibility)
 # =============================================================================
 
-_embedding_task_status: dict[str, Any] = {
-    "running": False,
-    "task_id": None,
-    "started_at": None,
-    "target": None,
-}
+EMBEDDING_TASK_STATUS_KEY = "caelichrawler:embedding_task_status"
+
+
+def _get_redis_client():
+    """Get a Redis client for task status tracking."""
+    import redis
+
+    return redis.from_url(settings.redis_url, decode_responses=True)
 
 
 def get_embedding_task_status() -> dict[str, Any]:
-    """Get the current status of embedding generation task."""
-    return _embedding_task_status.copy()
+    """Get the current status of embedding generation task from Redis.
+    
+    Also detects and clears stale tasks (running for more than 2 hours).
+    """
+    try:
+        client = _get_redis_client()
+        data = client.get(EMBEDDING_TASK_STATUS_KEY)
+        if data:
+            status = json.loads(data)
+            
+            # Check for stale tasks (running > 2 hours = likely crashed)
+            if status.get("running") and status.get("started_at"):
+                try:
+                    started_at = datetime.fromisoformat(status["started_at"])
+                    age_hours = (datetime.now(UTC) - started_at).total_seconds() / 3600
+                    if age_hours > 2:
+                        logger.warning(
+                            "Detected stale embedding task, clearing status",
+                            task_id=status.get("task_id"),
+                            started_at=status.get("started_at"),
+                            age_hours=round(age_hours, 2),
+                        )
+                        client.delete(EMBEDDING_TASK_STATUS_KEY)
+                        return {
+                            "running": False,
+                            "task_id": None,
+                            "started_at": None,
+                            "target": None,
+                        }
+                except (ValueError, TypeError):
+                    pass  # Invalid date format, continue with status as-is
+            
+            return status
+    except Exception as e:
+        logger.warning("Failed to get embedding task status from Redis", error=str(e))
 
-
-def _set_embedding_task_running(task_id: str, target: str) -> None:
-    """Mark embedding task as running."""
-    global _embedding_task_status
-    _embedding_task_status = {
-        "running": True,
-        "task_id": task_id,
-        "started_at": datetime.now(UTC).isoformat(),
-        "target": target,
-    }
-
-
-def _set_embedding_task_completed() -> None:
-    """Mark embedding task as completed."""
-    global _embedding_task_status
-    _embedding_task_status = {
+    return {
         "running": False,
         "task_id": None,
         "started_at": None,
         "target": None,
     }
+
+
+def _set_embedding_task_running(task_id: str, target: str) -> None:
+    """Mark embedding task as running in Redis."""
+    try:
+        client = _get_redis_client()
+        status = {
+            "running": True,
+            "task_id": task_id,
+            "started_at": datetime.now(UTC).isoformat(),
+            "target": target,
+        }
+        # Set with 24h TTL as safety net (task should complete or be marked done)
+        client.setex(EMBEDDING_TASK_STATUS_KEY, 86400, json.dumps(status))
+    except Exception as e:
+        logger.warning("Failed to set embedding task status in Redis", error=str(e))
+
+
+def _set_embedding_task_completed() -> None:
+    """Mark embedding task as completed by removing status from Redis."""
+    try:
+        client = _get_redis_client()
+        client.delete(EMBEDDING_TASK_STATUS_KEY)
+    except Exception as e:
+        logger.warning("Failed to clear embedding task status in Redis", error=str(e))
 
 
 # =============================================================================

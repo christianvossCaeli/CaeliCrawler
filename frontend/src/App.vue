@@ -107,6 +107,9 @@
       <v-toolbar-title>CaeliCrawler</v-toolbar-title>
       <v-spacer></v-spacer>
 
+      <!-- Embedding Progress Indicator -->
+      <EmbeddingProgressIndicator class="mr-2" />
+
       <!-- LLM Budget Status -->
       <LLMUsageStatusBar class="mr-2" />
 
@@ -244,8 +247,8 @@
       </template>
     </v-snackbar>
 
-    <!-- AI Chat Assistant -->
-    <ChatAssistant v-if="auth.isAuthenticated" />
+    <!-- AI Chat Assistant - only render after auth is fully initialized -->
+    <ChatAssistant v-if="auth.isAuthenticated && auth.initialized" />
 
     <!-- ARIA Live Regions for screen reader announcements -->
     <AriaLiveRegion />
@@ -263,6 +266,7 @@ import LanguageSwitcher from './components/LanguageSwitcher.vue'
 import AriaLiveRegion from './components/AriaLiveRegion.vue'
 import { ErrorBoundary } from './components/common'
 import LLMUsageStatusBar from './components/common/LLMUsageStatusBar.vue'
+import EmbeddingProgressIndicator from './components/common/EmbeddingProgressIndicator.vue'
 import { useSnackbar } from './composables/useSnackbar'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from './stores/auth'
@@ -461,9 +465,13 @@ async function loadBadgeCounts() {
 }
 
 // Load notifications and feature flags when authenticated
+// Wait for auth.initialized to avoid race conditions with token validation
 watch(
-  () => auth.isAuthenticated,
-  async (isAuth) => {
+  [() => auth.isAuthenticated, () => auth.initialized],
+  async ([isAuth, isInitialized]) => {
+    // Only proceed if auth initialization is complete
+    if (!isInitialized) return
+
     if (isAuth) {
       await loadBadgeCounts()
       await loadFeatureFlags()

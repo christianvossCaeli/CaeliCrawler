@@ -326,11 +326,17 @@ class AIService:
                         dimensions=dimensions,
                     )
 
-                    # Record token usage
-                    if response.usage:
+                    # Record token usage - Azure sometimes doesn't return usage, so estimate
+                    if response.usage and response.usage.prompt_tokens:
                         usage_ctx.prompt_tokens = response.usage.prompt_tokens
                         usage_ctx.total_tokens = response.usage.total_tokens
                         total_tokens += response.usage.total_tokens
+                    else:
+                        # Estimate tokens: ~4 characters per token for most text
+                        estimated_tokens = sum(max(1, len(t) // 4) for t in batch)
+                        usage_ctx.prompt_tokens = estimated_tokens
+                        usage_ctx.total_tokens = estimated_tokens
+                        total_tokens += estimated_tokens
 
                     batch_embeddings = [item.embedding for item in response.data]
                     all_embeddings.extend(batch_embeddings)

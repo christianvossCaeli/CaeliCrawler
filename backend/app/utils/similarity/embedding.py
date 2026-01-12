@@ -192,9 +192,11 @@ async def _generate_embedding_with_db_credentials(
     text: str,
     session: AsyncSession,
 ) -> list[float] | None:
-    """Generate embedding using database-stored credentials."""
+    """Generate embedding using database-stored credentials with usage tracking."""
+    from app.models.llm_usage import LLMProvider, LLMTaskType
     from app.models.user_api_credentials import LLMPurpose
     from services.llm_client_service import LLMClientService
+    from services.llm_usage_tracker import track_llm_usage
 
     try:
         service = LLMClientService(session)
@@ -205,16 +207,34 @@ async def _generate_embedding_with_db_credentials(
             return None
 
         model = service.get_model_name(config, for_embeddings=True)
-        response = await client.embeddings.create(
-            input=text,
+        provider = LLMProvider.AZURE_OPENAI if "azure" in str(config.endpoint or "").lower() else LLMProvider.OPENAI
+
+        async with track_llm_usage(
+            provider=provider,
             model=model,
-            dimensions=EMBEDDING_DIMENSIONS,
-        )
+            task_type=LLMTaskType.EMBEDDING,
+            task_name="generate_embedding_single",
+        ) as usage_ctx:
+            response = await client.embeddings.create(
+                input=text,
+                model=model,
+                dimensions=EMBEDDING_DIMENSIONS,
+            )
 
-        if response.data and len(response.data) > 0:
-            return response.data[0].embedding
+            # Track token usage - Azure sometimes doesn't return usage, so estimate
+            if response.usage and response.usage.prompt_tokens:
+                usage_ctx.prompt_tokens = response.usage.prompt_tokens
+                usage_ctx.total_tokens = response.usage.total_tokens
+            else:
+                # Estimate tokens: ~4 characters per token for most text
+                estimated_tokens = max(1, len(text) // 4)
+                usage_ctx.prompt_tokens = estimated_tokens
+                usage_ctx.total_tokens = estimated_tokens
 
-        return None
+            if response.data and len(response.data) > 0:
+                return response.data[0].embedding
+
+            return None
     except Exception as e:
         logger.error("Failed to generate embedding with DB credentials", error=str(e))
         return None
@@ -224,7 +244,10 @@ async def _generate_embedding_with_db_credentials(
 generate_entity_embedding = generate_embedding
 
 
-async def generate_embeddings_batch(texts: list[str]) -> list[list[float] | None]:
+async def generate_embeddings_batch(
+    texts: list[str],
+    session: "AsyncSession | None" = None,
+) -> list[list[float] | None]:
     """
     Generate embeddings for multiple texts efficiently.
 
@@ -232,6 +255,7 @@ async def generate_embeddings_batch(texts: list[str]) -> list[list[float] | None
 
     Args:
         texts: List of texts to embed
+        session: Optional database session for loading credentials
 
     Returns:
         List of embeddings (same order as input), None for failed items
@@ -242,14 +266,15 @@ async def generate_embeddings_batch(texts: list[str]) -> list[list[float] | None
     from services.ai_service import AIService
 
     try:
-        ai_service = AIService()
-        embeddings = await ai_service.generate_embeddings_batch(texts)
+        ai_service = AIService(session=session)
+        # Use generate_embeddings which handles batching internally
+        embeddings = await ai_service.generate_embeddings(texts)
         _increment_stat("embeddings_generated", len([e for e in embeddings if e]))
         return embeddings
     except Exception as e:
         logger.error("Batch embedding failed, falling back to individual", error=str(e))
-        # Fallback to individual
-        return [await generate_embedding(t) for t in texts]
+        # Fallback to individual - also pass session
+        return [await generate_embedding(t, session=session) for t in texts]
 
 
 def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
