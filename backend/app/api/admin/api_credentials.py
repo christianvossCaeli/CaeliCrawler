@@ -33,7 +33,6 @@ from app.core.rate_limit import check_rate_limit
 from app.database import get_session
 from app.models import User
 from app.models.audit_log import AuditAction
-from app.services.audit_service import create_audit_log
 from app.models.user_api_credentials import (
     API_CREDENTIAL_DESCRIPTIONS,
     ApiCredentialType,
@@ -41,6 +40,7 @@ from app.models.user_api_credentials import (
     UserApiCredentials,
     UserLLMConfig,
 )
+from app.services.audit_service import create_audit_log
 from services.credentials_resolver import ensure_search_credential_from_purpose
 
 logger = structlog.get_logger()

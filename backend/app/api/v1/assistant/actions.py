@@ -9,7 +9,6 @@ from app.core.rate_limit import check_rate_limit
 from app.database import get_session
 from app.models.audit_log import AuditAction
 from app.models.user import User, UserRole
-from app.services.audit_service import create_audit_log
 from app.schemas.assistant import (
     ActionExecuteRequest,
     ActionExecuteResponse,
@@ -17,6 +16,7 @@ from app.schemas.assistant import (
     BatchActionResponse,
     BatchStatusResponse,
 )
+from app.services.audit_service import create_audit_log
 from services.assistant_service import AssistantService
 
 router = APIRouter(tags=["assistant-actions"])

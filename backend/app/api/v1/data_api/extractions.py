@@ -13,7 +13,6 @@ from app.database import get_session
 from app.models import Category, Document, ExtractedData
 from app.models.audit_log import AuditAction
 from app.models.user import User
-from app.services.audit_service import create_audit_log
 from app.schemas.extracted_data import (
     DisplayColumn,
     DisplayFieldsConfig,
@@ -29,6 +28,7 @@ from app.schemas.extracted_data import (
     ExtractionStats,
 )
 from app.schemas.facet_value import FacetValueResponse
+from app.services.audit_service import create_audit_log
 
 from .loaders import bulk_load_documents_with_sources
 

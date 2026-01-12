@@ -12,7 +12,6 @@ from app.core.exceptions import NotFoundError
 from app.database import get_session
 from app.models import User
 from app.models.audit_log import AuditAction
-from app.services.audit_service import create_audit_log
 from app.models.smart_query_operation import OperationType, SmartQueryOperation
 from app.schemas.common import MessageResponse
 from app.schemas.smart_query_operation import (
@@ -22,6 +21,7 @@ from app.schemas.smart_query_operation import (
     SmartQueryOperationResponse,
     SmartQueryOperationUpdate,
 )
+from app.services.audit_service import create_audit_log
 
 router = APIRouter()
 

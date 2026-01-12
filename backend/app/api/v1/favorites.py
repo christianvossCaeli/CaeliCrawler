@@ -13,7 +13,6 @@ from app.core.exceptions import ConflictError, NotFoundError
 from app.database import get_session
 from app.models import Entity, EntityType, User
 from app.models.audit_log import AuditAction
-from app.services.audit_service import create_audit_log
 from app.models.user_favorite import UserFavorite
 from app.schemas.common import MessageResponse
 from app.schemas.favorite import (
@@ -23,6 +22,7 @@ from app.schemas.favorite import (
     FavoriteListResponse,
     FavoriteResponse,
 )
+from app.services.audit_service import create_audit_log
 
 router = APIRouter()
 

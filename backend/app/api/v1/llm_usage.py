@@ -12,12 +12,12 @@ from app.core.deps import get_current_user
 from app.database import get_session
 from app.models.audit_log import AuditAction
 from app.models.user import User, UserRole
-from app.services.audit_service import create_audit_log
 from app.schemas.llm_budget import (
     LimitIncreaseRequestCreate,
     LimitIncreaseRequestResponse,
     UserBudgetStatusResponse,
 )
+from app.services.audit_service import create_audit_log
 from services.llm_budget_service import LLMBudgetService
 
 router = APIRouter(prefix="/me/llm", tags=["User LLM Usage"])

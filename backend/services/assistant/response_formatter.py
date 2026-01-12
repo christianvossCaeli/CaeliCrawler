@@ -45,13 +45,13 @@ from app.schemas.assistant import (
     SuggestedAction,
     ViewMode,
 )
-from services.llm_client_service import LLMClientService
 from services.assistant.context_builder import (
     build_app_summary_context,
     build_entity_context,
     get_facet_counts_by_type,
 )
 from services.assistant.utils import format_entity_link
+from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage
 from services.translations import Translator
 

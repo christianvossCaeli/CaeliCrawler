@@ -12,7 +12,6 @@ from app.database import get_session
 from app.models.audit_log import AuditAction
 from app.models.llm_budget import LimitIncreaseRequestStatus
 from app.models.user import User
-from app.services.audit_service import create_audit_log
 from app.schemas.llm_budget import (
     AdminLimitRequestAction,
     BudgetStatusListResponse,
@@ -22,6 +21,7 @@ from app.schemas.llm_budget import (
     LLMBudgetConfigResponse,
     LLMBudgetConfigUpdate,
 )
+from app.services.audit_service import create_audit_log
 from services.llm_budget_service import LLMBudgetService
 
 router = APIRouter(

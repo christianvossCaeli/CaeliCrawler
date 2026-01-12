@@ -14,7 +14,6 @@ from app.core.exceptions import FeatureDisabledError, NotFoundError, ValidationE
 from app.database import get_session
 from app.models import Entity, User
 from app.models.audit_log import AuditAction
-from app.services.audit_service import create_audit_log
 from app.models.pysis import (
     PySisFieldHistory,
     PySisFieldTemplate,
@@ -51,6 +50,7 @@ from app.schemas.pysis import (
     PySisSyncResult,
     PySisTestConnectionResult,
 )
+from app.services.audit_service import create_audit_log
 from services.pysis_facet_service import PySisFacetService
 from services.pysis_service import get_pysis_service
 from workers.ai_tasks import extract_pysis_fields

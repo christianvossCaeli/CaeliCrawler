@@ -45,7 +45,6 @@ from services.assistant.action_executor import (
     handle_batch_action_intent,
     preview_inline_edit,
 )
-from services.llm_client_service import LLMClientService
 from services.assistant.context_actions import handle_context_action
 from services.assistant.prompts import INTENT_CLASSIFICATION_PROMPT, get_page_documentation
 from services.assistant.query_handler import handle_context_query, handle_query
@@ -57,6 +56,7 @@ from services.assistant.response_formatter import (
     handle_summarize,
     suggest_smart_query_redirect,
 )
+from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage
 from services.smart_query import SmartQueryService
 from services.translations import Translator

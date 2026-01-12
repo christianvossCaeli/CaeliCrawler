@@ -16,7 +16,6 @@ from app.core.rate_limit import check_rate_limit
 from app.database import get_session
 from app.models import CrawlPreset, DataSource, User
 from app.models.audit_log import AuditAction
-from app.services.audit_service import create_audit_log
 from app.schemas.common import MessageResponse
 from app.schemas.crawl_preset import (
     SCHEDULE_PRESETS,
@@ -34,6 +33,7 @@ from app.schemas.crawl_preset import (
     EntityCrawlRequest,
     EntitySourcePreviewItem,
 )
+from app.services.audit_service import create_audit_log
 from app.utils.cron import croniter_for_expression, get_schedule_timezone, is_valid_cron_expression
 
 # Import crawl operations at module level to avoid repeated imports

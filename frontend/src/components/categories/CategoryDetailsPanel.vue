@@ -70,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-import type { CategorySource, CategoryResponse as Category } from '@/types/category'
+import type { CategorySource, CategoryResponse } from '@/types/category'
 import {
   DirectSourceSelector,
   TagFilterSection,
@@ -88,7 +88,7 @@ export interface CategoryDetailsPanelProps {
   assigning: boolean
   currentSourceCount?: number
   editMode?: boolean
-  category?: Category
+  category?: CategoryResponse | null
   // Direct source selection
   directSelectedSources?: CategorySource[]
   sourceSearchResults?: CategorySource[]

@@ -32,7 +32,6 @@ from app.core.rate_limit import check_rate_limit
 from app.database import get_session
 from app.models import User
 from app.models.audit_log import AuditAction
-from app.services.audit_service import create_audit_log
 from app.models.user_api_credentials import (
     EMBEDDINGS_REQUIRED_FIELDS,
     PROVIDER_DESCRIPTIONS,
@@ -44,6 +43,7 @@ from app.models.user_api_credentials import (
     LLMPurpose,
     UserLLMConfig,
 )
+from app.services.audit_service import create_audit_log
 from services.credentials_resolver import get_search_api_config
 
 logger = structlog.get_logger()

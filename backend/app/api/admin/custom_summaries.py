@@ -19,8 +19,6 @@ from app.core.deps import require_editor
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.rate_limit import check_rate_limit
 from app.database import get_session
-from app.models.audit_log import AuditAction
-from app.services.audit_service import create_audit_log
 from app.models import (
     CustomSummary,
     SummaryExecution,
@@ -28,6 +26,7 @@ from app.models import (
     SummaryWidget,
     User,
 )
+from app.models.audit_log import AuditAction
 from app.models.custom_summary import SummaryStatus, SummaryTriggerType
 from app.models.summary_execution import ExecutionStatus
 from app.models.summary_widget import SummaryWidgetType
@@ -56,6 +55,7 @@ from app.schemas.custom_summary import (
     SummaryWidgetUpdate,
     WidgetPosition,
 )
+from app.services.audit_service import create_audit_log
 from app.utils.cron import croniter_for_expression, get_schedule_timezone, is_valid_cron_expression
 from services.summaries import (
     SummaryExecutor,

@@ -29,9 +29,9 @@ from app.schemas.assistant import (
     SuggestedAction,
 )
 from services.assistant.common import AIServiceNotAvailableException
-from services.llm_client_service import LLMClientService
 from services.assistant.context_builder import build_entity_context, prepare_entity_data_for_ai
 from services.assistant.utils import format_entity_link
+from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage
 from services.smart_query import SmartQueryService
 from services.smart_query.geographic_utils import (
