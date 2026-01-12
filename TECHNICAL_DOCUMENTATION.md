@@ -144,7 +144,6 @@ CaeliCrawler ist eine Enterprise-Plattform fuer automatisiertes Web-Crawling, Do
 | `uvicorn` | 0.34+ | ASGI Server |
 | `asyncpg` | 0.30+ | PostgreSQL Async Driver |
 | `openai` | 1.57+ | OpenAI API Integration |
-| `langchain` | 0.3+ | LLM Orchestration |
 | `scrapy` | 2.12 | Web Scraping |
 | `playwright` | 1.49 | Browser Automation |
 | `pymupdf` | 1.25+ | PDF Processing |

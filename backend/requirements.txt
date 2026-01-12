@@ -43,8 +43,6 @@ jinja2==3.1.4
 
 # AI & Azure
 openai==1.59.4
-langchain==0.3.14
-langchain-openai==0.2.14
 tiktoken==0.8.0
 
 # Async Utilities

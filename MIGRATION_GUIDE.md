@@ -6,17 +6,12 @@
 
 ## Backend (Python) Updates
 
-### 1. langchain-core 1.2.3 → 1.2.4
-- **Typ**: Minor Update
-- **Breaking Changes**: Keine
-- **Aktion**: Direktes Update
-
-### 2. redis 6.4.0 → 7.1.0
+### 1. redis 6.4.0 → 7.1.0
 - **Typ**: Major Update
 - **Breaking Changes**: Minimal - API ist weitgehend kompatibel
 - **Aktion**: Direktes Update, Tests durchführen
 
-### 3. pip 25.0.1 → 25.3
+### 2. pip 25.0.1 → 25.3
 - **Typ**: Minor Update
 - **Aktion**: `pip install --upgrade pip`
 

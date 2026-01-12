@@ -540,6 +540,18 @@ describe('useCategoryDataSources', () => {
         loading: true,
         assigning: true,
         availableTags: ['tag1', 'tag2', 'tag3'],
+        pendingSourceIds: [],
+        directSelectedSources: [],
+        sourceSearchResults: [],
+        searchingDirectSources: false,
+        assignedSources: [],
+        assignedSourcesTotal: 0,
+        assignedSourcesLoading: false,
+        assignedSourcesPage: 1,
+        assignedSourcesPerPage: 25,
+        assignedSourcesSearch: '',
+        assignedSourcesTagFilter: [],
+        availableTagsInAssigned: [],
       }
 
       dataSources.resetDataSourcesTab()
