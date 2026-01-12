@@ -27,6 +27,15 @@
             </v-list-item>
           </v-list>
         </v-menu>
+        <v-btn
+          variant="tonal"
+          color="warning"
+          :loading="recalculating"
+          @click="openRecalculateDialog"
+        >
+          <v-icon start>mdi-calculator-variant</v-icon>
+          {{ t('admin.llmUsage.recalculate.button') }}
+        </v-btn>
       </template>
     </PageHeader>
 
@@ -645,6 +654,76 @@
         </v-btn>
       </template>
     </v-snackbar>
+
+    <!-- Recalculate Costs Dialog -->
+    <v-dialog v-model="recalculateDialogOpen" :max-width="DIALOG_SIZES.SM">
+      <v-card>
+        <v-card-title class="d-flex align-center pa-4 bg-warning">
+          <v-icon class="mr-3">mdi-calculator-variant</v-icon>
+          {{ t('admin.llmUsage.recalculate.title') }}
+        </v-card-title>
+        <v-card-text class="pa-6">
+          <v-alert type="info" variant="tonal" class="mb-4">
+            {{ t('admin.llmUsage.recalculate.description') }}
+          </v-alert>
+
+          <v-select
+            v-model="recalculateForm.period"
+            :label="t('admin.llmUsage.recalculate.period')"
+            :items="recalculatePeriodOptions"
+            variant="outlined"
+            class="mb-4"
+          />
+
+          <v-switch
+            v-model="recalculateForm.onlyZeroCosts"
+            :label="t('admin.llmUsage.recalculate.onlyZeroCosts')"
+            :hint="t('admin.llmUsage.recalculate.onlyZeroCostsHint')"
+            color="primary"
+            persistent-hint
+            class="mb-4"
+          />
+
+          <!-- Dry Run Results -->
+          <v-alert v-if="recalculateResult" type="success" variant="tonal" class="mt-4">
+            <div class="text-subtitle-2 mb-2">{{ t('admin.llmUsage.recalculate.results') }}</div>
+            <div class="text-body-2">
+              <div>{{ t('admin.llmUsage.recalculate.totalRecords') }}: {{ recalculateResult.total_records }}</div>
+              <div>{{ t('admin.llmUsage.recalculate.updatedRecords') }}: {{ recalculateResult.updated_records }}</div>
+              <div>
+                {{ t('admin.llmUsage.recalculate.costBefore') }}: {{ formatCurrency(recalculateResult.total_cost_before_cents) }}
+                → {{ t('admin.llmUsage.recalculate.costAfter') }}: {{ formatCurrency(recalculateResult.total_cost_after_cents) }}
+              </div>
+            </div>
+          </v-alert>
+        </v-card-text>
+        <v-divider />
+        <v-card-actions class="pa-4">
+          <v-btn variant="tonal" @click="recalculateDialogOpen = false">
+            {{ t('common.cancel') }}
+          </v-btn>
+          <v-spacer />
+          <v-btn
+            variant="tonal"
+            color="info"
+            :loading="recalculating"
+            @click="executeRecalculate(true)"
+          >
+            <v-icon start>mdi-eye</v-icon>
+            {{ t('admin.llmUsage.recalculate.preview') }}
+          </v-btn>
+          <v-btn
+            variant="tonal"
+            color="warning"
+            :loading="recalculating"
+            @click="executeRecalculate(false)"
+          >
+            <v-icon start>mdi-calculator-variant</v-icon>
+            {{ t('admin.llmUsage.recalculate.execute') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -673,6 +752,7 @@ import {
 import { formatCurrency, formatTokens } from '@/utils/llmFormatting'
 import { useLogger } from '@/composables/useLogger'
 import { useDateFormatter } from '@/composables'
+import { recalculateLLMCosts, type RecalculateCostsResponse } from '@/services/api/admin'
 
 const logger = useLogger('LLMUsageView')
 const { formatNumber } = useDateFormatter()
@@ -695,6 +775,22 @@ const editingBudget = ref<LLMBudgetConfig | null>(null)
 const selectedBudget = ref<LLMBudgetConfig | null>(null)
 const savingBudget = ref(false)
 const budgetFormRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
+
+// Recalculate costs dialog
+const recalculateDialogOpen = ref(false)
+const recalculating = ref(false)
+const recalculateResult = ref<RecalculateCostsResponse | null>(null)
+const recalculateForm = reactive({
+  period: 'all' as '24h' | '7d' | '30d' | '90d' | 'all',
+  onlyZeroCosts: true,
+})
+const recalculatePeriodOptions = [
+  { title: 'Alle', value: 'all' },
+  { title: 'Letzte 24 Stunden', value: '24h' },
+  { title: 'Letzte 7 Tage', value: '7d' },
+  { title: 'Letzte 30 Tage', value: '30d' },
+  { title: 'Letzte 90 Tage', value: '90d' },
+]
 
 const budgetForm = reactive({
   name: '',
@@ -867,6 +963,38 @@ async function exportData(format: 'csv' | 'json') {
     showSnackbar(t('common.csvExported'), 'success')
   } else {
     showSnackbar(t('common.exportFailed'), 'error')
+  }
+}
+
+function openRecalculateDialog() {
+  recalculateResult.value = null
+  recalculateDialogOpen.value = true
+}
+
+async function executeRecalculate(dryRun: boolean) {
+  recalculating.value = true
+  try {
+    const response = await recalculateLLMCosts({
+      only_zero_costs: recalculateForm.onlyZeroCosts,
+      period: recalculateForm.period,
+      dry_run: dryRun,
+    })
+    recalculateResult.value = response.data
+
+    if (!dryRun) {
+      showSnackbar(
+        t('admin.llmUsage.recalculate.success', { count: response.data.updated_records }),
+        'success'
+      )
+      recalculateDialogOpen.value = false
+      // Refresh analytics to show updated costs
+      await store.refresh()
+    }
+  } catch (error) {
+    logger.error('Failed to recalculate costs:', error)
+    showSnackbar(t('admin.llmUsage.recalculate.error'), 'error')
+  } finally {
+    recalculating.value = false
   }
 }
 

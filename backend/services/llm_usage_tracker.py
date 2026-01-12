@@ -46,6 +46,31 @@ _pricing_cache_lock = threading.RLock()
 _pricing_cache_timestamp: float = 0.0
 _PRICING_CACHE_TTL_SECONDS = 300.0  # 5 minutes
 
+# Common prefixes/suffixes to strip from deployment names
+_DEPLOYMENT_PREFIXES = (
+    "caeli-",
+    "azure-",
+    "openai-",
+    "anthropic-",
+    "deployment-",
+    "deploy-",
+    "prod-",
+    "dev-",
+    "staging-",
+    "test-",
+)
+_DEPLOYMENT_SUFFIXES = (
+    "-deployment",
+    "-deploy",
+    "-prod",
+    "-dev",
+    "-staging",
+    "-test",
+    "-v1",
+    "-v2",
+    "-latest",
+)
+
 
 # Model pricing in USD per 1M tokens (as of January 2025)
 # Update these values when pricing changes
@@ -195,10 +220,88 @@ async def refresh_pricing_cache() -> int:
         return 0
 
 
-def get_model_pricing(model: str) -> dict[str, float]:
-    """Get pricing for a model, with fuzzy matching for deployment names.
+def _normalize_model_name(model: str) -> str:
+    """Normalize model name by removing common deployment prefixes/suffixes.
 
-    Checks database-backed cache first, falls back to hardcoded defaults.
+    Examples:
+        "caeli-gpt-4o-mini-deployment" -> "gpt-4o-mini"
+        "azure-gpt-4.1" -> "gpt-4.1"
+        "GPT-4O-Mini" -> "gpt-4o-mini"
+    """
+    normalized = model.lower().strip()
+
+    # Strip common prefixes
+    for prefix in _DEPLOYMENT_PREFIXES:
+        if normalized.startswith(prefix):
+            normalized = normalized[len(prefix) :]
+            break  # Only strip one prefix
+
+    # Strip common suffixes
+    for suffix in _DEPLOYMENT_SUFFIXES:
+        if normalized.endswith(suffix):
+            normalized = normalized[: -len(suffix)]
+            break  # Only strip one suffix
+
+    return normalized
+
+
+def _extract_base_model(model: str) -> str | None:
+    """Extract base model identifier from deployment name.
+
+    Looks for known model patterns within the string.
+    Returns the matched base model or None.
+    """
+    model_lower = model.lower()
+
+    # Known model patterns (ordered by specificity - longer matches first)
+    known_models = [
+        # GPT-4.1 variants
+        "gpt-4.1-mini",
+        "gpt-4.1-nano",
+        "gpt-4.1",
+        # GPT-4o variants
+        "gpt-4o-mini",
+        "gpt-4o",
+        # GPT-4 variants
+        "gpt-4-turbo",
+        "gpt-4",
+        # GPT-3.5
+        "gpt-3.5-turbo",
+        # O-series
+        "o3-mini",
+        "o1-mini",
+        "o1-pro",
+        "o1",
+        # Claude variants
+        "claude-opus-4-5",
+        "claude-sonnet-4",
+        "claude-3-5-sonnet",
+        "claude-3-5-haiku",
+        "claude-3-opus",
+        "claude-3-sonnet",
+        "claude-3-haiku",
+        # Embeddings
+        "text-embedding-3-large",
+        "text-embedding-3-small",
+        "text-embedding-ada-002",
+    ]
+
+    for base_model in known_models:
+        if base_model in model_lower:
+            return base_model
+
+    return None
+
+
+def get_model_pricing(model: str) -> dict[str, float]:
+    """Get pricing for a model, with robust matching for deployment names.
+
+    Uses multiple strategies:
+    1. Exact match (lowercase)
+    2. Normalized name match (strips deployment prefixes/suffixes)
+    3. Base model extraction (finds known model patterns)
+    4. Fuzzy substring match
+    5. Fallback to default pricing
 
     Args:
         model: Model name or deployment name
@@ -210,29 +313,55 @@ def get_model_pricing(model: str) -> dict[str, float]:
         return MODEL_PRICING["default"]
 
     model_lower = model.lower()
+    normalized = _normalize_model_name(model)
+    base_model = _extract_base_model(model)
 
     # Try database cache first
     cached = _get_cached_pricing()
     if cached:
-        # Exact match in cache
+        # Strategy 1: Exact match
         if model_lower in cached:
             return cached[model_lower]
 
-        # Fuzzy match in cache (for deployment names like "my-gpt-4o-deployment")
+        # Strategy 2: Normalized name match
+        if normalized != model_lower and normalized in cached:
+            return cached[normalized]
+
+        # Strategy 3: Base model match
+        if base_model and base_model in cached:
+            return cached[base_model]
+
+        # Strategy 4: Fuzzy substring match
         for known_model, pricing in cached.items():
             if known_model in model_lower or model_lower in known_model:
                 return pricing
+            if known_model in normalized or normalized in known_model:
+                return pricing
 
-    # Fall back to hardcoded pricing
-    # Exact match first
-    if model in MODEL_PRICING:
-        return MODEL_PRICING[model]
+    # Fall back to hardcoded pricing with same strategies
+    # Strategy 1: Exact match
+    if model_lower in MODEL_PRICING:
+        return MODEL_PRICING[model_lower]
 
-    # Try partial match (for deployment names like "my-gpt-4o-deployment")
+    # Strategy 2: Normalized name
+    if normalized in MODEL_PRICING:
+        return MODEL_PRICING[normalized]
+
+    # Strategy 3: Base model
+    if base_model and base_model in MODEL_PRICING:
+        return MODEL_PRICING[base_model]
+
+    # Strategy 4: Fuzzy match
     for known_model in MODEL_PRICING:
         if known_model in model_lower or model_lower in known_model:
             return MODEL_PRICING[known_model]
 
+    logger.debug(
+        "model_pricing_fallback_to_default",
+        model=model,
+        normalized=normalized,
+        base_model=base_model,
+    )
     return MODEL_PRICING["default"]
 
 

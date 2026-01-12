@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import require_admin
@@ -18,6 +19,16 @@ from app.schemas.llm_usage import (
     LLMUsageAnalyticsResponse,
 )
 from services.llm_usage_analytics_service import LLMUsageAnalyticsService
+
+
+class RecalculateCostsResponse(BaseModel):
+    """Response for cost recalculation endpoint."""
+
+    total_records: int
+    updated_records: int
+    total_cost_before_cents: int
+    total_cost_after_cents: int
+    models_processed: dict[str, int]
 
 router = APIRouter(
     prefix="/llm-usage",
@@ -324,3 +335,174 @@ async def export_usage_data(
             media_type="text/csv",
             headers={"Content-Disposition": f"attachment; filename=llm_usage_{period}.csv"},
         )
+
+
+class PricingDebugInfo(BaseModel):
+    """Debug info for pricing lookup."""
+
+    model: str
+    record_count: int
+    sample_prompt_tokens: int
+    sample_completion_tokens: int
+    pricing_found: dict[str, float]
+    normalized_name: str
+    base_model: str | None
+    calculated_cost_cents: int
+
+
+@router.get("/debug-pricing")
+async def debug_pricing(
+    _: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_session),
+) -> list[PricingDebugInfo]:
+    """
+    Debug endpoint to see how pricing is resolved for each model.
+
+    Shows which models are used, how they're normalized, and what pricing is applied.
+    """
+    from collections import defaultdict
+
+    from sqlalchemy import func, select
+
+    from app.models.llm_usage import LLMUsageRecord
+    from services.llm_usage_tracker import (
+        _extract_base_model,
+        _normalize_model_name,
+        get_model_pricing,
+    )
+
+    # Get distinct models with counts and sample token values
+    query = select(
+        LLMUsageRecord.model,
+        func.count(LLMUsageRecord.id).label("count"),
+        func.avg(LLMUsageRecord.prompt_tokens).label("avg_prompt"),
+        func.avg(LLMUsageRecord.completion_tokens).label("avg_completion"),
+    ).group_by(LLMUsageRecord.model)
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    debug_info = []
+    for row in rows:
+        model = row.model
+        pricing = get_model_pricing(model)
+        normalized = _normalize_model_name(model)
+        base = _extract_base_model(model)
+
+        avg_prompt = int(row.avg_prompt or 0)
+        avg_completion = int(row.avg_completion or 0)
+
+        # Calculate what cost would be
+        input_cost = (avg_prompt / 1_000_000) * pricing["input"]
+        output_cost = (avg_completion / 1_000_000) * pricing["output"]
+        calc_cost = int((input_cost + output_cost) * 100 + 0.5)
+
+        debug_info.append(
+            PricingDebugInfo(
+                model=model,
+                record_count=row.count,
+                sample_prompt_tokens=avg_prompt,
+                sample_completion_tokens=avg_completion,
+                pricing_found=pricing,
+                normalized_name=normalized,
+                base_model=base,
+                calculated_cost_cents=calc_cost,
+            )
+        )
+
+    return debug_info
+
+
+@router.post("/recalculate-costs", response_model=RecalculateCostsResponse)
+async def recalculate_costs(
+    only_zero_costs: bool = Query(
+        True,
+        description="Only recalculate records with zero costs (recommended)",
+    ),
+    period: str = Query(
+        "all",
+        description="Period to recalculate: 24h, 7d, 30d, 90d, all",
+        pattern="^(24h|7d|30d|90d|all)$",
+    ),
+    dry_run: bool = Query(
+        False,
+        description="If true, only show what would be updated without making changes",
+    ),
+    _: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_session),
+):
+    """
+    Recalculate estimated costs for LLM usage records.
+
+    Uses current model pricing to recalculate costs based on stored token counts.
+    Useful after adding/updating model pricing or fixing pricing mismatches.
+
+    By default, only recalculates records with zero costs to avoid overwriting
+    intentionally set values.
+    """
+    from collections import defaultdict
+
+    from sqlalchemy import select, update
+
+    from app.models.llm_usage import LLMUsageRecord
+    from services.llm_usage_tracker import get_model_pricing
+
+    # Build time filter
+    now = datetime.now(UTC)
+    period_map = {
+        "24h": timedelta(hours=24),
+        "7d": timedelta(days=7),
+        "30d": timedelta(days=30),
+        "90d": timedelta(days=90),
+    }
+
+    # Build query
+    query = select(LLMUsageRecord)
+
+    if period != "all":
+        delta = period_map.get(period, timedelta(days=7))
+        start_date = now - delta
+        query = query.where(LLMUsageRecord.created_at >= start_date)
+
+    if only_zero_costs:
+        query = query.where(LLMUsageRecord.estimated_cost_cents == 0)
+
+    result = await db.execute(query)
+    records = result.scalars().all()
+
+    total_records = len(records)
+    updated_records = 0
+    total_cost_before = 0
+    total_cost_after = 0
+    models_processed: dict[str, int] = defaultdict(int)
+
+    for record in records:
+        total_cost_before += record.estimated_cost_cents or 0
+
+        # Get current pricing for this model
+        pricing = get_model_pricing(record.model)
+
+        # Calculate new cost
+        input_cost = (record.prompt_tokens / 1_000_000) * pricing["input"]
+        output_cost = (record.completion_tokens / 1_000_000) * pricing["output"]
+        new_cost_cents = int((input_cost + output_cost) * 100 + 0.5)
+
+        total_cost_after += new_cost_cents
+        models_processed[record.model] += 1
+
+        # Update if cost changed and not dry run
+        if new_cost_cents != record.estimated_cost_cents:
+            if not dry_run:
+                record.estimated_cost_cents = new_cost_cents
+            updated_records += 1
+
+    if not dry_run:
+        await db.commit()
+
+    return RecalculateCostsResponse(
+        total_records=total_records,
+        updated_records=updated_records,
+        total_cost_before_cents=total_cost_before,
+        total_cost_after_cents=total_cost_after,
+        models_processed=dict(models_processed),
+    )

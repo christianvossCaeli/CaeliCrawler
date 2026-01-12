@@ -649,6 +649,23 @@
         "deleteSuccess": "Budget erfolgreich gelöscht",
         "saveError": "Fehler beim Speichern des Budgets",
         "deleteError": "Fehler beim Löschen des Budgets"
+      },
+      "recalculate": {
+        "button": "Kosten neu berechnen",
+        "title": "Kosten neu berechnen",
+        "description": "Berechnet die geschätzten Kosten für LLM-Nutzungseinträge basierend auf den aktuellen Modellpreisen neu. Nützlich nach dem Hinzufügen/Aktualisieren von Modellpreisen oder wenn Kosten falsch berechnet wurden.",
+        "period": "Zeitraum",
+        "onlyZeroCosts": "Nur Einträge ohne Kosten",
+        "onlyZeroCostsHint": "Empfohlen: Nur Einträge mit 0 Kosten neu berechnen, um absichtlich gesetzte Werte nicht zu überschreiben",
+        "preview": "Vorschau",
+        "execute": "Ausführen",
+        "results": "Ergebnis:",
+        "totalRecords": "Gefundene Einträge",
+        "updatedRecords": "Aktualisierte Einträge",
+        "costBefore": "Kosten vorher",
+        "costAfter": "Kosten nachher",
+        "success": "{count} Einträge erfolgreich aktualisiert",
+        "error": "Fehler bei der Neuberechnung der Kosten"
       }
     },
     "apiCredentials": {
@@ -676,9 +693,9 @@
           "useCases": "Wird als Alternative zu SerpAPI verwendet. Nur eine Such-API ist erforderlich."
         },
         "azure_openai": {
-          "name": "Azure OpenAI",
-          "description": "Microsoft Azure gehosteter OpenAI Service mit Enterprise-Features.",
-          "useCases": "Dokumentenanalyse, Zusammenfassungen, Embeddings für semantische Suche, KI-Assistent und Smart Query."
+          "name": "Azure",
+          "description": "Azure KI-Services (OpenAI, Claude, etc.) mit Enterprise-Features.",
+          "useCases": "Dokumentenanalyse, Zusammenfassungen, Embeddings, KI-Assistent und Smart Query. Service-Typ wird automatisch anhand der URL erkannt."
         },
         "openai": {
           "name": "OpenAI",
@@ -698,8 +715,9 @@
         "endpoint": "Endpunkt-URL",
         "endpointPlaceholder": "https://...",
         "apiVersion": "API-Version",
-        "deploymentName": "Deployment-Name",
-        "deploymentNamePlaceholder": "z.B. gpt-4o",
+        "deploymentName": "Azure Deployment-Name",
+        "deploymentNamePlaceholder": "z.B. my-gpt4o-deployment",
+        "deploymentNameHint": "Der Name aus Azure OpenAI Studio → Deployments (z.B. 'my-gpt4o-prod', NICHT 'gpt-4o')",
         "embeddingsDeployment": "Embeddings-Deployment",
         "embeddingsDeploymentPlaceholder": "z.B. text-embedding-3-large",
         "model": "Modell",
@@ -744,20 +762,22 @@
       "subtitle": "Konfigurieren Sie die KI-Anbieter für jeden Anwendungszweck",
       "info": {
         "title": "Zweck-basierte KI-Konfiguration",
-        "description": "Wählen Sie für jeden Anwendungszweck den passenden KI-Anbieter. So können Sie z.B. Azure OpenAI für Dokumentenanalyse und Anthropic für den Assistenten verwenden."
+        "description": "Wählen Sie für jeden Anwendungszweck den passenden KI-Anbieter. Azure unterstützt sowohl OpenAI als auch Claude - der Service-Typ wird automatisch anhand der URL erkannt."
       },
       "currentProvider": "Aktueller Anbieter",
       "form": {
         "selectProvider": "Anbieter auswählen",
         "apiKey": "API-Schlüssel",
         "apiKeyPlaceholder": "Ihren API-Schlüssel eingeben",
+        "overwriteHint": "Leer lassen um den bestehenden Wert zu behalten",
+        "chatUrl": "Azure Endpoint-URL",
+        "chatUrlPlaceholder": "https://xxx.services.ai.azure.com/openai/... oder .../anthropic/v1/messages",
+        "chatUrlHint": "Komplette Endpoint-URL aus Azure Portal. OpenAI: .../openai/deployments/... | Claude: .../anthropic/v1/messages",
+        "embeddingsUrl": "Azure Embeddings Endpoint-URL",
+        "embeddingsUrlPlaceholder": "https://xxx.cognitiveservices.azure.com/openai/deployments/text-embedding-3-large/embeddings?api-version=...",
+        "embeddingsUrlHint": "Komplette Endpoint-URL für Embeddings aus Azure Portal kopieren",
         "endpoint": "Endpunkt-URL",
         "endpointPlaceholder": "https://...",
-        "apiVersion": "API-Version",
-        "deploymentName": "Deployment-Name",
-        "deploymentNamePlaceholder": "z.B. gpt-4o",
-        "embeddingsDeployment": "Embeddings-Deployment",
-        "embeddingsDeploymentPlaceholder": "z.B. text-embedding-3-large",
         "model": "Modell",
         "modelPlaceholder": "z.B. claude-opus-4-5",
         "organization": "Organisation",

@@ -453,6 +453,20 @@ export const getLLMDocumentUsage = (documentId: string) =>
 export const exportLLMUsageData = (params?: { period?: string; format?: 'csv' | 'json' }) =>
   api.get('/admin/llm-usage/export', { params, responseType: 'blob' })
 
+export interface RecalculateCostsResponse {
+  total_records: number
+  updated_records: number
+  total_cost_before_cents: number
+  total_cost_after_cents: number
+  models_processed: Record<string, number>
+}
+
+export const recalculateLLMCosts = (params?: {
+  only_zero_costs?: boolean
+  period?: '24h' | '7d' | '30d' | '90d' | 'all'
+  dry_run?: boolean
+}) => api.post<RecalculateCostsResponse>('/admin/llm-usage/recalculate-costs', null, { params })
+
 // LLM Budget Management
 export const getLLMBudgets = (params?: { active_only?: boolean }) =>
   api.get('/admin/llm-budget', { params })
@@ -504,6 +518,17 @@ export interface CredentialStatus {
   last_used_at: string | null
   last_error: string | null
   fields: string[]
+  // Non-sensitive config values (api_key_masked, endpoint, model, etc.)
+  config?: {
+    api_key_masked?: string
+    endpoint?: string
+    api_version?: string
+    deployment_name?: string
+    embeddings_deployment?: string
+    model?: string
+    organization?: string
+    embeddings_model?: string
+  }
 }
 
 export interface AllCredentialsStatus {
@@ -554,7 +579,47 @@ export const deleteApiCredential = (credentialType: string) =>
   api.delete(`/admin/api-credentials/${credentialType}`)
 
 export const testApiCredential = (credentialType: string) =>
-  api.post<CredentialTestResult>(`/admin/api-credentials/test/${credentialType}`)
+  api.post<CredentialTestResult>(`/admin/api-credentials/test/${credentialType}`, {})
+
+// Preview test - test credentials before saving
+export const previewTestSerpApi = (data: { api_key: string }) =>
+  api.post<CredentialTestResult>('/admin/api-credentials/preview-test/serpapi', data)
+
+export const previewTestSerper = (data: { api_key: string }) =>
+  api.post<CredentialTestResult>('/admin/api-credentials/preview-test/serper', data)
+
+export const previewTestAzureOpenAI = (data: {
+  api_key: string
+  chat_url: string
+  embeddings_url?: string
+  model?: string  // For Azure Claude
+}) => api.post<CredentialTestResult>('/admin/api-credentials/preview-test/azure-openai', data)
+
+export const previewTestAzureOpenAIEmbeddings = (data: {
+  api_key: string
+  chat_url: string
+  embeddings_url?: string
+}) => api.post<CredentialTestResult>('/admin/api-credentials/preview-test/azure-openai-embeddings', data)
+
+export const previewTestOpenAI = (data: {
+  api_key: string
+  organization?: string
+  model?: string
+  embeddings_model?: string
+}) => api.post<CredentialTestResult>('/admin/api-credentials/preview-test/openai', data)
+
+export const previewTestOpenAIEmbeddings = (data: {
+  api_key: string
+  organization?: string
+  model?: string
+  embeddings_model?: string
+}) => api.post<CredentialTestResult>('/admin/api-credentials/preview-test/openai-embeddings', data)
+
+export const previewTestAnthropic = (data: {
+  endpoint?: string
+  api_key: string
+  model?: string
+}) => api.post<CredentialTestResult>('/admin/api-credentials/preview-test/anthropic', data)
 
 // =============================================================================
 // LLM Configuration (Purpose-based)
@@ -590,6 +655,19 @@ export interface PurposeConfigStatus {
   is_active: boolean
   last_used_at: string | null
   last_error: string | null
+  // Non-sensitive config values
+  config?: {
+    api_key_masked?: string
+    // Azure OpenAI (URL-based)
+    chat_url?: string
+    embeddings_url?: string
+    // OpenAI
+    model?: string
+    organization?: string
+    embeddings_model?: string
+    // Anthropic
+    endpoint?: string
+  }
 }
 
 export interface AllConfigStatusResponse {
@@ -629,7 +707,7 @@ export const deleteLLMPurposeConfig = (purpose: string) =>
 
 // Test configuration for a purpose
 export const testLLMPurposeConfig = (purpose: string) =>
-  api.post<LLMConfigTestResult>(`/admin/llm-config/test/${purpose}`)
+  api.post<LLMConfigTestResult>(`/admin/llm-config/test/${purpose}`, {})
 
 // LLM Purpose enum (matches backend)
 export type LLMPurpose =
@@ -786,8 +864,8 @@ export interface SyncAllResultResponse {
 }
 
 export const syncAllPrices = () =>
-  api.post<SyncAllResultResponse>('/admin/model-pricing/sync-all')
+  api.post<SyncAllResultResponse>('/admin/model-pricing/sync-all', {})
 
 // Seed default pricing data
 export const seedModelPricing = () =>
-  api.post<SeedResultResponse>('/admin/model-pricing/seed')
+  api.post<SeedResultResponse>('/admin/model-pricing/seed', {})
