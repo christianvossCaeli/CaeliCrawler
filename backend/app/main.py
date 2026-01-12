@@ -58,6 +58,7 @@ from app.api.v1 import summaries as public_summaries
 from app.api.v1.analysis_api import router as analysis_router
 from app.api.v1.data_api import router as data_router
 from app.config import settings
+from services.llm_usage_tracker import get_tracker as get_llm_usage_tracker
 from app.core.exceptions import AppException
 from app.core.i18n_middleware import I18nMiddleware
 from app.core.rate_limit import RateLimiter, set_rate_limiter
@@ -170,10 +171,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         )
         _redis_client = None
 
+    # Initialize LLM usage tracker background flush
+    llm_tracker = get_llm_usage_tracker()
+    llm_tracker.start_background_flush()
+    logger.info("LLM usage tracker initialized")
+
     yield
 
     # Shutdown
     logger.info("Shutting down CaeliCrawler")
+
+    # Flush pending LLM usage records before shutdown
+    await llm_tracker.force_flush()
+    logger.info("LLM usage tracker flushed")
 
     # Close Redis connection
     if _redis_client:
