@@ -35,7 +35,7 @@ CaeliCrawler ist eine modulare Plattform zur automatisierten Erfassung, Analyse 
 ### Voraussetzungen
 - Docker & Docker Compose
 - Node.js 20+ (fuer lokale Frontend-Entwicklung)
-- Python 3.12+ (fuer lokale Backend-Entwicklung)
+- Python 3.13+ (fuer lokale Backend-Entwicklung)
 
 ### 1. Repository klonen
 ```bash
@@ -45,21 +45,19 @@ cd CaeliCrawler
 
 ### 2. Umgebungsvariablen konfigurieren
 ```bash
-cp .env.example .env
-# .env bearbeiten und Werte eintragen
+# .env Datei erstellen
+cat > .env << EOF
+POSTGRES_PASSWORD=sicheres-passwort
+SECRET_KEY=$(openssl rand -base64 32)
+EOF
 ```
 
 **Erforderliche Variablen:**
 - `POSTGRES_PASSWORD` - Datenbank-Passwort
-- `AZURE_OPENAI_API_KEY` - Azure OpenAI API Key
-- `AZURE_OPENAI_ENDPOINT` - Azure OpenAI Endpoint
-- `AZURE_OPENAI_API_VERSION` - API Version (z.B. 2025-04-01-preview)
-- `AZURE_OPENAI_DEPLOYMENT_NAME` - Chat-Model Deployment Name
-- `AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT` - Embeddings Deployment Name
+- `SECRET_KEY` - JWT Secret (mind. 32 Zeichen, in Production erforderlich)
 
-**Optionale Variablen:**
-- `ANTHROPIC_API_KEY` - Fuer erweiterte AI Discovery
-- `SERPAPI_API_KEY` - Fuer Web-Suche Funktionen
+**KI-API-Credentials:**
+Die API-Keys fuer Azure OpenAI, Anthropic und SerpAPI werden ueber die **Admin-Oberflaeche** konfiguriert (Admin > API Credentials), nicht ueber Umgebungsvariablen.
 
 ### 3. Services starten
 ```bash
@@ -116,8 +114,7 @@ CaeliCrawler/
 ├── docs/                    # Dokumentation
 │   └── api/                 # API-Referenz
 ├── monitoring/              # Prometheus & Grafana Config
-├── docker-compose.yml       # Container-Orchestrierung
-└── .env.example             # Umgebungsvariablen Template
+└── docker-compose.yml       # Container-Orchestrierung
 ```
 
 ---
@@ -274,10 +271,13 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```bash
 APP_ENV=production
 DEBUG=false
-POSTGRES_PASSWORD=<secure-password>
-AZURE_OPENAI_API_KEY=<api-key>
-# ... weitere Variablen in .env.example
+SECRET_KEY=<sicherer-32-zeichen-key>
+POSTGRES_PASSWORD=<sicheres-passwort>
+DATABASE_URL=postgresql+asyncpg://postgres:<password>@db:5432/caelichrawler
+REDIS_URL=redis://redis:6379/0
 ```
+
+**Hinweis:** KI-API-Keys werden in der Admin-Oberflaeche konfiguriert.
 
 ### Monitoring aktivieren
 
