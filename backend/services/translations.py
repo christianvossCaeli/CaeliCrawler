@@ -80,6 +80,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "batch_missing_filter": "Bitte gib an, welche Entities bearbeitet werden sollen (z.B. 'alle Gemeinden in NRW').",
         "batch_no_matches": "Keine passenden Entities für die Batch-Operation gefunden.",
         "batch_preview_message": "{count} Entities würden bearbeitet werden.",
+        # Entity info
+        "entity_info_no_name": "Welche Entity möchtest du näher kennenlernen? Nenne mir einen Namen.",
+        "search": "Suchen",
+        "view_details": "Details anzeigen",
+        "show_positive_signals": "Positive Signale",
+        "summarize": "Zusammenfassen",
     },
     "en": {
         # Query responses
@@ -158,6 +164,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "batch_missing_filter": "Please specify which entities should be processed (e.g., 'all municipalities in NRW').",
         "batch_no_matches": "No matching entities found for the batch operation.",
         "batch_preview_message": "{count} entities would be processed.",
+        # Entity info
+        "entity_info_no_name": "Which entity would you like to learn more about? Please provide a name.",
+        "search": "Search",
+        "view_details": "View details",
+        "show_positive_signals": "Positive signals",
+        "summarize": "Summarize",
     },
 }
 

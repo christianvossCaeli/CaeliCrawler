@@ -18,12 +18,18 @@ from typing import Any
 from uuid import UUID
 
 import structlog
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from app.models import Entity
 from app.models.llm_usage import LLMTaskType
 from app.models.user_api_credentials import LLMPurpose
 from app.schemas.assistant import (
     AssistantContext,
+    EntityInfoResponse,
+    ErrorResponseData,
+    NavigationTarget,
     QueryResponse,
     QueryResultData,
     SuggestedAction,
@@ -196,6 +202,190 @@ async def handle_context_query(
         return QueryResponse(message=f"Fehler: {str(e)}", data=QueryResultData()), []
 
 
+async def handle_entity_info(
+    db: AsyncSession,
+    message: str,
+    intent_data: dict[str, Any],
+    translator: Translator,
+) -> tuple[EntityInfoResponse | ErrorResponseData, list[SuggestedAction]]:
+    """Handle ENTITY_INFO intent - show detailed information about a specific entity.
+
+    Args:
+        db: Database session
+        message: User message
+        intent_data: Extracted intent data
+        translator: Translator instance
+
+    Returns:
+        Tuple of (EntityInfoResponse or ErrorResponseData, suggested_actions)
+    """
+    target_name = intent_data.get("target_entity", "")
+
+    if not target_name:
+        return ErrorResponseData(
+            message=translator.t("entity_info_no_name"),
+            error_code="no_entity_specified",
+        ), []
+
+    try:
+        # Search for entity by name or slug (similar to handle_navigation)
+        result = await db.execute(
+            select(Entity)
+            .options(selectinload(Entity.entity_type))
+            .where(or_(Entity.name.ilike(f"%{target_name}%"), Entity.slug.ilike(f"%{target_name}%")))
+            .limit(5)
+        )
+        entities = result.scalars().all()
+
+        if not entities:
+            return ErrorResponseData(
+                message=translator.t("entity_not_found_name", name=target_name),
+                error_code="entity_not_found",
+            ), [SuggestedAction(label=translator.t("search"), action="query", value=target_name)]
+
+        # Take the first match, but indicate if multiple were found
+        entity = entities[0]
+        multiple_found = len(entities) > 1
+
+        # Load full entity context with facets, pysis, and relations
+        entity_data = await build_entity_context(
+            db,
+            entity.id,
+            include_facets=True,
+            include_pysis=True,
+            include_relations=True,
+        )
+
+        # Generate AI response with entity information
+        try:
+            ai_response = await generate_context_response_with_ai(db, message, entity_data)
+        except AIServiceNotAvailableException:
+            # Fallback to structured text if AI is not available
+            ai_response = format_entity_data_as_text(entity_data, translator)
+
+        # Build suggested actions based on entity data
+        suggested = build_entity_info_suggestions(entity_data, translator)
+
+        type_slug = entity.entity_type.slug if entity.entity_type else "unknown"
+
+        return EntityInfoResponse(
+            message=ai_response,
+            entity_data=entity_data,
+            navigation_target=NavigationTarget(
+                route=f"/entities/{type_slug}/{entity.slug}",
+                entity_type=type_slug,
+                entity_slug=entity.slug,
+                entity_name=entity.name,
+            ),
+            multiple_found=multiple_found,
+            total_found=len(entities),
+        ), suggested
+
+    except Exception as e:
+        logger.error("entity_info_error", error=str(e))
+        return ErrorResponseData(
+            message=translator.t("error_occurred", error=str(e)),
+            error_code="internal_error",
+        ), []
+
+
+def format_entity_data_as_text(entity_data: dict[str, Any], translator: Translator) -> str:
+    """Format entity data as readable text (fallback when AI is not available).
+
+    Args:
+        entity_data: Entity context data
+        translator: Translator instance
+
+    Returns:
+        Formatted text string
+    """
+    lines = [f"**{entity_data['name']}** ({entity_data['type']})"]
+
+    # Location
+    location = entity_data.get("location", {})
+    if location.get("admin_level_1"):
+        lines.append(f"\n**Standort:** {location['admin_level_1']}")
+        if location.get("admin_level_2"):
+            lines[-1] += f", {location['admin_level_2']}"
+
+    # Core attributes
+    core_attrs = entity_data.get("core_attributes", {})
+    if core_attrs:
+        lines.append("\n**Attribute:**")
+        for key, value in list(core_attrs.items())[:5]:
+            lines.append(f"- {key}: {value}")
+
+    # Facets summary
+    facets = entity_data.get("facets", {})
+    if facets:
+        lines.append("\n**Facets:**")
+        for facet_type, values in facets.items():
+            lines.append(f"- {facet_type}: {len(values)} Einträge")
+
+    # Relations
+    relation_count = entity_data.get("relation_count", 0)
+    if relation_count > 0:
+        lines.append(f"\n**Verknüpfungen:** {relation_count}")
+
+    return "\n".join(lines)
+
+
+def build_entity_info_suggestions(
+    entity_data: dict[str, Any], translator: Translator
+) -> list[SuggestedAction]:
+    """Build dynamic suggested actions based on entity data.
+
+    Args:
+        entity_data: Entity context data
+        translator: Translator instance
+
+    Returns:
+        List of suggested actions
+    """
+    suggestions = []
+
+    # Always suggest navigation to entity detail page
+    suggestions.append(
+        SuggestedAction(
+            label=translator.t("view_details"),
+            action="navigate",
+            value=f"/entities/{entity_data.get('type_slug', 'unknown')}/{entity_data.get('slug', '')}",
+        )
+    )
+
+    # If entity has facets, suggest viewing specific facet types
+    facets = entity_data.get("facets", {})
+    entity_name = entity_data.get("name", "")
+    if "Pain Point" in facets:
+        suggestions.append(
+            SuggestedAction(
+                label=translator.t("pain_points"),
+                action="query",
+                value=f"Zeige Pain Points von {entity_name}",
+            )
+        )
+    if "Positive Signal" in facets:
+        suggestions.append(
+            SuggestedAction(
+                label=translator.t("show_positive_signals"),
+                action="query",
+                value=f"Zeige Positive Signals von {entity_name}",
+            )
+        )
+
+    # Suggest summary if not already provided
+    if len(suggestions) < 4:
+        suggestions.append(
+            SuggestedAction(
+                label=translator.t("summarize"),
+                action="query",
+                value=f"Fasse {entity_name} zusammen",
+            )
+        )
+
+    return suggestions[:4]  # Limit to 4 suggestions
+
+
 async def generate_context_response_with_ai(db: AsyncSession, user_question: str, entity_data: dict[str, Any]) -> str:
     """Use AI to generate an intelligent response about the entity.
 
@@ -223,6 +413,18 @@ async def generate_context_response_with_ai(db: AsyncSession, user_question: str
     # Prepare data summary
     data_summary = prepare_entity_data_for_ai(entity_data)
 
+    # Build dynamic list of available facet types
+    facet_types = list(entity_data.get("facets", {}).keys())
+    facet_hint = ""
+    if facet_types:
+        facet_hint = f"\n- Verfügbare Facet-Typen: {', '.join(facet_types)}"
+
+    # Build dynamic list of core attributes
+    core_attrs = list(entity_data.get("core_attributes", {}).keys())
+    attrs_hint = ""
+    if core_attrs:
+        attrs_hint = f"\n- Verfügbare Attribute: {', '.join(core_attrs[:10])}"
+
     prompt = f"""Du bist ein hilfreicher Assistent. Der Benutzer fragt nach Informationen über eine Entity.
 
 ## Entity-Daten:
@@ -235,14 +437,7 @@ async def generate_context_response_with_ai(db: AsyncSession, user_question: str
 - Beantworte die Frage basierend auf den verfügbaren Daten
 - Sei prägnant aber informativ
 - Hebe die wichtigsten/relevantesten Informationen hervor
-- Wenn der Benutzer nach "wichtigen Infos" oder einer Zusammenfassung fragt, wähle die geschäftsrelevanten Daten aus:
-  - Ansprechpartner/Zuständigkeit
-  - Projektstatus/Phase
-  - Anzahl WEA (Windenergieanlagen)
-  - Flächeneigentümer
-  - Wichtige Kontakte
-  - Pain Points oder Herausforderungen
-  - Positive Signale
+- Bei einer Zusammenfassung: Fokussiere auf die tatsächlich vorhandenen Daten{facet_hint}{attrs_hint}
 - Ignoriere technische IDs (Hubspot.Id, etc.) außer der Benutzer fragt explizit danach
 - Formatiere die Antwort mit Markdown (fett für wichtige Begriffe, Listen wenn sinnvoll)
 - Antworte auf Deutsch
@@ -255,7 +450,7 @@ async def generate_context_response_with_ai(db: AsyncSession, user_question: str
         messages=[
             {
                 "role": "system",
-                "content": "Du bist ein hilfreicher Assistent für ein CRM/Entity-Management-System im Bereich Windenergie.",
+                "content": "Du bist ein hilfreicher Assistent für ein Entity-Management-System.",
             },
             {"role": "user", "content": prompt},
         ],

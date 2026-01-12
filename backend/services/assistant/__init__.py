@@ -73,10 +73,13 @@ from services.assistant.prompts import (
 # Query Handler
 from services.assistant.query_handler import (
     build_context_query_suggestions,
+    build_entity_info_suggestions,
     build_query_suggestions,
+    format_entity_data_as_text,
     format_query_result_message,
     generate_context_response_with_ai,
     handle_context_query,
+    handle_entity_info,
     handle_query,
     suggest_corrections,
 )
@@ -136,11 +139,14 @@ __all__ = [
     # Query Handler
     "handle_query",
     "handle_context_query",
+    "handle_entity_info",
     "generate_context_response_with_ai",
     "suggest_corrections",
     "format_query_result_message",
+    "format_entity_data_as_text",
     "build_query_suggestions",
     "build_context_query_suggestions",
+    "build_entity_info_suggestions",
     # Action Executor
     "execute_action",
     "execute_batch_action",

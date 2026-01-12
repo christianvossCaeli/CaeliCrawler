@@ -22,6 +22,7 @@ class IntentType(str, Enum):
     CONTEXT_ACTION = "context_action"  # Action on current entity (PySis, crawl, etc.)
     SOURCE_MANAGEMENT = "source_management"  # DataSource and Tag management
     DISCUSSION = "discussion"  # General discussion, requirements analysis, planning
+    ENTITY_INFO = "entity_info"  # Show detailed information about a specific entity  # General discussion, requirements analysis, planning
 
 
 class ViewMode(str, Enum):
@@ -258,6 +259,17 @@ class NavigationResponse(BaseModel):
     target: NavigationTarget
 
 
+class EntityInfoResponse(BaseModel):
+    """Response with detailed entity information."""
+
+    type: Literal["entity_info"] = "entity_info"
+    message: str
+    entity_data: dict[str, Any]
+    navigation_target: NavigationTarget | None = None
+    multiple_found: bool = False
+    total_found: int = 1
+
+
 class RedirectResponse(BaseModel):
     """Response redirecting to Smart Query page."""
 
@@ -309,6 +321,7 @@ AssistantResponseData = Union[
     QueryResponse,
     ActionPreviewResponse,
     NavigationResponse,
+    EntityInfoResponse,
     RedirectResponse,
     HelpResponse,
     ErrorResponseData,

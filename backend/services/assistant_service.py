@@ -47,7 +47,7 @@ from services.assistant.action_executor import (
 )
 from services.assistant.context_actions import handle_context_action
 from services.assistant.prompts import INTENT_CLASSIFICATION_PROMPT, get_page_documentation
-from services.assistant.query_handler import handle_context_query, handle_query
+from services.assistant.query_handler import handle_context_query, handle_entity_info, handle_query
 from services.assistant.response_formatter import (
     generate_help_response,
     handle_discussion,
@@ -351,6 +351,9 @@ class AssistantService:
 
         elif intent == IntentType.DISCUSSION:
             return await handle_discussion(self.db, message, context, intent_data)
+
+        elif intent == IntentType.ENTITY_INFO:
+            return await handle_entity_info(self.db, message, intent_data, self.tr)
 
         else:
             return ErrorResponseData(message=self.tr.t("unknown_intent"), error_code="unknown_intent"), []

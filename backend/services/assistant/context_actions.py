@@ -427,7 +427,7 @@ async def _handle_create_facet(
     # Generate embedding for semantic similarity search
     from app.utils.similarity import generate_embedding
 
-    embedding = await generate_embedding(description)
+    embedding = await generate_embedding(description, session=db)
     if embedding:
         facet_value.text_embedding = embedding
 

@@ -143,7 +143,7 @@ INTENT_CLASSIFICATION_PROMPT = """Du bist ein Intent-Classifier für einen Chat-
 2. CONTEXT_QUERY - Frage bezieht sich auf aktuelle Entity (z.B. "Was sind die Details?", "Zeig mir mehr")
 3. INLINE_EDIT - Einfache Änderung an aktueller Entity (z.B. "Ändere den Namen zu X", "Setze Position auf Y")
 4. COMPLEX_WRITE - Komplexe Erstellung (z.B. "Erstelle neue Category", "Lege neuen EntityType an")
-5. NAVIGATION - Benutzer will zu einer anderen Seite (z.B. "Geh zu Gummersbach", "Zeig mir Max Mueller")
+5. NAVIGATION - Benutzer will NUR zu einer anderen Seite navigieren, ohne Details zu erfahren (z.B. "Geh zu Gummersbach", "Öffne Max Mueller", "Navigiere zu...")
 6. SUMMARIZE - Benutzer will Zusammenfassung (z.B. "Fasse zusammen", "Gib mir einen Überblick")
 7. HELP - Benutzer braucht Hilfe (z.B. "Wie funktioniert das?", "Was kann ich hier tun?")
 8. BATCH_ACTION - Benutzer will Massenoperation durchführen (z.B. "Füge allen Gemeinden in NRW Pain Point hinzu", "Aktualisiere alle Entities vom Typ X")
@@ -151,6 +151,11 @@ INTENT_CLASSIFICATION_PROMPT = """Du bist ein Intent-Classifier für einen Chat-
 10. CONTEXT_ACTION - Benutzer will Aktion auf aktueller Entity ausführen (z.B. "Analysiere PySis", "Reichere Facets an", "Zeig PySis-Status", "Starte Crawl für diese Gemeinde")
 11. SOURCE_MANAGEMENT - Benutzer will Datenquellen verwalten, Tags abfragen oder Quellen suchen/importieren (z.B. "Welche Tags gibt es?", "Zeige Quellen mit Tag nrw", "Finde Datenquellen für Bundesliga")
 12. DISCUSSION - Benutzer teilt Dokumente, Anforderungen, Notizen oder will diskutieren/planen (z.B. lange Texte, E-Mails, Anforderungspapiere, "hier sind meine Notizen", "was meinst du dazu?", "kannst du mir helfen bei...")
+13. ENTITY_INFO - Benutzer will detaillierte INFORMATIONEN über eine bestimmte Entity sehen (z.B. "Was weißt du über Gummersbach?", "Zeig mir alles über Bad Rodach", "Welche Infos gibt es zu X?", "Was kannst du mir über Y sagen?", "Erzähl mir etwas über Z")
+
+WICHTIG: Unterscheide zwischen NAVIGATION und ENTITY_INFO:
+- NAVIGATION = "Geh zu X", "Navigiere zu X", "Öffne X" → Benutzer will NUR dorthin wechseln
+- ENTITY_INFO = "Was weißt du über X?", "Zeig mir Infos zu X", "Was kannst du mir über X sagen?" → Benutzer will INFORMATIONEN sehen
 
 ## Context Actions (für Intent CONTEXT_ACTION):
 - show_pysis_status: PySis-Status anzeigen
@@ -213,7 +218,7 @@ WICHTIG für DISCUSSION:
 
 Analysiere die Nachricht und gib JSON zurück:
 {{
-  "intent": "QUERY|CONTEXT_QUERY|INLINE_EDIT|COMPLEX_WRITE|NAVIGATION|SUMMARIZE|HELP|BATCH_ACTION|FACET_MANAGEMENT|CONTEXT_ACTION|SOURCE_MANAGEMENT|DISCUSSION",
+  "intent": "QUERY|CONTEXT_QUERY|INLINE_EDIT|COMPLEX_WRITE|NAVIGATION|SUMMARIZE|HELP|BATCH_ACTION|FACET_MANAGEMENT|CONTEXT_ACTION|SOURCE_MANAGEMENT|DISCUSSION|ENTITY_INFO",
   "confidence": 0.0-1.0,
   "extracted_data": {{
     "query_text": "optional: der Suchtext",
