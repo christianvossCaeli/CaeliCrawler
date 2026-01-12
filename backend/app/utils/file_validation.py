@@ -89,14 +89,11 @@ def validate_file_type(
     detected_type = detect_mime_type(content)
 
     if detected_type is None:
-        raise FileValidationError(
-            f"Unbekannter Dateityp. Erlaubt: {', '.join(sorted(allowed_types))}"
-        )
+        raise FileValidationError(f"Unbekannter Dateityp. Erlaubt: {', '.join(sorted(allowed_types))}")
 
     if detected_type not in allowed_types:
         raise FileValidationError(
-            f"Dateityp nicht erlaubt: {detected_type}. "
-            f"Erlaubt: {', '.join(sorted(allowed_types))}"
+            f"Dateityp nicht erlaubt: {detected_type}. Erlaubt: {', '.join(sorted(allowed_types))}"
         )
 
     # Warn if claimed type differs (potential spoofing attempt)
@@ -157,7 +154,7 @@ class StreamingUploadHandler:
         Returns:
             Self for chaining
         """
-        self._temp_file = tempfile.SpooledTemporaryFile(
+        self._temp_file = tempfile.SpooledTemporaryFile(  # noqa: SIM115
             max_size=self.threshold_bytes,
             dir=self.temp_dir,
             mode="w+b",

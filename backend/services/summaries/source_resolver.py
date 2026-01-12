@@ -347,7 +347,6 @@ async def get_source_names(sources: list[DataSource]) -> list[str]:
     return [source.name or source.url for source in sources]
 
 
-
 async def get_category_entity_type_slugs(
     session: AsyncSession,
     category_id: UUID,
@@ -392,7 +391,7 @@ def update_summary_auto_trigger_entity_types(summary: CustomSummary) -> list[str
         await session.commit()  # Required to persist!
     """
     entity_types = extract_entity_types_from_summary(summary)
-    sorted_types = sorted(list(entity_types))
+    sorted_types = sorted(entity_types)
     summary.auto_trigger_entity_types = sorted_types
     return sorted_types
 
@@ -445,7 +444,7 @@ async def find_summaries_for_category_crawl(
         matched = summary_slugs & category_slugs_set
 
         if matched:
-            matches.append((summary, sorted(list(matched))))
+            matches.append((summary, sorted(matched)))
             logger.debug(
                 "summary_matches_category_crawl",
                 summary_id=str(summary.id),

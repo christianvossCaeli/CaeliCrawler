@@ -7,7 +7,7 @@ import structlog
 from sqlalchemy import Float, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Category, DataSource, DataSourceCategory, Document, Entity, ExtractedData, FacetValue
+from app.models import Category, DataSource, DataSourceCategory, Document, Entity, FacetValue
 from app.models.data_source import SourceStatus
 from services.smart_query.constants import TAG_ALIASES
 
@@ -58,10 +58,8 @@ async def find_sources_for_entities(
     entity_id_strs = [str(eid) for eid in entity_ids]
 
     # Path 1a: Direct link via extra_data['entity_id'] (legacy single value)
-    for entity_id, entity_id_str in zip(entity_ids, entity_id_strs):
-        legacy_query = select(DataSource.id).where(
-            DataSource.extra_data["entity_id"].astext == entity_id_str
-        )
+    for entity_id, entity_id_str in zip(entity_ids, entity_id_strs, strict=True):
+        legacy_query = select(DataSource.id).where(DataSource.extra_data["entity_id"].astext == entity_id_str)
         if category_id:
             legacy_query = legacy_query.join(
                 DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id
@@ -73,10 +71,8 @@ async def find_sources_for_entities(
             entities_with_sources.add(entity_id)
 
     # Path 1b: Direct link via extra_data['entity_ids'] (N:M array)
-    for entity_id, entity_id_str in zip(entity_ids, entity_id_strs):
-        array_query = select(DataSource.id).where(
-            DataSource.extra_data["entity_ids"].contains([entity_id_str])
-        )
+    for entity_id, entity_id_str in zip(entity_ids, entity_id_strs, strict=True):
+        array_query = select(DataSource.id).where(DataSource.extra_data["entity_ids"].contains([entity_id_str]))
         if category_id:
             array_query = array_query.join(
                 DataSourceCategory, DataSource.id == DataSourceCategory.data_source_id

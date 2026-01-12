@@ -405,11 +405,7 @@ async def classify_by_llm(
             return None
 
         # Build type options from database descriptions (fully dynamic)
-        type_options = "\n".join(
-            f"- {t['slug']}: {t['description']}"
-            for t in available_types
-            if t.get("description")
-        )
+        type_options = "\n".join(f"- {t['slug']}: {t['description']}" for t in available_types if t.get("description"))
 
         prompt = f"""Classify the following name into one of these entity types.
 Return ONLY the type slug, nothing else.
@@ -568,10 +564,7 @@ async def classify_entity_type(
     type_result = await session.execute(query)
     entity_types = type_result.scalars().all()
 
-    available_types = [
-        {"slug": et.slug, "description": et.description or et.name}
-        for et in entity_types
-    ]
+    available_types = [{"slug": et.slug, "description": et.description or et.name} for et in entity_types]
 
     if available_types:
         llm_result = await classify_by_llm(session, name, available_types)

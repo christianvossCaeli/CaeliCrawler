@@ -796,9 +796,7 @@ async def get_embedding_stats(
 
     # Entity stats
     entities_total = await session.scalar(select(func.count(Entity.id)))
-    entities_with = await session.scalar(
-        select(func.count(Entity.id)).where(Entity.name_embedding.isnot(None))
-    )
+    entities_with = await session.scalar(select(func.count(Entity.id)).where(Entity.name_embedding.isnot(None)))
 
     # EntityType stats
     entity_types_total = await session.scalar(select(func.count(EntityType.id)))
@@ -814,9 +812,7 @@ async def get_embedding_stats(
 
     # Category stats
     categories_total = await session.scalar(select(func.count(Category.id)))
-    categories_with = await session.scalar(
-        select(func.count(Category.id)).where(Category.name_embedding.isnot(None))
-    )
+    categories_with = await session.scalar(select(func.count(Category.id)).where(Category.name_embedding.isnot(None)))
 
     # RelationType stats
     relation_types_total = await session.scalar(select(func.count(RelationType.id)))
@@ -886,9 +882,7 @@ async def generate_embeddings(
     # Check if task is already running
     task_status = get_embedding_task_status()
     if task_status.get("running"):
-        raise ValidationError(
-            f"Embedding-Generierung läuft bereits (Task-ID: {task_status.get('task_id')})"
-        )
+        raise ValidationError(f"Embedding-Generierung läuft bereits (Task-ID: {task_status.get('task_id')})")
 
     # Validate target
     valid_targets = {"all", "entities", "types", "facet_values"}

@@ -64,11 +64,13 @@ class UpdateCrawlScheduleOperation(WriteOperation):
         schedule_data = command.get("schedule_data", {})
 
         # Check that at least one identifier is provided
-        if not any([
-            schedule_data.get("category_id"),
-            schedule_data.get("category_name"),
-            schedule_data.get("category_slug"),
-        ]):
+        if not any(
+            [
+                schedule_data.get("category_id"),
+                schedule_data.get("category_name"),
+                schedule_data.get("category_slug"),
+            ]
+        ):
             return "category_id, category_name oder category_slug erforderlich"
 
         # Validate cron expression if provided
@@ -112,15 +114,11 @@ class UpdateCrawlScheduleOperation(WriteOperation):
                     )
 
             elif category_name:
-                result = await session.execute(
-                    select(Category).where(Category.name == category_name)
-                )
+                result = await session.execute(select(Category).where(Category.name == category_name))
                 category = result.scalar_one_or_none()
 
             elif category_slug:
-                result = await session.execute(
-                    select(Category).where(Category.slug == category_slug)
-                )
+                result = await session.execute(select(Category).where(Category.slug == category_slug))
                 category = result.scalar_one_or_none()
 
             if not category:

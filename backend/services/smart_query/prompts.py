@@ -1278,17 +1278,15 @@ def get_operations_documentation() -> str:
                 description = lines[0].strip() if lines else op_name
 
                 # Check for Examples section in docstring
-                example = ""
                 if "Examples:" in docstring or "Example:" in docstring:
                     # Extract example from docstring
                     example_start = docstring.find("Examples:")
                     if example_start == -1:
                         example_start = docstring.find("Example:")
                     if example_start != -1:
-                        example_section = docstring[example_start:].split("\"\"\"")[0]
-                        # Find first command example
-                        if "command = {" in example_section:
-                            example = "(siehe Beispiele in Dokumentation)"
+                        # Check if there are command examples in the documentation
+                        example_section = docstring[example_start:].split('"""')[0]
+                        _ = "command = {" in example_section  # Used for documentation presence check
 
                 category_docs.append(f"• **{op_name}**: {description}")
 

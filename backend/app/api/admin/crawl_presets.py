@@ -590,10 +590,7 @@ async def preview_entity_sources(
 
     # Build preview items using typed schema
     max_preview = 10
-    preview_items = [
-        EntitySourcePreviewItem(id=str(s.id), name=s.name, url=s.base_url)
-        for s in sources[:max_preview]
-    ]
+    preview_items = [EntitySourcePreviewItem(id=str(s.id), name=s.name, url=s.base_url) for s in sources[:max_preview]]
 
     return EntityCrawlPreviewResponse(
         entity_count=len(request.entity_ids),
@@ -664,7 +661,7 @@ async def start_entity_crawl(
             job_ids=[],
             sources_matched=0,
             message=f"Keine DataSources für die {len(request.entity_ids)} ausgewählten Entities gefunden. "
-                    f"{entities_without_sources} Entities haben keine zugeordneten Quellen.",
+            f"{entities_without_sources} Entities haben keine zugeordneten Quellen.",
         )
 
     # Start crawl jobs

@@ -121,9 +121,7 @@ class ExtractedDataRejectResponse(BaseModel):
     """Response for reject operation with cascade information."""
 
     extraction: "ExtractedDataResponse"
-    deactivated_facets_count: int = Field(
-        description="Number of facet values that were deactivated"
-    )
+    deactivated_facets_count: int = Field(description="Number of facet values that were deactivated")
     protected_facets_count: int = Field(
         description="Number of facet values that were protected (already verified/corrected)"
     )

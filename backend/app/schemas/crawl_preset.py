@@ -178,7 +178,9 @@ class EntityCrawlRequest(BaseModel):
     entity_ids: list[UUID] = Field(..., min_length=1, description="List of entity IDs to crawl sources for")
     category_id: UUID = Field(..., description="Category/analysis topic for the crawl")
     save_as_preset: bool = Field(default=False, description="Whether to save the selection as a preset")
-    preset_name: str | None = Field(None, max_length=255, description="Name for the preset (required if save_as_preset)")
+    preset_name: str | None = Field(
+        None, max_length=255, description="Name for the preset (required if save_as_preset)"
+    )
     selection_mode: Literal["fixed", "dynamic"] = Field(
         default="fixed", description="How to store the selection: 'fixed' saves IDs, 'dynamic' saves filters"
     )

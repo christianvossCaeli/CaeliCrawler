@@ -7,7 +7,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, require_editor, require_llm_budget
+from app.core.deps import require_editor, require_llm_budget
 from app.database import get_session
 from app.models.user import User
 

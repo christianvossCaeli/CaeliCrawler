@@ -345,9 +345,7 @@ def on_crawl_completed(self, crawl_job_id: str, category_id: str):
                 )
 
             # 2. Find AUTO summaries with matching entity types
-            auto_matches = await find_summaries_for_category_crawl(
-                session, UUID(category_id)
-            )
+            auto_matches = await find_summaries_for_category_crawl(session, UUID(category_id))
 
             auto_triggered_count = 0
             for summary, matched_entity_types in auto_matches:

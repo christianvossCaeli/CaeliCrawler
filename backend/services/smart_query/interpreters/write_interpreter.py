@@ -12,7 +12,7 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AIInterpretationError, SessionRequiredError
-from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.llm_usage import LLMTaskType
 from app.models.user_api_credentials import LLMPurpose
 from services.llm_client_service import LLMClientService
 from services.llm_usage_tracker import record_llm_usage

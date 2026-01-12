@@ -8,12 +8,18 @@ This module provides:
 - Statistics tracking for monitoring
 """
 
+from __future__ import annotations
+
 import hashlib
 import os
 from collections import OrderedDict
 from threading import Lock
+from typing import TYPE_CHECKING
 
 import structlog
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
@@ -135,7 +141,7 @@ def clear_embedding_cache() -> None:
 async def generate_embedding(
     text: str,
     use_cache: bool = True,
-    session: "AsyncSession | None" = None,
+    session: AsyncSession | None = None,
 ) -> list[float] | None:
     """
     Generate embedding for text with caching.
@@ -184,7 +190,7 @@ async def generate_embedding(
 
 async def _generate_embedding_with_db_credentials(
     text: str,
-    session: "AsyncSession",
+    session: AsyncSession,
 ) -> list[float] | None:
     """Generate embedding using database-stored credentials."""
     from app.models.user_api_credentials import LLMPurpose

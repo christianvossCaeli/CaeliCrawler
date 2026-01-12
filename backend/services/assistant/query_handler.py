@@ -196,9 +196,7 @@ async def handle_context_query(
         return QueryResponse(message=f"Fehler: {str(e)}", data=QueryResultData()), []
 
 
-async def generate_context_response_with_ai(
-    db: AsyncSession, user_question: str, entity_data: dict[str, Any]
-) -> str:
+async def generate_context_response_with_ai(db: AsyncSession, user_question: str, entity_data: dict[str, Any]) -> str:
     """Use AI to generate an intelligent response about the entity.
 
     Args:
@@ -215,7 +213,9 @@ async def generate_context_response_with_ai(
     llm_service = LLMClientService(db)
     client, config = await llm_service.get_system_client(LLMPurpose.ASSISTANT)
     if not client or not config:
-        raise AIServiceNotAvailableException("KI-Service nicht verfügbar. Bitte LLM in Admin-Einstellungen konfigurieren.")
+        raise AIServiceNotAvailableException(
+            "KI-Service nicht verfügbar. Bitte LLM in Admin-Einstellungen konfigurieren."
+        )
 
     model_name = llm_service.get_model_name(config)
     provider = llm_service.get_provider(config)

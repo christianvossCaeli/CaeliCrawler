@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import FacetType
-from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.llm_usage import LLMTaskType
 from app.models.user_api_credentials import LLMPurpose
 from app.schemas.assistant import (
     AssistantChatResponse,

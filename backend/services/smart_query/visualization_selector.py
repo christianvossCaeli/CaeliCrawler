@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any
 import structlog
 
 from app.core.cache import TTLCache
-from app.models.llm_usage import LLMProvider, LLMTaskType
+from app.models.llm_usage import LLMTaskType
 from app.models.user_api_credentials import LLMPurpose
 from app.schemas.visualization import (
     ChartAxis,

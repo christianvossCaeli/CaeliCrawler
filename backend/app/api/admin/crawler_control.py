@@ -319,16 +319,11 @@ async def _bulk_delete_jobs_by_status(
     status_label = status.value.lower()
 
     # Count jobs first for audit and response
-    count_result = await session.execute(
-        select(func.count(CrawlJob.id)).where(CrawlJob.status == status)
-    )
+    count_result = await session.execute(select(func.count(CrawlJob.id)).where(CrawlJob.status == status))
     deleted_count = count_result.scalar() or 0
 
     if deleted_count == 0:
-        return MessageResponse(
-            message=f"No {status_label} jobs to delete",
-            data={"deleted_count": 0}
-        )
+        return MessageResponse(message=f"No {status_label} jobs to delete", data={"deleted_count": 0})
 
     async with AuditContext(session, current_user, request) as audit:
         audit.track_action(
@@ -347,8 +342,7 @@ async def _bulk_delete_jobs_by_status(
         await session.commit()
 
     return MessageResponse(
-        message=f"Deleted {deleted_count} {status_label} jobs",
-        data={"deleted_count": deleted_count}
+        message=f"Deleted {deleted_count} {status_label} jobs", data={"deleted_count": deleted_count}
     )
 
 

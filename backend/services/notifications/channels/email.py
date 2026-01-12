@@ -324,7 +324,6 @@ class EmailChannel(NotificationChannelBase):
         }
         return colors.get(event_type, "#757575")
 
-
     def _get_event_type_label(self, event_type: str) -> str:
         """Get human-readable German label for event type."""
         labels = {
@@ -342,7 +341,6 @@ class EmailChannel(NotificationChannelBase):
             "SUMMARY_RELEVANT_CHANGES": "Relevante Änderungen",
         }
         return labels.get(event_type, event_type)
-
 
 
 async def send_verification_email(email: str, verification_url: str, email_id: str) -> bool:
@@ -443,7 +441,7 @@ CaeliCrawler - Automatische Datenquellen-Überwachung
                                 color: #4a4a4a;
                                 font-size: 15px;
                             ">
-                                Bitte bestätigen Sie Ihre E-Mail-Adresse <strong>{email}</strong> 
+                                Bitte bestätigen Sie Ihre E-Mail-Adresse <strong>{email}</strong>
                                 für CaeliCrawler-Benachrichtigungen.
                             </p>
 

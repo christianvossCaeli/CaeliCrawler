@@ -12,7 +12,6 @@ Usage:
 import re
 import glob
 from pathlib import Path
-from typing import List, Tuple
 
 def extract_response_model(decorator_line: str) -> str:
     """Extract response_model from decorator line."""

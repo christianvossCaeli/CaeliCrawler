@@ -93,7 +93,9 @@ class SerpAPISearchProvider(BaseSearchProvider):
                     data = response.json()
 
                     if data.get("error") or data.get("search_metadata", {}).get("status") == "Error":
-                        error_message = data.get("error") or data.get("search_metadata", {}).get("error", "Unknown error")
+                        error_message = data.get("error") or data.get("search_metadata", {}).get(
+                            "error", "Unknown error"
+                        )
                         self.had_error = True
                         self.last_error = f"SerpAPI error: {error_message}"
                         logger.error(

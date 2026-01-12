@@ -43,7 +43,7 @@ _entity_tasks = entity_operations.register_tasks(celery_app)
 ) = _entity_tasks
 
 # Re-export helper functions for API access
-from .entity_operations import get_embedding_task_status
+from .entity_operations import get_embedding_task_status  # noqa: E402
 
 # Export all tasks for backward compatibility
 __all__ = [

@@ -431,5 +431,3 @@ async def seed_default_pricing(
         count=count,
         message=f"{count} Standardpreise wurden eingefügt",
     )
-
-

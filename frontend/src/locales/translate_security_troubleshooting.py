@@ -231,7 +231,7 @@ def translate_security_and_troubleshooting():
 
     # Calculate changes
     changes_made = len([1 for i, (c1, c2) in enumerate(zip(original_content, content)) if c1 != c2])
-    print(f"\n✓ Translation completed!")
+    print("\n✓ Translation completed!")
     print(f"  - Approximately {changes_made} characters changed")
     print(f"  - File: {file_path}")
 

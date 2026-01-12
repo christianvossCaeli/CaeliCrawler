@@ -220,7 +220,9 @@ def register_tasks(celery_app):
                     await session.commit()
 
                 try:
-                    value, confidence = await _extract_single_pysis_field(session, field, context_text, process.entity_name)
+                    value, confidence = await _extract_single_pysis_field(
+                        session, field, context_text, process.entity_name
+                    )
 
                     if value:
                         # Store AI value as suggestion - don't auto-apply

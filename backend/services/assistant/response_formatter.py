@@ -267,7 +267,8 @@ async def handle_image_analysis(
         return {
             "success": False,
             "response": ErrorResponseData(
-                message="KI-Service nicht verfügbar. Bitte LLM in Admin-Einstellungen konfigurieren.", error_code="ai_not_configured"
+                message="KI-Service nicht verfügbar. Bitte LLM in Admin-Einstellungen konfigurieren.",
+                error_code="ai_not_configured",
             ),
         }
 

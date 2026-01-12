@@ -267,8 +267,7 @@ async def add_email_address(
 
     # Send verification email
     verification_url = (
-        f"{settings.frontend_url}/verify-email"
-        f"?id={email_address.id}&token={email_address.verification_token}"
+        f"{settings.frontend_url}/verify-email?id={email_address.id}&token={email_address.verification_token}"
     )
     await send_verification_email(
         email=data.email,
@@ -356,8 +355,7 @@ async def resend_verification(
 
     # Send verification email
     verification_url = (
-        f"{settings.frontend_url}/verify-email"
-        f"?id={email_address.id}&token={email_address.verification_token}"
+        f"{settings.frontend_url}/verify-email?id={email_address.id}&token={email_address.verification_token}"
     )
     await send_verification_email(
         email=email_address.email,
@@ -799,7 +797,6 @@ async def mark_all_read(
     return MessageResponse(message=f"{count} notifications marked as read")
 
 
-
 class BulkDeleteRequest(BaseModel):
     """Request to delete multiple notifications."""
 
@@ -856,7 +853,6 @@ async def bulk_delete_notifications(
     await session.commit()
 
     return MessageResponse(message=f"{len(notifications)} notifications deleted")
-
 
 
 class BulkReadRequest(BaseModel):

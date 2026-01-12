@@ -245,9 +245,7 @@ class AIService:
             from services.llm_client_service import LLMClientService
 
             self._llm_service = LLMClientService(self.session)
-            self._client, self._config = await self._llm_service.get_system_client(
-                LLMPurpose.DOCUMENT_ANALYSIS
-            )
+            self._client, self._config = await self._llm_service.get_system_client(LLMPurpose.DOCUMENT_ANALYSIS)
 
             if not self._client or not self._config:
                 raise ValueError(

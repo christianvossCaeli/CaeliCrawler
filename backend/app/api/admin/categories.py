@@ -1491,9 +1491,7 @@ async def unassign_sources_bulk(
         raise NotFoundError("Category", str(category_id))
 
     if not body.source_ids:
-        return UnassignSourcesBulkResponse(
-            removed=0, not_found=0, message="No sources specified"
-        )
+        return UnassignSourcesBulkResponse(removed=0, not_found=0, message="No sources specified")
 
     # Find existing assignments
     result = await session.execute(

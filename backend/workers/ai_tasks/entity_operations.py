@@ -15,6 +15,7 @@ from uuid import UUID
 import structlog
 from celery.exceptions import SoftTimeLimitExceeded
 
+from app.config import settings
 from app.models.llm_usage import LLMProvider, LLMTaskType
 from services.llm_usage_tracker import record_llm_usage
 from workers.async_runner import run_async
@@ -795,23 +796,13 @@ def register_tasks(celery_app):
                 if target == "all":
                     results = await populate_all_embeddings(session, only_missing=only_missing)
                 elif target == "types":
-                    results["entity_types"] = await batch_update_type_embeddings(
-                        session, EntityType, only_missing
-                    )
-                    results["facet_types"] = await batch_update_type_embeddings(
-                        session, FacetType, only_missing
-                    )
-                    results["categories"] = await batch_update_type_embeddings(
-                        session, Category, only_missing
-                    )
-                    results["relation_types"] = await batch_update_relation_type_embeddings(
-                        session, only_missing
-                    )
+                    results["entity_types"] = await batch_update_type_embeddings(session, EntityType, only_missing)
+                    results["facet_types"] = await batch_update_type_embeddings(session, FacetType, only_missing)
+                    results["categories"] = await batch_update_type_embeddings(session, Category, only_missing)
+                    results["relation_types"] = await batch_update_relation_type_embeddings(session, only_missing)
                     await session.commit()
                 elif target == "entities":
-                    results["entities"] = await batch_update_embeddings(
-                        session, only_missing=only_missing
-                    )
+                    results["entities"] = await batch_update_embeddings(session, only_missing=only_missing)
                     await session.commit()
                 elif target == "facet_values":
                     results["facet_values"] = await batch_update_facet_value_embeddings(

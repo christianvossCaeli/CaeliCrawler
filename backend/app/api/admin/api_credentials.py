@@ -230,15 +230,17 @@ async def get_credentials_status(
 
     serpapi_cred = credentials.get(ApiCredentialType.SERPAPI)
     if not serpapi_cred or not serpapi_cred.is_active:
-        migrated = bool(
-            await ensure_search_credential_from_purpose(session, current_user.id, ApiCredentialType.SERPAPI)
-        ) or migrated
+        migrated = (
+            bool(await ensure_search_credential_from_purpose(session, current_user.id, ApiCredentialType.SERPAPI))
+            or migrated
+        )
 
     serper_cred = credentials.get(ApiCredentialType.SERPER)
     if not serper_cred or not serper_cred.is_active:
-        migrated = bool(
-            await ensure_search_credential_from_purpose(session, current_user.id, ApiCredentialType.SERPER)
-        ) or migrated
+        migrated = (
+            bool(await ensure_search_credential_from_purpose(session, current_user.id, ApiCredentialType.SERPER))
+            or migrated
+        )
 
     if migrated:
         result = await session.execute(select(UserApiCredentials).where(UserApiCredentials.user_id == current_user.id))

@@ -591,7 +591,6 @@ async def _get_text_for_analysis(document, session) -> tuple[str, dict[str, Any]
     """
     from pathlib import Path
 
-    from app.config import settings
     from services.document_page_filter import DocumentPageFilter
 
     # Check if we have page-based analysis info

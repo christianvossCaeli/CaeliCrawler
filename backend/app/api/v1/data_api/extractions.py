@@ -851,7 +851,6 @@ async def get_extraction_facets(
     from sqlalchemy.orm import selectinload
 
     from app.models.entity import Entity
-    from app.models.facet_type import FacetType
     from app.models.facet_value import FacetValue
 
     # Get the extraction
@@ -926,19 +925,13 @@ async def get_extraction_facets(
                 target_entity_name=target_entity.name if target_entity else None,
                 target_entity_slug=target_entity.slug if target_entity else None,
                 target_entity_type_slug=(
-                    target_entity.entity_type.slug
-                    if target_entity and target_entity.entity_type
-                    else None
+                    target_entity.entity_type.slug if target_entity and target_entity.entity_type else None
                 ),
                 target_entity_type_icon=(
-                    target_entity.entity_type.icon
-                    if target_entity and target_entity.entity_type
-                    else None
+                    target_entity.entity_type.icon if target_entity and target_entity.entity_type else None
                 ),
                 target_entity_type_color=(
-                    target_entity.entity_type.color
-                    if target_entity and target_entity.entity_type
-                    else None
+                    target_entity.entity_type.color if target_entity and target_entity.entity_type else None
                 ),
             )
         )

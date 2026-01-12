@@ -3,9 +3,7 @@
 Script to extract hardcoded German texts from HelpView.vue and create i18n translations.
 """
 import re
-import json
-from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 # Mapping of German to English translations for common terms
 TRANSLATIONS = {

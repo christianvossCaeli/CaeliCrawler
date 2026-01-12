@@ -625,8 +625,14 @@ async def get_attribute_filter_options(
 
         # Known numeric attributes (use range filter instead of dropdown)
         numeric_keys = {
-            "population", "einwohnerzahl", "area_km2", "flache_km2", "area_ha",
-            "power_mw", "wea_count", "wind_speed_ms",
+            "population",
+            "einwohnerzahl",
+            "area_km2",
+            "flache_km2",
+            "area_ha",
+            "power_mw",
+            "wea_count",
+            "wind_speed_ms",
         }
 
         # Skip internal/meta attributes
@@ -651,10 +657,7 @@ async def get_attribute_filter_options(
                       AND core_attributes->>:key IS NOT NULL
                       AND core_attributes->>:key ~ '^[0-9]+(\\.[0-9]+)?$'
                 """)
-                range_result = await session.execute(
-                    range_query,
-                    {"entity_type_id": entity_type.id, "key": key}
-                )
+                range_result = await session.execute(range_query, {"entity_type_id": entity_type.id, "key": key})
                 row = range_result.fetchone()
                 if row and row[0] is not None:
                     min_val = float(row[0])

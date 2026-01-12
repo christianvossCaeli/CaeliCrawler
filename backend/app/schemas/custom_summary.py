@@ -386,9 +386,7 @@ class SummaryResponse(BaseModel):
         default_factory=list,
         description="Entity type slugs that automatically trigger this summary",
     )
-    last_auto_trigger_reason: str | None = Field(
-        None, description="Last reason why AUTO trigger was activated"
-    )
+    last_auto_trigger_reason: str | None = Field(None, description="Last reason why AUTO trigger was activated")
     schedule_enabled: bool
     next_run_at: datetime | None
     check_relevance: bool
