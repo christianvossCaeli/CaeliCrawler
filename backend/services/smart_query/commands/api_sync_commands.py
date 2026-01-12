@@ -163,7 +163,7 @@ class SetupAPIFacetSyncCommand(BaseCommand):
                     self.session.add(new_ft)
 
                     # Generate embedding for future similarity checks
-                    embedding = await generate_embedding(ft_name)
+                    embedding = await generate_embedding(ft_name, session=self.session)
                     if embedding:
                         new_ft.name_embedding = embedding
 

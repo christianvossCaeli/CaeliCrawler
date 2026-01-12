@@ -301,7 +301,7 @@ async def create_category_setup_with_ai(
             from app.utils.similarity import generate_embedding
 
             try:
-                embedding = await generate_embedding(name)
+                embedding = await generate_embedding(name, session=session)
                 if embedding:
                     entity_type.name_embedding = embedding
                     logger.info("Generated embedding for new EntityType", name=name)
@@ -806,7 +806,7 @@ async def create_category_setup_with_ai(
                         # Generate embedding for future similarity checks
                         from app.utils.similarity import generate_embedding
 
-                        embedding = await generate_embedding(ft_name)
+                        embedding = await generate_embedding(ft_name, session=session)
                         if embedding:
                             new_facet_type.name_embedding = embedding
 
@@ -1317,7 +1317,7 @@ async def create_category_setup(
         from app.utils.similarity import generate_embedding
 
         try:
-            embedding = await generate_embedding(name)
+            embedding = await generate_embedding(name, session=session)
             if embedding:
                 entity_type.name_embedding = embedding
         except Exception as e:

@@ -328,7 +328,7 @@ async def create_category(
         # Generate embedding for semantic similarity search
         from app.utils.similarity import generate_embedding
 
-        embedding = await generate_embedding(category.name)
+        embedding = await generate_embedding(category.name, session=session)
         if embedding:
             category.name_embedding = embedding
 
@@ -497,7 +497,7 @@ async def update_category(
         if "name" in update_data:
             from app.utils.similarity import generate_embedding
 
-            embedding = await generate_embedding(update_data["name"])
+            embedding = await generate_embedding(update_data["name"], session=session)
             if embedding:
                 update_data["name_embedding"] = embedding
 

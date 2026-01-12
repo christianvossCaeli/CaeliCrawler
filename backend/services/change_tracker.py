@@ -267,7 +267,7 @@ class ChangeTracker:
             # Regenerate embedding for restored facet
             from app.utils.similarity import generate_embedding
 
-            embedding = await generate_embedding(text_repr)
+            embedding = await generate_embedding(text_repr, session=self.session)
             if embedding:
                 facet.text_embedding = embedding
 
@@ -293,7 +293,7 @@ class ChangeTracker:
             if "text_representation" in restored:
                 from app.utils.similarity import generate_embedding
 
-                embedding = await generate_embedding(restored["text_representation"])
+                embedding = await generate_embedding(restored["text_representation"], session=self.session)
                 if embedding:
                     facet.text_embedding = embedding
 

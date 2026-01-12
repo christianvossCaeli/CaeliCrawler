@@ -481,7 +481,7 @@ async def classify_by_existing_entities(
     from app.models import EntityType
     from app.utils.similarity import find_similar_entities, generate_embedding
 
-    embedding = await generate_embedding(name)
+    embedding = await generate_embedding(name, session=session)
     if not embedding:
         return None
 
@@ -644,7 +644,7 @@ async def _resolve_entity_any_type(
             return entity.id, et.slug
 
     # Phase 2: Similarity matching (requires embedding API)
-    embedding = await generate_embedding(name)
+    embedding = await generate_embedding(name, session=session)
     if not embedding:
         logger.warning(
             "Could not generate embedding for multi-type entity search",
