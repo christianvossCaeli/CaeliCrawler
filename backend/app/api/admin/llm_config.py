@@ -95,6 +95,8 @@ class PurposeConfigStatus(BaseModel):
     is_active: bool
     last_used_at: str | None
     last_error: str | None
+    # Non-sensitive config values (api_key_masked, endpoint, model, etc.)
+    config: dict[str, str] | None = None
 
 
 class AllConfigStatusResponse(BaseModel):
@@ -156,6 +158,23 @@ def get_purpose_info(purpose: LLMPurpose, language: str = "de") -> PurposeInfo:
     )
 
 
+# Non-sensitive fields that can be returned in clear text per provider
+NON_SENSITIVE_FIELDS: dict[LLMProvider, list[str]] = {
+    LLMProvider.SERPAPI: [],
+    LLMProvider.SERPER: [],
+    LLMProvider.AZURE_OPENAI: ["chat_url", "embeddings_url", "model"],
+    LLMProvider.OPENAI: ["model", "organization", "embeddings_model"],
+    LLMProvider.ANTHROPIC: ["endpoint", "model"],
+}
+
+
+def mask_api_key(key: str) -> str:
+    """Mask an API key, showing only last 4 characters."""
+    if not key or len(key) < 8:
+        return "••••••••"
+    return "••••••••" + key[-4:]
+
+
 def get_config_status(
     purpose: LLMPurpose,
     config: UserLLMConfig | None,
@@ -164,6 +183,23 @@ def get_config_status(
     """Create a status response for a purpose configuration."""
     purpose_info = PURPOSE_DESCRIPTIONS.get(purpose, {})
     provider_info = PROVIDER_DESCRIPTIONS.get(config.provider, {}) if config else {}
+
+    # Extract config values (non-sensitive in clear, api_key masked)
+    extracted_config = None
+    if config and config.encrypted_data:
+        try:
+            decrypted = EncryptionService.decrypt(config.encrypted_data)
+            non_sensitive = NON_SENSITIVE_FIELDS.get(config.provider, [])
+            extracted_config = {}
+            for k, v in decrypted.items():
+                if not v:
+                    continue
+                if k == "api_key":
+                    extracted_config["api_key_masked"] = mask_api_key(v)
+                elif k in non_sensitive:
+                    extracted_config[k] = v
+        except Exception:
+            pass  # If decryption fails, just don't include config
 
     return PurposeConfigStatus(
         purpose=purpose.value,
@@ -176,6 +212,7 @@ def get_config_status(
         is_active=config.is_active if config else False,
         last_used_at=config.last_used_at.isoformat() if config and config.last_used_at else None,
         last_error=config.last_error if config else None,
+        config=extracted_config,
     )
 
 
@@ -200,14 +237,19 @@ def validate_credentials(
     Args:
         provider: The LLM provider
         credentials: The credentials dict
-        purpose: Optional purpose - if EMBEDDINGS, additional fields are required
+        purpose: Optional purpose - if EMBEDDINGS, different fields may be required
     """
     required_fields = list(PROVIDER_FIELDS.get(provider, []))
 
-    # For EMBEDDINGS purpose, add embeddings-specific required fields
+    # For EMBEDDINGS purpose with Azure OpenAI, only embeddings_url is required (not chat_url)
     if purpose == LLMPurpose.EMBEDDINGS:
-        embeddings_fields = EMBEDDINGS_REQUIRED_FIELDS.get(provider, [])
-        required_fields.extend(embeddings_fields)
+        if provider == LLMProvider.AZURE_OPENAI:
+            # For embeddings, we only need api_key and embeddings_url
+            required_fields = ["api_key", "embeddings_url"]
+        else:
+            # For other providers, add embeddings-specific required fields
+            embeddings_fields = EMBEDDINGS_REQUIRED_FIELDS.get(provider, [])
+            required_fields.extend(embeddings_fields)
 
     missing = [f for f in required_fields if not credentials.get(f)]
 
@@ -266,7 +308,7 @@ async def get_purpose_config(
 ) -> PurposeConfigStatus:
     """Get configuration for a specific purpose."""
     try:
-        llm_purpose = LLMPurpose(purpose)
+        llm_purpose = LLMPurpose(purpose.upper())
     except ValueError:
         raise ValidationError(f"Unbekannter Zweck: {purpose}") from None
 
@@ -299,7 +341,7 @@ async def save_purpose_config(
 
     # Parse and validate purpose
     try:
-        llm_purpose = LLMPurpose(purpose)
+        llm_purpose = LLMPurpose(purpose.upper())
     except ValueError:
         raise ValidationError(f"Unbekannter Zweck: {purpose}") from None
 
@@ -310,9 +352,8 @@ async def save_purpose_config(
         raise ValidationError(f"Unbekannter Provider: {data.provider}") from None
 
     validate_provider_for_purpose(llm_purpose, provider)
-    validate_credentials(provider, data.credentials, llm_purpose)
 
-    # Check for existing config
+    # Check for existing config first
     result = await session.execute(
         select(UserLLMConfig).where(
             UserLLMConfig.user_id == current_user.id,
@@ -321,8 +362,21 @@ async def save_purpose_config(
     )
     existing = result.scalar_one_or_none()
 
+    # If updating and no new api_key provided, preserve the existing one
+    credentials_to_save = dict(data.credentials)
+    if existing and not credentials_to_save.get("api_key"):
+        try:
+            existing_creds = EncryptionService.decrypt(existing.encrypted_data)
+            if existing_creds.get("api_key"):
+                credentials_to_save["api_key"] = existing_creds["api_key"]
+        except Exception:
+            pass  # If decryption fails, require new api_key
+
+    # Now validate (api_key should be present either from input or existing)
+    validate_credentials(provider, credentials_to_save, llm_purpose)
+
     # Encrypt credentials
-    encrypted = EncryptionService.encrypt(data.credentials)
+    encrypted = EncryptionService.encrypt(credentials_to_save)
 
     if existing:
         existing.provider = provider
@@ -375,7 +429,7 @@ async def delete_purpose_config(
 ) -> MessageResponse:
     """Delete configuration for a purpose."""
     try:
-        llm_purpose = LLMPurpose(purpose)
+        llm_purpose = LLMPurpose(purpose.upper())
     except ValueError:
         raise ValidationError(f"Unbekannter Zweck: {purpose}") from None
 
@@ -427,7 +481,7 @@ async def test_purpose_config(
     Performs a simple API call to verify that the credentials work.
     """
     try:
-        llm_purpose = LLMPurpose(purpose)
+        llm_purpose = LLMPurpose(purpose.upper())
     except ValueError:
         raise ValidationError(f"Unbekannter Zweck: {purpose}") from None
 
@@ -528,30 +582,73 @@ async def _test_serper(creds: dict[str, Any]) -> TestResultResponse:
 
 
 async def _test_azure_openai(creds: dict[str, Any]) -> TestResultResponse:
-    """Test Azure OpenAI credentials."""
-    endpoint = creds["endpoint"].rstrip("/")
-    deployment = creds["deployment_name"]
-    api_version = creds.get("api_version", "2025-04-01-preview")
+    """Test Azure credentials (OpenAI or Claude).
 
-    url = f"{endpoint}/openai/deployments/{deployment}/chat/completions?api-version={api_version}"
+    Supports both URL-based (new) and component-based (legacy) configs.
+    Automatically detects service type from URL:
+    - /anthropic/ in URL → Azure AI Foundry Claude (uses x-api-key header)
+    - /openai/ in URL → Azure OpenAI (uses api-key header)
+    - Also detects embeddings-only config (EMBEDDINGS purpose).
+    """
+    from services.ai_client import get_azure_test_url
+
+    # Determine if we should test embeddings (only embeddings_url present, no chat_url)
+    has_embeddings_only = creds.get("embeddings_url") and not creds.get("chat_url")
+    url = get_azure_test_url(creds, for_embeddings=has_embeddings_only)
+    is_embeddings = "/embeddings" in url
+    is_anthropic = "/anthropic/" in url
+
+    api_key = creds["api_key"]
 
     async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            url,
-            headers={
-                "api-key": creds["api_key"],
-                "Content-Type": "application/json",
-            },
-            json={
-                "messages": [{"role": "user", "content": "Say 'test'"}],
-                "max_tokens": 5,
-            },
-        )
+        if is_embeddings:
+            # Test embeddings endpoint (Azure OpenAI only)
+            response = await client.post(
+                url,
+                headers={
+                    "api-key": api_key,
+                    "Content-Type": "application/json",
+                },
+                json={"input": "test"},
+            )
+            service_name = "Azure Embeddings"
+        elif is_anthropic:
+            # Test Azure AI Foundry Claude endpoint
+            # Azure AI Foundry uses x-api-key header (NOT api-key!)
+            response = await client.post(
+                url,
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": creds.get("model", "claude-3-5-sonnet-v2"),
+                    "max_tokens": 5,
+                    "messages": [{"role": "user", "content": "Say 'test'"}],
+                },
+            )
+            service_name = "Azure Claude"
+        else:
+            # Test Azure OpenAI chat/completions endpoint
+            response = await client.post(
+                url,
+                headers={
+                    "api-key": api_key,
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "messages": [{"role": "user", "content": "Say 'test'"}],
+                    "max_tokens": 5,
+                },
+            )
+            service_name = "Azure OpenAI"
+
         if response.status_code == 200:
-            return TestResultResponse(success=True, message="Azure OpenAI-Verbindung erfolgreich")
+            return TestResultResponse(success=True, message=f"{service_name}-Verbindung erfolgreich")
         return TestResultResponse(
             success=False,
-            message="Azure OpenAI-Verbindung fehlgeschlagen",
+            message=f"{service_name}-Verbindung fehlgeschlagen",
             error=response.text[:200] if response.text else "Unbekannter Fehler",
         )
 
@@ -585,29 +682,59 @@ async def _test_openai(creds: dict[str, Any]) -> TestResultResponse:
 
 
 async def _test_anthropic(creds: dict[str, Any]) -> TestResultResponse:
-    """Test Anthropic credentials."""
+    """Test Anthropic credentials.
+
+    Supports both:
+    - Direct Anthropic API (api.anthropic.com)
+    - Azure AI Services hosted Claude (*.services.ai.azure.com/anthropic/...)
+    """
+    # Check if it's a full URL or just endpoint
     endpoint = creds.get("endpoint", "https://api.anthropic.com").rstrip("/")
-    url = f"{endpoint}/v1/messages"
+
+    # Detect if this is Azure-hosted Claude
+    is_azure = ".azure.com" in endpoint or ".azure.com" in creds.get("messages_url", "")
+
+    # Support full URL (like Azure OpenAI) or endpoint-based
+    if creds.get("messages_url"):
+        url = creds["messages_url"]
+    elif "/v1/messages" in endpoint or "/anthropic/" in endpoint:
+        # User provided full URL - use as-is or append only if needed
+        if endpoint.endswith("/messages"):
+            url = endpoint
+        else:
+            url = f"{endpoint}/v1/messages" if "/anthropic" not in endpoint else f"{endpoint}/messages"
+    else:
+        url = f"{endpoint}/v1/messages"
+
+    # Set headers based on whether it's Azure or direct Anthropic
+    if is_azure:
+        headers = {
+            "api-key": creds["api_key"],
+            "Content-Type": "application/json",
+        }
+    else:
+        headers = {
+            "x-api-key": creds["api_key"],
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        }
 
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(
             url,
-            headers={
-                "x-api-key": creds["api_key"],
-                "anthropic-version": "2023-06-01",
-                "Content-Type": "application/json",
-            },
+            headers=headers,
             json={
-                "model": creds.get("model", "claude-opus-4-5"),
+                "model": creds.get("model", "claude-3-5-sonnet-v2" if is_azure else "claude-opus-4-5"),
                 "max_tokens": 5,
                 "messages": [{"role": "user", "content": "Say 'test'"}],
             },
         )
+        provider_name = "Azure Claude" if is_azure else "Anthropic"
         if response.status_code == 200:
-            return TestResultResponse(success=True, message="Anthropic-Verbindung erfolgreich")
+            return TestResultResponse(success=True, message=f"{provider_name}-Verbindung erfolgreich")
         return TestResultResponse(
             success=False,
-            message="Anthropic-Verbindung fehlgeschlagen",
+            message=f"{provider_name}-Verbindung fehlgeschlagen",
             error=response.text[:200] if response.text else "Unbekannter Fehler",
         )
 
@@ -645,7 +772,7 @@ async def get_active_config(
     from services.llm_usage_tracker import get_model_pricing
 
     try:
-        llm_purpose = LLMPurpose(purpose)
+        llm_purpose = LLMPurpose(purpose.upper())
     except ValueError:
         raise ValidationError(f"Unbekannter Zweck: {purpose}") from None
 
@@ -896,7 +1023,7 @@ async def generate_embeddings(
         entity_type="Embeddings",
         entity_name=f"generate/{data.target}",
         user=current_user,
-        details={"target": data.target, "force": data.force},
+        changes={"target": data.target, "force": data.force},
     )
     await session.commit()
 

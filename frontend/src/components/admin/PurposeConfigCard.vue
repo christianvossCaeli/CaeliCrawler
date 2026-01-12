@@ -64,59 +64,68 @@
             <v-text-field
               v-model="formData.api_key"
               :label="t('admin.llmConfig.form.apiKey')"
-              :placeholder="t('admin.llmConfig.form.apiKeyPlaceholder')"
+              :placeholder="maskedApiKey || (status?.is_configured ? '••••••••••••' : t('admin.llmConfig.form.apiKeyPlaceholder'))"
               :type="showApiKey ? 'text' : 'password'"
-              :rules="[required]"
+              :rules="[requiredUnlessConfigured]"
               :append-inner-icon="showApiKey ? 'mdi-eye-off' : 'mdi-eye'"
+              :hint="status?.is_configured ? t('admin.llmConfig.form.overwriteHint') : undefined"
+              :persistent-hint="status?.is_configured"
               variant="outlined"
               density="compact"
               @click:append-inner="showApiKey = !showApiKey"
             />
           </template>
 
-          <!-- Azure OpenAI - multiple fields -->
+          <!-- Azure - URL-based (supports OpenAI and Claude) -->
           <template v-else-if="selectedProvider === 'AZURE_OPENAI'">
-            <v-text-field
-              v-model="formData.endpoint"
-              :label="t('admin.llmConfig.form.endpoint')"
-              :placeholder="t('admin.llmConfig.form.endpointPlaceholder')"
-              :rules="[required]"
-              variant="outlined"
-              density="compact"
-              class="mb-2"
-            />
             <v-text-field
               v-model="formData.api_key"
               :label="t('admin.llmConfig.form.apiKey')"
-              :placeholder="t('admin.llmConfig.form.apiKeyPlaceholder')"
+              :placeholder="maskedApiKey || (status?.is_configured ? '••••••••••••' : t('admin.llmConfig.form.apiKeyPlaceholder'))"
               :type="showApiKey ? 'text' : 'password'"
-              :rules="[required]"
+              :rules="[requiredUnlessConfigured]"
               :append-inner-icon="showApiKey ? 'mdi-eye-off' : 'mdi-eye'"
+              :hint="status?.is_configured ? t('admin.llmConfig.form.overwriteHint') : undefined"
+              :persistent-hint="status?.is_configured"
               variant="outlined"
               density="compact"
               class="mb-2"
               @click:append-inner="showApiKey = !showApiKey"
             />
+            <!-- Chat URL - required for non-EMBEDDINGS purposes -->
             <v-text-field
-              v-model="formData.api_version"
-              :label="t('admin.llmConfig.form.apiVersion')"
-              variant="outlined"
-              density="compact"
-              class="mb-2"
-            />
-            <v-text-field
-              v-model="formData.deployment_name"
-              :label="t('admin.llmConfig.form.deploymentName')"
-              :placeholder="t('admin.llmConfig.form.deploymentNamePlaceholder')"
+              v-if="!isEmbeddingsPurpose"
+              v-model="formData.chat_url"
+              :label="t('admin.llmConfig.form.chatUrl')"
+              :placeholder="t('admin.llmConfig.form.chatUrlPlaceholder')"
+              :hint="t('admin.llmConfig.form.chatUrlHint')"
+              persistent-hint
               :rules="[required]"
               variant="outlined"
               density="compact"
               class="mb-2"
             />
+            <!-- Model field - shown when URL contains /anthropic/ (Claude) -->
             <v-text-field
-              v-model="formData.embeddings_deployment"
-              :label="t('admin.llmConfig.form.embeddingsDeployment')"
-              :placeholder="t('admin.llmConfig.form.embeddingsDeploymentPlaceholder')"
+              v-if="!isEmbeddingsPurpose && isAzureClaudeUrl"
+              v-model="formData.model"
+              :label="t('admin.llmConfig.form.model')"
+              placeholder="claude-3-5-sonnet-v2"
+              hint="Azure Claude Model (z.B. claude-3-5-sonnet-v2)"
+              persistent-hint
+              variant="outlined"
+              density="compact"
+              class="mb-2"
+            />
+            <!-- Embeddings URL - required for EMBEDDINGS purpose -->
+            <v-text-field
+              v-if="isEmbeddingsPurpose"
+              v-model="formData.embeddings_url"
+              :label="t('admin.llmConfig.form.embeddingsUrl')"
+              :placeholder="t('admin.llmConfig.form.embeddingsUrlPlaceholder')"
+              :hint="t('admin.llmConfig.form.embeddingsUrlHint')"
+              persistent-hint
+              :rules="[required]"
               variant="outlined"
               density="compact"
             />
@@ -127,10 +136,12 @@
             <v-text-field
               v-model="formData.api_key"
               :label="t('admin.llmConfig.form.apiKey')"
-              :placeholder="t('admin.llmConfig.form.apiKeyPlaceholder')"
+              :placeholder="maskedApiKey || (status?.is_configured ? '••••••••••••' : t('admin.llmConfig.form.apiKeyPlaceholder'))"
               :type="showApiKey ? 'text' : 'password'"
-              :rules="[required]"
+              :rules="[requiredUnlessConfigured]"
               :append-inner-icon="showApiKey ? 'mdi-eye-off' : 'mdi-eye'"
+              :hint="status?.is_configured ? t('admin.llmConfig.form.overwriteHint') : undefined"
+              :persistent-hint="status?.is_configured"
               variant="outlined"
               density="compact"
               class="mb-2"
@@ -150,12 +161,15 @@
               :placeholder="t('admin.llmConfig.form.openaiModelPlaceholder')"
               variant="outlined"
               density="compact"
-              class="mb-2"
+              :class="isEmbeddingsPurpose ? 'mb-2' : ''"
             />
+            <!-- Embeddings model only shown for EMBEDDINGS purpose -->
             <v-text-field
+              v-if="isEmbeddingsPurpose"
               v-model="formData.embeddings_model"
               :label="t('admin.llmConfig.form.embeddingsModel')"
               :placeholder="t('admin.llmConfig.form.embeddingsModelPlaceholder')"
+              :rules="[required]"
               variant="outlined"
               density="compact"
             />
@@ -175,10 +189,12 @@
             <v-text-field
               v-model="formData.api_key"
               :label="t('admin.llmConfig.form.apiKey')"
-              :placeholder="t('admin.llmConfig.form.apiKeyPlaceholder')"
+              :placeholder="maskedApiKey || (status?.is_configured ? '••••••••••••' : t('admin.llmConfig.form.apiKeyPlaceholder'))"
               :type="showApiKey ? 'text' : 'password'"
-              :rules="[required]"
+              :rules="[requiredUnlessConfigured]"
               :append-inner-icon="showApiKey ? 'mdi-eye-off' : 'mdi-eye'"
+              :hint="status?.is_configured ? t('admin.llmConfig.form.overwriteHint') : undefined"
+              :persistent-hint="status?.is_configured"
               variant="outlined"
               density="compact"
               class="mb-2"
@@ -236,13 +252,26 @@
 
         <v-alert
           v-if="embeddingStats?.task_running"
-          type="warning"
+          type="info"
           variant="tonal"
           density="compact"
           class="mb-3"
         >
-          <v-icon start size="small">mdi-cog-sync</v-icon>
-          {{ t('admin.llmConfig.embeddings.taskRunning') }}
+          <template #prepend>
+            <v-progress-circular
+              indeterminate
+              size="20"
+              width="2"
+              color="info"
+              class="mr-2"
+            />
+          </template>
+          <div class="d-flex flex-column">
+            <span class="font-weight-medium">{{ t('admin.llmConfig.embeddings.taskRunning') }}</span>
+            <span v-if="embeddingStats?.task_id" class="text-caption text-medium-emphasis">
+              Task-ID: {{ embeddingStats.task_id }}
+            </span>
+          </div>
         </v-alert>
 
         <v-btn
@@ -284,12 +313,12 @@
         }}
       </v-chip>
       <v-btn
-        v-if="status?.is_configured"
+        v-if="hasFormDataForTest"
         color="secondary"
         variant="tonal"
         size="small"
-        :loading="testing"
-        @click="$emit('test')"
+        :loading="isTesting"
+        @click="handlePreviewTest"
       >
         <v-icon start>mdi-connection</v-icon>
         {{ t('admin.llmConfig.actions.test') }}
@@ -310,11 +339,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { PurposeInfo, PurposeConfigStatus, EmbeddingStats } from '@/services/api/admin'
-import { getEmbeddingStats, generateEmbeddings } from '@/services/api/admin'
+import {
+  getEmbeddingStats,
+  generateEmbeddings,
+  previewTestAzureOpenAI,
+  previewTestAzureOpenAIEmbeddings,
+  previewTestOpenAI,
+  previewTestOpenAIEmbeddings,
+  previewTestAnthropic,
+} from '@/services/api/admin'
 import { useDateFormatter } from '@/composables'
+import { useSnackbar } from '@/composables/useSnackbar'
 
 const props = defineProps<{
   purposeInfo: PurposeInfo
@@ -329,21 +367,44 @@ const emit = defineEmits<{
   delete: []
 }>()
 
+// Composables (declare early for use in functions below)
+const { formatDateTime } = useDateFormatter()
+const { showSuccess, showError } = useSnackbar()
+const { t } = useI18n()
+
 // Check if this is the EMBEDDINGS purpose
 const isEmbeddingsPurpose = computed(() => props.purposeInfo.value === 'EMBEDDINGS')
+
+// Check if Azure URL is for Claude (contains /anthropic/)
+const isAzureClaudeUrl = computed(() => {
+  const url = formData.chat_url || ''
+  return url.includes('/anthropic/')
+})
 
 // Embedding stats state
 const embeddingStats = ref<EmbeddingStats | null>(null)
 const loadingStats = ref(false)
 const generatingEmbeddings = ref(false)
+let pollingInterval: ReturnType<typeof setInterval> | null = null
 
 async function loadEmbeddingStats() {
   if (!isEmbeddingsPurpose.value) return
 
   loadingStats.value = true
+  const wasRunning = embeddingStats.value?.task_running
   try {
     const response = await getEmbeddingStats()
     embeddingStats.value = response.data
+
+    // Start polling if task is running
+    if (response.data.task_running && !pollingInterval) {
+      startPolling()
+    }
+    // Stop polling and show completion if task just finished
+    if (wasRunning && !response.data.task_running) {
+      stopPolling()
+      showSuccess('Embedding-Generierung abgeschlossen!')
+    }
   } catch {
     // Silently fail - stats are optional
   } finally {
@@ -351,18 +412,40 @@ async function loadEmbeddingStats() {
   }
 }
 
+function startPolling() {
+  if (pollingInterval) return
+  pollingInterval = setInterval(() => {
+    loadEmbeddingStats()
+  }, 3000) // Poll every 3 seconds
+}
+
+function stopPolling() {
+  if (pollingInterval) {
+    clearInterval(pollingInterval)
+    pollingInterval = null
+  }
+}
+
 async function handleGenerateEmbeddings() {
   generatingEmbeddings.value = true
   try {
-    await generateEmbeddings({ target: 'all', force: false })
-    // Reload stats after a short delay to show the task is running
-    setTimeout(() => loadEmbeddingStats(), 1000)
+    const response = await generateEmbeddings({ target: 'all', force: false })
+    showSuccess(`Embedding-Generierung gestartet (Task-ID: ${response.data.task_id})`)
+    // Reload stats after a short delay and start polling
+    setTimeout(() => {
+      loadEmbeddingStats()
+    }, 1000)
   } catch {
     // Error handling is done by the API layer
   } finally {
     generatingEmbeddings.value = false
   }
 }
+
+// Clean up polling on unmount
+onUnmounted(() => {
+  stopPolling()
+})
 
 // Load embedding stats when component mounts (only for EMBEDDINGS purpose)
 onMounted(() => {
@@ -378,24 +461,25 @@ watch(() => props.status?.is_configured, (isConfigured) => {
   }
 })
 
-const { formatDateTime } = useDateFormatter()
-
-const { t } = useI18n()
-
 const formValid = ref(false)
 const showApiKey = ref(false)
 const selectedProvider = ref<string | null>(props.status?.provider || null)
+const localTesting = ref(false)
+// Track the last saved provider to avoid resetting form when watch sets the same provider
+const lastSavedProvider = ref<string | null>(props.status?.provider || null)
 
 // Initialize form data based on selected provider
 const formData = reactive<Record<string, string>>({
   api_key: '',
-  endpoint: '',
-  api_version: '2025-04-01-preview',
-  deployment_name: '',
-  embeddings_deployment: 'text-embedding-3-large',
+  // Azure OpenAI (URL-based)
+  chat_url: '',
+  embeddings_url: '',
+  // OpenAI
   model: '',
   organization: '',
   embeddings_model: 'text-embedding-3-large',
+  // Anthropic
+  endpoint: '',
 })
 
 // Create provider items for the select dropdown
@@ -407,17 +491,22 @@ const providerItems = computed(() => {
   }))
 })
 
-// Set default values when provider changes
+// Set default values when provider changes (only for actual user-initiated changes)
 function onProviderChange(provider: string | null) {
-  // Reset form
+  // Skip reset if this is just the watch setting the provider to match saved config
+  // This prevents wiping form data when the component loads or status updates
+  if (provider === lastSavedProvider.value) {
+    return
+  }
+
+  // Reset form for actual provider change
   formData.api_key = ''
-  formData.endpoint = ''
-  formData.api_version = '2025-04-01-preview'
-  formData.deployment_name = ''
-  formData.embeddings_deployment = 'text-embedding-3-large'
+  formData.chat_url = ''
+  formData.embeddings_url = ''
   formData.model = ''
   formData.organization = ''
   formData.embeddings_model = 'text-embedding-3-large'
+  formData.endpoint = ''
 
   // Set defaults based on provider
   if (provider === 'ANTHROPIC') {
@@ -428,15 +517,141 @@ function onProviderChange(provider: string | null) {
   }
 }
 
-// Reset when status changes (e.g., after save)
-watch(() => props.status, () => {
-  formData.api_key = ''
-  if (props.status?.provider) {
-    selectedProvider.value = props.status.provider
+// Update provider and form fields when status changes (e.g., after save or initial load)
+watch(() => props.status, (newStatus) => {
+  if (newStatus?.provider) {
+    // Update the saved provider first so onProviderChange won't reset the form
+    lastSavedProvider.value = newStatus.provider
+    selectedProvider.value = newStatus.provider
+  }
+  // Populate form with saved config values (except api_key which stays empty for security)
+  if (newStatus?.config) {
+    const config = newStatus.config
+    // Azure OpenAI (URL-based)
+    if (config.chat_url) formData.chat_url = config.chat_url
+    if (config.embeddings_url) formData.embeddings_url = config.embeddings_url
+    // OpenAI & Azure Claude (model field)
+    if (config.model) formData.model = config.model
+    if (config.organization) formData.organization = config.organization
+    if (config.embeddings_model) formData.embeddings_model = config.embeddings_model
+    // Anthropic
+    if (config.endpoint) formData.endpoint = config.endpoint
+    // api_key stays empty - user must re-enter to change
+  }
+}, { immediate: true })
+
+const required = (v: string) => !!v || t('common.required')
+const requiredUnlessConfigured = (v: string) => !!v || props.status?.is_configured || t('common.required')
+
+// Get masked API key from config for placeholder
+const maskedApiKey = computed(() => props.status?.config?.api_key_masked)
+
+// Combined testing state from local and props
+const isTesting = computed(() => localTesting.value || props.testing)
+
+// Check if we have enough form data to enable test button
+const hasFormDataForTest = computed(() => {
+  if (!selectedProvider.value) return false
+
+  // Check if we have either a new api_key entered OR the provider is already configured
+  const hasApiKey = !!formData.api_key.trim() || props.status?.is_configured
+  if (!hasApiKey) return false
+
+  // Provider-specific required fields
+  switch (selectedProvider.value) {
+    case 'AZURE_OPENAI':
+      // For EMBEDDINGS purpose, need embeddings_url; otherwise need chat_url
+      if (isEmbeddingsPurpose.value) {
+        return !!formData.embeddings_url.trim()
+      }
+      return !!formData.chat_url.trim()
+    case 'ANTHROPIC':
+      return !!formData.endpoint.trim()
+    case 'OPENAI':
+    case 'SERPAPI':
+    case 'SERPER':
+      return true
+    default:
+      return true
   }
 })
 
-const required = (v: string) => !!v || t('common.required')
+// Check if we need to use preview test (has new data) or regular test
+const shouldUsePreviewTest = computed(() => {
+  return !!formData.api_key.trim()
+})
+
+async function handlePreviewTest() {
+  if (!selectedProvider.value || !hasFormDataForTest.value) return
+
+  // If we have a new API key, use preview test
+  if (shouldUsePreviewTest.value) {
+    localTesting.value = true
+    try {
+      let response
+      switch (selectedProvider.value) {
+        case 'AZURE_OPENAI':
+          // For EMBEDDINGS purpose, test the embeddings URL
+          if (isEmbeddingsPurpose.value && formData.embeddings_url.trim()) {
+            response = await previewTestAzureOpenAIEmbeddings({
+              api_key: formData.api_key,
+              chat_url: formData.chat_url || formData.embeddings_url, // fallback
+              embeddings_url: formData.embeddings_url,
+            })
+          } else {
+            response = await previewTestAzureOpenAI({
+              api_key: formData.api_key,
+              chat_url: formData.chat_url,
+              embeddings_url: formData.embeddings_url || undefined,
+              model: formData.model || undefined,  // For Azure Claude
+            })
+          }
+          break
+        case 'OPENAI':
+          // For EMBEDDINGS purpose, test the embeddings model
+          if (isEmbeddingsPurpose.value) {
+            response = await previewTestOpenAIEmbeddings({
+              api_key: formData.api_key,
+              organization: formData.organization || undefined,
+              model: formData.model || undefined,
+              embeddings_model: formData.embeddings_model || undefined,
+            })
+          } else {
+            response = await previewTestOpenAI({
+              api_key: formData.api_key,
+              organization: formData.organization || undefined,
+              model: formData.model || undefined,
+              embeddings_model: formData.embeddings_model || undefined,
+            })
+          }
+          break
+        case 'ANTHROPIC':
+          response = await previewTestAnthropic({
+            endpoint: formData.endpoint || undefined,
+            api_key: formData.api_key,
+            model: formData.model || undefined,
+          })
+          break
+        default:
+          showError(t('admin.llmConfig.messages.testFailed'))
+          return
+      }
+
+      if (response.data.success) {
+        showSuccess(t('admin.llmConfig.messages.testSuccess'))
+      } else {
+        showError(response.data.error || t('admin.llmConfig.messages.testFailed'))
+      }
+    } catch {
+      showError(t('admin.llmConfig.messages.testFailed'))
+    } finally {
+      localTesting.value = false
+    }
+  } else if (props.status?.is_configured) {
+    // No new API key but configured - use the regular test (emit to parent)
+    emit('test')
+  }
+}
 
 function formatDate(dateStr: string): string {
   return formatDateTime(dateStr)
@@ -448,10 +663,9 @@ function handleSave() {
   const credentials: Record<string, string> = { api_key: formData.api_key }
 
   if (selectedProvider.value === 'AZURE_OPENAI') {
-    credentials.endpoint = formData.endpoint
-    credentials.api_version = formData.api_version
-    credentials.deployment_name = formData.deployment_name
-    credentials.embeddings_deployment = formData.embeddings_deployment
+    credentials.chat_url = formData.chat_url
+    if (formData.embeddings_url) credentials.embeddings_url = formData.embeddings_url
+    if (formData.model) credentials.model = formData.model  // For Azure Claude
   } else if (selectedProvider.value === 'OPENAI') {
     if (formData.organization) credentials.organization = formData.organization
     if (formData.model) credentials.model = formData.model

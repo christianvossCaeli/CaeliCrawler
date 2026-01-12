@@ -33,7 +33,7 @@ export const PROVIDER_COLORS: Record<LLMProviderType, string> = {
  * Provider display labels
  */
 export const PROVIDER_LABELS: Record<LLMProviderType, string> = {
-  AZURE_OPENAI: 'Azure OpenAI',
+  AZURE_OPENAI: 'Azure',
   OPENAI: 'OpenAI',
   ANTHROPIC: 'Anthropic',
   SERPAPI: 'SerpAPI',

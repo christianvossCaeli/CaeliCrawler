@@ -92,10 +92,12 @@
         <v-text-field
           v-model="formData.serpapi_key"
           :label="serpapiLabel"
-          :placeholder="t('admin.llmConfig.form.apiKeyPlaceholder')"
+          :placeholder="serpapiMaskedKey || (serpapiConfigured ? '••••••••••••' : t('admin.llmConfig.form.apiKeyPlaceholder'))"
           :type="showSerpapiKey ? 'text' : 'password'"
-          :rules="[requireSerpapiOrSerper]"
+          :rules="[requireSerpapiOrSerperUnlessConfigured]"
           :append-inner-icon="showSerpapiKey ? 'mdi-eye-off' : 'mdi-eye'"
+          :hint="serpapiConfigured ? t('admin.llmConfig.form.overwriteHint') : undefined"
+          :persistent-hint="serpapiConfigured"
           variant="outlined"
           density="compact"
           class="mb-2"
@@ -104,10 +106,12 @@
         <v-text-field
           v-model="formData.serper_key"
           :label="serperLabel"
-          :placeholder="t('admin.llmConfig.form.apiKeyPlaceholder')"
+          :placeholder="serperMaskedKey || (serperConfigured ? '••••••••••••' : t('admin.llmConfig.form.apiKeyPlaceholder'))"
           :type="showSerperKey ? 'text' : 'password'"
-          :rules="[requireSerperOrSerpapi]"
+          :rules="[requireSerperOrSerpapiUnlessConfigured]"
           :append-inner-icon="showSerperKey ? 'mdi-eye-off' : 'mdi-eye'"
+          :hint="serperConfigured ? t('admin.llmConfig.form.overwriteHint') : undefined"
+          :persistent-hint="serperConfigured"
           variant="outlined"
           density="compact"
           @click:append-inner="showSerperKey = !showSerperKey"
@@ -128,23 +132,23 @@
       </v-btn>
       <v-spacer />
       <v-btn
-        v-if="serpapiConfigured"
+        v-if="serpapiConfigured || formData.serpapi_key.trim()"
         color="secondary"
         variant="tonal"
         size="small"
         :loading="testingProvider === 'serpapi'"
-        @click="emit('test', 'serpapi')"
+        @click="handlePreviewTest('serpapi')"
       >
         <v-icon start>mdi-connection</v-icon>
         {{ serpapiLabel }}
       </v-btn>
       <v-btn
-        v-if="serperConfigured"
+        v-if="serperConfigured || formData.serper_key.trim()"
         color="secondary"
         variant="tonal"
         size="small"
         :loading="testingProvider === 'serper'"
-        @click="emit('test', 'serper')"
+        @click="handlePreviewTest('serper')"
       >
         <v-icon start>mdi-connection</v-icon>
         {{ serperLabel }}
@@ -165,10 +169,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDateFormatter } from '@/composables'
-import type { CredentialStatus, PurposeInfo } from '@/services/api/admin'
+import { useSnackbar } from '@/composables/useSnackbar'
+import {
+  previewTestSerpApi,
+  previewTestSerper,
+  type CredentialStatus,
+  type PurposeInfo,
+} from '@/services/api/admin'
 
 const props = defineProps<{
   purposeInfo: PurposeInfo
@@ -186,10 +196,12 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const { formatDateTime } = useDateFormatter()
+const { showSuccess, showError } = useSnackbar()
 
 const formValid = ref(false)
 const showSerpapiKey = ref(false)
 const showSerperKey = ref(false)
+const localTestingProvider = ref<'serpapi' | 'serper' | null>(null)
 
 const formData = reactive({
   serpapi_key: '',
@@ -199,6 +211,10 @@ const formData = reactive({
 const serpapiConfigured = computed(() => props.serpapiStatus?.is_configured ?? false)
 const serperConfigured = computed(() => props.serperStatus?.is_configured ?? false)
 const isConfigured = computed(() => serpapiConfigured.value || serperConfigured.value)
+
+// Get masked API keys from config
+const serpapiMaskedKey = computed(() => props.serpapiStatus?.config?.api_key_masked)
+const serperMaskedKey = computed(() => props.serperStatus?.config?.api_key_masked)
 
 const providerNames = computed(() => {
   const names: Record<string, string> = {}
@@ -221,18 +237,11 @@ const configuredProvidersLabel = computed(() => {
   return providers.join(', ')
 })
 
-const requireSerpapiOrSerper = (v: string) =>
-  !!v || !!formData.serper_key || t('admin.llmConfig.webSearch.atLeastOne')
-const requireSerperOrSerpapi = (v: string) =>
-  !!v || !!formData.serpapi_key || t('admin.llmConfig.webSearch.atLeastOne')
-
-watch(
-  () => [props.serpapiStatus?.is_configured, props.serperStatus?.is_configured],
-  () => {
-    formData.serpapi_key = ''
-    formData.serper_key = ''
-  }
-)
+// Validation: require at least one key, unless at least one is already configured
+const requireSerpapiOrSerperUnlessConfigured = (v: string) =>
+  !!v || !!formData.serper_key || isConfigured.value || t('admin.llmConfig.webSearch.atLeastOne')
+const requireSerperOrSerpapiUnlessConfigured = (v: string) =>
+  !!v || !!formData.serpapi_key || isConfigured.value || t('admin.llmConfig.webSearch.atLeastOne')
 
 function formatDate(dateStr: string): string {
   return formatDateTime(dateStr)
@@ -241,5 +250,36 @@ function formatDate(dateStr: string): string {
 function handleSave() {
   if (!formValid.value) return
   emit('save', { serpapi_key: formData.serpapi_key, serper_key: formData.serper_key })
+}
+
+// Combined testing state from local and props
+const testingProvider = computed(() => localTestingProvider.value || props.testingProvider)
+
+async function handlePreviewTest(provider: 'serpapi' | 'serper') {
+  const key = provider === 'serpapi' ? formData.serpapi_key.trim() : formData.serper_key.trim()
+  const isConfigured = provider === 'serpapi' ? serpapiConfigured.value : serperConfigured.value
+
+  // If there's a new value entered, use preview test
+  if (key) {
+    localTestingProvider.value = provider
+    try {
+      const response = provider === 'serpapi'
+        ? await previewTestSerpApi({ api_key: key })
+        : await previewTestSerper({ api_key: key })
+
+      if (response.data.success) {
+        showSuccess(t('admin.llmConfig.messages.testSuccess'))
+      } else {
+        showError(response.data.error || t('admin.llmConfig.messages.testFailed'))
+      }
+    } catch {
+      showError(t('admin.llmConfig.messages.testFailed'))
+    } finally {
+      localTestingProvider.value = null
+    }
+  } else if (isConfigured) {
+    // If no new value but is configured, test saved credentials
+    emit('test', provider)
+  }
 }
 </script>

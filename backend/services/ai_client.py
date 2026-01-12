@@ -17,8 +17,10 @@ Get user credentials via:
 """
 
 import json
+import re
 import time
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 import structlog
 from openai import AsyncAzureOpenAI, AzureOpenAI
@@ -27,6 +29,219 @@ from app.models.llm_usage import LLMProvider, LLMTaskType
 from services.llm_usage_tracker import record_llm_usage
 
 logger = structlog.get_logger()
+
+
+# =============================================================================
+# Azure URL Parsing Helpers
+# =============================================================================
+
+
+def parse_azure_url(url: str) -> dict[str, str]:
+    """Parse an Azure URL into its components.
+
+    Supports both Azure OpenAI and Azure Claude (Anthropic) URLs:
+
+    Azure OpenAI:
+        https://xxx.cognitiveservices.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-02-15
+
+    Azure Claude:
+        https://xxx.services.ai.azure.com/anthropic/v1/messages
+
+    Args:
+        url: Complete Azure URL
+
+    Returns:
+        Dict with keys: endpoint, deployment (optional), api_version, provider_type ("openai" or "anthropic")
+
+    Raises:
+        ValueError: If URL is not a valid Azure URL
+    """
+    try:
+        parsed = urlparse(url)
+
+        # Extract base endpoint (scheme + host)
+        endpoint = f"{parsed.scheme}://{parsed.netloc}"
+
+        # Try Azure OpenAI format: /openai/deployments/{deployment}/{operation}
+        openai_match = re.match(
+            r"/openai/deployments/([^/]+)/(chat/completions|embeddings|completions)",
+            parsed.path,
+        )
+        if openai_match:
+            deployment = openai_match.group(1)
+            operation_type = openai_match.group(2)
+
+            # Parse api-version from query string
+            query_params = parse_qs(parsed.query)
+            api_version = query_params.get("api-version", ["2024-02-15"])[0]
+
+            return {
+                "endpoint": endpoint,
+                "deployment": deployment,
+                "api_version": api_version,
+                "operation_type": operation_type,
+                "provider_type": "openai",
+            }
+
+        # Try Azure Claude format: /anthropic/v1/messages
+        anthropic_match = re.match(r"/anthropic/v1/(messages|completions)", parsed.path)
+        if anthropic_match:
+            return {
+                "endpoint": endpoint,
+                "deployment": None,
+                "api_version": "2024-06-01",  # Default for Azure Claude
+                "operation_type": anthropic_match.group(1),
+                "provider_type": "anthropic",
+            }
+
+        raise ValueError(f"Unrecognized Azure URL format: {parsed.path}")
+
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Could not parse Azure URL: {url}. Error: {e}") from e
+
+
+# Backward compatibility alias
+def parse_azure_openai_url(url: str) -> dict[str, str]:
+    """Parse an Azure OpenAI URL into its components.
+
+    DEPRECATED: Use parse_azure_url instead which also supports Azure Claude URLs.
+    """
+    result = parse_azure_url(url)
+    if result.get("provider_type") != "openai":
+        raise ValueError(f"Expected Azure OpenAI URL, got {result.get('provider_type')} URL")
+    return result
+
+
+def create_azure_config_from_urls(
+    chat_url: str,
+    api_key: str,
+    embeddings_url: str | None = None,
+    model: str | None = None,
+) -> dict[str, Any]:
+    """Create a normalized Azure config dict from URL-based credentials.
+
+    Supports both Azure OpenAI and Azure Claude (Anthropic) URLs.
+
+    Args:
+        chat_url: Complete URL for chat/completions endpoint
+        api_key: Azure API key
+        embeddings_url: Optional URL for embeddings endpoint (Azure OpenAI only)
+        model: Model name (required for Azure Claude, e.g., "claude-opus-4-5")
+
+    Returns:
+        Dict compatible with LLMClientService._create_client
+    """
+    chat_parsed = parse_azure_url(chat_url)
+    provider_type = chat_parsed.get("provider_type", "openai")
+
+    config: dict[str, Any] = {
+        "type": "azure",
+        "azure_provider": provider_type,  # "openai" or "anthropic"
+        "endpoint": chat_parsed["endpoint"],
+        "api_key": api_key,
+        "api_version": chat_parsed["api_version"],
+        "chat_url": chat_url,
+    }
+
+    if provider_type == "openai":
+        # Azure OpenAI - deployment from URL
+        config["deployment_name"] = chat_parsed["deployment"]
+
+        if embeddings_url:
+            embeddings_parsed = parse_azure_url(embeddings_url)
+            config["embeddings_deployment"] = embeddings_parsed.get("deployment")
+            config["embeddings_url"] = embeddings_url
+        else:
+            config["embeddings_deployment"] = chat_parsed["deployment"]
+
+    elif provider_type == "anthropic":
+        # Azure Claude - requires model name and uses different API
+        if not model:
+            raise ValueError("Model name is required for Azure Claude (e.g., 'claude-opus-4-5')")
+        config["model"] = model
+        config["deployment_name"] = None  # No deployment for Azure Claude
+        logger.warning(
+            "azure_claude_url_detected",
+            msg="Azure Claude URLs detected. This requires Anthropic API format, not OpenAI.",
+        )
+
+    return config
+
+
+def normalize_azure_credentials(creds: dict[str, Any]) -> dict[str, Any]:
+    """Normalize Azure credentials to a consistent format.
+
+    Supports both URL-based (new) and component-based (legacy) credential formats.
+    Also supports Azure Claude (Anthropic on Azure) via URL detection.
+
+    Args:
+        creds: Credentials dict (either URL-based or component-based)
+
+    Returns:
+        Normalized config dict with all required fields
+    """
+    chat_url = creds.get("chat_url", "").strip() if creds.get("chat_url") else ""
+    embeddings_url = creds.get("embeddings_url", "").strip() if creds.get("embeddings_url") else ""
+
+    if chat_url:
+        # New URL-based format - parse and normalize
+        return create_azure_config_from_urls(
+            chat_url=chat_url,
+            api_key=creds["api_key"],
+            embeddings_url=embeddings_url or None,
+            model=creds.get("model"),  # Required for Azure Claude
+        )
+    elif embeddings_url:
+        # Embeddings-only configuration (no chat URL)
+        # Derive config from embeddings URL
+        embeddings_parsed = parse_azure_url(embeddings_url)
+        return {
+            "type": "azure",
+            "azure_provider": embeddings_parsed.get("provider_type", "openai"),
+            "endpoint": embeddings_parsed["endpoint"],
+            "api_key": creds["api_key"],
+            "api_version": embeddings_parsed.get("api_version", "2025-04-01-preview"),
+            "deployment_name": None,  # No chat deployment
+            "embeddings_deployment": embeddings_parsed.get("deployment"),
+            "embeddings_url": embeddings_url,
+        }
+    else:
+        # Legacy component-based format - already normalized
+        return {
+            "type": "azure",
+            "endpoint": creds.get("endpoint"),
+            "api_key": creds.get("api_key"),
+            "api_version": creds.get("api_version", "2025-04-01-preview"),
+            "deployment_name": creds.get("deployment_name"),
+            "embeddings_deployment": creds.get("embeddings_deployment"),
+        }
+
+
+def get_azure_test_url(creds: dict[str, Any], for_embeddings: bool = False) -> str:
+    """Get the appropriate test URL from Azure credentials.
+
+    Args:
+        creds: Credentials dict (either URL-based or component-based)
+        for_embeddings: If True, return embeddings URL; otherwise chat URL
+
+    Returns:
+        Complete URL for testing
+    """
+    if for_embeddings and creds.get("embeddings_url"):
+        return creds["embeddings_url"]
+
+    if creds.get("chat_url"):
+        return creds["chat_url"]
+
+    # Legacy format - construct URL
+    endpoint = creds["endpoint"].rstrip("/")
+    deployment = creds["deployment_name"] if not for_embeddings else creds.get("embeddings_deployment", creds["deployment_name"])
+    api_version = creds.get("api_version", "2025-04-01-preview")
+    operation = "embeddings" if for_embeddings else "chat/completions"
+
+    return f"{endpoint}/openai/deployments/{deployment}/{operation}?api-version={api_version}"
 
 # Error message for deprecated global client usage
 _DEPRECATED_MSG = (

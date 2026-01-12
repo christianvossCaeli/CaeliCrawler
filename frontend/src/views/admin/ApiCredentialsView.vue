@@ -162,14 +162,27 @@ async function handleSaveWebSearch(
   const serpapiKey = credentials.serpapi_key.trim()
   const serperKey = credentials.serper_key.trim()
 
-  if (!serpapiKey && !serperKey) {
+  // Get current credential status for web search
+  const serpapiConfigured = credentialStatus.value?.serpapi?.is_configured
+  const serperConfigured = credentialStatus.value?.serper?.is_configured
+
+  // If nothing is entered and nothing is configured, show error
+  if (!serpapiKey && !serperKey && !serpapiConfigured && !serperConfigured) {
     showError(t('admin.llmConfig.webSearch.atLeastOne'))
+    savingPurpose.value = null
+    return
+  }
+
+  // If nothing new is entered but something is already configured, just return success
+  if (!serpapiKey && !serperKey) {
+    showSuccess(t('admin.llmConfig.messages.saved'))
     savingPurpose.value = null
     return
   }
 
   try {
     const requests = []
+    // Only save what was actually entered
     if (serpapiKey) requests.push(saveSerpApiCredentials({ api_key: serpapiKey }))
     if (serperKey) requests.push(saveSerperCredentials({ api_key: serperKey }))
     await Promise.all(requests)

@@ -61,7 +61,7 @@ export interface LLMUsageByCategory {
 }
 
 export interface LLMUsageTrend {
-  date: string
+  day: string
   request_count: number
   total_tokens: number
   cost_cents: number
@@ -213,7 +213,7 @@ export const PERIOD_OPTIONS: PeriodOption[] = [
 ]
 
 export const PROVIDER_LABELS: Record<LLMProvider, string> = {
-  AZURE_OPENAI: 'Azure OpenAI',
+  AZURE_OPENAI: 'Azure',
   OPENAI: 'OpenAI',
   ANTHROPIC: 'Anthropic Claude',
 }

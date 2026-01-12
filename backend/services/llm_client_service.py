@@ -114,6 +114,15 @@ class LLMClientService:
         provider_type = config.get("type", "azure")
 
         if provider_type == "azure":
+            # Check if this is Azure Claude (Anthropic on Azure)
+            azure_provider = config.get("azure_provider", "openai")
+            if azure_provider == "anthropic":
+                raise ValueError(
+                    "Azure Claude (Anthropic on Azure) is not supported via the OpenAI client. "
+                    "Please use standard Azure OpenAI URLs for this feature, or configure "
+                    "direct Anthropic API credentials for Plan-Mode/API-Discovery purposes."
+                )
+
             return AsyncAzureOpenAI(
                 azure_endpoint=config["endpoint"],
                 api_key=config["api_key"],

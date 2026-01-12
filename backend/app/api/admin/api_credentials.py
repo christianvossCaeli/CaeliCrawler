@@ -65,16 +65,18 @@ class SerperCredentialsRequest(BaseModel):
 
 
 class AzureOpenAICredentialsRequest(BaseModel):
-    """Request model for Azure OpenAI credentials."""
+    """Request model for Azure credentials (OpenAI or Claude).
 
-    endpoint: str = Field(..., description="Azure OpenAI Endpoint URL (e.g., https://xxx.openai.azure.com/)")
-    api_key: str = Field(..., min_length=10, description="Azure OpenAI API Key")
-    api_version: str = Field(default="2025-04-01-preview", description="API Version")
-    deployment_name: str = Field(..., description="Default deployment name for chat/completion")
-    embeddings_deployment: str = Field(
-        default="text-embedding-3-large",
-        description="Deployment name for embeddings",
-    )
+    URLs should be complete Azure URLs that can be copied directly from Azure Portal.
+    Example OpenAI chat URL: https://xxx.cognitiveservices.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-02-15
+    Example Claude URL: https://xxx.services.ai.azure.com/anthropic/v1/messages
+    Example embeddings URL: https://xxx.cognitiveservices.azure.com/openai/deployments/text-embedding-3-large/embeddings?api-version=2023-05-15
+    """
+
+    api_key: str = Field(..., min_length=10, description="Azure API Key")
+    chat_url: str = Field(..., description="Complete Azure Chat URL (copy from Azure Portal)")
+    embeddings_url: str | None = Field(default=None, description="Complete Azure Embeddings URL (only for EMBEDDINGS purpose)")
+    model: str | None = Field(default=None, description="Model name (required for Azure Claude, e.g. claude-opus-4-5)")
 
 
 class OpenAICredentialsRequest(BaseModel):
@@ -105,6 +107,8 @@ class CredentialStatusResponse(BaseModel):
     last_used_at: str | None
     last_error: str | None
     fields: list[str]
+    # Non-sensitive config values (endpoint, model, etc. - NOT api_key)
+    config: dict[str, str] | None = None
 
 
 class AllCredentialsStatusResponse(BaseModel):
@@ -136,6 +140,23 @@ class TestResultResponse(BaseModel):
 # =============================================================================
 
 
+# Non-sensitive fields that can be returned in clear text
+NON_SENSITIVE_FIELDS: dict[ApiCredentialType, list[str]] = {
+    ApiCredentialType.SERPAPI: [],
+    ApiCredentialType.SERPER: [],
+    ApiCredentialType.AZURE_OPENAI: ["chat_url", "embeddings_url"],
+    ApiCredentialType.OPENAI: ["model", "organization", "embeddings_model"],
+    ApiCredentialType.ANTHROPIC: ["endpoint", "model"],
+}
+
+
+def mask_api_key(key: str) -> str:
+    """Mask an API key, showing only last 4 characters."""
+    if not key or len(key) < 8:
+        return "••••••••"
+    return "••••••••" + key[-4:]
+
+
 def make_credential_status(
     cred_type: ApiCredentialType,
     cred: UserApiCredentials | None,
@@ -146,6 +167,23 @@ def make_credential_status(
     desc_key = f"description_{language}"
     description = info.get(desc_key, info.get("description_de", ""))
 
+    # Extract config values (non-sensitive in clear, api_key masked)
+    config = None
+    if cred and cred.encrypted_data:
+        try:
+            decrypted = EncryptionService.decrypt(cred.encrypted_data)
+            non_sensitive = NON_SENSITIVE_FIELDS.get(cred_type, [])
+            config = {}
+            for k, v in decrypted.items():
+                if not v:
+                    continue
+                if k == "api_key":
+                    config["api_key_masked"] = mask_api_key(v)
+                elif k in non_sensitive:
+                    config[k] = v
+        except Exception:
+            pass  # If decryption fails, just don't include config
+
     return CredentialStatusResponse(
         type=cred_type.value,
         name=info.get("name", cred_type.value),
@@ -155,6 +193,7 @@ def make_credential_status(
         last_used_at=cred.last_used_at.isoformat() if cred and cred.last_used_at else None,
         last_error=cred.last_error if cred else None,
         fields=info.get("fields", []),
+        config=config,
     )
 
 
@@ -316,22 +355,25 @@ async def save_azure_openai_credentials(
     """Save Azure OpenAI credentials.
 
     Azure OpenAI is used for document analysis, summaries, and AI features.
+    Supports both Azure OpenAI and Azure Claude via URL-based configuration.
     """
     await check_rate_limit(request, "api_credentials", identifier=str(current_user.id))
+    cred_data: dict[str, str | None] = {
+        "api_key": data.api_key,
+        "chat_url": data.chat_url,
+    }
+    if data.embeddings_url:
+        cred_data["embeddings_url"] = data.embeddings_url
+    if data.model:
+        cred_data["model"] = data.model
     await save_credential(
         session,
         current_user.id,
         ApiCredentialType.AZURE_OPENAI,
-        {
-            "endpoint": data.endpoint.rstrip("/"),
-            "api_key": data.api_key,
-            "api_version": data.api_version,
-            "deployment_name": data.deployment_name,
-            "embeddings_deployment": data.embeddings_deployment,
-        },
+        cred_data,
         user=current_user,
     )
-    return MessageResponse(message="Azure OpenAI-Zugangsdaten erfolgreich gespeichert")
+    return MessageResponse(message="Azure-Zugangsdaten erfolgreich gespeichert")
 
 
 @router.put("/openai", response_model=MessageResponse)
@@ -487,12 +529,55 @@ async def test_serpapi(
         )
 
 
+@router.post("/test/serper", response_model=TestResultResponse)
+async def test_serper(
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_editor),
+) -> TestResultResponse:
+    """Test Serper credentials with a simple query."""
+    from services.credentials_resolver import get_user_credentials
+
+    creds = await get_user_credentials(session, current_user.id, ApiCredentialType.SERPER)
+    if not creds:
+        raise ValidationError("Serper ist nicht konfiguriert")
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://google.serper.dev/search",
+                headers={
+                    "X-API-KEY": creds["api_key"],
+                    "Content-Type": "application/json",
+                },
+                json={"q": "test", "num": 1},
+            )
+            if response.status_code == 200:
+                return TestResultResponse(
+                    success=True,
+                    message="Serper-Verbindung erfolgreich",
+                )
+            else:
+                error_text = response.text[:200] if response.text else "Unbekannter Fehler"
+                return TestResultResponse(
+                    success=False,
+                    message="Serper-Verbindung fehlgeschlagen",
+                    error=error_text,
+                )
+    except Exception as e:
+        return TestResultResponse(
+            success=False,
+            message="Serper-Verbindung fehlgeschlagen",
+            error=str(e),
+        )
+
+
 @router.post("/test/azure-openai", response_model=TestResultResponse)
 async def test_azure_openai(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_editor),
 ) -> TestResultResponse:
     """Test Azure OpenAI credentials with a simple API call."""
+    from services.ai_client import get_azure_test_url
     from services.credentials_resolver import get_user_credentials
 
     creds = await get_user_credentials(session, current_user.id, ApiCredentialType.AZURE_OPENAI)
@@ -500,25 +585,36 @@ async def test_azure_openai(
         raise ValidationError("Azure OpenAI ist nicht konfiguriert")
 
     try:
-        # Test with a simple completion request
-        endpoint = creds["endpoint"].rstrip("/")
-        deployment = creds["deployment_name"]
-        api_version = creds["api_version"]
-
-        url = f"{endpoint}/openai/deployments/{deployment}/chat/completions?api-version={api_version}"
+        # Determine if we should test embeddings (only embeddings_url present, no chat_url)
+        has_embeddings_only = creds.get("embeddings_url") and not creds.get("chat_url")
+        url = get_azure_test_url(creds, for_embeddings=has_embeddings_only)
+        is_embeddings = "/embeddings" in url
 
         async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(
-                url,
-                headers={
-                    "api-key": creds["api_key"],
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "messages": [{"role": "user", "content": "Say 'test'"}],
-                    "max_tokens": 5,
-                },
-            )
+            if is_embeddings:
+                # Test embeddings endpoint
+                response = await client.post(
+                    url,
+                    headers={
+                        "api-key": creds["api_key"],
+                        "Content-Type": "application/json",
+                    },
+                    json={"input": "test"},
+                )
+            else:
+                # Test chat/completions endpoint
+                response = await client.post(
+                    url,
+                    headers={
+                        "api-key": creds["api_key"],
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "messages": [{"role": "user", "content": "Say 'test'"}],
+                        "max_tokens": 5,
+                    },
+                )
+
             if response.status_code == 200:
                 return TestResultResponse(
                     success=True,
@@ -615,6 +711,345 @@ async def test_anthropic(
                 },
                 json={
                     "model": creds["model"],
+                    "max_tokens": 5,
+                    "messages": [{"role": "user", "content": "Say 'test'"}],
+                },
+            )
+            if response.status_code == 200:
+                return TestResultResponse(
+                    success=True,
+                    message="Anthropic-Verbindung erfolgreich",
+                )
+            else:
+                error_text = response.text[:200] if response.text else "Unbekannter Fehler"
+                return TestResultResponse(
+                    success=False,
+                    message="Anthropic-Verbindung fehlgeschlagen",
+                    error=error_text,
+                )
+    except Exception as e:
+        return TestResultResponse(
+            success=False,
+            message="Anthropic-Verbindung fehlgeschlagen",
+            error=str(e),
+        )
+
+
+# =============================================================================
+# Preview Test Endpoints (test credentials before saving)
+# =============================================================================
+
+
+@router.post("/preview-test/serpapi", response_model=TestResultResponse)
+async def preview_test_serpapi(
+    data: SerpApiCredentialsRequest,
+    _: User = Depends(require_editor),
+) -> TestResultResponse:
+    """Test SerpAPI credentials before saving them."""
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(
+                "https://serpapi.com/search.json",
+                params={
+                    "engine": "google",
+                    "q": "test",
+                    "num": 1,
+                    "api_key": data.api_key,
+                },
+            )
+            if response.status_code == 200:
+                return TestResultResponse(
+                    success=True,
+                    message="SerpAPI-Verbindung erfolgreich",
+                )
+            else:
+                error_text = response.text[:200] if response.text else "Unbekannter Fehler"
+                return TestResultResponse(
+                    success=False,
+                    message="SerpAPI-Verbindung fehlgeschlagen",
+                    error=error_text,
+                )
+    except Exception as e:
+        return TestResultResponse(
+            success=False,
+            message="SerpAPI-Verbindung fehlgeschlagen",
+            error=str(e),
+        )
+
+
+@router.post("/preview-test/serper", response_model=TestResultResponse)
+async def preview_test_serper(
+    data: SerperCredentialsRequest,
+    _: User = Depends(require_editor),
+) -> TestResultResponse:
+    """Test Serper credentials before saving them."""
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://google.serper.dev/search",
+                headers={
+                    "X-API-KEY": data.api_key,
+                    "Content-Type": "application/json",
+                },
+                json={"q": "test", "num": 1},
+            )
+            if response.status_code == 200:
+                return TestResultResponse(
+                    success=True,
+                    message="Serper-Verbindung erfolgreich",
+                )
+            else:
+                error_text = response.text[:200] if response.text else "Unbekannter Fehler"
+                return TestResultResponse(
+                    success=False,
+                    message="Serper-Verbindung fehlgeschlagen",
+                    error=error_text,
+                )
+    except Exception as e:
+        return TestResultResponse(
+            success=False,
+            message="Serper-Verbindung fehlgeschlagen",
+            error=str(e),
+        )
+
+
+@router.post("/preview-test/azure-openai", response_model=TestResultResponse)
+async def preview_test_azure_openai(
+    data: AzureOpenAICredentialsRequest,
+    _: User = Depends(require_editor),
+) -> TestResultResponse:
+    """Test Azure credentials before saving them.
+
+    Supports both Azure OpenAI and Azure AI Foundry (Claude).
+    Uses the chat_url directly - user should paste the complete URL from Azure Portal.
+    """
+    try:
+        # Determine which URL to test based on URL content
+        url = data.chat_url
+        is_embeddings = "/embeddings" in url
+        is_anthropic = "/anthropic/" in url
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            if is_embeddings:
+                # Test embeddings endpoint
+                response = await client.post(
+                    url,
+                    headers={
+                        "api-key": data.api_key,
+                        "Content-Type": "application/json",
+                    },
+                    json={"input": "test"},
+                )
+                service_name = "Azure Embeddings"
+            elif is_anthropic:
+                # Test Azure AI Foundry Claude endpoint
+                # Uses x-api-key header (NOT api-key!)
+                response = await client.post(
+                    url,
+                    headers={
+                        "x-api-key": data.api_key,
+                        "anthropic-version": "2023-06-01",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": data.model or "claude-3-5-sonnet-v2",
+                        "max_tokens": 5,
+                        "messages": [{"role": "user", "content": "Say 'test'"}],
+                    },
+                )
+                service_name = "Azure Claude"
+            else:
+                # Test Azure OpenAI chat/completions endpoint
+                response = await client.post(
+                    url,
+                    headers={
+                        "api-key": data.api_key,
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "messages": [{"role": "user", "content": "Say 'test'"}],
+                        "max_tokens": 5,
+                    },
+                )
+                service_name = "Azure OpenAI"
+
+            if response.status_code == 200:
+                return TestResultResponse(
+                    success=True,
+                    message=f"{service_name}-Verbindung erfolgreich",
+                )
+            else:
+                error_text = response.text[:200] if response.text else "Unbekannter Fehler"
+                return TestResultResponse(
+                    success=False,
+                    message=f"{service_name}-Verbindung fehlgeschlagen",
+                    error=error_text,
+                )
+    except Exception as e:
+        return TestResultResponse(
+            success=False,
+            message="Azure-Verbindung fehlgeschlagen",
+            error=str(e),
+        )
+
+
+@router.post("/preview-test/azure-openai-embeddings", response_model=TestResultResponse)
+async def preview_test_azure_openai_embeddings(
+    data: AzureOpenAICredentialsRequest,
+    _: User = Depends(require_editor),
+) -> TestResultResponse:
+    """Test Azure OpenAI embeddings credentials before saving them.
+
+    Uses the embeddings_url directly - user should paste the complete URL from Azure Portal.
+    """
+    try:
+        url = data.embeddings_url
+        if not url:
+            return TestResultResponse(
+                success=False,
+                message="Keine Embeddings-URL angegeben",
+                error="embeddings_url is required for embeddings test",
+            )
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                url,
+                headers={
+                    "api-key": data.api_key,
+                    "Content-Type": "application/json",
+                },
+                json={"input": "test"},
+            )
+            if response.status_code == 200:
+                return TestResultResponse(
+                    success=True,
+                    message="Azure OpenAI Embeddings-Verbindung erfolgreich",
+                )
+            else:
+                error_text = response.text[:200] if response.text else "Unbekannter Fehler"
+                return TestResultResponse(
+                    success=False,
+                    message="Azure OpenAI Embeddings-Verbindung fehlgeschlagen",
+                    error=error_text,
+                )
+    except Exception as e:
+        return TestResultResponse(
+            success=False,
+            message="Azure OpenAI Embeddings-Verbindung fehlgeschlagen",
+            error=str(e),
+        )
+
+
+@router.post("/preview-test/openai", response_model=TestResultResponse)
+async def preview_test_openai(
+    data: OpenAICredentialsRequest,
+    _: User = Depends(require_editor),
+) -> TestResultResponse:
+    """Test standard OpenAI credentials before saving them."""
+    try:
+        headers = {
+            "Authorization": f"Bearer {data.api_key}",
+            "Content-Type": "application/json",
+        }
+        if data.organization:
+            headers["OpenAI-Organization"] = data.organization
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers=headers,
+                json={
+                    "model": data.model or "gpt-4o",
+                    "messages": [{"role": "user", "content": "Say 'test'"}],
+                    "max_tokens": 5,
+                },
+            )
+            if response.status_code == 200:
+                return TestResultResponse(
+                    success=True,
+                    message="OpenAI-Verbindung erfolgreich",
+                )
+            else:
+                error_text = response.text[:200] if response.text else "Unbekannter Fehler"
+                return TestResultResponse(
+                    success=False,
+                    message="OpenAI-Verbindung fehlgeschlagen",
+                    error=error_text,
+                )
+    except Exception as e:
+        return TestResultResponse(
+            success=False,
+            message="OpenAI-Verbindung fehlgeschlagen",
+            error=str(e),
+        )
+
+
+@router.post("/preview-test/openai-embeddings", response_model=TestResultResponse)
+async def preview_test_openai_embeddings(
+    data: OpenAICredentialsRequest,
+    _: User = Depends(require_editor),
+) -> TestResultResponse:
+    """Test standard OpenAI embeddings credentials before saving them."""
+    try:
+        headers = {
+            "Authorization": f"Bearer {data.api_key}",
+            "Content-Type": "application/json",
+        }
+        if data.organization:
+            headers["OpenAI-Organization"] = data.organization
+
+        # Use embeddings_model for embeddings test
+        model = data.embeddings_model or "text-embedding-3-large"
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://api.openai.com/v1/embeddings",
+                headers=headers,
+                json={
+                    "model": model,
+                    "input": "test",
+                },
+            )
+            if response.status_code == 200:
+                return TestResultResponse(
+                    success=True,
+                    message="OpenAI Embeddings-Verbindung erfolgreich",
+                )
+            else:
+                error_text = response.text[:200] if response.text else "Unbekannter Fehler"
+                return TestResultResponse(
+                    success=False,
+                    message="OpenAI Embeddings-Verbindung fehlgeschlagen",
+                    error=error_text,
+                )
+    except Exception as e:
+        return TestResultResponse(
+            success=False,
+            message="OpenAI Embeddings-Verbindung fehlgeschlagen",
+            error=str(e),
+        )
+
+
+@router.post("/preview-test/anthropic", response_model=TestResultResponse)
+async def preview_test_anthropic(
+    data: AnthropicCredentialsRequest,
+    _: User = Depends(require_editor),
+) -> TestResultResponse:
+    """Test Anthropic credentials before saving them."""
+    try:
+        endpoint = (data.endpoint or "https://api.anthropic.com").rstrip("/")
+        url = f"{endpoint}/v1/messages"
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                url,
+                headers={
+                    "x-api-key": data.api_key,
+                    "anthropic-version": "2023-06-01",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": data.model or "claude-opus-4-5",
                     "max_tokens": 5,
                     "messages": [{"role": "user", "content": "Say 'test'"}],
                 },

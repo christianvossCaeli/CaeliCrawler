@@ -8,27 +8,28 @@ Supports two modes:
 1. Legacy provider-based credentials (UserApiCredentials) - for backwards compatibility
 2. Purpose-based configuration (UserLLMConfig) - new recommended approach
 
-Example usage:
-    async with get_session() as session:
-        # New: Purpose-based configuration
-        config = await get_config_for_purpose(session, user_id, LLMPurpose.DOCUMENT_ANALYSIS)
-        if config:
-            # config contains: provider, credentials dict
-            if config["provider"] == LLMProvider.AZURE_OPENAI:
-                client = AsyncAzureOpenAI(
-                    azure_endpoint=config["credentials"]["endpoint"],
-                    api_key=config["credentials"]["api_key"],
-                    api_version=config["credentials"]["api_version"],
-                )
+Azure OpenAI credentials support both URL-based (new) and component-based (legacy) formats.
+Use normalize_azure_credentials() from ai_client to get a consistent format.
 
-        # Legacy: Provider-based credentials
-        config = await get_azure_openai_config(session, user_id)
-        if config:
-            client = AsyncAzureOpenAI(
-                azure_endpoint=config["endpoint"],
-                api_key=config["api_key"],
-                api_version=config["api_version"],
-            )
+Example usage:
+    from services.ai_client import (
+        create_async_client_for_user,
+        normalize_azure_credentials,
+        get_deployment_name,
+    )
+
+    async with get_session() as session:
+        # Recommended: Use get_openai_compatible_config for normalized config
+        config = await get_openai_compatible_config(session, user_id, LLMPurpose.DOCUMENT_ANALYSIS)
+        if config and config["type"] == "azure":
+            client = create_async_client_for_user(config)
+            deployment = get_deployment_name(config)
+
+        # Alternative: Get raw credentials and normalize manually
+        raw_creds = await get_azure_openai_config(session, user_id)
+        if raw_creds:
+            config = normalize_azure_credentials(raw_creds)
+            client = create_async_client_for_user(config)
 
         # Or require credentials (raises error if not configured)
         config = await require_config_for_purpose(
@@ -144,12 +145,19 @@ async def get_azure_openai_config(
 ) -> dict[str, Any] | None:
     """Get Azure OpenAI configuration for a user.
 
-    Returns dict with keys:
-        - endpoint: Azure OpenAI endpoint URL
+    Returns dict with keys (URL-based format):
+        - type: "azure"
+        - endpoint: Azure OpenAI endpoint URL (extracted from URL)
         - api_key: API key
-        - api_version: API version (e.g., "2025-04-01-preview")
-        - deployment_name: Default deployment name
-        - embeddings_deployment: Embeddings deployment name
+        - api_version: API version (extracted from URL)
+        - deployment_name: Deployment name (extracted from URL)
+        - embeddings_deployment: Embeddings deployment name (optional)
+        - chat_url: Original chat URL
+        - embeddings_url: Original embeddings URL (optional)
+
+    Note: Both URL-based (new) and component-based (legacy) credentials
+    are supported. Use normalize_azure_credentials() if you need a
+    consistent format.
 
     Returns:
         Configuration dict or None if not configured
@@ -605,6 +613,18 @@ async def get_openai_compatible_config(
         For Azure: {type: "azure", endpoint, api_key, api_version, deployment_name, embeddings_deployment}
         For OpenAI: {type: "openai", api_key, organization?, model, embeddings_model}
     """
+    from services.ai_client import normalize_azure_credentials
+
+    def _normalize_openai_creds(creds: dict[str, Any]) -> dict[str, Any]:
+        """Helper to normalize OpenAI credentials."""
+        return {
+            "type": "openai",
+            "api_key": creds.get("api_key"),
+            "organization": creds.get("organization"),
+            "model": creds.get("model", "gpt-4o"),
+            "embeddings_model": creds.get("embeddings_model", "text-embedding-3-large"),
+        }
+
     # Try new purpose-based config first
     config = await get_config_for_purpose(session, user_id, purpose)
     if config:
@@ -612,46 +632,20 @@ async def get_openai_compatible_config(
         creds = config["credentials"]
 
         if provider == LLMProvider.AZURE_OPENAI:
-            return {
-                "type": "azure",
-                "endpoint": creds.get("endpoint"),
-                "api_key": creds.get("api_key"),
-                "api_version": creds.get("api_version", "2025-04-01-preview"),
-                "deployment_name": creds.get("deployment_name"),
-                "embeddings_deployment": creds.get("embeddings_deployment"),
-            }
+            return normalize_azure_credentials(creds)
         elif provider == LLMProvider.OPENAI:
-            return {
-                "type": "openai",
-                "api_key": creds.get("api_key"),
-                "organization": creds.get("organization"),
-                "model": creds.get("model", "gpt-4o"),
-                "embeddings_model": creds.get("embeddings_model", "text-embedding-3-large"),
-            }
+            return _normalize_openai_creds(creds)
 
     # Fall back to legacy provider-based config
     # Try Azure OpenAI first
     azure_creds = await get_user_credentials(session, user_id, ApiCredentialType.AZURE_OPENAI)
     if azure_creds:
-        return {
-            "type": "azure",
-            "endpoint": azure_creds.get("endpoint"),
-            "api_key": azure_creds.get("api_key"),
-            "api_version": azure_creds.get("api_version", "2025-04-01-preview"),
-            "deployment_name": azure_creds.get("deployment_name"),
-            "embeddings_deployment": azure_creds.get("embeddings_deployment"),
-        }
+        return normalize_azure_credentials(azure_creds)
 
     # Try standard OpenAI
     openai_creds = await get_user_credentials(session, user_id, ApiCredentialType.OPENAI)
     if openai_creds:
-        return {
-            "type": "openai",
-            "api_key": openai_creds.get("api_key"),
-            "organization": openai_creds.get("organization"),
-            "model": openai_creds.get("model", "gpt-4o"),
-            "embeddings_model": openai_creds.get("embeddings_model", "text-embedding-3-large"),
-        }
+        return _normalize_openai_creds(openai_creds)
 
     return None
 

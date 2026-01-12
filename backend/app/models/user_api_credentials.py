@@ -74,7 +74,7 @@ PURPOSE_VALID_PROVIDERS: dict[LLMPurpose, list[LLMProvider]] = {
 PROVIDER_FIELDS: dict[LLMProvider, list[str]] = {
     LLMProvider.SERPAPI: ["api_key"],
     LLMProvider.SERPER: ["api_key"],
-    LLMProvider.AZURE_OPENAI: ["endpoint", "api_key", "api_version", "deployment_name"],
+    LLMProvider.AZURE_OPENAI: ["api_key", "chat_url"],
     LLMProvider.OPENAI: ["api_key", "model"],
     LLMProvider.ANTHROPIC: ["endpoint", "api_key", "model"],
 }
@@ -83,14 +83,14 @@ PROVIDER_FIELDS: dict[LLMProvider, list[str]] = {
 PROVIDER_OPTIONAL_FIELDS: dict[LLMProvider, list[str]] = {
     LLMProvider.SERPAPI: [],
     LLMProvider.SERPER: [],
-    LLMProvider.AZURE_OPENAI: ["embeddings_deployment"],
+    LLMProvider.AZURE_OPENAI: ["embeddings_url"],
     LLMProvider.OPENAI: ["organization", "embeddings_model"],
     LLMProvider.ANTHROPIC: [],
 }
 
 # Fields required for EMBEDDINGS purpose (in addition to core fields)
 EMBEDDINGS_REQUIRED_FIELDS: dict[LLMProvider, list[str]] = {
-    LLMProvider.AZURE_OPENAI: ["embeddings_deployment"],
+    LLMProvider.AZURE_OPENAI: ["embeddings_url"],
     LLMProvider.OPENAI: ["embeddings_model"],
 }
 
@@ -153,9 +153,9 @@ PROVIDER_DESCRIPTIONS: dict[LLMProvider, dict[str, str]] = {
         "description_en": "Alternative Google Search API with lower pricing.",
     },
     LLMProvider.AZURE_OPENAI: {
-        "name": "Azure OpenAI",
-        "description_de": "Microsoft Azure gehosteter OpenAI Service mit Enterprise-Features.",
-        "description_en": "Microsoft Azure hosted OpenAI Service with enterprise features.",
+        "name": "Azure",
+        "description_de": "Azure KI-Services (OpenAI, Claude, etc.) mit Enterprise-Features. Service-Typ wird automatisch anhand der URL erkannt.",
+        "description_en": "Azure AI Services (OpenAI, Claude, etc.) with enterprise features. Service type is auto-detected from URL.",
     },
     LLMProvider.OPENAI: {
         "name": "OpenAI",
